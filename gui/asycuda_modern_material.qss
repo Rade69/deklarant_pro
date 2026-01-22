@@ -1,0 +1,235 @@
+/* =========================
+   GLOBAL
+   ========================= */
+* {
+    font-family: "Segoe UI", "Inter", Arial;
+    font-size: 12px;
+}
+
+QWidget {
+    background-color: #f5f7fa;
+    color: #2b2f36;
+}
+
+/* =========================
+   MAIN CONTAINERS
+   ========================= */
+QFrame, QGroupBox {
+    background-color: #ffffff;
+    border: 1px solid #d7dde5;
+    border-radius: 8px;
+}
+
+QGroupBox {
+    margin-top: 14px;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    padding: 6px 10px;
+    color: #ffffff;
+    font-weight: 600;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+}
+
+/* =========================
+   SECTION COLORS (RUBRIKE)
+   ========================= */
+
+/* 31 Pakovanje */
+QGroupBox#group_31::title {
+    background: qlineargradient(
+        x1:0, y1:0, x2:1, y2:0,
+        stop:0 #7fbf7f,
+        stop:1 #a6d8a6
+    );
+}
+
+/* 32–39 Šifre / mase */
+QGroupBox#group_32_39::title {
+    background: qlineargradient(
+        x1:0, y1:0, x2:1, y2:0,
+        stop:0 #6ea8dc,
+        stop:1 #9cc4ea
+    );
+}
+
+/* 40 Dokumenti */
+QGroupBox#group_40::title {
+    background: qlineargradient(
+        x1:0, y1:0, x2:1, y2:0,
+        stop:0 #f0a04b,
+        stop:1 #f5bf85
+    );
+}
+
+/* 44 Prilozi */
+QGroupBox#group_44::title {
+    background: qlineargradient(
+        x1:0, y1:0, x2:1, y2:0,
+        stop:0 #8faadc,
+        stop:1 #b7c9ea
+    );
+}
+
+/* 45–46 Vrijednosti */
+QGroupBox#group_45_46::title {
+    background: qlineargradient(
+        x1:0, y1:0, x2:1, y2:0,
+        stop:0 #6fb1a6,
+        stop:1 #9dd4c9
+    );
+}
+
+/* =========================
+   INPUT FIELDS
+   ========================= */
+QLineEdit,
+QPlainTextEdit,
+QTextEdit,
+QSpinBox,
+QDoubleSpinBox,
+QComboBox {
+    background-color: #ffffff;
+    border: 1px solid #cfd6df;
+    border-radius: 6px;
+    padding: 6px 8px;
+}
+
+QLineEdit:focus,
+QPlainTextEdit:focus,
+QTextEdit:focus,
+QComboBox:focus {
+    border: 1px solid #5a9cff;
+    background-color: #fdfefe;
+}
+
+/* Read-only polja */
+QLineEdit[readOnly="true"] {
+    background-color: #eef2f6;
+    color: #6b7280;
+    border: 1px dashed #c0c7d1;
+}
+
+/* =========================
+   BUTTONS
+   ========================= */
+QPushButton {
+    background-color: #e5e9f0;
+    border: 1px solid #cfd6df;
+    border-radius: 6px;
+    padding: 6px 14px;
+    color: #2b2f36;
+}
+
+QPushButton:hover {
+    background-color: #dbe2ec;
+}
+
+QPushButton:pressed {
+    background-color: #cfd6df;
+}
+
+/* Primary action */
+QPushButton#btn_save,
+QPushButton#btn_ok,
+QPushButton#btn_novo {
+    background: qlineargradient(
+        x1:0, y1:0, x2:0, y2:1,
+        stop:0 #4f8cff,
+        stop:1 #356fe0
+    );
+    color: #ffffff;
+    font-weight: 600;
+    border: 1px solid #2f5fcc;
+}
+
+QPushButton#btn_save:hover,
+QPushButton#btn_ok:hover,
+QPushButton#btn_novo:hover {
+    background: #3f7cf0;
+}
+
+/* Danger */
+QPushButton#btn_brisi {
+    background: #e57373;
+    color: #ffffff;
+    border: 1px solid #d45b5b;
+}
+
+QPushButton#btn_brisi:hover {
+    background: #d65c5c;
+}
+
+/* =========================
+   CHECKBOXES
+   ========================= */
+QCheckBox {
+    spacing: 6px;
+}
+
+QCheckBox::indicator {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    border: 1px solid #b7c0cc;
+    background: #ffffff;
+}
+
+QCheckBox::indicator:checked {
+    background: #4f8cff;
+    border: 1px solid #356fe0;
+}
+
+/* =========================
+   TAB BAR (faktura / naimenovanja / ...)
+   ========================= */
+QTabBar::tab {
+    background: #e5e9f0;
+    border: 1px solid #cfd6df;
+    padding: 8px 18px;
+    margin-right: 2px;
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+}
+
+QTabBar::tab:selected {
+    background: #ffffff;
+    border-bottom-color: #ffffff;
+    font-weight: 600;
+}
+
+QTabWidget::pane {
+    border: 1px solid #cfd6df;
+    border-radius: 8px;
+    top: -1px;
+}
+
+/* =========================
+   NAVIGATION BUTTONS (<< < > >>)
+   ========================= */
+QPushButton#nav {
+    min-width: 32px;
+    padding: 4px;
+    font-weight: 600;
+}
+
+/* =========================
+   SCROLLBARS
+   ========================= */
+QScrollBar:vertical {
+    background: #f1f3f7;
+    width: 10px;
+    border-radius: 5px;
+}
+
+QScrollBar::handle:vertical {
+    background: #c3cbd6;
+    border-radius: 5px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: #aeb8c6;
+}

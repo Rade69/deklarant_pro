@@ -1,0 +1,250 @@
+/* =========================
+   GLOBAL
+========================= */
+QWidget {
+    background-color: #F3F5F7;
+    color: #1F2933;
+    font-family: "Segoe UI", "Inter", "Arial";
+    font-size: 12px;
+}
+
+/* =========================
+   MAIN FORM / PANELS
+========================= */
+QFrame {
+    background-color: #EEF1F4;
+    border: 1px solid #C7CCD1;
+}
+
+/* Root form panel */
+QFrame#formRoot {
+    background-color: #FFFFFF;
+}
+
+/* =========================
+   LABELS
+========================= */
+QLabel {
+    color: #374151;
+}
+
+QLabel[rubrika="true"] {
+    font-weight: 600;
+    color: #1E3A8A;
+}
+
+/* =========================
+   INPUTS
+========================= */
+QLineEdit,
+QTextEdit,
+QComboBox {
+    background-color: #FFFFFF;
+    border: 1px solid #C7CCD1;
+    border-radius: 4px;
+    padding: 4px 6px;
+    selection-background-color: #90CAF9;
+}
+
+QLineEdit:focus,
+QTextEdit:focus,
+QComboBox:focus {
+    border: 1px solid #42A5F5;
+    background-color: #FFFFFF;
+}
+
+/* Readonly / calculated */
+QLineEdit[readOnly="true"],
+QLineEdit[calculated="true"] {
+    background-color: #E5E7EB;
+    color: #374151;
+    border: 1px dashed #9CA3AF;
+}
+
+/* Invalid */
+QLineEdit[invalid="true"] {
+    border: 1px solid #D32F2F;
+    background-color: #FDECEA;
+}
+
+/* =========================
+   BUTTONS
+========================= */
+QPushButton {
+    background-color: #E0E3E7;
+    border: 1px solid #C7CCD1;
+    border-radius: 4px;
+    padding: 6px 14px;
+    color: #1F2933;
+}
+
+QPushButton:hover {
+    background-color: #D5D9DE;
+}
+
+/* Primary buttons */
+QPushButton[class="primary"] {
+    background-color: #1976D2;
+    border: none;
+    color: white;
+}
+
+QPushButton[class="primary"]:hover {
+    background-color: #1565C0;
+}
+
+/* Danger buttons */
+QPushButton[class="danger"] {
+    background-color: #D32F2F;
+    border: none;
+    color: white;
+}
+
+QPushButton[class="danger"]:hover {
+    background-color: #B71C1C;
+}
+
+/* =========================
+   TOOL / NAVIGATION BUTTONS
+========================= */
+QToolButton {
+    background-color: #F9FAFB;
+    border: 1px solid #C7CCD1;
+    min-width: 28px;
+    min-height: 24px;
+}
+
+QToolButton:hover {
+    background-color: #E5E7EB;
+}
+
+/* =========================
+   CHECKBOXES
+========================= */
+QCheckBox {
+    spacing: 6px;
+}
+
+QCheckBox::indicator:checked {
+    background-color: #1976D2;
+    border: 1px solid #1565C0;
+}
+
+/* =========================
+   TABS
+========================= */
+QTabBar::tab {
+    background: #E0E3E7;
+    border: 1px solid #C7CCD1;
+    padding: 6px 14px;
+}
+
+QTabBar::tab:selected {
+    background: #FFFFFF;
+    border-bottom: 2px solid #1976D2;
+    font-weight: 600;
+}
+
+/* =========================
+   GROUPBOX - RUBRIKE (SECTIONS)
+========================= */
+QGroupBox {
+    background-color: #ffffff;
+    border: 1px solid #d7dde5;
+    border-radius: 8px;
+    margin-top: 14px;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    padding: 6px 10px;
+    color: #ffffff;
+    font-weight: 600;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+}
+
+/* 31 Pakovanje - Zelena */
+QGroupBox#group_31 {
+    background-color: #E8F5E9;
+    border: 2px solid #66BB6A;
+}
+
+QGroupBox#group_31::title {
+    background: qlineargradient(
+        x1:0, y1:0, x2:1, y2:0,
+        stop:0 #66BB6A,
+        stop:1 #81C784
+    );
+}
+
+/* 32-39 Šifre/mase - Plava */
+QGroupBox#group_32_39 {
+    background-color: #E3F2FD;
+    border: 2px solid #42A5F5;
+}
+
+QGroupBox#group_32_39::title {
+    background: qlineargradient(
+        x1:0, y1:0, x2:1, y2:0,
+        stop:0 #42A5F5,
+        stop:1 #64B5F6
+    );
+}
+
+/* 40 Dokumenti - Narandžasta */
+QGroupBox#group_40 {
+    background-color: #FFF3E0;
+    border: 2px solid #FFA726;
+}
+
+QGroupBox#group_40::title {
+    background: qlineargradient(
+        x1:0, y1:0, x2:1, y2:0,
+        stop:0 #FFA726,
+        stop:1 #FFB74D
+    );
+}
+
+/* 41-43 Dopunska/Cijena - Svetlo zelena */
+QGroupBox#group_41_43 {
+    background-color: #F1F8E9;
+    border: 2px solid #9CCC65;
+}
+
+QGroupBox#group_41_43::title {
+    background: qlineargradient(
+        x1:0, y1:0, x2:1, y2:0,
+        stop:0 #9CCC65,
+        stop:1 #AED581
+    );
+}
+
+/* 44 Prilozi - Plava */
+QGroupBox#group_44 {
+    background-color: #E1F5FE;
+    border: 2px solid #29B6F6;
+}
+
+QGroupBox#group_44::title {
+    background: qlineargradient(
+        x1:0, y1:0, x2:1, y2:0,
+        stop:0 #29B6F6,
+        stop:1 #4FC3F7
+    );
+}
+
+/* 45-46 Vrijednosti - Tirkizna */
+QGroupBox#group_45_46 {
+    background-color: #E0F2F1;
+    border: 2px solid #26A69A;
+}
+
+QGroupBox#group_45_46::title {
+    background: qlineargradient(
+        x1:0, y1:0, x2:1, y2:0,
+        stop:0 #26A69A,
+        stop:1 #4DB6AC
+    );
+}

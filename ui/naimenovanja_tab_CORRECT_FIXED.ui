@@ -1,0 +1,1439 @@
+<?xml version='1.0' encoding='utf-8'?>
+<ui version="4.0">
+ <class>NaimenovanjaTab</class>
+ <widget class="QWidget" name="NaimenovanjaTab">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1920</width>
+    <height>1080</height>
+   </rect>
+  </property>
+  <property name="styleSheet">
+   <string>/* ASYCUDA_PRO – Modern Material-ish QSS (Qt6 compatible)
+   NOTE: Qt stylesheets do NOT support box-shadow/transition/filter.
+*/
+
+/* Base */
+QWidget#NaimenovanjaTab {
+    background: #F6F7FB;
+    color: #1F2937;
+    font-family: "Segoe UI", "Inter", "Noto Sans";
+    font-size: 12px;
+}
+
+/* Generic inputs */
+QLineEdit, QPlainTextEdit, QTextEdit, QSpinBox, QDoubleSpinBox, QComboBox {
+    background: #FFFFFF;
+    border: 1px solid #CBD5E1;
+    border-radius: 6px;
+    padding: 4px 6px;
+    selection-background-color: #93C5FD;
+}
+QLineEdit:focus, QPlainTextEdit:focus, QTextEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {
+    border: 1px solid #3B82F6;
+}
+QLineEdit:disabled, QPlainTextEdit:disabled, QTextEdit:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled, QComboBox:disabled {
+    background: #F1F5F9;
+    color: #64748B;
+    border: 1px solid #E2E8F0;
+}
+
+/* Buttons */
+QPushButton {
+    background: #E5E7EB;
+    border: 1px solid #CBD5E1;
+    border-radius: 8px;
+    padding: 6px 12px;
+    color: #111827;
+}
+QPushButton:hover { background: #EEF2F7; }
+QPushButton:pressed { background: #DCE3EE; }
+QPushButton:disabled { background: #F1F5F9; color: #94A3B8; border: 1px solid #E2E8F0; }
+
+/* Primary action */
+QPushButton#btn_snimi, QPushButton#btn_ok, QPushButton#btn_novo {
+    background: #2563EB;
+    border: 1px solid #1D4ED8;
+    color: white;
+    font-weight: 600;
+}
+QPushButton#btn_snimi:hover, QPushButton#btn_ok:hover, QPushButton#btn_novo:hover { background: #1D4ED8; }
+QPushButton#btn_snimi:pressed, QPushButton#btn_ok:pressed, QPushButton#btn_novo:pressed { background: #1E40AF; }
+
+/* Destructive */
+QPushButton#btn_brisi {
+    background: #FEE2E2;
+    border: 1px solid #FCA5A5;
+    color: #991B1B;
+    font-weight: 600;
+}
+QPushButton#btn_brisi:hover { background: #FECACA; }
+QPushButton#btn_brisi:pressed { background: #FCA5A5; color: #7F1D1D; }
+
+/* Tabs */
+QTabWidget::pane {
+    border: 1px solid #CBD5E1;
+    background: #FFFFFF;
+    border-radius: 10px;
+}
+QTabBar::tab {
+    background: #E5E7EB;
+    border: 1px solid #CBD5E1;
+    border-bottom: none;
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    padding: 8px 16px;
+    margin-right: 6px;
+    min-width: 100px;
+}
+QTabBar::tab:selected {
+    background: #FFFFFF;
+    font-weight: 600;
+}
+QTabBar::tab:hover { background: #EEF2F7; }
+
+/* Panels (rubrika blocks) */
+QFrame#frame_31_main {
+    background: #EAF5EA;
+    border: 1px solid #B7D7B7;
+    border-radius: 10px;
+}
+QFrame#frame_32_39, QFrame#frame_32_39_container {
+    background: #EAF2FB;
+    border: 1px solid #B6CDEB;
+    border-radius: 10px;
+}
+QFrame#frame_40_43 {
+    background: #FFF1E6;
+    border: 1px solid #F4C7A7;
+    border-radius: 10px;
+}
+QFrame#frame_44_main {
+    background: #EEF2F7;
+    border: 1px solid #C7D2E0;
+    border-radius: 10px;
+}
+QFrame#frame_45_46 {
+    background: #E7F7F4;
+    border: 1px solid #A7E3D7;
+    border-radius: 10px;
+}
+
+/* Sidebar title bars */
+QLabel#sidebar_31, QLabel#sidebar_44 {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #2E7D32, stop:1 #1B5E20);
+    color: white;
+    font-weight: 700;
+    padding: 8px 10px;
+    border-top-left-radius: 10px;
+    border-bottom-left-radius: 10px;
+}
+
+/* Rubrika headers (labels) */
+QLabel#lbl_rubrika32, QLabel#lbl_rubrika33, QLabel#lbl_rubrika34, QLabel#lbl_rubrika35,
+QLabel#lbl_rubrika36, QLabel#lbl_rubrika37, QLabel#lbl_rubrika38, QLabel#lbl_rubrika39 {
+    color: #1D4ED8;
+    font-weight: 600;
+}
+QLabel#lbl_rubrika40, QLabel#lbl_rubrika41, QLabel#lbl_rubrika42, QLabel#lbl_rubrika43 {
+    color: #B45309;
+    font-weight: 600;
+}
+QLabel#lbl_rubrika45, QLabel#lbl_rubrika46 {
+    color: #0F766E;
+    font-weight: 600;
+}
+
+/* Checkboxes */
+QCheckBox { spacing: 8px; }
+QCheckBox::indicator {
+    width: 16px; height: 16px;
+    border-radius: 4px;
+    border: 1px solid #94A3B8;
+    background: #FFFFFF;
+}
+QCheckBox::indicator:checked {
+    background: #2563EB;
+    border: 1px solid #1D4ED8;
+}
+
+/* Small helper labels */
+QLabel#lbl_item_counter { color: #475569; font-weight: 600; }
+</string>
+  </property>
+  <widget class="QPushButton" name="btn_novi">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>10</y>
+     <width>82</width>
+     <height>28</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>novi</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="btn_otvori">
+   <property name="geometry">
+    <rect>
+     <x>96</x>
+     <y>10</y>
+     <width>82</width>
+     <height>28</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>otvori</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="btn_import_jci">
+   <property name="geometry">
+    <rect>
+     <x>182</x>
+     <y>10</y>
+     <width>110</width>
+     <height>28</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>import JCI</string>
+   </property>
+  </widget>
+  <widget class="QCheckBox" name="chk_direktan_unos">
+   <property name="geometry">
+    <rect>
+     <x>300</x>
+     <y>10</y>
+     <width>180</width>
+     <height>20</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>direktan unos naimenovanja</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="input_search">
+   <property name="geometry">
+    <rect>
+     <x>485</x>
+     <y>10</y>
+     <width>165</width>
+     <height>22</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="btn_snimi">
+   <property name="geometry">
+    <rect>
+     <x>655</x>
+     <y>10</y>
+     <width>82</width>
+     <height>28</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>snimi</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="btn_brisi_top">
+   <property name="geometry">
+    <rect>
+     <x>741</x>
+     <y>10</y>
+     <width>82</width>
+     <height>28</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>briši</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="btn_export_aw">
+   <property name="geometry">
+    <rect>
+     <x>827</x>
+     <y>10</y>
+     <width>110</width>
+     <height>28</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>export u AW</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="lbl_max_broj">
+   <property name="geometry">
+    <rect>
+     <x>945</x>
+     <y>10</y>
+     <width>60</width>
+     <height>20</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>max broj</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="input_max_broj">
+   <property name="geometry">
+    <rect>
+     <x>1010</x>
+     <y>10</y>
+     <width>35</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>99</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="btn_izlaz">
+   <property name="geometry">
+    <rect>
+     <x>1055</x>
+     <y>10</y>
+     <width>82</width>
+     <height>28</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>izlaz</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="btn_tab_faktura">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>45</y>
+     <width>130</width>
+     <height>26</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>faktura</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="btn_tab_naimenovanja">
+   <property name="geometry">
+    <rect>
+     <x>142</x>
+     <y>45</y>
+     <width>130</width>
+     <height>26</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>naimenovanja</string>
+   </property>
+   <property name="styleSheet">
+    <string>font-weight:bold;background:white;</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="btn_tab_zaglavlje">
+   <property name="geometry">
+    <rect>
+     <x>274</x>
+     <y>45</y>
+     <width>130</width>
+     <height>26</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>zaglavlje</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="btn_tab_prilozi">
+   <property name="geometry">
+    <rect>
+     <x>406</x>
+     <y>45</y>
+     <width>130</width>
+     <height>26</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>prilozi</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="btn_tab_sifarnici">
+   <property name="geometry">
+    <rect>
+     <x>538</x>
+     <y>45</y>
+     <width>130</width>
+     <height>26</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>šifarnici</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="btn_novo_lg">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>100</y>
+     <width>105</width>
+     <height>38</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Novo</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="btn_dodaj_lg">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>140</y>
+     <width>105</width>
+     <height>38</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Dodaj</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="btn_brisi_sm">
+   <property name="geometry">
+    <rect>
+     <x>135</x>
+     <y>100</y>
+     <width>75</width>
+     <height>24</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Briši</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="input_range_min">
+   <property name="geometry">
+    <rect>
+     <x>135</x>
+     <y>130</y>
+     <width>35</width>
+     <height>20</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="input_range_max">
+   <property name="geometry">
+    <rect>
+     <x>185</x>
+     <y>130</y>
+     <width>35</width>
+     <height>20</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QCheckBox" name="chk_sve_3_red">
+   <property name="geometry">
+    <rect>
+     <x>135</x>
+     <y>160</y>
+     <width>150</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>sve 3. red opisa</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="btn_xls">
+   <property name="geometry">
+    <rect>
+     <x>350</x>
+     <y>100</y>
+     <width>90</width>
+     <height>38</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>.xls prikaz</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="btn_first">
+   <property name="geometry">
+    <rect>
+     <x>560</x>
+     <y>210</y>
+     <width>40</width>
+     <height>30</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>&lt;&lt;</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="btn_prev">
+   <property name="geometry">
+    <rect>
+     <x>605</x>
+     <y>210</y>
+     <width>40</width>
+     <height>30</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>&lt;</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="lbl_item_counter">
+   <property name="geometry">
+    <rect>
+     <x>650</x>
+     <y>210</y>
+     <width>80</width>
+     <height>30</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>1 / 1</string>
+   </property>
+   <property name="alignment">
+    <string>AlignCenter</string>
+   </property>
+   <property name="styleSheet">
+    <string>font-weight:bold;</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="btn_next">
+   <property name="geometry">
+    <rect>
+     <x>735</x>
+     <y>210</y>
+     <width>40</width>
+     <height>30</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>&gt;</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="btn_last">
+   <property name="geometry">
+    <rect>
+     <x>780</x>
+     <y>210</y>
+     <width>40</width>
+     <height>30</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>&gt;&gt;</string>
+   </property>
+  </widget>
+  <widget class="QFrame" name="section_31">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>250</y>
+     <width>560</width>
+     <height>500</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLabel" name="sidebar_31">
+   <property name="geometry">
+    <rect>
+     <x>25</x>
+     <y>255</y>
+     <width>80</width>
+     <height>240</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>31
+Pakovanje
+i
+naimenovanje
+robe</string>
+   </property>
+   <property name="alignment">
+    <string>AlignCenter</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="lbl_r31_oznake">
+   <property name="geometry">
+    <rect>
+     <x>115</x>
+     <y>270</y>
+     <width>100</width>
+     <height>18</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>oznake i br.</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="le_r31_oznake_br">
+   <property name="geometry">
+    <rect>
+     <x>220</x>
+     <y>270</y>
+     <width>320</width>
+     <height>20</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLabel" name="lbl_r31_pakovanja">
+   <property name="geometry">
+    <rect>
+     <x>115</x>
+     <y>296</y>
+     <width>100</width>
+     <height>18</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>pakovanja</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="le_r31_paketa">
+   <property name="geometry">
+    <rect>
+     <x>220</x>
+     <y>296</y>
+     <width>320</width>
+     <height>20</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLabel" name="lbl_r31_broj_vrsta">
+   <property name="geometry">
+    <rect>
+     <x>115</x>
+     <y>322</y>
+     <width>100</width>
+     <height>18</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>broj i vrsta</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="le_r31_broj">
+   <property name="geometry">
+    <rect>
+     <x>220</x>
+     <y>322</y>
+     <width>60</width>
+     <height>20</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>9</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="le_r31_vrsta">
+   <property name="geometry">
+    <rect>
+     <x>285</x>
+     <y>322</y>
+     <width>80</width>
+     <height>20</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>PK</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="lbl_r31_kontejner">
+   <property name="geometry">
+    <rect>
+     <x>115</x>
+     <y>348</y>
+     <width>100</width>
+     <height>18</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>kontejner</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="le_r31_kontejner_1">
+   <property name="geometry">
+    <rect>
+     <x>220</x>
+     <y>348</y>
+     <width>150</width>
+     <height>20</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="le_r31_kontejner_2">
+   <property name="geometry">
+    <rect>
+     <x>375</x>
+     <y>348</y>
+     <width>165</width>
+     <height>20</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLabel" name="lbl_r31_opis">
+   <property name="geometry">
+    <rect>
+     <x>115</x>
+     <y>380</y>
+     <width>100</width>
+     <height>18</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>opis robe</string>
+   </property>
+  </widget>
+  <widget class="QTextEdit" name="te_r31_opis">
+   <property name="geometry">
+    <rect>
+     <x>220</x>
+     <y>380</y>
+     <width>320</width>
+     <height>85</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLabel" name="lbl_r31_trg_naziv">
+   <property name="geometry">
+    <rect>
+     <x>115</x>
+     <y>470</y>
+     <width>100</width>
+     <height>18</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>trgovački naziv</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="le_r31_trg_naziv">
+   <property name="geometry">
+    <rect>
+     <x>220</x>
+     <y>470</y>
+     <width>320</width>
+     <height>20</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLabel" name="lbl_rubrika32">
+   <property name="geometry">
+    <rect>
+     <x>580</x>
+     <y>242</y>
+     <width>60</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>32  naim.br</string>
+   </property>
+  </widget>
+  <widget class="QTextEdit" name="te_rubrika32">
+   <property name="geometry">
+    <rect>
+     <x>580</x>
+     <y>260</y>
+     <width>50</width>
+     <height>35</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLabel" name="lbl_rubrika33">
+   <property name="geometry">
+    <rect>
+     <x>640</x>
+     <y>242</y>
+     <width>150</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>33  šifra robe</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="le_rubrika33">
+   <property name="geometry">
+    <rect>
+     <x>640</x>
+     <y>260</y>
+     <width>150</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>85065030000</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="lbl_rubrika34">
+   <property name="geometry">
+    <rect>
+     <x>800</x>
+     <y>242</y>
+     <width>80</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>34  zemlja</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="le_rubrika34_zemlja">
+   <property name="geometry">
+    <rect>
+     <x>800</x>
+     <y>260</y>
+     <width>70</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>CN</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="lbl_rubrika35">
+   <property name="geometry">
+    <rect>
+     <x>880</x>
+     <y>242</y>
+     <width>110</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>35  brutto masa</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="le_rubrika35">
+   <property name="geometry">
+    <rect>
+     <x>880</x>
+     <y>260</y>
+     <width>100</width>
+     <height>22</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLabel" name="lbl_rubrika36">
+   <property name="geometry">
+    <rect>
+     <x>800</x>
+     <y>302</y>
+     <width>80</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>36  povlastice</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="le_rubrika36">
+   <property name="geometry">
+    <rect>
+     <x>800</x>
+     <y>320</y>
+     <width>70</width>
+     <height>22</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLabel" name="lbl_rubrika37">
+   <property name="geometry">
+    <rect>
+     <x>580</x>
+     <y>362</y>
+     <width>100</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>37  postupak</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="le_rubrika37_1">
+   <property name="geometry">
+    <rect>
+     <x>580</x>
+     <y>380</y>
+     <width>50</width>
+     <height>22</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="le_rubrika37_2">
+   <property name="geometry">
+    <rect>
+     <x>635</x>
+     <y>380</y>
+     <width>50</width>
+     <height>22</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLabel" name="lbl_rubrika38">
+   <property name="geometry">
+    <rect>
+     <x>880</x>
+     <y>302</y>
+     <width>110</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>38  netto masa</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="le_rubrika38">
+   <property name="geometry">
+    <rect>
+     <x>880</x>
+     <y>320</y>
+     <width>100</width>
+     <height>22</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLabel" name="lbl_rubrika39">
+   <property name="geometry">
+    <rect>
+     <x>880</x>
+     <y>362</y>
+     <width>110</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>39  kvote</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="le_rubrika39">
+   <property name="geometry">
+    <rect>
+     <x>880</x>
+     <y>380</y>
+     <width>100</width>
+     <height>22</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QFrame" name="section_40_43">
+   <property name="geometry">
+    <rect>
+     <x>580</x>
+     <y>420</y>
+     <width>420</width>
+     <height>150</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLabel" name="lbl_rubrika40">
+   <property name="geometry">
+    <rect>
+     <x>590</x>
+     <y>430</y>
+     <width>200</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>40  prethodni dokument</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="le_rubrika40_1">
+   <property name="geometry">
+    <rect>
+     <x>590</x>
+     <y>450</y>
+     <width>80</width>
+     <height>22</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="le_rubrika40_2">
+   <property name="geometry">
+    <rect>
+     <x>675</x>
+     <y>450</y>
+     <width>80</width>
+     <height>22</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="le_rubrika40_3">
+   <property name="geometry">
+    <rect>
+     <x>760</x>
+     <y>450</y>
+     <width>230</width>
+     <height>22</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLabel" name="lbl_rubrika41">
+   <property name="geometry">
+    <rect>
+     <x>590</x>
+     <y>480</y>
+     <width>120</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>41  dopunska jedinica</string>
+   </property>
+  </widget>
+  <widget class="QTextEdit" name="te_rubrika41">
+   <property name="geometry">
+    <rect>
+     <x>590</x>
+     <y>500</y>
+     <width>120</width>
+     <height>60</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLabel" name="lbl_rubrika42">
+   <property name="geometry">
+    <rect>
+     <x>720</x>
+     <y>480</y>
+     <width>120</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>42  cijena robe</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="le_rubrika42">
+   <property name="geometry">
+    <rect>
+     <x>720</x>
+     <y>500</y>
+     <width>120</width>
+     <height>22</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLabel" name="lbl_rubrika43">
+   <property name="geometry">
+    <rect>
+     <x>850</x>
+     <y>480</y>
+     <width>80</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>43  V.M.</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="le_rubrika43">
+   <property name="geometry">
+    <rect>
+     <x>850</x>
+     <y>500</y>
+     <width>80</width>
+     <height>22</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QFrame" name="section_44" styleSheet="background-color: #E8F5E9; border: 1px solid #81C784;">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>580</y>
+     <width>560</width>
+     <height>170</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLabel" name="sidebar_44">
+   <property name="geometry">
+    <rect>
+     <x>25</x>
+     <y>585</y>
+     <width>80</width>
+     <height>160</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>44
+Priložene
+isprave</string>
+   </property>
+   <property name="alignment">
+    <string>AlignCenter</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="le_rubrika44_1">
+   <property name="geometry">
+    <rect>
+     <x>115</x>
+     <y>590</y>
+     <width>140</width>
+     <height>22</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="le_rubrika44_2">
+   <property name="geometry">
+    <rect>
+     <x>260</x>
+     <y>590</y>
+     <width>140</width>
+     <height>22</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="le_rubrika44_3">
+   <property name="geometry">
+    <rect>
+     <x>405</x>
+     <y>590</y>
+     <width>140</width>
+     <height>22</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="le_rubrika44_4">
+   <property name="geometry">
+    <rect>
+     <x>115</x>
+     <y>620</y>
+     <width>200</width>
+     <height>22</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="le_rubrika44_5">
+   <property name="geometry">
+    <rect>
+     <x>320</x>
+     <y>620</y>
+     <width>225</width>
+     <height>22</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QFrame" name="section_45_46">
+   <property name="geometry">
+    <rect>
+     <x>580</x>
+     <y>580</y>
+     <width>420</width>
+     <height>170</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLabel" name="lbl_rubrika45">
+   <property name="geometry">
+    <rect>
+     <x>590</x>
+     <y>590</y>
+     <width>120</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>45  prilagođavanje</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="le_rubrika45_sifra">
+   <property name="geometry">
+    <rect>
+     <x>590</x>
+     <y>610</y>
+     <width>80</width>
+     <height>22</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="le_rubrika45_iznos">
+   <property name="geometry">
+    <rect>
+     <x>675</x>
+     <y>610</y>
+     <width>120</width>
+     <height>22</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLabel" name="lbl_rubrika46">
+   <property name="geometry">
+    <rect>
+     <x>590</x>
+     <y>640</y>
+     <width>160</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>46  statistička vrijednost</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="le_rubrika46">
+   <property name="geometry">
+    <rect>
+     <x>590</x>
+     <y>660</y>
+     <width>200</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="readOnly">
+    <string>true</string>
+   </property>
+   <property name="styleSheet">
+    <string>background-color: #E0E0E0;</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="lbl_brutto">
+   <property name="geometry">
+    <rect>
+     <x>1020</x>
+     <y>100</y>
+     <width>80</width>
+     <height>20</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>brutto</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="lbl_brutto_val">
+   <property name="geometry">
+    <rect>
+     <x>1105</x>
+     <y>100</y>
+     <width>100</width>
+     <height>20</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>0.00</string>
+   </property>
+   <property name="alignment">
+    <string>AlignRight|AlignVCenter</string>
+   </property>
+   <property name="styleSheet">
+    <string>font-weight:bold;</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="lbl_netto">
+   <property name="geometry">
+    <rect>
+     <x>1020</x>
+     <y>130</y>
+     <width>80</width>
+     <height>20</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>netto</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="lbl_netto_val">
+   <property name="geometry">
+    <rect>
+     <x>1105</x>
+     <y>130</y>
+     <width>100</width>
+     <height>20</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>0.00</string>
+   </property>
+   <property name="alignment">
+    <string>AlignRight|AlignVCenter</string>
+   </property>
+   <property name="styleSheet">
+    <string>font-weight:bold;</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="lbl_vrijednost">
+   <property name="geometry">
+    <rect>
+     <x>1020</x>
+     <y>160</y>
+     <width>80</width>
+     <height>20</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>vrijednost</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="lbl_vrijednost_val">
+   <property name="geometry">
+    <rect>
+     <x>1105</x>
+     <y>160</y>
+     <width>100</width>
+     <height>20</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>0.00</string>
+   </property>
+   <property name="alignment">
+    <string>AlignRight|AlignVCenter</string>
+   </property>
+   <property name="styleSheet">
+    <string>font-weight:bold;</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="btn_ok">
+   <property name="geometry">
+    <rect>
+     <x>1020</x>
+     <y>200</y>
+     <width>80</width>
+     <height>40</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>OK</string>
+   </property>
+  </widget>
+  <widget class="QCheckBox" name="cb_option1">
+   <property name="geometry">
+    <rect>
+     <x>1020</x>
+     <y>250</y>
+     <width>280</width>
+     <height>50</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>prenesi polje 41
+(dopunska jedinica) u polje
+31, red 3 (broj pakovanja)</string>
+   </property>
+  </widget>
+  <widget class="QCheckBox" name="cb_option2">
+   <property name="geometry">
+    <rect>
+     <x>1020</x>
+     <y>302</y>
+     <width>280</width>
+     <height>50</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>prenesi polje 31 red 3
+(broj) u polje 31 red 1 (broj
+pakovanja)</string>
+   </property>
+  </widget>
+  <widget class="QCheckBox" name="cb_option3">
+   <property name="geometry">
+    <rect>
+     <x>1020</x>
+     <y>354</y>
+     <width>280</width>
+     <height>50</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>sadržaj naimenovanja
+br.0 prenesi u ostala
+naimenovanja</string>
+   </property>
+  </widget>
+  <widget class="QCheckBox" name="cb_option4">
+   <property name="geometry">
+    <rect>
+     <x>1020</x>
+     <y>406</y>
+     <width>280</width>
+     <height>50</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>prenesi polje 41 (dop.
+jednicu) u red 3 opisa
+trg.naziva</string>
+   </property>
+  </widget>
+  <widget class="QCheckBox" name="cb_option5">
+   <property name="geometry">
+    <rect>
+     <x>1020</x>
+     <y>458</y>
+     <width>280</width>
+     <height>50</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>dodijeli težine prema
+vrijednosti</string>
+   </property>
+  </widget>
+  <widget class="QCheckBox" name="cb_option6">
+   <property name="geometry">
+    <rect>
+     <x>1020</x>
+     <y>510</y>
+     <width>280</width>
+     <height>50</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>dodijeli brutto težine prema
+netto težini</string>
+   </property>
+  </widget>
+  <widget class="QCheckBox" name="cb_option7">
+   <property name="geometry">
+    <rect>
+     <x>1020</x>
+     <y>562</y>
+     <width>280</width>
+     <height>50</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>prenesi iz polja 41 u
+količinu za akcizu</string>
+   </property>
+  </widget>
+  <widget class="QCheckBox" name="cb_option8">
+   <property name="geometry">
+    <rect>
+     <x>1020</x>
+     <y>614</y>
+     <width>280</width>
+     <height>50</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>u polje 31 upiši opis i
+trg.naziv prilagođen tar.broju</string>
+   </property>
+  </widget>
+  <widget class="QCheckBox" name="cb_option9">
+   <property name="geometry">
+    <rect>
+     <x>1020</x>
+     <y>666</y>
+     <width>280</width>
+     <height>50</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>podbroj iz fakture prenesi
+u polje 44</string>
+   </property>
+  </widget>
+ </widget>
+ <resources />
+ <connections />
+</ui>

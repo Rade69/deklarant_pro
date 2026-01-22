@@ -1,0 +1,146 @@
+/* =========================
+   GLOBAL
+========================= */
+QWidget {
+    background-color: #F3F5F7;
+    color: #1F2933;
+    font-family: "Segoe UI", "Inter", "Arial";
+    font-size: 12px;
+}
+
+/* =========================
+   MAIN FORM / PANELS
+========================= */
+QFrame {
+    background-color: #EEF1F4;
+    border: 1px solid #C7CCD1;
+}
+
+/* Root form panel */
+QFrame#formRoot {
+    background-color: #FFFFFF;
+}
+
+/* =========================
+   LABELS
+========================= */
+QLabel {
+    color: #374151;
+}
+
+QLabel[rubrika="true"] {
+    font-weight: 600;
+    color: #1E3A8A;
+}
+
+/* =========================
+   INPUTS
+========================= */
+QLineEdit,
+QTextEdit,
+QComboBox {
+    background-color: #FFFFFF;
+    border: 1px solid #C7CCD1;
+    border-radius: 4px;
+    padding: 4px 6px;
+    selection-background-color: #90CAF9;
+}
+
+QLineEdit:focus,
+QTextEdit:focus,
+QComboBox:focus {
+    border: 1px solid #42A5F5;
+    background-color: #FFFFFF;
+}
+
+/* Readonly / calculated */
+QLineEdit[readOnly="true"],
+QLineEdit[calculated="true"] {
+    background-color: #E5E7EB;
+    color: #374151;
+    border: 1px dashed #9CA3AF;
+}
+
+/* Invalid */
+QLineEdit[invalid="true"] {
+    border: 1px solid #D32F2F;
+    background-color: #FDECEA;
+}
+
+/* =========================
+   BUTTONS
+========================= */
+QPushButton {
+    background-color: #E0E3E7;
+    border: 1px solid #C7CCD1;
+    border-radius: 4px;
+    padding: 6px 14px;
+    color: #1F2933;
+}
+
+QPushButton:hover {
+    background-color: #D5D9DE;
+}
+
+/* Primary buttons */
+QPushButton[class="primary"] {
+    background-color: #1976D2;
+    border: none;
+    color: white;
+}
+
+QPushButton[class="primary"]:hover {
+    background-color: #1565C0;
+}
+
+/* Danger buttons */
+QPushButton[class="danger"] {
+    background-color: #D32F2F;
+    border: none;
+    color: white;
+}
+
+QPushButton[class="danger"]:hover {
+    background-color: #B71C1C;
+}
+
+/* =========================
+   TOOL / NAVIGATION BUTTONS
+========================= */
+QToolButton {
+    background-color: #F9FAFB;
+    border: 1px solid #C7CCD1;
+    min-width: 28px;
+    min-height: 24px;
+}
+
+QToolButton:hover {
+    background-color: #E5E7EB;
+}
+
+/* =========================
+   CHECKBOXES
+========================= */
+QCheckBox {
+    spacing: 6px;
+}
+
+QCheckBox::indicator:checked {
+    background-color: #1976D2;
+    border: 1px solid #1565C0;
+}
+
+/* =========================
+   TABS
+========================= */
+QTabBar::tab {
+    background: #E0E3E7;
+    border: 1px solid #C7CCD1;
+    padding: 6px 14px;
+}
+
+QTabBar::tab:selected {
+    background: #FFFFFF;
+    border-bottom: 2px solid #1976D2;
+    font-weight: 600;
+}

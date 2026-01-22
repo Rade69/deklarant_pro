@@ -1,0 +1,102 @@
+{
+  "ui_metadata": {
+    "app_name": "JCI - Carinska Naimenovanja",
+    "target_resolution": "1920x1080",
+    "canvas_color": "#F0F0F0",
+    "grid_bg_color": "#E3F0E2",
+    "border_style": "1px solid #808080",
+    "standard_font": "Arial, 12px"
+  },
+  "layout_hierarchy": {
+    "top_toolbar": {
+      "y_axis": 10,
+      "height": 35,
+      "elements": [
+        {"id": "btn_novi", "label": "novi", "x": 10, "w": 82, "h": 28},
+        {"id": "btn_otvori", "label": "otvori", "x": 96, "w": 82, "h": 28},
+        {"id": "btn_import_jci", "label": "import JCI", "x": 182, "w": 110, "h": 28},
+        {"id": "chk_direktan_unos", "label": "direktan unos naimenovanja", "x": 300, "w": 180, "h": 20},
+        {"id": "input_search", "label": "pretraga", "x": 485, "w": 165, "h": 22},
+        {"id": "btn_snimi", "label": "snimi", "x": 655, "w": 82, "h": 28},
+        {"id": "btn_brisi_top", "label": "briši", "x": 741, "w": 82, "h": 28},
+        {"id": "btn_export_aw", "label": "export u AW", "x": 827, "w": 110, "h": 28},
+        {"id": "label_max_broj", "text": "max broj naim po JCI", "x": 945, "w": 60},
+        {"id": "input_max_broj", "value": "99", "x": 1010, "w": 35, "h": 22},
+        {"id": "btn_izlaz", "label": "izlaz", "x": 1055, "w": 82, "h": 28}
+      ]
+    },
+    "navigation_tabs": {
+      "y_axis": 45,
+      "height": 24,
+      "gap": 2,
+      "items": [
+        {"id": "tab_faktura", "label": "faktura", "w": 160},
+        {"id": "tab_naimenovanja", "label": "naimenovanja", "w": 160, "status": "active"},
+        {"id": "tab_zaglavlje", "label": "zaglavlje", "w": 160},
+        {"id": "tab_prilozi", "label": "prilozi", "w": 160},
+        {"id": "tab_sifarnici", "label": "šifarnici", "w": 160}
+      ]
+    },
+    "sub_actions_left": {
+      "x_axis": 20,
+      "elements": [
+        {"id": "btn_novo_lg", "label": "Novo", "y": 100, "w": 105, "h": 38},
+        {"id": "btn_dodaj_lg", "label": "Dodaj", "y": 140, "w": 105, "h": 38},
+        {"id": "btn_brisi_sm", "label": "Briši", "x": 135, "y": 100, "w": 75, "h": 24},
+        {"id": "input_range_min", "x": 135, "y": 130, "w": 35, "h": 20},
+        {"id": "input_range_max", "x": 185, "y": 130, "w": 35, "h": 20},
+        {"id": "chk_sve_3_red", "label": "sve 3. red opisa", "x": 135, "y": 160, "w": 150},
+        {"id": "btn_xls", "label": ".xls prikaz", "x": 350, "y": 100, "w": 90, "h": 38}
+      ]
+    },
+    "main_grid_area": {
+      "container": {"x": 10, "y": 250, "w": 1150, "h": 500, "color": "#E3F0E2"},
+      "rubrika_31": {
+        "header_text": "31 pakovanje i naimenovanje robe",
+        "margin_left": 15,
+        "label_width": 100,
+        "row_spacing": 4,
+        "rows": [
+          {"id": "r31_row1", "label": "oznake i br.", "input_w": 415, "y_offset": 20},
+          {"id": "r31_row2", "label": "pakovanja", "input_w": 415, "y_offset": 46},
+          {"id": "r31_row3", "label": "broj i vrsta", "inputs": [{"w": 60, "val": "9"}, {"w": 80, "val": "PK"}], "y_offset": 72},
+          {"id": "r31_row4", "label": "kontejner", "inputs": [{"w": 180}, {"w": 180}], "gap": 15, "y_offset": 98},
+          {"id": "r31_textarea", "label": "opis robe", "w": 520, "h": 85, "y_offset": 130, "text": "Primarne ćelije..."},
+          {"id": "r31_row6", "label": "trgovački naziv", "input_w": 380, "y_offset": 220}
+        ]
+      },
+      "central_columns": [
+        {"id": "32", "label": "naim.br", "x": 570, "y": 260, "w": 45, "h": 35, "val": "1"},
+        {"id": "33", "label": "šifra robe", "x": 625, "y": 260, "w": 180, "h": 22, "val": "85065030000"},
+        {"id": "34", "label": "zemlja", "x": 815, "y": 260, "w": 60, "h": 22, "val": "CN"},
+        {"id": "35", "label": "brutto masa", "x": 885, "y": 260, "w": 120, "h": 22},
+        {"id": "38", "label": "netto masa", "x": 885, "y": 310, "w": 120, "h": 22},
+        {"id": "41", "label": "dopunska jed.", "x": 625, "y": 380, "w": 140, "h": 70}
+      ]
+    },
+    "right_sidebar": {
+      "x_axis": 1170,
+      "summary_stats": [
+        {"label": "brutto", "val": "132,98", "y": 100},
+        {"label": "netto", "val": "132,98", "y": 130},
+        {"label": "vrijednost", "val": "13426,17", "y": 160}
+      ],
+      "checkbox_list": {
+        "y_start": 250,
+        "row_height": 25,
+        "items": [
+          "prenesi polje 41 (dopunska jedinica) u polje 31, red 3",
+          "prenesi polje 31 red 3 (broj) u polje 31 red 1",
+          "sadržaj naimenovanja broj 0 prenesi u ostala naimenovanja",
+          "prenesi polje 41 u red 3 opisa trg.naziva",
+          "dodijeli težine prema vrijednosti",
+          "dodijeli brutto težine prema netto težini",
+          "prenesi iz polja 41 u količinu za akcizu",
+          "u polje 31 upiši opis i trg.naziv prilagođen tar.broju",
+          "podbroj iz fakture prenesi u polje 44"
+        ]
+      },
+      "final_ok_button": {"label": "OK", "x": 1170, "y": 200, "w": 80, "h": 40}
+    }
+  }
+}
