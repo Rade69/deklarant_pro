@@ -1,0 +1,226 @@
+# gui/tabs/base_view.py
+
+"""
+Base View Class za Tab Views
+
+Sadrži common funkcionalnost za sve tab view-ove.
+Osigurava konzistentan interfejs i zajedničke utility metode.
+
+Primjer korišćenja:
+    class ZaglavljeView(BaseTabView):
+        def get_data(self) -> Dict[str, Any]:
+            # Implementacija
+            pass
+        
+        def set_data(self, data: Dict[str, Any]):
+            # Implementacija
+            pass
+        
+        def clear_form(self):
+            # Implementacija
+            pass
+"""
+
+from PySide6.QtWidgets import QWidget, QMessageBox
+from PySide6.QtCore import Signal
+from typing import Dict, Any, Optional
+
+
+class BaseTabView(QWidget):
+    """
+    Bazna klasa za tab views.
+    
+    Odgovornosti:
+    - Samo UI konstrukcija (widgets, layouts)
+    - Signal emission
+    - Data display
+    
+    NEMA:
+    - Business logike
+    - Database operacija
+    - Validacije podataka
+    
+    Primjer:
+        class ZaglavljeView(BaseTabView):
+            save_requested = Signal()
+            
+            def __init__(self):
+                super().__init__()
+                self._setup_ui()
+            
+            def get_data(self):
+                return {'field': self.line_edit.text()}
+    """
+    
+    # ============================================================
+    # COMMON SIGNALS
+    # ============================================================
+    
+    data_changed = Signal()
+    """Emitovan kada se podaci u formi promijene."""
+    
+    error_occurred = Signal(str)
+    """Emitovan kada dođe do greške. Prima error poruku."""
+    
+    # ============================================================
+    # INIT
+    # ============================================================
+    
+    def __init__(self, parent: Optional[QWidget] = None):
+        """
+        Inicijalizuj base view.
+        
+        Args:
+            parent: Optional parent widget
+        """
+        super().__init__(parent)
+    
+    # ============================================================
+    # ABSTRACT METHODS (Subclass must implement)
+    # ============================================================
+    
+    def get_data(self) -> Dict[str, Any]:
+        """
+        Vrati podatke iz UI widgeta.
+        
+        Returns:
+            Dictionary sa podacima iz forme.
+            Ključevi su nazivi polja, vrijednosti su podaci.
+        
+        Raises:
+            NotImplementedError: Ako subclass ne implementira
+        
+        Primjer:
+            >>> view.get_data()
+            {'broj_deklaracije': '123', 'datum': '2024-01-01'}
+        """
+        raise NotImplementedError("Subclass must implement get_data()")
+    
+    def set_data(self, data: Dict[str, Any]) -> None:
+        """
+        Postavi podatke u UI widgete.
+        
+        Args:
+            data: Dictionary sa podacima za formu.
+                  Ključevi su nazivi polja, vrijednosti su podaci.
+        
+        Raises:
+            NotImplementedError: Ako subclass ne implementira
+        
+        Primjer:
+            >>> view.set_data({'broj_deklaracije': '123'})
+        """
+        raise NotImplementedError("Subclass must implement set_data()")
+    
+    def clear_form(self) -> None:
+        """
+        Očisti sve UI widgete.
+        
+        Resetuje sve field-ove na prazne vrijednosti.
+        
+        Raises:
+            NotImplementedError: Ako subclass ne implementira
+        
+        Primjer:
+            >>> view.clear_form()
+        """
+        raise NotImplementedError("Subclass must implement clear_form()")
+    
+    # ============================================================
+    # UTILITY METHODS
+    # ============================================================
+    
+    def show_success(self, message: str = "Operacija uspješna") -> None:
+        """
+        Prikaži success poruku korisniku.
+        
+        Args:
+            message: Poruka za prikaz
+        
+        Primjer:
+            >>> view.show_success("Podaci sačuvani!")
+        """
+        QMessageBox.information(self, "Uspjeh", message)
+    
+    def show_error(self, message: str) -> None:
+        """
+        Prikaži error poruku korisniku.
+        
+        Args:
+            message: Error poruka za prikaz
+        
+        Emits:
+            error_occurred: Signal sa error porukom
+        
+        Primjer:
+            >>> view.show_error("Greška pri čuvanju podataka")
+        """
+        QMessageBox.critical(self, "Greška", message)
+        self.error_occurred.emit(message)
+    
+    def show_warning(self, message: str) -> None:
+        """
+        Prikaži warning poruku korisniku.
+        
+        Args:
+            message: Warning poruka za prikaz
+        
+        Primjer:
+            >>> view.show_warning("Nesačuvane promjene će biti izgubljene")
+        """
+        QMessageBox.warning(self, "Upozorenje", message)
+    
+    def confirm(self, message: str, title: str = "Potvrda") -> bool:
+        """
+        Prikazati confirmation dialog.
+        
+        Args:
+            message: Poruka za potvrdu
+            title: Naslov dialoga
+        
+        Returns:
+            True ako je korisnik potvrdio (Yes), False inače (No)
+        
+        Primjer:
+            >>> if view.confirm("Da li ste sigurni?"):
+            ...     # Korak dalje
+        """
+        reply = QMessageBox.question(
+            self,
+            title,
+            message,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        return reply == QMessageBox.StandardButton.Yes
+    
+    def confirm_warning(
+        self,
+        message: str,
+        title: str = "Potvrda",
+        default_button: QMessageBox.StandardButton = QMessageBox.StandardButton.No
+    ) -> bool:
+        """
+        Prikazati confirmation dialog za warning situacije.
+        
+        Razlika od confirm() je što ima default No (sigurnija opcija).
+        
+        Args:
+            message: Poruka za potvrdu
+            title: Naslov dialoga
+            default_button: Koje dugme je default (preporučeno No za destructive actions)
+        
+        Returns:
+            True ako je korisnik potvrdio Yes
+        
+        Primjer:
+            >>> if view.confirm_warning("Ovo će obrisati sve podatke!"):
+            ...     # Destructive action
+        """
+        reply = QMessageBox.question(
+            self,
+            title,
+            message,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            default_button,
+        )
+        return reply == QMessageBox.StandardButton.Yes
