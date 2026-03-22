@@ -1,0 +1,51 @@
+/*
+═══════════════════════════════════════════════════════════════
+ASYCUDA Pro - Spacing System
+Consistent spacing scale
+═══════════════════════════════════════════════════════════════
+*/
+
+/*
+SPACING SCALE:
+- XS:  4px  (tight)
+- SM:  8px  (compact)
+- MD:  12px (standard)
+- LG:  16px (comfortable)
+- XL:  24px (section)
+- 2XL: 32px (zone)
+*/
+
+/* Combined margin + padding */
+.spacing-xs  { margin: 4px;  padding: 4px;  }
+.spacing-sm  { margin: 8px;  padding: 8px;  }
+.spacing-md  { margin: 12px; padding: 12px; }
+.spacing-lg  { margin: 16px; padding: 16px; }
+.spacing-xl  { margin: 24px; padding: 24px; }
+.spacing-2xl { margin: 32px; padding: 32px; }
+
+/* Margin only */
+.m-xs  { margin: 4px;  }
+.m-sm  { margin: 8px;  }
+.m-md  { margin: 12px; }
+.m-lg  { margin: 16px; }
+.m-xl  { margin: 24px; }
+.m-2xl { margin: 32px; }
+
+/* Padding only */
+.p-xs  { padding: 4px;  }
+.p-sm  { padding: 8px;  }
+.p-md  { padding: 12px; }
+.p-lg  { padding: 16px; }
+.p-xl  { padding: 24px; }
+.p-2xl { padding: 32px; }
+
+/* Directional spacing */
+.mt-md { margin-top: 12px; }
+.mb-md { margin-bottom: 12px; }
+.ml-md { margin-left: 12px; }
+.mr-md { margin-right: 12px; }
+
+.pt-md { padding-top: 12px; }
+.pb-md { padding-bottom: 12px; }
+.pl-md { padding-left: 12px; }
+.pr-md { padding-right: 12px; }

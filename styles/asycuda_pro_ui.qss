@@ -1,0 +1,179 @@
+/* =========================================================
+   ASYCUDA PRO – CLASSIC DESKTOP STYLE
+   TARGETS: QPushButton, QTableWidget, QLineEdit, QComboBox
+   PURPOSE: MATCH HTML/CSS MOCKUP (NO FUNCTIONAL LOGIC)
+   ========================================================= */
+
+/* ---------------------------------------------------------
+   GLOBAL
+   --------------------------------------------------------- */
+
+   QWidget {
+    background: #ffcccc;
+}
+
+QWidget {
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 12px;
+    color: #000;
+    background: #f0f0f0;
+}
+
+/* ---------------------------------------------------------
+   TAB WIDGET
+   --------------------------------------------------------- */
+QTabWidget::pane {
+    border-top: 1px solid #999;
+    background: #f0f0f0;
+}
+
+QTabBar {
+    background: #d0d0d0;
+}
+
+QTabBar::tab {
+    background: #b0b0b0;
+    border: 1px solid #999;
+    border-bottom: none;
+    padding: 6px 16px;
+    margin-right: 2px;
+    color: #333;
+}
+
+QTabBar::tab:selected {
+    background: #f0f0f0;
+    font-weight: bold;
+}
+
+QTabBar::tab:hover:!selected {
+    background: #c0c0c0;
+}
+
+/* ---------------------------------------------------------
+   PUSH BUTTON (HTML <button>)
+   --------------------------------------------------------- */
+QPushButton {
+    min-height: 22px;
+    padding: 2px 10px;
+    border: 1px solid #999;
+    border-radius: 3px;
+    background: qlineargradient(
+        x1:0, y1:0, x2:0, y2:1,
+        stop:0 #fafafa,
+        stop:1 #e0e0e0
+    );
+}
+
+QPushButton:hover {
+    border-color: #666;
+    background: qlineargradient(
+        x1:0, y1:0, x2:0, y2:1,
+        stop:0 #ffffff,
+        stop:1 #e8e8e8
+    );
+}
+
+QPushButton:pressed {
+    background: qlineargradient(
+        x1:0, y1:0, x2:0, y2:1,
+        stop:0 #d0d0d0,
+        stop:1 #c0c0c0
+    );
+}
+
+/* ---------------------------------------------------------
+   INPUT FIELDS
+   --------------------------------------------------------- */
+QLineEdit,
+QComboBox {
+    height: 22px;
+    padding: 2px 6px;
+    border: 1px solid #999;
+    background: #ffffff;
+}
+
+QLineEdit:focus,
+QComboBox:focus {
+    border: 1px solid #357abd;
+}
+
+/* ---------------------------------------------------------
+   CHECKBOX
+   --------------------------------------------------------- */
+QCheckBox {
+    spacing: 6px;
+}
+
+QCheckBox::indicator {
+    width: 14px;
+    height: 14px;
+}
+
+QCheckBox::indicator:unchecked {
+    border: 1px solid #999;
+    background: #ffffff;
+}
+
+QCheckBox::indicator:checked {
+    border: 1px solid #357abd;
+    background: #d0e4ff;
+}
+
+/* ---------------------------------------------------------
+   TABLE WIDGET
+   --------------------------------------------------------- */
+QTableWidget {
+    background: #ffffff;
+    border: 1px solid #999;
+    gridline-color: #e0e0e0;
+    selection-background-color: #bbdefb;
+}
+
+QHeaderView::section {
+    background: #f2f2f2;
+    border: 1px solid #999;
+    padding: 4px 6px;
+    font-weight: normal;
+}
+
+QTableWidget::item {
+    padding: 2px 6px;
+}
+
+QTableWidget::item:selected {
+    background: #bbdefb;
+}
+
+QTableWidget::item:hover {
+    background: #e3f2fd;
+}
+
+/* ---------------------------------------------------------
+   SCROLLBARS (CLASSIC)
+   --------------------------------------------------------- */
+QScrollBar:vertical {
+    width: 14px;
+    background: #f0f0f0;
+}
+
+QScrollBar::handle:vertical {
+    background: #c0c0c0;
+    min-height: 30px;
+    border: 1px solid #999;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: #b0b0b0;
+}
+
+QScrollBar::add-line,
+QScrollBar::sub-line {
+    height: 0px;
+}
+
+/* ---------------------------------------------------------
+   STATUS / FOOTER BUTTONS
+   --------------------------------------------------------- */
+QWidget#footer QWidget {
+    background: #f0f0f0;
+}

@@ -1,0 +1,115 @@
+/*
+═══════════════════════════════════════════════════════════════
+ASYCUDA Pro - Zone Styling
+Visual hierarchy: Primary / Secondary / Advanced
+═══════════════════════════════════════════════════════════════
+*/
+
+/* ═══════════════════════════════════════════════════════════
+   ZONE 1: PRIMARY (Most Important)
+   Fields: 31, 33, 35, 38
+   80% of work happens here
+   ═══════════════════════════════════════════════════════════ */
+
+QFrame.zone_primary {
+    background-color: #FFFFFF;
+    border: 2px solid #2FA36B;
+    border-radius: 8px;
+    padding: 16px;
+    margin: 8px;
+}
+
+QLabel.zone_primary_rubrika {
+    color: #2FA36B;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+QLineEdit.zone_primary_input,
+QTextEdit.zone_primary_input {
+    background-color: #FFFFFF;
+    border: 1px solid #C9CED6;
+    border-radius: 6px;
+    padding: 8px;
+    font-size: 14px;
+    min-height: 32px;
+}
+
+QLineEdit.zone_primary_input:focus,
+QTextEdit.zone_primary_input:focus {
+    background-color: #FFF4CC;
+    border: 2px solid #2FA36B;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ZONE 2: SECONDARY (Supporting Info)
+   Fields: 32, 34, 36, 37, 39, 40, 41, 42, 43
+   Technical support fields
+   ═══════════════════════════════════════════════════════════ */
+
+QFrame.zone_secondary {
+    background-color: #F6F8FA;
+    border: 1px solid #C9CED6;
+    border-radius: 6px;
+    padding: 12px;
+    margin: 6px;
+}
+
+QLabel.zone_secondary_rubrika {
+    color: #6B7280;
+    font-size: 12px;
+    font-weight: 500;
+    margin-bottom: 3px;
+}
+
+QLineEdit.zone_secondary_input,
+QTextEdit.zone_secondary_input {
+    background-color: #FFFFFF;
+    border: 1px solid #C9CED6;
+    border-radius: 4px;
+    padding: 6px;
+    font-size: 12px;
+    min-height: 28px;
+}
+
+QLineEdit.zone_secondary_input:focus,
+QTextEdit.zone_secondary_input:focus {
+    background-color: #FFF4CC;
+    border: 1px solid #3A7BD5;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ZONE 3: ADVANCED/ADMINISTRATIVE
+   Fields: 44, 45, 46
+   Less frequently used
+   ═══════════════════════════════════════════════════════════ */
+
+QFrame.zone_advanced {
+    background-color: #F6F8FA;
+    border: 1px dashed #C9CED6;
+    border-radius: 6px;
+    padding: 10px;
+    margin: 4px;
+}
+
+QLabel.zone_advanced_rubrika {
+    color: #9CA3AF;
+    font-size: 11px;
+    font-weight: 500;
+    margin-bottom: 2px;
+}
+
+QLineEdit.zone_advanced_input {
+    background-color: #FFFFFF;
+    border: 1px solid #E5E7EB;
+    border-radius: 4px;
+    padding: 4px;
+    font-size: 11px;
+    min-height: 26px;
+}
+
+QLineEdit.zone_advanced_input:focus {
+    background-color: #FFF4CC;
+    border: 1px solid #6B5DD3;
+}

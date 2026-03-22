@@ -1,0 +1,43 @@
+/*
+═══════════════════════════════════════════════════════════════
+ASYCUDA Pro - Main Tabs Styling
+Styling za glavne tabove aplikacije (Faktura, Zaglavlje, Naimenovanja, Šifrarnici)
+
+VAŽNO: Bez background-color na QTabWidget::pane — svaka tab stranica
+crta vlastitu pozadinu (QPalette). background-color: white bi pregazio
+zelene i druge pozadine tab widgeta.
+═══════════════════════════════════════════════════════════════
+*/
+
+/* Tab widget pane — samo border, BEZ background-color */
+QTabWidget::pane {
+    border: 2px solid #0078d4;
+    border-radius: 8px;
+}
+
+/* Individual tab */
+QTabBar::tab {
+    background-color: #f0f0f0;
+    border: 2px solid #0078d4;
+    border-bottom: none;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    padding: 12px 24px;
+    margin-right: 4px;
+    font-size: 16px;
+    font-weight: bold;
+    color: #333;
+    min-width: 150px;
+}
+
+/* Active (selected) tab */
+QTabBar::tab:selected {
+    background-color: #0078d4;
+    color: white;
+    border-bottom: 2px solid #0078d4;
+}
+
+/* Hover effect */
+QTabBar::tab:hover:!selected {
+    background-color: #e0e0e0;
+}

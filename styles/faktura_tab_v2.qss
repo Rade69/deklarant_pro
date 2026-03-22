@@ -1,0 +1,244 @@
+/* ============================================================
+   ASYCUDA Pro - Faktura Tab V2 Stylesheet
+   Modern Material Design with validation states
+   ============================================================ */
+
+/* Main Container */
+QWidget#FakturaTabV2 {
+    background: #f0f0f0;
+}
+
+/* Controls Section Container */
+QWidget#controlsContainer {
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+/* Control Labels */
+QLabel.controlLabel {
+    font-weight: bold;
+    color: #333;
+    font-size: 12px;
+    padding: 0px 8px;
+}
+
+/* Separator Line */
+QFrame.separator {
+    background: #ccc;
+    min-width: 2px;
+    max-width: 2px;
+    min-height: 30px;
+    max-height: 30px;
+}
+
+/* Base Button Styles */
+QPushButton {
+    padding: 6px 12px;
+    border: 1px solid #999;
+    border-radius: 4px;
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #fafafa, stop:1 #e0e0e0);
+    color: #333;
+    font-size: 12px;
+    font-family: 'Segoe UI', Arial, sans-serif;
+}
+
+QPushButton:hover {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #ffffff, stop:1 #e8e8e8);
+    border-color: #666;
+}
+
+QPushButton:pressed {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #d0d0d0, stop:1 #c0c0c0);
+}
+
+QPushButton:disabled {
+    background: #f0f0f0;
+    color: #999;
+    border-color: #ccc;
+}
+
+/* Primary Button (Green) */
+QPushButton.primary {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #5cb85c, stop:1 #449d44);
+    color: white;
+    border-color: #398439;
+    font-weight: bold;
+}
+
+QPushButton.primary:hover {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #6cc76c, stop:1 #52ad52);
+}
+
+QPushButton.primary:pressed {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #449d44, stop:1 #398439);
+}
+
+/* Danger Button (Orange/Warning) */
+QPushButton.danger {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #f0ad4e, stop:1 #ec971f);
+    color: white;
+    border-color: #d58512;
+    font-weight: bold;
+}
+
+QPushButton.danger:hover {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #f5b862, stop:1 #f0a53b);
+}
+
+QPushButton.danger:pressed {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #ec971f, stop:1 #d58512);
+}
+
+/* Table Styles */
+QTableWidget {
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    gridline-color: #e0e0e0;
+    selection-background-color: #bbdefb;
+    selection-color: #000;
+    font-size: 13px;
+}
+
+/* Table Header */
+QHeaderView::section {
+    background: #424242;
+    color: white;
+    padding: 8px;
+    border: none;
+    border-right: 1px solid #555;
+    font-weight: 600;
+    font-size: 13px;
+}
+
+QHeaderView::section:last {
+    border-right: none;
+}
+
+/* Table Items */
+QTableWidget::item {
+    padding: 6px 8px;
+    border-right: 1px solid #e0e0e0;
+    border-bottom: 1px solid #e0e0e0;
+    color: #000000;
+}
+
+QTableWidget::item:selected {
+    background: #bbdefb;
+    color: #000;
+}
+
+/* Alternating row colors handled in code with setAlternatingRowColors */
+
+/* Status Bar Container */
+QWidget#statusBarContainer {
+    background: white;
+    border: 2px solid #ccc;
+    border-radius: 4px;
+}
+
+/* Status Bar - Success State */
+QWidget#statusBarContainer[status="success"] {
+    background: #ccffcc;
+    border-color: #00cc00;
+}
+
+/* Status Bar - Warning State */
+QWidget#statusBarContainer[status="warning"] {
+    background: #ffffcc;
+    border-color: #cccc00;
+}
+
+/* Status Bar - Error State */
+QWidget#statusBarContainer[status="error"] {
+    background: #ffcccc;
+    border-color: #cc0000;
+}
+
+/* Status Labels */
+QLabel.statusLabel {
+    font-size: 12px;
+    font-weight: bold;
+    color: #333;
+}
+
+QLabel.statusLabel[status="success"] {
+    color: #006600;
+}
+
+QLabel.statusLabel[status="warning"] {
+    color: #666600;
+}
+
+QLabel.statusLabel[status="error"] {
+    color: #cc0000;
+}
+
+QLabel.statusSeparator {
+    color: #999;
+    font-size: 12px;
+}
+
+/* Scrollbar Styling */
+QScrollBar:vertical {
+    background: #f0f0f0;
+    width: 12px;
+    border: none;
+}
+
+QScrollBar::handle:vertical {
+    background: #ccc;
+    border-radius: 6px;
+    min-height: 20px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: #aaa;
+}
+
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical {
+    height: 0px;
+}
+
+QScrollBar:horizontal {
+    background: #f0f0f0;
+    height: 12px;
+    border: none;
+}
+
+QScrollBar::handle:horizontal {
+    background: #ccc;
+    border-radius: 6px;
+    min-width: 20px;
+}
+
+QScrollBar::handle:horizontal:hover {
+    background: #aaa;
+}
+
+QScrollBar::add-line:horizontal,
+QScrollBar::sub-line:horizontal {
+    width: 0px;
+}
+
+/* Tooltips */
+QToolTip {
+    background: #333;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-size: 11px;
+}
+

@@ -1,0 +1,144 @@
+/*
+═══════════════════════════════════════════════════════════════
+ASYCUDA Pro - Naimenovanja Tab Components
+Centralized styles for Naimenovanja tab UI components
+═══════════════════════════════════════════════════════════════
+*/
+
+/* ═══════════════════════════════════════════════════════════
+   NAVIGATION BAR
+   ═══════════════════════════════════════════════════════════ */
+
+QWidget#navBar {
+    background: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+}
+
+/* Navigation labels (bold, dark text) */
+QLabel.nav-label {
+    font-weight: 600;
+    color: #212529;
+    font-size: 14px;
+}
+
+/* Navigation counter (lighter, gray) */
+QLabel.nav-counter {
+    color: #1a1a2e;
+    font-size: 13px;
+    font-weight: 700;
+    margin-left: 4px;
+}
+
+/* Dropdown selector in navigation */
+QComboBox.nav-combo {
+    padding: 6px 10px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    background: white;
+    font-size: 13px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SECTION HEADING
+   ═══════════════════════════════════════════════════════════ */
+
+QWidget#sectionHeading {
+    background: #2c3e50;
+    color: white;
+}
+
+/* Section heading label ("📋 Naimenovanje #X") */
+QLabel.section-heading-label {
+    color: white;
+    font-size: 15px;
+    font-weight: bold;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SUMMARY PANEL METRICS
+   ═══════════════════════════════════════════════════════════ */
+
+QWidget#summaryPanel {
+    /* Gradient background stays INLINE in Python code */
+}
+
+/* Summary metric labels (white text on gradient background) */
+QLabel.summary-metric {
+    color: white;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+/* Status badge in summary panel */
+QLabel.summary-status-badge {
+    background: rgba(255, 255, 255, 0.25);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 13px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   UI FORM ELEMENTS (Grid Scaling)
+   ═══════════════════════════════════════════════════════════ */
+
+/* Applies to .ui loaded forms - QGroupBox backgrounds */
+QWidget#naimenovanjaUiWidget QGroupBox {
+    font-size: 13px;
+    font-weight: bold;
+    background-color: #e8f5e9;
+    color: #333;
+}
+
+QWidget#naimenovanjaUiWidget QLabel {
+    font-size: 13px;
+    color: #333;
+}
+
+QWidget#naimenovanjaUiWidget QLineEdit {
+    font-size: 13px;
+    padding: 4px;
+    color: #333;
+    background-color: white;
+}
+
+QWidget#naimenovanjaUiWidget QComboBox {
+    font-size: 13px;
+    color: #333;
+}
+
+QWidget#naimenovanjaUiWidget QComboBox QLineEdit {
+    color: #333;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   NAVIGATION & ACTION BUTTONS
+   ═══════════════════════════════════════════════════════════ */
+
+QPushButton#btnPrevItem, QPushButton#btnNextItem,
+QPushButton#btnPrevRecord, QPushButton#btnNextRecord {
+    background-color: #3A7BD5;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 5px 12px;
+    font-size: 13px;
+    font-weight: 500;
+    min-height: 28px;
+    min-width: 60px;
+}
+
+QPushButton#btnPrevItem:hover, QPushButton#btnNextItem:hover,
+QPushButton#btnPrevRecord:hover, QPushButton#btnNextRecord:hover {
+    background-color: #2E63B3;
+}
+
+QPushButton#btnPrevItem:pressed, QPushButton#btnNextItem:pressed,
+QPushButton#btnPrevRecord:pressed, QPushButton#btnNextRecord:pressed {
+    background-color: #254F91;
+}
+
+QWidget#naimenovanjaUiWidget QTextEdit {
+    font-size: 13px;
+}
