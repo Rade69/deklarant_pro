@@ -1,0 +1,10 @@
+[
+  { "sifra": "10", "opis": "Prijevoz morem" },
+  { "sifra": "20", "opis": "Prijevoz željeznicom" },
+  { "sifra": "30", "opis": "Cestovni prijevoz" },
+  { "sifra": "40", "opis": "Zračni prijevoz" },
+  { "sifra": "50", "opis": "Poštanska pošiljka (aktivni način prijevoza nepoznat)" },
+  { "sifra": "70", "opis": "Prijevoz (prijenos) fiksnim prijevoznim instalacijama" },
+  { "sifra": "80", "opis": "Prijevoz unutarnjim riječnim putem" },
+  { "sifra": "90", "opis": "Nepoznata vrsta prijevoza (vlastiti pogon)" }
+]
