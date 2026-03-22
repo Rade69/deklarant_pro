@@ -9,7 +9,7 @@ from PySide6.QtCore import Qt, QTimer
 
 def main() -> None:
     # Import ovdje da izbjegnemo kružne importe na startu
-    from asycuda_pro.gui.main_window import MainWindow
+    from gui.main_window import MainWindow
 
     app = QApplication(sys.argv)
 
