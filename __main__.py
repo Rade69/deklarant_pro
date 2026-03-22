@@ -7,7 +7,7 @@ if __name__ == "__main__":
     if parent_dir not in sys.path:
         sys.path.insert(0, parent_dir)
 
-from asycuda_pro.app import main
+from app import main  # pyright: ignore[reportMissingImports]
 
 if __name__ == "__main__":
     main()

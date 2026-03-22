@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Callable
 import uuid as _uuid
 
 
@@ -61,9 +61,19 @@ class InvoiceLine:
     line_no: int = 0
 
     naziv_robe: str = ""
+    product_code: str = ""  # Kod proizvoda iz fakture (za matching)
     tarifni_broj: str = ""
     zemlja_porijekla: str = ""
     povlastica: str = ""  # prazno = nije navedeno / nema
+
+    # EUR.1 podaci
+    eur1_number: str = ""           # Broj EUR.1 obrasca
+    has_origin_statement: bool = False  # Da li PDF ima izjavu o poreklu
+
+    # Confidence level za zemlju porijekla (HIGH/MEDIUM/LOW/CONFLICT)
+    country_confidence: str = ""  # "HIGH", "MEDIUM", "LOW", "CONFLICT"
+    country_source: str = ""      # "PDF", "BAZA", "MATCH", "CONFLICT", "NONE"
+    country_conflict_details: str = ""  # Detalji konflikta ako postoji
 
     jm: str = ""
     kolicina: float = 0.0
@@ -78,6 +88,10 @@ class InvoiceLine:
     importer: Party = field(default_factory=Party)
 
     raw: Dict[str, Any] = field(default_factory=dict)
+
+    # Mapiranje na naimenovanje (popunjava se nakon kreiranja naimenovanja)
+    assigned_naimenovanje_id: str = ""
+    assigned_naimenovanje_ordinal: int = 0  # Redni broj naimenovanja (32)
 
     def key(self) -> Tuple[str, str, str]:
         """KLJUČ za grupisanje: tarifni broj + zemlja porijekla + povlastica."""
@@ -96,6 +110,14 @@ class InvoiceLine:
             or v.get("Naziv robe")
             or v.get("opis")
             or v.get("description")
+            or ""
+        )
+        product_code = (
+            v.get("product_code")
+            or v.get("kod")
+            or v.get("Kod")
+            or v.get("sifra")
+            or v.get("code")
             or ""
         )
         tarif = (
@@ -134,6 +156,7 @@ class InvoiceLine:
         return cls(
             line_no=int(_f(v.get("line_no") or v.get("Line") or 0)),
             naziv_robe=_s(naziv),
+            product_code=_s(product_code),
             tarifni_broj=_s(tarif),
             zemlja_porijekla=_s(zemlja),
             povlastica=_s(pref),
@@ -160,7 +183,9 @@ class AttachedDocument:
     """Rub.44 – jedan prilog."""
 
     code: str
-    number: str
+    name: str = ""           # Attached_document_name (puni naziv tipa isprave)
+    number: str = ""         # Attached_document_reference (broj/referenca)
+    from_rule: bool = False  # True → Attached_document_from_rule=1 + pojavljuje se u Attached_doc_item
 
 
 @dataclass(slots=True)
@@ -206,8 +231,10 @@ class NaimenovanjeDraft:
     # Rub.39 – kvota (opciono)
     quota_code: str = ""
 
-    # Rub.40 – prethodni dokument (ručno)
-    previous_document: str = ""
+    # Rub.40 – prethodni dokumenti (ručno)
+    previous_document: str = ""           # le_rubrika40_1
+    previous_document2: str = ""          # le_rubrika40_2
+    previous_document3: str = ""          # le_rubrika40_3
 
     # Rub.41 – dopunske jedinice (opciono)
     supplementary_unit_code: str = ""
@@ -217,7 +244,14 @@ class NaimenovanjeDraft:
     item_value: float = 0.0
     currency: str = "EUR"
 
-    # Rub.44 – prilozi
+    # Rub.44 – priložene isprave (ručno - tekstualna polja)
+    attached_document1: str = ""          # le_rubrika44_1
+    attached_document2: str = ""          # le_rubrika44_2
+    attached_document3: str = ""          # le_rubrika44_3
+    attached_document4: str = ""          # le_rubrika44_4
+    attached_document5: str = ""          # le_rubrika44_5
+
+    # Rub.44 – prilozi (strukturirani)
     attached_documents: List[AttachedDocument] = field(default_factory=list)
 
     # Rub.46 – statistička vrijednost
@@ -263,10 +297,135 @@ class DeclarationDraft:
       - Draft -> XML
     """
 
+    # Callback za obaveštavanje o promenama
+    _data_change_callbacks: List[Callable] = field(default_factory=list)
+
+    # Zaglavlje deklaracije (rubrike 1-49)
+    # Rubrika 1 - Deklaracija
+    deklaracija_tip: str = ""      # EX ili IM (polje 1/1 sifra)
+    deklaracija_oznaka: str = ""   # H/I/J/K za IM, A/C/E za EX (polje 1/1 oznaka)
+    deklaracija_a: str = ""        # A/Z/B – tip deklaracije (polje 1/2)
+    ured_odredista: str = ""       # npr. "CI Bijeljina" – read-only iz baze
+
+    # Rubrika 2 - Izvoznik
+    izvoznik_id: str = ""
+    izvoznik_naziv: str = ""
+    izvoznik_adresa: str = ""
+    izvoznik_grad: str = ""
+    izvoznik_postanski_broj: str = ""
+    izvoznik_drzava: str = ""
+
+    # Rubrika 8 - Primalac
+    primalac_id: str = ""
+    primalac_naziv: str = ""
+    primalac_adresa: str = ""
+    primalac_grad: str = ""
+    primalac_postanski_broj: str = ""
+    primalac_drzava: str = ""
+
+    # Rubrika 14 - Deklarant
+    deklarant_id: str = ""
+    deklarant_naziv: str = ""
+    deklarant_adresa: str = ""
+    deklarant_grad: str = ""
+    deklarant_postanski_broj: str = ""
+    deklarant_drzava: str = ""
+    deklarant_predstavnik: str = ""  # Predstavnik deklaranta (npr. "Marko Marković, dipl. ecc.")
+
+    # Rubrika 18 - Identitet transp. sredstva
+    transport_id: str = ""
+
+    # Rubrika 19 - Kontejner
+    kontejner: bool = False
+
+    # Rubrika 21 - Aktivno transp. sredstvo na granici
+    aktivno_transport: str = ""
+
+    # Rubrika 25, 26, 27 - Vid unutra/granica i mjesto otvarača
+    vid_unutra: str = ""
+    vid_granica: str = ""
+    mjesto_otvaraca: str = ""
+
+    # Rubrika 29 - Izlazna carinarnica
+    izlazna_carinarnica: str = ""
+
+    # Rubrika 30 - Lokacija robe
+    lokacija_robe: str = ""
+
+    # Rubrika 3 - Obrasci
+    obrazac_1: str = ""
+    obrazac_2: str = ""
+
+    # Rubrika 4 - Tovarni listovi
+    tovarni_listovi: str = ""
+
+    # Rubrika 5 - Stavke
+    stavke: str = ""
+
+    # Rubrika 6 - Uk. paketa
+    uk_paketa: str = ""
+
+    # Rubrika 7 - Ref.br.
+    ref_br: str = ""
+
+    # Rubrika 9 - Odgovorna zemlja
+    odg_zemlja_1: str = ""
+    odg_zemlja_2: str = ""
+    odg_zemlja_3: str = ""
+    odg_zemlja_4: str = ""
+
+    # Rubrika 10, 11, 12, 13 - Zemlje
+    zem_10: str = ""
+    zem_11: str = ""
+    zem_12: str = ""
+    zem_13: str = ""
+
+    # Rubrika 15 - Država izvoza
+    drzava_izvoza_naziv: str = ""
+    drzava_izvoza_sifra: str = ""
+
+    # Rubrika 16 - Država porijekla
+    drzava_porijekla: str = ""
+
+    # Rubrika 17 - Država odredišta
+    drzava_odredista_naziv: str = ""
+    drzava_odredista_sifra: str = ""
+
+    # Rubrika 20 - Uslovi isporuke
+    uslovi_kod: str = ""
+    uslovi_mjesto: str = ""
+
+    # Rubrika 22, 23, 24 - Valuta
+    valuta: str = ""
+    iznos: float = 0.0
+    kurs: float = 1.0
+    vrsta_trans_1: str = ""
+    vrsta_trans_2: str = ""
+
+    # Rubrika 40 - Zbirna deklaracija / prethodni dokument
+    rb40_tip: str = ""          # X / Y / Z
+    rb40_skracenica: str = ""   # Šifra dokumenta (N380, N730 ...)
+    rb40_broj: str = ""         # N° – broj/referenca dokumenta
+
+    # Rubrika 48, 49 - Odgođeno plaćanje
+    odgodjeno_placanje: str = ""
+    identifikacija_skladista: str = ""
+
+    # Troškovi
+    trosak_1: str = "0,00"
+    trosak_2: str = "0,00"
+    trosak_3: str = "0,00"
+    trosak_4: str = "0,00"
+    trosak_5: str = "0,00"
+
+    # Ostala polja
     header: Dict[str, Any] = field(default_factory=dict)
     invoice_lines: List[InvoiceLine] = field(default_factory=list)
     items: List[NaimenovanjeDraft] = field(default_factory=list)
     prilozi: Dict[str, Any] = field(default_factory=dict)
+
+    # Rub.44 zaglavlja – priložene isprave koje važe za sve stavke
+    header_attached_documents: List[AttachedDocument] = field(default_factory=list)
 
     source_files: List[str] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
@@ -276,8 +435,28 @@ class DeclarationDraft:
         default_factory=lambda: datetime.now().isoformat(timespec="seconds")
     )
 
+    def register_data_change_callback(self, callback: Callable) -> None:
+        """Registruj callback koji će biti pozvan kada se podaci promene."""
+        if callback not in self._data_change_callbacks:
+            self._data_change_callbacks.append(callback)
+
+    def unregister_data_change_callback(self, callback: Callable) -> None:
+        """Ukloni callback iz liste."""
+        if callback in self._data_change_callbacks:
+            self._data_change_callbacks.remove(callback)
+
+    def _notify_data_change(self) -> None:
+        """Obavesti sve registrovane callback-ove o promeni podataka."""
+        for callback in self._data_change_callbacks:
+            try:
+                callback()
+            except Exception as e:
+                print(f"⚠️ Greška u data change callback-u: {e}")
+
     def mark_dirty(self) -> None:
+        """Označi draft kao promijenjen i obavesti sve callback-ove."""
         self.dirty = True
+        self._notify_data_change()
 
     def clear_dirty(self) -> None:
         self.dirty = False

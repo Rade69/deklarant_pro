@@ -64,3 +64,32 @@ htmlcov/
 # OS specific
 Thumbs.db
 desktop.ini
+.env
+
+# Test data and old declarations
+scripts/stare_deklaracije/
+najavauvoza/
+*.backup
+
+# Demo and test scripts (keep in local only)
+demo_*.py
+test_*.py
+check_*.py
+fix_*.py
+reimport_*.py
+
+# Kiro IDE
+.kiro/
+
+# Test data - XML deklaracije (ogromne datoteke, nisu za git)
+data/xml_deklaracije/
+data/*.xml
+
+# Knowledge base PDF-ovi (binarni, preveliki za git — čuvati lokalno)
+data/knowledge_base/
+
+# MCP memory server (lokalni, ne ide u git)
+memory/
+
+# Qwen konfiguracija (lokalna)
+.qwen/

@@ -1,0 +1,4 @@
+{
+  "disableIndexing": true,
+  "customInstructions": "NA POČETKU SVAKE SESIJE: (1) Provjeri .qwen/mcp.json za MCP server. (2) Koristi MCP universal-memory: get_project_overview(project='asycuda_pro') za kontekst. (3) Koristi query_memory(project='asycuda_pro', query='...') za specifične teme. Memorija: 13 cells o Tab Refactor Pattern, refactor status, metrike (-12.6%), safe decisions."
+}

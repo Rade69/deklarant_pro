@@ -1,0 +1,42 @@
+# ============================================================
+# ASYCUDA Pro - OCR Dodatne Zavisnosti (Opciono)
+# ============================================================
+#
+# Ove biblioteke su potrebne samo ako želite OCR podršku
+# za skenirane PDF fakture bez tekstualnog sloja.
+#
+# INSTALACIJA:
+#
+# 1. Python biblioteke:
+#    pip install -r requirements-ocr.txt
+#
+# 2. Tesseract OCR engine (sistemska instalacija):
+#
+#    Ubuntu/Debian:
+#      sudo apt-get update
+#      sudo apt-get install tesseract-ocr
+#      sudo apt-get install tesseract-ocr-eng  # Engleski
+#      sudo apt-get install tesseract-ocr-bos  # Bosanski
+#      sudo apt-get install tesseract-ocr-srp  # Srpski
+#      sudo apt-get install poppler-utils       # Za pdf2image
+#
+#    Fedora/RHEL:
+#      sudo dnf install tesseract tesseract-langpack-eng tesseract-langpack-bos poppler-utils
+#
+#    macOS:
+#      brew install tesseract tesseract-lang poppler
+#
+#    Windows:
+#      Preuzmi Tesseract installer sa: https://github.com/UB-Mannheim/tesseract/wiki
+#      Dodaj Tesseract u PATH
+#
+# ============================================================
+
+# OCR biblioteke
+pytesseract>=0.3.10          # Python wrapper za Tesseract
+pdf2image>=1.16.3            # Konverzija PDF → slike
+Pillow>=10.0.0               # Image processing (dependency za pytesseract)
+
+# Dodatne image processing biblioteke (opciono, za bolji OCR kvalitet)
+opencv-python>=4.8.0         # Advanced image preprocessing
+numpy>=1.24.0                # Numerical operations za image processing

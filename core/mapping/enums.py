@@ -35,6 +35,7 @@ class JedinicaMere(Enum):
 class VrstaPakovanja(Enum):
     """Vrste pakovanja."""
 
+    PAKET = "PK"   # Package (default)
     KARTON = "CT"  # Carton
     PALETA = "PX"  # Pallet
     KONTEJNER = "CN"  # Container

@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Dict, Iterable, List, Tuple
 
-from asycuda_pro.core.draft import InvoiceLine, NaimenovanjeDraft
+from core.draft import InvoiceLine, NaimenovanjeDraft
 
 
 def _s(v: object) -> str:
