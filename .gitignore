@@ -94,6 +94,13 @@ memory/
 # Qwen konfiguracija (lokalna)
 .qwen/
 
+# Claude Code (lokalna)
+.claude/
+.continue/
+
+# Logs
+logs/
+
 # Veliki fajlovi — lokalno samo
 docs/NOVA ASIKUDA/
 docs/Carinska_tarifa_za_2026_-_bosanski.pdf
