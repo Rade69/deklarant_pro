@@ -47,6 +47,7 @@ env/
 # Temporary files
 tmp/
 temp/
+backup/
 *.tmp
 *.bak
 *.cache
