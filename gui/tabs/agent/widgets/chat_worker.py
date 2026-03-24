@@ -1,6 +1,9 @@
 """
 ChatWorker - background thread za LLM pozive (Groq API).
-"""
+
+ENHANCED: Dodato pamćenje konteksta chat sesije.
+" tačno moram uraditi da ga aktiviram.add()""
+
 import re
 from PySide6.QtCore import QThread, Signal
 
@@ -11,10 +14,13 @@ class ChatWorker(QThread):
     response_ready = Signal(str)
     error_occurred = Signal(str)
 
-    def __init__(self, message: str, draft=None, parent=None):
+    def __init__(self, message: str, draft=None, parent=None, 
+                 memory_service=None):
         super().__init__(parent)
         self.message = message
         self.draft = draft
+        # ENHANCED: Memory service za pamćenje konteksta
+        self.memory_service = memory_service
 
     def run(self):
         try:
@@ -23,7 +29,7 @@ class ChatWorker(QThread):
             import os
             from pathlib import Path
 
-            # Čitaj direktno iz .env (dotenv_values ne dirne os.environ)
+            # Čitaj direktno iz .env
             env_path = Path(__file__).parent.parent.parent.parent.parent / ".env"
             env_vars = dotenv_values(env_path) if env_path.exists() else {}
 
@@ -35,22 +41,63 @@ class ChatWorker(QThread):
             # Izgradi kontekst iz drafta
             context = self._build_context()
 
+            # ENHANCED: Dobij chat historiju iz memorije
+            chat_history = []
+            if self.memory_service:
+                chat_history = self.memory_service.get_context(max_messages=10)
+            
+            # ENHANCED: Dodaj korisničku poruku u memoriju PRIJE slanja
+            if self.memory_service:
+                self.memory_service.add_user_message(self.message)
+
             client = Groq(api_key=api_key)
+            
+            # ENHANCED: Sastavi poruke sa historijom
+            messages = self._build_messages(context, chat_history)
+            
             response = client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
-                messages=[
-                    {"role": "system", "content": self._system_prompt(context)},
-                    {"role": "user", "content": self.message},
-                ],
+                messages=messages,
                 temperature=0.2,
                 max_tokens=1500,
             )
 
             text = response.choices[0].message.content.strip()
+            
+            # ENHANCED: Dodaj AI odgovor u memoriju NAKON dobijanja
+            if self.memory_service:
+                self.memory_service.add_assistant_message(text)
+            
             self.response_ready.emit(text)
 
         except Exception as e:
             self.error_occurred.emit(f"LLM greška: {e}")
+
+    def _build_messages(self, context: str, chat_history: list) -> list:
+        """
+        ENHANCED: Sastavi messages listu za API sa chat historijom.
+        
+        Format:
+        1. System prompt (kontekst + sistemske instrukcije)
+        2. Chat historija (zadnjih 10 poruka)
+        3. Trenutna korisnička poruka
+        """
+        system = {"role": "system", "content": self._system_prompt(context)}
+        
+        messages = [system]
+        
+        # ENHANCED: Dodaj chat historiju (bez system poruka iz historije)
+        for hist_msg in chat_history:
+            if hist_msg["role"] in ("user", "assistant"):
+                messages.append({
+                    "role": hist_msg["role"],
+                    "content": hist_msg["content"]
+                })
+        
+        # Trenutna poruka
+        messages.append({"role": "user", "content": self.message})
+        
+        return messages
 
     def _build_context(self) -> str:
         if not self.draft:
@@ -271,7 +318,6 @@ class ChatWorker(QThread):
     @staticmethod
     def _extract_tariff_line(code: str, chunk_text: str) -> str:
         """Iz chunka izvlači redove koji sadrže tarifni kod ili opis pored koda."""
-        import re
         # Formatirani oblik koda za pretragu u tekstu (npr. "0201 10 00")
         digits = "".join(c for c in code if c.isdigit())
         patterns = []
@@ -486,6 +532,13 @@ class ChatWorker(QThread):
             return []
 
     def _system_prompt(self, context: str) -> str:
+        # ENHANCED: Dodaj info o chat memoriji
+        memory_info = ""
+        if self.memory_service:
+            msg_count = len(self.memory_service)
+            memory_info = f"\n\nNAPOMENA: Ovo je nastavak razgovora ({msg_count} poruka do sada). "
+            memory_info += "Koristi kontekst ranije razgovora za bolje odgovore."
+        
         return (
             "Ti si AI asistent za carinsku deklaraciju u aplikaciji AsycudaPro (Bosna i Hercegovina).\n"
             "Odgovaraš na srpskom jeziku (latinica), konkretno i korisno.\n\n"
@@ -520,4 +573,5 @@ class ChatWorker(QThread):
             "- Status može biti: ✅ Usklađeno | ⚠️ Provjeri | ❌ Neusklađeno\n"
             "- Na kraju daj ukupnu ocjenu deklaracije i prioritetne preporuke\n\n"
             f"{context}"
+            f"{memory_info}"
         )

@@ -26,3 +26,11 @@ class NaimenovanjaTab(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.view)
+
+    def reload_data(self):
+        """Delegira reload_data() prema NaimenovanjaView."""
+        self.view.reload_data()
+
+    def _sync_header_packages(self):
+        """Delegira _sync_header_packages() prema NaimenovanjaView."""
+        self.view._sync_header_packages()

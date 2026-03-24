@@ -7,7 +7,7 @@ Result objekat za PDF/Excel import sa dodatnim podacima.
 from dataclasses import dataclass, field
 from typing import List, Optional
 
-from core.draft.draft import InvoiceLine
+from core.draft.draft import InvoiceLine, Party
 
 
 @dataclass
@@ -25,6 +25,8 @@ class ImportResult:
         import_type: Tip importa ('loren_pdf', 'loren_excel', 'loren_combined', 'invoice')
         has_origin_statement: Da li faktura sadrži izjavu o poreklu (PE2)
         origin_statements: Lista detektovanih izjava o poreklu (za fakture sa više izjava)
+        exporter: Party objekat sa podacima o izvozniku/pošiljaocu
+        importer: Party objekat sa podacima o uvozniku/primaocu
     """
     items: List[InvoiceLine] = field(default_factory=list)
     bruto_kg: float = 0.0
@@ -36,6 +38,8 @@ class ImportResult:
     has_origin_statement: bool = False  # Da li faktura sadrži izjavu o poreklu (PE2)
     origin_statements: Optional[List] = None  # Lista OriginStatementMatch objekata (za višestruke izjave)
     warnings: List[str] = field(default_factory=list)  # Upozorenja koja treba prikazati korisniku
+    exporter: Optional[Party] = None  # Izvoznik/pošiljalac iz fakture
+    importer: Optional[Party] = None  # Uvoznik/primalac iz fakture
 
     def __len__(self) -> int:
         """Return number of items (for len() support)."""

@@ -12,17 +12,17 @@ from PySide6.QtWidgets import QWidget
 from core.draft.draft import DeclarationDraft
 from utils.dependency_injection import get_di_container, register_services
 
-# Import refaktorisanih tab klasa
-from gui.tabs.zaglavlje_tab_refactored import ZaglavljeTabRefactored
-from gui.tabs.faktura_tab_refactored import FakturaTabRefactored
-from gui.tabs.naimenovanja_tab_refactored import NaimenovanjaTabRefactored
-from gui.tabs.sifarnici_tab_refactored import SifarniciTabRefactored
+# Import tab klasa
+from gui.tabs.zaglavlje_tab import ZaglavljeTab as ZaglavljeTabRefactored
+from gui.tabs.faktura_tab import FakturaTab as FakturaTabRefactored
+from gui.tabs.naimenovanja_tab import NaimenovanjaTab as NaimenovanjaTabRefactored
+from gui.tabs.sifarnici_tab import SifarniciTab as SifarniciTabRefactored
 
-# Import refaktorisanih service klasa (za DI registraciju)
-from services.zaglavlje_service_refactored import ZaglavljeService
-from services.faktura_service_refactored import FakturaService
-from services.naimenovanja_service_refactored import NaimenovanjaService
-from services.sifarnici_service_refactored import SifarniciService
+# Import service klasa (za DI registraciju)
+from services.zaglavlje_service import ZaglavljeService
+from services.faktura_service import FakturaService
+from services.naimenovanja_service import NaimenovanjaService
+from services.sifarnici_service import SifarniciService
 
 
 logger = logging.getLogger(__name__)

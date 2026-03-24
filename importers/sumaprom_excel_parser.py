@@ -1,14 +1,16 @@
 # importers/sumaprom_excel_parser.py
 
 """
-ŠUMAPROM Excel Importer
-Specijalizovan parser za ŠUMAPROM fakture (Bijeljina).
+SUMAPROM Excel Importer
+Specijalizovan parser za SUMAPROM fakture (Bijeljina).
 
 Format:
-- Header podaci rasuti po ćelijama (kupac, broj fakture, datum)
+- Header podaci rasuti po celijama (kupac, broj fakture, datum)
 - Stavke od reda 18 (0-indexed) sa kolonama:
   - Pos. R.br. | Item Code | Description | U.M. | Quantity | Unit Price | Total Amount | Country of origin
-- Footer: Ukupan iznos, bruto težina, broj paketa
+- Footer: Ukupan iznos, bruto tezina, broj paketa
+- EKSPORTATOR: Podaci o izvozniku u headeru fakture
+- IMPORTER: Podaci o uvozniku (nasa firma)
 """
 
 import os
@@ -19,7 +21,7 @@ from pathlib import Path
 
 import xlrd
 
-from core.draft.draft import InvoiceLine
+from core.draft.draft import InvoiceLine, Party
 from importers.import_result import ImportResult
 from utils.country_normalizer import normalize_country_name
 
@@ -28,18 +30,18 @@ logger = logging.getLogger("asycuda_pro.import.sumaprom")
 
 def detect_sumaprom_excel(filepath: str) -> bool:
     """
-    Detekcija ŠUMAPROM formata.
+    Detekcija SUMAPROM formata.
 
     Kriteriji:
     - Extension .xls ili .xlsx
-    - Sheet sadrži "ŠUMAPROM" ili "SUMAPROM" u headeru
+    - Sheet sadrzi "SUMAPROM" u headeru
     - Ima header kolone: "Pos.", "Item Code", "Description", "U.M.", "Quantity", "Unit Price", "Total Amount", "Country of origin"
 
     Args:
         filepath: Putanja do Excel fajla
 
     Returns:
-        True ako je ŠUMAPROM format
+        True ako je SUMAPROM format
     """
     try:
         # Check extension
@@ -52,7 +54,7 @@ def detect_sumaprom_excel(filepath: str) -> bool:
         # Check first sheet
         sheet = wb.sheet_by_index(0)
 
-        # Search for ŠUMAPROM in first 20 rows
+        # Search for SUMAPROM in first 20 rows
         found_sumaprom = False
         header_row_idx = -1
 
@@ -63,8 +65,8 @@ def detect_sumaprom_excel(filepath: str) -> bool:
                 if cell_value:
                     row_text += str(cell_value).upper() + " "
 
-            # Check for ŠUMAPROM
-            if "ŠUMAPROM" in row_text or "SUMAPROM" in row_text:
+            # Check for SUMAPROM
+            if "SUMAPROM" in row_text or "ŠUMAPROM" in row_text:
                 found_sumaprom = True
 
             # Check for header row (Pos. R.br. | Item Code | Description)
@@ -73,19 +75,19 @@ def detect_sumaprom_excel(filepath: str) -> bool:
                 break
 
         if found_sumaprom and header_row_idx >= 0:
-            logger.info(f"ŠUMAPROM format detektovan: header na redu {header_row_idx}")
+            logger.info(f"SUMAPROM format detektovan: header na redu {header_row_idx}")
             return True
 
         return False
 
     except Exception as e:
-        logger.warning(f"Greška tokom detekcije ŠUMAPROM formata: {e}")
+        logger.warning(f"Greska tokom detekcije SUMAPROM formata: {e}")
         return False
 
 
 def parse_sumaprom_excel(filepath: str) -> ImportResult:
     """
-    Parse ŠUMAPROM Excel fakture.
+    Parse SUMAPROM Excel fakture.
 
     Args:
         filepath: Putanja do Excel fajla
@@ -96,7 +98,7 @@ def parse_sumaprom_excel(filepath: str) -> ImportResult:
     Raises:
         ValueError: Ako format nije validan
     """
-    logger.info(f"ŠUMAPROM parsing započet: {filepath}")
+    logger.info(f"SUMAPROM parsing zapocet: {filepath}")
 
     try:
         # Open workbook with xlrd
@@ -110,44 +112,73 @@ def parse_sumaprom_excel(filepath: str) -> ImportResult:
         # STEP 2: Find header row and parse items
         items, total_amount = _parse_items(sheet)
 
+        # ENHANCED: Kreiraj Party objekte i postavi na stavke
+        exporter = Party(
+            name=header_info.get('exporter_name', ''),
+            address=header_info.get('exporter_address', ''),
+            city=header_info.get('exporter_city', ''),
+            country=header_info.get('exporter_country', ''),
+            vat_or_id=header_info.get('exporter_vat', ''),
+        )
+        importer = Party(
+            name=header_info.get('importer_name', ''),
+            address=header_info.get('importer_address', ''),
+            city=header_info.get('importer_city', ''),
+            country=header_info.get('importer_country', ''),
+            vat_or_id=header_info.get('importer_vat', ''),
+        )
+        
+        # Log extracted parties
+        if exporter.name:
+            logger.info(f"Exporter: {exporter.name}")
+        if importer.name:
+            logger.info(f"Importer: {importer.name}")
+        
+        # Postavi exporter/importer na svaku stavku
+        for item in items:
+            item.exporter = exporter
+            item.importer = importer
+
         logger.info(
-            f"ŠUMAPROM parsing završen: {len(items)} stavki, "
+            f"SUMAPROM parsing zavrsen: {len(items)} stavki, "
             f"ukupno={total_amount} EUR"
         )
 
         # STEP 3: Extract invoice name from filename
         invoice_name = Path(filepath).stem
         # Remove common suffixes
-        invoice_name = re.sub(r'\s*[-_]\s*ŠUMAPROM.*$', '', invoice_name, flags=re.IGNORECASE)
+        invoice_name = re.sub(r'\s*[-_]\s*SUMAPROM.*$', '', invoice_name, flags=re.IGNORECASE)
         invoice_name = re.sub(r'\s*[-_]\s*SUMAPROM.*$', '', invoice_name, flags=re.IGNORECASE)
 
-        # Return ImportResult
+        # ENHANCED: Return ImportResult sa exporter/importer
         return ImportResult(
             items=items,
             bruto_kg=header_info.get('bruto_kg', 0.0),
-            neto_kg=header_info.get('neto_kg', 0.0),  # Neto nije u Excelu
+            neto_kg=header_info.get('neto_kg', 0.0),
             invoice_name=invoice_name,
             currency="EUR",
+            exporter=exporter if exporter.name else None,
+            importer=importer if importer.name else None,
         )
 
     except Exception as e:
-        logger.error(f"Greška tokom ŠUMAPROM parsiranja: {e}", exc_info=True)
-        raise ValueError(f"Nije moguće parsirati ŠUMAPROM Excel: {e}") from e
+        logger.error(f"Greska tokom SUMAPROM parsiranja: {e}", exc_info=True)
+        raise ValueError(f"Nije moguce parsirati SUMAPROM Excel: {e}") from e
 
 
 def _extract_header_info(sheet: xlrd.sheet.Sheet) -> Dict[str, any]:
     """
     Extract header information from sheet.
 
-    Header podaci su rasuti po ćelijama:
-    - Kupac: ŠUMAPROM COMMERCE, D.O.O. (prvih 18 redova)
+    Header podaci su rasuti po celijama:
+    - EKSPORTATOR: SUMAPROM (prvih 18 redova)
     - Broj fakture: 059/2022
     - Datum: 04.11.2022.
-    - Bruto težina: 266,00 KG (u footeru, oko reda 168)
+    - Bruto tezina: 266,00 KG (u footeru)
     - Broj paketa: 15
 
     Returns:
-        Dict sa extracted podacima
+        Dict sa extracted podacima ukljucujuci exporter i importer
     """
     header_info = {
         'buyer': '',
@@ -157,7 +188,28 @@ def _extract_header_info(sheet: xlrd.sheet.Sheet) -> Dict[str, any]:
         'neto_kg': 0.0,
         'num_packages': 0,
         'total_amount': 0.0,
+        # ENHANCED: Exporter/Importer podaci
+        'exporter_name': '',
+        'exporter_address': '',
+        'exporter_city': '',
+        'exporter_country': '',
+        'exporter_vat': '',
+        'importer_name': '',
+        'importer_address': '',
+        'importer_city': '',
+        'importer_country': '',
+        'importer_vat': '',
     }
+
+    # Collect all text from first 25 rows for analysis
+    all_rows_text = []
+    for row_idx in range(min(25, sheet.nrows)):
+        row_cells = []
+        for col_idx in range(sheet.ncols):
+            cell_value = sheet.cell_value(row_idx, col_idx)
+            if cell_value:
+                row_cells.append((col_idx, str(cell_value).strip()))
+        all_rows_text.append(row_cells)
 
     # Search through first 20 rows for basic info
     for row_idx in range(min(20, sheet.nrows)):
@@ -181,6 +233,71 @@ def _extract_header_info(sheet: xlrd.sheet.Sheet) -> Dict[str, any]:
             if date_match and not header_info['invoice_date']:
                 header_info['invoice_date'] = date_match.group(1)
 
+    # ENHANCED: Extract EXPORTER (SUMAPROM is the exporter/seller)
+    # Look for seller/exporter info in first 15 rows
+    for row_idx in range(min(15, sheet.nrows)):
+        row_text = " ".join([str(c[1]) for c in all_rows_text[row_idx]])
+        
+        # Common patterns for seller/exporter
+        if "SUMAPROM" in row_text.upper() or "ŠUMAPROM" in row_text:
+            # Extract lines from this row
+            lines = row_text.split('\n')
+            for line in lines:
+                # Look for company name (usually contains D.O.O., D.O.O, LTD, etc.)
+                if 'D.O.O' in line.upper() or 'LTD' in line.upper() or 'INC' in line.upper():
+                    header_info['exporter_name'] = line.strip()
+                    break
+                # Or just use first non-empty line with SUMAPROM
+                elif 'SUMAPROM' in line.upper() and not header_info['exporter_name']:
+                    header_info['exporter_name'] = line.strip()
+                    break
+            
+            # Try to find address in same row (usually next column or nearby)
+            for col_idx, cell_str in all_rows_text[row_idx]:
+                if cell_str and ('STR.' in cell_str.upper() or 'ST.' in cell_str.upper() or 
+                   'UL.' in cell_str.upper() or 'AVE' in cell_str.upper()):
+                    header_info['exporter_address'] = cell_str
+                    break
+            break
+
+    # ENHANCED: Extract IMPORTER (buyer - our company)
+    # Look for buyer info - usually contains "BUYER", "KUPAC", or company name
+    for row_idx in range(min(25, sheet.nrows)):
+        for col_idx in range(sheet.ncols):
+            cell_value = sheet.cell_value(row_idx, col_idx)
+            if cell_value:
+                cell_str = str(cell_value).upper()
+                
+                # Look for buyer header
+                if any(kw in cell_str for kw in ['BUYER', 'KUPAC', 'IMPORTER', 'UVOZNIK', 'CONSIGNEE']):
+                    # Usually next row has the buyer info
+                    if row_idx + 1 < sheet.nrows:
+                        for check_col in range(sheet.ncols):
+                            buyer_cell = sheet.cell_value(row_idx + 1, check_col)
+                            if buyer_cell:
+                                buyer_str = str(buyer_cell).strip()
+                                # Skip header keywords
+                                if any(kw in buyer_str.upper() for kw in ['BUYER', 'KUPAC', 'CONSIGNEE']):
+                                    continue
+                                # Look for company name
+                                if buyer_str and len(buyer_str) > 5:
+                                    if any(ind in buyer_str.upper() for ind in ['D.O.O', 'LTD', 'INC', 'GMBH', 'DOO']):
+                                        header_info['importer_name'] = buyer_str
+                                        # Try to get address from next columns
+                                        if check_col + 1 < sheet.ncols:
+                                            addr = sheet.cell_value(row_idx + 1, check_col + 1)
+                                            if addr:
+                                                header_info['importer_address'] = str(addr).strip()
+                                        # Try to get city from next row
+                                        if row_idx + 2 < sheet.nrows:
+                                            city = sheet.cell_value(row_idx + 2, check_col)
+                                            if city:
+                                                header_info['importer_city'] = str(city).strip()
+                                        break
+                        if header_info['importer_name']:
+                            break
+                break
+
     # Search entire sheet for gross weight
     for row_idx in range(sheet.nrows):
         for col_idx in range(sheet.ncols):
@@ -188,15 +305,15 @@ def _extract_header_info(sheet: xlrd.sheet.Sheet) -> Dict[str, any]:
             if cell_value:
                 cell_str = str(cell_value)
                 
-                # Look for gross weight: "Gross weight" or "BRUTO TEŽINA"
-                if "GROSS WEIGHT" in cell_str.upper() or "BRUTO TEŽINA" in cell_str.upper() or "BRUTO TEZINA" in cell_str.upper():
+                # Look for gross weight: "Gross weight" or "BRUTO TEZINA"
+                if "GROSS WEIGHT" in cell_str.upper() or "BRUTO" in cell_str.upper() and "TEŽINA" in cell_str.upper():
                     weight_match = re.search(r'([\d,\.]+)\s*KG', cell_str, re.IGNORECASE)
                     if weight_match:
                         weight_str = weight_match.group(1).replace(',', '.')
                         header_info['bruto_kg'] = float(weight_str)
                         break
                 # Look for net weight: "Net weight" or "NETO TEŽINA"
-                if "NET WEIGHT" in cell_str.upper() or "NETO TEŽINA" in cell_str.upper() or "NETO TEZINA" in cell_str.upper():
+                if "NET WEIGHT" in cell_str.upper() or "NETO" in cell_str.upper() and "TEŽINA" in cell_str.upper():
                     weight_match = re.search(r'([\d,\.]+)\s*KG', cell_str, re.IGNORECASE)
                     if weight_match:
                         weight_str = weight_match.group(1).replace(',', '.')
@@ -246,7 +363,7 @@ def _parse_items(sheet: xlrd.sheet.Sheet) -> Tuple[List[InvoiceLine], float]:
     """
     Parse items from sheet.
 
-    Header row sadrži: Pos. R.br. | Item Code | Description | U.M. | Quantity | Unit Price | Total Amount | Country of origin
+    Header row sadrzi: Pos. R.br. | Item Code | Description | U.M. | Quantity | Unit Price | Total Amount | Country of origin
 
     Args:
         sheet: Excel worksheet
@@ -343,13 +460,13 @@ def _parse_header_row(sheet: xlrd.sheet.Sheet, row_idx: int) -> Dict[str, int]:
         # Map columns - check for keywords in header text
         if "pos." in header_value or "r.br." in header_value or "r br" in header_value:
             header_map["line_no"] = col_idx
-        elif "item code" in header_value or "šifra" in header_value or "sifra" in header_value:
+        elif "item code" in header_value or "sifra" in header_value:
             header_map["product_code"] = col_idx
         elif "description" in header_value or "opis" in header_value or "naziv" in header_value:
             header_map["naziv_robe"] = col_idx
         elif "u.m." in header_value or "jm" in header_value:
             header_map["jm"] = col_idx
-        elif "quantity" in header_value or "količina" in header_value or "kolicina" in header_value:
+        elif "quantity" in header_value or "kolicina" in header_value:
             header_map["kolicina"] = col_idx
         elif "unit price" in header_value or "cena" in header_value or "cijena" in header_value:
             header_map["cijena_jed"] = col_idx
@@ -413,7 +530,7 @@ def _parse_item_row(
     if line_no_str:
         # Handle both string and numeric values
         try:
-            # float() handles both "1.0" string and 1.0 float → 1
+            # float() handles both "1.0" string and 1.0 float -> 1
             line_no = int(float(line_no_str))
         except (ValueError, TypeError):
             # Fallback if conversion fails
@@ -429,7 +546,7 @@ def _parse_item_row(
     cijena_jed = get_float("cijena_jed")
     iznos = get_float("iznos")
     zemlja_porijekla_raw = get_value("zemlja_porijekla")
-    tarifni_broj = ""  # ŠUMAPROM Excel nema tarifni broj
+    tarifni_broj = ""  # SUMAPROM Excel nema tarifni broj
 
     # Skip empty rows
     if not naziv_robe or len(naziv_robe) < 2:
@@ -448,7 +565,7 @@ def _parse_item_row(
     # First extract just the ISO code if format is "XX / COUNTRY NAME"
     zemlja_iso = ""
     if zemlja_porijekla_raw:
-        # Try to extract ISO code from format like "DE / NEMAČKA" or "SER / SRBIJA"
+        # Try to extract ISO code from format like "DE / NEMACKA" or "SER / SRBIJA"
         iso_match = re.match(r'^([A-Z]{2,3})\s*/', zemlja_porijekla_raw)
         if iso_match:
             zemlja_iso = iso_match.group(1)
@@ -470,7 +587,7 @@ def _parse_item_row(
             elif zemlja_iso == "IN":
                 zemlja_iso = "IN"
             elif zemlja_iso == "BR" or zemlja_iso == "BRA":
-                zemlja_iso = "BR"  # Brazil → BR
+                zemlja_iso = "BR"  # Brazil -> BR
             elif zemlja_iso == "IE":
                 zemlja_iso = "IE"
         else:
@@ -506,26 +623,37 @@ if __name__ == "__main__":
     from pathlib import Path
 
     # Test with sample file
-    test_file = "/home/radovan/Desktop/PythonProjects/asycuda_pro/najavauvoza/suma/FAKTURA 059-2022- ŠUMAPROM.xls"
+    test_file = "/home/radovan/Desktop/asycuda_pro/najavauvoza/suma/"
 
     if os.path.exists(test_file):
-        # Test detection
-        is_sumaprom = detect_sumaprom_excel(test_file)
-        logger.debug(f"Detection result: {is_sumaprom}")
+        files = [f for f in os.listdir(test_file) if f.endswith(('.xls', '.xlsx'))]
+        if files:
+            test_file = os.path.join(test_file, files[0])
+            logger.info(f"Test fajl: {test_file}")
+            
+            # Test detection
+            is_sumaprom = detect_sumaprom_excel(test_file)
+            logger.debug(f"Detection result: {is_sumaprom}")
 
-        if is_sumaprom:
-            # Test parsing
-            result = parse_sumaprom_excel(test_file)
-            logger.debug(f"\n✅ Parsed: {len(result.items)} items")
-            logger.debug(f"Invoice: {result.invoice_name}")
-            logger.debug(f"Total amount: {sum(item.iznos for item in result.items):.2f} EUR")
-            logger.debug(f"Gross weight: {result.bruto_kg} kg")
+            if is_sumaprom:
+                # Test parsing
+                result = parse_sumaprom_excel(test_file)
+                logger.debug(f"Parsed: {len(result.items)} items")
+                logger.debug(f"Invoice: {result.invoice_name}")
+                logger.debug(f"Total amount: {sum(item.iznos for item in result.items):.2f} EUR")
+                logger.debug(f"Gross weight: {result.bruto_kg} kg")
+                
+                # ENHANCED: Log exporter/importer
+                if result.exporter:
+                    logger.debug(f"Exporter: {result.exporter.name}")
+                if result.importer:
+                    logger.debug(f"Importer: {result.importer.name}")
 
-            logger.debug(f"\nPrvih 5 stavki:")
-            for i, item in enumerate(result.items[:5], 1):
-                logger.debug(f"\n{i}. Code: {item.product_code}")
-                logger.debug(f"   Naziv: {item.naziv_robe[:60]}")
-                logger.debug(f"   Qty: {item.kolicina} {item.jm}, Price: {item.cijena_jed} EUR, Amount: {item.iznos} EUR")
-                logger.debug(f"   Country: {item.zemlja_porijekla}")
+                logger.debug(f"Prvih 5 stavki:")
+                for i, item in enumerate(result.items[:5], 1):
+                    logger.debug(f"{i}. Code: {item.product_code}")
+                    logger.debug(f"   Naziv: {item.naziv_robe[:60]}")
+                    logger.debug(f"   Qty: {item.kolicina} {item.jm}, Amount: {item.iznos} EUR")
+                    logger.debug(f"   Country: {item.zemlja_porijekla}")
     else:
-        logger.debug(f"Test file not found: {test_file}")
+        logger.debug(f"Test folder not found: {test_file}")

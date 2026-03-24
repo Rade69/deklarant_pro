@@ -960,7 +960,15 @@ class AgentController:
         # Privremena poruka dok čekamo odgovor
         chat.add_activity(f"💬 Šaljem upit AI-u...")
 
-        worker = ChatWorker(message, draft=self.draft, parent=self.view)
+        # ENHANCED: Dobij memory service iz chat panel-a
+        memory_service = chat.get_memory_service()
+
+        worker = ChatWorker(
+            message, 
+            draft=self.draft, 
+            parent=self.view,
+            memory_service=memory_service  # Proslijedi memory service
+        )
         worker.response_ready.connect(chat.add_agent_message)
         worker.error_occurred.connect(
             lambda err: chat.add_agent_message(f"⚠️ {err}")

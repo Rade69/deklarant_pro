@@ -1,16 +1,21 @@
 """
 Chat panel sa Carinski Agent brandingom i tabovima (Agent, Aktivnosti, Pitanja).
 Botanički Sage Green dizajn.
+
+ENHANCED: Dodato pamćenje chat konteksta (ChatMemoryService).
 """
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QTabWidget, QTextEdit,
-    QLineEdit, QPushButton, QHBoxLayout, QLabel, QFrame
+    QLineEdit, QPushButton, QHBoxLayout, QLabel, QFrame, QMenuBar
 )
 from PySide6.QtCore import Qt, Signal, QDateTime
-from PySide6.QtGui import QTextCursor, QFont
+from PySide6.QtGui import QTextCursor, QFont, QAction
 import qtawesome as qta
 from ..constants import *
+
+# ENHANCED: Import memory service
+from services.agent.chat_memory_service import ChatMemoryService
 
 
 class ChatPanel(QWidget):
@@ -20,6 +25,8 @@ class ChatPanel(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        # ENHANCED: Inicijalizuj memory service
+        self._memory_service = ChatMemoryService(project="asycuda_pro")
         self._setup_ui()
 
     def _setup_ui(self):
@@ -74,6 +81,9 @@ class ChatPanel(QWidget):
         self.tabs.addTab(self.faq_view, qta.icon(ICON_QUESTION, color=COLOR_SAGE_DARK), " Pitanja")
 
         layout.addWidget(self.tabs, 1)
+
+        # ENHANCED: Memory status bar
+        layout.addWidget(self._create_memory_status_bar())
 
         # ── Input area ────────────────────────────────────────────────────────
         layout.addWidget(self._create_input_area())
@@ -147,6 +157,58 @@ class ChatPanel(QWidget):
         layout.addWidget(dot)
 
         return header
+
+    def _create_memory_status_bar(self) -> QWidget:
+        """ENHANCED: Status bar za prikaz memorije."""
+        bar = QFrame()
+        bar.setAttribute(Qt.WA_StyledBackground, True)
+        bar.setStyleSheet(f"""
+            QFrame {{
+                background-color: {COLOR_SAGE_BG};
+                border-bottom: 1px solid {COLOR_SAGE_PALE};
+                padding: 4px 12px;
+            }}
+        """)
+        
+        layout = QHBoxLayout(bar)
+        layout.setContentsMargins(8, 2, 8, 2)
+        layout.setSpacing(8)
+        
+        # Memory ikon
+        memory_icon = QLabel()
+        memory_icon.setPixmap(qta.icon('fa5s.memory', color=COLOR_SAGE).pixmap(14, 14))
+        memory_icon.setStyleSheet("background: transparent;")
+        
+        # Status tekst
+        self.memory_status_label = QLabel("💬 Nova sesija")
+        self.memory_status_label.setStyleSheet(f"""
+            color: {COLOR_TEXT_MUTED};
+            font-size: 11px;
+            background: transparent;
+        """)
+        
+        # Dugme za brisanje memorije
+        self.clear_memory_btn = QPushButton(qta.icon('fa5s.trash-alt', color=COLOR_TEXT_MUTED), "")
+        self.clear_memory_btn.setFixedSize(24, 24)
+        self.clear_memory_btn.setToolTip("Obriši chat historiju")
+        self.clear_memory_btn.clicked.connect(self._clear_memory)
+        self.clear_memory_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: transparent;
+                border: none;
+                border-radius: 4px;
+            }}
+            QPushButton:hover {{
+                background-color: {COLOR_SAGE_PALE};
+            }}
+        """)
+        
+        layout.addWidget(memory_icon)
+        layout.addWidget(self.memory_status_label)
+        layout.addStretch()
+        layout.addWidget(self.clear_memory_btn)
+        
+        return bar
 
     def _create_chat_view(self) -> QTextEdit:
         view = QTextEdit()
@@ -320,12 +382,16 @@ class ChatPanel(QWidget):
         body = text.replace("\n", "<br>")
         self.agent_view.append(self._agent_bubble(body, timestamp))
         self._scroll_to_bottom()
+        # ENHANCED: Ažuriraj memory status
+        self._update_memory_status()
 
     def add_user_message(self, text: str):
         timestamp = QDateTime.currentDateTime().toString("HH:mm")
         body = text.replace("<", "&lt;").replace(">", "&gt;")
         self.agent_view.append(self._user_bubble(body, timestamp))
         self._scroll_to_bottom()
+        # ENHANCED: Ažuriraj memory status
+        self._update_memory_status()
 
     def add_activity(self, text: str):
         timestamp = QDateTime.currentDateTime().toString("HH:mm:ss")
@@ -347,6 +413,27 @@ class ChatPanel(QWidget):
         self.add_user_message(message)
         self.input_field.clear()
         self.message_sent.emit(message)
+
+    def _update_memory_status(self):
+        """ENHANCED: Ažuriraj status memorije."""
+        msg_count = len(self._memory_service)
+        if msg_count == 0:
+            self.memory_status_label.setText("💬 Nova sesija")
+        elif msg_count <= 4:
+            self.memory_status_label.setText(f"💬 {msg_count} poruka u sesiji")
+        else:
+            self.memory_status_label.setText(f"💬 {msg_count} poruka — pamti kontekst")
+
+    def _clear_memory(self):
+        """ENHANCED: Obriši chat memoriju."""
+        self._memory_service.clear()
+        self._update_memory_status()
+        self.add_activity("🗑️ Chat memorija obrisana")
+
+    # ENHANCED: Getter za memory service
+    def get_memory_service(self) -> ChatMemoryService:
+        """Vrati memory service za korištenje u ChatWorker."""
+        return self._memory_service
 
     def get_input_field(self) -> QLineEdit:
         return self.input_field

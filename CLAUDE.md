@@ -1,32 +1,55 @@
 # CLAUDE.md - Projektne instrukcije za AI asistenta
 
-## ⚠️ VAŽNO: Čitanje memorije na početku SVAKE sesije
+## ⚠️ JEZIK: ISKLJUČIVO SRPSKI LATINICA
 
-**Pri svakom novom zadatku / sesiji**, OBAVEZNO uradi oba koraka:
+**OVA INSTRUKCIJA JE OBAVEZNA I PRIMARNA:**
+- Pišem isključivo na **srpskom jeziku, latinica**
+- Svi odgovori, objašnjenja, komentari su na latinici
+- Nikada ne pišem ćirilicom
+- Nikada ne pišem na engleskom (osim ako korisnik eksplicitno traži)
+- Kod komentari mogu biti na engleskom ako već postoje u kodu
 
-### Korak 1: Koristi MCP Memory Server (universal-memory) - PRVI KORAK
-MCP server `universal-memory` je dostupan za projekat `asycuda_pro`.
+---
 
-**NA POČETKU SESIJE:**
-1. Pozovi `get_project_overview(project="asycuda_pro")` - da dobiješ pregled svih memorija
-2. Zatim koristi `query_memory(project="asycuda_pro", query="...")` za specifične teme
+## ⚠️ OBAVEZNO: Čitanje memorije na početku SVAKE sesije
 
-Primjeri query-ja:
-- Arhitektura → `query_memory(project="asycuda_pro", query="arhitektura GUI tabovi 3-layer")`
-- Refactoring → `query_memory(project="asycuda_pro", query="faktura zaglavlje refactor service view controller")`
-- Bugovi → `query_memory(project="asycuda_pro", query="bugovi rješenja recursion")`
-- Testovi → `query_memory(project="asycuda_pro", query="testovi coverage integration")`
+**Kada me pozoveš, PRVO čitam memoriju projekta.**
 
-### Korak 2: Pročitaj flat MEMORY.md indeks (ako postoji)
+### Automatsko određivanje projekta
+- Ime projekta se određuje iz **working directory** ili **.claude/settings.json**
+- Za ovaj projekt: **`asycuda_pro`**
+
+### Protokol na početku sesije:
+
+**1. Pozovi `get_project_overview`:**
 ```
-/home/radovan/.claude/projects/-home-radovan-Desktop-asycuda-pro/memory/MEMORY.md
+project: "asycuda_pro"
 ```
 
-**MCP memorija ima PRVENSTVO** - sadrži 13+ cells sa:
-- Tab Refactor Pattern (View/Controller/Service)
-- ZaglavljeTab, FakturaTab, NaimenovanjaTab, SifarniciTab status
-- Code reduction metrike (-12.6% ukupno)
-- Safe refactoring decisions i lessons learned
+**2. Pozovi `query_memory` sa relevantnim query-ima:**
+```
+project: "asycuda_pro"
+query: "arhitektura tabovi refactor status"
+```
+
+**3. Dodatni query prema zadatku:**
+- Refactoring → `"faktura zaglavlje service controller"`
+- Bugovi → `"bugovi rješenja known issues"`
+- GUI → `"GUI PySide6 tabovi layout"`
+- Testovi → `"testovi coverage"}
+```
+
+### Šta memorija sadrži:
+- ✅ Tab Refactor Pattern (3-layer: View/Controller/Service)
+- ✅ ZaglavljeTab, FakturaTab, NaimenovanjaTab, SifarniciTab status
+- ✅ Code reduction metrike (-12.6% ukupno)
+- ✅ Safe refactoring decisions i lessons learned
+- ✅ Bug history i poznata rješenja
+
+### 📌 VAŽNO:
+- Čitaj **SAMO memoriju vezanu za trenutni projekt**
+- Ne čitaj flat MEMORY.md fajlove van projekta
+- MCP memorija ima prvenstvo nad dokumentacijom
 
 ---
 
