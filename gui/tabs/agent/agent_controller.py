@@ -898,26 +898,61 @@ class AgentController:
             chat.add_activity("⚠️ Nije moguće odrediti pošiljaoca — preskačem template pretragu")
             return
 
-        chat.add_activity(f"🔍 Tražim template za pošiljaoca: '{exporter_hint}'")
+        # Consignee JIB iz rubrike 8 (jedinstven identifikator uvoznika)
+        consignee_jib = getattr(self.draft, 'primalac_id', '') or ''
+        consignee_name = getattr(self.draft, 'primalac_naziv', '') or ''
 
-        # ── Pretraga XML templatea ───────────────────────────────
+        chat.add_activity(
+            f"🔍 Tražim template za: '{exporter_hint}'"
+            + (f" + uvoznik JIB {consignee_jib}" if consignee_jib else "")
+        )
+
+        # ── Pretraga: 1. exporter_xml_index (DB, JIB lookup) ────
+        from services.agent.xml_template_service import XmlTemplateService, TemplateMatch
+        svc = XmlTemplateService()
+        match = None
+
         try:
-            from services.agent.xml_template_service import XmlTemplateService
-            svc = XmlTemplateService()
-            match = svc.find_template(exporter_hint)
+            from services.agent.exporter_xml_indexer import find_xml_for_pair
+            db_result = find_xml_for_pair(
+                exporter_hint,
+                consignee_jib=consignee_jib,
+                consignee_hint=consignee_name,
+            )
+            if db_result and Path(db_result['xml_filepath']).exists():
+                xml_path = Path(db_result['xml_filepath'])
+                exporter_from_xml, fields = svc._parse_xml(xml_path)
+                match_type = db_result.get('match_type', 'db')
+                score = 1.0 if 'jib' in match_type else 0.85 if 'name' in match_type else 0.70
+                match = TemplateMatch(
+                    filepath=str(xml_path),
+                    filename=xml_path.name,
+                    exporter_name=db_result.get('exporter_original') or exporter_from_xml,
+                    match_score=score,
+                    fields=fields,
+                )
+                chat.add_activity(
+                    f"✅ Nađen u bazi: '{xml_path.name}' "
+                    f"(match: {match_type}, uvoznik: {db_result.get('consignee_original', '—')})"
+                )
         except Exception as e:
-            chat.add_activity(f"⚠️ Greška pri pretrazi XML templatea: {e}")
-            return
+            chat.add_activity(f"⚠️ DB lookup greška: {e} — probam lokalne fajlove")
+
+        # ── Pretraga: 2. Fallback — lokalni XML fajlovi ──────────
+        if not match:
+            try:
+                match = svc.find_template(exporter_hint)
+                if match:
+                    chat.add_activity(
+                        f"✅ Nađen lokalno: '{match.filename}' "
+                        f"(pošiljalac: '{match.exporter_name}', poklapanje: {int(match.match_score * 100)}%)"
+                    )
+            except Exception as e:
+                chat.add_activity(f"⚠️ Greška pri pretrazi XML templatea: {e}")
 
         if not match:
             chat.add_activity("ℹ️ Nije nađen odgovarajući XML template — popuni zaglavlje ručno")
             return
-
-        score_pct = int(match.match_score * 100)
-        chat.add_activity(
-            f"✅ Nađen template: '{match.filename}' "
-            f"(pošiljalac: '{match.exporter_name}', poklapanje: {score_pct}%)"
-        )
 
         # ── Primijeni template na draft ──────────────────────────
         applied = svc.apply_to_draft(self.draft, match.fields)
