@@ -2,7 +2,7 @@
 ChatWorker - background thread za LLM pozive (Groq API).
 
 ENHANCED: Dodato pamćenje konteksta chat sesije.
-" tačno moram uraditi da ga aktiviram.add()""
+"""
 
 import re
 from PySide6.QtCore import QThread, Signal
@@ -11,15 +11,16 @@ from PySide6.QtCore import QThread, Signal
 class ChatWorker(QThread):
     """Poziva Groq API u pozadini da ne blokira UI."""
 
-    response_ready = Signal(str)
+    token_received = Signal(str)   # svaki streaming token
+    stream_started = Signal()      # prije prvog tokena
+    response_ready = Signal(str)   # cijeli tekst (za memoriju + fallback)
     error_occurred = Signal(str)
 
-    def __init__(self, message: str, draft=None, parent=None, 
+    def __init__(self, message: str, draft=None, parent=None,
                  memory_service=None):
         super().__init__(parent)
         self.message = message
         self.draft = draft
-        # ENHANCED: Memory service za pamćenje konteksta
         self.memory_service = memory_service
 
     def run(self):
@@ -29,7 +30,6 @@ class ChatWorker(QThread):
             import os
             from pathlib import Path
 
-            # Čitaj direktno iz .env
             env_path = Path(__file__).parent.parent.parent.parent.parent / ".env"
             env_vars = dotenv_values(env_path) if env_path.exists() else {}
 
@@ -38,36 +38,39 @@ class ChatWorker(QThread):
                 self.error_occurred.emit("GROQ_API_KEY nije pronađen u .env fajlu.")
                 return
 
-            # Izgradi kontekst iz drafta
             context = self._build_context()
 
-            # ENHANCED: Dobij chat historiju iz memorije
             chat_history = []
             if self.memory_service:
                 chat_history = self.memory_service.get_context(max_messages=10)
-            
-            # ENHANCED: Dodaj korisničku poruku u memoriju PRIJE slanja
+
             if self.memory_service:
                 self.memory_service.add_user_message(self.message)
 
             client = Groq(api_key=api_key)
-            
-            # ENHANCED: Sastavi poruke sa historijom
             messages = self._build_messages(context, chat_history)
-            
-            response = client.chat.completions.create(
+
+            # === STREAMING ===
+            stream = client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 messages=messages,
                 temperature=0.2,
                 max_tokens=1500,
+                stream=True,
             )
 
-            text = response.choices[0].message.content.strip()
-            
-            # ENHANCED: Dodaj AI odgovor u memoriju NAKON dobijanja
+            self.stream_started.emit()
+            full_text = ""
+            for chunk in stream:
+                delta = chunk.choices[0].delta.content or ""
+                if delta:
+                    full_text += delta
+                    self.token_received.emit(delta)
+
+            text = full_text.strip()
             if self.memory_service:
                 self.memory_service.add_assistant_message(text)
-            
+
             self.response_ready.emit(text)
 
         except Exception as e:
@@ -125,9 +128,10 @@ class ChatWorker(QThread):
             countries[c] = countries.get(c, 0) + 1
         country_str = ", ".join(f"{k}:{v}" for k, v in sorted(countries.items()))
 
-        # === SVE STAVKE (kompaktan format) ===
-        sve_stavke = []
-        for i, l in enumerate(lines, 1):
+        # === STAVKE — pametno skraćivanje za velike fakture ===
+        _MAX_FULL = 30  # Do ovog broja šaljemo sve stavke
+
+        def _fmt_line(i, l):
             naziv = getattr(l, 'naziv_robe', '') or ''
             tarifa = getattr(l, 'tarifni_broj', '') or '?'
             zemlja = getattr(l, 'zemlja_porijekla', '') or '?'
@@ -141,11 +145,51 @@ class ChatWorker(QThread):
             eur1_str = f" eur1={eur1}" if eur1 else ""
             tarifa_marker = "" if tarifa != '?' else " ⚠️NEMA_TARIFE"
             zemlja_marker = "" if zemlja != '?' else " ⚠️NEMA_ZEMLJE"
-            sve_stavke.append(
+            return (
                 f"  {i:3d}. {naziv[:55]:<55} | tarifa={tarifa}{tarifa_marker} | "
                 f"zemlja={zemlja}{zemlja_marker} | kol={kol_str} | "
                 f"bruto={bruto:.2f}kg neto={neto:.2f}kg | pov={pov}{eur1_str}"
             )
+
+        # Identifikuj problematične stavke (prioritet za AI)
+        def _is_problematic(l):
+            no_tariff = not getattr(l, 'tarifni_broj', None)
+            no_country = not getattr(l, 'zemlja_porijekla', None)
+            needs_eur1 = (
+                getattr(l, 'povlastica', None)
+                and not getattr(l, 'has_origin_statement', False)
+                and not getattr(l, 'eur1_number', None)
+            )
+            return no_tariff or no_country or needs_eur1
+
+        sve_stavke = []
+        if total <= _MAX_FULL:
+            # Mala faktura — šalji sve
+            ctx_header = f"=== SVE STAVKE ({total}) ==="
+            for i, l in enumerate(lines, 1):
+                sve_stavke.append(_fmt_line(i, l))
+        else:
+            # Velika faktura — prioritizuj problematične
+            problematic = [(i, l) for i, l in enumerate(lines, 1) if _is_problematic(l)]
+            ok_lines = [(i, l) for i, l in enumerate(lines, 1) if not _is_problematic(l)]
+
+            ctx_header = (
+                f"=== PROBLEMATIČNE STAVKE ({len(problematic)}/{total}) ===\n"
+                f"  (Prikazane stavke koje zahtijevaju pažnju; "
+                f"preostalih {len(ok_lines)} urednih stavki dato je kao sumarnik)"
+            )
+            for i, l in problematic[:50]:  # max 50 problematičnih
+                sve_stavke.append(_fmt_line(i, l))
+
+            if ok_lines:
+                sve_stavke.append("")
+                sve_stavke.append(f"  --- Uredne stavke — sumarnik po tarifi ({len(ok_lines)} stavki) ---")
+                tariff_counts: dict = {}
+                for _, l in ok_lines:
+                    t = getattr(l, 'tarifni_broj', '?') or '?'
+                    tariff_counts[t] = tariff_counts.get(t, 0) + 1
+                for t, cnt in sorted(tariff_counts.items(), key=lambda x: -x[1])[:20]:
+                    sve_stavke.append(f"  tarifa={t}: {cnt} stavki")
 
         # === PRIJEDLOZI IZ BAZE ZNANJA za stavke bez tarife ===
         kb_prijedlozi = []
@@ -203,7 +247,7 @@ class ChatWorker(QThread):
             f"Čeka EUR1 broj: {bez_eur1}",
             f"Zemlja distribucija: {country_str}",
             "",
-            f"=== SVE STAVKE ({total}) ===",
+            ctx_header,
         ]
         ctx.extend(sve_stavke)
 

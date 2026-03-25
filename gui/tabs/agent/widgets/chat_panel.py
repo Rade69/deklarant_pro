@@ -377,6 +377,105 @@ class ChatPanel(QWidget):
         )
         self.agent_view.append(self._agent_bubble(body, timestamp))
 
+    # ── Typing indicator ──────────────────────────────────────────────────────
+
+    def show_typing_indicator(self):
+        """Prikaži 'Razmišljam...' bubble dok AI obrađuje upit."""
+        if hasattr(self, '_typing_cursor_pos'):
+            return
+        cursor = self.agent_view.textCursor()
+        cursor.movePosition(QTextCursor.End)
+        self._typing_cursor_pos = cursor.position()
+        timestamp = QDateTime.currentDateTime().toString("HH:mm")
+        self.agent_view.append(self._typing_bubble(timestamp))
+        self._scroll_to_bottom()
+        self.input_field.setEnabled(False)
+
+    def hide_typing_indicator(self):
+        """Ukloni 'Razmišljam...' bubble i vrati input."""
+        if not hasattr(self, '_typing_cursor_pos'):
+            return
+        cursor = self.agent_view.textCursor()
+        cursor.setPosition(self._typing_cursor_pos)
+        cursor.movePosition(QTextCursor.End, QTextCursor.KeepAnchor)
+        cursor.removeSelectedText()
+        del self._typing_cursor_pos
+        self.input_field.setEnabled(True)
+        self.input_field.setFocus()
+
+    # ── Streaming ──────────────────────────────────────────────────────────────
+
+    def start_streaming(self):
+        """Ukloni typing indicator i otvori streaming bubble."""
+        self.hide_typing_indicator()
+        cursor = self.agent_view.textCursor()
+        cursor.movePosition(QTextCursor.End)
+        self._stream_start_pos = cursor.position()
+        self._stream_buffer = ""
+        self._stream_token_count = 0
+        self._stream_timestamp = QDateTime.currentDateTime().toString("HH:mm")
+        self.agent_view.append(self._agent_bubble("▌", self._stream_timestamp))
+        self._scroll_to_bottom()
+
+    def append_stream_token(self, token: str):
+        """Dodaj token u streaming buffer i osviježi prikaz svakih 8 tokena."""
+        self._stream_buffer += token
+        self._stream_token_count += 1
+        if self._stream_token_count % 8 == 0 or token.strip() in ('.', '!', '?', '\n'):
+            self._refresh_stream_bubble()
+
+    def _refresh_stream_bubble(self):
+        if not hasattr(self, '_stream_start_pos'):
+            return
+        cursor = self.agent_view.textCursor()
+        cursor.setPosition(self._stream_start_pos)
+        cursor.movePosition(QTextCursor.End, QTextCursor.KeepAnchor)
+        cursor.removeSelectedText()
+        body = self._stream_buffer.replace("\n", "<br>") + " ▌"
+        self.agent_view.insertHtml(self._agent_bubble(body, self._stream_timestamp))
+        self._scroll_to_bottom()
+
+    def finalize_streaming(self):
+        """Zatvori streaming bubble (prikaži finalni tekst bez kursora)."""
+        if not hasattr(self, '_stream_start_pos'):
+            return
+        cursor = self.agent_view.textCursor()
+        cursor.setPosition(self._stream_start_pos)
+        cursor.movePosition(QTextCursor.End, QTextCursor.KeepAnchor)
+        cursor.removeSelectedText()
+        if hasattr(self, '_stream_buffer') and self._stream_buffer:
+            body = self._stream_buffer.strip().replace("\n", "<br>")
+            self.agent_view.insertHtml(self._agent_bubble(body, self._stream_timestamp))
+        for attr in ('_stream_start_pos', '_stream_buffer', '_stream_token_count', '_stream_timestamp'):
+            if hasattr(self, attr):
+                delattr(self, attr)
+        self._scroll_to_bottom()
+        self.input_field.setEnabled(True)
+        self.input_field.setFocus()
+        self._update_memory_status()
+
+    def _typing_bubble(self, timestamp: str) -> str:
+        return f"""
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin: 6px 0;">
+          <tr>
+            <td width="5%" valign="top" style="padding-top:4px;">
+              <span style="font-size:18px;">🌿</span>
+            </td>
+            <td width="72%" style="background-color:#ffffff;
+                    border-radius:4px 16px 16px 16px;
+                    padding: 10px 14px;
+                    border: 1px solid {COLOR_SAGE_PALE};">
+              <div style="font-size:11px; color:{COLOR_TEXT_MUTED}; margin-bottom:5px;">
+                <b style="color:{COLOR_SAGE_DARK};">Carinski Agent</b> &nbsp;·&nbsp; {timestamp}
+              </div>
+              <div style="color:{COLOR_TEXT_MUTED}; font-size:13px; font-style:italic;">
+                ⏳ Razmišljam...
+              </div>
+            </td>
+            <td width="23%"></td>
+          </tr>
+        </table>"""
+
     def add_agent_message(self, text: str):
         timestamp = QDateTime.currentDateTime().toString("HH:mm")
         body = text.replace("\n", "<br>")

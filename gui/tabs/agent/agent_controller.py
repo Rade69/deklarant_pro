@@ -957,19 +957,23 @@ class AgentController:
         from .widgets.chat_worker import ChatWorker
         chat = self.view.get_chat_panel()
 
-        # Privremena poruka dok čekamo odgovor
         chat.add_activity(f"💬 Šaljem upit AI-u...")
+        chat.show_typing_indicator()
 
-        # ENHANCED: Dobij memory service iz chat panel-a
         memory_service = chat.get_memory_service()
 
         worker = ChatWorker(
-            message, 
-            draft=self.draft, 
+            message,
+            draft=self.draft,
             parent=self.view,
-            memory_service=memory_service  # Proslijedi memory service
+            memory_service=memory_service
         )
-        worker.response_ready.connect(chat.add_agent_message)
+        # Streaming: typing → stream bubble → token po token → finalize
+        worker.stream_started.connect(chat.start_streaming)
+        worker.token_received.connect(chat.append_stream_token)
+        worker.response_ready.connect(lambda _: chat.finalize_streaming())
+        # Na grešku: ukloni indikator i prikaži poruku
+        worker.error_occurred.connect(lambda _: chat.hide_typing_indicator())
         worker.error_occurred.connect(
             lambda err: chat.add_agent_message(f"⚠️ {err}")
         )
