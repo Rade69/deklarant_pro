@@ -12,7 +12,7 @@ import logging
 import re
 from typing import List
 
-from core.draft.draft import InvoiceLine
+from core.draft.draft import InvoiceLine, Party
 from importers.import_result import ImportResult
 
 logger = logging.getLogger("asycuda_pro.import.invoice_improved")
@@ -185,6 +185,9 @@ def parse_invoice_improved(pdf_path: str) -> ImportResult:
                 item.neto_kg = proportion * neto_kg
             logger.debug(f"Distributed weights proportionally across {len(items)} items")
 
+    # Pokušaj detektovati naziv exportera iz teksta
+    exporter_name = _detect_exporter(full_text)
+
     return ImportResult(
         items=items,
         bruto_kg=bruto_kg,
@@ -193,6 +196,7 @@ def parse_invoice_improved(pdf_path: str) -> ImportResult:
         currency="EUR",
         has_origin_statement=has_origin_statement,
         origin_statements=origin_statements,
+        exporter=Party(name=exporter_name) if exporter_name else None,
     )
 
 
@@ -309,6 +313,18 @@ def detect_invoice_improved(pdf_path: str) -> bool:
 
     except Exception:
         return False
+
+
+def _detect_exporter(full_text: str, fallback: str = "") -> str:
+    """Try to detect company name from invoice header."""
+    lines = [l.strip() for l in full_text.split('\n')[:10] if l.strip()]
+    for line in lines:
+        for prefix in ['Seller:', 'Vendor:', 'From:', 'FROM:', 'Prodavac:', 'Dobavljač:']:
+            if line.startswith(prefix):
+                name = line[len(prefix):].strip()
+                if name:
+                    return name
+    return fallback
 
 
 def _detect_all_origin_statements(text: str) -> list:

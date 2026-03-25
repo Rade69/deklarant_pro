@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pdfplumber
 
-from core.draft.draft import InvoiceLine
+from core.draft.draft import InvoiceLine, Party
 from importers.import_result import ImportResult
 from importers.invoice_line_utils import KNOWN_JM, parse_eu_number, parse_invoice_tail, parse_packing_tail
 from utils.country_normalizer import normalize_country_name
@@ -580,7 +580,8 @@ def parse_blagic_attos_with_auto_combine(invoice_pdf_path: str) -> ImportResult:
         invoice_name=header.get("invoice_number", ""),
         currency=header.get("currency", "EUR"),
         has_origin_statement=has_origin_statement,
-        origin_statements=header.get("origin_statements", [])
+        origin_statements=header.get("origin_statements", []),
+        exporter=Party(name="ATTOS"),
     )
 
 

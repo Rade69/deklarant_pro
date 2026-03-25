@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import openpyxl
 import pdfplumber
 
-from core.draft.draft import InvoiceLine
+from core.draft.draft import InvoiceLine, Party
 from importers.invoice_line_utils import parse_eu_number
 from utils.country_normalizer import normalize_country_name
 
@@ -400,6 +400,7 @@ def convert_to_invoice_lines(
 ) -> List[InvoiceLine]:
     """Konvertuje ImportedLine → InvoiceLine"""
     invoice_lines = []
+    master_frigo_party = Party(name="MASTER FRIGO")
 
     for idx, item in enumerate(imported_lines):
         invoice_line = InvoiceLine(
@@ -416,6 +417,7 @@ def convert_to_invoice_lines(
             valuta=currency,
             bruto_kg=0.0,  # Nema pojedinačnih težina po stavci
             neto_kg=0.0,
+            exporter=master_frigo_party,
         )
         invoice_lines.append(invoice_line)
 

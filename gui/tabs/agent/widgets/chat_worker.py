@@ -237,6 +237,47 @@ class ChatWorker(QThread):
             except Exception:
                 pass  # RAG nije kritičan
 
+        # === POŠILJALAC / UVOZNIK — iz fakture i zaglavlja ===
+        exporter_name = ""
+        consignee_jib = ""
+        consignee_name = ""
+        xml_lookup_info = ""
+
+        # Exporter: čitaj s prve stavke (parseri popunjavaju InvoiceLine.exporter)
+        first_line = lines[0] if lines else None
+        if first_line:
+            exp_party = getattr(first_line, 'exporter', None)
+            if exp_party and getattr(exp_party, 'name', ''):
+                exporter_name = exp_party.name
+
+        # Consignee: čitaj iz zaglavlja drafta (rubrika 8 — primalac)
+        if self.draft:
+            consignee_jib = getattr(self.draft, 'primalac_id', '') or ''
+            consignee_name = getattr(self.draft, 'primalac_naziv', '') or ''
+            # Ako nema JIB u rubrici 8, pokušaj izvoznik id (rubrika 2)
+            if not consignee_jib:
+                consignee_jib = getattr(self.draft, 'izvoznik_id', '') or ''
+
+        # XML lookup — tražimo prethodni XML za ovaj par
+        if exporter_name:
+            try:
+                from services.agent.exporter_xml_indexer import find_xml_for_pair
+                match = find_xml_for_pair(
+                    exporter_name,
+                    consignee_jib=consignee_jib,
+                    consignee_hint=consignee_name
+                )
+                if match:
+                    import os
+                    fname = os.path.basename(match['xml_filepath'])
+                    xml_lookup_info = (
+                        f"Pronađen XML predložak: {fname} "
+                        f"(match: {match['match_type']}, "
+                        f"consignee: {match.get('consignee_original', '—')})"
+                    )
+            except Exception:
+                pass
+
         # === Sastavni kontekst ===
         ctx = [
             f"=== STANJE DRAFTA ===",
@@ -246,9 +287,24 @@ class ChatWorker(QThread):
             f"Sa povlasticom: {sa_povlasticom}",
             f"Čeka EUR1 broj: {bez_eur1}",
             f"Zemlja distribucija: {country_str}",
-            "",
-            ctx_header,
         ]
+
+        # Dodaj exporter/consignee info ako postoji
+        if exporter_name or consignee_name or consignee_jib:
+            ctx.append("")
+            ctx.append("=== POŠILJALAC / UVOZNIK ===")
+            if exporter_name:
+                ctx.append(f"Pošiljalac (iz fakture): {exporter_name}")
+            if consignee_name:
+                ctx.append(f"Uvoznik (rubrika 8): {consignee_name}" + (f" (JIB: {consignee_jib})" if consignee_jib else ""))
+            elif consignee_jib:
+                ctx.append(f"Uvoznik JIB (rubrika 8): {consignee_jib}")
+            if xml_lookup_info:
+                ctx.append(f"XML predložak: {xml_lookup_info}")
+            elif exporter_name:
+                ctx.append("XML predložak: nije pronađen u bazi")
+
+        ctx.extend(["", ctx_header])
         ctx.extend(sve_stavke)
 
         if kb_prijedlozi:
@@ -593,6 +649,7 @@ class ChatWorker(QThread):
             "- Imaš pristup zakonskoj regulativi (carinski zakoni, pravilnici BiH) — relevantni odlomci su priloženi u kontekstu\n"
             "- Možeš pretraživati arhiv od 2500+ historijskih XML deklaracija iz sistema ASYCUDA\n"
             "- Možeš pretraživati PostgreSQL bazu podataka: partnere (izvoznike, primaoce), tarifne mappinge\n"
+            "- Vidiš pošiljaoca (iz fakture) i uvoznika (JIB iz rubrike 8) — na osnovu toga pronalažen XML predložak iz baze\n"
             "- Možeš analizirati probleme i predlagati rješenja\n\n"
             "OBLASTI PODRŠKE:\n"
             "- Tarifni brojevi (HS/TARIC): koji tarifni broj odgovara kom proizvodu\n"

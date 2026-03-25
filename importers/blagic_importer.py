@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import openpyxl
 import pdfplumber
 
-from core.draft.draft import InvoiceLine
+from core.draft.draft import InvoiceLine, Party
 from utils.country_normalizer import normalize_country_name
 
 logger = logging.getLogger("asycuda_pro.import.blagic")
@@ -135,6 +135,10 @@ def parse_blagic_invoice_pdf(path: str) -> Tuple[Dict[str, Any], List[ImportedLi
     header["origin_statements"] = origin_statements
     logger.info(f"  Detekcija izjave o poreklu: {header['has_origin_statement']} ({len(origin_statements)} izjava)")
 
+    # Pokušaj detektovati naziv exportera iz teksta
+    exporter_name = _detect_exporter(full_text)
+    header["exporter_name"] = exporter_name
+
     return header, items
 
 
@@ -248,15 +252,28 @@ def merge_invoice_with_packing(
     return items
 
 
+def _detect_exporter(full_text: str, fallback: str = "") -> str:
+    """Try to detect company name from invoice header."""
+    lines = [l.strip() for l in full_text.split('\n')[:10] if l.strip()]
+    for line in lines:
+        for prefix in ['Seller:', 'Vendor:', 'From:', 'FROM:', 'Prodavac:', 'Dobavljač:']:
+            if line.startswith(prefix):
+                name = line[len(prefix):].strip()
+                if name:
+                    return name
+    return fallback
+
+
 def convert_to_invoice_lines(
-    items: List[ImportedLine], currency: str = "EUR"
+    items: List[ImportedLine], currency: str = "EUR", exporter_name: str = ""
 ) -> List[InvoiceLine]:
     """Konverzija u InvoiceLine objekte sa kompletnim mapiranjem."""
     lines = []
+    exporter = Party(name=exporter_name) if exporter_name else Party()
     for item in items:
         # Normalizacija zemlje porijekla
         origin_normalized = normalize_country_name(item.origin) if item.origin else ""
-        
+
         line = InvoiceLine(
             line_no=item.num,
             naziv_robe=item.description,
@@ -269,6 +286,7 @@ def convert_to_invoice_lines(
             valuta=currency,
             bruto_kg=item.weight_total,
             neto_kg=item.weight_total,  # Za sada isto kao bruto
+            exporter=exporter,
         )
         lines.append(line)
     return lines
@@ -293,7 +311,7 @@ def import_blagic_pair(
         merged = merge_invoice_with_packing(invoice_items, packing)
         
         # Konverzija u finalni format
-        result = convert_to_invoice_lines(merged, currency=header.get("currency", "EUR"))
+        result = convert_to_invoice_lines(merged, currency=header.get("currency", "EUR"), exporter_name=header.get("exporter_name", ""))
         
         # Statistika
         matched_items = sum(1 for item in merged if item.packing_matched)

@@ -22,7 +22,7 @@ from typing import Optional
 
 import openpyxl
 
-from core.draft.draft import InvoiceLine
+from core.draft.draft import InvoiceLine, Party
 from importers.import_result import ImportResult
 from utils.country_normalizer import normalize_country_name
 
@@ -333,4 +333,5 @@ def parse_leburic_pekabesko_excel(filepath: str) -> ImportResult:
         invoice_name=invoice_name,
         currency="EUR",
         import_type="leburic_pekabesko",
+        exporter=Party(name="PEKABESKO"),
     )

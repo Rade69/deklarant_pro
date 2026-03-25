@@ -21,7 +21,7 @@ from pathlib import Path
 import openpyxl
 from openpyxl.worksheet.worksheet import Worksheet
 
-from core.draft.draft import InvoiceLine
+from core.draft.draft import InvoiceLine, Party
 from importers.import_result import ImportResult
 from utils.country_normalizer import normalize_country_name
 
@@ -205,7 +205,8 @@ def parse_blagic_loren_excel(filepath: str) -> ImportResult:
             bruto_kg=bruto_kg,
             neto_kg=neto_kg,
             invoice_name=invoice_name,
-            currency="EUR"
+            currency="EUR",
+            exporter=Party(name="LOREN"),
         )
 
     except Exception as e:

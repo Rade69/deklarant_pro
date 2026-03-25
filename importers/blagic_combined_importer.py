@@ -14,7 +14,7 @@ from typing import Dict, List, Tuple, Optional
 from pathlib import Path
 from difflib import SequenceMatcher
 
-from core.draft.draft import InvoiceLine
+from core.draft.draft import InvoiceLine, Party
 from importers.import_result import ImportResult
 from importers.blagic_loren_importer import parse_blagic_loren_excel
 from importers.blagic_loren_pdf_parser import parse_blagic_loren_pdf, detect_blagic_loren_pdf
@@ -336,6 +336,7 @@ def combine_blagic_excel_and_pdf(
         "currency": pdf_result.currency,
         "has_origin_statement": pdf_result.has_origin_statement,
         "origin_statements": pdf_result.origin_statements,
+        "exporter_name": pdf_result.exporter.name if pdf_result.exporter else "LOREN",
     }
 
     logger.info(f"\n📊 MATCHING REZULTAT:")
@@ -377,6 +378,7 @@ def import_blagic_combined(
         invoice_name=Path(pdf_path).stem,
         currency=stats.get("currency", "EUR"),
         has_origin_statement=stats.get("has_origin_statement", False),
+        exporter=Party(name=stats.get("exporter_name", "LOREN")),
     )
 
 

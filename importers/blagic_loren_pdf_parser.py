@@ -12,7 +12,7 @@ import re
 from typing import List, Dict, Any, Optional
 import pdfplumber
 
-from core.draft.draft import InvoiceLine
+from core.draft.draft import InvoiceLine, Party
 from importers.import_result import ImportResult
 
 logger = logging.getLogger("asycuda_pro.import.blagic_loren_pdf")
@@ -174,6 +174,9 @@ def parse_blagic_loren_pdf(pdf_path: str) -> ImportResult:
     logger.info(f"Parsed {len(items)} items from Loren PDF")
     logger.info(f"Weights: Gross={bruto_kg} kg, Net={neto_kg} kg")
 
+    # Pokušaj detektovati naziv exportera iz teksta
+    exporter_name = _detect_exporter(full_text, fallback="LOREN")
+
     return ImportResult(
         items=items,
         bruto_kg=bruto_kg,
@@ -183,7 +186,20 @@ def parse_blagic_loren_pdf(pdf_path: str) -> ImportResult:
         import_type='loren_pdf',
         has_origin_statement=has_origin_statement,
         origin_statements=origin_statements,
+        exporter=Party(name=exporter_name),
     )
+
+
+def _detect_exporter(full_text: str, fallback: str = "") -> str:
+    """Try to detect company name from invoice header."""
+    lines = [l.strip() for l in full_text.split('\n')[:10] if l.strip()]
+    for line in lines:
+        for prefix in ['Seller:', 'Vendor:', 'From:', 'FROM:', 'Prodavac:', 'Dobavljač:']:
+            if line.startswith(prefix):
+                name = line[len(prefix):].strip()
+                if name:
+                    return name
+    return fallback
 
 
 def _parse_number(s: str) -> float:

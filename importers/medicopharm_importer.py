@@ -30,7 +30,7 @@ from typing import Dict, List, Optional, Tuple
 
 import pdfplumber
 
-from core.draft.draft import InvoiceLine
+from core.draft.draft import InvoiceLine, Party
 from importers.import_result import ImportResult
 from importers.invoice_line_utils import KNOWN_JM, parse_eu_number
 from utils.country_normalizer import normalize_country_name
@@ -157,7 +157,8 @@ def parse_medicopharm_pdf(pdf_path: str) -> ImportResult:
         logger.warning("❌ Nije pronađen header tabele stavki — možda skenirani PDF?")
         return ImportResult(
             items=[], bruto_kg=0.0, neto_kg=0.0,
-            invoice_name=invoice_name, currency="EUR"
+            invoice_name=invoice_name, currency="EUR",
+            exporter=Party(name="MEDICO PHARM SERVIS"),
         )
 
     # --- Stavke ---
@@ -182,6 +183,7 @@ def parse_medicopharm_pdf(pdf_path: str) -> ImportResult:
         currency="EUR",
         has_origin_statement=has_origin_statement,
         origin_statements=origin_statements,
+        exporter=Party(name="MEDICO PHARM SERVIS"),
     )
 
 
