@@ -1,4 +1,4 @@
-""piši "
+"""
 Chat Memory Service - Pamćenje konteksta chat sesije.
 
 Čuva chat historiju tokom sesije i omogućava AI-u da "pamti"

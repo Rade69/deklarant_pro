@@ -844,8 +844,8 @@ class ZaglavljeService:
                 if border_info is not None:
                     data['transport_id'] = _txt(border_info, "Identity")
                     data['aktivno_transport'] = _txt(border_info, "Nationality")
-                    data['vid_26'] = _txt(border_info, "Mode")
-                data['vid_25'] = _txt(means, "Inland_mode_of_transport")
+                    data['vid_25'] = _txt(border_info, "Mode")
+                data['vid_26'] = _txt(means, "Inland_mode_of_transport")
 
             container_flag = _txt(transport_el, "Container_flag")
             data['kontejner'] = (container_flag.lower() == "true")

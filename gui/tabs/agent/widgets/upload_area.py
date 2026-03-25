@@ -321,3 +321,47 @@ class UploadArea(QWidget):
         )
         if files:
             self.files_dropped.emit(files)
+
+    def set_loading(self, loading: bool):
+        """⭐ Postavi loading state - onemogući dugmad i pokaži spinner."""
+        if loading:
+            self.btn_analyze.setEnabled(False)
+            self.btn_select.setEnabled(False)
+            self.btn_analyze.setText(" ⏳ Procesiram...")
+            self.btn_analyze.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {COLOR_TEXT_MUTED};
+                    color: white;
+                    padding: 9px 20px;
+                    border: none;
+                    border-radius: 6px;
+                    font-size: 13px;
+                    font-weight: bold;
+                }}
+            """)
+            # Onemogući mode kartice
+            for card in self._mode_cards.values():
+                card.setEnabled(False)
+        else:
+            self.btn_analyze.setEnabled(True)
+            self.btn_select.setEnabled(True)
+            self.btn_analyze.setText(" Pokreni analizu")
+            self.btn_analyze.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {COLOR_SECONDARY};
+                    color: white;
+                    padding: 9px 20px;
+                    border: none;
+                    border-radius: 6px;
+                    font-size: 13px;
+                    font-weight: bold;
+                }}
+                QPushButton:hover:enabled {{ background-color: #5a4e8a; }}
+                QPushButton:disabled {{
+                    background-color: {COLOR_SAGE_PALE};
+                    color: {COLOR_TEXT_MUTED};
+                }}
+            """)
+            # Omogući mode kartice
+            for card in self._mode_cards.values():
+                card.setEnabled(True)

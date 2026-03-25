@@ -76,16 +76,24 @@ class AgentController:
         self._current_mode = mode
 
         self.view.get_header().set_status("Procesiranje")
+        
+        # ⭐ KLJUČNO: Prebaci na "Aktivnosti" tab da korisnik vidi progress!
+        chat.tabs.setCurrentIndex(1)  # 0=Agent, 1=Aktivnosti, 2=Pitanja
+        
+        # ⭐ Pokaži loading state na dugmetu
+        doc.upload_area.set_loading(True)
+        
         chat.add_agent_message(
-            f"🚀 Pokrećem <b>{mode}</b> za {len(files)} fajlova...<br>"
-            f"Pratite progress u Aktivnosti tabu."
+            f"🚀 Pokrećem <b>{mode}</b> za {len(files)} fajlova..."
         )
+        chat.add_activity(f"\n{'='*60}")
         chat.add_activity(f"🚀 [{mode}] Počelo procesiranje {len(files)} fajlova")
 
         # Kreiraj i pokreni background worker
         parser_mode = self.view.get_header().parser_combo.currentText()
         self._worker = ProcessingWorker(files, parser_mode=parser_mode)
         self._worker.progress.connect(chat.add_activity)
+        self._worker.progress.connect(self._on_progress)  # ⭐ Prikaži i u Agent tabu
         self._worker.file_started.connect(self._on_file_started)
         self._worker.file_completed.connect(self._on_file_completed)
         self._worker.all_completed.connect(self._on_all_completed)
@@ -96,6 +104,28 @@ class AgentController:
         """Ažuriraj tabelu - fajl počeo sa procesiranjem."""
         doc = self.view.get_document_panel()
         doc.file_table.update_file_status(filepath, 'Processing', 0.0)
+
+    def _on_progress(self, message: str):
+        """⭐ Prikaži progress poruku i u Agent tabu."""
+        from pathlib import Path
+        chat = self.view.get_chat_panel()
+        
+        # Samo prikaži relevantne poruke
+        if message.startswith("📄 Parsing:"):
+            filename = Path(message.replace("📄 Parsing:", "").strip()).name
+            chat.add_agent_message(f"📄 <b>Parsiram:</b> {filename}")
+        elif "✅" in message or "❌" in message:
+            # Prikaži samo finalne rezultate
+            if "KOMBINOVANO" in message or "Single import" in message:
+                # Ekstraktuj broj stavki
+                import re
+                match = re.search(r'(\d+)\s*stavki', message)
+                if match:
+                    stavki = match.group(1)
+                    chat.add_agent_message(f"✅ <b>Uvezeno {stavki} stavki</b>")
+        elif "⚖️" in message:
+            # Prikaži težine
+            chat.add_activity(message)  # Samo u Aktivnosti tabu
 
     def _on_file_completed(self, file_item):
         """Ažuriraj tabelu - fajl završio procesiranje."""
@@ -119,6 +149,13 @@ class AgentController:
             f"✅ Procesiranje završeno: {len(completed)} uspješno, {len(errors)} grešaka"
         )
         self.view.get_header().set_status("Spreman")
+        
+        # ⭐ Ukloni loading state i vrati dugme
+        doc = self.view.get_document_panel()
+        doc.upload_area.set_loading(False)
+        
+        # ⭐ Prebaci nazad na Agent tab na kraju
+        chat.tabs.setCurrentIndex(0)
 
         if not completed:
             chat.add_agent_message("❌ Nema uspješno procesiranih fajlova.")
@@ -709,15 +746,26 @@ class AgentController:
             count = service.create_smart_group()
             chat.add_activity(f"✅ Kreirano {count} naimenovanja")
 
-            if self.naimenovanje_tab:
-                try:
-                    if hasattr(self.naimenovanje_tab, 'reload_data'):
-                        self.naimenovanje_tab.reload_data()
-                    elif hasattr(self.naimenovanje_tab, 'reload'):
-                        self.naimenovanje_tab.reload()
-                    chat.add_activity("✅ Naimenovanja tab osvježen")
-                except Exception as e:
-                    chat.add_activity(f"⚠️ Greška pri osvježavanju naimenovanja taba: {e}")
+            # Osvježi Faktura tab — isti redoslijed kao ručni unos (_on_create_naimenovanja)
+            faktura_widget = self.faktura_tab
+            if hasattr(self.faktura_tab, 'view'):
+                faktura_widget = self.faktura_tab.view
+            if faktura_widget:
+                # 1. Ponovo učitaj tabelu — popunjava kolonu "Naimenov"
+                if hasattr(faktura_widget, '_load_data_from_draft'):
+                    faktura_widget._load_data_from_draft()
+                # 2. Osvježi Naimenovanja tab (i Zaglavlje Rb.6)
+                if hasattr(faktura_widget, '_reload_naimenovanja_tab'):
+                    faktura_widget._reload_naimenovanja_tab()
+                elif self.naimenovanje_tab:
+                    try:
+                        if hasattr(self.naimenovanje_tab, 'reload_data'):
+                            self.naimenovanje_tab.reload_data()
+                        elif hasattr(self.naimenovanje_tab, 'reload'):
+                            self.naimenovanje_tab.reload()
+                    except Exception as e:
+                        chat.add_activity(f"⚠️ Greška pri osvježavanju naimenovanja taba: {e}")
+            chat.add_activity("✅ Faktura i Naimenovanja tab osvježeni")
         except Exception as e:
             chat.add_activity(f"⚠️ Greška pri kreiranju naimenovanja: {e}")
 

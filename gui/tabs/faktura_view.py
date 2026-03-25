@@ -543,8 +543,22 @@ class FakturaView(BaseTabView):
         """Create the status bar with statistics."""
         container = QWidget()
         container.setObjectName("statusBarContainer")
+        container.setStyleSheet("""
+            QWidget#statusBarContainer {
+                background-color: #f0f0f0;
+                border-top: 1px solid #d0d0d0;
+            }
+            QLabel {
+                font-size: 13px;
+                color: #333;
+            }
+            QLabel#statusSeparator {
+                color: #aaa;
+                font-size: 13px;
+            }
+        """)
         layout = QHBoxLayout(container)
-        layout.setContentsMargins(12, 8, 12, 8)
+        layout.setContentsMargins(12, 6, 12, 6)
         layout.setSpacing(15)
 
         # Status labels (will be updated dynamically)

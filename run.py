@@ -6,6 +6,15 @@ Jednostavno pokretanje aplikacije
 
 import sys
 import os
+
+# Dodaj venv site-packages u sys.path ako venv nije aktiviran
+_script_dir = os.path.dirname(os.path.abspath(__file__))
+if not os.environ.get("VIRTUAL_ENV"):
+    import glob as _glob
+    _patterns = os.path.join(_script_dir, "venv", "lib", "python*", "site-packages")
+    for _sp in _glob.glob(_patterns):
+        if _sp not in sys.path:
+            sys.path.insert(0, _sp)
 import logging
 import warnings
 

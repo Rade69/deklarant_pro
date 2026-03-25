@@ -14,6 +14,7 @@ OVAJ FAJL NE MIJENJA GUI - samo business logic extraction.
 
 from typing import Dict, Any, List, Optional
 from database.db import get_db_connection
+from psycopg2 import sql
 
 
 class SifarniciService:
@@ -275,7 +276,14 @@ class SifarniciService:
                     else:
                         order_by = 'naziv'
                     
-                    cur.execute(f"SELECT * FROM {table_name} ORDER BY {order_by}")
+                    parts = table_name.split(".")
+                    table_id = sql.Identifier(*parts) if len(parts) == 2 else sql.Identifier(parts[0])
+                    cur.execute(
+                        sql.SQL("SELECT * FROM {} ORDER BY {}").format(
+                            table_id,
+                            sql.Identifier(order_by)
+                        )
+                    )
                     results = cur.fetchall()
                     return [dict(row) for row in results]
         except Exception as e:
