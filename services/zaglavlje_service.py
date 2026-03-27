@@ -162,12 +162,13 @@ class ZaglavljeService:
             self.logger.error(f"Greška pri brisanju zaglavlja: {e}")
             return False
     
-    def load_from_xml(self, filepath: str) -> Dict[str, Any]:
+    def load_from_xml(self, filepath: str, format_type: str = "world") -> Dict[str, Any]:
         """
         Učitaj zaglavlje iz XML fajla.
         
         Args:
             filepath: Putanja do XML fajla
+            format_type: Tip formata - "world" ili "pro" (default: "world")
         
         Returns:
             Dictionary sa podacima zaglavlja
@@ -184,10 +185,80 @@ class ZaglavljeService:
         try:
             tree = ET.parse(filepath)
             root = tree.getroot()
-            return self._parse_xml(root)
+            
+            if format_type.lower() == "pro":
+                return self._parse_pro_xml(root)
+            else:
+                return self._parse_xml(root)
             
         except ET.ParseError as e:
             raise ValueError(f"Neispravan XML format: {e}")
+    
+    def _parse_pro_xml(self, root: ET.Element) -> Dict[str, Any]:
+        """
+        Parsira ASYCUDA Pro XML strukturu.
+        
+        Args:
+            root: Root XML element
+        
+        Returns:
+            Dictionary sa podacima zaglavlja
+        """
+        data = {}
+        
+        # Namespace handling
+        ns = {}
+        if root.tag.startswith('{'):
+            uri = root.tag.split('}')[0][1:]
+            ns['ns'] = uri
+        
+        def find_with_ns(parent, tag):
+            if ns:
+                result = parent.find(f"ns:{tag}", ns)
+                if result is not None:
+                    return result
+            return parent.find(tag)
+        
+        # Osnovni podaci
+        decl_number = find_with_ns(root, 'DeclarationNumber')
+        if decl_number is not None and decl_number.text:
+            data['broj_deklaracije'] = decl_number.text.strip()
+        
+        decl_date = find_with_ns(root, 'DeclarationDate')
+        if decl_date is not None and decl_date.text:
+            data['datum'] = decl_date.text.strip()
+        
+        decl_type = find_with_ns(root, 'DeclarationType')
+        if decl_type is not None and decl_type.text:
+            data['vrsta_deklaracije'] = decl_type.text.strip()
+        
+        # Izvoznik
+        exporter = find_with_ns(root, 'Exporter')
+        if exporter is not None:
+            data['izvoznik_id'] = self._get_text_from_element(exporter, ['ID', 'Code'])
+            data['izvoznik_naziv'] = self._get_text_from_element(exporter, ['Name', 'CompanyName'])
+        
+        # Primalac
+        consignee = find_with_ns(root, 'Consignee')
+        if consignee is not None:
+            data['primalac_id'] = self._get_text_from_element(consignee, ['ID', 'Code'])
+            data['primalac_naziv'] = self._get_text_from_element(consignee, ['Name', 'CompanyName'])
+        
+        # Transport
+        transport = find_with_ns(root, 'TransportMeans')
+        if transport is not None:
+            data['transport_id'] = self._get_text_from_element(transport, ['ID', 'Number'])
+            data['aktivno_transport'] = self._get_text_from_element(transport, ['Nationality', 'Country'])
+        
+        return data
+    
+    def _get_text_from_element(self, element: ET.Element, tag_variants: List[str]) -> str:
+        """Pomoćna funkcija za dobijanje teksta iz elementa sa više mogućih tagova."""
+        for tag in tag_variants:
+            found = element.find(tag)
+            if found is not None and found.text:
+                return found.text.strip()
+        return ""
     
     def export_to_xml(self, data: Dict[str, Any], filepath: str, format_type: str = "world") -> bool:
         """

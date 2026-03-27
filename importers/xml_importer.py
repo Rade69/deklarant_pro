@@ -372,6 +372,207 @@ class XMLImporter:
 
         return default
 
+    def _parse_asycuda_pro_xml(self, root: ET.Element) -> Dict[str, Any]:
+        """
+        Parsira ASYCUDA Pro XML strukturu.
+        
+        ASYCUDA Pro koristi drugačiju strukturu od World formata.
+        Osnovni root je <Declaration> sa namespace-om.
+        
+        Args:
+            root: Root XML element
+
+        Returns:
+            Dictionary sa parsiranim podacima
+        """
+        # Proveri da li je Pro format
+        # U Pro formatu, root može biti <Declaration> ili <DECLARATION>
+        root_tag = root.tag.upper().replace('{', '').replace('}', '')
+        if 'DECLARATION' not in root_tag:
+            # Ako nije Pro format, probaj World parser
+            logger.warning("XML ne izgleda kao ASYCUDA Pro format, pokušavam World parser")
+            return self._parse_asycuda_xml(root)
+        
+        items = self._parse_pro_items(root)
+        header = self._parse_pro_header(root)
+        
+        logger.debug(f"DEBUG: ASYCUDA Pro XML parsed - items count: {len(items)}, header keys: {list(header.keys())}")
+        return {
+            'items': items,
+            'header': header,
+            'item_count': len(items),
+            'format': 'pro'
+        }
+    
+    def _parse_pro_header(self, root: ET.Element) -> Dict[str, Any]:
+        """Parsira zaglavlje ASYCUDA Pro XML-a."""
+        header_data = {}
+        
+        # Namespace handling
+        ns = {}
+        if root.tag.startswith('{'):
+            uri = root.tag.split('}')[0][1:]
+            ns['ns'] = uri
+        
+        def find_with_ns(parent, tag):
+            if ns:
+                result = parent.find(f"ns:{tag}", ns)
+                if result is not None:
+                    return result
+            return parent.find(tag)
+        
+        # Osnovni podaci deklaracije
+        # Broj deklaracije
+        decl_number = find_with_ns(root, 'DeclarationNumber')
+        if decl_number is not None and decl_number.text:
+            header_data['broj_deklaracije'] = decl_number.text.strip()
+        
+        # Datum
+        decl_date = find_with_ns(root, 'DeclarationDate')
+        if decl_date is not None and decl_date.text:
+            header_data['datum'] = decl_date.text.strip()
+        
+        # Tip deklaracije
+        decl_type = find_with_ns(root, 'DeclarationType')
+        if decl_type is not None and decl_type.text:
+            header_data['vrsta_deklaracije'] = decl_type.text.strip()
+        
+        # Izvoznik
+        exporter = find_with_ns(root, 'Exporter')
+        if exporter is not None:
+            header_data['izvoznik_id'] = self._get_text(exporter, ['ID', 'Code', 'Number'], default="")
+            header_data['izvoznik_naziv'] = self._get_text(exporter, ['Name', 'CompanyName'], default="")
+            header_data['izvoznik_adresa'] = self._get_text(exporter, ['Address', 'Street'], default="")
+            header_data['izvoznik_grad'] = self._get_text(exporter, ['City', 'Town'], default="")
+            header_data['izvoznik_postanski_broj'] = self._get_text(exporter, ['PostalCode', 'ZipCode'], default="")
+            header_data['izvoznik_drzava'] = self._get_text(exporter, ['Country', 'CountryCode'], default="")
+        
+        # Primalac
+        consignee = find_with_ns(root, 'Consignee')
+        if consignee is not None:
+            header_data['primalac_id'] = self._get_text(consignee, ['ID', 'Code', 'Number'], default="")
+            header_data['primalac_naziv'] = self._get_text(consignee, ['Name', 'CompanyName'], default="")
+            header_data['primalac_adresa'] = self._get_text(consignee, ['Address', 'Street'], default="")
+            header_data['primalac_grad'] = self._get_text(consignee, ['City', 'Town'], default="")
+            header_data['primalac_postanski_broj'] = self._get_text(consignee, ['PostalCode', 'ZipCode'], default="")
+            header_data['primalac_drzava'] = self._get_text(consignee, ['Country', 'CountryCode'], default="")
+        
+        # Transport
+        transport = find_with_ns(root, 'TransportMeans')
+        if transport is not None:
+            header_data['transport_id'] = self._get_text(transport, ['ID', 'Number'], default="")
+            header_data['aktivno_transport'] = self._get_text(transport, ['Nationality', 'Country'], default="")
+        
+        # Carinska ispostava
+        customs_office = find_with_ns(root, 'CustomsOffice')
+        if customs_office is not None:
+            header_data['izlazna_carinarnica'] = self._get_text(customs_office, ['Code', 'Number'], default="")
+        
+        return header_data
+    
+    def _parse_pro_items(self, root: ET.Element) -> List[InvoiceLine]:
+        """Parsira stavke iz ASYCUDA Pro XML-a."""
+        items = []
+        
+        # Namespace handling
+        ns = {}
+        if root.tag.startswith('{'):
+            uri = root.tag.split('}')[0][1:]
+            ns['ns'] = uri
+        
+        def find_with_ns(parent, tag):
+            if ns:
+                result = parent.find(f"ns:{tag}", ns)
+                if result is not None:
+                    return result
+            return parent.find(tag)
+        
+        # Pronađi sve GoodsItem elemente
+        goods_items = []
+        # Pokušaj različite putanje
+        goods_items = root.findall('.//GoodsItem') or root.findall('.//GOODSITEM') or root.findall('.//Item')
+        
+        for idx, item_elem in enumerate(goods_items, start=1):
+            try:
+                # Broj stavke
+                item_number = self._get_text(item_elem, ['ItemNumber', 'SequenceNumber', 'Number'], default=str(idx))
+                
+                # Opis robe
+                description = self._get_text(item_elem, [
+                    'Description',
+                    'GoodsDescription',
+                    'CommercialDescription'
+                ], default="")
+                
+                # Tarifni broj
+                tariff_code = self._get_text(item_elem, [
+                    'CommodityCode',
+                    'HS Code',
+                    'TariffCode'
+                ], default="")
+                
+                # Zemlja porekla
+                origin_country = self._get_text(item_elem, [
+                    'OriginCountry',
+                    'CountryOfOrigin',
+                    'Origin'
+                ], default="")
+                
+                # Količina
+                quantity = self._get_float(item_elem, [
+                    'Quantity',
+                    'NetWeight',
+                    'GrossWeight'
+                ], default=1.0)
+                
+                # Vrednost
+                value = self._get_float(item_elem, [
+                    'Value',
+                    'ItemValue',
+                    'StatisticalValue'
+                ], default=0.0)
+                
+                # Valuta
+                currency = self._get_text(item_elem, [
+                    'Currency',
+                    'CurrencyCode'
+                ], default="EUR")
+                
+                # Težina
+                gross_weight = self._get_float(item_elem, [
+                    'GrossWeight',
+                    'GrossMass'
+                ])
+                
+                net_weight = self._get_float(item_elem, [
+                    'NetWeight',
+                    'NetMass'
+                ])
+                
+                # Kreiraj InvoiceLine
+                invoice_line = InvoiceLine(
+                    line_no=int(item_number) if item_number.isdigit() else idx,
+                    naziv_robe=description,
+                    tarifni_broj=tariff_code,
+                    zemlja_porijekla=origin_country,
+                    povlastica="",  # Pro format može imati drugačije polje
+                    bruto_kg=gross_weight,
+                    neto_kg=net_weight,
+                    kolicina=quantity,
+                    cijena_jed=value / quantity if quantity > 0 and value > 0 else value,
+                    iznos=value,
+                    valuta=currency,
+                    jm="KOM"  # Default
+                )
+                
+                items.append(invoice_line)
+                
+            except Exception as e:
+                logger.debug(f"Warning: Greška pri parsiranju Pro stavke {idx}: {e}")
+                continue
+        
+        return items
+
     def _parse_documents(self, element: ET.Element) -> list[Dict[str, Any]]:
         """Parsira dokumente."""
         # TODO: Implementirati
