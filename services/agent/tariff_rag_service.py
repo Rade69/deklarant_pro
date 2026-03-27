@@ -52,7 +52,7 @@ class TariffRAGService:
                 
                 query = """
                 SELECT 
-                    di.tarifni_kod,
+                    di.tarifni_broj,
                     di.naziv_robe,
                     di.zemlja_porijekla,
                     di.povlastica,

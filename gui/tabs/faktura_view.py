@@ -2629,8 +2629,8 @@ class FakturaView(BaseTabView):
             )
             return
 
-        # Izračunaj odnos neto/bruto iz toolbar polja
-        neto_bruto_ratio = neto_total / bruto_total if bruto_total > 0 else 0.0
+        # Izračunaj odnos neto/bruto iz toolbar polja (default 0.95 ako neto nije poznat)
+        neto_bruto_ratio = neto_total / bruto_total if (bruto_total > 0 and neto_total > 0) else 0.95
         logger.debug(f"\n⚖️  Odnos neto/bruto = {neto_bruto_ratio:.6f}")
 
         # Razdvoji stavke po scenariju
@@ -2662,9 +2662,11 @@ class FakturaView(BaseTabView):
                     if qty > 0:
                         proportion = qty / total_qty
                         if bruto_total > 0:
-                            item.bruto_kg = bruto_total * proportion
+                            item.bruto_kg = round(bruto_total * proportion, 3)
                         if neto_total > 0:
-                            item.neto_kg = neto_total * proportion
+                            item.neto_kg = round(neto_total * proportion, 3)
+                        elif item.bruto_kg:
+                            item.neto_kg = round(item.bruto_kg * neto_bruto_ratio, 3)
                         logger.debug(f" [{i}] Količina={qty} → bruto={item.bruto_kg:.2f}, neto={item.neto_kg:.2f}")
 
                 # Procesuj ostatak bez debug ispisa
@@ -2673,9 +2675,11 @@ class FakturaView(BaseTabView):
                     if qty > 0:
                         proportion = qty / total_qty
                         if bruto_total > 0:
-                            item.bruto_kg = bruto_total * proportion
+                            item.bruto_kg = round(bruto_total * proportion, 3)
                         if neto_total > 0:
-                            item.neto_kg = neto_total * proportion
+                            item.neto_kg = round(neto_total * proportion, 3)
+                        elif item.bruto_kg:
+                            item.neto_kg = round(item.bruto_kg * neto_bruto_ratio, 3)
 
         # Izračun neto za stavke SA bruto ALI BEZ neto (Excel stavke)
         if items_with_partial and neto_bruto_ratio > 0:

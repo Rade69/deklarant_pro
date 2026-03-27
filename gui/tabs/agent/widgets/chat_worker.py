@@ -8,6 +8,12 @@ import re
 from PySide6.QtCore import QThread, Signal
 
 
+# Kompatibilnost — stari kod koji importuje ovo ime
+def _parse_groq_error(exc) -> str:
+    from .llm_provider import parse_llm_error
+    return parse_llm_error(exc)
+
+
 class ChatWorker(QThread):
     """Poziva Groq API u pozadini da ne blokira UI."""
 
@@ -25,17 +31,13 @@ class ChatWorker(QThread):
 
     def run(self):
         try:
-            from groq import Groq
-            from dotenv import dotenv_values
-            import os
-            from pathlib import Path
+            from .llm_provider import LLMProvider, parse_llm_error
 
-            env_path = Path(__file__).parent.parent.parent.parent.parent / ".env"
-            env_vars = dotenv_values(env_path) if env_path.exists() else {}
-
-            api_key = env_vars.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
-            if not api_key:
-                self.error_occurred.emit("GROQ_API_KEY nije pronađen u .env fajlu.")
+            provider = LLMProvider()
+            if provider.active_provider() == "none":
+                self.error_occurred.emit(
+                    "Nema dostupnog AI ključa. Dodaj GROQ_API_KEY ili GEMINI_API_KEY u .env."
+                )
                 return
 
             context = self._build_context()
@@ -43,29 +45,17 @@ class ChatWorker(QThread):
             chat_history = []
             if self.memory_service:
                 chat_history = self.memory_service.get_context(max_messages=10)
-
             if self.memory_service:
                 self.memory_service.add_user_message(self.message)
 
-            client = Groq(api_key=api_key)
             messages = self._build_messages(context, chat_history)
 
-            # === STREAMING ===
-            stream = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=messages,
-                temperature=0.2,
-                max_tokens=1500,
-                stream=True,
-            )
-
+            # === STREAMING — Groq primarni, Gemini fallback ===
             self.stream_started.emit()
             full_text = ""
-            for chunk in stream:
-                delta = chunk.choices[0].delta.content or ""
-                if delta:
-                    full_text += delta
-                    self.token_received.emit(delta)
+            for token in provider.stream_chat(messages, max_tokens=1500):
+                full_text += token
+                self.token_received.emit(token)
 
             text = full_text.strip()
             if self.memory_service:
@@ -74,7 +64,11 @@ class ChatWorker(QThread):
             self.response_ready.emit(text)
 
         except Exception as e:
-            self.error_occurred.emit(f"LLM greška: {e}")
+            import traceback
+            from .llm_provider import parse_llm_error
+            print(f"[ChatWorker] GREŠKA: {e}")
+            print(traceback.format_exc())
+            self.error_occurred.emit(parse_llm_error(e))
 
     def _build_messages(self, context: str, chat_history: list) -> list:
         """
@@ -317,6 +311,43 @@ class ChatWorker(QThread):
             ctx.append(f"=== ISTORIJA DEKLARACIJA — prijedlozi tarife ===")
             ctx.extend(rag_prijedlozi)
 
+        # === NAIMENOVANJA (draft.items) — grupisane stavke za deklaraciju ===
+        naim_items = getattr(self.draft, 'items', [])
+        naim_pg_desc: dict = {}  # zvanični opisi tarifa za naimenovanja
+        if naim_items:
+            # Dohvati zvanične opise tarifa za sva naimenovanja odjednom
+            naim_tariff_codes = [
+                (getattr(it, 'tariff_code', '') or '').strip()
+                for it in naim_items if getattr(it, 'tariff_code', None)
+            ]
+            naim_pg_desc = self._fetch_pg_tariff_descriptions(naim_tariff_codes) if naim_tariff_codes else {}
+
+            ctx.append("")
+            ctx.append(
+                f"=== NAIMENOVANJA ({len(naim_items)} stavki u deklaraciji) ===\n"
+                f"  (Naimenovanje = grupirana stavka carinske deklaracije; "
+                f"više redova fakture sa istim tarifnim brojem spaja se u jedno naimenovanje)"
+            )
+            ctx.append(
+                f"  {'Rb.':<5} {'Tarifni br.':<12} {'Opis robe (u deklaraciji)':<40} "
+                f"{'Zvanični opis tarife':<40} {'Z.':<4} {'Povl.':<7} {'Bruto':>8} {'Neto':>8} {'Iznos':>9}"
+            )
+            ctx.append("  " + "-" * 135)
+            for item in naim_items:
+                rb    = getattr(item, 'ordinal_no', '?')
+                tarif = getattr(item, 'tariff_code', '') or '⚠️NEMA'
+                opis  = (getattr(item, 'goods_description', '') or '')[:39]
+                zemlja = getattr(item, 'origin_country_code', '') or '?'
+                pov   = getattr(item, 'preference_code', '') or '-'
+                bruto = getattr(item, 'gross_mass_kg', 0) or 0
+                neto  = getattr(item, 'net_mass_kg', 0) or 0
+                iznos = getattr(item, 'item_value', 0) or 0
+                zv_opis = naim_pg_desc.get(tarif, '')[:39] if tarif != '⚠️NEMA' else '(nema tarife)'
+                ctx.append(
+                    f"  {rb:<5} {tarif:<12} {opis:<40} {zv_opis:<40} "
+                    f"{zemlja:<4} {pov:<7} {bruto:>8.2f} {neto:>8.2f} {iznos:>9.2f}"
+                )
+
         if bez_zemlje_list:
             ctx.append("")
             ctx.append(f"=== STAVKE BEZ ZEMLJE PORIJEKLA ({len(bez_zemlje_list)}) ===")
@@ -333,13 +364,65 @@ class ChatWorker(QThread):
                 ctx.append("=== ZAKONSKA REGULATIVA (relevantni odlomci) ===")
                 ctx.extend(kb_regulativa)
 
-        # === VALIDACIJA TARIFNIH BROJEVA — samo kada se traži pregled/provjera ===
+        # === DETALJI KONKRETNIH NAIMENOVANJA — kad korisnik pita za Rb. X, Y ===
         if self._is_review_request(msg):
-            tariff_validation = self._build_tariff_validation_context(lines)
-            if tariff_validation:
+            # Pretvori redne brojeve (prvi, drugi...) i kardinalne (1, 2...) u listu indeksa
+            _REDNI_MAP = {
+                'prvi': 1, 'prvog': 1, 'prvo': 1, 'prva': 1,
+                'drugi': 2, 'drugog': 2, 'drugo': 2, 'druga': 2,
+                'treći': 3, 'trećeg': 3, 'treće': 3, 'treca': 3, 'treceg': 3,
+                'četvrti': 4, 'cetvrti': 4, 'četvrtog': 4,
+                'peti': 5, 'petog': 5, 'šesti': 6, 'sedmi': 7,
+                'osmi': 8, 'deveti': 9, 'deseti': 10,
+                'posljednji': len(naim_items), 'zadnji': len(naim_items),
+            }
+            _ordinal_indices = [v for k, v in _REDNI_MAP.items() if k in msg and v > 0]
+            _digit_indices = [int(m) for m in re.findall(r'\b(\d+)\b', msg)
+                              if 1 <= int(m) <= len(naim_items) + 5]
+            mentioned_indices = list(dict.fromkeys(_digit_indices + _ordinal_indices))
+
+            if mentioned_indices and naim_items:
+                # Korisnik pita za konkretna naimenovanja — prikaži detalje sa fakturnih linija
                 ctx.append("")
-                ctx.append("=== TARIFNI BROJEVI — opisi iz Carinske tarife 2026 ===")
-                ctx.extend(tariff_validation)
+                ctx.append(f"=== DETALJI TRAŽENIH NAIMENOVANJA (Rb. {', '.join(map(str, mentioned_indices))}) ===")
+                for i in mentioned_indices:
+                    if 0 < i <= len(naim_items):
+                        item = naim_items[i - 1]
+                        tarif = getattr(item, 'tariff_code', '') or '(nema)'
+                        opis = getattr(item, 'goods_description', '') or ''
+                        zemlja = getattr(item, 'origin_country_code', '') or '?'
+                        pov = getattr(item, 'preference_code', '') or '-'
+                        bruto = getattr(item, 'gross_mass_kg', 0) or 0
+                        neto = getattr(item, 'net_mass_kg', 0) or 0
+                        iznos = getattr(item, 'item_value', 0) or 0
+                        zv_opis = naim_pg_desc.get(tarif, '(nije nađen u tarifi)')
+
+                        ctx.append(f"  Rb.{i}: tarifa={tarif} | opis='{opis}' | zemlja={zemlja} | povl={pov}")
+                        ctx.append(f"         bruto={bruto:.3f}kg | neto={neto:.3f}kg | iznos={iznos:.2f}")
+                        ctx.append(f"         Zvanični opis tarife {tarif}: {zv_opis}")
+
+                        # Pronađi odgovarajuće fakturne linije
+                        matching_lines = [
+                            l for l in lines
+                            if (getattr(l, 'tarifni_broj', '') or '') == tarif
+                        ]
+                        if matching_lines:
+                            ctx.append(f"         Fakturne linije ({len(matching_lines)}):")
+                            for ml in matching_lines[:5]:
+                                ctx.append(
+                                    f"           - {getattr(ml, 'naziv_robe', '')[:60]} "
+                                    f"({getattr(ml, 'kolicina', '')} {getattr(ml, 'jm', '')})"
+                                )
+            else:
+                # Generalni pregled — tarife za prvih 15 stavki (prioritet: bez tarife)
+                bez = [l for l in lines if not getattr(l, 'tarifni_broj', None)]
+                sa  = [l for l in lines if getattr(l, 'tarifni_broj', None)]
+                target_lines = (bez + sa)[:15]
+                tariff_validation = self._build_tariff_validation_context(target_lines)
+                if tariff_validation:
+                    ctx.append("")
+                    ctx.append("=== TARIFNI BROJEVI — opisi iz Carinske tarife 2026 ===")
+                    ctx.extend(tariff_validation)
 
         # === PRETRAGA XML DEKLARACIJA + BAZE ===
         if self._is_declaration_search(msg):
@@ -352,11 +435,14 @@ class ChatWorker(QThread):
 
     @staticmethod
     def _is_review_request(msg: str) -> bool:
-        """Da li korisnik traži pregled/validaciju deklaracije?"""
+        """Da li korisnik traži pregled/validaciju/prijedlog tarife?"""
         keywords = [
             'pregled', 'pregledaj', 'provjeri', 'provjera', 'validiraj', 'validacija',
             'uskladi', 'usklađ', 'tarifni broj', 'tarife', 'ispravan', 'ispravnost',
-            'greška', 'grešk', 'da li je sve', 'sve u redu', 'review', 'check'
+            'greška', 'grešk', 'da li je sve', 'sve u redu', 'review', 'check',
+            # Prijedlog tarife
+            'predloži', 'predlozi', 'procijeni', 'procjeni', 'koji tarif', 'koja tarif',
+            'tarifa za', 'hs kod', 'naimenovanj', 'stavk',
         ]
         return any(k in msg for k in keywords)
 
@@ -373,47 +459,122 @@ class ChatWorker(QThread):
 
     def _build_tariff_validation_context(self, lines: list) -> list:
         """
-        Za svaki jedinstveni tarifni broj iz drafta dohvata opis iz Carinske tarife.
-        Rezultat omogućava Groq-u da poredi nazive robe sa zvaničnim opisima tarife.
+        Za svaki tarifni broj iz drafta dohvata zvanični opis iz Carinske tarife.
+
+        Primarni izvor: PostgreSQL catalogs.zvanicna_tarifa (opis po tarifnom kodu).
+        Fallback: KnowledgeBase PDF tarife.
+
+        Omogućava LLM-u da poredi naziv robe sa zvaničnim opisom tarife i procijeni
+        da li je tarifni broj ispravan.
         """
         if not lines:
             return []
-        # Skupi jedinstvene tarifne brojeve (max 30 da ne preopteretimo kontekst)
-        seen = {}
+
+        # Skupi sve tarifne kodove sa njihovim nazivima (po više stavki po tarifi)
+        # Format: {kod: [naziv1, naziv2, ...]}
+        tariff_to_names: dict = {}
         for l in lines:
-            code = getattr(l, 'tarifni_broj', None)
-            naziv = getattr(l, 'naziv_robe', '') or ''
-            if code and code not in seen:
-                seen[code] = naziv
-            if len(seen) >= 20:
+            code = (getattr(l, 'tarifni_broj', None) or '').strip()
+            naziv = (getattr(l, 'naziv_robe', '') or '').strip()
+            if code:
+                tariff_to_names.setdefault(code, [])
+                if naziv and naziv not in tariff_to_names[code]:
+                    tariff_to_names[code].append(naziv)
+            if len(tariff_to_names) >= 30:
                 break
-        if not seen:
+
+        if not tariff_to_names:
             return []
+
+        # Dohvati opise iz PostgreSQL (primarna baza)
+        pg_descriptions = self._fetch_pg_tariff_descriptions(list(tariff_to_names.keys()))
+
+        # Fallback: KnowledgeBase
+        kb_descriptions = {}
+        if len(pg_descriptions) < len(tariff_to_names):
+            missing = [c for c in tariff_to_names if c not in pg_descriptions]
+            try:
+                from services.knowledge_base.kb_service import KnowledgeBaseService
+                svc = KnowledgeBaseService()
+                if svc.get_stats()["doc_count"] > 0:
+                    raw = svc.get_tariff_descriptions(missing)
+                    for code, chunk in raw.items():
+                        kb_descriptions[code] = self._extract_tariff_line(code, chunk)
+            except Exception:
+                pass
+
+        lines_out = []
+        lines_out.append(
+            f"  {'Tarif. br.':<12} {'Naziv robe (u deklaraciji)':<48} {'Zvanični opis iz tarife'}"
+        )
+        lines_out.append("  " + "-" * 120)
+
+        for code, nazivi in tariff_to_names.items():
+            opis = pg_descriptions.get(code) or kb_descriptions.get(code) or "(nije pronađen u tarifi)"
+            # Sve nazive robe grupisane pod jedan tarifni kod
+            for i, naziv in enumerate(nazivi[:3]):  # max 3 naziva po tarifi
+                prefix = code if i == 0 else " " * len(code)
+                lines_out.append(f"  {prefix:<12} {naziv[:47]:<48} {opis[:80]}")
+
+        return lines_out
+
+    @staticmethod
+    def _fetch_pg_tariff_descriptions(codes: list) -> dict:
+        """
+        Dohvati opise tarifnih brojeva iz PostgreSQL catalogs.zvanicna_tarifa.
+
+        Baza čuva 10-cifrene kodove (npr. '0805219000').
+        Draft može imati 8-cifrene (npr. '08052190') — dodajemo '00' na kraj.
+
+        Returns:
+            {originalni_kod: opis_string}
+        """
+        result = {}
+        if not codes:
+            return result
         try:
-            from services.knowledge_base.kb_service import KnowledgeBaseService
-            svc = KnowledgeBaseService()
-            stats = svc.get_stats()
-            if stats["doc_count"] == 0:
-                return []
-            descriptions = svc.get_tariff_descriptions(list(seen.keys()))
-            lines_out = []
-            lines_out.append(
-                f"  {'Tarifni br.':<14} {'Naziv u deklaraciji':<45} Opis iz tarife"
-            )
-            lines_out.append("  " + "-" * 110)
-            for code, naziv in seen.items():
-                opis_chunk = descriptions.get(code)
-                if opis_chunk:
-                    # Izvuci samo prvi red odlomka koji sadrži kod — najrelevantniji dio
-                    opis = self._extract_tariff_line(code, opis_chunk)
+            from database.db import get_db_connection
+
+            def only_digits(c):
+                return ''.join(ch for ch in c if ch.isdigit())
+
+            # Gradi mapu: 10-cifreni_u_bazi → originalni_kod
+            lookup: dict = {}  # {10-digit: original_code}
+            for code in codes:
+                d = only_digits(code)
+                if len(d) == 8:
+                    lookup[d + '00'] = code  # 08052190 → 0805219000
+                elif len(d) == 10:
+                    lookup[d] = code
+                elif len(d) == 6:
+                    lookup[d + '0000'] = code
                 else:
-                    opis = "(nije pronađen u tarifi)"
-                lines_out.append(
-                    f"  {code:<14} {naziv[:40]:<41} {opis[:80]}"
-                )
-            return lines_out
-        except Exception:
-            return []
+                    lookup[d.ljust(10, '0')[:10]] = code
+
+            if not lookup:
+                return result
+
+            placeholders = ', '.join(['%s'] * len(lookup))
+            sql = f"""
+                SELECT tarifni_kod, opis
+                FROM catalogs.zvanicna_tarifa
+                WHERE tarifni_kod IN ({placeholders})
+            """
+            with get_db_connection() as conn:
+                cur = conn.cursor()
+                cur.execute(sql, list(lookup.keys()))
+                rows = cur.fetchall()
+
+            for row in rows:
+                db_code = only_digits(row['tarifni_kod'])
+                orig = lookup.get(db_code)
+                if orig:
+                    result[orig] = (row['opis'] or '')[:150]
+
+        except Exception as e:
+            print(f"[ChatWorker] PG tariff lookup greška: {e}")
+
+        return result
 
     @staticmethod
     def _extract_tariff_line(code: str, chunk_text: str) -> str:
@@ -642,8 +803,15 @@ class ChatWorker(QThread):
         return (
             "Ti si AI asistent za carinsku deklaraciju u aplikaciji AsycudaPro (Bosna i Hercegovina).\n"
             "Odgovaraš na srpskom jeziku (latinica), konkretno i korisno.\n\n"
+            "POJMOVI KOJE MORAŠ RAZUMJETI:\n"
+            "- FAKTURNE LINIJE (invoice_lines): Pojedinačni redovi iz uvozne fakture — svaki red je jedan proizvod\n"
+            "- NAIMENOVANJA (items): Grupisane stavke CARINSKE DEKLARACIJE — više fakturnih linija sa istim tarifnim brojem\n"
+            "  spaja se u jedno naimenovanje. Svako naimenovanje ima redni broj (Rb.), tarifni broj, opis robe, zemlja,\n"
+            "  povlastica, bruto/neto masa i iznos. Rb. 1 je prvo naimenovanje, Rb. 10 je deseto, itd.\n"
+            "- Kad korisnik kaže 'naimenovanje 10 i 11' — misli na Rb. 10 i Rb. 11 u tabeli NAIMENOVANJA\n"
+            "- Tarifni broj (HS kod): 8-10 cifara, format bez tačaka (npr. 84713000)\n\n"
             "TVOJE SPOSOBNOSTI:\n"
-            "- Vidiš SVE stavke iz aktivnog drafta (fakture) — sa tarifnim brojevima, zemljama, težinama, povlasticama\n"
+            "- Vidiš SVE fakturne linije i SVA naimenovanja iz aktivnog drafta — sa tarifima, zemljama, težinama\n"
             "- Imaš pristup bazi znanja (product_tariff_mapping) — prijedlozi tarife za nepoznate proizvode\n"
             "- Imaš pristup istoriji deklaracija — tarife koje su ranije korišćene za iste/slične proizvode\n"
             "- Imaš pristup zakonskoj regulativi (carinski zakoni, pravilnici BiH) — relevantni odlomci su priloženi u kontekstu\n"
@@ -662,17 +830,20 @@ class ChatWorker(QThread):
             "- Tumačenje zakonskih odredbi (koristi odlomke iz sekcije ZAKONSKA REGULATIVA)\n"
             "- Pregled i validacija deklaracije — provjera usklađenosti tarifnih brojeva sa robom\n\n"
             "PRAVILA:\n"
-            "- Ako vidiš stavke označene sa ⚠️NEMA_TARIFE — predloži konkretni tarifni broj\n"
+            "- Ako vidiš stavke označene sa ⚠️NEMA_TARIFE — predloži konkretni tarifni broj (format: samo cifre, npr. 84713000)\n"
             "- Koristi prijedloge iz baze znanja i istorije kao osnovu, ali ih provjeri sa znanjem\n"
             "- Ako nisi siguran za tarifni broj — reci to jasno i predloži alternativu za provjeru\n"
             "- Odgovori na specifična pitanja o konkretnim stavkama (npr. 'Stavka 5 — koji tarif?')\n\n"
-            "PREGLED DEKLARACIJE (kad korisnik traži provjeru/pregled/validaciju):\n"
-            "- U kontekstu imaš sekciju 'TARIFNI BROJEVI — opisi iz Carinske tarife 2026'\n"
-            "- Svaki red sadrži: tarifni broj | naziv robe iz deklaracije | opis iz zvanične tarife\n"
-            "- Tvoj zadatak: poredi naziv robe sa opisom tarife i prijavi neusklađenosti\n"
-            "- Format odgovora: tabela sa kolonama Tarifni br. | Roba | Status | Komentar\n"
-            "- Status može biti: ✅ Usklađeno | ⚠️ Provjeri | ❌ Neusklađeno\n"
-            "- Na kraju daj ukupnu ocjenu deklaracije i prioritetne preporuke\n\n"
+            "ANALIZA NAIMENOVANJA I TARIFE:\n"
+            "U kontekstu imaš sekciju NAIMENOVANJA sa kolonama: Rb. | Tarifni br. | Opis | Zvanični opis tarife | ...\n"
+            "Kada korisnik pita za konkretna naimenovanja (npr. 'naimenovanje 10 i 11'), imaš i sekciju\n"
+            "'DETALJI TRAŽENIH NAIMENOVANJA' sa svim podacima za ta naimenovanja.\n\n"
+            "OBAVEZNO za svako pomenuto naimenovanje:\n"
+            "1. Navedi Rb., tarifni broj, opis robe i zvanični opis tarife iz konteksta\n"
+            "2. Procijeni usklađenost: ✅ Usklađeno | ⚠️ Provjeri | ❌ Neusklađeno\n"
+            "3. Ako tarife nema ili je netačna — predloži konkretan tarifni broj (samo cifre, npr. 84713000)\n"
+            "4. Obrazloži zašto taj tarifni broj odgovara tom proizvodu\n"
+            "Za opći pregled svih naimenovanja: tabela Rb. | Tarif. br. | Opis | Status | Komentar\n\n"
             f"{context}"
             f"{memory_info}"
         )

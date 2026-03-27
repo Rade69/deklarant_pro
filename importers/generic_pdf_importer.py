@@ -168,7 +168,7 @@ def _detect_columns(table: List[List[str]]) -> ColumnMapping:
             logger.debug(f"      Col {idx}: PRODUCT_CODE")
 
         # Description/Naziv
-        elif re.search(r'\bDESCRIPT|\bNAZIV\b|\bARTICLE\b|\bPROIZVOD\b|\bNAME\b|\bROBA\b', cell):
+        elif re.search(r'\bDESCRIPT\w*\b|\bNAZIV\b|\bARTICLE\b|\bPROIZVOD\b|\bNAME\b|\bROBA\b|\bOPIS\b', cell):
             mapping.description = idx
             logger.debug(f"      Col {idx}: DESCRIPTION")
 
@@ -182,8 +182,11 @@ def _detect_columns(table: List[List[str]]) -> ColumnMapping:
             mapping.unit = idx
             logger.debug(f"      Col {idx}: UNIT")
 
-        # Unit Price
-        elif re.search(r'\bUNIT.*PRICE\b|\bPRICE\b|\bCIJENA\b|\bCENA\b', cell) and 'TOTAL' not in cell and 'AMOUNT' not in cell:
+        # Unit Price — preskačemo kolone sa prefiksima NETO/NET/DISC (to su već korigovane cijene)
+        elif re.search(r'\bUNIT.*PRICE\b|\bPRICE\b|\bCIJENA\b|\bCENA\b', cell) \
+                and 'TOTAL' not in cell and 'AMOUNT' not in cell \
+                and 'NETO' not in cell and 'NET' not in cell \
+                and mapping.unit_price is None:
             mapping.unit_price = idx
             logger.debug(f"      Col {idx}: UNIT_PRICE")
 
@@ -192,12 +195,13 @@ def _detect_columns(table: List[List[str]]) -> ColumnMapping:
             mapping.total_price = idx
             logger.debug(f"      Col {idx}: TOTAL_PRICE")
 
-    # Ako nemamo description ali imamo samo jednu kolonu sa tekstom, to je verovatno opis
+    # Fallback: ako description nije detektovana, uzmi prvu neprepoznatu kolonu
+    # koja nije numerički indeks (Rbr, No, #) jer ti su redni brojevi, ne opisi
     if mapping.description is None:
+        used = {mapping.product_code, mapping.quantity, mapping.unit,
+                mapping.unit_price, mapping.total_price}
         for idx, cell in enumerate(header_normalized):
-            if idx not in [mapping.product_code, mapping.quantity, mapping.unit,
-                          mapping.unit_price, mapping.total_price]:
-                # Ova kolona nije prepoznata, vjerovatno je opis
+            if idx not in used and not re.match(r'^(RBR|R\.BR|NO|BR|#|\d+)$', cell):
                 mapping.description = idx
                 logger.debug(f"      Col {idx}: DESCRIPTION (fallback)")
                 break
@@ -245,11 +249,11 @@ def _parse_table_items(table: List[List[str]], mapping: ColumnMapping) -> List[I
             # Kreiraj InvoiceLine
             item = InvoiceLine(
                 product_code=product_code.strip(),
-                description=description.strip(),
-                quantity=quantity,
-                unit_of_measure=unit.strip(),
-                unit_price=unit_price,
-                total_price=total_price
+                naziv_robe=description.strip(),
+                kolicina=quantity,
+                jm=unit.strip(),
+                cijena_jed=unit_price,
+                iznos=total_price
             )
 
             items.append(item)
@@ -326,7 +330,7 @@ def _extract_weights(text: str) -> Tuple[float, float]:
     # Bruto weight patterns
     bruto_patterns = [
         r'Gross\s*[Ww]eight[:\s]+([\d,\.]+)\s*[Kk]g',
-        r'Bruto[:\s]+([\d,\.]+)\s*[Kk]g',
+        r'Bruto[^:\n]*[:\s]+([\d,\.]+)\s*[Kk]g',
         r'G\.?W\.?[:\s]+([\d,\.]+)',
     ]
 

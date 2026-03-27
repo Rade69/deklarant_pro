@@ -26,6 +26,7 @@ class AgentController:
 
         self._worker = None
         self._current_mode = "Analiza"
+        self._pending_action = None  # PendingAction koji čeka potvrdu
 
         self._connect_signals()
 
@@ -350,9 +351,12 @@ class AgentController:
 
         print(f"[WeightCalc] {len(items_to_update)} stavki za izračun težina")
 
-        # 3. Izračunaj odnos neto/bruto
-        neto_bruto_ratio = neto_total / bruto_total if bruto_total > 0 else 0.95
+        # 3. Izračunaj odnos neto/bruto (default 0.95 ako neto nije poznat)
+        neto_bruto_ratio = neto_total / bruto_total if (bruto_total > 0 and neto_total > 0) else 0.95
         print(f"[WeightCalc] Odnos neto/bruto: {neto_bruto_ratio:.6f}")
+
+        # Ukupna količina za proporcionalnu distribuciju
+        total_qty = sum(line.kolicina or 0.0 for line in items_to_update if not (line.bruto_kg and line.bruto_kg > 0))
 
         # 4. Distribuiraj težine
         izracunato = 0
@@ -361,22 +365,21 @@ class AgentController:
             has_neto = line.neto_kg and line.neto_kg > 0
 
             if not has_bruto and not has_neto:
-                # PDF stavka: nema ništa → koristi količinu kao neto
-                if line.kolicina and line.kolicina > 0:
-                    line.neto_kg = line.kolicina  # Pretpostavka: kg = neto
-                    line.bruto_kg = round(line.kolicina * 1.05, 3)  # +5% ambalaža
-                    izracunato += 1
-                    print(f"  [PDF] {line.naziv_robe[:30]}: neto={line.neto_kg:.3f}, bruto={line.bruto_kg:.3f}")
+                # PDF stavka: nema težina → proporcionalna distribucija po količini
+                qty = line.kolicina or 0.0
+                if qty > 0 and total_qty > 0:
+                    proportion = qty / total_qty
+                    line.bruto_kg = round(bruto_total * proportion, 3) if bruto_total > 0 else 0.0
+                    line.neto_kg = round(neto_total * proportion, 3) if neto_total > 0 else round(line.bruto_kg * neto_bruto_ratio, 3)
                 else:
-                    # Nema količine → koristi prosjek
-                    avg_weight = (bruto_total / len(invoice_lines)) if bruto_total > 0 else 10.0
-                    line.neto_kg = round(avg_weight * 0.95, 3)
+                    avg_weight = (bruto_total / len(invoice_lines)) if bruto_total > 0 else 0.0
                     line.bruto_kg = round(avg_weight, 3)
-                    izracunato += 1
-                    print(f"  [PDF AVG] {line.naziv_robe[:30]}: neto={line.neto_kg:.3f}, bruto={line.bruto_kg:.3f}")
+                    line.neto_kg = round(avg_weight * neto_bruto_ratio, 3)
+                izracunato += 1
+                print(f"  [PDF] {line.naziv_robe[:30]}: bruto={line.bruto_kg:.3f}, neto={line.neto_kg:.3f}")
 
             elif has_bruto and not has_neto:
-                # Excel stavka: ima bruto, treba neto → koristi odnos
+                # Ima bruto, treba neto → koristi odnos
                 line.neto_kg = round(line.bruto_kg * neto_bruto_ratio, 3)
                 izracunato += 1
                 print(f"  [Excel] {line.naziv_robe[:30]}: bruto={line.bruto_kg:.3f} → neto={line.neto_kg:.3f}")
@@ -1036,10 +1039,76 @@ class AgentController:
         self.view.get_chat_panel().add_activity(f"👁️ Pregled: {file_item.filename}")
 
     def _on_chat_message(self, message: str):
-        """Odgovori na chat poruku koristeći Groq LLM."""
+        """Odgovori na chat poruku — prvo provjeri akcije, pa LLM."""
         from .widgets.chat_worker import ChatWorker
         chat = self.view.get_chat_panel()
+        msg = message.lower().strip()
 
+        # --- POTVRDA pending akcije ---
+        POTVRDE = {'da', 'odobri', 'potvrdi', 'yes', 'ok', 'u redu', 'slažem se'}
+        OTKAZI = {'ne', 'odustani', 'cancel', 'no', 'storno'}
+
+        if self._pending_action:
+            if msg in POTVRDE or msg.startswith('da ') or msg.startswith('odobr'):
+                self._execute_pending_action()
+                return
+            if msg in OTKAZI:
+                self._pending_action = None
+                chat.add_agent_message("❌ Akcija otkazana.")
+                return
+
+        # --- DETEKCIJA NAMJERE: tarifni brojevi ---
+        import re as _re
+
+        # Redni brojevi na srpskom → korisnik misli na konkretnu stavku
+        _REDNI = {'prvi': 1, 'prvog': 1, 'prvo': 1, 'prva': 1,
+                  'drugi': 2, 'drugog': 2, 'drugo': 2, 'druga': 2,
+                  'treći': 3, 'trećeg': 3, 'treće': 3, 'treca': 3, 'treceg': 3,
+                  'četvrti': 4, 'cetvrti': 4, 'četvrtog': 4,
+                  'peti': 5, 'petog': 5, 'šesti': 6, 'sedmi': 7,
+                  'osmi': 8, 'deveti': 9, 'deseti': 10,
+                  'posljednji': -1, 'zadnji': -1}
+        _has_ordinal = any(w in msg for w in _REDNI)
+
+        # Ima li konkretnih cifara ili rednih brojeva
+        _has_specific_items = bool(_re.search(r'\b\d+\b', msg)) or _has_ordinal
+
+        # Upiti koji ČITAJU podatke → uvijek idu na LLM (ne na batch)
+        _upit_kw = ['koji je', 'koja je', 'koje je', 'koji su', 'koje su',
+                    'šta je', 'sta je', 'što je', 'sto je',
+                    'kakav je', 'kakva je', 'koliki je', 'kolika je',
+                    'pogledaj', 'pokaži', 'pokazi', 'prikaži', 'prikazi',
+                    'reci mi', 'kaži mi', 'kazi mi', 'napiši mi',
+                    'provjeri', 'provjeru', 'analiz', 'obrazloži']
+        _is_query = any(kw in msg for kw in _upit_kw)
+
+        # Eksplicitni batch zahtjev (popuni sve / nađi sve bez)
+        _generalni_tarif_kw = ['popuni tarif', 'nađi sve bez tarif', 'nađi stavke bez tarif',
+                                'predloži sve tarif', 'predlozi sve tarif',
+                                'auto tarif', 'batch tarif']
+
+        if any(kw in msg for kw in _generalni_tarif_kw):
+            # Batch: traži sve bez tarifnog broja
+            self._predlozi_tarifne_brojeve()
+            return
+        elif _is_query and any(kw in msg for kw in ['tarif', 'tarifn', 'naim', 'stavk']):
+            # Informativni upit o tarifi/naimenovanju → LLM
+            pass
+        elif any(kw in msg for kw in ['tarif', 'tarifn']) and not _has_specific_items and not _is_query:
+            # Generalni "tarife" bez konteksta → batch prijedlog
+            self._predlozi_tarifne_brojeve()
+            return
+
+        # --- DETEKCIJA NAMJERE: spajanje naimenovanja ---
+        # Samo eksplicitni zahtjev za spajanje/grupiranje → akcija
+        # Sve ostalo sa "naimenovanj" (provjeri, predloži, koji, šta je...) → LLM
+        _spajanje_kw = ['spoji naim', 'merge naim', 'grupiš naim', 'objedini naim',
+                        'spoji naimenovanj', 'objedini naimenovanj', 'grupiši naimenovanj']
+        if any(kw in msg for kw in _spajanje_kw) and not _has_specific_items:
+            self._predlozi_spajanje_naimenovanja()
+            return
+
+        # --- STANDARDNI LLM odgovor ---
         chat.add_activity(f"💬 Šaljem upit AI-u...")
         chat.show_typing_indicator()
 
@@ -1076,3 +1145,288 @@ class AgentController:
     def _on_parser_changed(self, parser: str):
         """Handle promjenu parsera iz header-a."""
         self.view.get_chat_panel().add_activity(f"ℹ️ Parser: {parser}")
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # AGENT AKCIJE — prijedlog + potvrda + izvršavanje
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def _predlozi_tarifne_brojeve(self):
+        """Analizira stavke bez tarifnog broja — lokalna baza pa LLM fallback."""
+        from .agent_actions import TariffProposal, PendingAction
+        from services.tariff_mapping_service import TariffMappingService
+        from .widgets.tariff_llm_worker import TariffLLMWorker
+
+        chat = self.view.get_chat_panel()
+
+        if not self.draft or not self.draft.invoice_lines:
+            chat.add_agent_message("⚠️ Nema učitanih stavki u Faktura tabu.")
+            return
+
+        bez_tarife = [
+            (i, line) for i, line in enumerate(self.draft.invoice_lines)
+            if not line.tarifni_broj or not line.tarifni_broj.strip()
+        ]
+
+        if not bez_tarife:
+            chat.add_agent_message("✅ Sve stavke već imaju upisane tarifne brojeve.")
+            return
+
+        chat.add_activity(f"🔍 Tražim u lokalnoj bazi za {len(bez_tarife)} stavki...")
+
+        # 1. Pokušaj lokalnu bazu znanja
+        svc = TariffMappingService()
+        proposals = []
+        bez_lokalne = []
+
+        for idx, line in bez_tarife:
+            mapping = svc.find_mapping(
+                product_code=line.product_code,
+                naziv_robe=line.naziv_robe,
+                min_similarity=0.65
+            )
+            if mapping:
+                proposals.append(TariffProposal(
+                    line_index=idx,
+                    naziv_robe=line.naziv_robe[:60],
+                    product_code=line.product_code,
+                    proposed_tariff=mapping.tarifni_broj,
+                    confidence=mapping.similarity if hasattr(mapping, 'similarity') else 1.0,
+                    source="baza_znanja"
+                ))
+            else:
+                bez_lokalne.append((idx, line))
+
+        if bez_lokalne:
+            chat.add_activity(
+                f"✅ Lokalna baza: {len(proposals)} prijedloga. "
+                f"🤖 Pitam AI za preostalih {len(bez_lokalne)} stavki..."
+            )
+            # 2. LLM fallback u pozadini
+            worker = TariffLLMWorker(bez_lokalne, parent=self.view)
+            worker.proposals_ready.connect(
+                lambda llm_proposals: self._on_tariff_llm_ready(proposals, llm_proposals, len(bez_tarife), chat)
+            )
+            worker.error_occurred.connect(
+                lambda err: self._on_tariff_llm_ready(proposals, [], len(bez_tarife), chat)
+            )
+            worker.finished.connect(worker.deleteLater)
+            if not hasattr(self, '_tariff_workers'):
+                self._tariff_workers = []
+            self._tariff_workers.append(worker)
+            worker.finished.connect(
+                lambda: self._tariff_workers.remove(worker) if worker in self._tariff_workers else None
+            )
+            worker.start()
+        else:
+            self._on_tariff_llm_ready(proposals, [], len(bez_tarife), chat)
+
+    def _on_tariff_llm_ready(self, local_proposals, llm_proposals, ukupno_bez, chat):
+        """Prikaži kombinirane prijedloge (lokalni + LLM) korisniku."""
+        from .agent_actions import PendingAction
+
+        svi = local_proposals + llm_proposals
+
+        if not svi:
+            chat.add_agent_message(
+                f"⚠️ Nisam uspio naći prijedloge za <b>{ukupno_bez}</b> stavki "
+                f"ni u lokalnoj bazi ni putem AI-a.<br>"
+                f"Pokušaj pretraživanjem tarifne tarife ili ručnim unosom."
+            )
+            return
+
+        linije = []
+        for p in svi:
+            pct = int(p.confidence * 100)
+            izvor = "📚 baza" if p.source == "baza_znanja" else "🤖 AI"
+            linije.append(
+                f"&nbsp;&nbsp;• <b>{p.proposed_tariff}</b> — {p.naziv_robe} "
+                f"<small>({izvor}, {pct}% sigurnost)</small>"
+            )
+
+        nema = ukupno_bez - len(svi)
+        napomena = f"<br><small>⚠️ Za {nema} stavki nije nađen prijedlog.</small>" if nema else ""
+
+        self._pending_action = PendingAction(
+            action_type="fill_tariff",
+            proposals=svi,
+            description=f"Upiši {len(svi)} tarifnih brojeva"
+        )
+
+        chat.add_agent_message(
+            f"📋 Prijedlozi za <b>{len(svi)}</b> od {ukupno_bez} stavki:<br><br>"
+            + "<br>".join(linije)
+            + napomena
+            + "<br><br>✏️ <b>Upisujem u tabelu? Odgovori: Da / Ne</b>"
+        )
+
+    def _predlozi_spajanje_naimenovanja(self):
+        """Pronalazi naimenovanja sa istim tarifnim brojem i predlaže spajanje."""
+        from .agent_actions import NaimenovanjaSpajanje, PendingAction
+        from collections import defaultdict
+
+        chat = self.view.get_chat_panel()
+
+        if not self.draft or not self.draft.items:
+            chat.add_agent_message("⚠️ Nema naimenovanja u deklaraciji.")
+            return
+
+        chat.add_activity("🔍 Analiziram naimenovanja...")
+
+        # Grupiši po tarifnom broju + zemlja + povlastica
+        grupe = defaultdict(list)
+        for i, item in enumerate(self.draft.items):
+            kljuc = (
+                item.tariff_code.strip(),
+                item.origin_country_code.strip(),
+                item.preference_code.strip()
+            )
+            grupe[kljuc].append((i, item))
+
+        # Pronađi grupe sa 2+ naimenovanja
+        kandidati = [(k, v) for k, v in grupe.items() if len(v) >= 2]
+
+        if not kandidati:
+            chat.add_agent_message("✅ Nema naimenovanja sa istim tarifnim brojem koja bi se mogla spojiti.")
+            return
+
+        proposals = []
+        linije = []
+
+        for (tariff, zemlja, pov), stavke in kandidati:
+            indices = [i for i, _ in stavke]
+            items = [item for _, item in stavke]
+
+            merged_kolicina = sum(it.supplementary_unit_qty or 0 for it in items)
+            merged_bruto = sum(it.gross_mass_kg or 0 for it in items)
+            merged_neto = sum(it.net_mass_kg or 0 for it in items)
+            merged_iznos = sum(it.item_value or 0 for it in items)
+
+            # Naziv: najduži goods_description ili kombinacija
+            merged_naziv = max(
+                (it.goods_description for it in items),
+                key=len,
+                default=""
+            )
+
+            proposals.append(NaimenovanjaSpajanje(
+                indices=indices,
+                tariff_code=tariff,
+                merged_naziv=merged_naziv,
+                merged_kolicina=merged_kolicina,
+                merged_bruto=round(merged_bruto, 3),
+                merged_neto=round(merged_neto, 3),
+                merged_iznos=round(merged_iznos, 2)
+            ))
+
+            nazivi = " + ".join(
+                (it.goods_description[:30] for it in items)
+            )
+            linije.append(
+                f"&nbsp;&nbsp;• Tarifa <b>{tariff}</b> ({zemlja}) — "
+                f"{len(stavke)} naim. → spoji:<br>"
+                f"&nbsp;&nbsp;&nbsp;&nbsp;Kol: {merged_kolicina:.2f} | "
+                f"Bruto: {merged_bruto:.3f}kg | Neto: {merged_neto:.3f}kg | "
+                f"Iznos: {merged_iznos:.2f}<br>"
+                f"&nbsp;&nbsp;&nbsp;&nbsp;<small>{nazivi}</small>"
+            )
+
+        self._pending_action = PendingAction(
+            action_type="merge_naimenovanja",
+            proposals=proposals,
+            description=f"Spoji {sum(len(p.indices) for p in proposals)} naimenovanja u {len(proposals)}"
+        )
+
+        chat.add_agent_message(
+            f"📋 Pronašao sam <b>{len(kandidati)}</b> grupu(e) za spajanje:<br><br>"
+            + "<br><br>".join(linije)
+            + "<br><br>🔀 <b>Spajam naimenovanja? Odgovori: Da / Ne</b>"
+        )
+
+    def _execute_pending_action(self):
+        """Izvrši pending akciju nakon potvrde korisnika."""
+        from PySide6.QtWidgets import QApplication
+
+        chat = self.view.get_chat_panel()
+        action = self._pending_action
+        self._pending_action = None
+
+        if action.action_type == "fill_tariff":
+            self._izvrsi_popunu_tarife(action.proposals, chat)
+
+        elif action.action_type == "merge_naimenovanja":
+            self._izvrsi_spajanje_naimenovanja(action.proposals, chat)
+
+    def _izvrsi_popunu_tarife(self, proposals, chat):
+        """Upiši predložene tarifne brojeve u draft i osvježi Faktura tab."""
+        from PySide6.QtWidgets import QApplication
+
+        upisano = 0
+        for p in proposals:
+            line = self.draft.invoice_lines[p.line_index]
+            line.tarifni_broj = p.proposed_tariff
+            upisano += 1
+
+        # Osvježi Faktura tab
+        faktura_widget = self.faktura_tab
+        if hasattr(self.faktura_tab, 'view'):
+            faktura_widget = self.faktura_tab.view
+        if faktura_widget and hasattr(faktura_widget, '_load_data_from_draft'):
+            QApplication.processEvents()
+            faktura_widget._load_data_from_draft()
+
+        chat.add_agent_message(
+            f"✅ <b>Upisano {upisano} tarifnih brojeva</b> u Faktura tab.<br>"
+            f"Provjeri tabelu i korigiši ako je potrebno."
+        )
+
+    def _izvrsi_spajanje_naimenovanja(self, proposals, chat):
+        """Spoji naimenovanja u draftu i osvježi Naimenovanja tab."""
+        from PySide6.QtWidgets import QApplication
+        import uuid
+
+        spojeno = 0
+        # Obrni redoslijed indeksa da brisanje ne pomijeri ostale
+        for merge in proposals:
+            items = self.draft.items
+            merged_indices = sorted(merge.indices, reverse=True)
+
+            # Uzmi prvi (najmanji indeks) kao osnovu
+            base_idx = min(merge.indices)
+            base = items[base_idx]
+
+            # Saberi vrijednosti
+            base.gross_mass_kg = merge.merged_bruto
+            base.net_mass_kg = merge.merged_neto
+            base.item_value = merge.merged_iznos
+            base.supplementary_unit_qty = merge.merged_kolicina
+
+            # Obrisi ostale (osim base)
+            for idx in merged_indices:
+                if idx != base_idx:
+                    del items[idx]
+
+            # Renumber ordinal_no
+            for i, item in enumerate(items):
+                item.ordinal_no = i + 1
+
+            spojeno += len(merge.indices) - 1
+
+        # Osvježi Naimenovanja tab
+        QApplication.processEvents()
+        if self.naimenovanje_tab:
+            if hasattr(self.naimenovanje_tab, 'reload_data'):
+                self.naimenovanje_tab.reload_data()
+            elif hasattr(self.naimenovanje_tab, 'reload'):
+                self.naimenovanje_tab.reload()
+
+        faktura_widget = self.faktura_tab
+        if hasattr(self.faktura_tab, 'view'):
+            faktura_widget = self.faktura_tab.view
+        if faktura_widget and hasattr(faktura_widget, '_reload_naimenovanja_tab'):
+            faktura_widget._reload_naimenovanja_tab()
+
+        chat.add_agent_message(
+            f"✅ <b>Spojeno {spojeno + len(proposals)} → {len(proposals)} naimenovanja.</b><br>"
+            f"Količine, mase i iznosi su sabrani.<br>"
+            f"Provjeri Naimenovanja tab."
+        )

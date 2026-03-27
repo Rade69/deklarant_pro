@@ -38,8 +38,8 @@ class MassCalculator:
         if not items_to_update:
             return {"updated": 0, "skipped": len(items)}
 
-        # Izračunaj odnos neto/bruto
-        neto_bruto_ratio = neto_total / bruto_total if bruto_total > 0 else 0.0
+        # Izračunaj odnos neto/bruto (default 0.95 ako neto nije poznat)
+        neto_bruto_ratio = neto_total / bruto_total if (bruto_total > 0 and neto_total > 0) else 0.95
 
         # Razdvoji stavke po scenariju
         items_without_both = []   # Nemaju ni bruto ni neto (PDF stavke)
@@ -67,9 +67,11 @@ class MassCalculator:
                     if qty > 0:
                         proportion = qty / total_qty
                         if bruto_total > 0:
-                            item.bruto_kg = bruto_total * proportion
+                            item.bruto_kg = round(bruto_total * proportion, 3)
                         if neto_total > 0:
-                            item.neto_kg = neto_total * proportion
+                            item.neto_kg = round(neto_total * proportion, 3)
+                        elif item.bruto_kg:
+                            item.neto_kg = round(item.bruto_kg * neto_bruto_ratio, 3)
 
         # SCENARIJ 2: Stavke SA bruto ALI BEZ neto → izračunaj neto iz bruto
         if items_with_bruto_only and neto_bruto_ratio > 0:
