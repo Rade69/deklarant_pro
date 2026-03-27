@@ -88,7 +88,7 @@ class DraftRepository:
             """, (
                 draft.broj_deklaracije,
                 draft.status,
-                json.dumps(draft.to_dict() if hasattr(draft, 'to_dict') else {}),
+                json.dumps(draft.data),
                 datetime.now().isoformat()
             ))
             conn.commit()
@@ -171,7 +171,7 @@ class DraftRepository:
             """, (
                 draft.broj_deklaracije,
                 draft.status,
-                json.dumps(draft.to_dict() if hasattr(draft, 'to_dict') else {}),
+                json.dumps(draft.data),
                 datetime.now().isoformat(),
                 draft.id
             ))
