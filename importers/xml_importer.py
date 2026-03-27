@@ -16,12 +16,12 @@ class XMLImporter:
         """Inicijalizuje XML importer."""
         pass
 
-    def import_file(self, file_path: Path, format_type: str = "auto") -> Dict[str, Any]:
+    def import_file(self, file_path: Path | str, format_type: str = "auto") -> Dict[str, Any]:
         """
         Uvozi ASYCUDA XML fajl.
 
         Args:
-            file_path: Putanja do XML fajla
+            file_path: Putanja do XML fajla (Path ili string)
             format_type: Tip formata - "world", "pro", ili "auto" (default: "auto")
 
         Returns:
@@ -31,6 +31,10 @@ class XMLImporter:
             FileNotFoundError: Ako fajl ne postoji
             ValueError: Ako XML format nije validan
         """
+        # Konvertuj u Path ako je string
+        if isinstance(file_path, str):
+            file_path = Path(file_path)
+        
         if not file_path.exists():
             raise FileNotFoundError(f"Fajl ne postoji: {file_path}")
 

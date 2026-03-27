@@ -4,7 +4,7 @@ import re
 import logging
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 
 _NUM_RE = re.compile(r"^-?\d+([.,]\d+)?$")
@@ -282,7 +282,12 @@ def export_to_pro_xml(draft_data: dict[str, Any], output_path: str) -> bool:
                 item_num = ET.SubElement(goods_item, f"{{{ns}}}ItemNumber")
                 item_num.text = str(idx)
                 
-                if hasattr(item, 'naziv_robe'):
+                # Proveri da li je item dict ili objekat
+                if isinstance(item, dict):
+                    if 'naziv_robe' in item:
+                        desc = ET.SubElement(goods_item, f"{{{ns}}}Description")
+                        desc.text = str(item['naziv_robe'])
+                elif hasattr(item, 'naziv_robe'):
                     desc = ET.SubElement(goods_item, f"{{{ns}}}Description")
                     desc.text = str(item.naziv_robe)
         
@@ -290,11 +295,13 @@ def export_to_pro_xml(draft_data: dict[str, Any], output_path: str) -> bool:
         tree = ET.ElementTree(root)
         tree.write(output_path, encoding='utf-8', xml_declaration=True)
         
-        logging.info(f"ASYCUDA Pro XML eksportovan: {output_path}")
+        logger = logging.getLogger(__name__)
+        logger.info(f"ASYCUDA Pro XML eksportovan: {output_path}")
         return True
         
     except Exception as e:
-        logging.error(f"Greška pri eksportu Pro XML: {e}")
+        logger = logging.getLogger(__name__)
+        logger.error(f"Greška pri eksportu Pro XML: {e}")
         return False
 
 def batch_convert_xml(input_dir: str, output_dir: str, from_format: str = "world", to_format: str = "pro") -> Dict[str, Any]:
@@ -312,6 +319,9 @@ def batch_convert_xml(input_dir: str, output_dir: str, from_format: str = "world
     """
     import os
     from pathlib import Path
+    import shutil
+    
+    logger = logging.getLogger(__name__)
     
     stats = {
         'total': 0,
@@ -355,11 +365,7 @@ def batch_convert_xml(input_dir: str, output_dir: str, from_format: str = "world
             if to_format == "pro":
                 export_to_pro_xml(converted_data, str(output_file))
             else:
-                # Koristi postojeći World eksporter
-                # Prvo, treba konvertovati podatke u DeclarationDraft format
-                # Ovo je pojednostavljeno - u stvarnosti treba više logike
-                # Za sada, samo sačuvaj originalni XML
-                import shutil
+                # Za World format, kopiraj originalni XML
                 shutil.copy2(xml_file, output_file)
             
             stats['success'] += 1
@@ -370,6 +376,6 @@ def batch_convert_xml(input_dir: str, output_dir: str, from_format: str = "world
                 'file': str(xml_file),
                 'error': str(e)
             })
-            logging.error(f"Greška pri konverziji {xml_file}: {e}")
+            logger.error(f"Greška pri konverziji {xml_file}: {e}")
     
     return stats
