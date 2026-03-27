@@ -330,9 +330,9 @@ class ChatWorker(QThread):
             )
             ctx.append(
                 f"  {'Rb.':<5} {'Tarifni br.':<12} {'Opis robe (u deklaraciji)':<40} "
-                f"{'Zvanični opis tarife':<40} {'Z.':<4} {'Povl.':<7} {'Bruto':>8} {'Neto':>8} {'Iznos':>9}"
+                f"{'Zvanični opis tarife':<40} {'Z.':<4} {'Povl.':<7} {'Bruto':>8} {'Neto':>8} {'Iznos':>9} {'Fakt.lin.':>9}"
             )
-            ctx.append("  " + "-" * 135)
+            ctx.append("  " + "-" * 145)
             for item in naim_items:
                 rb    = getattr(item, 'ordinal_no', '?')
                 tarif = getattr(item, 'tariff_code', '') or '⚠️NEMA'
@@ -343,9 +343,14 @@ class ChatWorker(QThread):
                 neto  = getattr(item, 'net_mass_kg', 0) or 0
                 iznos = getattr(item, 'item_value', 0) or 0
                 zv_opis = naim_pg_desc.get(tarif, '')[:39] if tarif != '⚠️NEMA' else '(nema tarife)'
+                # Broj fakturnih linija grupisanih u ovo naimensovanje
+                n_lines = sum(
+                    1 for l in lines
+                    if getattr(l, 'assigned_naimenovanje_ordinal', 0) == rb
+                )
                 ctx.append(
                     f"  {rb:<5} {tarif:<12} {opis:<40} {zv_opis:<40} "
-                    f"{zemlja:<4} {pov:<7} {bruto:>8.2f} {neto:>8.2f} {iznos:>9.2f}"
+                    f"{zemlja:<4} {pov:<7} {bruto:>8.2f} {neto:>8.2f} {iznos:>9.2f} {n_lines:>9}"
                 )
 
         if bez_zemlje_list:
@@ -401,18 +406,25 @@ class ChatWorker(QThread):
                         ctx.append(f"         bruto={bruto:.3f}kg | neto={neto:.3f}kg | iznos={iznos:.2f}")
                         ctx.append(f"         Zvanični opis tarife {tarif}: {zv_opis}")
 
-                        # Pronađi odgovarajuće fakturne linije
+                        # Pronađi fakturne linije koje su grupisane u ovo naimenovanje
                         matching_lines = [
                             l for l in lines
-                            if (getattr(l, 'tarifni_broj', '') or '') == tarif
+                            if getattr(l, 'assigned_naimenovanje_ordinal', 0) == i
                         ]
                         if matching_lines:
                             ctx.append(f"         Fakturne linije ({len(matching_lines)}):")
-                            for ml in matching_lines[:5]:
+                            for ml in matching_lines[:8]:
+                                ml_tarif = getattr(ml, 'tarifni_broj', '') or '?'
+                                ml_zemlja = getattr(ml, 'zemlja_porijekla', '') or '?'
+                                ml_kol = getattr(ml, 'kolicina', '') or ''
+                                ml_jm = getattr(ml, 'jm', '') or ''
+                                ml_naziv = getattr(ml, 'naziv_robe', '') or ''
                                 ctx.append(
-                                    f"           - {getattr(ml, 'naziv_robe', '')[:60]} "
-                                    f"({getattr(ml, 'kolicina', '')} {getattr(ml, 'jm', '')})"
+                                    f"           - {ml_naziv[:55]} "
+                                    f"({ml_kol} {ml_jm}) | tarifa={ml_tarif} | zemlja={ml_zemlja}"
                                 )
+                        else:
+                            ctx.append(f"         Fakturne linije: 0 (naimenovanje bez dodjele)")
             else:
                 # Generalni pregled — tarife za prvih 15 stavki (prioritet: bez tarife)
                 bez = [l for l in lines if not getattr(l, 'tarifni_broj', None)]
@@ -804,10 +816,23 @@ class ChatWorker(QThread):
             "Ti si AI asistent za carinsku deklaraciju u aplikaciji AsycudaPro (Bosna i Hercegovina).\n"
             "Odgovaraš na srpskom jeziku (latinica), konkretno i korisno.\n\n"
             "POJMOVI KOJE MORAŠ RAZUMJETI:\n"
-            "- FAKTURNE LINIJE (invoice_lines): Pojedinačni redovi iz uvozne fakture — svaki red je jedan proizvod\n"
-            "- NAIMENOVANJA (items): Grupisane stavke CARINSKE DEKLARACIJE — više fakturnih linija sa istim tarifnim brojem\n"
-            "  spaja se u jedno naimenovanje. Svako naimenovanje ima redni broj (Rb.), tarifni broj, opis robe, zemlja,\n"
-            "  povlastica, bruto/neto masa i iznos. Rb. 1 je prvo naimenovanje, Rb. 10 je deseto, itd.\n"
+            "- FAKTURNE LINIJE (invoice_lines): Pojedinačni redovi iz uvozne fakture — svaki red je jedan proizvod.\n"
+            "  Polja: naziv_robe, tarifni_broj, zemlja_porijekla, povlastica, kolicina, jm, iznos, bruto_kg, neto_kg.\n\n"
+            "- NAIMENOVANJA (items): Grupisane stavke CARINSKE DEKLARACIJE.\n"
+            "  PRAVILO GRUPIRANJA: Fakturne linije se grupišu po kombinaciji:\n"
+            "    (tarifni_broj + zemlja_porijekla + povlastica + eur1_number)\n"
+            "  Sve linije sa ISTOM tom kombinacijom → JEDNO naimenovanje.\n"
+            "  Ako se razlikuje ijedan od ta 4 ključa → RAZLIČITA naimenovanja.\n"
+            "  Primjer: 5 linija mandarina (sve tarifa=08052190, TR, TRP) → 1 naimenovanje\n"
+            "           3 linije jabuka (08081000, RS, CEFTAP) + 5 mandarina → 2 naimenovanja\n"
+            "  Masa i iznos se SABIRAJU od svih linija u grupi.\n"
+            "  Opis = prvih 3 naziva robe spojeni sa '; '\n"
+            "  Svako naimenovanje ima redni broj (Rb.). Rb.1 = prvo, Rb.10 = deseto.\n\n"
+            "- ZAŠTO JE VIŠE NAIMENOVANJA nego što korisnik očekuje:\n"
+            "  → Različite povlastice (npr. TRP vs EUP) → odvojeno\n"
+            "  → Različite zemlje porijekla → odvojeno\n"
+            "  → Različiti tarifni brojevi → odvojeno\n"
+            "  → Različiti EUR.1 brojevi → odvojeno\n\n"
             "- Kad korisnik kaže 'naimenovanje 10 i 11' — misli na Rb. 10 i Rb. 11 u tabeli NAIMENOVANJA\n"
             "- Tarifni broj (HS kod): 8-10 cifara, format bez tačaka (npr. 84713000)\n\n"
             "TVOJE SPOSOBNOSTI:\n"
