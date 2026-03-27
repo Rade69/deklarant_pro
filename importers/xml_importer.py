@@ -16,12 +16,13 @@ class XMLImporter:
         """Inicijalizuje XML importer."""
         pass
 
-    def import_file(self, file_path: Path) -> Dict[str, Any]:
+    def import_file(self, file_path: Path, format_type: str = "auto") -> Dict[str, Any]:
         """
         Uvozi ASYCUDA XML fajl.
 
         Args:
             file_path: Putanja do XML fajla
+            format_type: Tip formata - "world", "pro", ili "auto" (default: "auto")
 
         Returns:
             Dictionary sa podacima deklaracije
@@ -36,9 +37,47 @@ class XMLImporter:
         try:
             tree = ET.parse(file_path)
             root = tree.getroot()
-            return self._parse_asycuda_xml(root)
+            
+            # Auto detekcija formata
+            if format_type.lower() == "auto":
+                format_type = self._detect_xml_format(root)
+            
+            if format_type.lower() == "pro":
+                return self._parse_asycuda_pro_xml(root)
+            else:
+                return self._parse_asycuda_xml(root)
         except ET.ParseError as e:
             raise ValueError(f"Neispravan XML format: {e}")
+    
+    def _detect_xml_format(self, root: ET.Element) -> str:
+        """
+        Automatski detektuje tip XML formata.
+        
+        Args:
+            root: Root XML element
+        
+        Returns:
+            "world" ili "pro"
+        """
+        root_tag = root.tag.upper().replace('{', '').replace('}', '')
+        
+        # Pro format često sadrži "DECLARATION" u tagu
+        if 'DECLARATION' in root_tag:
+            return "pro"
+        
+        # World format često ima "ASYCUDA" kao root
+        if 'ASYCUDA' in root_tag:
+            return "world"
+        
+        # Proveri namespace
+        if root.tag.startswith('{'):
+            uri = root.tag.split('}')[0][1:]
+            if 'asycuda' in uri.lower() and 'pro' in uri.lower():
+                return "pro"
+        
+        # Podrazumevano: World format
+        logger.warning(f"Nije moguće detektovati format XML-a (root tag: {root_tag}), podrazumevam World format")
+        return "world"
 
     def _parse_asycuda_xml(self, root: ET.Element) -> Dict[str, Any]:
         """

@@ -901,9 +901,25 @@ class ZaglavljeService:
 
         return data
     
-    def _build_xml(self, data: Dict[str, Any]) -> ET.Element:
+    def _build_xml(self, data: Dict[str, Any], format_type: str = "world") -> ET.Element:
         """
         Gradi ASYCUDA XML strukturu.
+        
+        Args:
+            data: Podaci zaglavlja
+            format_type: Tip formata - "world" ili "pro" (default: "world")
+        
+        Returns:
+            Root XML element
+        """
+        if format_type.lower() == "pro":
+            return self._build_pro_xml(data)
+        else:
+            return self._build_world_xml(data)
+    
+    def _build_world_xml(self, data: Dict[str, Any]) -> ET.Element:
+        """
+        Gradi ASYCUDA World XML strukturu.
         
         Args:
             data: Podaci zaglavlja
@@ -946,5 +962,71 @@ class ZaglavljeService:
             declarant = ET.SubElement(root, "Declarant")
             ET.SubElement(declarant, "ID").text = data.get('deklarant_id', '')
             ET.SubElement(declarant, "Name").text = data.get('deklarant_r1', '')
+        
+        return root
+    
+    def _build_pro_xml(self, data: Dict[str, Any]) -> ET.Element:
+        """
+        Gradi ASYCUDA Pro XML strukturu.
+        
+        Args:
+            data: Podaci zaglavlja
+        
+        Returns:
+            Root XML element
+        """
+        # ASYCUDA Pro namespace
+        ns = "http://www.asycuda.org/asycuda-pro"
+        root = ET.Element(f"{{{ns}}}Declaration")
+        root.set("xmlns", ns)
+        
+        # Osnovni podaci
+        if 'broj_deklaracije' in data:
+            decl_num = ET.SubElement(root, f"{{{ns}}}DeclarationNumber")
+            decl_num.text = str(data['broj_deklaracije'])
+        
+        if 'datum' in data:
+            decl_date = ET.SubElement(root, f"{{{ns}}}DeclarationDate")
+            decl_date.text = str(data['datum'])
+        
+        if 'vrsta_deklaracije' in data:
+            decl_type = ET.SubElement(root, f"{{{ns}}}DeclarationType")
+            decl_type.text = str(data['vrsta_deklaracije'])
+        
+        # Izvoznik
+        if data.get('izvoznik_id') or data.get('izvoznik_naziv'):
+            exporter = ET.SubElement(root, f"{{{ns}}}Exporter")
+            
+            if 'izvoznik_id' in data:
+                exp_id = ET.SubElement(exporter, f"{{{ns}}}ID")
+                exp_id.text = str(data['izvoznik_id'])
+            
+            if 'izvoznik_naziv' in data:
+                exp_name = ET.SubElement(exporter, f"{{{ns}}}Name")
+                exp_name.text = str(data['izvoznik_naziv'])
+        
+        # Primalac
+        if data.get('primalac_id') or data.get('primalac_naziv'):
+            consignee = ET.SubElement(root, f"{{{ns}}}Consignee")
+            
+            if 'primalac_id' in data:
+                cons_id = ET.SubElement(consignee, f"{{{ns}}}ID")
+                cons_id.text = str(data['primalac_id'])
+            
+            if 'primalac_naziv' in data:
+                cons_name = ET.SubElement(consignee, f"{{{ns}}}Name")
+                cons_name.text = str(data['primalac_naziv'])
+        
+        # Transport
+        if data.get('transport_id') or data.get('aktivno_transport'):
+            transport = ET.SubElement(root, f"{{{ns}}}TransportMeans")
+            
+            if 'transport_id' in data:
+                trans_id = ET.SubElement(transport, f"{{{ns}}}ID")
+                trans_id.text = str(data['transport_id'])
+            
+            if 'aktivno_transport' in data:
+                trans_nat = ET.SubElement(transport, f"{{{ns}}}Nationality")
+                trans_nat.text = str(data['aktivno_transport'])
         
         return root
