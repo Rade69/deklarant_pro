@@ -189,27 +189,28 @@ class ZaglavljeService:
         except ET.ParseError as e:
             raise ValueError(f"Neispravan XML format: {e}")
     
-    def export_to_xml(self, data: Dict[str, Any], filepath: str) -> bool:
+    def export_to_xml(self, data: Dict[str, Any], filepath: str, format_type: str = "world") -> bool:
         """
         Eksportuj zaglavlje u XML fajl.
         
         Args:
             data: Podaci zaglavlja
             filepath: Putanja do XML fajla
+            format_type: Tip formata - "world" ili "pro" (default: "world")
         
         Returns:
             True ako je uspješno
         """
         try:
-            root = self._build_xml(data)
+            root = self._build_xml(data, format_type)
             tree = ET.ElementTree(root)
             tree.write(filepath, encoding='utf-8', xml_declaration=True)
             
-            self.logger.info(f"XML eksportovan: {filepath}")
+            self.logger.info(f"XML eksportovan ({format_type}): {filepath}")
             return True
             
         except Exception as e:
-            self.logger.error(f"Greška pri XML eksportu: {e}")
+            self.logger.error(f"Greška pri XML eksportu ({format_type}): {e}")
             return False
     
     def get_vrste_deklaracija(self) -> Dict[str, List[tuple[str, str]]]:
