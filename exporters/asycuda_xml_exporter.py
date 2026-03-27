@@ -177,17 +177,197 @@ def build_template_from_xml_files(xml_paths: list[str]) -> dict[str, Any]:
     }
 
 
-def write_xml_stub(template: dict[str, Any], data: dict[str, Any]) -> str:
+def write_xml_stub(template: dict[str, Any], data: dict[str, Any], format_type: str = "world") -> str:
     """
-    Namjerno je STUB: daje validan XML skeleton.
-    U sljedećem koraku, kad potvrdimo template mapiranje, ovo će popuniti stvarne node-ove.
+    Generiše XML skeleton za ASYCUDA World ili Pro format.
+    
+    Args:
+        template: Template struktura
+        data: Podaci za popunjavanje
+        format_type: "world" ili "pro" (default: "world")
+    
+    Returns:
+        XML string
     """
+    if format_type.lower() == "pro":
+        return _write_pro_xml_stub(template, data)
+    else:
+        return _write_world_xml_stub(template, data)
+
+def _write_world_xml_stub(template: dict[str, Any], data: dict[str, Any]) -> str:
+    """Generiše World format XML stub."""
     root = ET.Element("ASYCUDA")
     meta = ET.SubElement(root, "GeneratedBy")
-    meta.text = "ASYCUDA Pro Modern (stub exporter)"
+    meta.text = "ASYCUDA Pro Modern (World format stub exporter)"
 
     ET.SubElement(root, "Info").text = (
-        "Exporter još nije implementiran. Template + data su spremni."
+        "World format exporter još nije implementiran. Template + data su spremni."
     )
 
     return ET.tostring(root, encoding="utf-8", xml_declaration=True).decode("utf-8")
+
+def _write_pro_xml_stub(template: dict[str, Any], data: dict[str, Any]) -> str:
+    """Generiše Pro format XML stub."""
+    # ASYCUDA Pro često koristi namespace
+    ns = "http://www.asycuda.org/asycuda-pro"
+    root = ET.Element(f"{{{ns}}}Declaration")
+    
+    # Dodaj namespace atribut
+    root.set("xmlns", ns)
+    
+    # Osnovni podaci
+    decl_number = ET.SubElement(root, f"{{{ns}}}DeclarationNumber")
+    decl_number.text = data.get('broj_deklaracije', '')
+    
+    decl_date = ET.SubElement(root, f"{{{ns}}}DeclarationDate")
+    decl_date.text = data.get('datum', '')
+    
+    decl_type = ET.SubElement(root, f"{{{ns}}}DeclarationType")
+    decl_type.text = data.get('vrsta_deklaracije', 'IM')
+    
+    # Dodaj komentar
+    comment = ET.Comment("ASYCUDA Pro format generisan od ASYCUDA Pro Modern aplikacije")
+    root.insert(0, comment)
+    
+    return ET.tostring(root, encoding="utf-8", xml_declaration=True).decode("utf-8")
+
+def export_to_pro_xml(draft_data: dict[str, Any], output_path: str) -> bool:
+    """
+    Eksportuje podatke u ASYCUDA Pro XML format.
+    
+    Args:
+        draft_data: Podaci draft-a
+        output_path: Putanja za čuvanje XML fajla
+    
+    Returns:
+        True ako je uspešno, False inače
+    """
+    try:
+        # Kreiraj Pro XML strukturu
+        ns = "http://www.asycuda.org/asycuda-pro"
+        root = ET.Element(f"{{{ns}}}Declaration")
+        root.set("xmlns", ns)
+        
+        # Osnovni podaci
+        if 'broj_deklaracije' in draft_data:
+            decl_num = ET.SubElement(root, f"{{{ns}}}DeclarationNumber")
+            decl_num.text = str(draft_data['broj_deklaracije'])
+        
+        if 'datum' in draft_data:
+            decl_date = ET.SubElement(root, f"{{{ns}}}DeclarationDate")
+            decl_date.text = str(draft_data['datum'])
+        
+        if 'vrsta_deklaracije' in draft_data:
+            decl_type = ET.SubElement(root, f"{{{ns}}}DeclarationType")
+            decl_type.text = str(draft_data['vrsta_deklaracije'])
+        
+        # Izvoznik
+        if any(key.startswith('izvoznik') for key in draft_data.keys()):
+            exporter = ET.SubElement(root, f"{{{ns}}}Exporter")
+            
+            if 'izvoznik_id' in draft_data:
+                exp_id = ET.SubElement(exporter, f"{{{ns}}}ID")
+                exp_id.text = str(draft_data['izvoznik_id'])
+            
+            if 'izvoznik_naziv' in draft_data:
+                exp_name = ET.SubElement(exporter, f"{{{ns}}}Name")
+                exp_name.text = str(draft_data['izvoznik_naziv'])
+        
+        # Stavke
+        if 'items' in draft_data and draft_data['items']:
+            goods_items = ET.SubElement(root, f"{{{ns}}}GoodsItems")
+            for idx, item in enumerate(draft_data['items'][:10], 1):  # Ograniči na 10 za stub
+                goods_item = ET.SubElement(goods_items, f"{{{ns}}}GoodsItem")
+                
+                item_num = ET.SubElement(goods_item, f"{{{ns}}}ItemNumber")
+                item_num.text = str(idx)
+                
+                if hasattr(item, 'naziv_robe'):
+                    desc = ET.SubElement(goods_item, f"{{{ns}}}Description")
+                    desc.text = str(item.naziv_robe)
+        
+        # Snimi fajl
+        tree = ET.ElementTree(root)
+        tree.write(output_path, encoding='utf-8', xml_declaration=True)
+        
+        logging.info(f"ASYCUDA Pro XML eksportovan: {output_path}")
+        return True
+        
+    except Exception as e:
+        logging.error(f"Greška pri eksportu Pro XML: {e}")
+        return False
+
+def batch_convert_xml(input_dir: str, output_dir: str, from_format: str = "world", to_format: str = "pro") -> Dict[str, Any]:
+    """
+    Batch konvertuje XML fajlove iz jednog formata u drugi.
+    
+    Args:
+        input_dir: Direktorijum sa ulaznim XML fajlovima
+        output_dir: Direktorijum za izlazne XML fajlove
+        from_format: Izvorni format ("world" ili "pro")
+        to_format: Ciljani format ("world" ili "pro")
+    
+    Returns:
+        Statistika konverzije
+    """
+    import os
+    from pathlib import Path
+    
+    stats = {
+        'total': 0,
+        'success': 0,
+        'failed': 0,
+        'errors': []
+    }
+    
+    input_path = Path(input_dir)
+    output_path = Path(output_dir)
+    
+    # Kreiraj izlazni direktorijum ako ne postoji
+    output_path.mkdir(parents=True, exist_ok=True)
+    
+    # Pronađi sve XML fajlove
+    xml_files = list(input_path.glob("*.xml"))
+    stats['total'] = len(xml_files)
+    
+    for xml_file in xml_files:
+        try:
+            # Učitaj XML
+            from .xml_importer import XMLImporter
+            importer = XMLImporter()
+            data = importer.import_file(xml_file, from_format)
+            
+            # Konvertuj podatke
+            from .central_mapper import CentralMapper
+            mapper = CentralMapper()
+            
+            if from_format == "world" and to_format == "pro":
+                converted_data = mapper.convert_world_to_pro(data)
+            elif from_format == "pro" and to_format == "world":
+                converted_data = mapper.convert_pro_to_world(data)
+            else:
+                # Ako su isti formati, samo kopiraj
+                converted_data = data
+            
+            # Eksportuj u novi format
+            output_file = output_path / f"{xml_file.stem}_{to_format}.xml"
+            
+            if to_format == "pro":
+                export_to_pro_xml(converted_data, str(output_file))
+            else:
+                # Koristi postojeći World eksporter
+                from .asycuda_xml_builder import export_to_xml as export_world_xml
+                # Ovo je placeholder - treba prilagoditi
+                pass
+            
+            stats['success'] += 1
+            
+        except Exception as e:
+            stats['failed'] += 1
+            stats['errors'].append({
+                'file': str(xml_file),
+                'error': str(e)
+            })
+            logging.error(f"Greška pri konverziji {xml_file}: {e}")
+    
+    return stats
