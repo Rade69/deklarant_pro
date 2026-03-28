@@ -57,3 +57,10 @@ class AgentTab(QWidget):
                     print(f"[AgentTab] ✅ Otvoren Faktura tab sa uvezenim podacima")
                 except Exception as e:
                     print(f"[AgentTab] ⚠️ Greška pri učitavanju: {e}")
+
+    def send_message_to_agent(self, message: str):
+        """Programski pošalji poruku agentu — koristi se iz других tabova."""
+        try:
+            self.view.chat_panel.trigger_message(message)
+        except Exception as e:
+            print(f"[AgentTab] ⚠️ Greška pri slanju poruke: {e}")

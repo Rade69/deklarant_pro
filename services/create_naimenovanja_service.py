@@ -125,6 +125,16 @@ class CreateNaimenovanjaService:
             groups[key].append(line)
 
         logger.debug(f"  📊 Grouped {len(self.draft.invoice_lines)} lines into {len(groups)} groups")
+        # DEBUG: upiši svaku grupu u fajl da vidimo zašto se nešto grupišalo zajedno
+        import pathlib
+        _log = pathlib.Path.home() / "naim_debug.log"
+        with open(_log, "w", encoding="utf-8") as _f:
+            _f.write(f"Ukupno linija: {len(self.draft.invoice_lines)}, grupa: {len(groups)}\n\n")
+            for gkey, glines in groups.items():
+                _f.write(f"GRUPA key=({gkey.tariff_code!r}, {gkey.origin_country!r}, {gkey.preference_code!r}, {gkey.eur1_number!r}) → {len(glines)} linija\n")
+                for gl in glines:
+                    _f.write(f"  - {(gl.naziv_robe or '')[:55]} | tarifa={gl.tarifni_broj!r} | zemlja={gl.zemlja_porijekla!r} | povl={gl.povlastica!r}\n")
+                _f.write("\n")
 
         # Clear existing items
         self.draft.items.clear()

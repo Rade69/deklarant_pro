@@ -1,53 +1,35 @@
-# 🧠 MCP Universal Memory - Cline Konfiguracija
+# Cline Rules — ASYCUDA Pro
 
-**NA POČETKU SVAKE SESIJE:**
+Ti si worker agent pod nadzorom Claude Sonnet-a (orchestrator).
 
-1. **Provjeri MCP konfiguraciju** u `.qwen/mcp.json` ili `.qwen/settings.json`
+## Obaveze prije rada
 
-2. **Koristi MCP universal-memory server** za pristup memoriji:
-   - Tool: `get_project_overview(project="asycuda_pro")` - za pregled svih memorija
-   - Tool: `query_memory(project="asycuda_pro", query="...")` - za specifične teme
+1. Pročitaj `AGENTS.md` u korijenu projekta
+2. Pročitaj `~/.claude/AGENTS.md` (globalni standard)
 
-3. **Memorija sadrži 13+ cells** o:
-   - Tab Refactor Pattern (View/Controller/Service 3-layer)
-   - ASYCUDA Pro refactor status (ZaglavljeTab ✅, FakturaTab ✅, NaimenovanjaTab ⚠️, SifarniciTab ✅)
-   - Code reduction metrike (12,220 → 10,680 linija, -12.6%)
-   - Safe refactoring decisions i lessons learned
+## Osnovna pravila
 
----
+- Implementiraj tačno ono što piše u promptu — ništa više, ništa manje
+- Ne refaktoriši kod van scope-a zadatka
+- Ne dodavaj komentare/docstrings na kod koji nisi mijenjao
+- Ne ostavljaj zakomentiran kod
+- Ne commituj — Claude Sonnet reviewuje i commituje
+- Ako prompt nije jasan → prijavi BLOKIRANO, ne nagađaj
 
-## MCP Server Konfiguracija
+## Projektna arhitektura (kratko)
 
-```json
-{
-  "mcpServers": {
-    "universal-memory": {
-      "command": "/home/radovan/Desktop/asycuda_pro/.venv/bin/python3",
-      "args": ["/home/radovan/.agent_memory_system/memory_mcp_server_universal.py"]
-    }
-  }
-}
+- Python 3.11+, PySide6, PostgreSQL + SQLite
+- 3-layer: View / Controller / Service — ne miješati slojeve
+- Srpski field names: `tarifni_broj`, `naziv_robe`, `zemlja_porijekla` itd.
+- Tarifni broj: 8 cifara bez tačaka (`08052190`, ne `0805.21.90`)
+- LLM pozivi samo kroz `LLMProvider` klasu, ne direktno
+
+## Format outputa (obavezan)
+
 ```
-
----
-
-## Primjeri Korištenja Memorije
-
-### Arhitektura
+STATUS: OK | PARCIJALNO | BLOKIRANO
+IZMIJENJENI FAJLOVI: [lista]
+ŠTA JE URAĐENO: [opis]
+ŠTA NIJE URAĐENO: [ako parcijalno/blokirano]
+PITANJA: [ako postoje]
 ```
-query_memory(project="asycuda_pro", query="Tab Refactor Pattern 3-layer View Controller Service")
-```
-
-### Refactor Status
-```
-query_memory(project="asycuda_pro", query="FakturaTab ZaglavljeTab refactor")
-```
-
-### Bugovi i Lekcije
-```
-query_memory(project="asycuda_pro", query="bug recursion GUI safe approach")
-```
-
----
-
-**Napomena:** MCP memorija ima prednost nad drugim dokumentima ako postoji konflikt.

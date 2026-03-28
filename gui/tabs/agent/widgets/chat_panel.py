@@ -534,6 +534,11 @@ class ChatPanel(QWidget):
         """Vrati memory service za korištenje u ChatWorker."""
         return self._memory_service
 
+    def trigger_message(self, message: str):
+        """Programski pošalji poruku — kao da je korisnik upisao i pritisnuo Enter."""
+        self.input_field.setText(message)
+        self._send_message()
+
     def get_input_field(self) -> QLineEdit:
         return self.input_field
 
