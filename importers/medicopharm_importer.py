@@ -45,8 +45,8 @@ _INVOICE_NO_RE = re.compile(r"Faktura\s*[-–]\s*(\d+/\d+)", re.IGNORECASE)
 _DATE_RE = re.compile(r"Datum\s+fakture[^:]*:\s*(\d{1,2}\.\d{1,2}\.\d{4})", re.IGNORECASE)
 _BRUTO_RE = re.compile(r"BRUTO\s+TE[ZŽ]INA\s*:?\s*([\d\.,]+)\s*kg", re.IGNORECASE)
 
-# Header tabla stavki: prepoznaje "Rb." i "JM" na istoj liniji
-_ITEM_HEADER_RE = re.compile(r"\bRb\.\s*No\b|\bRb\b.*\bJM\b", re.IGNORECASE)
+# Header tabla stavki: prepoznaje "Rb." + "JM" ili "Rbr" + "J.M." (Proton System format)
+_ITEM_HEADER_RE = re.compile(r"\bRb\.\s*No\b|\bRb[r.]?\b.*\bJ\.?M\.?\b", re.IGNORECASE)
 
 # Header sumarnog tabela po tarifama/zemljama
 _SUMMARY_HEADER_RE = re.compile(r"Tarifna\s+oznaka|Tariff\s+heading", re.IGNORECASE)
@@ -83,6 +83,29 @@ _NOISE_PATTERNS = [
     re.compile(r"Ukupno\s*/\s*Total|Ukupno\s+rabata", re.IGNORECASE),
     re.compile(r"Ukupan\s+iznos/For\s+payment", re.IGNORECASE),
 ]
+
+# Linija sa šifrom serije + (opcioni token) + datumom roka + količinom (šum)
+# Format 3 tokena: "301575 30.06.2028 400"
+# Format 4 tokena: "300401 3 31.05.2027 80"  (srednji token je dodatan broj)
+_LOT_DATE_QTY_RE = re.compile(r"^\d{4,8}\s+(?:\S+\s+)?\d{2}\.\d{2}\.\d{4}\s+\d+\s*$")
+
+# "Zemlja porekla X" — prosta izjava o porijeklu robe
+_ZEMLJA_POREKLA_RE = re.compile(
+    r"Zemlja\s+porekla\s+([\wčćšžđČĆŠŽĐ]+(?:\s+[\wčćšžđČĆŠŽĐ]+){0,2})",
+    re.IGNORECASE,
+)
+
+# Raspon stavki: "stavke broj 43-46"
+_ITEM_RANGE_RE = re.compile(
+    r"stavk[ei]\s+broj[a]?\s+(\d+)\s*[-–]\s*(\d+)",
+    re.IGNORECASE,
+)
+
+# Pojedinačna stavka: "stavke broj 47" (bez iza nje -)
+_ITEM_SINGLE_RE = re.compile(
+    r"stavk[ei]?\s+broj[a]?\s+(\d+)(?!\s*[-–]\s*\d)",
+    re.IGNORECASE,
+)
 
 # Stop pri parsiranju stavki — počela je sumarni dio ili kraj
 _STOP_PREFIXES = [
@@ -173,6 +196,13 @@ def parse_medicopharm_pdf(pdf_path: str) -> ImportResult:
         _apply_countries(raw_items, tariff_country_map)
         logger.info(f"   🌍 Zemlja porekla dodijeljena za {sum(1 for i in raw_items if i['zemlja'])} stavki")
 
+    # --- Fallback: "Zemlja porekla X" izjava ---
+    # Pretraži sve linije (fakture bez sumarnog tabela imaju samo tekst izjave)
+    default_zemlja, item_zemlja_map = _parse_zemlja_porekla(lines)
+    if default_zemlja:
+        _apply_zemlja_porekla(raw_items, default_zemlja, item_zemlja_map)
+        logger.info(f"   🌍 Zemlja porekla (izjava) dodijeljena za {sum(1 for i in raw_items if i['zemlja'])} stavki")
+
     logger.info(f"✅ Medico Pharm: {len(raw_items)} stavki | bruto={bruto_kg}kg | neto={neto_kg}kg")
 
     return ImportResult(
@@ -224,6 +254,9 @@ def _parse_items(lines: List[str]) -> List[Dict]:
     items: List[Dict] = []
     current: Optional[Dict] = None
 
+    # Buffer za "floating" linije koje dolaze ISPRED RBR linije (Proton System format)
+    pending_name_parts: List[str] = []
+
     for ln in lines:
         s = ln.strip()
         if not s:
@@ -247,9 +280,25 @@ def _parse_items(lines: List[str]) -> List[Dict]:
             if current:
                 items.append(current)
             current = parsed
+            # Proton System: naziv dolazi iz pending buffera (ispred RBR linije)
+            if pending_name_parts:
+                prefix = " ".join(pending_name_parts)
+                current["name"] = (prefix + " " + current["name"]).strip()
+            pending_name_parts = []
         elif current:
-            # Nastavak naziva prethodne stavke (multi-line opis)
-            current["name"] = (current["name"] + " " + s).strip()
+            # Preskoči liniju šifra_serije + datum_roka + količina
+            if _LOT_DATE_QTY_RE.match(s):
+                continue
+            if current.get("_proton"):
+                # Proton System: naziv je kompletan — naredne linije su pending za sljedeću stavku
+                pending_name_parts.append(s)
+            else:
+                # Medico Pharm: nastavak naziva iste stavke (multi-line opis)
+                current["name"] = (current["name"] + " " + s).strip()
+        else:
+            # Nema tekuće stavke → buferiraj kao potencijalni naziv za sljedeću stavku
+            if not _LOT_DATE_QTY_RE.match(s):
+                pending_name_parts.append(s)
 
     if current:
         items.append(current)
@@ -280,54 +329,75 @@ def _try_parse_item_line(line: str) -> Optional[Dict]:
     except ValueError:
         return None
 
-    # Minimum: rbr + code + tariff + 1-znak-naziv + jm + 6-numerika = 10
-    if len(parts) < 10:
+    # Minimum: rbr + code + jm + 5 numerika = 8 (Proton System)
+    # ili: rbr + code + tariff + naziv + jm + 6 numerika = 10 (Medico Pharm)
+    if len(parts) < 8:
         return None
 
-    # Traži JM od desna na poziciji -7 (ili -8 kao fallback za dugačak naziv)
-    for offset in (7, 8):
+    # ──────────────────────────────────────────────────────────────────
+    # Pokušaj JM na pozicijama od desna: 6 → Proton System (5 num tail)
+    #                                    7, 8 → Medico Pharm (6 num tail)
+    # ──────────────────────────────────────────────────────────────────
+    for offset in (7, 8, 6):
         if len(parts) <= offset:
             continue
 
         jm_raw = parts[-offset]
-        jm = jm_raw.rstrip(".")  # Skini završnu tačku: SC. → sc, FL. → fl
+        jm = jm_raw.rstrip(".")  # SC. → sc, FL. → fl
 
         if jm.lower() not in KNOWN_JM:
             continue
 
-        tail = parts[-offset + 1:]
-        if len(tail) != 6:
-            continue
-
-        # Provjeri da su svih 6 tail tokena numerički (digits, tačke, zarezi)
-        if not all(_is_numeric_token(t) for t in tail):
-            continue
-
-        # Prefix: rbr code tariff *name_tokens
-        prefix = parts[:-offset]
-        if len(prefix) < 3:
-            continue
-
-        code = prefix[1]
-        tariff = prefix[2]
-        name = " ".join(prefix[3:])
-
-        # Iznos = Izn.Rabat (tail[5]) = konačni iznos poslije rabata
-        iznos = parse_eu_number(tail[5])
-        if iznos == 0.0:
-            iznos = parse_eu_number(tail[2])  # Fallback na Iznos
-
-        return {
-            "rbr": rbr,
-            "code": code,
-            "tariff": tariff,
-            "name": name,
-            "jm": jm.lower(),
-            "kolicina": parse_eu_number(tail[0]),
-            "cijena": parse_eu_number(tail[1]),
-            "iznos": iznos,
-            "zemlja": "",
-        }
+        if offset == 6:
+            # ── Proton System: RBR CODE [tekst...] KOL JM CENA POPUST NETO PDV IZNOS ──
+            # JM na -6, tail = 5 numericka, kolicina na -7
+            tail = parts[-5:]
+            if not all(_is_numeric_token(t) for t in tail):
+                continue
+            kolicina_raw = parts[-7]
+            if not _is_numeric_token(kolicina_raw):
+                continue
+            # Tekst između code i kolicine (name overflow iz naziva)
+            extra_name = " ".join(parts[2:-7]) if len(parts) > 8 else ""
+            return {
+                "rbr": rbr,
+                "code": parts[1],
+                "tariff": "",
+                "name": extra_name,   # Pending buffer se dodaje u _parse_items
+                "jm": jm.lower(),
+                "kolicina": parse_eu_number(kolicina_raw),
+                "cijena": parse_eu_number(tail[0]),
+                "iznos": parse_eu_number(tail[4]),
+                "zemlja": "",
+                "_proton": True,      # Flag: naziv dolazi iz pending buffera
+            }
+        else:
+            # ── Medico Pharm: RBR CODE TARIFF [naziv] JM KOL CENA IZNOS RAB% RABAT IZN_RABAT ──
+            tail = parts[-offset + 1:]
+            if len(tail) != 6:
+                continue
+            if not all(_is_numeric_token(t) for t in tail):
+                continue
+            prefix = parts[:-offset]
+            if len(prefix) < 3:
+                continue
+            code = prefix[1]
+            tariff = prefix[2]
+            name = " ".join(prefix[3:])
+            iznos = parse_eu_number(tail[5])
+            if iznos == 0.0:
+                iznos = parse_eu_number(tail[2])
+            return {
+                "rbr": rbr,
+                "code": code,
+                "tariff": tariff,
+                "name": name,
+                "jm": jm.lower(),
+                "kolicina": parse_eu_number(tail[0]),
+                "cijena": parse_eu_number(tail[1]),
+                "iznos": iznos,
+                "zemlja": "",
+            }
 
     return None
 
@@ -431,6 +501,86 @@ def _apply_countries(items: List[Dict], tariff_country_map: Dict[str, List[str]]
         countries = tariff_country_map.get(tariff, [])
         if len(countries) == 1:
             item["zemlja"] = countries[0]
+
+
+def _parse_zemlja_porekla(lines: List[str]) -> Tuple[str, Dict[int, str]]:
+    """
+    Pretražuje sve linije dokumenta za "Zemlja porekla X" izjave.
+
+    Podržava:
+    - Prosto: "Zemlja porekla Nemačka"
+    - Složeno: "Zemlja porekla Srbija, osim stavke broj 43-46 Zemlja porekla Srbija
+      bez pref. porekla i stavke broj 47 - Zemlja porekla Francuska bez pref. porekla"
+
+    Returns:
+        (default_country_iso, {rbr: country_iso})
+        default_country_iso — zemlja za sve stavke koje nemaju override
+        dict — per-stavka override (po rbr)
+    """
+    full_text = " ".join(lines)
+    matches = list(_ZEMLJA_POREKLA_RE.finditer(full_text))
+
+    if not matches:
+        return "", {}
+
+    def _resolve_country(candidate: str) -> str:
+        """Pokušava normalizovati kandidat, smanjujući broj riječi dok ne dobije ISO kod."""
+        words = candidate.strip().split()
+        for n in range(len(words), 0, -1):
+            phrase = " ".join(words[:n])
+            iso = normalize_country_name(phrase)
+            # normalize_country_name vraća original ako nije pronašlo — znači nije ISO
+            if iso != phrase and len(iso) == 2:
+                return iso
+        return ""
+
+    found = [
+        (m.start(), _resolve_country(m.group(1)))
+        for m in matches
+    ]
+    # Preskočimo matcheve gdje zemlja nije prepoznata
+    found = [(pos, iso) for pos, iso in found if iso]
+
+    default_country = found[0][1]
+    item_overrides: Dict[int, str] = {}
+
+    # Za svaki naredni match, u segmentu između prethodnog i trenutnog
+    # tražimo na koje stavke se primjenjuje
+    for i in range(1, len(found)):
+        pos, country = found[i]
+        prev_pos = found[i - 1][0]
+        segment = full_text[prev_pos:pos]
+
+        for m in _ITEM_RANGE_RE.finditer(segment):
+            for rbr in range(int(m.group(1)), int(m.group(2)) + 1):
+                item_overrides[rbr] = country
+
+        for m in _ITEM_SINGLE_RE.finditer(segment):
+            item_overrides[int(m.group(1))] = country
+
+    if default_country:
+        logger.info(
+            f"   🌍 Zemlja porekla iz izjave: default={default_country}"
+            + (f", overrides={item_overrides}" if item_overrides else "")
+        )
+
+    return default_country, item_overrides
+
+
+def _apply_zemlja_porekla(
+    items: List[Dict],
+    default_country: str,
+    item_overrides: Dict[int, str],
+) -> None:
+    """
+    Dopuni zemlja porijekla stavkama koje je još nemaju.
+    Koristi per-stavka override ako postoji, inače default.
+    """
+    for item in items:
+        if item.get("zemlja"):
+            continue  # Već popunjeno iz sumarnog tabela
+        rbr = item.get("rbr", 0)
+        item["zemlja"] = item_overrides.get(rbr, default_country)
 
 
 def _to_invoice_lines(items: List[Dict]) -> List[InvoiceLine]:

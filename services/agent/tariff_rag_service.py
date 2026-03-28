@@ -13,6 +13,53 @@ from typing import Dict, List, Optional, Any
 from database.db import get_db_connection
 from services.agent.text_normalizer import TextNormalizer
 
+# Mapiranje ključnih riječi iz naziva robe na HS poglavlja (2 cifre)
+# Ako naziv robe sadrži neku od ovih riječi, pretraga se sužava na to poglavlje
+_CATEGORY_HINTS: Dict[str, str] = {
+    # Farmaceutski proizvodi
+    "tableta": "30", "tablete": "30", "tbl": "30", "tab": "30",
+    "kapsula": "30", "kapsule": "30", "kap": "30",
+    "sirup": "30", "injekcija": "30", "injekcije": "30",
+    "mast": "30", "krema": "30", "gel": "30", "losion": "30",
+    "supozitorij": "30", "supozitorije": "30",
+    "ampula": "30", "ampule": "30",
+    "vitamin": "30", "antibiotik": "30", "antibiotici": "30",
+    "lijek": "30", "lijekovi": "30", "liek": "30",
+    "farmaceutski": "30", "pharmaceutical": "30",
+    # Kozmetika
+    "šampon": "33", "sampon": "33", "pasta": "33",
+    "parfem": "33", "dezodorans": "33", "sapun": "34",
+    # Hrana i piće
+    "mlijeko": "04", "sir": "04", "jaje": "04",
+    "meso": "02", "riba": "03",
+    "žitarica": "10", "pšenica": "10", "kukuruz": "10",
+    "šećer": "17", "secera": "17", "čokolada": "18",
+    "ulje": "15", "masnoća": "15",
+    "pivo": "22", "vino": "22", "alkohol": "22",
+    "kafa": "09", "čaj": "09",
+    # Tekstil i odjeća
+    "tkanina": "52", "pamuk": "52",
+    "odjeća": "62", "odjeca": "62", "jakna": "62", "hlače": "62",
+    "cipele": "64", "obuća": "64",
+    # Elektronika i mašine
+    "laptop": "84", "računar": "84", "racunar": "84", "kompjuter": "84",
+    "motor": "84", "pumpa": "84", "kompresor": "84",
+    "televizor": "85", "monitor": "85", "telefon": "85",
+    "baterija": "85", "kabel": "85", "prekidač": "85",
+    # Metali i proizvodi od metala
+    "vijak": "73", "šraf": "73", "matica": "73",
+    "čelik": "72", "gvožđe": "72", "aluminij": "76",
+    # Hemikalije
+    "kiseline": "28", "kiselina": "28",
+    "plastika": "39", "guma": "40",
+    # Papir i štampa
+    "papir": "48", "karton": "48",
+    "knjiga": "49", "štampani": "49", "stampani": "49",
+    # Vozila
+    "automobil": "87", "kamion": "87", "vozilo": "87",
+    "auto": "87", "motocikl": "87",
+}
+
 
 class TariffRAGService:
     """
@@ -90,56 +137,90 @@ class TariffRAGService:
         
         return results
     
-    def search_official(self, naziv_robe: str, limit: int = 5) -> List[Dict[str, Any]]:
+    def _detect_category_hint(self, naziv_robe: str) -> Optional[str]:
+        """
+        Detektuje HS poglavlje (2 cifre) na osnovu ključnih riječi iz naziva robe.
+        Vraća None ako nema prepoznatljivih kategorija.
+        """
+        naziv_lower = naziv_robe.lower()
+        for keyword, chapter in _CATEGORY_HINTS.items():
+            if keyword in naziv_lower:
+                return chapter
+        return None
+
+    def search_official(self, naziv_robe: str, limit: int = 6) -> List[Dict[str, Any]]:
         """
         Pretražuje zvanične tarife (PostgreSQL catalogs.zvanicna_tarifa).
-        
-        Args:
-            naziv_robe: Naziv robe za pretragu
-            limit: Maksimalan broj rezultata
-            
-        Returns:
-            Lista rezultata sa tarifnim brojevima iz zvaničnih tarifa
+
+        Strategija:
+        1. Ako naziv sadrži poznate kategorijske riječi → pretraži samo to HS poglavlje
+        2. Ako ne → pretraži sve keywordove s OR uvjetom
+        3. Vraća do `limit` kandidata sortiranih po relevantnosti
         """
         results = []
-        
+
         try:
             with get_db_connection() as conn:
                 cur = conn.cursor()
-                
-                # Ekstraktuj keywords
+
                 keywords = self.normalizer.extract_keywords(naziv_robe)
-                
                 if not keywords:
                     return []
-                
-                # LIKE pretraga na naziv
-                pattern = f"%{keywords[0]}%"
-                
-                query = """
-                SELECT
-                    tarifni_kod,
-                    opis
-                FROM catalogs.zvanicna_tarifa
-                WHERE opis ILIKE %s
-                ORDER BY tarifni_kod
-                LIMIT %s
-                """
 
-                cur.execute(query, (pattern, limit))
+                chapter_hint = self._detect_category_hint(naziv_robe)
+
+                if chapter_hint:
+                    # Strategija 1: sužena pretraga po poglavlju + svi keywordovi (OR)
+                    or_conditions = " OR ".join(["opis ILIKE %s"] * len(keywords))
+                    params = [f"%{kw}%" for kw in keywords]
+                    params.append(f"{chapter_hint}%")
+                    params.append(limit)
+                    query = f"""
+                        SELECT tarifni_kod, opis
+                        FROM catalogs.zvanicna_tarifa
+                        WHERE tarifni_kod LIKE %s
+                        ORDER BY
+                            CASE WHEN ({or_conditions}) THEN 0 ELSE 1 END,
+                            tarifni_kod
+                        LIMIT %s
+                    """
+                    # Params: chapter_hint za LIKE, pa keywords za OR, pa limit
+                    final_params = [f"{chapter_hint}%"] + [f"%{kw}%" for kw in keywords] + [limit]
+                    query = f"""
+                        SELECT tarifni_kod, opis
+                        FROM catalogs.zvanicna_tarifa
+                        WHERE tarifni_kod LIKE %s
+                        ORDER BY
+                            CASE WHEN {or_conditions} THEN 0 ELSE 1 END,
+                            tarifni_kod
+                        LIMIT %s
+                    """
+                    cur.execute(query, final_params)
+                else:
+                    # Strategija 2: globalna pretraga, OR po svim keywordovima
+                    or_conditions = " OR ".join(["opis ILIKE %s"] * len(keywords))
+                    params = [f"%{kw}%" for kw in keywords] + [limit]
+                    query = f"""
+                        SELECT tarifni_kod, opis
+                        FROM catalogs.zvanicna_tarifa
+                        WHERE {or_conditions}
+                        ORDER BY tarifni_kod
+                        LIMIT %s
+                    """
+                    cur.execute(query, params)
+
                 rows = cur.fetchall()
-
                 for row in rows:
                     results.append({
-                        'tarifni_kod': row[0],
-                        'naziv_robe': row[1],
+                        'tarifni_kod': row['tarifni_kod'],
+                        'naziv_robe': row['opis'],
                         'source': 'official',
-                        'confidence': 0.7  # Zvanična tarifa ima fiksni confidence
+                        'confidence': 0.7,
                     })
-                
+
         except Exception as e:
             print(f"⚠️ Greška pri pretrazi zvaničnih tarifa: {e}")
-        
+
         return results
     
     def search(self, naziv_robe: str, limit: int = 5) -> Dict[str, Any]:

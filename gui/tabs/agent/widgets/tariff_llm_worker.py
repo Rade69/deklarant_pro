@@ -52,6 +52,12 @@ class TariffLLMWorker(QThread):
 
     def _process_batch(self, provider, batch: list) -> list:
         """Pošalje jedan batch stavki LLM-u i parsira odgovor."""
+        try:
+            from services.agent.tariff_rag_service import TariffRAGService
+            rag = TariffRAGService()
+        except Exception:
+            rag = None
+
         product_lines = []
         for idx, line in batch:
             naziv = (getattr(line, 'naziv_robe', '') or '').strip()
@@ -64,7 +70,21 @@ class TariffLLMWorker(QThread):
             if zemlja:
                 desc = f"{desc} [zemlja: {zemlja}]"
 
-            product_lines.append(f"{idx}|{desc}")
+            # Dohvati kandidate iz zvanicna_tarifa
+            candidates_text = ""
+            if rag and naziv:
+                try:
+                    candidates = rag.search_official(naziv, limit=5)
+                    if candidates:
+                        c_lines = [
+                            f"  {c['tarifni_kod']} — {c['naziv_robe'][:70]}"
+                            for c in candidates
+                        ]
+                        candidates_text = "\n  Kandidati iz tarife:\n" + "\n".join(c_lines)
+                except Exception:
+                    pass
+
+            product_lines.append(f"{idx}|{desc}{candidates_text}")
 
         products_text = "\n".join(product_lines)
 
@@ -82,6 +102,8 @@ class TariffLLMWorker(QThread):
             "Za svaki proizvod predloži odgovarajući tarifni broj.\n\n"
             "PRAVILA:\n"
             "- Tarifni broj ISKLJUČIVO cifre, BEZ tačaka (npr. 84713000)\n"
+            "- Ako su navedeni kandidati iz tarife — BIRAŠ između njih (ne izmišljaš novi kod)\n"
+            "- Ako nijedan kandidat ne odgovara — možeš predložiti drugi, ali SAMO ako si siguran\n"
             "- Format: IDX|TARIFNI_BROJ|POUZDANOST|OBRAZLOŽENJE\n"
             "- Jedan red po proizvodu, bez praznih redova\n\n"
             "PRIMJER:\n"
