@@ -58,14 +58,6 @@ STATUS_COMPLETED  = "Završeno"
 STATUS_ERROR      = "Greška"
 STATUS_PAUSED     = "Pauzirano"
 
-# ─── PARSERI ──────────────────────────────────────────────────────────────────
-PARSER_AUTO         = "Auto-detect"
-PARSER_MASTER_FRIGO = "Master Frigo"
-PARSER_BLAGIC       = "Blagić"
-PARSER_SUMAPROM     = "ŠUMAPROM"
-PARSER_IMAMOGLU     = "IMAMOGLU"
-PARSER_GENERIC      = "Generic"
-
 # ─── PODRŽANI FORMATI ─────────────────────────────────────────────────────────
 SUPPORTED_FORMATS = {
     '.pdf':  ('PDF Dokument', ICON_FILE_PDF,   '#b05050'),

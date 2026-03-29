@@ -20,10 +20,9 @@ class ProcessingWorker(QThread):
     all_completed = Signal(list)       # List[FileItem] - sve završeno
     error_occurred = Signal(str, str)  # filepath, error_message
 
-    def __init__(self, files: list, parser_mode: str = "Auto-detect", parent=None):
+    def __init__(self, files: list, parent=None):
         super().__init__(parent)
         self.files = files  # List[FileItem]
-        self.parser_mode = parser_mode
         self._cancelled = False
 
     def cancel(self):
@@ -91,9 +90,9 @@ class ProcessingWorker(QThread):
                     file_item.is_combined = result.is_combined  # ⭐ KLJUČNO za duplikat detekciju
                     file_item.invoice_lines = invoice_lines
                     file_item.status = 'Completed'
-                    file_item.detected_parser = self.parser_mode
+                    file_item.detected_parser = getattr(result, '_detected_format', 'auto') or 'auto'
                     file_item.confidence = 1.0 if invoice_lines else 0.4
-                    
+
                     # ⭐ KLJUČNO: Da li je kombinovano?
                     if result.is_combined:
                         self.progress.emit(f"   ✅ KOMBINOVANO (Excel+PDF): {len(invoice_lines)} stavki")
@@ -113,7 +112,7 @@ class ProcessingWorker(QThread):
                     invoice_lines = result
                     file_item.invoice_lines = invoice_lines
                     file_item.status = 'Completed'
-                    file_item.detected_parser = self.parser_mode
+                    file_item.detected_parser = 'auto'
                     file_item.confidence = 1.0 if invoice_lines else 0.4
                     self.progress.emit(f"   ✅ List: {len(invoice_lines)} stavki")
                 else:

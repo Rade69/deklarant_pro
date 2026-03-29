@@ -4,7 +4,7 @@ Botanički Sage Green dizajn.
 """
 
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QComboBox, QPushButton
-from PySide6.QtCore import Signal, Qt
+from PySide6.QtCore import Signal
 import qtawesome as qta
 from ..constants import *
 
@@ -13,7 +13,6 @@ class HeaderBar(QWidget):
     """Header bar — sage green, lagana i čista linija."""
 
     status_changed = Signal(str)
-    parser_changed = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -36,22 +35,6 @@ class HeaderBar(QWidget):
         self.status_combo.currentTextChanged.connect(self._on_status_changed)
 
         layout.addWidget(self.status_badge)
-
-        # Separator
-        layout.addWidget(self._sep())
-
-        # Parser
-        parser_label = QLabel("Parser:")
-        parser_label.setObjectName("headerLabel")
-        self.parser_combo = QComboBox()
-        self.parser_combo.addItems([
-            PARSER_AUTO, PARSER_MASTER_FRIGO, PARSER_BLAGIC,
-            PARSER_SUMAPROM, PARSER_IMAMOGLU, PARSER_GENERIC
-        ])
-        self.parser_combo.currentTextChanged.connect(self.parser_changed.emit)
-
-        layout.addWidget(parser_label)
-        layout.addWidget(self.parser_combo)
 
         # Separator
         layout.addWidget(self._sep())

@@ -46,7 +46,6 @@ class AgentController:
 
         chat.message_sent.connect(self._on_chat_message)
         header.status_changed.connect(self._on_status_changed)
-        header.parser_changed.connect(self._on_parser_changed)
 
     def _on_mode_changed(self, mode: str):
         """Handle promjenu pipeline moda."""
@@ -91,8 +90,7 @@ class AgentController:
         chat.add_activity(f"🚀 [{mode}] Počelo procesiranje {len(files)} fajlova")
 
         # Kreiraj i pokreni background worker
-        parser_mode = self.view.get_header().parser_combo.currentText()
-        self._worker = ProcessingWorker(files, parser_mode=parser_mode)
+        self._worker = ProcessingWorker(files)
         self._worker.progress.connect(chat.add_activity)
         self._worker.progress.connect(self._on_progress)  # ⭐ Prikaži i u Agent tabu
         self._worker.file_started.connect(self._on_file_started)
@@ -1082,6 +1080,61 @@ class AgentController:
                     'provjeri', 'provjeru', 'analiz', 'obrazloži']
         _is_query = any(kw in msg for kw in _upit_kw)
 
+        # --- DETEKCIJA NAMJERE: upisivanje / brisanje vrijednosti u kolonu ---
+        # Format: "upiši X u kolonu/polje Y" ili "postavi Y na X" ili "briši kolonu Y"
+        _upis_glagoli = ['upiši', 'upisi', 'upisite', 'upišite', 'postavi', 'stavi', 'set', 'unesite', 'unesi']
+        _upis_prijedlozi = ['u kolonu', 'u polje', 'u kolone', 'u tab', 'u faktur', 'u naim',
+                            'u rubrik', 'na kolonu', 'za kolonu']
+        _has_upis = any(g in msg for g in _upis_glagoli)
+        _has_prijedlog = any(p in msg for p in _upis_prijedlozi)
+        _has_postavi = 'postavi' in msg or ('stavi' in msg and ('na' in msg or 'u' in msg))
+        # Brisanje kolone (bez "tarif" jer to ima poseban handler)
+        _brisanje_kolone_kw = ['izbri', 'obri', 'ukloni', 'resetuj', 'ocisti', 'očisti',
+                               'brisi', 'briši', 'prazni', 'isprazni']
+        _has_brisanje_kolone = any(g in msg for g in _brisanje_kolone_kw)
+        _kolone_naim = ['povlastic', 'zemlja', 'procedur', 'pakovan', 'rubrik', 'naim',
+                        'preference', 'origin', 'oznake']
+        _has_naim_kolona = any(k in msg for k in _kolone_naim)
+
+        if (_has_upis and _has_prijedlog) or _has_postavi:
+            result = self._parse_upis_u_kolonu(message)
+            if result:
+                kolona, vrijednost, tab = result
+                self._upisi_u_kolonu(kolona, vrijednost, tab)
+                return
+        elif _has_brisanje_kolone and _has_naim_kolona and 'tarif' not in msg:
+            result = self._parse_upis_u_kolonu(message, brisanje=True)
+            if result:
+                kolona, _, tab = result
+                self._upisi_u_kolonu(kolona, '', tab)
+                return
+
+        # --- DETEKCIJA NAMJERE: upiši tarifne za [keyword] ---
+        import re as _re2
+        _filter_tariff_match = _re2.search(
+            r'(?:pogledaj|nađi|trazi|traži).{0,40}?(\w{3,})\s+upiši\s+(?:te\s+)?tarif'
+            r'|upiši\s+(?:te\s+)?tarif\w*\s+za\s+(\w+)'
+            r'|(\w+)\s+upiši\s+(?:te\s+)?tarif',
+            msg
+        )
+        if _filter_tariff_match:
+            keyword = next(g for g in _filter_tariff_match.groups() if g)
+            # Preskoči opšte riječi koje nisu filter
+            _skip = {'te', 'sve', 'koji', 'koje', 'ovi', 'ove', 'tarif', 'tarifne', 'broj'}
+            if keyword not in _skip and len(keyword) >= 3:
+                self._predlozi_tarifne_po_filteru(keyword)
+                return
+
+        # --- DETEKCIJA NAMJERE: brisanje tarifnih brojeva (MORA BITI ISPRED popune!) ---
+        # Provjera: prisutan glagol brisanja I "tarif" u poruci
+        _brisanje_glagoli = ['izbri', 'obri', 'ukloni', 'resetuj', 'ocisti', 'očisti',
+                             'brisi', 'briši', 'delete', 'clear', 'prazni', 'isprazni']
+        _has_brisanje = any(g in msg for g in _brisanje_glagoli)
+        _has_tarif = 'tarif' in msg
+        if _has_brisanje and _has_tarif:
+            self._obrisi_tarifne_brojeve()
+            return
+
         # Eksplicitni batch zahtjev (popuni sve / nađi sve bez)
         _generalni_tarif_kw = ['popuni tarif', 'nađi sve bez tarif', 'nađi stavke bez tarif',
                                 'predloži sve tarif', 'predlozi sve tarif',
@@ -1142,10 +1195,6 @@ class AgentController:
         """Handle promjenu statusa iz header-a."""
         self.view.get_chat_panel().add_activity(f"ℹ️ Status: {status}")
 
-    def _on_parser_changed(self, parser: str):
-        """Handle promjenu parsera iz header-a."""
-        self.view.get_chat_panel().add_activity(f"ℹ️ Parser: {parser}")
-
     # ─────────────────────────────────────────────────────────────────────────
     # AGENT AKCIJE — prijedlog + potvrda + izvršavanje
     # ─────────────────────────────────────────────────────────────────────────
@@ -1182,7 +1231,7 @@ class AgentController:
             mapping = svc.find_mapping(
                 product_code=line.product_code,
                 naziv_robe=line.naziv_robe,
-                min_similarity=0.65
+                min_similarity=0.75
             )
             if mapping:
                 proposals.append(TariffProposal(
@@ -1219,6 +1268,80 @@ class AgentController:
             worker.start()
         else:
             self._on_tariff_llm_ready(proposals, [], len(bez_tarife), chat)
+
+    def _predlozi_tarifne_po_filteru(self, keyword: str):
+        """Predlaže tarifne brojeve samo za stavke čiji naziv_robe sadrži keyword."""
+        from .agent_actions import TariffProposal
+        from services.tariff_mapping_service import TariffMappingService
+        from .widgets.tariff_llm_worker import TariffLLMWorker
+
+        chat = self.view.get_chat_panel()
+
+        if not self.draft or not self.draft.invoice_lines:
+            chat.add_agent_message("⚠️ Nema učitanih stavki u Faktura tabu.")
+            return
+
+        kw = keyword.lower().strip()
+
+        # Filtriraj po ključnoj riječi u nazivu
+        filtrirane = [
+            (i, line) for i, line in enumerate(self.draft.invoice_lines)
+            if kw in (getattr(line, 'naziv_robe', '') or '').lower()
+        ]
+
+        if not filtrirane:
+            chat.add_agent_message(f"⚠️ Nema stavki čiji naziv sadrži '{keyword}'.")
+            return
+
+        chat.add_activity(f"🔍 Nađeno {len(filtrirane)} stavki s '{keyword}', tražim tarifne...")
+
+        # Lokalna baza znanja
+        svc = TariffMappingService()
+        proposals = []
+        bez_lokalne = []
+
+        for idx, line in filtrirane:
+            naziv = (getattr(line, 'naziv_robe', '') or '').strip()
+            product_code = (getattr(line, 'product_code', '') or '').strip()
+            mapping = svc.find_mapping(
+                product_code=product_code,
+                naziv_robe=naziv,
+                min_similarity=0.75
+            )
+            if mapping:
+                proposals.append(TariffProposal(
+                    line_index=idx,
+                    naziv_robe=naziv[:60],
+                    product_code=product_code,
+                    proposed_tariff=mapping.tarifni_broj,
+                    confidence=mapping.similarity if hasattr(mapping, 'similarity') else 1.0,
+                    source="baza_znanja"
+                ))
+            else:
+                bez_lokalne.append((idx, line))
+
+        if bez_lokalne:
+            chat.add_activity(
+                f"✅ Lokalna baza: {len(proposals)}. "
+                f"🤖 AI za preostalih {len(bez_lokalne)}..."
+            )
+            worker = TariffLLMWorker(bez_lokalne, parent=self.view)
+            worker.proposals_ready.connect(
+                lambda llm_p: self._on_tariff_llm_ready(proposals, llm_p, len(filtrirane), chat)
+            )
+            worker.error_occurred.connect(
+                lambda err: self._on_tariff_llm_ready(proposals, [], len(filtrirane), chat)
+            )
+            worker.finished.connect(worker.deleteLater)
+            if not hasattr(self, '_tariff_workers'):
+                self._tariff_workers = []
+            self._tariff_workers.append(worker)
+            worker.finished.connect(
+                lambda: self._tariff_workers.remove(worker) if worker in self._tariff_workers else None
+            )
+            worker.start()
+        else:
+            self._on_tariff_llm_ready(proposals, [], len(filtrirane), chat)
 
     def _on_tariff_llm_ready(self, local_proposals, llm_proposals, ukupno_bez, chat):
         """Prikaži kombinirane prijedloge (lokalni + LLM) korisniku."""
@@ -1377,6 +1500,311 @@ class AgentController:
         chat.add_agent_message(
             f"✅ <b>Upisano {upisano} tarifnih brojeva</b> u Faktura tab.<br>"
             f"Provjeri tabelu i korigiši ako je potrebno."
+        )
+
+    # Mapa sinonima kolona → (atribut, tab)
+    # tab: 'faktura' = InvoiceLine, 'naim' = NaimenovanjeDraft
+    _KOLONA_MAP = {
+        # ═══════════════════════════════════════════════════════
+        # FAKTURA TAB (InvoiceLine)
+        # ═══════════════════════════════════════════════════════
+        # Tarifni broj (Rub.33)
+        'tarifni broj':       ('tarifni_broj',      'faktura'),
+        'tarifni':            ('tarifni_broj',      'faktura'),
+        'tarif':              ('tarifni_broj',      'faktura'),
+        'hs kod':             ('tarifni_broj',      'faktura'),
+        'hs':                 ('tarifni_broj',      'faktura'),
+        # Zemlja porijekla (Rub.34)
+        'zemlja porijekla':   ('zemlja_porijekla',  'faktura'),
+        'zemlja':             ('zemlja_porijekla',  'faktura'),
+        'porijeklo':          ('zemlja_porijekla',  'faktura'),
+        'porijekla':          ('zemlja_porijekla',  'faktura'),
+        'origin':             ('zemlja_porijekla',  'faktura'),
+        # Povlastica (Rub.36)
+        'povlastica':         ('povlastica',        'faktura'),
+        'povlastice':         ('povlastica',        'faktura'),
+        'pref':               ('povlastica',        'faktura'),
+        'preference':         ('povlastica',        'faktura'),
+        # EUR.1
+        'eur1':               ('eur1_number',       'faktura'),
+        'eur.1':              ('eur1_number',       'faktura'),
+        'eur 1':              ('eur1_number',       'faktura'),
+        # Valuta
+        'valuta':             ('valuta',            'faktura'),
+        'currency':           ('valuta',            'faktura'),
+        # Naziv robe
+        'naziv robe':         ('naziv_robe',        'faktura'),
+        'naziv':              ('naziv_robe',        'faktura'),
+        'opis':               ('naziv_robe',        'faktura'),
+        # Količina
+        'kolicina':           ('kolicina',          'faktura'),
+        'količina':           ('kolicina',          'faktura'),
+        'qty':                ('kolicina',          'faktura'),
+        # Jedinica mjere
+        'jm':                 ('jm',               'faktura'),
+        'jedinica mjere':     ('jm',               'faktura'),
+        'jedinica':           ('jm',               'faktura'),
+
+        # ═══════════════════════════════════════════════════════
+        # NAIM TAB (NaimenovanjeDraft)
+        # ═══════════════════════════════════════════════════════
+        # Rub.31 – pakovanje i opis
+        'oznake':             ('package_marks',      'naim'),
+        'oznake i broj':      ('package_marks',      'naim'),
+        'marks':              ('package_marks',      'naim'),
+        'pakovanje':          ('package_code',       'naim'),
+        'package':            ('package_code',       'naim'),
+        'kod pakovanja':      ('package_code',       'naim'),
+        'broj paketa':        ('package_qty',        'naim'),
+        'opis robe':          ('goods_description',  'naim'),
+        'goods description':  ('goods_description',  'naim'),
+        'trgovački naziv':    ('goods_trade_name',   'naim'),
+        'trade name':         ('goods_trade_name',   'naim'),
+        'trg naziv':          ('goods_trade_name',   'naim'),
+        # Rub.33 – tarifni broj (naim)
+        'tarifni broj naim':  ('tariff_code',        'naim'),
+        'tariff code':        ('tariff_code',        'naim'),
+        # Rub.34 – zemlja porijekla (naim)
+        'zemlja naim':        ('origin_country_code', 'naim'),
+        'origin code':        ('origin_country_code', 'naim'),
+        # Rub.36 – povlastica (naim)
+        'povlastica naim':    ('preference_code',    'naim'),
+        'preference code':    ('preference_code',    'naim'),
+        # Rub.37 – procedura
+        'procedura':          ('procedure_code',     'naim'),
+        'proceduru':          ('procedure_code',     'naim'),
+        'procedure':          ('procedure_code',     'naim'),
+        'postupak':           ('procedure_code',     'naim'),
+        'postupku':           ('procedure_code',     'naim'),
+        'rub37':              ('procedure_code',     'naim'),
+        'rubrika 37':         ('procedure_code',     'naim'),
+        'prethodni postupak': ('procedure_prev_code', 'naim'),
+        'prev procedure':     ('procedure_prev_code', 'naim'),
+        # Rub.40 – prethodni dokumenti
+        'rub40':              ('previous_document',  'naim'),
+        'rubrika 40':         ('previous_document',  'naim'),
+        'prethodni dokument': ('previous_document',  'naim'),
+        'rub40 2':            ('previous_document2', 'naim'),
+        'rub40 3':            ('previous_document3', 'naim'),
+        # Rub.44 – priložene isprave
+        'rub44':              ('attached_document4', 'naim'),
+        'rub 44':             ('attached_document4', 'naim'),
+        'rubrika 44':         ('attached_document4', 'naim'),
+        'rub44.1':            ('attached_document1', 'naim'),
+        'rub44.2':            ('attached_document2', 'naim'),
+        'rub44.3':            ('attached_document3', 'naim'),
+        'rub44.4':            ('attached_document4', 'naim'),
+        'rub44.5':            ('attached_document5', 'naim'),
+        'priložena isprava':  ('attached_document1', 'naim'),
+        'prilozen':           ('attached_document1', 'naim'),
+        'eur.1 broj':         ('attached_document4', 'naim'),
+        # Rub.46 – statistička vrijednost
+        'statisticka':        ('statistical_value',  'naim'),
+        'statistička':        ('statistical_value',  'naim'),
+        'rub46':              ('statistical_value',  'naim'),
+        'rubrika 46':         ('statistical_value',  'naim'),
+        # Rub.42 – vrijednost
+        'vrijednost':         ('item_value',         'naim'),
+        'iznos':              ('item_value',         'naim'),
+        'item value':         ('item_value',         'naim'),
+        # Valuta (naim)
+        'valuta naim':        ('currency',           'naim'),
+        # Napomene
+        'napomena':           ('notes',              'naim'),
+        'notes':              ('notes',              'naim'),
+    }
+
+    def _parse_upis_u_kolonu(self, message: str, brisanje: bool = False):
+        """
+        Pokušava parsirati poruku u (atribut, vrijednost, tab).
+
+        Podržani formati:
+        - "upiši EUP u kolonu povlastica"
+        - "upiši EUP u rubriku povlastica naim"
+        - "postavi povlasticu na EUP"
+        - "upiši 4000 u proceduru u naim"
+        - "obriši kolonu povlastica u naim"
+
+        Returns: (atribut, vrijednost, tab) ili None
+        """
+        import re as _re
+        msg_lower = message.lower().strip()
+
+        # Detektuj eksplicitni tab hint
+        tab_hint = None
+        if any(k in msg_lower for k in ['naim', 'naimenovanj', 'rubrik']):
+            tab_hint = 'naim'
+        elif any(k in msg_lower for k in ['faktur', 'invoice']):
+            tab_hint = 'faktura'
+
+        if brisanje:
+            # Format brisanje: "obriši kolonu KOLONA [u naim]"
+            m = _re.search(r'(?:izbri|obri|ukloni|ocisti|prazni|brisi)[a-zšđčćž]*\s+(?:kolonu?|polje|rubrik[ua]?)?\s*(.+)',
+                           msg_lower)
+            if m:
+                kolona_raw = m.group(1).strip().rstrip('.')
+                # Ukloni tab hint iz kolona_raw
+                for hint in ['u naim', 'u faktur', 'naim', 'faktur']:
+                    kolona_raw = kolona_raw.replace(hint, '').strip()
+                atribut, tab = self._resolve_kolona(kolona_raw, tab_hint)
+                if atribut:
+                    return atribut, '', tab
+            return None
+
+        def _strip_tab_hints(s):
+            for hint in [' u naim', ' u faktur', ' naim', ' faktur']:
+                s = s.replace(hint, '')
+            return s.strip().rstrip('.')
+
+        # Format 1: "upiši/unesi/stavi VRIJEDNOST u [kolonu/polje/rubriku] KOLONA"
+        # Vrijednost može biti višeznačna (npr. "PE1 000123/2025") — hvata sve do " u "
+        m = _re.search(
+            r'(?:upi[sš][a-zšđčćž]*|unesi[a-z]*|stavi[a-z]*|set)\s+(.+?)\s+u\s+(?:kolonu?|polje|rubriku?)?\s*(.+)',
+            msg_lower
+        )
+        if m:
+            vrijednost = m.group(1).strip().upper()
+            kolona_raw = _strip_tab_hints(m.group(2))
+            atribut, tab = self._resolve_kolona(kolona_raw, tab_hint)
+            if atribut:
+                return atribut, vrijednost, tab
+
+        # Format 2: "postavi KOLONA na VRIJEDNOST"
+        m = _re.search(r'postavi\s+(.+?)\s+na\s+(\S+)', msg_lower)
+        if m:
+            kolona_raw = _strip_tab_hints(m.group(1))
+            vrijednost = m.group(2).strip().upper()
+            # Ukloni padežne nastavke sa kraja kolone: povlasticu→povlastica, proceduru→procedura
+            kolona_raw = _re.sub(r'[uaie]$', 'a', kolona_raw)
+            atribut, tab = self._resolve_kolona(kolona_raw, tab_hint)
+            if atribut:
+                return atribut, vrijednost, tab
+
+        # Format 3: "VRIJEDNOST u kolonu/rubriku KOLONA"
+        m = _re.search(r'(\S+)\s+u\s+(?:kolonu?|polje|rubriku?)\s+(.+)', msg_lower)
+        if m:
+            vrijednost = m.group(1).strip().upper()
+            kolona_raw = _strip_tab_hints(m.group(2))
+            atribut, tab = self._resolve_kolona(kolona_raw, tab_hint)
+            if atribut:
+                return atribut, vrijednost, tab
+
+        return None
+
+    def _resolve_kolona(self, kolona_raw: str, tab_hint=None):
+        """Pretvori slobodan naziv kolone u (atribut, tab)."""
+        k = kolona_raw.lower().strip()
+        # Direktni match
+        if k in self._KOLONA_MAP:
+            atrib, tab = self._KOLONA_MAP[k]
+            return atrib, tab_hint or tab
+        # Parcijalni match
+        for kw, (atrib, tab) in self._KOLONA_MAP.items():
+            if kw in k or k in kw:
+                return atrib, tab_hint or tab
+        return '', tab_hint or 'faktura'
+
+    def _upisi_u_kolonu(self, atribut: str, vrijednost: str, tab: str = 'faktura'):
+        """Upiši vrijednost u zadani atribut svih stavki u odgovarajućem tabu."""
+        from PySide6.QtWidgets import QApplication
+
+        chat = self.view.get_chat_panel()
+
+        naziv_kolone = {
+            # Faktura
+            'tarifni_broj': 'Tarifni broj', 'zemlja_porijekla': 'Zemlja porijekla',
+            'povlastica': 'Povlastica', 'eur1_number': 'EUR.1', 'valuta': 'Valuta',
+            'naziv_robe': 'Naziv robe', 'kolicina': 'Količina', 'jm': 'JM',
+            # Naim
+            'tariff_code': 'Tarifni broj', 'origin_country_code': 'Zemlja porijekla',
+            'preference_code': 'Povlastica', 'procedure_code': 'Rub.37 Procedura',
+            'procedure_prev_code': 'Prethodni postupak', 'currency': 'Valuta',
+            'package_code': 'Pakovanje (kod)', 'package_marks': 'Oznake i broj',
+            'package_qty': 'Broj paketa', 'goods_description': 'Opis robe',
+            'goods_trade_name': 'Trgovački naziv',
+            'previous_document': 'Rub.40', 'previous_document2': 'Rub.40.2',
+            'previous_document3': 'Rub.40.3',
+            'attached_document1': 'Rub.44.1', 'attached_document2': 'Rub.44.2',
+            'attached_document3': 'Rub.44.3', 'attached_document4': 'Rub.44.4',
+            'attached_document5': 'Rub.44.5',
+            'statistical_value': 'Statistička vrijednost (Rub.46)',
+            'item_value': 'Vrijednost (Rub.42)', 'notes': 'Napomena',
+        }.get(atribut, atribut)
+
+        from typing import Any
+        # Konvertuj vrijednost u odgovarajući tip (float polja)
+        _float_attrs = {
+            'kolicina', 'bruto_kg', 'neto_kg', 'iznos',
+            'gross_mass_kg', 'net_mass_kg', 'item_value', 'statistical_value',
+            'package_qty', 'supplementary_unit_qty',
+        }
+        typed_value: Any = vrijednost
+        if atribut in _float_attrs:
+            try:
+                typed_value = float(vrijednost.replace(',', '.')) if vrijednost else 0.0
+            except (ValueError, AttributeError):
+                chat.add_agent_message(f"⚠️ '{vrijednost}' nije broj. Upotrijebite numeričku vrijednost.")
+                return
+
+        if tab == 'faktura':
+            if not self.draft or not self.draft.invoice_lines:
+                chat.add_agent_message("⚠️ Nema učitanih stavki u Faktura tabu.")
+                return
+            upisano = sum(
+                1 for line in self.draft.invoice_lines
+                if hasattr(line, atribut) and not setattr(line, atribut, typed_value)
+            )
+            faktura_widget = self.faktura_tab
+            if hasattr(self.faktura_tab, 'view'):
+                faktura_widget = self.faktura_tab.view
+            if faktura_widget and hasattr(faktura_widget, '_load_data_from_draft'):
+                QApplication.processEvents()
+                faktura_widget._load_data_from_draft()
+        else:  # naim
+            if not self.draft or not self.draft.items:
+                chat.add_agent_message("⚠️ Nema kreiranih naimenovanja.")
+                return
+            upisano = sum(
+                1 for item in self.draft.items
+                if hasattr(item, atribut) and not setattr(item, atribut, typed_value)
+            )
+            if self.naimenovanje_tab and hasattr(self.naimenovanje_tab, 'reload_data'):
+                QApplication.processEvents()
+                self.naimenovanje_tab.reload_data()
+
+        tab_naziv = "Faktura" if tab == 'faktura' else "Naimenovanja"
+        akcija = "Obrisano iz" if vrijednost == '' else f"Upisano <b>{vrijednost}</b> u"
+        chat.add_agent_message(
+            f"✅ {akcija} kolone <b>{naziv_kolone}</b> ({tab_naziv} tab) "
+            f"— {upisano} stavki."
+        )
+
+    def _obrisi_tarifne_brojeve(self):
+        """Obriši sve tarifne brojeve iz draft.invoice_lines i osvježi Faktura tab."""
+        from PySide6.QtWidgets import QApplication
+
+        chat = self.view.get_chat_panel()
+
+        if not self.draft or not self.draft.invoice_lines:
+            chat.add_agent_message("⚠️ Nema učitanih stavki.")
+            return
+
+        obrisano = 0
+        for line in self.draft.invoice_lines:
+            if getattr(line, 'tarifni_broj', None):
+                line.tarifni_broj = ''
+                obrisano += 1
+
+        # Osvježi Faktura tab
+        faktura_widget = self.faktura_tab
+        if hasattr(self.faktura_tab, 'view'):
+            faktura_widget = self.faktura_tab.view
+        if faktura_widget and hasattr(faktura_widget, '_load_data_from_draft'):
+            QApplication.processEvents()
+            faktura_widget._load_data_from_draft()
+
+        chat.add_agent_message(
+            f"✅ Obrisano <b>{obrisano}</b> tarifnih brojeva iz Faktura taba."
         )
 
     def _izvrsi_spajanje_naimenovanja(self, proposals, chat):
