@@ -63,6 +63,10 @@ def parse_smart_pdf(pdf_path: str) -> ImportResult:
             logger.info("   📋 Koristim Medico Pharm specijalizovanu funkciju")
             result = _parse_medicopharm(pdf_path)
 
+        elif pdf_format == "proton_system":
+            logger.info("   📋 Koristim Proton System (MGM) specijalizovanu funkciju")
+            result = _parse_proton_system(pdf_path)
+
         elif pdf_format == "sumaprom":
             logger.info("   📋 Koristim ŠUMAPROM specijalizovanu funkciju")
             result = _parse_sumaprom(pdf_path)
@@ -165,6 +169,10 @@ def _detect_pdf_format(pdf_path: str) -> str:
             if "MEDICO PHARM SERVIS" in text_upper:
                 return "medicopharm"
 
+            # PROTON SYSTEM DOO (MGM fakture — isti parser kao Medicopharm, drugačiji format)
+            if "PROTON SYSTEM" in text_upper:
+                return "proton_system"
+
             # ŠUMAPROM
             if "ŠUMAPROM" in text or "SUMAPROM" in text_upper:
                 if "FAKTURA" in text_upper or "INVOICE" in text_upper:
@@ -263,6 +271,12 @@ def _parse_master_frigo(pdf_path: str) -> ImportResult:
 
 def _parse_medicopharm(pdf_path: str) -> ImportResult:
     """Parsira Medico Pharm Servis format."""
+    from importers.medicopharm_importer import parse_medicopharm_pdf
+    return parse_medicopharm_pdf(pdf_path)
+
+
+def _parse_proton_system(pdf_path: str) -> ImportResult:
+    """Parsira Proton System DOO format (MGM fakture)."""
     from importers.medicopharm_importer import parse_medicopharm_pdf
     return parse_medicopharm_pdf(pdf_path)
 
