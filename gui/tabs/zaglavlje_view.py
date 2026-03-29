@@ -233,7 +233,6 @@ class ZaglavljeView(BaseTabView):
     import_xml_requested = Signal(str)
     export_xml_requested = Signal()
     new_requested = Signal()
-    open_requested = Signal()
     close_requested = Signal()
     search_company_requested = Signal(str)
     add_company_requested = Signal(str)
@@ -253,7 +252,6 @@ class ZaglavljeView(BaseTabView):
 
         # Buttons
         self.btn_novi: Optional[QPushButton] = None
-        self.btn_otvori: Optional[QPushButton] = None
         self.btn_import: Optional[QPushButton] = None
         self.btn_snimi: Optional[QPushButton] = None
         self.btn_brisi: Optional[QPushButton] = None
@@ -349,9 +347,6 @@ class ZaglavljeView(BaseTabView):
         self.btn_novi = self._create_icon_button("Novi", "fa5s.plus-square")
         self.btn_novi.setObjectName("btnNovi")
 
-        self.btn_otvori = self._create_icon_button("Otvori", "fa5.folder-open")
-        self.btn_otvori.setObjectName("btnOtvori")
-
         self.btn_import = self._create_icon_button("Uvezi XML", "fa5s.file-import")
         self.btn_import.setObjectName("btnUveziXML")
 
@@ -368,7 +363,6 @@ class ZaglavljeView(BaseTabView):
         self.btn_izlaz.setObjectName("btnIzlaz")
 
         layout.addWidget(self.btn_novi)
-        layout.addWidget(self.btn_otvori)
         layout.addWidget(self.btn_import)
         layout.addWidget(self.btn_snimi)
         layout.addWidget(self.btn_brisi)
@@ -1477,7 +1471,6 @@ class ZaglavljeView(BaseTabView):
     def _connect_signals(self):
         """Poveži signale dugmadi."""
         self.btn_novi.clicked.connect(self.new_requested.emit)
-        self.btn_otvori.clicked.connect(self.open_requested.emit)
         self.btn_import.clicked.connect(self._on_import_clicked)
         self.btn_snimi.clicked.connect(self.save_requested.emit)
         self.btn_brisi.clicked.connect(self.delete_requested.emit)
@@ -1541,11 +1534,6 @@ class ZaglavljeView(BaseTabView):
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #bbdefb, stop:1 #64b5f6);
                 border: 1px solid #2196f3; color: black; font-weight: 500;
-            }
-            QPushButton#btnOtvori {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #fff3e0, stop:1 #ffcc80);
-                border: 1px solid #ff9800; color: black; font-weight: 500;
             }
             QPushButton#btnUveziXML {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,

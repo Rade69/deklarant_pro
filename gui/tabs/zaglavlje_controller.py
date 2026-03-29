@@ -72,7 +72,6 @@ class ZaglavljeController:
         - import_xml_requested → _on_import_xml
         - export_xml_requested → _on_export_xml
         - new_requested → _on_new
-        - open_requested → _on_open
         - close_requested → _on_close
         - search_company_requested → _on_search_company
         - add_company_requested → _on_add_company
@@ -82,7 +81,6 @@ class ZaglavljeController:
         self.view.import_xml_requested.connect(self._on_import_xml)
         self.view.export_xml_requested.connect(self._on_export_xml)
         self.view.new_requested.connect(self._on_new)
-        self.view.open_requested.connect(self._on_open)
         self.view.close_requested.connect(self._on_close)
         self.view.search_company_requested.connect(self._on_search_company)
         self.view.add_company_requested.connect(self._on_add_company)
@@ -220,36 +218,13 @@ class ZaglavljeController:
             
             # Clear view
             self.view.clear_data()
-            
+
             self.logger.info("New declaration created")
-            
+
         except Exception as e:
             self.logger.error(f"New failed: {e}", exc_info=True)
             self.view.show_error(f"Greška: {e}")
-    
-    def _on_open(self):
-        """Otvori ASYCUDA XML deklaraciju (isti flow kao uvoz XML-a)."""
-        try:
-            self.logger.info("Open declaration requested")
 
-            from PySide6.QtWidgets import QFileDialog
-            filename, _ = QFileDialog.getOpenFileName(
-                self.view,
-                "Otvori deklaraciju",
-                "",
-                "ASYCUDA Files (*.xml *.asd);;All Files (*)"
-            )
-
-            if not filename:
-                return
-
-            # Delegiraj na isti handler kao Import XML
-            self._on_import_xml(filename)
-
-        except Exception as e:
-            self.logger.error(f"Open failed: {e}", exc_info=True)
-            self.view.show_error(f"Greška: {e}")
-    
     def _on_close(self):
         """Izlaz — snimi podatke u draft i obavijesti korisnika."""
         try:
