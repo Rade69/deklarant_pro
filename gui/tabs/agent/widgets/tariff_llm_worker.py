@@ -52,6 +52,56 @@ class TariffLLMWorker(QThread):
 
     def _process_batch(self, provider, batch: list) -> list:
         """Pošalje jedan batch stavki LLM-u i parsira odgovor."""
+        # KORAK 1: Pre-filter putem TariffMappingService
+        resolved = []
+        remaining = []
+
+        try:
+            from services.tariff_mapping_service import TariffMappingService
+            mapping_service = TariffMappingService()
+        except Exception:
+            mapping_service = None
+
+        for idx, line in batch:
+            naziv = (getattr(line, 'naziv_robe', '') or '').strip()
+            product_code = (getattr(line, 'product_code', '') or '').strip()
+
+            # Provjeri mapping samo ako imamo naziv robe
+            mapping_result = None
+            if mapping_service and naziv:
+                try:
+                    mapping_result = mapping_service.find_mapping(
+                        product_code=product_code,
+                        naziv_robe=naziv,
+                        min_similarity=0.70
+                    )
+                except Exception:
+                    pass
+
+            # Ako mapping ima confidence >= 0.85, dodaj u resolved
+            if mapping_result and hasattr(mapping_result, 'similarity') and mapping_result.similarity >= 0.85:
+                from gui.tabs.agent.agent_actions import TariffProposal
+
+                resolved.append(TariffProposal(
+                    line_index=idx,
+                    naziv_robe=naziv[:60],
+                    product_code=product_code,
+                    proposed_tariff=mapping_result.tarifni_broj,
+                    confidence=mapping_result.similarity,
+                    source="baza_znanja"
+                ))
+                print(
+                    f"[TariffLLMWorker] MAPPING idx={idx}: '{naziv[:40]}' "
+                    f"→ {mapping_result.tarifni_broj} ({mapping_result.similarity:.0%})"
+                )
+            else:
+                remaining.append((idx, line))
+
+        # Ako su sve stavke riješene mappingom, vrati odmah
+        if not remaining:
+            return resolved
+
+        # KORAK 2: Preostale stavke idu kroz RAG + LLM
         try:
             from services.agent.tariff_rag_service import TariffRAGService
             rag = TariffRAGService()
@@ -59,7 +109,7 @@ class TariffLLMWorker(QThread):
             rag = None
 
         product_lines = []
-        for idx, line in batch:
+        for idx, line in remaining:
             naziv = (getattr(line, 'naziv_robe', '') or '').strip()
             product_code = (getattr(line, 'product_code', '') or '').strip()
             zemlja = (getattr(line, 'zemlja_porijekla', '') or '').strip()
@@ -119,10 +169,11 @@ class TariffLLMWorker(QThread):
 
         try:
             raw_text = provider.complete(messages, max_tokens=1200, use_small_model=True)
-            return self._parse_response(raw_text, batch)
+            llm_proposals = self._parse_response(raw_text, remaining)
+            return resolved + llm_proposals
         except Exception as e:
             print(f"[TariffLLMWorker] Batch greška: {e}")
-            return []
+            return resolved
 
     def _parse_response(self, raw_text: str, batch: list) -> list:
         """Parsira LLM odgovor u listu TariffProposal objekata."""

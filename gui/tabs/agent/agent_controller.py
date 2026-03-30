@@ -635,7 +635,7 @@ class AgentController:
                 # Popuni tarifne brojeve (Mapping Service - brzo!)
                 result = auto_fill.fill_tariff_numbers(
                     self.draft.invoice_lines,
-                    min_similarity=0.70
+                    min_similarity=0.92
                 )
                 
                 chat.add_activity(
@@ -1231,7 +1231,7 @@ class AgentController:
             mapping = svc.find_mapping(
                 product_code=line.product_code,
                 naziv_robe=line.naziv_robe,
-                min_similarity=0.75
+                min_similarity=0.92
             )
             if mapping:
                 proposals.append(TariffProposal(
@@ -1306,7 +1306,7 @@ class AgentController:
             mapping = svc.find_mapping(
                 product_code=product_code,
                 naziv_robe=naziv,
-                min_similarity=0.75
+                min_similarity=0.92
             )
             if mapping:
                 proposals.append(TariffProposal(

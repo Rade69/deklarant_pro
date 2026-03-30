@@ -51,7 +51,7 @@ class AutoFillService:
 
     @staticmethod
     def fill_tariff_numbers(
-        items: List[InvoiceLine], min_similarity: float = 0.70
+        items: List[InvoiceLine], min_similarity: float = 0.92
     ) -> Dict[str, Any]:
         """
         Popuni tarifne brojeve iz baze znanja.

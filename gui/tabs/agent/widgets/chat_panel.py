@@ -9,8 +9,19 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QTabWidget, QTextEdit,
     QLineEdit, QPushButton, QHBoxLayout, QLabel, QFrame, QMenuBar
 )
-from PySide6.QtCore import Qt, Signal, QDateTime
-from PySide6.QtGui import QTextCursor, QFont, QAction
+from PySide6.QtCore import Qt, Signal, QDateTime, QTimer
+from PySide6.QtGui import QTextCursor, QFont, QAction, QKeyEvent
+
+
+class _ChatInput(QTextEdit):
+    """QTextEdit koji šalje poruku na Enter, a Shift+Enter dodaje novi red."""
+    send_requested = Signal()
+
+    def keyPressEvent(self, event: QKeyEvent):
+        if event.key() in (Qt.Key_Return, Qt.Key_Enter) and not (event.modifiers() & Qt.ShiftModifier):
+            self.send_requested.emit()
+        else:
+            super().keyPressEvent(event)
 import qtawesome as qta
 from ..constants import *
 
@@ -277,22 +288,25 @@ class ChatPanel(QWidget):
             }}
         """)
         layout = QHBoxLayout(widget)
-        layout.setContentsMargins(12, 8, 12, 10)
+        layout.setContentsMargins(12, 8, 12, 8)
         layout.setSpacing(8)
 
-        self.input_field = QLineEdit()
-        self.input_field.setPlaceholderText("Postavi pitanje...")
-        self.input_field.returnPressed.connect(self._send_message)
+        self.input_field = _ChatInput()
+        self.input_field.setPlaceholderText("Postavi pitanje... (Enter = pošalji, Shift+Enter = novi red)")
+        self.input_field.setFixedHeight(80)
+        self.input_field.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.input_field.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.input_field.send_requested.connect(self._send_message)
         self.input_field.setStyleSheet(f"""
-            QLineEdit {{
+            QTextEdit {{
                 padding: 8px 14px;
                 border: 1px solid {COLOR_SAGE_PALE};
-                border-radius: 18px;
+                border-radius: 12px;
                 font-size: 13px;
                 background-color: {COLOR_SAGE_BG};
                 color: {COLOR_TEXT};
             }}
-            QLineEdit:focus {{
+            QTextEdit:focus {{
                 border-color: {COLOR_SAGE};
                 background-color: white;
             }}
@@ -312,7 +326,7 @@ class ChatPanel(QWidget):
         """)
 
         layout.addWidget(self.input_field)
-        layout.addWidget(send_btn)
+        layout.addWidget(send_btn, 0, Qt.AlignBottom)
 
         return widget
 
@@ -406,23 +420,24 @@ class ChatPanel(QWidget):
     # ── Streaming ──────────────────────────────────────────────────────────────
 
     def start_streaming(self):
-        """Ukloni typing indicator i otvori streaming bubble."""
+        """Ukloni typing indicator i otvori streaming bubble. Timer osvježava UI svakih 50ms."""
         self.hide_typing_indicator()
         cursor = self.agent_view.textCursor()
         cursor.movePosition(QTextCursor.End)
         self._stream_start_pos = cursor.position()
         self._stream_buffer = ""
-        self._stream_token_count = 0
         self._stream_timestamp = QDateTime.currentDateTime().toString("HH:mm")
         self.agent_view.append(self._agent_bubble("▌", self._stream_timestamp))
         self._scroll_to_bottom()
 
+        self._stream_timer = QTimer(self)
+        self._stream_timer.setInterval(50)
+        self._stream_timer.timeout.connect(self._refresh_stream_bubble)
+        self._stream_timer.start()
+
     def append_stream_token(self, token: str):
-        """Dodaj token u streaming buffer i osviježi prikaz svakih 8 tokena."""
+        """Akumuliraj token u buffer — timer se brine za osvježavanje."""
         self._stream_buffer += token
-        self._stream_token_count += 1
-        if self._stream_token_count % 8 == 0 or token.strip() in ('.', '!', '?', '\n'):
-            self._refresh_stream_bubble()
 
     def _refresh_stream_bubble(self):
         if not hasattr(self, '_stream_start_pos'):
@@ -439,6 +454,11 @@ class ChatPanel(QWidget):
         """Zatvori streaming bubble (prikaži finalni tekst bez kursora)."""
         if not hasattr(self, '_stream_start_pos'):
             return
+        # Zaustavi timer
+        if hasattr(self, '_stream_timer'):
+            self._stream_timer.stop()
+            self._stream_timer.deleteLater()
+            del self._stream_timer
         cursor = self.agent_view.textCursor()
         cursor.setPosition(self._stream_start_pos)
         cursor.movePosition(QTextCursor.End, QTextCursor.KeepAnchor)
@@ -446,7 +466,7 @@ class ChatPanel(QWidget):
         if hasattr(self, '_stream_buffer') and self._stream_buffer:
             body = self._stream_buffer.strip().replace("\n", "<br>")
             self.agent_view.insertHtml(self._agent_bubble(body, self._stream_timestamp))
-        for attr in ('_stream_start_pos', '_stream_buffer', '_stream_token_count', '_stream_timestamp'):
+        for attr in ('_stream_start_pos', '_stream_buffer', '_stream_timestamp'):
             if hasattr(self, attr):
                 delattr(self, attr)
         self._scroll_to_bottom()
@@ -506,7 +526,7 @@ class ChatPanel(QWidget):
         self.agent_view.ensureCursorVisible()
 
     def _send_message(self):
-        message = self.input_field.text().strip()
+        message = self.input_field.toPlainText().strip()
         if not message:
             return
         self.add_user_message(message)
@@ -536,10 +556,10 @@ class ChatPanel(QWidget):
 
     def trigger_message(self, message: str):
         """Programski pošalji poruku — kao da je korisnik upisao i pritisnuo Enter."""
-        self.input_field.setText(message)
+        self.input_field.setPlainText(message)
         self._send_message()
 
-    def get_input_field(self) -> QLineEdit:
+    def get_input_field(self) -> _ChatInput:
         return self.input_field
 
     def get_tabs(self) -> QTabWidget:

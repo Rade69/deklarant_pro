@@ -2798,7 +2798,7 @@ class FakturaView(BaseTabView):
             # Auto-popuni tarifne brojeve za stavke bez tarifnog broja
             result = service.auto_populate_tariffs(
                 self.draft.invoice_lines,
-                min_similarity=0.70,
+                min_similarity=0.92,
                 overwrite_existing=False,
             )
 

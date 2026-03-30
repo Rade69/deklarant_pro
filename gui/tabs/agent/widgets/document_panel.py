@@ -30,7 +30,7 @@ class DocumentPanel(QWidget):
         self.setStyleSheet(f"DocumentPanel {{ background-color: {COLOR_SAGE_BG}; }}")
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setContentsMargins(16, 16, 16, 0)
         layout.setSpacing(14)
 
         # ── Header ────────────────────────────────────────────────────────────
