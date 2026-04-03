@@ -126,11 +126,19 @@ class ResultsViewer(QWidget):
             self.val_tarif.setText("-")
             self.val_tarif.setStyleSheet("color: #333;")
 
-        # Other values (placeholder)
-        self.val_iznos.setText("1,250.00 HRK")
-        self.val_neto.setText("8,00 € / kg")
-        self.val_bruto.setText("-")
-        self.val_ukupno.setText("80,000.00 HRK")
+        # Other values — čitaj iz invoice_lines
+        items = file_item.invoice_lines or []
+        total_iznos = sum(getattr(it, 'iznos', 0) or 0 for it in items)
+        total_bruto = sum(getattr(it, 'bruto_kg', 0) or 0 for it in items)
+        total_neto = sum(getattr(it, 'neto_kg', 0) or 0 for it in items)
+        currency = getattr(items[0], 'valuta', 'EUR') if items else 'EUR'
+
+        self.val_iznos.setText(f"{total_iznos:,.2f} {currency}" if total_iznos else "-")
+        self.val_bruto.setText(f"{total_bruto:,.3f} kg" if total_bruto else "-")
+        self.val_neto.setText(f"{total_neto:,.3f} kg" if total_neto else "-")
+
+        # Ukupno stavki
+        self.val_ukupno.setText(f"{len(items)} stavki" if items else "-")
 
         self.show()
 
