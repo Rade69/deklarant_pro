@@ -219,6 +219,25 @@ class PDFImporter:
                 except Exception as e:
                     logger.error(f"Generic fallback parser takođe nije uspio: {e}")
 
+            # FALLBACK: Ako generic parser vrati 0 stavki, pokušaj OCR (ako je skenirani PDF)
+            if not items and self.ocr_strategy and OCR_AVAILABLE:
+                logger.info("🔍 Nema stavki — provjeravam da li je PDF skeniran...")
+                try:
+                    if is_scanned_pdf(filepath):
+                        logger.info("📷 PDF je skeniran — pokušavam OCR...")
+                        if progress_callback:
+                            progress_callback(50)
+                        result = self.ocr_strategy.extract(filepath)
+                        if progress_callback:
+                            progress_callback(100)
+                        if isinstance(result, ImportResult):
+                            items = result.items
+                            logger.info(f"✅ OCR fallback: {len(items)} stavki")
+                        else:
+                            items = result
+                except Exception as e_ocr:
+                    logger.warning(f"OCR fallback nije uspio: {e_ocr}")
+
             if not items:
                 logger.warning("PDF import završen, ali nema parsiranih stavki")
 

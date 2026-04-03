@@ -93,9 +93,11 @@ def parse_generic_pdf(pdf_path: str) -> ImportResult:
                         all_tables.append(table)
 
         if not all_tables:
-            logger.warning("⚠️  Nisu pronađene tabele u PDF-u")
+            logger.warning("⚠️  Nisu pronađene tabele — pokušavam text-based extraction")
+            items = _parse_words_based(pdf_path)
+            logger.info(f"   Text-based extraction: {len(items)} stavki")
             return ImportResult(
-                items=[],
+                items=items,
                 bruto_kg=bruto_kg,
                 neto_kg=neto_kg,
                 invoice_name=invoice_number,
@@ -182,10 +184,12 @@ def _detect_columns(table: List[List[str]]) -> ColumnMapping:
             mapping.unit = idx
             logger.debug(f"      Col {idx}: UNIT")
 
-        # Unit Price — preskačemo kolone sa prefiksima NETO/NET/DISC (to su već korigovane cijene)
+        # Unit Price — preskačemo kolone koje su zbir/iznos, ali dozvoljavamo "Net Unit Price"
+        # NET uz AMOUNT/TOTAL = neto iznos (nije cijena); NET uz PRICE = neto cijena (jeste)
         elif re.search(r'\bUNIT.*PRICE\b|\bPRICE\b|\bCIJENA\b|\bCENA\b', cell) \
                 and 'TOTAL' not in cell and 'AMOUNT' not in cell \
-                and 'NETO' not in cell and 'NET' not in cell \
+                and 'NETO' not in cell \
+                and not (('NET' in cell or 'NETO' in cell) and re.search(r'\bAMOUNT\b|\bTOTAL\b|\bIZNOS\b', cell)) \
                 and mapping.unit_price is None:
             mapping.unit_price = idx
             logger.debug(f"      Col {idx}: UNIT_PRICE")
@@ -409,6 +413,189 @@ def _detect_all_origin_statements(text: str) -> List:
     except Exception as e:
         logger.warning(f"  ⚠️  Greška tokom detekcije izjava: {e}")
         return []
+
+
+def _group_words_by_row(words: List[Dict], tolerance: float = 3.0) -> List[List[Dict]]:
+    """
+    Grupiše pdfplumber words po redovima na osnovu Y koordinate.
+    Riječi čiji se 'top' razlikuje za manje od tolerance px idu u isti red.
+    """
+    if not words:
+        return []
+
+    # Sortiraj po Y (top), pa X (x0)
+    sorted_words = sorted(words, key=lambda w: (round(w['top'] / tolerance), w['x0']))
+
+    rows: List[List[Dict]] = []
+    current_row: List[Dict] = [sorted_words[0]]
+    current_top = sorted_words[0]['top']
+
+    for word in sorted_words[1:]:
+        if abs(word['top'] - current_top) <= tolerance:
+            current_row.append(word)
+        else:
+            rows.append(current_row)
+            current_row = [word]
+            current_top = word['top']
+
+    if current_row:
+        rows.append(current_row)
+
+    return rows
+
+
+def _find_header_row(rows: List[List[Dict]]) -> Tuple[int, Dict[str, float]]:
+    """
+    Pronađi red koji izgleda kao header fakture.
+    Vraća (index reda, {naziv_kolone: x_pozicija}).
+    Ako header nije nađen, vraća (-1, {}).
+    """
+    # Ključne riječi koje označavaju header kolona
+    _HEADER_KW = {
+        'qty': ['qty', 'quantity', 'kolicina', 'količina', 'q-ty', 'menge', 'amount'],
+        'price': ['price', 'cijena', 'unit price', 'preis', 'unit', 'rate'],
+        'total': ['total', 'amount', 'iznos', 'value', 'sum', 'betrag'],
+        'desc': ['description', 'naziv', 'article', 'name', 'roba', 'proizvod', 'opis',
+                 'title', 'item', 'goods'],
+        'code': ['code', 'šifra', 'sifra', 'art', 'ref', 'sku', 'no.', 'pos'],
+    }
+
+    for row_idx, row in enumerate(rows[:30]):  # Pretraži prvih 30 redova
+        text_words = [w['text'].lower().strip('.:') for w in row]
+        row_text = ' '.join(text_words)
+
+        matches = 0
+        col_positions: Dict[str, float] = {}
+
+        for col_name, keywords in _HEADER_KW.items():
+            for kw in keywords:
+                if kw in row_text:
+                    # Pronađi X poziciju te kolone
+                    for w in row:
+                        if kw in w['text'].lower():
+                            col_positions[col_name] = w['x0']
+                            break
+                    matches += 1
+                    break
+
+        if matches >= 3:  # Barem 3 kolone prepoznate
+            return row_idx, col_positions
+
+    return -1, {}
+
+
+def _assign_to_column(word_x: float, col_positions: Dict[str, float]) -> Optional[str]:
+    """Dodijeli riječ koloni na osnovu X pozicije (najbliža kolona)."""
+    if not col_positions:
+        return None
+    closest = min(col_positions.items(), key=lambda kv: abs(kv[1] - word_x))
+    # Prihvati samo ako je unutar 80px od centra kolone
+    if abs(closest[1] - word_x) < 80:
+        return closest[0]
+    return None
+
+
+def _parse_words_based(pdf_path: str) -> List[InvoiceLine]:
+    """
+    Text-based extraction koristeći koordinate rijeci (extract_words).
+    Funkcioniše na PDF-ovima bez tabelarnih struktura.
+
+    Pristup:
+    1. Dobije sve rijeci sa X/Y koordinatama po stranici
+    2. Grupiše u redove (slična Y koordinata)
+    3. Traži header red (sa kolonama kao qty/price/total)
+    4. Parsiraj stavke ispod headera dodjeljujući rijeci kolonama po X poziciji
+    """
+    items: List[InvoiceLine] = []
+
+    try:
+        import pdfplumber
+        with pdfplumber.open(pdf_path) as pdf:
+            for page_num, page in enumerate(pdf.pages, 1):
+                words = page.extract_words(
+                    x_tolerance=3, y_tolerance=3, keep_blank_chars=False
+                )
+                if not words:
+                    continue
+
+                rows = _group_words_by_row(words, tolerance=4.0)
+                header_idx, col_positions = _find_header_row(rows)
+
+                if header_idx < 0:
+                    logger.debug(f"   Stranica {page_num}: header nije pronađen")
+                    continue
+
+                logger.debug(
+                    f"   Stranica {page_num}: header na redu {header_idx}, "
+                    f"kolone: {list(col_positions.keys())}"
+                )
+
+                # Parsiraj redove ispod headera
+                for row in rows[header_idx + 1:]:
+                    row_text = ' '.join(w['text'] for w in row).strip()
+
+                    # Preskoči prazne i footer redove
+                    if not row_text:
+                        continue
+                    if re.match(
+                        r'^(total|ukupno|sum|subtotal|grand|strana|page|footer|vat|pdv)',
+                        row_text.lower()
+                    ):
+                        continue
+
+                    # Preskoči redove koji izgledaju kao ponavljajući header
+                    if header_idx > 0 and _find_header_row([row])[0] >= 0:
+                        continue
+
+                    # Grupiraj tekst po kolonama
+                    col_texts: Dict[str, List[str]] = {c: [] for c in col_positions}
+                    unassigned: List[str] = []
+
+                    for word in row:
+                        col = _assign_to_column(word['x0'], col_positions)
+                        if col:
+                            col_texts[col].append(word['text'])
+                        else:
+                            unassigned.append(word['text'])
+
+                    desc_parts = col_texts.get('desc', []) + unassigned
+                    naziv = ' '.join(desc_parts).strip()
+                    code = ' '.join(col_texts.get('code', [])).strip()
+                    qty_str = ' '.join(col_texts.get('qty', [])).strip()
+                    price_str = ' '.join(col_texts.get('price', [])).strip()
+                    total_str = ' '.join(col_texts.get('total', [])).strip()
+
+                    # Preskoci redove bez opisa
+                    if not naziv:
+                        continue
+
+                    kolicina = _parse_number(qty_str)
+                    cijena = _parse_number(price_str)
+                    iznos = _parse_number(total_str)
+
+                    # Kalkuliši iznos ako nedostaje
+                    if iznos == 0 and kolicina > 0 and cijena > 0:
+                        iznos = round(kolicina * cijena, 4)
+
+                    # Validacija: mora imati barem nešto numerično
+                    if kolicina <= 0 and cijena <= 0 and iznos <= 0:
+                        continue
+
+                    items.append(InvoiceLine(
+                        line_no=len(items) + 1,
+                        product_code=code,
+                        naziv_robe=naziv,
+                        kolicina=kolicina,
+                        jm="",
+                        cijena_jed=cijena,
+                        iznos=iznos,
+                        valuta="EUR",
+                    ))
+
+    except Exception as e:
+        logger.error(f"❌ Text-based extraction greška: {e}")
+
+    return items
 
 
 def detect_generic_pdf(_pdf_path: str) -> bool:

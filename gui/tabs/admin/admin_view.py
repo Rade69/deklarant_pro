@@ -17,7 +17,6 @@ from gui.tabs.admin.panels.database_panel import DatabasePanel
 from gui.tabs.admin.panels.logs_panel import LogsPanel
 from gui.tabs.admin.panels.system_panel import SystemPanel
 from gui.tabs.admin.panels.analytics_panel import AnalyticsPanel
-from gui.tabs.admin.panels.ai_assistant_panel import AIAssistantPanel
 import qtawesome as qta
 
 
@@ -120,7 +119,6 @@ class AdminView(BaseTabView):
             ("fa5s.chart-bar",    "Analitika",              "Statistika import-a i korišćenje parsera"),
             ("fa5s.file-alt",     "Logovi",                 "Pregled i filtriranje logova"),
             ("fa5s.info-circle",  "Sistemske Informacije",  "Informacije o sistemu i aplikaciji"),
-            ("fa5s.robot",        "AI Assistant",           "Testiranje AI tarifnih prijedloga"),
         ]
 
         for icon_name, item_text, tooltip in items:
@@ -189,10 +187,6 @@ class AdminView(BaseTabView):
         self.system_panel = SystemPanel()
         self.content_stack.addWidget(self.system_panel)
 
-        # AI Assistant panel (TASK 8)
-        self.ai_assistant_panel = AIAssistantPanel()
-        self.content_stack.addWidget(self.ai_assistant_panel)
-
     def _on_nav_changed(self, index: int):
         """
         Handler za promjenu navigation selection.
@@ -227,10 +221,6 @@ class AdminView(BaseTabView):
     def get_system_panel(self) -> SystemPanel:
         """Getter za system panel."""
         return self.system_panel
-
-    def get_ai_assistant_panel(self) -> AIAssistantPanel:
-        """Getter za AI assistant panel."""
-        return self.ai_assistant_panel
 
     def get_data(self) -> dict:
         return {}

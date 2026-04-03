@@ -16,26 +16,26 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("ASYCUDA Pro")
 
-        # Set default size (80% of Full HD 1920x1080)
+        # Postavi podrazumevanu veličinu (80% Full HD 1920x1080)
         self.resize(1536, 823)
 
-        # Set maximum size to prevent window manager from making it too wide
+        # Postavi maksimalnu širinu da spreči window manager da je napravi preširoku
         self.setMaximumWidth(1650)
 
-        # Restore window geometry from previous session
+        # Vrati geometriju prozora iz prethodne sesije
         self._restore_window_state()
 
-        # 1. Ucitaj stilove
+        # 1. Učitaj stilove
         self.load_stylesheet()
 
         # 2. Inicijalizacija draft-a
         self.draft = DeclarationDraft()
         self.draft.ensure_min_items(1)
 
-        # 3. Kreiranje tabova (redoslijed: Faktura, Zaglavlje, Naimenovanja, Šifrarnici)
+        # 3. Kreiranje tabova (redosled: Faktura, Zaglavlje, Naimenovanja, Šifrarnici)
         tabs = QTabWidget()
 
-        # Enable responsive resizing for tab widget
+        # Omogući responsive resizing za tab widget
         from PySide6.QtWidgets import QSizePolicy
         tabs.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         
@@ -78,27 +78,27 @@ class MainWindow(QMainWindow):
         )
         tabs.addTab(self.agent_tab, "🤖 Agent")
 
-        # Set Admin Tab as current tab for testing (opciono - za development)
+        # Postavi Admin Tab kao trenutni tab za testiranje (opciono - za development)
         # tabs.setCurrentWidget(self.admin_tab)
 
-        # Register callback to update all tabs when draft data changes
+        # Registruj callback da ažurira sve tabove kada se draft podaci promene
         self.draft.register_data_change_callback(self._on_draft_data_changed)
 
     def load_stylesheet(self):
         """
-        Load all QSS stylesheets in correct order.
-        Order matters: later styles can override earlier ones.
+        Učitaj sve QSS stilove u ispravnom redosledu.
+        Redosled je bitan: kasniji stilovi mogu da pregaze ranije.
         """
-        # Style files in loading order
+        # Stil fajlovi u redosledu učitavanja
         style_files = [
-            "asycuda_modern_material.qss",  # Base styles
-            "typography.qss",  # Text styles
-            "spacing_system.qss",  # Spacing
-            "main_tabs.qss",  # Main tab widget styling
-            "zone_styling.qss",  # Zone hierarchy
-            "naimenovanja_components.qss",  # Naimenovanja tab components
-            "button_system.qss",  # Button categories
-            "faktura_tab_v2.qss",  # Faktura tab base styles
+            "asycuda_modern_material.qss",  # Osnovni stilovi
+            "typography.qss",  # Tekst stilovi
+            "spacing_system.qss",  # Razmaci
+            "main_tabs.qss",  # Stilovi glavnog tab widgeta
+            "zone_styling.qss",  # Hijerarhija zona
+            "naimenovanja_components.qss",  # Komponente Naimenovanja taba
+            "button_system.qss",  # Kategorije dugmadi
+            "faktura_tab_v2.qss",  # Osnovni stilovi Faktura taba
             "QSS_header_toolbar_sistem.qss",  # Inputi, scrollbari, tabela, kombo
             "unified_color_system.qss",  # Unificirana paleta boja (najviši prioritet)
         ]
@@ -108,7 +108,7 @@ class MainWindow(QMainWindow):
         styles_dir = settings.styles_dir
 
         for style_file in style_files:
-            style_path = styles_dir / style_file  # Path object
+            style_path = styles_dir / style_file  # Path objekat
 
             if style_path.exists():
                 file = QFile(str(style_path))
@@ -128,65 +128,65 @@ class MainWindow(QMainWindow):
             self.setWindowTitle(current_title + " *")
 
     def _on_draft_data_changed(self) -> None:
-        """Called when draft data changes - update all tabs that need refreshing."""
-        # Update the zaglavlje tab to reflect any changes in the draft
+        """Poziva se kada se draft podaci promene - ažurira sve tabove koji treba da se osveže."""
+        # Ažuriraj zaglavlje tab da odrazi promene u draft-u
         self.zaglavlje_tab.load_from_draft(self.draft)
 
-        # Optionally update other tabs if needed
-        # For now, we'll just update the zaglavlje tab since that's what we're focusing on
+        # Opciono ažuriraj druge tabove ako je potrebno
+        # Za sada ćemo samo ažurirati zaglavlje tab jer je to na šta se fokusiramo
 
-        # Refresh the UI to ensure all changes are displayed
+        # Osveži UI da se osigura da su sve promene prikazane
         self.zaglavlje_tab.update()
 
     def _restore_window_state(self) -> None:
-        """Restore window geometry and position from previous session."""
+        """Vrati geometriju i poziciju prozora iz prethodne sesije."""
         settings = QSettings("AsycudaPro", "MainWindow")
 
-        # Restore geometry (position + size)
+        # Vrati geometriju (pozicija + veličina)
         geometry = settings.value("geometry")
         if geometry:
-            # Try to restore, but validate size
+            # Pokušaj da vratiš, ali validiraj veličinu
             success = self.restoreGeometry(geometry)
 
-            # Check if restored size is too wide or wrong height (reject old settings)
-            MAX_WIDTH = 1650  # Maximum acceptable width
-            CORRECT_HEIGHT = 823  # Correct height
+            # Proveri da li je vraćena veličina preširoka ili pogrešna visina (odbaci stare podešavanja)
+            MAX_WIDTH = 1650  # Maksimalna prihvatljiva širina
+            CORRECT_HEIGHT = 823  # Ispravna visina
             if self.width() > MAX_WIDTH or self.height() != CORRECT_HEIGHT:
-                self.resize(1536, 823)  # Force correct size
+                self.resize(1536, 823)  # Prisili ispravnu veličinu
                 self._center_on_primary_screen()
             elif not success:
                 self._center_on_primary_screen()
         else:
-            # First run - center the window on primary screen
+            # Prvo pokretanje - centriraj prozor na primarnom ekranu
             self._center_on_primary_screen()
 
     def _center_on_primary_screen(self) -> None:
-        """Center window on primary screen."""
+        """Centriraj prozor na primarnom ekranu."""
         screen = QApplication.primaryScreen().geometry()
         x = (screen.width() - self.width()) // 2
         y = (screen.height() - self.height()) // 2
         self.move(x, y)
 
     def showEvent(self, event) -> None:
-        """Save geometry when window is shown (backup to closeEvent)."""
+        """Sačuvaj geometriju kada se prozor prikaže (backup za closeEvent)."""
         super().showEvent(event)
 
-        # FORCE size after window is shown (in case window manager overrode it)
+        # PRISILI veličinu nakon što se prozor prikaže (u slučaju da window manager pregazi)
         MAX_WIDTH = 1650
         CORRECT_HEIGHT = 823
         if self.width() > MAX_WIDTH or self.height() != CORRECT_HEIGHT:
             self.resize(1536, 823)
             self._center_on_primary_screen()
 
-        # Save initial position after first show
+        # Sačuvaj početnu poziciju nakon prvog prikazivanja
         settings = QSettings("AsycudaPro", "MainWindow")
         if not settings.value("geometry"):
             settings.setValue("geometry", self.saveGeometry())
-            settings.sync()  # Force immediate write
+            settings.sync()  # Prisili trenutno pisanje
 
     def closeEvent(self, event) -> None:
-        """Save window state before closing."""
+        """Sačuvaj stanje prozora pre zatvaranja."""
         settings = QSettings("AsycudaPro", "MainWindow")
         settings.setValue("geometry", self.saveGeometry())
-        settings.sync()  # Force immediate write to disk
+        settings.sync()  # Prisili trenutno pisanje na disk
         super().closeEvent(event)

@@ -417,7 +417,7 @@ def _parse_item_row(
         iznos=0.0,  # Not available in Excel
         valuta="EUR",
         bruto_kg=tezina_ukupno,  # VAŽNO: "Težina ukupno" u Excel-u je BRUTO težina!
-        neto_kg=0.0,  # Neto nije dostupno u Excel-u - korisnik će ručno popuniti ili iz drugog izvora
+        neto_kg=tezina_po_komadu * kolicina if tezina_po_komadu > 0 else 0.0,
         jm=jm if jm else "kom",
         povlastica=""  # Not available in Blagic-Loren Excel
     )

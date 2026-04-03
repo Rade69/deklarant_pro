@@ -65,11 +65,6 @@ class AdminController(BaseTabController):
         if hasattr(logs_panel, 'refresh_requested'):
             logs_panel.refresh_requested.connect(self._on_refresh_logs)
 
-        # AI Assistant panel signals (TASK 8)
-        ai_panel = self.view.get_ai_assistant_panel()
-        if hasattr(ai_panel, 'test_requested'):
-            ai_panel.test_requested.connect(self._on_test_ai_tariff)
-
     def _load_initial_data(self):
         """Učitaj inicijalne podatke pri pokretanju."""
         # Load plugin data
@@ -351,25 +346,3 @@ class AdminController(BaseTabController):
         system_info = self.service.get_system_info()
         self.view.get_system_panel().set_system_info(system_info)
 
-    # AI ASSISTANT HANDLERS (TASK 8)
-
-    def _on_test_ai_tariff(self, naziv_robe: str):
-        """
-        Handler za testiranje AI tarifnog prijedloga.
-
-        Args:
-            naziv_robe: Naziv robe za testiranje
-        """
-        try:
-            from services.agent.hybrid_tariff_agent import HybridTariffAgent
-
-            agent = HybridTariffAgent()
-            result = agent.decide_tariff(naziv_robe)
-
-            # Prikaži rezultate u AI Assistant panelu
-            ai_panel = self.view.get_ai_assistant_panel()
-            ai_panel.display_results(result)
-
-        except Exception as e:
-            ai_panel = self.view.get_ai_assistant_panel()
-            ai_panel.display_error(f"Greška pri AI prijedlogu: {e}")

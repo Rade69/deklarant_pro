@@ -8,7 +8,7 @@ from PySide6.QtCore import Qt, QTimer
 
 
 def main() -> None:
-    # Import ovdje da izbjegnemo kružne importe na startu
+    # Import ovde da izbegnemo kružne importe na startu
     from gui.main_window import MainWindow
 
     app = QApplication(sys.argv)
@@ -21,7 +21,7 @@ def main() -> None:
     # Timer koji periodično aktivira Python interpreter
     # da može da procesuje signale (Ctrl+C)
     timer = QTimer()
-    timer.timeout.connect(lambda: None)  # Празна funkcija, samo da probudi interpreter
+    timer.timeout.connect(lambda: None)  # Prazna funkcija, samo da probudi interpreter
     timer.start(500)  # Svakih 500ms
 
     # ASYCUDA World svetla tema - forsiramo svetle boje

@@ -1125,6 +1125,50 @@ class AgentController:
                 self._predlozi_tarifne_po_filteru(keyword)
                 return
 
+        # --- DETEKCIJA NAMJERE: provjera tarifnog za konkretan naziv robe ---
+        # Format: "provjeri tarifni za X", "testiraj tarif za X", "koji je tarif za X"
+        _provjeri_tarif_match = _re.search(
+            r'(?:provjeri|testiraj|predloži|predlozi|traži|trazi|koji\s+je|kakav\s+je)\s+'
+            r'tarif\w*\s+za\s+(.+)',
+            msg
+        )
+        if _provjeri_tarif_match:
+            naziv = _provjeri_tarif_match.group(1).strip().rstrip('?!')
+            if naziv and len(naziv) >= 3:
+                self._provjeri_tarifni_za_naziv(naziv)
+                return
+
+        # --- DETEKCIJA NAMJERE: pretraga carinske tarife ---
+        # Format: "pretraži tarifu za X", "nađi tarifu za X", "šta je tarifa za X"
+        #         "provjeri kod 3304990000", "tarifa poglavlje 33"
+        _tarifa_pretrazi_match = _re.search(
+            r'(?:pretra[žz]i?|na[đd]i?|trazi|traži)\s+tarif[ua]\s+(?:za\s+)?(.+)'
+            r'|(?:šta|sta|što|sto|koji|koja)\s+(?:je\s+)?tarif[ua]\s+(?:za\s+)?(.+)'
+            r'|tarif[ua]\s+(?:za\s+|broj\s+)?(.+)',
+            msg
+        )
+        _tarifa_kod_match = _re.search(
+            r'(?:provjeri|validir|pokaži|pokazi)\s+(?:tarifn[ui]\s+)?(?:kod\s+|broj\s+|oznaku\s+)?(\d{8,10})',
+            msg
+        )
+        _tarifa_poglavlje_match = _re.search(
+            r'(?:poglavlje|odjeljak|glava)\s+(\d{1,2})',
+            msg
+        )
+
+        if _tarifa_kod_match:
+            self._pretrazi_tarifu_po_kodu(_tarifa_kod_match.group(1))
+            return
+        elif _tarifa_poglavlje_match:
+            self._pretrazi_tarifu_poglavlje(_tarifa_poglavlje_match.group(1))
+            return
+        elif _tarifa_pretrazi_match:
+            upit = next(g for g in _tarifa_pretrazi_match.groups() if g)
+            upit = upit.strip().rstrip('?!')
+            if upit and len(upit) >= 2:
+                self._pretrazi_tarifu(upit)
+                return
+
         # --- DETEKCIJA NAMJERE: brisanje tarifnih brojeva (MORA BITI ISPRED popune!) ---
         # Provjera: prisutan glagol brisanja I "tarif" u poruci
         _brisanje_glagoli = ['izbri', 'obri', 'ukloni', 'resetuj', 'ocisti', 'očisti',
@@ -1779,6 +1823,90 @@ class AgentController:
             f"— {upisano} stavki."
         )
 
+    def _provjeri_tarifni_za_naziv(self, naziv_robe: str):
+        """Pozovi HybridTariffAgent za konkretan naziv robe i prikaži rezultat u chatu."""
+        from services.agent.hybrid_tariff_agent import HybridTariffAgent
+        from PySide6.QtCore import QThread, Signal, QObject
+
+        chat = self.view.get_chat_panel()
+        chat.add_activity(f"🔍 Provjera tarifnog za: {naziv_robe}")
+        chat.show_typing_indicator()
+
+        class _TariffCheckWorker(QThread):
+            done = Signal(dict)
+            error = Signal(str)
+
+            def __init__(self, naziv):
+                super().__init__()
+                self._naziv = naziv
+
+            def run(self):
+                try:
+                    agent = HybridTariffAgent()
+                    result = agent.decide_tariff(self._naziv)
+                    self.done.emit(result)
+                except Exception as e:
+                    self.error.emit(str(e))
+
+        worker = _TariffCheckWorker(naziv_robe)
+
+        def _on_done(result):
+            chat.hide_typing_indicator()
+            confidence = result.get('confidence', 0)
+            tarifni = result.get('tarifni_broj', 'N/A')
+            metoda = result.get('method', 'N/A')
+            needs_review = result.get('needs_review', False)
+            explanation = result.get('explanation', '')
+            candidates = result.get('candidates', [])
+
+            if confidence >= 0.85:
+                conf_ikona = "✅"
+                conf_status = "visok — auto-prihvati"
+            elif confidence >= 0.60:
+                conf_ikona = "⚠️"
+                conf_status = "srednji — pregledaj"
+            else:
+                conf_ikona = "❌"
+                conf_status = "nizak — obavezno pregledaj"
+
+            lines = [
+                f"<b>📌 Tarifni broj:</b> <code>{tarifni}</code>",
+                f"<b>📊 Confidence:</b> {conf_ikona} {confidence:.0%} ({conf_status})",
+                f"<b>🔧 Metoda:</b> {metoda}",
+                f"<b>⚠️ Review:</b> {'DA' if needs_review else 'NE'}",
+            ]
+            if explanation:
+                lines.append(f"<br><b>📝 Objašnjenje:</b><br>{explanation[:300]}")
+            if candidates:
+                alts = []
+                for c in candidates[:3]:
+                    alts.append(
+                        f"• {c.get('tarifni_broj','?')} "
+                        f"({c.get('confidence',0):.0%}) — "
+                        f"{c.get('naziv_robe','')[:40]}"
+                    )
+                lines.append("<br><b>📋 Alternative:</b><br>" + "<br>".join(alts))
+
+            chat.add_agent_message("<br>".join(lines))
+            chat.add_activity(f"✅ Tarifni za '{naziv_robe}': {tarifni} ({confidence:.0%})")
+            if not hasattr(self, '_tariff_check_workers'):
+                self._tariff_check_workers = []
+            if worker in self._tariff_check_workers:
+                self._tariff_check_workers.remove(worker)
+
+        def _on_error(err):
+            chat.hide_typing_indicator()
+            chat.add_agent_message(f"❌ Greška pri provjeri tarifnog: {err}")
+
+        worker.done.connect(_on_done)
+        worker.error.connect(_on_error)
+        worker.finished.connect(worker.deleteLater)
+
+        if not hasattr(self, '_tariff_check_workers'):
+            self._tariff_check_workers = []
+        self._tariff_check_workers.append(worker)
+        worker.start()
+
     def _obrisi_tarifne_brojeve(self):
         """Obriši sve tarifne brojeve iz draft.invoice_lines i osvježi Faktura tab."""
         from PySide6.QtWidgets import QApplication
@@ -1858,3 +1986,82 @@ class AgentController:
             f"Količine, mase i iznosi su sabrani.<br>"
             f"Provjeri Naimenovanja tab."
         )
+
+    # ─────────────────────────────────────────────────────────────
+    # PRETRAGA CARINSKE TARIFE
+    # ─────────────────────────────────────────────────────────────
+
+    def _pretrazi_tarifu(self, upit: str):
+        """Pretraži carinsku tarifu 2026 po opisu robe."""
+        chat = self.view.get_chat_panel()
+        chat.add_activity(f"🔍 Pretražujem tarifu za: {upit}")
+
+        try:
+            from services.tarifa_service import pretrazi, formatiraj_rezultate
+            rezultati = pretrazi(upit, limit=10)
+            html = formatiraj_rezultate(rezultati)
+            chat.add_agent_message(
+                f"<b>📋 Carinska tarifa 2026 — pretraga: '{upit}'</b><br><br>{html}"
+                f"<br><br><small>Možeš pitati: <i>provjeri kod 3304990000</i> ili "
+                f"<i>poglavlje 33</i></small>"
+            )
+        except Exception as e:
+            chat.add_agent_message(f"❌ Greška pri pretrazi tarife: {e}")
+
+    def _pretrazi_tarifu_po_kodu(self, kod: str):
+        """Provjeri/validuj konkretnu tarifnu oznaku."""
+        chat = self.view.get_chat_panel()
+        chat.add_activity(f"🔍 Provjeravam tarifni kod: {kod}")
+
+        try:
+            from services.tarifa_service import validiraj_tarifni_broj, trazi_poglavlje, naziv_poglavlja
+            r = validiraj_tarifni_broj(kod)
+
+            if not r['valid']:
+                chat.add_agent_message(
+                    f"❌ <b>Tarifna oznaka {kod}</b> nije pronađena u carinskoj tarifi 2026."
+                )
+                return
+
+            stopa = r['stopa_uvozna']
+            if stopa and not stopa.endswith('%'):
+                stopa = stopa + '%'
+            stopa_eu = r.get('stopa_eu', '')
+            if stopa_eu and not stopa_eu.endswith('%'):
+                stopa_eu = stopa_eu + '%'
+
+            poglavlje = kod[:2]
+            pog_naziv = naziv_poglavlja(poglavlje)
+
+            chat.add_agent_message(
+                f"<b>✅ Tarifna oznaka: {r['kod']}</b><br>"
+                f"<b>Opis:</b> {r['naziv']}<br>"
+                f"<b>Poglavlje {poglavlje}:</b> {pog_naziv}<br>"
+                f"<b>Stopa (MFN):</b> {stopa or '—'} &nbsp;|&nbsp; "
+                f"<b>EU:</b> {stopa_eu or '—'}"
+            )
+        except Exception as e:
+            chat.add_agent_message(f"❌ Greška pri provjeri koda: {e}")
+
+    def _pretrazi_tarifu_poglavlje(self, poglavlje: str):
+        """Prikaži pregled poglavlja carinske tarife."""
+        chat = self.view.get_chat_panel()
+        chat.add_activity(f"📂 Učitavam poglavlje {poglavlje} tarife...")
+
+        try:
+            from services.tarifa_service import trazi_poglavlje, naziv_poglavlja, formatiraj_rezultate
+            naziv = naziv_poglavlja(poglavlje)
+            stavke = trazi_poglavlje(poglavlje, limit=30)
+
+            # Prikaži samo podbroje (pune oznake)
+            podbroji = [s for s in stavke if s['nivo'] == 'podbroj']
+
+            html = formatiraj_rezultate(podbroji, max_rows=15)
+            chat.add_agent_message(
+                f"<b>📂 Poglavlje {poglavlje.zfill(2)}: {naziv}</b><br>"
+                f"Ukupno tarifnih podbroja: <b>{len(podbroji)}</b><br><br>"
+                f"{html}"
+            )
+        except Exception as e:
+            chat.add_agent_message(f"❌ Greška pri učitavanju poglavlja: {e}")
+

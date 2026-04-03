@@ -15,10 +15,6 @@ from importers.import_result import ImportResult
 from importers.exceptions import ParseError, FileNotSupportedError
 from core.draft.draft import InvoiceLine
 
-# Importuj XML importer
-from importers.xml_importer import XMLImporter
-
-
 class XMLImportStrategy(ImportStrategy):
     """
     Strategija za import XML (ASYCUDA) deklaracija.
@@ -39,9 +35,10 @@ class XMLImportStrategy(ImportStrategy):
     def __init__(self):
         """
         Inicijalizuj XML strategiju.
-        
-        Kreira instancu XMLImporter.
+
+        Kreira instancu XMLImporter (lazy import da se izbjegne circular dependency).
         """
+        from importers.xml_importer import XMLImporter
         self.importer = XMLImporter()
     
     def can_handle(self, filepath: Path) -> bool:

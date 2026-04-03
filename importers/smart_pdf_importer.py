@@ -81,7 +81,9 @@ def parse_smart_pdf(pdf_path: str) -> ImportResult:
         result = parse_generic_pdf(pdf_path)
 
     # 3. FALLBACK AKO JE REZULTAT PRAZAN
-    if result and hasattr(result, 'items') and len(result.items) == 0:
+    # VAŽNO: koristiti "result is not None" jer ImportResult.__len__ vraća 0 za prazan result
+    # što bi ga učinilo falsy pri bool evaluaciji
+    if result is not None and hasattr(result, 'items') and len(result.items) == 0:
         logger.warning("   ⚠️  Parser vratio 0 stavki")
 
         # Ako smo već koristili generic, ne pokušavaj ponovo
@@ -89,13 +91,32 @@ def parse_smart_pdf(pdf_path: str) -> ImportResult:
             logger.info("   🔄 Pokušavam sa generičkom extraction kao fallback...")
             try:
                 result = parse_generic_pdf(pdf_path)
-                if result and len(result.items) > 0:
+                if result is not None and len(result.items) > 0:
                     logger.info(f"   ✅ Generic fallback našao {len(result.items)} stavki!")
             except Exception as e:
                 logger.error(f"   ❌ Generic fallback također nije uspio: {e}")
 
-    # 4. FINALNI REZULTAT
-    if result:
+    # 4. OCR FALLBACK — ako i dalje nema stavki, provjeri da li je PDF skeniran
+    if result is not None and hasattr(result, 'items') and len(result.items) == 0:
+        try:
+            from importers.pdf.ocr_utils import is_scanned_pdf, ocr_pdf_to_text
+            from importers.pdf.ocr_invoice_parser import parse_ocr_result
+            if is_scanned_pdf(pdf_path):
+                logger.info("   📷 PDF je skeniran — pokušavam OCR (Tesseract)...")
+                pages_text = ocr_pdf_to_text(pdf_path, dpi=300)
+                ocr_result = parse_ocr_result(pages_text, pdf_path=pdf_path)
+                if ocr_result is not None and len(ocr_result.items) > 0:
+                    logger.info(f"   ✅ OCR našao {len(ocr_result.items)} stavki!")
+                    result = ocr_result
+                else:
+                    logger.warning("   ⚠️  OCR nije pronašao stavke")
+        except ImportError:
+            logger.debug("   OCR nije dostupan (pytesseract/pdf2image nisu instalirani)")
+        except Exception as e:
+            logger.error(f"   ❌ OCR fallback nije uspio: {e}")
+
+    # 5. FINALNI REZULTAT
+    if result is not None:
         item_count = len(result.items) if hasattr(result, 'items') else len(result)
         logger.info(f"✅ Parsiranje završeno: {item_count} stavki")
 

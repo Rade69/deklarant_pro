@@ -330,7 +330,7 @@ class XMLImporter:
                 items.append(invoice_line)
 
             except Exception as e:
-                logger.debug(f"Warning: Greška pri parsiranju stavke {idx}: {e}")
+                logger.warning(f"⚠️ Greška pri parsiranju stavke {idx}: {e} — stavka preskočena")
                 continue
 
         return items
@@ -572,9 +572,9 @@ class XMLImporter:
                 items.append(invoice_line)
                 
             except Exception as e:
-                logger.debug(f"Warning: Greška pri parsiranju Pro stavke {idx}: {e}")
+                logger.warning(f"⚠️ Greška pri parsiranju Pro stavke {idx}: {e} — stavka preskočena")
                 continue
-        
+
         return items
 
     def _parse_documents(self, element: ET.Element) -> list[Dict[str, Any]]:

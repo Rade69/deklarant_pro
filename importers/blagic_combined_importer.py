@@ -10,7 +10,7 @@ Kombinuje Blagić Excel (mapping) + Blagić PDF (faktura) kao Master Frigo:
 """
 
 import logging
-from typing import Dict, List, Tuple, Optional
+from typing import Any, Dict, List, Tuple, Optional
 from pathlib import Path
 from difflib import SequenceMatcher
 
@@ -168,7 +168,7 @@ def _validate_weights(
 def combine_blagic_excel_and_pdf(
     excel_path: str,
     pdf_path: str
-) -> Tuple[List[InvoiceLine], Dict[str, any]]:
+) -> Tuple[List[InvoiceLine], Dict[str, Any]]:
     """
     Kombinuje Blagić Excel (mapping) i PDF (faktura) kao Master Frigo.
 

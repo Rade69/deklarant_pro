@@ -228,13 +228,13 @@ def _parse_item_data(item_data: dict) -> InvoiceLine:
     if not match:
         logger.warning(f"Stavka #{num}: Ne mogu parsirati brojeve: {line}")
         return InvoiceLine(
-            ordinal=num,
-            code=code or "",
-            naziv=f"Stavka {num}",
-            unit="",
-            quantity=0,
-            unit_price=0,
-            amount=0
+            line_no=num,
+            product_code=code or "",
+            naziv_robe=f"Stavka {num}",
+            jm="",
+            kolicina=0,
+            cijena_jed=0,
+            iznos=0
         )
 
     # Ekstraktuj jedinicu, količinu, cijenu, iznos

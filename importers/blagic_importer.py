@@ -57,11 +57,11 @@ def _safe_float(val: Any) -> float:
     if isinstance(val, (int, float)):
         return float(val)
 
-    s = str(val).strip().replace(" ", "").replace("€", "")
-
-    # Ako string sadrži slova koja nisu naučna notacija, nije broj
-    if any(c.isalpha() for c in s if c.lower() not in ["e", ".", ","]):
-        return 0.0
+    # Ukloni valutne simbole i razmake
+    s = str(val).strip()
+    for sym in ("€", "$", "EUR", "USD", "BAM", "KM"):
+        s = s.replace(sym, "")
+    s = s.strip().replace(" ", "")
 
     try:
         if "." in s and "," in s:
@@ -335,22 +335,22 @@ def validate_import_result(lines: List[InvoiceLine]) -> Dict[str, Any]:
         "valid": True,
         "total_items": len(lines),
         "items_with_weight": sum(1 for l in lines if l.bruto_kg > 0),
-        "items_with_tariff": sum(1 for l in lines if l.tariff_code),
-        "items_with_origin": sum(1 for l in lines if l.origin_country),
+        "items_with_tariff": sum(1 for l in lines if l.tarifni_broj),
+        "items_with_origin": sum(1 for l in lines if l.zemlja_porijekla),
         "total_value": sum(l.iznos for l in lines),
         "total_weight": sum(l.bruto_kg for l in lines),
-        "unique_units": list({l.unit for l in lines}),
+        "unique_units": list({l.jm for l in lines}),
         "errors": []
     }
     
     # Provjera kritičnih grešaka
     for i, line in enumerate(lines):
-        if line.quantity <= 0:
-            stats["errors"].append(f"Stavka {line.position_number}: količina <= 0")
+        if line.kolicina <= 0:
+            stats["errors"].append(f"Stavka {line.line_no}: količina <= 0")
         if line.cijena_jed <= 0:
-            stats["errors"].append(f"Stavka {line.position_number}: cijena <= 0")
+            stats["errors"].append(f"Stavka {line.line_no}: cijena <= 0")
         if line.iznos <= 0:
-            stats["errors"].append(f"Stavka {line.position_number}: iznos <= 0")
+            stats["errors"].append(f"Stavka {line.line_no}: iznos <= 0")
     
     stats["valid"] = len(stats["errors"]) == 0
     return stats
