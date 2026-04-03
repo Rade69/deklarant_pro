@@ -51,11 +51,14 @@ _NET_RE = re.compile(r"\bNeto težina:\s*(?P<val>[\d\.,]+)\s*KG\b", re.IGNORECAS
 _INCOTERM_RE = re.compile(r"\bParitet isporuke:\s*(?P<term>[A-Z]{3})\b", re.IGNORECASE)
 
 # unit + qty + price + amount
-# Alternacija: ili 1 slovo (+ opcionalni razmak + 1-3 slova za split JM poput "k om"),
-# ili direktno 2-3 slova. Ovo sprječava da 2-slovna oznaka modela (npr. "RX" u
+# Podržava: "kom", "k om", "k o m", "kg", "k g"
+# Alternacija:
+#   1) 1 slovo + 0-2 puta (razmak + 1 slovo) → "k o m", "k om"
+#   2) 2-3 slova bez razmaka → "kom", "kg"
+# Ovo sprječava da 2-slovna oznaka modela (npr. "RX" u
 # "GACC RX kom 1.00") bude greškom prepoznata kao prefiks JM.
 _TAIL_NUMS_RE = re.compile(
-    r"\s(?P<unit>[A-Za-z](?:\s+[A-Za-z]{1,3})?|[A-Za-z]{2,3})\s+"
+    r"\s(?P<unit>[A-Za-z](?:\s+[A-Za-z]){0,2}|[A-Za-z]{2,3})\s+"
     r"(?P<qty>[\d\.,]+)\s+(?P<price>[\d\.,]+)\s+(?P<amount>[\d\.,]+)\b"
 )
 

@@ -353,6 +353,64 @@ class ChatWorker(QThread):
                     f"{zemlja:<4} {pov:<7} {bruto:>8.2f} {neto:>8.2f} {iznos:>9.2f} {n_lines:>9}"
                 )
 
+            # ⭐ DETALJNE RUBRIKE — za svako naimenovanje šaljem SVA polja
+            # Ovo omogućava agentu da vidi kompletnu sliku i provjeri popunjenost
+            ctx.append("")
+            ctx.append("=== DETALJNE RUBRIKE SVAKE STAVKE (za validaciju) ===")
+            for item in naim_items:
+                rb = getattr(item, 'ordinal_no', '?')
+                ctx.append(f"\n  --- Rb.{rb} ---")
+                # Rub.31 – Pakovanje i opis
+                ctx.append(f"  Rb.31 Oznake/br: '{getattr(item, 'package_marks', '') or '(prazno)'}'")
+                ctx.append(f"  Rb.31 Pakovanje kod: '{getattr(item, 'package_code', '') or '(prazno)'}'")
+                ctx.append(f"  Rb.31 Pakovanje opis: '{getattr(item, 'package_name', '') or '(prazno)'}'")
+                ctx.append(f"  Rb.31 Broj paketa: '{getattr(item, 'package_qty', 0) or '(prazno)'}'")
+                ctx.append(f"  Rb.31 Kontejner 1: '{getattr(item, 'container_number1', '') or '(prazno)'}'")
+                ctx.append(f"  Rb.31 Kontejner 2: '{getattr(item, 'container_number2', '') or '(prazno)'}'")
+                ctx.append(f"  Rb.31 Opis robe: '{(getattr(item, 'goods_description', '') or '')[:80]}'")
+                ctx.append(f"  Rb.31 Trgovački naziv: '{getattr(item, 'goods_trade_name', '') or '(prazno)'}'")
+                ctx.append(f"  Rb.31 Tarif opis 1: '{(getattr(item, 'tariff_description1', '') or '')[:60]}'")
+                ctx.append(f"  Rb.31 Tarif opis 2: '{(getattr(item, 'tariff_description2', '') or '')[:60]}'")
+                ctx.append(f"  Rb.31 Tarif opis 3: '{(getattr(item, 'tariff_description3', '') or '')[:60]}'")
+                # Rub.33 – Tarifni broj
+                ctx.append(f"  Rb.33 Tarifni broj: '{getattr(item, 'tariff_code', '') or '⚠️ NEMA'}'")
+                ctx.append(f"  Rb.33 Sufiks: '{getattr(item, 'tariff_suffix', '') or '(prazno)'}'")
+                # Rub.34 – Porijeklo
+                ctx.append(f"  Rb.34 Zemlja kod: '{getattr(item, 'origin_country_code', '') or '⚠️ NEMA'}'")
+                ctx.append(f"  Rb.34 Zemlja naziv: '{getattr(item, 'origin_country_name', '') or '(prazno)'}'")
+                # Rub.36 – Povlastica
+                ctx.append(f"  Rb.36 Povlastica kod: '{getattr(item, 'preference_code', '') or '(prazno)'}'")
+                ctx.append(f"  Rb.36 Povlastica naziv: '{getattr(item, 'preference_name', '') or '(prazno)'}'")
+                # Rub.35/38 – Mase
+                ctx.append(f"  Rb.35 Bruto masa: '{getattr(item, 'gross_mass_kg', 0) or '(prazno)'}'")
+                ctx.append(f"  Rb.38 Neto masa: '{getattr(item, 'net_mass_kg', 0) or '(prazno)'}'")
+                # Rub.37 – Procedura
+                ctx.append(f"  Rb.37 Procedura: '{getattr(item, 'procedure_code', '') or '(prazno)'}'")
+                ctx.append(f"  Rb.37 Prethodna proc: '{getattr(item, 'procedure_prev_code', '') or '(prazno)'}'")
+                # Rub.39 – Kvota
+                ctx.append(f"  Rb.39 Kvota: '{getattr(item, 'quota_code', '') or '(prazno)'}'")
+                # Rub.40 – Prethodni dokumenti
+                ctx.append(f"  Rb.40 Dok 1: '{getattr(item, 'previous_document', '') or '(prazno)'}'")
+                ctx.append(f"  Rb.40 Dok 2: '{getattr(item, 'previous_document2', '') or '(prazno)'}'")
+                ctx.append(f"  Rb.40 Dok 3: '{getattr(item, 'previous_document3', '') or '(prazno)'}'")
+                # Rub.41 – Dopunske jedinice
+                ctx.append(f"  Rb.41 Dop.jed.kod: '{getattr(item, 'supplementary_unit_code', '') or '(prazno)'}'")
+                ctx.append(f"  Rb.41 Dop.jed.kol: '{getattr(item, 'supplementary_unit_qty', 0) or '(prazno)'}'")
+                # Rub.42 – Vrijednost
+                ctx.append(f"  Rb.42 Vrijednost: '{getattr(item, 'item_value', 0) or '(prazno)'}'")
+                ctx.append(f"  Rb.42 Valuta: '{getattr(item, 'currency', '') or 'EUR'}'")
+                # Rub.44 – Priložene isprave
+                ctx.append(f"  Rb.44 Isprava 1: '{getattr(item, 'attached_document1', '') or '(prazno)'}'")
+                ctx.append(f"  Rb.44 Isprava 2: '{getattr(item, 'attached_document2', '') or '(prazno)'}'")
+                ctx.append(f"  Rb.44 Isprava 3: '{getattr(item, 'attached_document3', '') or '(prazno)'}'")
+                ctx.append(f"  Rb.44 Isprava 4 (EUR1): '{getattr(item, 'attached_document4', '') or '(prazno)'}'")
+                ctx.append(f"  Rb.44 Isprava 5: '{getattr(item, 'attached_document5', '') or '(prazno)'}'")
+                # Rub.46 – Statistička vrijednost
+                ctx.append(f"  Rb.46 Stat.vrijednost: '{getattr(item, 'statistical_value', 0) or '(prazno)'}'")
+                # Napomene
+                ctx.append(f"  Napomene: '{(getattr(item, 'notes', '') or '')[:60]}'")
+                ctx.append(f"  Source fakture: {getattr(item, 'source_invoice_refs', []) or '(nema)'}")
+
         if bez_zemlje_list:
             ctx.append("")
             ctx.append(f"=== STAVKE BEZ ZEMLJE PORIJEKLA ({len(bez_zemlje_list)}) ===")

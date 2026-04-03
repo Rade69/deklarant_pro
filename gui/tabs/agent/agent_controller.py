@@ -1196,6 +1196,40 @@ class AgentController:
             self._predlozi_tarifne_brojeve()
             return
 
+        # --- DETEKCIJA NAMJERE: pregled i validacija naimenovanja ---
+        # "pregledaj naimenovanja", "provjeri naimenovanja", "pokaži naimenovanje 3"
+        _pregled_kw = [
+            'pregledaj naim', 'pregled naim', 'prikaži naim', 'prikazi naim',
+            'pokaži naim', 'pokazi naim', 'sva naimenovanja', 'sva naim',
+            'detalji naim', 'detaljno naim', 'kompletno naim',
+            'provjeri naim', 'provjera naim', 'validacija naim', 'validiraj naim',
+            'da li su naimenovanja popunjen', 'da li su naim popunjen',
+            'šta fali u naim', 'sta fali u naim', 'nedostaje u naim',
+            'prazne rubrike', 'prazna polja naim', 'nepopunjene rubrike',
+        ]
+        if any(kw in msg for kw in _pregled_kw):
+            # Validacija popunjenosti
+            if any(kw in msg for kw in ['provjer', 'valid', 'da li su', 'šta fali', 'sta fali', 'nedostaje', 'prazn', 'nepopunjene']):
+                self._provjeri_naimenovanja()
+                return
+            # Detaljan pregled konkretnog naimenovanja (sa rednim brojem)
+            _REDNI_NAIM = {'prvi': 1, 'prvog': 1, 'prvo': 1, 'prva': 1,
+                           'drugi': 2, 'drugog': 2, 'drugo': 2, 'druga': 2,
+                           'treći': 3, 'trećeg': 3, 'treće': 3, 'treca': 3, 'treceg': 3,
+                           'četvrti': 4, 'cetvrti': 4, 'četvrtog': 4,
+                           'peti': 5, 'petog': 5, 'šesti': 6, 'sedmi': 7,
+                           'osmi': 8, 'deveti': 9, 'deseti': 10}
+            _naim_indices = [int(m) for m in _re.findall(r'\b(\d+)\b', msg)
+                            if 1 <= int(m) <= len(getattr(self.draft, 'items', [])) + 5]
+            _naim_ordinal = [_REDNI_NAIM.get(w) for w in msg.split() if w in _REDNI_NAIM]
+            combined_indices = list(dict.fromkeys(_naim_indices + [x for x in _naim_ordinal if x]))
+
+            if combined_indices:
+                self._pregledaj_naimenovanja(combined_indices)
+            else:
+                self._pregledaj_naimenovanja()  # Prikaži sva
+            return
+
         # --- DETEKCIJA NAMJERE: spajanje naimenovanja ---
         # Samo eksplicitni zahtjev za spajanje/grupiranje → akcija
         # Sve ostalo sa "naimenovanj" (provjeri, predloži, koji, šta je...) → LLM
@@ -1986,6 +2020,244 @@ class AgentController:
             f"Količine, mase i iznosi su sabrani.<br>"
             f"Provjeri Naimenovanja tab."
         )
+
+    # ─────────────────────────────────────────────────────────────
+    # PREGLED I VALIDACIJA NAIMENOVANJA
+    # ─────────────────────────────────────────────────────────────
+
+    def _provjeri_naimenovanja(self):
+        """
+        Validacija popunjenosti svih rubrika za sva naimenovanja.
+        Prolazi kroz svako naimenovanje i provjerava koja polja su prazna.
+        """
+        chat = self.view.get_chat_panel()
+
+        if not self.draft or not self.draft.items:
+            chat.add_agent_message("⚠️ Nema kreiranih naimenovanja u deklaraciji.")
+            return
+
+        naim_items = self.draft.items
+        chat.add_activity(f"🔍 Provjeravam {len(naim_items)} naimenovanja...")
+
+        # Definiši obavezna i opcionalna polja po rubrici
+        rubrike = {
+            'Rb.31': {
+                'fields': ['goods_description', 'package_code', 'package_qty'],
+                'label': 'Pakovanje i opis robe',
+                'optional': ['package_marks', 'container_number1', 'container_number2',
+                             'goods_trade_name', 'tariff_description1', 'tariff_description2',
+                             'tariff_description3', 'package_name']
+            },
+            'Rb.33': {
+                'fields': ['tariff_code'],
+                'label': 'Tarifni broj',
+                'optional': ['tariff_suffix']
+            },
+            'Rb.34': {
+                'fields': ['origin_country_code'],
+                'label': 'Zemlja porijekla',
+                'optional': ['origin_country_name']
+            },
+            'Rb.36': {
+                'fields': [],  # Povlastica nije obavezna za sve zemlje
+                'label': 'Povlastica',
+                'optional': ['preference_code', 'preference_name']
+            },
+            'Rb.35/38': {
+                'fields': ['gross_mass_kg', 'net_mass_kg'],
+                'label': 'Mase',
+                'optional': []
+            },
+            'Rb.37': {
+                'fields': ['procedure_code'],
+                'label': 'Postupak',
+                'optional': ['procedure_prev_code']
+            },
+            'Rb.40': {
+                'fields': [],
+                'label': 'Prethodni dokumenti',
+                'optional': ['previous_document', 'previous_document2', 'previous_document3']
+            },
+            'Rb.42': {
+                'fields': ['item_value', 'currency'],
+                'label': 'Vrijednost',
+                'optional': []
+            },
+            'Rb.44': {
+                'fields': [],
+                'label': 'Priložene isprave',
+                'optional': ['attached_document1', 'attached_document2', 'attached_document3',
+                             'attached_document4', 'attached_document5']
+            },
+            'Rb.46': {
+                'fields': ['statistical_value'],
+                'label': 'Statistička vrijednost',
+                'optional': []
+            }
+        }
+
+        total_ukupan = 0
+        total_praznih_obaveznih = 0
+        total_praznih_opcionih = 0
+        problemi_po_naim = []
+
+        for item in naim_items:
+            rb = getattr(item, 'ordinal_no', '?')
+            prazne_obavezne = []
+            prazne_opcione = []
+
+            for rubrika, info in rubrike.items():
+                for field in info['fields']:
+                    val = getattr(item, field, None)
+                    if val is None or val == '' or val == 0:
+                        prazne_obavezne.append(f"{rubrika} ({field})")
+
+                for field in info['optional']:
+                    val = getattr(item, field, None)
+                    if val is None or val == '' or val == 0:
+                        prazne_opcione.append(f"{rubrika} ({field})")
+
+            total_ukupan += len(prazne_obavezne) + len(prazne_opcione)
+            total_praznih_obaveznih += len(prazne_obavezne)
+            total_praznih_opcionih += len(prazne_opcione)
+
+            if prazne_obavezne or prazne_opcione:
+                problemi_po_naim.append({
+                    'rb': rb,
+                    'tariff': getattr(item, 'tariff_code', '?') or '?',
+                    'obavezne': prazne_obavezne,
+                    'opcione': prazne_opcione
+                })
+
+        if total_praznih_obaveznih == 0 and total_praznih_opcionih == 0:
+            chat.add_agent_message(
+                f"✅ <b>Sva {len(naim_items)} naimenovanja su kompletno popunjena!</b><br>"
+                f"Nema praznih obaveznih ni opcionih rubrika."
+            )
+            return
+
+        # Generiši izvještaj
+        linije = []
+        for p in problemi_po_naim:
+            ob_str = ", ".join(p['obavezne']) if p['obavezne'] else "—"
+            op_str = ", ".join(p['opcione']) if p['opcione'] else "—"
+            status = "❌" if p['obavezne'] else "⚠️"
+            linije.append(
+                f"{status} <b>Rb.{p['rb']}</b> (tarifa: {p['tariff']})<br>"
+                f"&nbsp;&nbsp;Obavezne: {ob_str}<br>"
+                f"&nbsp;&nbsp;Opcione: {op_str}"
+            )
+
+        poruka = (
+            f"📋 <b>Provjera naimenovanja — rezime:</b><br><br>"
+            f"Ukupno naimenovanja: <b>{len(naim_items)}</b><br>"
+            f"Praznih obaveznih polja: <b style='color:red'>{total_praznih_obaveznih}</b><br>"
+            f"Praznih opcionih polja: <b style='color:orange'>{total_praznih_opcionih}</b><br><br>"
+            f"<b>Detalji po naimenovanjima:</b><br><br>"
+            + "<br><br>".join(linije)
+        )
+
+        chat.add_agent_message(poruka)
+
+    def _pregledaj_naimenovanja(self, indeksi=None):
+        """
+        Detaljan pregled naimenovanja — svih rubrika ili konkretnog po Rb.
+        Ako su indeksi proslijeđeni, prikazuje samo ta naimenovanja.
+        """
+        chat = self.view.get_chat_panel()
+
+        if not self.draft or not self.draft.items:
+            chat.add_agent_message("⚠️ Nema kreiranih naimenovanja u deklaraciji.")
+            return
+
+        naim_items = self.draft.items
+
+        # Ako su indeksi proslijeđeni, filtriraj
+        if indeksi:
+            items_to_show = [naim_items[i - 1] for i in indeksi if 0 < i <= len(naim_items)]
+            naziv = f"Rb. {', '.join(str(i) for i in indeksi)}"
+        else:
+            items_to_show = naim_items
+            naziv = f"sva {len(naim_items)} naimenovanja"
+
+        if not items_to_show:
+            chat.add_agent_message(f"⚠️ Naimenovanje sa tim rednim brojem ne postoji.")
+            return
+
+        chat.add_activity(f"📋 Pregledavam {naziv}...")
+
+        linije = []
+        for item in items_to_show:
+            rb = getattr(item, 'ordinal_no', '?')
+            tarif = getattr(item, 'tariff_code', '') or '⚠️ NEMA'
+            zemlja = getattr(item, 'origin_country_code', '') or '—'
+            pov = getattr(item, 'preference_code', '') or '—'
+            proc = getattr(item, 'procedure_code', '') or '—'
+
+            # Rub.31
+            opis_robe = (getattr(item, 'goods_description', '') or '').strip() or '—'
+            pak_kod = getattr(item, 'package_code', '') or '—'
+            pak_kol = getattr(item, 'package_qty', 0) or '—'
+            oznake = (getattr(item, 'package_marks', '') or '').strip() or '—'
+
+            # Rub.44
+            isprave = []
+            for f in ['attached_document1', 'attached_document2', 'attached_document3',
+                      'attached_document4', 'attached_document5']:
+                v = getattr(item, f, '') or ''
+                if v.strip():
+                    isprave.append(v.strip())
+            isprave_str = ", ".join(isprave) if isprave else '—'
+
+            # Mase i vrijednost
+            bruto = getattr(item, 'gross_mass_kg', 0) or 0
+            neto = getattr(item, 'net_mass_kg', 0) or 0
+            iznos = getattr(item, 'item_value', 0) or 0
+            valuta = getattr(item, 'currency', 'EUR') or 'EUR'
+            stat_vrijednost = getattr(item, 'statistical_value', 0) or 0
+
+            # Dopunske jedinice
+            dop_jed = getattr(item, 'supplementary_unit_code', '') or ''
+            dop_kol = getattr(item, 'supplementary_unit_qty', 0) or 0
+
+            html = (
+                f"<b>═══ Rb.{rb} ═══</b><br>"
+                f"<b>Rb.31 — Pakovanje i opis:</b><br>"
+                f"&nbsp;&nbsp;Opis robe: {opis_robe[:100]}<br>"
+                f"&nbsp;&nbsp;Trgovački naziv: {(getattr(item, 'goods_trade_name', '') or '—')[:50]}<br>"
+                f"&nbsp;&nbsp;Oznake i br.: {oznake[:50]}<br>"
+                f"&nbsp;&nbsp;Pakovanje: {pak_kod} × {pak_kol}<br>"
+                f"&nbsp;&nbsp;Kontejneri: {(getattr(item, 'container_number1', '') or '—')} / {(getattr(item, 'container_number2', '') or '—')}<br>"
+                f"<b>Rb.33 — Tarifni broj:</b> <code>{tarif}</code><br>"
+                f"<b>Rb.34 — Zemlja porijekla:</b> {zemlja}<br>"
+                f"<b>Rb.36 — Povlastica:</b> {pov}<br>"
+                f"<b>Rb.37 — Postupak:</b> {proc}"
+                f"{(' (prethodni: ' + (getattr(item, 'procedure_prev_code', '') or '—') + ')') if getattr(item, 'procedure_prev_code', '') else ''}<br>"
+                f"<b>Rb.35/38 — Mase:</b> Bruto {bruto:.3f} kg | Neto {neto:.3f} kg<br>"
+                f"<b>Rb.41 — Dop.jedinice:</b> {dop_jed} {dop_kol}"
+                f"{(' ' + str(dop_kol) + ' ' + str(dop_jed)) if dop_kol and dop_jed else '—'}<br>"
+                f"<b>Rb.42 — Vrijednost:</b> {iznos:.2f} {valuta}<br>"
+                f"<b>Rb.44 — Isprave:</b> {isprave_str}<br>"
+                f"<b>Rb.46 — Stat.vrijednost:</b> {stat_vrijednost:.2f}<br>"
+                f"<b>Rb.40 — Preth.dokumenti:</b> "
+                f"{(getattr(item, 'previous_document', '') or '—')}"
+                f"{(', ' + (getattr(item, 'previous_document2', '') or '')) if getattr(item, 'previous_document2', '') else ''}"
+                f"{(', ' + (getattr(item, 'previous_document3', '') or '')) if getattr(item, 'previous_document3', '') else ''}"
+            )
+
+            # Napomene
+            notes = (getattr(item, 'notes', '') or '').strip()
+            if notes:
+                html += f"<br><b>Napomene:</b> {notes[:150]}"
+
+            # Source reference
+            source_refs = getattr(item, 'source_invoice_refs', [])
+            if source_refs:
+                html += f"<br><b>Source fakture:</b> {', '.join(source_refs)}"
+
+            linije.append(html)
+
+        chat.add_agent_message("<br><br>".join(linije))
 
     # ─────────────────────────────────────────────────────────────
     # PRETRAGA CARINSKE TARIFE
