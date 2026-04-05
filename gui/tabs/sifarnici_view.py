@@ -1658,31 +1658,76 @@ class SifarniciView(BaseTabView):
                 return _TAIL_RATES_RE.sub('', str(v)).rstrip(' –-').strip()
 
             if is_code_search:
-                # Hijerarhijski prikaz: prikaži sve nivoe ispod unesenog prefiksa
-                prefix = search_text
+                # Hijerarhijski drill-down iz SQLite tarifa_2026
+                import sqlite3 as _sqlite3
+                import os as _os
+                _DB = _os.path.normpath(_os.path.join(
+                    _os.path.dirname(__file__), '..', '..', 'database', 'asycuda_sistem.db'
+                ))
+
+                prefix = search_text.replace(' ', '').replace('.', '')
+
+                # Dohvati traženi čvor i SVE potomke koji počinju tim prefiksom
+                _conn = _sqlite3.connect(_DB)
+                _conn.row_factory = _sqlite3.Row
+
+                root_row = _conn.execute(
+                    "SELECT kod, naziv, stopa_uvozna, nivo FROM tarifa_2026 WHERE kod = ?",
+                    (prefix,)
+                ).fetchone()
+
+                # Svi potomci sortirani po kodu (max 300)
+                desc_rows = _conn.execute(
+                    "SELECT kod, naziv, stopa_uvozna, nivo FROM tarifa_2026 "
+                    "WHERE kod LIKE ? AND kod != ? ORDER BY kod LIMIT 300",
+                    (prefix + '%', prefix)
+                ).fetchall()
+                _conn.close()
+
+                # Nivo → oznaka i indentacija po dužini koda
+                _nivo_ikona = {
+                    'glava': '📂',
+                    'podglava': '📁',
+                    'tarifni_broj': '📋',
+                    'podbroj': '📄',
+                }
                 prefix_len = len(prefix)
-                # Odredi koje nivoe prikazati (duži kodovi = specifičniji)
-                results = self.db_manager.execute_query(
-                    f"SELECT tarifni_kod, opis FROM catalogs.zvanicna_tarifa "
-                    f"WHERE tarifni_kod LIKE '{prefix}%' "
-                    f"ORDER BY tarifni_kod",
-                    fetch_all=True,
-                ) or []
 
-                # Filtriraj samo direktni nivo ispod prefiksa + jedan dublje
-                filtered = []
-                for r in results:
-                    kod = str(r['tarifni_kod'] or '')
-                    if len(kod) >= prefix_len:
-                        filtered.append(r)
+                def _indent(kod):
+                    extra = len(kod) - prefix_len
+                    # Svaka 2 cifre = jedan nivo dublje
+                    return '  ' * max(0, extra // 2)
 
-                self.table.setRowCount(len(filtered))
-                for i, r in enumerate(filtered):
-                    kod = str(r['tarifni_kod'] or '')
-                    opis = _clean_tariff_opis(r['opis'])
-                    self.table.setItem(i, 0, QTableWidgetItem(kod))
-                    self.table.setItem(i, 1, QTableWidgetItem(opis))
-                self.table.setColumnWidth(0, 150)
+                rows_to_show = []
+                if root_row:
+                    rows_to_show.append((root_row['kod'], root_row['naziv'],
+                                         root_row['stopa_uvozna'], root_row['nivo'], True))
+                for r in desc_rows:
+                    rows_to_show.append((r['kod'], r['naziv'],
+                                         r['stopa_uvozna'], r['nivo'], False))
+
+                self.table.setRowCount(len(rows_to_show))
+                for i, (kod, naziv, stopa, nivo, is_root) in enumerate(rows_to_show):
+                    ikona = _nivo_ikona.get(nivo, '•')
+                    indent = '' if is_root else _indent(kod)
+                    stopa_str = ''
+                    if stopa:
+                        stopa_str = stopa if str(stopa).endswith('%') else str(stopa) + '%'
+
+                    item_kod = QTableWidgetItem(indent + ikona + ' ' + kod)
+                    item_naziv = QTableWidgetItem(naziv or '')
+                    if stopa_str:
+                        item_naziv.setToolTip(f"Stopa uvozna: {stopa_str}")
+
+                    if is_root:
+                        font = item_kod.font()
+                        font.setBold(True)
+                        item_kod.setFont(font)
+                        item_naziv.setFont(font)
+
+                    self.table.setItem(i, 0, item_kod)
+                    self.table.setItem(i, 1, item_naziv)
+                self.table.setColumnWidth(0, 200)
             else:
                 # Obična pretraga — kao prije
                 self._load_data_generic(
@@ -2646,9 +2691,14 @@ class SifarniciView(BaseTabView):
                 "Primaoci",
                 "Deklaranti",
             ]:
-                # For editable categories, also use table filtering as immediate feedback
-                logger.info(f"▶️ Pozivam _filter_table za '{self.current_category}'")
-                self._filter_table(text)
+                # Za Carinske tarife — direktno iz baze (hijerarhijski za brojeve)
+                if self.current_category == "Carinske tarife":
+                    logger.info(f"▶️ Pozivam _search_trgovacki_nazivi za '{self.current_category}'")
+                    self._search_trgovacki_nazivi(text)
+                else:
+                    # Za ostale kategorije — filter tabele
+                    logger.info(f"▶️ Pozivam _filter_table za '{self.current_category}'")
+                    self._filter_table(text)
                 self._update_status()
             else:
                 logger.info(
@@ -2691,7 +2741,7 @@ class SifarniciView(BaseTabView):
             )
 
     def _filter_table(self, search_text: str):
-        """Filter table rows based on search text - prefix matching only"""
+        """Filter table rows based on search text — contains matching"""
         try:
             search_text = search_text.lower().strip()
             logger.debug(f"Filtriranje tabele sa tekstom: '{search_text}'")
@@ -2703,14 +2753,12 @@ class SifarniciView(BaseTabView):
                     # No search text - show all
                     match = True
                 else:
-                    # Proveri sve kolone
+                    # Proveri sve kolone — CONTAINS match (ne samo prefix)
                     for col in range(self.table.columnCount()):
                         item = self.table.item(row, col)
                         if item:
                             cell_text = item.text().lower()
-
-                            # Prefix match only - starts with
-                            if cell_text.startswith(search_text):
+                            if search_text in cell_text:
                                 match = True
                                 break
 
@@ -2747,12 +2795,12 @@ class SifarniciView(BaseTabView):
             if hasattr(self, "search_zemlja"):
                 self.search_zemlja.setCurrentIndex(0)
 
-            # For Pošiljaoci, Uvoznici and Trgovački nazivi, reload all data from database
+            # For Pošiljaoci, Uvoznici and Carinske tarife, reload all data from database
             if self.current_category == "Pošiljaoci":
                 self._load_posiljaoci_data()
             elif self.current_category == "Uvoznici":
                 self._load_uvoznici_data()
-            elif self.current_category == "Trgovački nazivi":
+            elif self.current_category == "Carinske tarife":
                 self._load_trgovacki_nazivi_data()
             else:
                 # Show all rows for other categories
@@ -3166,49 +3214,139 @@ class SifarniciView(BaseTabView):
             return kod_str
 
     def _search_trgovacki_nazivi(self, query: str):
-        """Search carinske tarife — hijerarhijski za brojeve, tekst za opis"""
+        """Pretraga carinskih tarifa — hijerarhijski za brojeve, tekst za opis."""
         try:
-            logger.info(f"Pretraga carinskih tarifa sa query-jem: '{query}'")
+            query = query.strip()
+            if not query:
+                self._load_trgovacki_nazivi_data()
+                return
 
-            # Ako je query samo broj → hijerarhijski prikaz svih nivoa
-            is_code = bool(re.match(r'^\d+$', query.strip())) if query.strip() else False
+            clean_query = query.replace(" ", "")
+            is_code = clean_query.isdigit()
 
             def _clean(v):
                 return _TAIL_RATES_RE.sub('', str(v)).rstrip(' –-').strip() if v else v
 
-            if is_code:
-                # Hijerarhijski: svi kodovi koji počinju sa brojem
-                prefix = query.strip()
-                results = self.db_manager.execute_query(
-                    f"SELECT tarifni_kod, opis FROM catalogs.zvanicna_tarifa "
-                    f"WHERE tarifni_kod LIKE '{prefix}%' "
-                    f"ORDER BY tarifni_kod",
-                    fetch_all=True,
-                ) or []
+            # Ako je pretraga brojčana, koristi hijerarhijski prikaz iz SQLite (kao u _load_trgovacki_nazivi_data)
+            if is_code and len(clean_query) >= 2:
+                # Hijerarhijski drill-down iz SQLite tarifa_2026
+                import sqlite3 as _sqlite3
+                import os as _os
+                _DB = _os.path.normpath(_os.path.join(
+                    _os.path.dirname(__file__), '..', '..', 'database', 'asycuda_sistem.db'
+                ))
 
+                prefix = clean_query.replace(' ', '').replace('.', '')
+
+                # Dohvati traženi čvor i SVE potomke koji počinju tim prefiksom
+                _conn = _sqlite3.connect(_DB)
+                _conn.row_factory = _sqlite3.Row
+
+                root_row = _conn.execute(
+                    "SELECT kod, naziv, stopa_uvozna, nivo FROM tarifa_2026 WHERE kod = ?",
+                    (prefix,)
+                ).fetchone()
+
+                # Svi potomci sortirani po kodu (max 300)
+                desc_rows = _conn.execute(
+                    "SELECT kod, naziv, stopa_uvozna, nivo FROM tarifa_2026 "
+                    "WHERE kod LIKE ? AND kod != ? ORDER BY kod LIMIT 300",
+                    (prefix + '%', prefix)
+                ).fetchall()
+                _conn.close()
+
+                # Nivo → oznaka i indentacija po dužini koda
+                _nivo_ikona = {
+                    'glava': '📂',
+                    'podglava': '📁',
+                    'tarifni_broj': '📋',
+                    'podbroj': '📄',
+                }
+                prefix_len = len(prefix)
+
+                def _indent(kod):
+                    extra = len(kod) - prefix_len
+                    # Svaka 2 cifre = jedan nivo dublje
+                    return '  ' * max(0, extra // 2)
+
+                rows_to_show = []
+                if root_row:
+                    rows_to_show.append((root_row['kod'], root_row['naziv'],
+                                         root_row['stopa_uvozna'], root_row['nivo'], True))
+                for r in desc_rows:
+                    rows_to_show.append((r['kod'], r['naziv'],
+                                         r['stopa_uvozna'], r['nivo'], False))
+
+                self.table.setRowCount(len(rows_to_show))
+                for i, (kod, naziv, stopa, nivo, is_root) in enumerate(rows_to_show):
+                    ikona = _nivo_ikona.get(nivo, '•')
+                    indent = '' if is_root else _indent(kod)
+                    stopa_str = ''
+                    if stopa:
+                        stopa_str = stopa if str(stopa).endswith('%') else str(stopa) + '%'
+
+                    item_kod = QTableWidgetItem(indent + ikona + ' ' + kod)
+                    item_naziv = QTableWidgetItem(naziv or '')
+                    if stopa_str:
+                        item_naziv.setToolTip(f"Stopa uvozna: {stopa_str}")
+
+                    if is_root:
+                        font = item_kod.font()
+                        font.setBold(True)
+                        item_kod.setFont(font)
+                        item_naziv.setFont(font)
+
+                    self.table.setItem(i, 0, item_kod)
+                    self.table.setItem(i, 1, item_naziv)
+                self.table.setColumnWidth(0, 200)
+            else:
+                # Za tekstualnu pretragu ili kratke brojeve (<2 cifre), koristi običnu pretragu
+                if is_code and len(clean_query) < 2:
+                    # Za kratke brojeve (<2 cifre) - obična pretraga
+                    sql = "SELECT tarifni_kod, opis FROM catalogs.zvanicna_tarifa WHERE tarifni_kod LIKE %s ORDER BY tarifni_kod"
+                    params = (f"{clean_query}%",)
+                else:
+                    # Tekstualna pretraga
+                    sql = "SELECT tarifni_kod, opis FROM catalogs.zvanicna_tarifa WHERE tarifni_kod ILIKE %s OR opis ILIKE %s ORDER BY tarifni_kod"
+                    params = (f"%{query}%", f"%{query}%")
+
+                results = self.db_manager.execute_query(sql, params, fetch_all=True)
+                if results is None:
+                    results = []
+
+                # Ručno punjenje tabele (sigurno za tuple i dict)
                 self.table.setRowCount(len(results))
                 for i, r in enumerate(results):
-                    kod = str(r['tarifni_kod'] or '')
-                    opis = _clean(r['opis'])
-                    self.table.setItem(i, 0, QTableWidgetItem(kod))
-                    self.table.setItem(i, 1, QTableWidgetItem(opis))
+                    try:
+                        if isinstance(r, tuple):
+                            # Proveri da li tuple ima dovoljno elemenata
+                            if len(r) >= 2:
+                                kod = str(r[0]) if r[0] is not None else ""
+                                opis = _clean(r[1]) if r[1] is not None else ""
+                            else:
+                                kod, opis = "", ""
+                        elif isinstance(r, dict):
+                            kod = str(r.get('tarifni_kod', ''))
+                            opis = _clean(r.get('opis', ''))
+                        else:
+                            kod, opis = "", ""
+                        
+                        self.table.setItem(i, 0, QTableWidgetItem(kod))
+                        self.table.setItem(i, 1, QTableWidgetItem(opis))
+                    except (IndexError, KeyError, TypeError) as e:
+                        logger.warning(f"Greška pri obradi reda {i}: {e}")
+                        self.table.setItem(i, 0, QTableWidgetItem(""))
+                        self.table.setItem(i, 1, QTableWidgetItem(""))
+                
                 self.table.setColumnWidth(0, 150)
-            else:
-                # Tekstualna pretraga po opisu
-                self._search_generic(
-                    query=query,
-                    table_name="catalogs.zvanicna_tarifa",
-                    columns=["tarifni_kod", "opis"],
-                    search_columns=["tarifni_kod", "opis"],
-                    order_by="tarifni_kod",
-                    format_fn=_clean,
-                    add_actions=False,
-                )
+            
+            # Osiguraj da su svi redovi vidljivi
+            for row in range(self.table.rowCount()):
+                self.table.setRowHidden(row, False)
+
         except Exception as e:
-            logger.error(f"Greška pri pretrazi tarifa: {str(e)}")
-            QMessageBox.critical(
-                self, "Greška", f"Greška pri pretrazi tarifa:\n{str(e)}"
-            )
+            logger.error(f"Greška pri pretrazi tarifa: {e}")
+            QMessageBox.critical(self, "Greška", f"Greška pri pretrazi tarifa:\n{str(e)}")
 
     def _search_uvoznici(self, query: str):
         """Search uvoznici in database using generic method"""
@@ -3971,7 +4109,7 @@ if __name__ == "__main__":
     # Apply global style
     app.setStyle("Fusion")
 
-    tab = SifarniciTab()
+    tab = SifarniciView()
     window.setCentralWidget(tab)
 
     window.show()
