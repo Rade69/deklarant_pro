@@ -1644,23 +1644,55 @@ class SifarniciView(BaseTabView):
             )
 
     def _load_trgovacki_nazivi_data(self):
-        """Load Trgovački nazivi data from catalogs.tarifa_nazivi table using generic method"""
+        """Load Trgovački nazivi data — hijerarhijski prikaz za brojeve"""
         try:
             logger.info("Učitavanje podataka o tarifnim nazivima robe iz baze")
+
+            # Provjeri da li je pretraga broj (hijerarhijski prikaz)
+            search_text = self.search_input.text().strip() if hasattr(self, 'search_input') else ''
+            is_code_search = bool(re.match(r'^\d{2,}$', search_text)) if search_text else False
 
             def _clean_tariff_opis(v):
                 if not v:
                     return v
                 return _TAIL_RATES_RE.sub('', str(v)).rstrip(' –-').strip()
 
-            self._load_data_generic(
-                table_name="catalogs.zvanicna_tarifa",
-                columns=["tarifni_kod", "opis"],
-                order_by="tarifni_kod",
-                format_fn=_clean_tariff_opis,
-                max_rows=20000,
-                add_actions=False,
-            )
+            if is_code_search:
+                # Hijerarhijski prikaz: prikaži sve nivoe ispod unesenog prefiksa
+                prefix = search_text
+                prefix_len = len(prefix)
+                # Odredi koje nivoe prikazati (duži kodovi = specifičniji)
+                results = self.db_manager.execute_query(
+                    f"SELECT tarifni_kod, opis FROM catalogs.zvanicna_tarifa "
+                    f"WHERE tarifni_kod LIKE '{prefix}%' "
+                    f"ORDER BY tarifni_kod",
+                    fetch_all=True,
+                ) or []
+
+                # Filtriraj samo direktni nivo ispod prefiksa + jedan dublje
+                filtered = []
+                for r in results:
+                    kod = str(r['tarifni_kod'] or '')
+                    if len(kod) >= prefix_len:
+                        filtered.append(r)
+
+                self.table.setRowCount(len(filtered))
+                for i, r in enumerate(filtered):
+                    kod = str(r['tarifni_kod'] or '')
+                    opis = _clean_tariff_opis(r['opis'])
+                    self.table.setItem(i, 0, QTableWidgetItem(kod))
+                    self.table.setItem(i, 1, QTableWidgetItem(opis))
+                self.table.setColumnWidth(0, 150)
+            else:
+                # Obična pretraga — kao prije
+                self._load_data_generic(
+                    table_name="catalogs.zvanicna_tarifa",
+                    columns=["tarifni_kod", "opis"],
+                    order_by="tarifni_kod",
+                    format_fn=_clean_tariff_opis,
+                    max_rows=20000,
+                    add_actions=False,
+                )
 
             logger.info("Uspešno učitano trgovački nazivi")
         except Exception as e:
