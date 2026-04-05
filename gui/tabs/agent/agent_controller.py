@@ -593,168 +593,104 @@ class AgentController:
                               total_bruto: float = 0.0, total_neto: float = 0.0,
                               has_origin_statement: bool = False, completed: list = None):
         """
-        Uvezi invoice_lines u draft i kreiraj naimenovanja.
+        Uvezi invoice_lines u draft — BEZ automatskih izmjena.
+        Korisnik mora potvrditi svaku promjenu.
 
-        Args:
-            invoice_lines: Lista InvoiceLine stavki
-            chat: ChatPanel za logging
-            total_bruto: Ukupna bruto težina iz ImportResult (ne iz linija!)
-            total_neto: Ukupna neto težina iz ImportResult (ne iz linija!)
+        Flow:
+        1. Validacija
+        2. Uvoz u draft
+        3. Postavi težine u toolbar
+        4. Izračunaj mase
+        5. ⭐ OTVORI PE2/EUR.1 dijalog (obavezno, korisnik potvrđuje)
+        6. ⭐ PONUDI prijedloge tarifnih (korisnik bira da li prihvata)
+        7. ⭐ ČEKAJ korisnika prije kreiranja naimenovanja
         """
-        print(f"[AgentController] _uvezi_u_deklaraciju: {len(invoice_lines)} stavki, bruto={total_bruto:.3f}kg, neto={total_neto:.3f}kg")
-        
+        print(f"[AgentController] _uvezi_u_deklaraciju: {len(invoice_lines)} stavki")
+
         if not self.draft:
-            chat.add_activity("⚠️ Draft nije dostupan - ne mogu uvesti u deklaraciju")
+            chat.add_activity("⚠️ Draft nije dostupan")
             return
 
-        # 0. ⭐ NOVO: Validacija PRIJE uvoza
+        # 0. Validacija PRIJE uvoza
         chat.add_activity("🔍 Validacija prije uvoza...")
         valid, greške = self._validiraj_prije_uvoza(invoice_lines, chat)
-        
         if not valid:
             chat.add_agent_message(
                 f"❌ <b>Validacija nije uspješna!</b><br><br>"
-                f"Detalji:<br>"
                 f"{'<br>'.join(greške)}<br><br>"
-                f"Uvoz je obustavljen. Ispravi greške i pokušaj ponovo."
+                f"Uvoz je obustavljen."
             )
             return
 
-        # 1a. ⭐ AUTO-HANDLE POVLASTICE (prije uvoza u draft)
-        chat.add_activity("🌍 Auto-postavljanje povlastica...")
-        self._auto_handle_povlastice(invoice_lines, chat, has_origin_statement)
-
-        # 1b. ⭐ SAMO UVEZI PODATKE (ne traži tarifne još!)
+        # 1. Uvezi podatke u draft
         chat.add_activity(f"📥 Uvoz {len(invoice_lines)} stavki...")
         self.draft.invoice_lines.clear()
         self.draft.invoice_lines.extend(invoice_lines)
-        
-        print(f"[AgentController] Draft sada ima {len(self.draft.invoice_lines)} stavki")
         chat.add_activity(f"✅ Uvezeno {len(invoice_lines)} stavki")
 
-        # 2. ⭐ PAUZA DA SE UI OSVJEŽI (bitno za Qt!)
+        # 2. Pauza za UI refresh
         from PySide6.QtWidgets import QApplication
         QApplication.processEvents()
 
-        # 3. ⭐ OTVORI FAKTURA TAB (prije bilo kakve obrade!)
-        # Postavi agent_mode=True da se spriječe blokirajući GUI dijalozi
-        faktura_view = self.faktura_tab
-        if hasattr(self.faktura_tab, 'view'):
-            faktura_view = self.faktura_tab.view
-        if faktura_view and hasattr(faktura_view, 'set_agent_mode'):
-            faktura_view.set_agent_mode(True)
-            chat.add_activity("🤖 Faktura tab: agent mod aktivan (bez dijaloga)")
-
-        self._otvori_faktura_tab_nakon_uvoza(chat)
-
-        # 4. ⭐ POZOVII POSTOJEĆU LOGIKU IZ FAKTURA TABA
-        # Ovo je ISTO što bi korisnik uradio ručno:
-        # - Klikne "Auto-popuni tarifne"
-        # - Klikne "Izračunaj mase"
-        
-        # Nađi pravi widget (FakturaView unutar FakturaTabRefactored)
+        # 3. Otvori Faktura tab (bez agent_mode — želimo dijaloge!)
         faktura_widget = self.faktura_tab
         if hasattr(self.faktura_tab, 'view'):
-            faktura_widget = self.faktura_tab.view  # FakturaView
-        
+            faktura_widget = self.faktura_tab.view
+
         if faktura_widget:
-            # ⭐ PRVO: Postavi težine u toolbar iz ImportResult (proslijeđene od _on_all_completed)
-            # NIKAD ne računaj iz invoice_lines — PDF stavke često imaju neto_kg=0 per liniji!
+            # Postavi težine u toolbar
             if total_bruto > 0 or total_neto > 0:
                 if hasattr(faktura_widget, 'input_bruto') and hasattr(faktura_widget, 'input_neto'):
                     faktura_widget.input_bruto.setText(f"{total_bruto:,.3f}")
                     faktura_widget.input_neto.setText(f"{total_neto:,.3f}")
                     chat.add_activity(f"⚖️ Težine postavljene: Bruto={total_bruto:.2f}kg, Neto={total_neto:.2f}kg")
-            
-            chat.add_activity("🤖 Pokrećem auto-popunu tarifnih brojeva...")
-            try:
-                # Koristi AutoFillService (isti kao "Auto-popuni" dugme)
-                from services.faktura.auto_fill_service import AutoFillService
-                auto_fill = AutoFillService()
-                
-                # Popuni tarifne brojeve (Mapping Service - brzo!)
-                result = auto_fill.fill_tariff_numbers(
-                    self.draft.invoice_lines,
-                    min_similarity=0.92
-                )
-                
-                chat.add_activity(
-                    f"✅ Auto-popuna završena:<br>"
-                    f"  • Pronađeno: {result['matched']}<br>"
-                    f"  • Nije nađeno: {result['unmatched']}<br>"
-                    f"  • Preskočeno: {result['skipped']}"
-                )
-                
-                # Refresh tabele
-                if hasattr(faktura_widget, '_load_data_from_draft'):
-                    faktura_widget._load_data_from_draft()
-                
-            except Exception as e:
-                import traceback
-                print(f"[AgentController] Auto-fill greška: {e}")
-                print(traceback.format_exc())
-                chat.add_activity(f"⚠️ Greška pri auto-popuni: {e}")
 
+            # Refresh tabele
+            if hasattr(faktura_widget, '_load_data_from_draft'):
+                faktura_widget._load_data_from_draft()
+
+            # 4. Izračunaj mase (ovo je OK — nije destruktivno)
             chat.add_activity("🤖 Izračunavam mase...")
             try:
-                # Koristi MassCalculator (isti kao "Izračunaj mase" dugme)
                 from services.faktura.mass_calculator import MassCalculator
                 mass_calc = MassCalculator()
-                
-                # Uzmi težine iz toolbar input polja
-                bruto_total = 0.0
-                neto_total = 0.0
-                
+
                 if hasattr(faktura_widget, 'input_bruto') and hasattr(faktura_widget, 'input_neto'):
-                    bruto_text = faktura_widget.input_bruto.text().strip()
-                    neto_text = faktura_widget.input_neto.text().strip()
-                    
-                    try:
-                        bruto_total = float(bruto_text.replace(",", "") or "0")
-                        neto_total = float(neto_text.replace(",", "") or "0")
-                    except:
-                        pass
-                
-                if bruto_total > 0 or neto_total > 0:
-                    # Izračunaj mase
-                    result = mass_calc.calculate_masses(
-                        self.draft.invoice_lines,
-                        bruto_total,
-                        neto_total
-                    )
-                    
-                    chat.add_activity(
-                        f"✅ Mase izračunate:<br>"
-                        f"  • Ažurirano: {result['updated']} stavki<br>"
-                        f"  • Preskočeno: {result['skipped']} stavki"
-                    )
-                else:
-                    chat.add_activity("ℹ️ Nema težina za izračun (bruto=0, neto=0)")
-                
-                # Konačni refresh
-                if hasattr(faktura_widget, '_load_data_from_draft'):
-                    faktura_widget._load_data_from_draft()
-                
+                    bruto_total = float(faktura_widget.input_bruto.text().replace(",", "") or "0")
+                    neto_total = float(faktura_widget.input_neto.text().replace(",", "") or "0")
+
+                    if bruto_total > 0 or neto_total > 0:
+                        result = mass_calc.calculate_masses(
+                            self.draft.invoice_lines, bruto_total, neto_total
+                        )
+                        chat.add_activity(
+                            f"✅ Mase izračunate: {result['updated']} stavki ažurirano"
+                        )
+                    else:
+                        chat.add_activity("ℹ️ Nema težina za izračun")
             except Exception as e:
-                import traceback
-                print(f"[AgentController] Mass calculator greška: {e}")
-                print(traceback.format_exc())
                 chat.add_activity(f"⚠️ Greška pri izračunu masa: {e}")
 
-        # 5. ⭐ EUR.1 / PE2 DIALOG — identično kao ručni uvoz!
-        # Ako PDF IMA izjavu → PE2 dialog (auto-popunjen broj fakture, korisnik potvrđuje)
-        # Ako PDF NEMA izjavu → EUR.1 dialog (korisnik unosi EUR.1 broj i potvrđuje)
-        
-        # Nađi broj fakture iz importovanog fajla
-        invoice_number = ""
-        completed_files = [f for f in completed if f.status == 'Completed']
-        if completed_files:
-            first_file = completed_files[0]
-            invoice_number = first_file.invoice_number or Path(first_file.filepath).stem or ""
+            # Konačni refresh
+            if hasattr(faktura_widget, '_load_data_from_draft'):
+                faktura_widget._load_data_from_draft()
 
+        # 5. ⭐ NAĐI BROJ FAKTURE ZA DIJALOG
+        invoice_number = ""
+        if completed:
+            for f in completed:
+                if f.status == 'Completed' and (f.invoice_number or f.filepath):
+                    invoice_number = f.invoice_number or Path(f.filepath).stem
+                    break
+
+        # 6. ⭐ OBVEZNO: OTVORI PE2/EUR.1 DIJALOG (korisnik potvrđuje)
         if has_origin_statement:
-            # ✅ Faktura IMA izjavu → PE2 dialog (auto-popunjen broj fakture)
-            chat.add_activity(f"📄 Faktura ima izjavu o poreklu — otvaram PE2 dijalog...")
+            chat.add_activity("📄 Faktura IMA izjavu o poreklu — otvaram PE2 dijalog...")
+            chat.add_agent_message(
+                f"📄 <b>Faktura ima izjavu o preferencijalnom porijeklu.</b><br>"
+                f"Otvoriću PE2 dijalog da potvrdiš ili izmijeniš podatke.<br><br>"
+                f"⚠️ <b>Ništa se ne upisuje automatski — ti odlučuješ.</b>"
+            )
             try:
                 from gui.dialogs.pe2_quick_dialog import PE2QuickDialog
                 dialog = PE2QuickDialog(self.draft.invoice_lines, self.view, invoice_number=invoice_number)
@@ -767,10 +703,6 @@ class AgentController:
                             self.draft.invoice_lines, pe2_data
                         )
                         chat.add_activity(f"✅ PE2 primijenjen na {updated_count} stavki")
-                        # Refresh faktura tabele
-                        faktura_widget = self.faktura_tab
-                        if hasattr(self.faktura_tab, 'view'):
-                            faktura_widget = self.faktura_tab.view
                         if hasattr(faktura_widget, '_load_data_from_draft'):
                             faktura_widget._load_data_from_draft()
                 else:
@@ -778,7 +710,7 @@ class AgentController:
             except Exception as e:
                 chat.add_activity(f"⚠️ PE2 dijalog greška: {e}")
         else:
-            # ❌ Faktura NEMA izjavu → EUR.1 dialog (korisnik unosi EUR.1 broj)
+            # ❌ Faktura NEMA izjavu — provjeri ima li stavki sa povlasticom koje čekaju EUR.1
             eur1_pending_lines = [
                 line for line in self.draft.invoice_lines
                 if getattr(line, 'povlastica', None)
@@ -789,6 +721,12 @@ class AgentController:
             if eur1_pending_lines:
                 chat.add_activity(
                     f"📋 {len(eur1_pending_lines)} stavki treba EUR.1 broj — otvaram dijalog..."
+                )
+                chat.add_agent_message(
+                    f"⚠️ <b>Faktura NEMA izjavu o porijeklu.</b><br>"
+                    f"Pronašao sam <b>{len(eur1_pending_lines)}</b> stavki koje mogu koristiti EUR.1 obrazac.<br><br>"
+                    f"📄 <b>Unesi EUR.1 broj za svaku zemlju.</b><br>"
+                    f"Ako nemaš EUR.1, ostavi prazno i uredi kasnije ručno."
                 )
                 try:
                     from gui.dialogs.eur1_quick_dialog import Eur1QuickDialog
@@ -802,81 +740,28 @@ class AgentController:
                                 self.draft.invoice_lines, eur1_data
                             )
                             chat.add_activity(f"✅ EUR.1 primijenjen na {updated_count} stavki")
-                            # Refresh faktura tabele
-                            faktura_widget = self.faktura_tab
-                            if hasattr(self.faktura_tab, 'view'):
-                                faktura_widget = self.faktura_tab.view
                             if hasattr(faktura_widget, '_load_data_from_draft'):
                                 faktura_widget._load_data_from_draft()
                     else:
                         chat.add_activity("ℹ️ EUR.1 dijalog preskočen — unesi broj ručno u Faktura tabu")
                 except Exception as e:
                     chat.add_activity(f"⚠️ EUR.1 dijalog greška: {e}")
+            else:
+                chat.add_activity("ℹ️ Nema stavki koje zahtijevaju EUR.1 — nastavi ručno uređivanje")
 
-        # 6. Kreiraj naimenovanja (NAKON EUR1 — da budu uključeni u Rub.44.4)
-        try:
-            from services.create_naimenovanja_service import CreateNaimenovanjaService
-            service = CreateNaimenovanjaService(self.draft)
-            count = service.create_smart_group()
-            chat.add_activity(f"✅ Kreirano {count} naimenovanja")
-
-            # Osvježi Faktura tab — isti redoslijed kao ručni unos (_on_create_naimenovanja)
-            faktura_widget = self.faktura_tab
-            if hasattr(self.faktura_tab, 'view'):
-                faktura_widget = self.faktura_tab.view
-            if faktura_widget:
-                # 1. Ponovo učitaj tabelu — popunjava kolonu "Naimenov"
-                if hasattr(faktura_widget, '_load_data_from_draft'):
-                    faktura_widget._load_data_from_draft()
-                # 2. Osvježi Naimenovanja tab (i Zaglavlje Rb.6)
-                if hasattr(faktura_widget, '_reload_naimenovanja_tab'):
-                    faktura_widget._reload_naimenovanja_tab()
-                elif self.naimenovanje_tab:
-                    try:
-                        if hasattr(self.naimenovanje_tab, 'reload_data'):
-                            self.naimenovanje_tab.reload_data()
-                        elif hasattr(self.naimenovanje_tab, 'reload'):
-                            self.naimenovanje_tab.reload()
-                    except Exception as e:
-                        chat.add_activity(f"⚠️ Greška pri osvježavanju naimenovanja taba: {e}")
-            chat.add_activity("✅ Faktura i Naimenovanja tab osvježeni")
-        except Exception as e:
-            chat.add_activity(f"⚠️ Greška pri kreiranju naimenovanja: {e}")
-
-        # 7. ⭐ Auto-popuni Rb.22 valuta iz naimenovanja/fakture
-        try:
-            if not self.draft.valuta and self.draft.items:
-                self.draft.valuta = self.draft.items[0].currency or "EUR"
-            if not self.draft.iznos and self.draft.items:
-                self.draft.iznos = sum(item.item_value or 0.0 for item in self.draft.items)
-            if self.draft.valuta:
-                chat.add_activity(
-                    f"✅ Rb.22: valuta={self.draft.valuta}, iznos={self.draft.iznos:,.2f}"
-                )
-        except Exception as e:
-            chat.add_activity(f"⚠️ Greška pri popuni Rb.22: {e}")
-
-        # 8. ⭐ Resetuj agent_mode (korisnik može ručno importovati poslije)
-        if faktura_view and hasattr(faktura_view, 'set_agent_mode'):
-            faktura_view.set_agent_mode(False)
-
-        # 8. ⭐ Generiši izvještaj sa analizom
-        self._generisi_izvjestaj(chat)
-
-        eur1_poruka = (
-            f"<br>⚠️ <b>{len(eur1_pending_lines)} stavki čeka ručni unos EUR1 broja</b> "
-            f"(povlastica postavljena automatski)."
-            if eur1_pending_lines and not eur1_primijenjen
-            else ""
-        )
-
+        # 7. ⭐ PRIKAŽI REZIME I PONUDI DALJE AKCIJE
+        bez_tarife = sum(1 for l in self.draft.invoice_lines if not l.tarifni_broj)
         chat.add_agent_message(
             f"✅ <b>Uvoz završen!</b><br>"
-            f"Uvezeno <b>{len(invoice_lines)}</b> stavki.<br>"
-            f"Tarifni brojevi i mase automatski popunjeni.<br>"
-            f"Povlastice auto-postavljene po zemlji porijekla."
-            f"{eur1_poruka}<br>"
-            f"Provjeri Faktura i Naimenovanja tabove."
+            f"Uvezeno <b>{len(invoice_lines)}</b> stavki.<br><br>"
+            f"📊 <b>Stanje:</b><br>"
+            f"  • Bez tarifnog broja: <b>{bez_tarife}</b><br>"
+            f"  • Mase: izračunate<br>"
+            f"  • Povlastice: {'PE2/EUR.1 potvrđeno' if has_origin_statement else 'Čeka unos'}<br><br>"
+            f"💡 <b>Šta dalje?</b><br>"
+            f"  • Reci <i>'popuni tarifne'</i> za prijedloge tarifnih brojeva<br>"
+            f"  • Pregledaj tablicu i ručno dopuni podatke<br>"
+            f"  • Kad si spreman, reci <i>'kreiraj naimenovanja'</i>"
         )
 
     def _otvori_faktura_tab_nakon_uvoza(self, chat):
