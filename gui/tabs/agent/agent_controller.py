@@ -1191,6 +1191,21 @@ class AgentController:
                 self._pretrazi_tarifu(upit)
                 return
 
+        # --- DETEKCIJA NAMJERE: hijerarhijski prikaz tarife (drill-down) ---
+        # Format: "pokaži 8516", "šta je 8516", "pregledaj 851660", "drvo 85"
+        _tree_kw = ['pokaži', 'pokazi', 'šta je', 'sta je', 'pregledaj', 'pregled',
+                    'hijerarh', 'drvo', 'stabla', 'drill', 'razradi', 'pogledaj',
+                    'nivo', 'nivou', 'struktura', 'hijerarhija']
+        _has_tree_kw = any(kw in msg for kw in _tree_kw)
+
+        # Izvuci broj iz poruke (2-10 cifara)
+        _tariff_code_match = _re.search(r'\b(\d{2,10})\b', msg)
+        _tariff_code_from_msg = _tariff_code_match.group(1) if _tariff_code_match else None
+
+        if _has_tree_kw and _tariff_code_from_msg and len(_tariff_code_from_msg) >= 2:
+            self._pretrazi_tarifu_hijerarhijski(_tariff_code_from_msg)
+            return
+
         # --- DETEKCIJA NAMJERE: brisanje tarifnih brojeva (MORA BITI ISPRED popune!) ---
         # Provjera: prisutan glagol brisanja I "tarif" u poruci
         _brisanje_glagoli = ['izbri', 'obri', 'ukloni', 'resetuj', 'ocisti', 'očisti',
@@ -2018,4 +2033,30 @@ class AgentController:
             )
         except Exception as e:
             chat.add_agent_message(f"❌ Greška pri učitavanju poglavlja: {e}")
+
+    def _pretrazi_tarifu_hijerarhijski(self, kod: str):
+        """
+        Hijerarhijski prikaz tarife — drill-down.
+
+        Unos: "8516" → prikazuje 8516 + sve podglave (851610, 851660...)
+        Unos: "851660" → prikazuje 851660 + sve tarifne brojeve ispod
+        """
+        from services.tariff_tree_service import get_tree, get_full_path, format_tree_html
+        chat = self.view.get_chat_panel()
+
+        kod_clean = kod.replace(' ', '').replace('.', '')
+        chat.add_activity(f"🌳 Hijerarhijski prikaz za: {kod_clean}")
+
+        try:
+            # Prikaži puni put od korijena
+            path = get_full_path(kod_clean)
+            if path:
+                path_str = " → ".join(f"{p['kod']}" for p in path)
+                chat.add_activity(f"📍 Put: {path_str}")
+
+            tree = get_tree(kod_clean, depth=2)
+            html = format_tree_html(tree)
+            chat.add_agent_message(html)
+        except Exception as e:
+            chat.add_agent_message(f"❌ Greška: {e}")
 
