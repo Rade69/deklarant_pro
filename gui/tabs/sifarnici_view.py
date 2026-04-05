@@ -1258,15 +1258,8 @@ class SifarniciView(BaseTabView):
         self.table.setFont(font)
         self.table.verticalHeader().setDefaultSectionSize(50)
 
-        # ⭐ HIJERARHIJSKO DRVO TARIFE — dodajemo u isti layout kao tabelu
-        # Pronađi parent layout od table
-        table_parent = self.table.parent()
-        if table_parent and table_parent.layout():
-            content_layout = table_parent.layout()
-        else:
-            content_layout = self.detail_container.parent().layout()
-
-        self.tariff_tree = QTreeWidget()
+        # ⭐ HIJERARHIJSKO DRVO — isti parent kao tabela, ista pozicija
+        self.tariff_tree = QTreeWidget(self.table.parent())
         self.tariff_tree.setHeaderLabels(["Kod", "Opis", "Stopa MFN", "Stopa EU", "Stopa CEFTA"])
         self.tariff_tree.setSortingEnabled(True)
         self.tariff_tree.setAnimated(True)
@@ -1274,14 +1267,10 @@ class SifarniciView(BaseTabView):
         self.tariff_tree.setFont(self.table.font())
         self.tariff_tree.setSelectionBehavior(QTreeWidget.SelectRows)
         self.tariff_tree.setAlternatingRowColors(True)
-        self.tariff_tree.setMinimumHeight(400)
-        # Sakrij drvo inicijalno
+        self.tariff_tree.setGeometry(self.table.geometry())
         self.tariff_tree.setVisible(False)
-        if content_layout:
-            # Dodaj drvo na istu poziciju kao tabela (iza tabele)
-            content_layout.addWidget(self.tariff_tree, stretch=1)
 
-        # Dugme za prebacivanje između liste i drveta
+        # Dugme za prebacivanje — dodajemo na vrh forme
         self.view_toggle_btn = QPushButton("🌳 Prikaži kao drvo")
         self.view_toggle_btn.setCheckable(True)
         self.view_toggle_btn.clicked.connect(self._toggle_tariff_view)
@@ -1289,6 +1278,7 @@ class SifarniciView(BaseTabView):
             QPushButton {
                 background: #e7f3ff; border: 1px solid #b8daff;
                 border-radius: 5px; padding: 8px 16px; font-weight: bold;
+                font-size: 13pt;
             }
             QPushButton:checked {
                 background: #d4edda; border-color: #28a745; color: #155724;
@@ -1334,7 +1324,6 @@ class SifarniciView(BaseTabView):
                 fetch_all=True,
             ) or []
 
-            # Grupiši po poglavljima (prve 2 cifre)
             chapters = {}
             for r in results:
                 kod = str(r['tarifni_kod'] or '')
@@ -1348,20 +1337,17 @@ class SifarniciView(BaseTabView):
             for chapter_code in sorted(chapters.keys()):
                 items = chapters[chapter_code]
 
-                # Pronađi opis poglavlja
                 chapter_desc = f"Poglavlje {chapter_code}"
                 for item in items:
                     if item['nivo'] == 'glava' and len(str(item['tarifni_kod'])) == 4:
                         chapter_desc = item['opis']
                         break
 
-                # Čvor poglavlja
                 ch_item = QTreeWidgetItem(self.tariff_tree)
                 ch_item.setText(0, chapter_code)
                 ch_item.setText(1, chapter_desc)
                 ch_item.setExpanded(False)
 
-                # Dodaj sve stavke ispod poglavlja
                 for r in items:
                     kod = str(r['tarifni_kod'] or '')
                     opis = r['opis'] or ''
