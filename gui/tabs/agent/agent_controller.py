@@ -1219,10 +1219,18 @@ class AgentController:
             self._obrisi_tarifne_brojeve()
             return
 
-        # Eksplicitni batch zahtjev (popuni sve / nađi sve bez)
-        _generalni_tarif_kw = ['popuni tarif', 'nađi sve bez tarif', 'nađi stavke bez tarif',
-                                'predloži sve tarif', 'predlozi sve tarif',
-                                'auto tarif', 'batch tarif']
+        # Eksplicitni batch zahtjev (popuni sve / nađi sve bez / predloži tarifne)
+        _generalni_tarif_kw = [
+            'popuni tarif', 'nađi sve bez tarif', 'nađi stavke bez tarif',
+            'predloži sve tarif', 'predlozi sve tarif',
+            'predloži mi tarif', 'predlozi mi tarif',
+            'predloži tarif', 'predlozi tarif',
+            'auto tarif', 'batch tarif',
+            'tarifne brojeve za sve', 'tarifne za sve',
+            'tarifne brojeve za stavke', 'tarifne za stavke',
+            'stavke koje nemaju tarif', 'stavke bez tarif',
+            'koje nemaju tarifni', 'nemaju tarifni',
+        ]
 
         if any(kw in msg for kw in _generalni_tarif_kw):
             # Batch: traži sve bez tarifnog broja
