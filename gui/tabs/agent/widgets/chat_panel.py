@@ -33,6 +33,8 @@ class ChatPanel(QWidget):
     """Desni panel — Carinski Agent branding + chat."""
 
     message_sent = Signal(str)
+    proposal_confirmed = Signal(dict)   # {key: value}
+    proposal_rejected = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -95,6 +97,15 @@ class ChatPanel(QWidget):
 
         # ENHANCED: Memory status bar
         layout.addWidget(self._create_memory_status_bar())
+
+        # ── Proposal card area (sakrivena dok nema prijedloga) ────────────────
+        self._proposal_card = None
+        self._proposal_area = QWidget()
+        self._proposal_area.setVisible(False)
+        self._proposal_layout = QVBoxLayout(self._proposal_area)
+        self._proposal_layout.setContentsMargins(0, 0, 0, 0)
+        self._proposal_layout.setSpacing(0)
+        layout.addWidget(self._proposal_area)
 
         # ── Input area ────────────────────────────────────────────────────────
         layout.addWidget(self._create_input_area())
@@ -561,6 +572,48 @@ class ChatPanel(QWidget):
 
     def get_input_field(self) -> _ChatInput:
         return self.input_field
+
+    # ── Proposal Card API ─────────────────────────────────────────────────────
+
+    def show_proposal_card(self, proposal: dict):
+        """
+        Prikaži editabilnu karticu prijedloga između chata i input polja.
+
+        proposal format: vidi ProposalCardWidget docstring
+        """
+        from .proposal_card import ProposalCardWidget
+
+        # Ukloni prethodnu karticu ako postoji
+        self.hide_proposal_card()
+
+        card = ProposalCardWidget(proposal)
+        card.confirmed.connect(self._on_proposal_confirmed)
+        card.rejected.connect(self._on_proposal_rejected)
+
+        self._proposal_card = card
+        self._proposal_layout.addWidget(card)
+        self._proposal_area.setVisible(True)
+
+        # Prebaci na Agent tab da korisnik vidi karticu
+        self.tabs.setCurrentIndex(0)
+        self.add_activity("📋 Prijedlog spreman — provjeri i potvrdi u kartici ispod.")
+
+    def hide_proposal_card(self):
+        """Sakrij i ukloni aktivnu karticu prijedloga."""
+        if self._proposal_card is not None:
+            self._proposal_layout.removeWidget(self._proposal_card)
+            self._proposal_card.deleteLater()
+            self._proposal_card = None
+        self._proposal_area.setVisible(False)
+
+    def _on_proposal_confirmed(self, values: dict):
+        self.hide_proposal_card()
+        self.proposal_confirmed.emit(values)
+
+    def _on_proposal_rejected(self):
+        self.hide_proposal_card()
+        self.add_agent_message("❌ Prijedlog odbačen.")
+        self.proposal_rejected.emit()
 
     def get_tabs(self) -> QTabWidget:
         return self.tabs

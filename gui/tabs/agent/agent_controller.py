@@ -100,6 +100,10 @@ class AgentController:
         chat.message_sent.connect(self._on_chat_message)
         header.status_changed.connect(self._on_status_changed)
 
+        # Proposal card signali
+        chat.proposal_confirmed.connect(self._on_proposal_confirmed)
+        chat.proposal_rejected.connect(self._on_proposal_rejected)
+
     # ─────────────────────────────────────────────────────────────────────────
     # WORKFLOW / SESSION / BUDGET — callback-ovi i helpers
     # ─────────────────────────────────────────────────────────────────────────
@@ -1358,6 +1362,16 @@ class AgentController:
             self._predlozi_spajanje_naimenovanja()
             return
 
+        # --- DETEKCIJA NAMJERE: compliance check ---
+        _compliance_kw = [
+            'provjeri deklaraciju', 'provjera deklaracije', 'da li je sve u redu',
+            'compliance', 'kompletnost', 'provjeri sve', 'validacija deklaracije',
+            'šta nedostaje', 'sta nedostaje', 'greške u deklaraciji', 'pregled deklaracije',
+        ]
+        if any(kw in msg for kw in _compliance_kw):
+            self._compliance_check()
+            return
+
         # --- TOKEN BUDGET provjera ---
         budget_status, budget_msg = self.budget.check()
         if budget_status == 'stop':
@@ -1879,7 +1893,6 @@ class AgentController:
         chat.add_activity(f"🌳 Hijerarhijski prikaz za: {kod_clean}")
 
         try:
-            # Prikaži puni put od korijena
             path = get_full_path(kod_clean)
             if path:
                 path_str = " → ".join(f"{p['kod']}" for p in path)
@@ -1890,4 +1903,94 @@ class AgentController:
             chat.add_agent_message(html)
         except Exception as e:
             chat.add_agent_message(f"❌ Greška: {e}")
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # COMPLIANCE CHECK — provjera kompletnosti deklaracije
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def _compliance_check(self):
+        """Pokreni provjeru kompletnosti i konzistentnosti deklaracije."""
+        chat = self.view.get_chat_panel()
+
+        if not self.draft or not getattr(self.draft, 'invoice_lines', None):
+            chat.add_agent_message("⚠️ Nema uvezenih stavki — učitaj fakturu prije provjere.")
+            return
+
+        chat.add_activity("🔍 Compliance check u toku...")
+
+        try:
+            from services.agent.compliance_check_service import ComplianceCheckService
+            svc = ComplianceCheckService()
+            result = svc.check(self.draft)
+
+            html = result.summary_html()
+            n_err = len(result.errors)
+            n_warn = len(result.warnings)
+
+            header = (
+                f"<b>📋 Provjera deklaracije</b> — "
+                f"{len(self.draft.invoice_lines)} stavki"
+            )
+            if result.is_ok:
+                status = " <span style='color:#2d6a30;'>✅ sve uredu</span>"
+            else:
+                status = (
+                    f" <span style='color:#b05050;'>❌ {n_err} greška</span>"
+                    + (f", <span style='color:#b8963a;'>⚠️ {n_warn} upozorenja</span>"
+                       if n_warn else "")
+                )
+
+            chat.add_agent_message(f"{header}{status}<br><br>{html}")
+            chat.add_activity(
+                f"{'✅' if result.is_ok else '❌'} Compliance: "
+                f"{n_err} grešaka, {n_warn} upozorenja"
+            )
+
+        except Exception as e:
+            chat.add_agent_message(f"❌ Greška pri provjeri deklaracije: {e}")
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # PROPOSAL CARD — potvrda i odbacivanje prijedloga
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def show_proposal_card(self, proposal: dict):
+        """Prikaži editabilnu karticu prijedloga u chat panelu."""
+        from .workflow_state import WorkflowState
+        chat = self.view.get_chat_panel()
+        chat.show_proposal_card(proposal)
+        self.workflow.transition(WorkflowState.WAITING_USER_CONFIRMATION)
+
+    def _on_proposal_confirmed(self, values: dict):
+        """Primijeni potvrđene vrijednosti iz proposal kartice."""
+        from .workflow_state import WorkflowState
+        chat = self.view.get_chat_panel()
+        self.workflow.transition(WorkflowState.APPLYING)
+
+        if not values:
+            chat.add_agent_message("⚠️ Prijedlog je prazan — ništa nije primijenjeno.")
+            self.workflow.transition(WorkflowState.COMPLETED)
+            return
+
+        upisano = 0
+        for atribut, vrijednost in values.items():
+            if not atribut or not vrijednost:
+                continue
+            try:
+                self.naim_intent_svc.execute(atribut, vrijednost, tab='faktura')
+                upisano += 1
+            except Exception as e:
+                chat.add_activity(f"⚠️ Greška pri upisu {atribut}: {e}")
+
+        poruke = ", ".join(f"{k}={v}" for k, v in values.items() if v)
+        chat.add_agent_message(
+            f"✅ <b>Prijedlog prihvaćen</b> — upisano {upisano} polja.<br>"
+            f"<small style='color:grey;'>{poruke}</small>"
+        )
+        self.workflow.transition(WorkflowState.COMPLETED)
+        self._save_session()
+
+    def _on_proposal_rejected(self):
+        """Workflow se vraća u COMPLETED nakon odbacivanja."""
+        from .workflow_state import WorkflowState
+        self.workflow.transition(WorkflowState.COMPLETED)
 

@@ -184,94 +184,11 @@ class ChatWorker(QThread):
                 for t, cnt in sorted(tariff_counts.items(), key=lambda x: -x[1])[:20]:
                     sve_stavke.append(f"  tarifa={t}: {cnt} stavki")
 
-        # === PRIJEDLOZI IZ BAZE ZNANJA za stavke bez tarife ===
-        kb_prijedlozi = []
-        if bez_tarife_list:
-            try:
-                from services.tariff_mapping_service import TariffMappingService
-                mapping_svc = TariffMappingService()
-                for l in bez_tarife_list[:20]:  # Max 20 upita
-                    naziv = getattr(l, 'naziv_robe', '') or ''
-                    product_code = getattr(l, 'product_code', '') or ''
-                    zemlja = getattr(l, 'zemlja_porijekla', '') or ''
-                    mapping = mapping_svc.find_mapping(
-                        product_code, naziv,
-                        min_similarity=0.60,
-                        zemlja_porijekla=zemlja
-                    )
-                    if mapping:
-                        kb_prijedlozi.append(
-                            f"  '{naziv[:50]}' → tarifa={mapping.tarifni_broj} "
-                            f"(sličnost={mapping.similarity:.0%}, "
-                            f"korišten {mapping.usage_count}x)"
-                        )
-                    else:
-                        kb_prijedlozi.append(f"  '{naziv[:50]}' → (nije u bazi znanja)")
-            except Exception as e:
-                kb_prijedlozi.append(f"  (greška pri upitu baze znanja: {e})")
+        # === ZONE KONTEKSTA — selektivno po tipu upita ===
+        msg_lower = self.message.lower()
+        zones = self._determine_context_zones(msg_lower)
 
-        # === ISTORIJA IZ DEKLARACIJA (RAG) za stavke bez tarife ===
-        rag_prijedlozi = []
-        if bez_tarife_list:
-            try:
-                from services.agent.tariff_rag_service import TariffRAGService
-                rag_svc = TariffRAGService()
-                seen_queries = set()
-                for l in bez_tarife_list[:10]:
-                    naziv = getattr(l, 'naziv_robe', '') or ''
-                    if naziv and naziv not in seen_queries:
-                        seen_queries.add(naziv)
-                        results = rag_svc.search_historical(naziv, limit=2)
-                        for r in results:
-                            rag_prijedlozi.append(
-                                f"  '{naziv[:40]}' → tarifa={r.get('tarifni_kod', '?')} "
-                                f"(historija: {r.get('naziv_robe', '')[:40]})"
-                            )
-            except Exception:
-                pass  # RAG nije kritičan
-
-        # === POŠILJALAC / UVOZNIK — iz fakture i zaglavlja ===
-        exporter_name = ""
-        consignee_jib = ""
-        consignee_name = ""
-        xml_lookup_info = ""
-
-        # Exporter: čitaj s prve stavke (parseri popunjavaju InvoiceLine.exporter)
-        first_line = lines[0] if lines else None
-        if first_line:
-            exp_party = getattr(first_line, 'exporter', None)
-            if exp_party and getattr(exp_party, 'name', ''):
-                exporter_name = exp_party.name
-
-        # Consignee: čitaj iz zaglavlja drafta (rubrika 8 — primalac)
-        if self.draft:
-            consignee_jib = getattr(self.draft, 'primalac_id', '') or ''
-            consignee_name = getattr(self.draft, 'primalac_naziv', '') or ''
-            # Ako nema JIB u rubrici 8, pokušaj izvoznik id (rubrika 2)
-            if not consignee_jib:
-                consignee_jib = getattr(self.draft, 'izvoznik_id', '') or ''
-
-        # XML lookup — tražimo prethodni XML za ovaj par
-        if exporter_name:
-            try:
-                from services.agent.exporter_xml_indexer import find_xml_for_pair
-                match = find_xml_for_pair(
-                    exporter_name,
-                    consignee_jib=consignee_jib,
-                    consignee_hint=consignee_name
-                )
-                if match:
-                    import os
-                    fname = os.path.basename(match['xml_filepath'])
-                    xml_lookup_info = (
-                        f"Pronađen XML predložak: {fname} "
-                        f"(match: {match['match_type']}, "
-                        f"consignee: {match.get('consignee_original', '—')})"
-                    )
-            except Exception:
-                pass
-
-        # === Sastavni kontekst ===
+        # Zone A: db_context — uvijek uključen
         ctx = [
             f"=== STANJE DRAFTA ===",
             f"Ukupno stavki: {total}",
@@ -282,33 +199,21 @@ class ChatWorker(QThread):
             f"Zemlja distribucija: {country_str}",
         ]
 
-        # Dodaj exporter/consignee info ako postoji
-        if exporter_name or consignee_name or consignee_jib:
+        # Zone B: session_context — pošiljalac/uvoznik/XML (uvijek ako postoji)
+        session_lines = self._build_session_zone(lines)
+        if session_lines:
             ctx.append("")
-            ctx.append("=== POŠILJALAC / UVOZNIK ===")
-            if exporter_name:
-                ctx.append(f"Pošiljalac (iz fakture): {exporter_name}")
-            if consignee_name:
-                ctx.append(f"Uvoznik (rubrika 8): {consignee_name}" + (f" (JIB: {consignee_jib})" if consignee_jib else ""))
-            elif consignee_jib:
-                ctx.append(f"Uvoznik JIB (rubrika 8): {consignee_jib}")
-            if xml_lookup_info:
-                ctx.append(f"XML predložak: {xml_lookup_info}")
-            elif exporter_name:
-                ctx.append("XML predložak: nije pronađen u bazi")
+            ctx.extend(session_lines)
 
         ctx.extend(["", ctx_header])
         ctx.extend(sve_stavke)
 
-        if kb_prijedlozi:
-            ctx.append("")
-            ctx.append(f"=== BAZA ZNANJA — prijedlozi tarife za stavke bez tarife ===")
-            ctx.extend(kb_prijedlozi)
-
-        if rag_prijedlozi:
-            ctx.append("")
-            ctx.append(f"=== ISTORIJA DEKLARACIJA — prijedlozi tarife ===")
-            ctx.extend(rag_prijedlozi)
+        # Zone C: knowledge_context — KB + RAG prijedlozi (samo za tarif upite, ne za zakonska pitanja)
+        if 'knowledge' in zones:
+            knowledge_lines = self._build_knowledge_zone(bez_tarife_list)
+            if knowledge_lines:
+                ctx.append("")
+                ctx.extend(knowledge_lines)
 
         # === NAIMENOVANJA (draft.items) — grupisane stavke za deklaraciju ===
         naim_items = getattr(self.draft, 'items', [])
@@ -463,6 +368,181 @@ class ChatWorker(QThread):
                 ctx.extend(decl_ctx)
 
         return "\n".join(ctx)
+
+    # ─────────────────────────────────────────────────────────────────────
+    # ZONE KONTEKSTA — selektivno uključivanje po tipu upita
+    # ─────────────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _determine_context_zones(msg: str) -> set:
+        """
+        Odredi koje zone konteksta su potrebne za dati upit.
+
+        Zone:
+          'knowledge'  — KB + RAG prijedlozi tarife (za upite o tarifi/prijedlogu)
+          'regulatory' — zakonski odlomci (za zakonska pitanja)
+          'tariff_val' — opisi tarifa iz tarife 2026 (za pregled/validaciju)
+          'declarations' — pretraga XML deklaracija
+
+        db_context i session_context su uvijek uključeni.
+        """
+        zones = set()
+
+        # Tarif/prijedlog → knowledge zona
+        tariff_kw = [
+            'tarif', 'tarifni', 'hs kod', 'hs code', 'predloži', 'predlozi',
+            'popuni', 'procijeni', 'koji kod', 'koja tarifa', 'razvrstaj',
+        ]
+        if any(k in msg for k in tariff_kw):
+            zones.add('knowledge')
+
+        # Zakonska pitanja → regulatory zona (ali NE knowledge)
+        regulatory_kw = [
+            'zakon', 'pravilnik', 'propis', 'uredba', 'član', 'procedur',
+            'postupak', 'uvjet', 'uslov', 'rok', 'slobodan promet', 'regulat',
+            'konvencija', 'sporazum',
+        ]
+        if any(k in msg for k in regulatory_kw):
+            zones.add('regulatory')
+        else:
+            # Za neregulativna pitanja dodaj knowledge ako ima stavki bez tarife
+            zones.add('knowledge')
+
+        # Pregled/validacija → tariff_val zona
+        review_kw = [
+            'provjeri', 'pregledaj', 'validiraj', 'ispravan', 'da li je sve',
+            'sve u redu', 'review', 'check', 'pregled',
+        ]
+        if any(k in msg for k in review_kw):
+            zones.add('tariff_val')
+
+        # Pretraga deklaracija
+        decl_kw = ['deklaracija', 'prethodni uvoz', 'xml', 'historija uvoza']
+        if any(k in msg for k in decl_kw):
+            zones.add('declarations')
+
+        return zones
+
+    def _build_knowledge_zone(self, bez_tarife_list: list) -> list:
+        """
+        Zone C — KB + RAG prijedlozi tarife za stavke bez tarifnog broja.
+        Preskači se za čisto zakonska pitanja.
+        """
+        if not bez_tarife_list:
+            return []
+
+        result = []
+
+        # KB prijedlozi (product_tariff_mapping)
+        kb_prijedlozi = []
+        try:
+            from services.tariff_mapping_service import TariffMappingService
+            mapping_svc = TariffMappingService()
+            for l in bez_tarife_list[:20]:
+                naziv = getattr(l, 'naziv_robe', '') or ''
+                product_code = getattr(l, 'product_code', '') or ''
+                zemlja = getattr(l, 'zemlja_porijekla', '') or ''
+                mapping = mapping_svc.find_mapping(
+                    product_code, naziv, min_similarity=0.60, zemlja_porijekla=zemlja
+                )
+                if mapping:
+                    kb_prijedlozi.append(
+                        f"  '{naziv[:50]}' → tarifa={mapping.tarifni_broj} "
+                        f"(sličnost={mapping.similarity:.0%}, korišten {mapping.usage_count}x)"
+                    )
+                else:
+                    kb_prijedlozi.append(f"  '{naziv[:50]}' → (nije u bazi znanja)")
+        except Exception as e:
+            kb_prijedlozi.append(f"  (greška pri upitu baze znanja: {e})")
+
+        if kb_prijedlozi:
+            result.append("=== BAZA ZNANJA — prijedlozi tarife za stavke bez tarife ===")
+            result.extend(kb_prijedlozi)
+
+        # RAG prijedlozi (historija deklaracija)
+        rag_prijedlozi = []
+        try:
+            from services.agent.tariff_rag_service import TariffRAGService
+            rag_svc = TariffRAGService()
+            seen_queries = set()
+            for l in bez_tarife_list[:10]:
+                naziv = getattr(l, 'naziv_robe', '') or ''
+                if naziv and naziv not in seen_queries:
+                    seen_queries.add(naziv)
+                    results = rag_svc.search_historical(naziv, limit=2)
+                    for r in results:
+                        rag_prijedlozi.append(
+                            f"  '{naziv[:40]}' → tarifa={r.get('tarifni_kod', '?')} "
+                            f"(historija: {r.get('naziv_robe', '')[:40]})"
+                        )
+        except Exception:
+            pass
+
+        if rag_prijedlozi:
+            if result:
+                result.append("")
+            result.append("=== ISTORIJA DEKLARACIJA — prijedlozi tarife ===")
+            result.extend(rag_prijedlozi)
+
+        return result
+
+    def _build_session_zone(self, lines: list) -> list:
+        """
+        Zone B — pošiljalac/uvoznik + XML predložak.
+        Uvijek se uključuje ako postoje podaci.
+        """
+        result = []
+        exporter_name = ""
+        consignee_jib = ""
+        consignee_name = ""
+        xml_lookup_info = ""
+
+        first_line = lines[0] if lines else None
+        if first_line:
+            exp_party = getattr(first_line, 'exporter', None)
+            if exp_party and getattr(exp_party, 'name', ''):
+                exporter_name = exp_party.name
+
+        if self.draft:
+            consignee_jib = getattr(self.draft, 'primalac_id', '') or ''
+            consignee_name = getattr(self.draft, 'primalac_naziv', '') or ''
+            if not consignee_jib:
+                consignee_jib = getattr(self.draft, 'izvoznik_id', '') or ''
+
+        if exporter_name:
+            try:
+                from services.agent.exporter_xml_indexer import find_xml_for_pair
+                match = find_xml_for_pair(
+                    exporter_name,
+                    consignee_jib=consignee_jib,
+                    consignee_hint=consignee_name
+                )
+                if match:
+                    import os
+                    fname = os.path.basename(match['xml_filepath'])
+                    xml_lookup_info = (
+                        f"Pronađen XML predložak: {fname} "
+                        f"(match: {match['match_type']}, "
+                        f"consignee: {match.get('consignee_original', '—')})"
+                    )
+            except Exception:
+                pass
+
+        if exporter_name or consignee_name or consignee_jib:
+            result.append("=== POŠILJALAC / UVOZNIK ===")
+            if exporter_name:
+                result.append(f"Pošiljalac (iz fakture): {exporter_name}")
+            if consignee_name:
+                result.append(f"Uvoznik (rubrika 8): {consignee_name}" +
+                               (f" (JIB: {consignee_jib})" if consignee_jib else ""))
+            elif consignee_jib:
+                result.append(f"Uvoznik JIB (rubrika 8): {consignee_jib}")
+            if xml_lookup_info:
+                result.append(f"XML predložak: {xml_lookup_info}")
+            elif exporter_name:
+                result.append("XML predložak: nije pronađen u bazi")
+
+        return result
 
     @staticmethod
     def _is_review_request(msg: str) -> bool:

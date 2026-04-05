@@ -57,7 +57,7 @@ class OriginStatementDetector:
             'tip_izjave': 'standard',
             'pattern': (
                 r'\bIzvoznik\s+proizvoda\s+obuhva[ćc]enih\s+ovom\s+ispravom\s+izjavljuje'
-                r'\s+da\s+su,?\s+osim\s+ako\s+je\s+to\s+druga[čc]ije\s+izri[čc]ito\s+navedeno,?'
+                r'\s+da\s+su,?\s+osim\s+ako\s+je\s+(?:to\s+)?druga[čc]ije\s+izri[čc]ito\s+navedeno,?'
                 r'\s+ovi\s+proizvodi\s+(?P<origin>\w+)\s+preferencijalnog\s+porekla\.?'
             ),
         },
