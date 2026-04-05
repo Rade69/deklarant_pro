@@ -78,18 +78,28 @@ class PE2QuickDialog(QDialog):
         self.global_invoice_number = QLineEdit()
         self.global_invoice_number.setPlaceholderText("npr. 3940/2025")
         self.global_invoice_number.setMaximumWidth(200)
-        self.global_invoice_number.textChanged.connect(self._on_global_invoice_changed)
         global_layout.addWidget(self.global_invoice_number)
 
         # Prefill ako je broj fakture pročitan iz PDF-a
         if self._prefill_invoice_number:
+            self.global_invoice_number.blockSignals(True)
             self.global_invoice_number.setText(self._prefill_invoice_number)
+            self.global_invoice_number.blockSignals(False)
             auto_label = QLabel("✅ automatski pročitan")
             auto_label.setStyleSheet("color: #28a745; font-size: 11px; font-style: italic;")
             global_layout.addWidget(auto_label)
-        
+
         global_layout.addStretch()
         layout.addWidget(global_group)
+
+        # INFO LABEL (mora PRIJE scroll area da bi signal ne pucao)
+        self.info_label = QLabel("ℹ️ Unesi broj fakture i izaberi zemlje koje imaju izjavu")
+        self.info_label.setStyleSheet("font-weight: bold; color: #0c5460; "
+                                     "background: #d1ecf1; padding: 10px; border-radius: 5px;")
+        layout.addWidget(self.info_label)
+
+        # Poveži signal NAKON što je info_label kreiran
+        self.global_invoice_number.textChanged.connect(self._on_global_invoice_changed)
         
         # SCROLL AREA - Zemlje
         scroll = QScrollArea()
@@ -112,13 +122,7 @@ class PE2QuickDialog(QDialog):
         self.scroll_layout.addStretch()
         scroll.setWidget(scroll_content)
         layout.addWidget(scroll)
-        
-        # INFO LABEL - Broj stavki
-        self.info_label = QLabel("ℹ️ Unesi broj fakture i izaberi zemlje koje imaju izjavu")
-        self.info_label.setStyleSheet("font-weight: bold; color: #0c5460; "
-                                     "background: #d1ecf1; padding: 10px; border-radius: 5px;")
-        layout.addWidget(self.info_label)
-        
+
         # BUTTONS
         self.ok_button = QPushButton("✅ Primijeni")
         self.ok_button.clicked.connect(self._on_accept)

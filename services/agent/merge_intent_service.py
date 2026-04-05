@@ -110,7 +110,7 @@ class MergeIntentService:
 
         # Postavi pending akciju
         if self.on_set_pending:
-            from .agent_actions import PendingAction
+            from gui.tabs.agent.agent_actions import PendingAction
             self.on_set_pending(PendingAction(
                 action_type="merge_naimenovanja",
                 proposals=proposals,
