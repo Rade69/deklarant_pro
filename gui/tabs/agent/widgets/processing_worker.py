@@ -90,6 +90,7 @@ class ProcessingWorker(QThread):
                     invoice_lines = result.items
 
                     # ⭐ Sačuvaj SVE podatke iz ImportResult
+                    file_item.invoice_number = result.invoice_name or ""  # ⭐ BROJ FAKTURE IZ PDF-A
                     file_item.bruto_kg = result.bruto_kg
                     file_item.neto_kg = result.neto_kg
                     file_item.has_origin_statement = result.has_origin_statement
