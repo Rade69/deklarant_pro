@@ -2,7 +2,7 @@
 Agent Controller - business logic za tri pipeline moda.
 """
 
-from PySide6.QtWidgets import QFileDialog
+from PySide6.QtWidgets import QFileDialog, QApplication
 from pathlib import Path
 from .agent_view import AgentView
 from .widgets.processing_worker import ProcessingWorker
@@ -295,11 +295,28 @@ class AgentController:
             all_processed_lines.extend(self.draft.invoice_lines)
             processed_total += len(lines)
 
-        # ⭐ SAČUVAJ SVE LINJE U DRAFT (posljednja faktura ostaje u draft-u)
+        # ⭐ SAČUVAJ SVE LINJE U DRAFT (sve fakture zajedno)
         self.draft.invoice_lines.clear()
         self.draft.invoice_lines.extend(all_processed_lines)
+        print(f"[AgentController] Draft sada ima {len(self.draft.invoice_lines)} stavki")
+
+        # Osvježi Faktura tab da prikaže sve stavke
+        fw = self.faktura_tab.view if hasattr(self.faktura_tab, 'view') else self.faktura_tab
         if fw and hasattr(fw, '_load_data_from_draft'):
             fw._load_data_from_draft()
+            QApplication.processEvents()
+
+        # ⭐ Prebaci na Faktura tab da korisnik vidi rezultate
+        parent = self.view.parent()
+        while parent:
+            if 'MainWindow' in str(type(parent)):
+                break
+            parent = parent.parent()
+        if parent:
+            from PySide6.QtWidgets import QTabWidget
+            tabs_widgets = parent.findChildren(QTabWidget)
+            if tabs_widgets:
+                tabs_widgets[0].setCurrentWidget(self.faktura_tab)
 
         # ⭐ KONAČNI REZIME SVIH FAKTURA
         total_bez = sum(1 for l in self.draft.invoice_lines if not l.tarifni_broj)
