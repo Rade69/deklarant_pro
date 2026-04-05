@@ -155,7 +155,7 @@ class TariffIntentService:
         )
 
         # Pokreni LLM worker — callback će show_results
-        from .widgets.tariff_llm_worker import TariffLLMWorker
+        from gui.tabs.agent.widgets.tariff_llm_worker import TariffLLMWorker
         worker = TariffLLMWorker(bez_lokalne, parent=self._view_ref())
         worker.proposals_ready.connect(
             lambda llm_p: self._show_proposals(local_proposals, llm_p, ukupno_bez)

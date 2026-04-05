@@ -1318,307 +1318,29 @@ class AgentController:
     # ─────────────────────────────────────────────────────────────────────────
 
     def _predlozi_tarifne_brojeve(self):
-        """Analizira stavke bez tarifnog broja — lokalna baza pa LLM fallback."""
-        from .agent_actions import TariffProposal, PendingAction
-        from services.tariff_mapping_service import TariffMappingService
-        from .widgets.tariff_llm_worker import TariffLLMWorker
-
-        chat = self.view.get_chat_panel()
-
-        if not self.draft or not self.draft.invoice_lines:
-            chat.add_agent_message("⚠️ Nema učitanih stavki u Faktura tabu.")
-            return
-
-        bez_tarife = [
-            (i, line) for i, line in enumerate(self.draft.invoice_lines)
-            if not line.tarifni_broj or not line.tarifni_broj.strip()
-        ]
-
-        if not bez_tarife:
-            chat.add_agent_message("✅ Sve stavke već imaju upisane tarifne brojeve.")
-            return
-
-        chat.add_activity(f"🔍 Tražim u lokalnoj bazi za {len(bez_tarife)} stavki...")
-
-        # 1. Pokušaj lokalnu bazu znanja
-        svc = TariffMappingService()
-        proposals = []
-        bez_lokalne = []
-
-        for idx, line in bez_tarife:
-            mapping = svc.find_mapping(
-                product_code=line.product_code,
-                naziv_robe=line.naziv_robe,
-                min_similarity=0.92
-            )
-            if mapping:
-                proposals.append(TariffProposal(
-                    line_index=idx,
-                    naziv_robe=line.naziv_robe[:60],
-                    product_code=line.product_code,
-                    proposed_tariff=mapping.tarifni_broj,
-                    confidence=mapping.similarity if hasattr(mapping, 'similarity') else 1.0,
-                    source="baza_znanja"
-                ))
-            else:
-                bez_lokalne.append((idx, line))
-
-        if bez_lokalne:
-            chat.add_activity(
-                f"✅ Lokalna baza: {len(proposals)} prijedloga. "
-                f"🤖 Pitam AI za preostalih {len(bez_lokalne)} stavki..."
-            )
-            # 2. LLM fallback u pozadini
-            worker = TariffLLMWorker(bez_lokalne, parent=self.view)
-            worker.proposals_ready.connect(
-                lambda llm_proposals: self._on_tariff_llm_ready(proposals, llm_proposals, len(bez_tarife), chat)
-            )
-            worker.error_occurred.connect(
-                lambda err: self._on_tariff_llm_ready(proposals, [], len(bez_tarife), chat)
-            )
-            worker.finished.connect(worker.deleteLater)
-            if not hasattr(self, '_tariff_workers'):
-                self._tariff_workers = []
-            self._tariff_workers.append(worker)
-            worker.finished.connect(
-                lambda: self._tariff_workers.remove(worker) if worker in self._tariff_workers else None
-            )
-            worker.start()
-        else:
-            self._on_tariff_llm_ready(proposals, [], len(bez_tarife), chat)
+        """Analizira stavke bez tarifnog broja — koristi TariffIntentService."""
+        self.tariff_svc.propose_all()
 
     def _predlozi_tarifne_po_filteru(self, keyword: str):
-        """Predlaže tarifne brojeve samo za stavke čiji naziv_robe sadrži keyword."""
-        from .agent_actions import TariffProposal
-        from services.tariff_mapping_service import TariffMappingService
-        from .widgets.tariff_llm_worker import TariffLLMWorker
-
-        chat = self.view.get_chat_panel()
-
-        if not self.draft or not self.draft.invoice_lines:
-            chat.add_agent_message("⚠️ Nema učitanih stavki u Faktura tabu.")
-            return
-
-        kw = keyword.lower().strip()
-
-        # Filtriraj po ključnoj riječi u nazivu
-        filtrirane = [
-            (i, line) for i, line in enumerate(self.draft.invoice_lines)
-            if kw in (getattr(line, 'naziv_robe', '') or '').lower()
-        ]
-
-        if not filtrirane:
-            chat.add_agent_message(f"⚠️ Nema stavki čiji naziv sadrži '{keyword}'.")
-            return
-
-        chat.add_activity(f"🔍 Nađeno {len(filtrirane)} stavki s '{keyword}', tražim tarifne...")
-
-        # Lokalna baza znanja
-        svc = TariffMappingService()
-        proposals = []
-        bez_lokalne = []
-
-        for idx, line in filtrirane:
-            naziv = (getattr(line, 'naziv_robe', '') or '').strip()
-            product_code = (getattr(line, 'product_code', '') or '').strip()
-            mapping = svc.find_mapping(
-                product_code=product_code,
-                naziv_robe=naziv,
-                min_similarity=0.92
-            )
-            if mapping:
-                proposals.append(TariffProposal(
-                    line_index=idx,
-                    naziv_robe=naziv[:60],
-                    product_code=product_code,
-                    proposed_tariff=mapping.tarifni_broj,
-                    confidence=mapping.similarity if hasattr(mapping, 'similarity') else 1.0,
-                    source="baza_znanja"
-                ))
-            else:
-                bez_lokalne.append((idx, line))
-
-        if bez_lokalne:
-            chat.add_activity(
-                f"✅ Lokalna baza: {len(proposals)}. "
-                f"🤖 AI za preostalih {len(bez_lokalne)}..."
-            )
-            worker = TariffLLMWorker(bez_lokalne, parent=self.view)
-            worker.proposals_ready.connect(
-                lambda llm_p: self._on_tariff_llm_ready(proposals, llm_p, len(filtrirane), chat)
-            )
-            worker.error_occurred.connect(
-                lambda err: self._on_tariff_llm_ready(proposals, [], len(filtrirane), chat)
-            )
-            worker.finished.connect(worker.deleteLater)
-            if not hasattr(self, '_tariff_workers'):
-                self._tariff_workers = []
-            self._tariff_workers.append(worker)
-            worker.finished.connect(
-                lambda: self._tariff_workers.remove(worker) if worker in self._tariff_workers else None
-            )
-            worker.start()
-        else:
-            self._on_tariff_llm_ready(proposals, [], len(filtrirane), chat)
+        """Predlaže tarifne brojeve za stavke sa keyword u nazivu — koristi TariffIntentService."""
+        self.tariff_svc.propose_by_keyword(keyword)
 
     def _on_tariff_llm_ready(self, local_proposals, llm_proposals, ukupno_bez, chat):
-        """Prikaži kombinirane prijedloge (lokalni + LLM) korisniku."""
-        from .agent_actions import PendingAction
-
-        svi = local_proposals + llm_proposals
-
-        if not svi:
-            chat.add_agent_message(
-                f"⚠️ Nisam uspio naći prijedloge za <b>{ukupno_bez}</b> stavki "
-                f"ni u lokalnoj bazi ni putem AI-a.<br>"
-                f"Pokušaj pretraživanjem tarifne tarife ili ručnim unosom."
-            )
-            return
-
-        linije = []
-        for p in svi:
-            pct = int(p.confidence * 100)
-            izvor = "📚 baza" if p.source == "baza_znanja" else "🤖 AI"
-            linije.append(
-                f"&nbsp;&nbsp;• <b>{p.proposed_tariff}</b> — {p.naziv_robe} "
-                f"<small>({izvor}, {pct}% sigurnost)</small>"
-            )
-
-        nema = ukupno_bez - len(svi)
-        napomena = f"<br><small>⚠️ Za {nema} stavki nije nađen prijedlog.</small>" if nema else ""
-
-        self._pending_action = PendingAction(
-            action_type="fill_tariff",
-            proposals=svi,
-            description=f"Upiši {len(svi)} tarifnih brojeva"
-        )
-
-        chat.add_agent_message(
-            f"📋 Prijedlozi za <b>{len(svi)}</b> od {ukupno_bez} stavki:<br><br>"
-            + "<br>".join(linije)
-            + napomena
-            + "<br><br>✏️ <b>Upisujem u tabelu? Odgovori: Da / Ne</b>"
-        )
+        """Prikaži prijedloge — koristi TariffIntentService."""
+        self.tariff_svc._show_proposals(local_proposals, llm_proposals, ukupno_bez)
 
     def _predlozi_spajanje_naimenovanja(self):
-        """Pronalazi naimenovanja sa istim tarifnim brojem i predlaže spajanje."""
-        from .agent_actions import NaimenovanjaSpajanje, PendingAction
-        from collections import defaultdict
-
-        chat = self.view.get_chat_panel()
-
-        if not self.draft or not self.draft.items:
-            chat.add_agent_message("⚠️ Nema naimenovanja u deklaraciji.")
-            return
-
-        chat.add_activity("🔍 Analiziram naimenovanja...")
-
-        # Grupiši po tarifnom broju + zemlja + povlastica
-        grupe = defaultdict(list)
-        for i, item in enumerate(self.draft.items):
-            kljuc = (
-                item.tariff_code.strip(),
-                item.origin_country_code.strip(),
-                item.preference_code.strip()
-            )
-            grupe[kljuc].append((i, item))
-
-        # Pronađi grupe sa 2+ naimenovanja
-        kandidati = [(k, v) for k, v in grupe.items() if len(v) >= 2]
-
-        if not kandidati:
-            chat.add_agent_message("✅ Nema naimenovanja sa istim tarifnim brojem koja bi se mogla spojiti.")
-            return
-
-        proposals = []
-        linije = []
-
-        for (tariff, zemlja, pov), stavke in kandidati:
-            indices = [i for i, _ in stavke]
-            items = [item for _, item in stavke]
-
-            merged_kolicina = sum(it.supplementary_unit_qty or 0 for it in items)
-            merged_bruto = sum(it.gross_mass_kg or 0 for it in items)
-            merged_neto = sum(it.net_mass_kg or 0 for it in items)
-            merged_iznos = sum(it.item_value or 0 for it in items)
-
-            # Naziv: najduži goods_description ili kombinacija
-            merged_naziv = max(
-                (it.goods_description for it in items),
-                key=len,
-                default=""
-            )
-
-            proposals.append(NaimenovanjaSpajanje(
-                indices=indices,
-                tariff_code=tariff,
-                merged_naziv=merged_naziv,
-                merged_kolicina=merged_kolicina,
-                merged_bruto=round(merged_bruto, 3),
-                merged_neto=round(merged_neto, 3),
-                merged_iznos=round(merged_iznos, 2)
-            ))
-
-            nazivi = " + ".join(
-                (it.goods_description[:30] for it in items)
-            )
-            linije.append(
-                f"&nbsp;&nbsp;• Tarifa <b>{tariff}</b> ({zemlja}) — "
-                f"{len(stavke)} naim. → spoji:<br>"
-                f"&nbsp;&nbsp;&nbsp;&nbsp;Kol: {merged_kolicina:.2f} | "
-                f"Bruto: {merged_bruto:.3f}kg | Neto: {merged_neto:.3f}kg | "
-                f"Iznos: {merged_iznos:.2f}<br>"
-                f"&nbsp;&nbsp;&nbsp;&nbsp;<small>{nazivi}</small>"
-            )
-
-        self._pending_action = PendingAction(
-            action_type="merge_naimenovanja",
-            proposals=proposals,
-            description=f"Spoji {sum(len(p.indices) for p in proposals)} naimenovanja u {len(proposals)}"
-        )
-
-        chat.add_agent_message(
-            f"📋 Pronašao sam <b>{len(kandidati)}</b> grupu(e) za spajanje:<br><br>"
-            + "<br><br>".join(linije)
-            + "<br><br>🔀 <b>Spajam naimenovanja? Odgovori: Da / Ne</b>"
-        )
+        """Predlaže spajanje naimenovanja — koristi MergeIntentService."""
+        self.merge_svc.find_candidates()
 
     def _execute_pending_action(self):
-        """Izvrši pending akciju nakon potvrde korisnika."""
-        from PySide6.QtWidgets import QApplication
-
-        chat = self.view.get_chat_panel()
+        """Izvrši pending akciju — koristi service."""
         action = self._pending_action
         self._pending_action = None
-
         if action.action_type == "fill_tariff":
-            self._izvrsi_popunu_tarife(action.proposals, chat)
-
+            self.tariff_svc.execute_fill(action.proposals)
         elif action.action_type == "merge_naimenovanja":
-            self._izvrsi_spajanje_naimenovanja(action.proposals, chat)
-
-    def _izvrsi_popunu_tarife(self, proposals, chat):
-        """Upiši predložene tarifne brojeve u draft i osvježi Faktura tab."""
-        from PySide6.QtWidgets import QApplication
-
-        upisano = 0
-        for p in proposals:
-            line = self.draft.invoice_lines[p.line_index]
-            line.tarifni_broj = p.proposed_tariff
-            upisano += 1
-
-        # Osvježi Faktura tab
-        faktura_widget = self.faktura_tab
-        if hasattr(self.faktura_tab, 'view'):
-            faktura_widget = self.faktura_tab.view
-        if faktura_widget and hasattr(faktura_widget, '_load_data_from_draft'):
-            QApplication.processEvents()
-            faktura_widget._load_data_from_draft()
-
-        chat.add_agent_message(
-            f"✅ <b>Upisano {upisano} tarifnih brojeva</b> u Faktura tab.<br>"
-            f"Provjeri tabelu i korigiši ako je potrebno."
-        )
+            self.merge_svc.execute_merge(action.proposals)
 
     # Mapa sinonima kolona → (atribut, tab)
     # tab: 'faktura' = InvoiceLine, 'naim' = NaimenovanjeDraft
@@ -1898,13 +1620,27 @@ class AgentController:
         )
 
     def _provjeri_tarifni_za_naziv(self, naziv_robe: str):
-        """Pozovi HybridTariffAgent za konkretan naziv robe i prikaži rezultat u chatu."""
-        from services.agent.hybrid_tariff_agent import HybridTariffAgent
-        from PySide6.QtCore import QThread, Signal, QObject
+        """Provjeri tarifni za naziv — koristi TariffIntentService."""
+        self.tariff_svc.check_tariff_for_name(naziv_robe)
 
-        chat = self.view.get_chat_panel()
-        chat.add_activity(f"🔍 Provjera tarifnog za: {naziv_robe}")
-        chat.show_typing_indicator()
+    def _obrisi_tarifne_brojeve(self):
+        """Obriši tarifne brojeve — koristi TariffIntentService."""
+        self.tariff_svc.delete_all()
+
+    def _parse_upis_u_kolonu(self, message: str, brisanje: bool = False):
+        """Parsiraj upis/brisanje kolone — koristi NaimenovanjaIntentService."""
+        r = self.naim_intent_svc.parse(message, brisanje=brisanje)
+        return (r.atribut, r.vrijednost, r.tab) if r else None
+
+    def _upisi_u_kolonu(self, atribut: str, vrijednost: str, tab: str = 'faktura'):
+        """Upiši vrijednost u kolonu — koristi NaimenovanjaIntentService."""
+        self.naim_intent_svc.execute(atribut, vrijednost, tab)
+
+    # ─────────────────────────────────────────────────────────────
+    # PRETRAGA CARINSKE TARIFE
+    # ─────────────────────────────────────────────────────────────
+
+    def _pretrazi_tarifu(self, upit: str):
 
         class _TariffCheckWorker(QThread):
             done = Signal(dict)
