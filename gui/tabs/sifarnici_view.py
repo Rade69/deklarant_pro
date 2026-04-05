@@ -1258,17 +1258,30 @@ class SifarniciView(BaseTabView):
         self.table.setFont(font)
         self.table.verticalHeader().setDefaultSectionSize(50)
 
-        # ⭐ HIJERARHIJSKO DRVO — isti parent kao tabela, ista pozicija
-        self.tariff_tree = QTreeWidget(self.table.parent())
-        self.tariff_tree.setHeaderLabels(["Kod", "Opis", "Stopa MFN", "Stopa EU", "Stopa CEFTA"])
-        self.tariff_tree.setSortingEnabled(True)
-        self.tariff_tree.setAnimated(True)
-        self.tariff_tree.setIndentation(20)
-        self.tariff_tree.setFont(self.table.font())
-        self.tariff_tree.setSelectionBehavior(QTreeWidget.SelectRows)
-        self.tariff_tree.setAlternatingRowColors(True)
-        self.tariff_tree.setGeometry(self.table.geometry())
-        self.tariff_tree.setVisible(False)
+        # ⭐ HIJERARHIJSKO DRVO — kreira se samo jednom
+        if not hasattr(self, 'tariff_tree'):
+            self.tariff_tree = QTreeWidget()
+            self.tariff_tree.setHeaderLabels(["Kod", "Opis", "Stopa MFN", "Stopa EU", "Stopa CEFTA"])
+            self.tariff_tree.setSortingEnabled(True)
+            self.tariff_tree.setAnimated(True)
+            self.tariff_tree.setIndentation(20)
+            self.tariff_tree.setFont(font)
+            self.tariff_tree.setSelectionBehavior(QTreeWidget.SelectRows)
+            self.tariff_tree.setAlternatingRowColors(True)
+            self.tariff_tree.setVisible(False)
+
+        # Zamijeni tabelu sa drvetom u layout-u (na istoj poziciji)
+        table_parent = self.table.parent()
+        if table_parent:
+            table_layout = table_parent.layout()
+            if table_layout:
+                # Pronađi indeks tabele u layout-u
+                for i in range(table_layout.count()):
+                    item = table_layout.itemAt(i)
+                    if item and item.widget() == self.table:
+                        # Ubaci drvo na istu poziciju
+                        table_layout.insertWidget(i, self.tariff_tree, stretch=1)
+                        break
 
         # Dugme za prebacivanje — dodajemo na vrh forme
         self.view_toggle_btn = QPushButton("🌳 Prikaži kao drvo")
@@ -1301,14 +1314,26 @@ class SifarniciView(BaseTabView):
 
     def _toggle_tariff_view(self):
         """Prebaci između tabele i hijerarhijskog drveta."""
+        if not hasattr(self, 'tariff_tree'):
+            return
         is_tree = self.view_toggle_btn.isChecked()
-        self.table.setVisible(not is_tree)
-        self.tariff_tree.setVisible(is_tree)
-        if is_tree:
-            self.view_toggle_btn.setText("📋 Prikaži kao listu")
-            self._load_tariff_tree()
-        else:
-            self.view_toggle_btn.setText("🌳 Prikaži kao drvo")
+        table_parent = self.table.parent()
+        if table_parent and table_parent.layout():
+            layout = table_parent.layout()
+            for i in range(layout.count()):
+                item = layout.itemAt(i)
+                if item and item.widget():
+                    w = item.widget()
+                    if w == self.table or w == self.tariff_tree:
+                        layout.takeAt(i)
+                        break
+            if is_tree:
+                layout.insertWidget(i, self.tariff_tree, stretch=1)
+                self.view_toggle_btn.setText("📋 Prikaži kao listu")
+                self._load_tariff_tree()
+            else:
+                layout.insertWidget(i, self.table, stretch=1)
+                self.view_toggle_btn.setText("🌳 Prikaži kao drvo")
 
     def _load_tariff_tree(self):
         """Učitaj hijerarhijsko drvo carinskih tarifa."""
