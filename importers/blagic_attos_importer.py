@@ -75,6 +75,19 @@ def detect_blagic_attos_pdf(filepath: str) -> bool:
         return False
 
 
+def is_blagic_attos_packing_list(filepath: str) -> bool:
+    """Provjerava da li je PDF packing list umjesto fakture."""
+    try:
+        fname = Path(filepath).name.lower()
+        if "lista pakovanja" in fname:
+            return True
+        with pdfplumber.open(filepath) as pdf:
+            text = pdf.pages[0].extract_text() or ""
+            return "LISTA PAKOVANJA" in text.upper()
+    except Exception:
+        return False
+
+
 def find_matching_packing_list(invoice_pdf_path: str) -> Optional[str]:
     """
     Pronalazi listu pakovanja koja odgovara fakturi.
@@ -95,8 +108,11 @@ def find_matching_packing_list(invoice_pdf_path: str) -> Optional[str]:
         filename = invoice_path.name
 
         # Extract invoice number from filename
-        # Pattern: "Faktura 3940 Blagić.pdf" -> "3940"
-        match = re.search(r"Faktura\s+(\d+)", filename, re.IGNORECASE)
+        # Patterns:
+        # - "Faktura 3940 Blagić.pdf" → "3940"
+        # - "Lista pakovanja 722 - Blagić.pdf" → "722"
+        # - "Faktura 3940 - Blagić.pdf" → "3940"
+        match = re.search(r"(?:Faktura|Lista\s+pakovanja)\s+(\d+)", filename, re.IGNORECASE)
         if not match:
             logger.warning(f"Nije moguće izvući broj fakture iz imena: {filename}")
             return None
@@ -519,16 +535,40 @@ def combine_invoice_and_packing(
 def parse_blagic_attos_with_auto_combine(invoice_pdf_path: str) -> ImportResult:
     """
     Parse Blagic-Attos fakture sa automatskom kombinacijom liste pakovanja.
-
-    Args:
-        invoice_pdf_path: Putanja do PDF fakture
-
-    Returns:
-        ImportResult sa kompletnim podacima
     """
-    logger.info(f"Blagic-Attos parsing sa auto-kombinacijom započet: {invoice_pdf_path}")
+    logger.info(f"Blagic-Attos parsing sa auto-kombinacijom: {invoice_pdf_path}")
 
-    # Parse invoice
+    # Ako je ovo packing list, parsiraj kao packing list
+    if is_blagic_attos_packing_list(invoice_pdf_path):
+        logger.info(f"Detektovana LISTA PAKOVANJA — parsiram kao packing list")
+        packing_items = parse_blagic_attos_packing_list(invoice_pdf_path)
+        items = []
+        for p_item in packing_items:
+            item = InvoiceLine(
+                line_no=p_item["rb"],
+                naziv_robe=p_item["naziv"],
+                product_code="",
+                tarifni_broj="",
+                zemlja_porijekla=p_item.get("zemlja", ""),
+                kolicina=p_item["kolicina"],
+                cijena_jed=0.0,
+                iznos=0.0,
+                valuta="EUR",
+                bruto_kg=p_item.get("bruto_kg", 0.0),
+                neto_kg=p_item.get("neto_kg", 0.0),
+                jm=p_item.get("jm", ""),
+            )
+            items.append(item)
+        return ImportResult(
+            items=items,
+            bruto_kg=sum(i.bruto_kg for i in items),
+            neto_kg=sum(i.neto_kg for i in items),
+            invoice_name=Path(invoice_pdf_path).stem,
+            currency="EUR",
+            exporter=Party(name="ATTOS"),
+        )
+
+    # Normalan tok: parsiraj kao fakturu
     header, invoice_items = parse_blagic_attos_invoice(invoice_pdf_path)
 
     # Get origin statement flag from header
