@@ -93,45 +93,48 @@ def find_matching_packing_list(invoice_pdf_path: str) -> Optional[str]:
     Pronalazi listu pakovanja koja odgovara fakturi.
 
     Logic:
-    - Iz imena fakture "Faktura 3940 Blagić.pdf" izvlači broj "3940"
-    - Traži "Lista pakovanja 3940 Blagić.pdf" u istom folderu
+    - Iz imena fajla izvlači prvi broj (npr. "722" iz bilo kog formata)
+    - Traži drugi PDF u istom folderu sa istim brojem
+    - Preferira fajl koji je suprotnog tipa (ako je ulaz faktura → traži packing list i obrnuto)
 
     Args:
-        invoice_pdf_path: Putanja do fakture
+        invoice_pdf_path: Putanja do fajla
 
     Returns:
-        Putanja do liste pakovanja ili None ako nije pronađena
+        Putanja do match fajla ili None
     """
     try:
         invoice_path = Path(invoice_pdf_path)
         folder = invoice_path.parent
         filename = invoice_path.name
 
-        # Extract invoice number from filename
-        # Patterns:
-        # - "Faktura 3940 Blagić.pdf" → "3940"
-        # - "Lista pakovanja 722 - Blagić.pdf" → "722"
-        # - "Faktura 3940 - Blagić.pdf" → "3940"
-        match = re.search(r"(?:Faktura|Lista\s+pakovanja)\s+(\d+)", filename, re.IGNORECASE)
+        # Generički: izvuči PRVI broj iz imena fajla
+        match = re.search(r'(\d+)', filename)
         if not match:
-            logger.warning(f"Nije moguće izvući broj fakture iz imena: {filename}")
+            logger.warning(f"Nije moguće izvući broj iz imena: {filename}")
             return None
 
         invoice_number = match.group(1)
+        is_input_packing = is_blagic_attos_packing_list(invoice_pdf_path)
 
-        # Search for matching packing list
-        # Pattern: "Lista pakovanja 3940 Blagić.pdf"
-        packing_list_pattern = f"Lista pakovanja {invoice_number}*.pdf"
+        # Traži sve PDF-ove u folderu sa istim brojem
+        for file in folder.glob("*.pdf"):
+            if file == invoice_path:
+                continue
+            if invoice_number not in file.name:
+                continue
 
-        for file in folder.glob(packing_list_pattern):
-            logger.info(f"Pronađena lista pakovanja: {file.name}")
-            return str(file)
+            # Provjeri da li je suprotnog tipa
+            is_candidate_packing = is_blagic_attos_packing_list(str(file))
+            if is_input_packing != is_candidate_packing:
+                logger.info(f"Pronađen par: {file.name} ↔ {filename}")
+                return str(file)
 
-        logger.warning(f"Lista pakovanja nije pronađena za fakturu {invoice_number}")
+        logger.warning(f"Nije pronađen par za broj {invoice_number} u {folder}")
         return None
 
     except Exception as e:
-        logger.error(f"Greška tokom traženja liste pakovanja: {e}")
+        logger.error(f"Greška tokom traženja para: {e}")
         return None
 
 
