@@ -259,7 +259,7 @@ class AgentController:
             return
 
         # Mode 2 i 3: Uvezi u deklaraciju
-        self._uvezi_u_deklaraciju(all_lines, chat, total_bruto, total_neto, has_origin_statement)
+        self._uvezi_u_deklaraciju(all_lines, chat, total_bruto, total_neto, has_origin_statement, completed)
 
         # Mode 3: Puna automatizacija - XML template + export
         if self._current_mode == "Puna automatizacija":
@@ -591,7 +591,7 @@ class AgentController:
 
     def _uvezi_u_deklaraciju(self, invoice_lines: list, chat,
                               total_bruto: float = 0.0, total_neto: float = 0.0,
-                              has_origin_statement: bool = False):
+                              has_origin_statement: bool = False, completed: list = None):
         """
         Uvezi invoice_lines u draft i kreiraj naimenovanja.
 
