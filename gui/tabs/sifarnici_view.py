@@ -3166,26 +3166,48 @@ class SifarniciView(BaseTabView):
             return kod_str
 
     def _search_trgovacki_nazivi(self, query: str):
-        """Search trgovački nazivi in database using generic method"""
+        """Search carinske tarife — hijerarhijski za brojeve, tekst za opis"""
         try:
-            logger.info(f"Pretraga trgovačkih naziva sa query-jem: '{query}'")
+            logger.info(f"Pretraga carinskih tarifa sa query-jem: '{query}'")
 
-            # Use generic search with text-based actions (no widgets), no format function, and no actions column
-            self._search_generic(
-                query=query,
-                table_name="catalogs.zvanicna_tarifa",
-                columns=["tarifni_kod", "opis"],
-                search_columns=["tarifni_kod", "opis"],
-                order_by="tarifni_kod",
-                format_fn=lambda v: _TAIL_RATES_RE.sub('', str(v)).rstrip(' –-').strip() if v else v,
-                add_actions=False,
-            )
+            # Ako je query samo broj → hijerarhijski prikaz svih nivoa
+            is_code = bool(re.match(r'^\d+$', query.strip())) if query.strip() else False
 
-            logger.info(f"Uspešno prikazano rezultati za trgovačke nazive")
+            def _clean(v):
+                return _TAIL_RATES_RE.sub('', str(v)).rstrip(' –-').strip() if v else v
+
+            if is_code:
+                # Hijerarhijski: svi kodovi koji počinju sa brojem
+                prefix = query.strip()
+                results = self.db_manager.execute_query(
+                    f"SELECT tarifni_kod, opis FROM catalogs.zvanicna_tarifa "
+                    f"WHERE tarifni_kod LIKE '{prefix}%' "
+                    f"ORDER BY tarifni_kod",
+                    fetch_all=True,
+                ) or []
+
+                self.table.setRowCount(len(results))
+                for i, r in enumerate(results):
+                    kod = str(r['tarifni_kod'] or '')
+                    opis = _clean(r['opis'])
+                    self.table.setItem(i, 0, QTableWidgetItem(kod))
+                    self.table.setItem(i, 1, QTableWidgetItem(opis))
+                self.table.setColumnWidth(0, 150)
+            else:
+                # Tekstualna pretraga po opisu
+                self._search_generic(
+                    query=query,
+                    table_name="catalogs.zvanicna_tarifa",
+                    columns=["tarifni_kod", "opis"],
+                    search_columns=["tarifni_kod", "opis"],
+                    order_by="tarifni_kod",
+                    format_fn=_clean,
+                    add_actions=False,
+                )
         except Exception as e:
-            logger.error(f"Greška pri pretrazi trgovačkih naziva: {str(e)}")
+            logger.error(f"Greška pri pretrazi tarifa: {str(e)}")
             QMessageBox.critical(
-                self, "Greška", f"Greška pri pretrazi trgovačkih naziva:\n{str(e)}"
+                self, "Greška", f"Greška pri pretrazi tarifa:\n{str(e)}"
             )
 
     def _search_uvoznici(self, query: str):

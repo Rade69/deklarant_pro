@@ -1,9 +1,10 @@
 """
-LLMProvider - Apstrakcija nad LLM providerima (Groq + Gemini).
+LLMProvider — Apstrakcija nad LLM providerima (DeepSeek + Groq + Gemini).
 
 Redoslijed:
-  1. Groq (llama-3.3-70b-versatile) — primarni, streaming
-  2. Gemini (gemini-2.0-flash) — automatski fallback kad Groq vrati 429
+  1. DeepSeek (deepseek-chat) — primarni, streaming
+  2. Groq (llama-3.3-70b-versatile) — fallback kad DeepSeek vrati 429
+  3. Gemini (gemini-2.5-flash-lite) — zadnji fallback
 
 Upotreba:
     provider = LLMProvider()
@@ -49,7 +50,7 @@ def parse_llm_error(exc) -> str:
             )
         return f"⏳ AI limit dostignut. Pokušaj za: {wait_str}"
     if '401' in msg or 'invalid_api_key' in msg or 'API_KEY_INVALID' in msg:
-        return "🔑 Neispravan API ključ. Provjeri .env fajl (GROQ_API_KEY ili GEMINI_API_KEY)."
+        return "🔑 Neispravan API ključ. Provjeri .env (DEEPSEEK_API_KEY, GROQ_API_KEY ili GEMINI_API_KEY)."
     if 'timeout' in msg.lower() or 'connection' in msg.lower():
         return "🌐 Greška veze sa AI serverom. Provjeri internet i pokušaj ponovo."
     return f"⚠️ AI greška: {msg[:200]}"
@@ -64,14 +65,20 @@ class LLMProvider:
     jednostavnosti — response se šalje odjednom).
     """
 
+    DEEPSEEK_MODEL = "deepseek-chat"
+    DEEPSEEK_BASE_URL = "https://api.deepseek.com"
     GROQ_MODEL = "llama-3.3-70b-versatile"
-    GROQ_BATCH_MODEL = "llama-3.1-8b-instant"   # za batch zadatke (tarife)
-    GEMINI_MODEL = "gemini-2.5-flash-lite"       # besplatan tier, bez billing-a
+    GROQ_BATCH_MODEL = "llama-3.1-8b-instant"
+    GEMINI_MODEL = "gemini-2.5-flash-lite"
 
     def __init__(self):
         env = _load_env()
+        self.deepseek_key = env.get("DEEPSEEK_API_KEY") or os.getenv("DEEPSEEK_API_KEY") or ""
         self.groq_key = env.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY") or ""
         self.gemini_key = env.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY") or ""
+
+    def has_deepseek(self) -> bool:
+        return bool(self.deepseek_key)
 
     def has_groq(self) -> bool:
         return bool(self.groq_key)
@@ -81,30 +88,61 @@ class LLMProvider:
 
     def active_provider(self) -> str:
         """Koji provider je trenutno aktivan (primarni)."""
+        if self.has_deepseek():
+            return "deepseek"
         if self.has_groq():
             return "groq"
         if self.has_gemini():
             return "gemini"
         return "none"
 
-    # ── Streaming chat (za ChatWorker) ────────────────────────────────────────
+    # ── DeepSeek implementacija ─────────────────────────────────────────────
+
+    def _deepseek_stream(self, messages: list, max_tokens: int):
+        from openai import OpenAI
+        client = OpenAI(api_key=self.deepseek_key, base_url=self.DEEPSEEK_BASE_URL)
+        stream = client.chat.completions.create(
+            model=self.DEEPSEEK_MODEL,
+            messages=messages,
+            temperature=0.2,
+            max_tokens=max_tokens,
+            stream=True,
+        )
+        for chunk in stream:
+            delta = chunk.choices[0].delta.content or ""
+            if delta:
+                yield delta
+
+    def _deepseek_complete(self, messages: list, max_tokens: int) -> str:
+        from openai import OpenAI
+        client = OpenAI(api_key=self.deepseek_key, base_url=self.DEEPSEEK_BASE_URL)
+        resp = client.chat.completions.create(
+            model=self.DEEPSEEK_MODEL,
+            messages=messages,
+            temperature=0.1,
+            max_tokens=max_tokens,
+        )
+        return resp.choices[0].message.content or ""
+
+    # ── Streaming chat ────────────────────────────────────────────────
 
     def stream_chat(self, messages: list, max_tokens: int = 1500):
-        """
-        Generator koji yield-uje tokene jedan po jedan.
+        """Generator koji yield-uje tokene jedan po jedan. DeepSeek → Groq → Gemini."""
+        if self.has_deepseek():
+            try:
+                yield from self._deepseek_stream(messages, max_tokens)
+                return
+            except Exception as e:
+                if _is_rate_limit(e) and self.has_groq():
+                    print(f"[LLMProvider] DeepSeek 429 → prelazim na Groq")
+                    yield from self._groq_stream(messages, max_tokens)
+                    return
+                elif _is_rate_limit(e) and self.has_gemini():
+                    print(f"[LLMProvider] DeepSeek greška → prelazim na Gemini")
+                    yield from self._gemini_stream(messages, max_tokens)
+                    return
+                raise
 
-        Pokušava Groq; ako vrati 429 i Gemini je dostupan, prebacuje se.
-
-        Args:
-            messages: Lista {"role": ..., "content": ...}
-            max_tokens: Maksimalan broj tokena
-
-        Yields:
-            str tokeni
-
-        Raises:
-            RuntimeError: Ako ni jedan provider nije dostupan ili oba fail-aju
-        """
         if self.has_groq():
             try:
                 yield from self._groq_stream(messages, max_tokens)
@@ -120,20 +158,28 @@ class LLMProvider:
             yield from self._gemini_stream(messages, max_tokens)
             return
 
-        raise RuntimeError("Nema dostupnog AI providera. Dodaj GROQ_API_KEY ili GEMINI_API_KEY u .env.")
+        raise RuntimeError(
+            "Nema dostupnog AI providera. "
+            "Dodaj DEEPSEEK_API_KEY, GROQ_API_KEY ili GEMINI_API_KEY u .env."
+        )
 
     # ── Batch complete (za TariffLLMWorker) ───────────────────────────────────
 
     def complete(self, messages: list, max_tokens: int = 1200,
                  use_small_model: bool = True) -> str:
-        """
-        Jednokratni poziv bez streaminga.
+        """Jednokratni poziv bez streaminga. DeepSeek → Groq → Gemini."""
+        if self.has_deepseek():
+            try:
+                return self._deepseek_complete(messages, max_tokens)
+            except Exception as e:
+                if _is_rate_limit(e) and self.has_groq():
+                    print(f"[LLMProvider] DeepSeek 429 → prelazim na Groq (batch)")
+                    return self._groq_complete(messages, max_tokens, use_small_model)
+                elif _is_rate_limit(e) and self.has_gemini():
+                    print(f"[LLMProvider] DeepSeek greška → prelazim na Gemini (batch)")
+                    return self._gemini_complete(messages, max_tokens)
+                raise
 
-        Pokušava Groq (mali model); fallback na Gemini.
-
-        Returns:
-            Kompletan odgovor kao string
-        """
         if self.has_groq():
             try:
                 return self._groq_complete(messages, max_tokens, use_small_model)
@@ -146,7 +192,10 @@ class LLMProvider:
         if self.has_gemini():
             return self._gemini_complete(messages, max_tokens)
 
-        raise RuntimeError("Nema dostupnog AI providera.")
+        raise RuntimeError(
+            "Nema dostupnog AI providera. "
+            "Dodaj DEEPSEEK_API_KEY, GROQ_API_KEY ili GEMINI_API_KEY u .env."
+        )
 
     # ── Groq implementacija ───────────────────────────────────────────────────
 

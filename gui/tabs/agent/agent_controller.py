@@ -28,10 +28,23 @@ class AgentController:
         self._current_mode = "Analiza"
         self._pending_action = None  # PendingAction koji čeka potvrdu
 
+        # ── Workflow / Session / Budget ──
+        from .workflow_state import WorkflowStateManager, WorkflowState
+        from .session_manager import AgentSessionManager
+        from .token_budget import TokenBudgetTracker
+
+        self.workflow = WorkflowStateManager()
+        self.workflow.on_state_changed = self._on_workflow_state_changed
+        self.session = AgentSessionManager()
+        self.budget = TokenBudgetTracker()
+
         # ── Service layer ──
         self._init_services()
 
         self._connect_signals()
+
+        # ── Crash recovery — provjeri prekinutu sesiju ──
+        self._try_restore_session()
 
     def _init_services(self):
         """Inicijalizuj service sloj sa callback-ovima."""
@@ -87,6 +100,54 @@ class AgentController:
         chat.message_sent.connect(self._on_chat_message)
         header.status_changed.connect(self._on_status_changed)
 
+    # ─────────────────────────────────────────────────────────────────────────
+    # WORKFLOW / SESSION / BUDGET — callback-ovi i helpers
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def _on_workflow_state_changed(self, state):
+        """Prikaži novu fazu u Aktivnosti tabu i snimi sesiju."""
+        self.view.get_chat_panel().add_activity(f"🔄 Faza: {self.workflow.label}")
+        self._save_session()
+
+    def _save_session(self):
+        """Snimi trenutno stanje sesije u SQLite."""
+        try:
+            doc = self.view.get_document_panel()
+            files = [f.filepath for f in doc.get_files()]
+        except Exception:
+            files = []
+        self.session.save(
+            workflow_state_value=self.workflow.state.value,
+            selected_mode=self._current_mode,
+            uploaded_files=files,
+            token_input=self.budget.input_tokens,
+            token_output=self.budget.output_tokens,
+        )
+
+    def _try_restore_session(self):
+        """Crash recovery — upozori korisnika ako je prethodna sesija prekinuta."""
+        try:
+            last = self.session.load_latest_interrupted()
+            if not last:
+                return
+            chat = self.view.get_chat_panel()
+            state = last.get('workflow_state', 'nepoznato')
+            total_tok = last.get('token_input', 0) + last.get('token_output', 0)
+            files = last.get('uploaded_files', [])
+            file_names = ', '.join(Path(f).name for f in files[:3]) if files else '—'
+            chat.add_activity(
+                f"⚠️ Prethodna sesija prekinuta u fazi: <b>{state}</b><br>"
+                f"   Fajlovi: {file_names}<br>"
+                f"   Tokeni: ~{total_tok:,}"
+            )
+            # Nastavi budget iz prethodne sesije
+            self.budget.add(
+                input_tokens=last.get('token_input', 0),
+                output_tokens=last.get('token_output', 0),
+            )
+        except Exception:
+            pass  # recovery nikad ne smije srušiti pokretanje
+
     def _on_mode_changed(self, mode: str):
         """Handle promjenu pipeline moda."""
         self._current_mode = mode
@@ -94,10 +155,12 @@ class AgentController:
 
     def _on_files_added(self, filepaths: list):
         """Handle dodavanje novih fajlova u listu."""
+        from .workflow_state import WorkflowState
         chat = self.view.get_chat_panel()
         chat.add_activity(f"✅ Dodato {len(filepaths)} fajlova")
         doc = self.view.get_document_panel()
         self.view.get_header().update_sesija(len(doc.get_files()))
+        self.workflow.transition(WorkflowState.DOCUMENT_UPLOADED)
 
     def _on_analyze_requested(self):
         """Pokreni pipeline prema trenutno odabranom modu."""
@@ -128,6 +191,10 @@ class AgentController:
         )
         chat.add_activity(f"\n{'='*60}")
         chat.add_activity(f"🚀 [{mode}] Počelo procesiranje {len(files)} fajlova")
+
+        # Ažuriraj workflow stanje
+        from .workflow_state import WorkflowState
+        self.workflow.transition(WorkflowState.ANALYZING)
 
         # Kreiraj i pokreni background worker
         self._worker = ProcessingWorker(files)
@@ -329,6 +396,8 @@ class AgentController:
             f"  • Pregledaj tablicu i ručno dopuni<br>"
             f"  • Kad si spreman, reci <i>'kreiraj naimenovanja'</i>"
         )
+        from .workflow_state import WorkflowState
+        self.workflow.transition(WorkflowState.COMPLETED)
 
     def _get_preference_by_country(self, country_code: str) -> str:
         """Vrati šifru povlastice na osnovu koda zemlje porijekla."""
@@ -1043,9 +1112,12 @@ class AgentController:
 
     def _on_error(self, filepath: str, message: str):
         """Handle greška pri procesiranju fajla."""
+        from .workflow_state import WorkflowState
         chat = self.view.get_chat_panel()
         filename = Path(filepath).name
         chat.add_activity(f"❌ Greška [{filename}]: {message}")
+        self.workflow.transition(WorkflowState.FAILED)
+        self._save_session()
 
     def _on_clear_requested(self):
         """Očisti listu fajlova i otkaži worker ako radi."""
@@ -1053,6 +1125,8 @@ class AgentController:
             self._worker.cancel()
         self.view.get_chat_panel().add_activity("🗑️ Lista fajlova očišćena")
         self.view.get_header().update_sesija(0)
+        self.workflow.reset()
+        self.budget.reset()
 
     def _on_file_selected(self, file_item):
         """Handle klik na fajl u tabeli."""
@@ -1284,6 +1358,17 @@ class AgentController:
             self._predlozi_spajanje_naimenovanja()
             return
 
+        # --- TOKEN BUDGET provjera ---
+        budget_status, budget_msg = self.budget.check()
+        if budget_status == 'stop':
+            chat.add_agent_message(budget_msg)
+            return
+        if budget_status == 'warn':
+            chat.add_activity(budget_msg)
+
+        # Procijeni input tokene iz poruke
+        self.budget.estimate_input(message)
+
         # --- STANDARDNI LLM odgovor ---
         chat.add_activity(f"💬 Šaljem upit AI-u...")
         chat.show_typing_indicator()
@@ -1300,6 +1385,13 @@ class AgentController:
         worker.stream_started.connect(chat.start_streaming)
         worker.token_received.connect(chat.append_stream_token)
         worker.response_ready.connect(lambda _: chat.finalize_streaming())
+        # Procijeni output tokene i snimi sesiju
+        worker.response_ready.connect(
+            lambda text: (
+                self.budget.estimate_output(text),
+                self._check_budget_after_response(),
+            )
+        )
         # Na grešku: ukloni indikator i prikaži poruku
         worker.error_occurred.connect(lambda _: chat.hide_typing_indicator())
         worker.error_occurred.connect(
@@ -1317,6 +1409,19 @@ class AgentController:
     def _on_status_changed(self, status: str):
         """Handle promjenu statusa iz header-a."""
         self.view.get_chat_panel().add_activity(f"ℹ️ Status: {status}")
+
+    def _check_budget_after_response(self):
+        """Provjeri budget nakon LLM odgovora i snimi sesiju."""
+        status, msg = self.budget.check()
+        if msg:
+            self.view.get_chat_panel().add_activity(msg)
+        # Prikaži budget u aktivnostima svakih ~10k tokena
+        total = self.budget.total
+        if total > 0 and total % 10_000 < 500:
+            self.view.get_chat_panel().add_activity(
+                f"📊 Token budget: {self.budget.summary()}"
+            )
+        self._save_session()
 
     # ─────────────────────────────────────────────────────────────────────────
     # AGENT AKCIJE — prijedlog + potvrda + izvršavanje
@@ -1459,171 +1564,6 @@ class AgentController:
         'notes':              ('notes',              'naim'),
     }
 
-    def _parse_upis_u_kolonu(self, message: str, brisanje: bool = False):
-        """
-        Pokušava parsirati poruku u (atribut, vrijednost, tab).
-
-        Podržani formati:
-        - "upiši EUP u kolonu povlastica"
-        - "upiši EUP u rubriku povlastica naim"
-        - "postavi povlasticu na EUP"
-        - "upiši 4000 u proceduru u naim"
-        - "obriši kolonu povlastica u naim"
-
-        Returns: (atribut, vrijednost, tab) ili None
-        """
-        import re as _re
-        msg_lower = message.lower().strip()
-
-        # Detektuj eksplicitni tab hint
-        tab_hint = None
-        if any(k in msg_lower for k in ['naim', 'naimenovanj', 'rubrik']):
-            tab_hint = 'naim'
-        elif any(k in msg_lower for k in ['faktur', 'invoice']):
-            tab_hint = 'faktura'
-
-        if brisanje:
-            # Format brisanje: "obriši kolonu KOLONA [u naim]"
-            m = _re.search(r'(?:izbri|obri|ukloni|ocisti|prazni|brisi)[a-zšđčćž]*\s+(?:kolonu?|polje|rubrik[ua]?)?\s*(.+)',
-                           msg_lower)
-            if m:
-                kolona_raw = m.group(1).strip().rstrip('.')
-                # Ukloni tab hint iz kolona_raw
-                for hint in ['u naim', 'u faktur', 'naim', 'faktur']:
-                    kolona_raw = kolona_raw.replace(hint, '').strip()
-                atribut, tab = self._resolve_kolona(kolona_raw, tab_hint)
-                if atribut:
-                    return atribut, '', tab
-            return None
-
-        def _strip_tab_hints(s):
-            for hint in [' u naim', ' u faktur', ' naim', ' faktur']:
-                s = s.replace(hint, '')
-            return s.strip().rstrip('.')
-
-        # Format 1: "upiši/unesi/stavi VRIJEDNOST u [kolonu/polje/rubriku] KOLONA"
-        # Vrijednost može biti višeznačna (npr. "PE1 000123/2025") — hvata sve do " u "
-        m = _re.search(
-            r'(?:upi[sš][a-zšđčćž]*|unesi[a-z]*|stavi[a-z]*|set)\s+(.+?)\s+u\s+(?:kolonu?|polje|rubriku?)?\s*(.+)',
-            msg_lower
-        )
-        if m:
-            vrijednost = m.group(1).strip().upper()
-            kolona_raw = _strip_tab_hints(m.group(2))
-            atribut, tab = self._resolve_kolona(kolona_raw, tab_hint)
-            if atribut:
-                return atribut, vrijednost, tab
-
-        # Format 2: "postavi KOLONA na VRIJEDNOST"
-        m = _re.search(r'postavi\s+(.+?)\s+na\s+(\S+)', msg_lower)
-        if m:
-            kolona_raw = _strip_tab_hints(m.group(1))
-            vrijednost = m.group(2).strip().upper()
-            # Ukloni padežne nastavke sa kraja kolone: povlasticu→povlastica, proceduru→procedura
-            kolona_raw = _re.sub(r'[uaie]$', 'a', kolona_raw)
-            atribut, tab = self._resolve_kolona(kolona_raw, tab_hint)
-            if atribut:
-                return atribut, vrijednost, tab
-
-        # Format 3: "VRIJEDNOST u kolonu/rubriku KOLONA"
-        m = _re.search(r'(\S+)\s+u\s+(?:kolonu?|polje|rubriku?)\s+(.+)', msg_lower)
-        if m:
-            vrijednost = m.group(1).strip().upper()
-            kolona_raw = _strip_tab_hints(m.group(2))
-            atribut, tab = self._resolve_kolona(kolona_raw, tab_hint)
-            if atribut:
-                return atribut, vrijednost, tab
-
-        return None
-
-    def _resolve_kolona(self, kolona_raw: str, tab_hint=None):
-        """Pretvori slobodan naziv kolone u (atribut, tab)."""
-        k = kolona_raw.lower().strip()
-        # Direktni match
-        if k in self._KOLONA_MAP:
-            atrib, tab = self._KOLONA_MAP[k]
-            return atrib, tab_hint or tab
-        # Parcijalni match
-        for kw, (atrib, tab) in self._KOLONA_MAP.items():
-            if kw in k or k in kw:
-                return atrib, tab_hint or tab
-        return '', tab_hint or 'faktura'
-
-    def _upisi_u_kolonu(self, atribut: str, vrijednost: str, tab: str = 'faktura'):
-        """Upiši vrijednost u zadani atribut svih stavki u odgovarajućem tabu."""
-        from PySide6.QtWidgets import QApplication
-
-        chat = self.view.get_chat_panel()
-
-        naziv_kolone = {
-            # Faktura
-            'tarifni_broj': 'Tarifni broj', 'zemlja_porijekla': 'Zemlja porijekla',
-            'povlastica': 'Povlastica', 'eur1_number': 'EUR.1', 'valuta': 'Valuta',
-            'naziv_robe': 'Naziv robe', 'kolicina': 'Količina', 'jm': 'JM',
-            # Naim
-            'tariff_code': 'Tarifni broj', 'origin_country_code': 'Zemlja porijekla',
-            'preference_code': 'Povlastica', 'procedure_code': 'Rub.37 Procedura',
-            'procedure_prev_code': 'Prethodni postupak', 'currency': 'Valuta',
-            'package_code': 'Pakovanje (kod)', 'package_marks': 'Oznake i broj',
-            'package_qty': 'Broj paketa', 'goods_description': 'Opis robe',
-            'goods_trade_name': 'Trgovački naziv',
-            'previous_document': 'Rub.40', 'previous_document2': 'Rub.40.2',
-            'previous_document3': 'Rub.40.3',
-            'attached_document1': 'Rub.44.1', 'attached_document2': 'Rub.44.2',
-            'attached_document3': 'Rub.44.3', 'attached_document4': 'Rub.44.4',
-            'attached_document5': 'Rub.44.5',
-            'statistical_value': 'Statistička vrijednost (Rub.46)',
-            'item_value': 'Vrijednost (Rub.42)', 'notes': 'Napomena',
-        }.get(atribut, atribut)
-
-        from typing import Any
-        # Konvertuj vrijednost u odgovarajući tip (float polja)
-        _float_attrs = {
-            'kolicina', 'bruto_kg', 'neto_kg', 'iznos',
-            'gross_mass_kg', 'net_mass_kg', 'item_value', 'statistical_value',
-            'package_qty', 'supplementary_unit_qty',
-        }
-        typed_value: Any = vrijednost
-        if atribut in _float_attrs:
-            try:
-                typed_value = float(vrijednost.replace(',', '.')) if vrijednost else 0.0
-            except (ValueError, AttributeError):
-                chat.add_agent_message(f"⚠️ '{vrijednost}' nije broj. Upotrijebite numeričku vrijednost.")
-                return
-
-        if tab == 'faktura':
-            if not self.draft or not self.draft.invoice_lines:
-                chat.add_agent_message("⚠️ Nema učitanih stavki u Faktura tabu.")
-                return
-            upisano = sum(
-                1 for line in self.draft.invoice_lines
-                if hasattr(line, atribut) and not setattr(line, atribut, typed_value)
-            )
-            faktura_widget = self.faktura_tab
-            if hasattr(self.faktura_tab, 'view'):
-                faktura_widget = self.faktura_tab.view
-            if faktura_widget and hasattr(faktura_widget, '_load_data_from_draft'):
-                QApplication.processEvents()
-                faktura_widget._load_data_from_draft()
-        else:  # naim
-            if not self.draft or not self.draft.items:
-                chat.add_agent_message("⚠️ Nema kreiranih naimenovanja.")
-                return
-            upisano = sum(
-                1 for item in self.draft.items
-                if hasattr(item, atribut) and not setattr(item, atribut, typed_value)
-            )
-            if self.naimenovanje_tab and hasattr(self.naimenovanje_tab, 'reload_data'):
-                QApplication.processEvents()
-                self.naimenovanje_tab.reload_data()
-
-        tab_naziv = "Faktura" if tab == 'faktura' else "Naimenovanja"
-        akcija = "Obrisano iz" if vrijednost == '' else f"Upisano <b>{vrijednost}</b> u"
-        chat.add_agent_message(
-            f"✅ {akcija} kolone <b>{naziv_kolone}</b> ({tab_naziv} tab) "
-            f"— {upisano} stavki."
-        )
-
     def _provjeri_tarifni_za_naziv(self, naziv_robe: str):
         """Provjeri tarifni za naziv — koristi TariffIntentService."""
         self.tariff_svc.check_tariff_for_name(naziv_robe)
@@ -1640,115 +1580,6 @@ class AgentController:
     def _upisi_u_kolonu(self, atribut: str, vrijednost: str, tab: str = 'faktura'):
         """Upiši vrijednost u kolonu — koristi NaimenovanjaIntentService."""
         self.naim_intent_svc.execute(atribut, vrijednost, tab)
-
-    # ─────────────────────────────────────────────────────────────
-    # PRETRAGA CARINSKE TARIFE
-    # ─────────────────────────────────────────────────────────────
-
-    def _pretrazi_tarifu(self, upit: str):
-
-        class _TariffCheckWorker(QThread):
-            done = Signal(dict)
-            error = Signal(str)
-
-            def __init__(self, naziv):
-                super().__init__()
-                self._naziv = naziv
-
-            def run(self):
-                try:
-                    agent = HybridTariffAgent()
-                    result = agent.decide_tariff(self._naziv)
-                    self.done.emit(result)
-                except Exception as e:
-                    self.error.emit(str(e))
-
-        worker = _TariffCheckWorker(naziv_robe)
-
-        def _on_done(result):
-            chat.hide_typing_indicator()
-            confidence = result.get('confidence', 0)
-            tarifni = result.get('tarifni_broj', 'N/A')
-            metoda = result.get('method', 'N/A')
-            needs_review = result.get('needs_review', False)
-            explanation = result.get('explanation', '')
-            candidates = result.get('candidates', [])
-
-            if confidence >= 0.85:
-                conf_ikona = "✅"
-                conf_status = "visok — auto-prihvati"
-            elif confidence >= 0.60:
-                conf_ikona = "⚠️"
-                conf_status = "srednji — pregledaj"
-            else:
-                conf_ikona = "❌"
-                conf_status = "nizak — obavezno pregledaj"
-
-            lines = [
-                f"<b>📌 Tarifni broj:</b> <code>{tarifni}</code>",
-                f"<b>📊 Confidence:</b> {conf_ikona} {confidence:.0%} ({conf_status})",
-                f"<b>🔧 Metoda:</b> {metoda}",
-                f"<b>⚠️ Review:</b> {'DA' if needs_review else 'NE'}",
-            ]
-            if explanation:
-                lines.append(f"<br><b>📝 Objašnjenje:</b><br>{explanation[:300]}")
-            if candidates:
-                alts = []
-                for c in candidates[:3]:
-                    alts.append(
-                        f"• {c.get('tarifni_broj','?')} "
-                        f"({c.get('confidence',0):.0%}) — "
-                        f"{c.get('naziv_robe','')[:40]}"
-                    )
-                lines.append("<br><b>📋 Alternative:</b><br>" + "<br>".join(alts))
-
-            chat.add_agent_message("<br>".join(lines))
-            chat.add_activity(f"✅ Tarifni za '{naziv_robe}': {tarifni} ({confidence:.0%})")
-            if not hasattr(self, '_tariff_check_workers'):
-                self._tariff_check_workers = []
-            if worker in self._tariff_check_workers:
-                self._tariff_check_workers.remove(worker)
-
-        def _on_error(err):
-            chat.hide_typing_indicator()
-            chat.add_agent_message(f"❌ Greška pri provjeri tarifnog: {err}")
-
-        worker.done.connect(_on_done)
-        worker.error.connect(_on_error)
-        worker.finished.connect(worker.deleteLater)
-
-        if not hasattr(self, '_tariff_check_workers'):
-            self._tariff_check_workers = []
-        self._tariff_check_workers.append(worker)
-        worker.start()
-
-    def _obrisi_tarifne_brojeve(self):
-        """Obriši sve tarifne brojeve iz draft.invoice_lines i osvježi Faktura tab."""
-        from PySide6.QtWidgets import QApplication
-
-        chat = self.view.get_chat_panel()
-
-        if not self.draft or not self.draft.invoice_lines:
-            chat.add_agent_message("⚠️ Nema učitanih stavki.")
-            return
-
-        obrisano = 0
-        for line in self.draft.invoice_lines:
-            if getattr(line, 'tarifni_broj', None):
-                line.tarifni_broj = ''
-                obrisano += 1
-
-        # Osvježi Faktura tab
-        faktura_widget = self.faktura_tab
-        if hasattr(self.faktura_tab, 'view'):
-            faktura_widget = self.faktura_tab.view
-        if faktura_widget and hasattr(faktura_widget, '_load_data_from_draft'):
-            QApplication.processEvents()
-            faktura_widget._load_data_from_draft()
-
-        chat.add_agent_message(
-            f"✅ Obrisano <b>{obrisano}</b> tarifnih brojeva iz Faktura taba."
-        )
 
     def _izvrsi_spajanje_naimenovanja(self, proposals, chat):
         """Spoji naimenovanja u draftu i osvježi Naimenovanja tab."""
