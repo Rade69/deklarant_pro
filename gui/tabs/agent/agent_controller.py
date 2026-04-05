@@ -741,44 +741,77 @@ class AgentController:
                 print(traceback.format_exc())
                 chat.add_activity(f"⚠️ Greška pri izračunu masa: {e}")
 
-        # 5. ⭐ EUR1 DIALOG — mora biti PRIJE kreiranja naimenovanja!
-        # Naimenovanja se kreiraju iz invoice_lines, pa eur1_number mora biti postavljen
-        # na stavkama PRIJE create_smart_group().
-        eur1_primijenjen = False
-        eur1_pending_lines = [
-            line for line in self.draft.invoice_lines
-            if getattr(line, 'povlastica', None)
-            and not getattr(line, 'has_origin_statement', False)
-            and not getattr(line, 'eur1_number', None)
-        ]
+        # 5. ⭐ EUR.1 / PE2 DIALOG — identično kao ručni uvoz!
+        # Ako PDF IMA izjavu → PE2 dialog (auto-popunjen broj fakture, korisnik potvrđuje)
+        # Ako PDF NEMA izjavu → EUR.1 dialog (korisnik unosi EUR.1 broj i potvrđuje)
+        
+        # Nađi broj fakture iz importovanog fajla
+        invoice_number = ""
+        completed_files = [f for f in completed if f.status == 'Completed']
+        if completed_files:
+            first_file = completed_files[0]
+            invoice_number = first_file.invoice_number or Path(first_file.filepath).stem or ""
 
-        if eur1_pending_lines:
-            chat.add_activity(
-                f"📋 {len(eur1_pending_lines)} stavki treba EUR.1 broj — otvaram dijalog..."
-            )
+        if has_origin_statement:
+            # ✅ Faktura IMA izjavu → PE2 dialog (auto-popunjen broj fakture)
+            chat.add_activity(f"📄 Faktura ima izjavu o poreklu — otvaram PE2 dijalog...")
             try:
-                from gui.dialogs.eur1_quick_dialog import Eur1QuickDialog
-                dialog = Eur1QuickDialog(self.draft.invoice_lines, self.view)
+                from gui.dialogs.pe2_quick_dialog import PE2QuickDialog
+                dialog = PE2QuickDialog(self.draft.invoice_lines, self.view, invoice_number=invoice_number)
                 result_dlg = dialog.exec()
 
                 if result_dlg == 1:
-                    eur1_data = dialog.get_data()
-                    if eur1_data:
-                        updated_count = Eur1QuickDialog.apply_eur1_data(
-                            self.draft.invoice_lines, eur1_data
+                    pe2_data = dialog.get_data()
+                    if pe2_data:
+                        updated_count = PE2QuickDialog.apply_pe2_data(
+                            self.draft.invoice_lines, pe2_data
                         )
-                        chat.add_activity(f"✅ EUR.1 primijenjen na {updated_count} stavki")
-                        eur1_primijenjen = True
-                        # Refresh faktura tabele da se vide EUR1 brojevi
+                        chat.add_activity(f"✅ PE2 primijenjen na {updated_count} stavki")
+                        # Refresh faktura tabele
                         faktura_widget = self.faktura_tab
                         if hasattr(self.faktura_tab, 'view'):
                             faktura_widget = self.faktura_tab.view
                         if hasattr(faktura_widget, '_load_data_from_draft'):
                             faktura_widget._load_data_from_draft()
                 else:
-                    chat.add_activity("ℹ️ EUR.1 dialog preskočen — unesi broj ručno u Faktura tabu")
+                    chat.add_activity("ℹ️ PE2 dijalog preskočen — uredi ručno u Faktura tabu")
             except Exception as e:
-                chat.add_activity(f"⚠️ EUR.1 dialog greška: {e}")
+                chat.add_activity(f"⚠️ PE2 dijalog greška: {e}")
+        else:
+            # ❌ Faktura NEMA izjavu → EUR.1 dialog (korisnik unosi EUR.1 broj)
+            eur1_pending_lines = [
+                line for line in self.draft.invoice_lines
+                if getattr(line, 'povlastica', None)
+                and not getattr(line, 'has_origin_statement', False)
+                and not getattr(line, 'eur1_number', None)
+            ]
+
+            if eur1_pending_lines:
+                chat.add_activity(
+                    f"📋 {len(eur1_pending_lines)} stavki treba EUR.1 broj — otvaram dijalog..."
+                )
+                try:
+                    from gui.dialogs.eur1_quick_dialog import Eur1QuickDialog
+                    dialog = Eur1QuickDialog(self.draft.invoice_lines, self.view, invoice_number=invoice_number)
+                    result_dlg = dialog.exec()
+
+                    if result_dlg == 1:
+                        eur1_data = dialog.get_data()
+                        if eur1_data:
+                            updated_count = Eur1QuickDialog.apply_eur1_data(
+                                self.draft.invoice_lines, eur1_data
+                            )
+                            chat.add_activity(f"✅ EUR.1 primijenjen na {updated_count} stavki")
+                            # Refresh faktura tabele
+                            faktura_widget = self.faktura_tab
+                            if hasattr(self.faktura_tab, 'view'):
+                                faktura_widget = self.faktura_tab.view
+                            if hasattr(faktura_widget, '_load_data_from_draft'):
+                                faktura_widget._load_data_from_draft()
+                    else:
+                        chat.add_activity("ℹ️ EUR.1 dijalog preskočen — unesi broj ručno u Faktura tabu")
+                except Exception as e:
+                    chat.add_activity(f"⚠️ EUR.1 dijalog greška: {e}")
 
         # 6. Kreiraj naimenovanja (NAKON EUR1 — da budu uključeni u Rub.44.4)
         try:

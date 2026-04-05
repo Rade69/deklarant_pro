@@ -34,10 +34,12 @@ class Eur1QuickDialog(QDialog):
     - Validacija: povlastica zahteva EUR.1 ili izjavu
     """
     
-    def __init__(self, invoice_lines: List[InvoiceLine], parent=None):
+    def __init__(self, invoice_lines: List[InvoiceLine], parent=None, invoice_number: str = ""):
         super().__init__(parent)
         self.invoice_lines = invoice_lines
+        self.invoice_number = invoice_number
         self.country_inputs = {}
+        self._prefill_invoice_number = invoice_number
         self.setup_ui()
         
     def setup_ui(self):
@@ -57,7 +59,40 @@ class Eur1QuickDialog(QDialog):
         subheader = QLabel("Unesi EUR.1 broj za svaku zemlju koja ima obrazac.\nSve stavke iste zemlje idu pod isti EUR.1.")
         subheader.setStyleSheet("color: #666; padding: 5px;")
         layout.addWidget(subheader)
-        
+
+        # BROJ FAKTURE / IZJAVE
+        global_group = QFrame()
+        global_group.setStyleSheet("""
+            QFrame {
+                background: #e7f3ff;
+                border: 1px solid #b8daff;
+                border-radius: 5px;
+                padding: 10px;
+            }
+        """)
+        global_layout = QHBoxLayout(global_group)
+
+        global_label = QLabel("📄 Broj fakture:")
+        global_label.setStyleSheet("font-weight: bold;")
+        global_layout.addWidget(global_label)
+
+        self.global_invoice_number = QLineEdit()
+        self.global_invoice_number.setPlaceholderText("npr. 3940/2025")
+        self.global_invoice_number.setMaximumWidth(200)
+        global_layout.addWidget(self.global_invoice_number)
+
+        # Prefill ako je broj fakture pročitan iz PDF-a
+        if self._prefill_invoice_number:
+            self.global_invoice_number.blockSignals(True)
+            self.global_invoice_number.setText(self._prefill_invoice_number)
+            self.global_invoice_number.blockSignals(False)
+            auto_label = QLabel("✅ automatski pročitan")
+            auto_label.setStyleSheet("color: #28a745; font-size: 11px; font-style: italic;")
+            global_layout.addWidget(auto_label)
+
+        global_layout.addStretch()
+        layout.addWidget(global_group)
+
         # SCROLL AREA - Zemlje
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -270,11 +305,12 @@ class Eur1QuickDialog(QDialog):
     def get_data(self) -> Dict[str, Dict]:
         """
         Vrati podatke za sve označene zemlje.
-        
+
         Returns:
             {
                 'RS': {
                     'eur1_number': '000456/2025',
+                    'invoice_number': '3940/2025',  # Broj fakture
                     'preference': 'CEFTAP',
                     'items': [list of all RS items],
                 },
@@ -282,29 +318,31 @@ class Eur1QuickDialog(QDialog):
             }
         """
         result = {}
-        
+        invoice_number = self.global_invoice_number.text().strip()
+
         for country, data in self.country_inputs.items():
             if data['checkbox'].isChecked():
                 eur1_number = data['eur1_number'].text().strip()
-                
+
                 if eur1_number:  # Samo ako je unesen broj
                     result[country] = {
                         'eur1_number': eur1_number,
+                        'invoice_number': invoice_number,
                         'preference': data['preference'],
                         'items': data['items'],  # SVE stavke ove zemlje
                     }
-        
+
         return result
     
     @staticmethod
     def apply_eur1_data(invoice_lines: List[InvoiceLine], eur1_data: Dict[str, Dict]) -> int:
         """
         Primeni EUR.1 podatke na stavke.
-        
+
         PRAVILO: Kad se unese EUR.1 broj → automatski se postavlja:
         - Rub.36 (povlastica): EUP/CEFTAP/TRP (na osnovu zemlje)
         - Rub.44 (dokument): PE1 {EUR.1_broj}
-        
+
         Args:
             invoice_lines: Lista svih stavki
             eur1_data: Podaci iz dialoga
@@ -315,10 +353,15 @@ class Eur1QuickDialog(QDialog):
         updated_count = 0
 
         for country, data in eur1_data.items():
+            invoice_number = data.get('invoice_number', '')
             for item in data['items']:
                 item.eur1_number = data['eur1_number']
                 item.povlastica = data['preference']  # EUP/CEFTAP/TRP (na osnovu zemlje)
                 item.has_origin_statement = False  # Nema izjavu, ima EUR.1
+                if invoice_number:
+                    # Sačuvaj broj fakture za referencu
+                    if hasattr(item, 'raw'):
+                        item.raw['invoice_number'] = invoice_number
                 updated_count += 1
 
         return updated_count
