@@ -28,7 +28,47 @@ class AgentController:
         self._current_mode = "Analiza"
         self._pending_action = None  # PendingAction koji čeka potvrdu
 
+        # ── Service layer ──
+        self._init_services()
+
         self._connect_signals()
+
+    def _init_services(self):
+        """Inicijalizuj service sloj sa callback-ovima."""
+        from services.agent.tariff_intent_service import TariffIntentService
+        from services.agent.merge_intent_service import MergeIntentService
+        from services.agent.naimenovanja_intent_service import NaimenovanjaIntentService
+
+        chat = self.view.get_chat_panel()
+        self.tariff_svc = TariffIntentService(self.draft)
+        self.tariff_svc._controller_ref = self
+        self.tariff_svc.on_activity = chat.add_activity
+        self.tariff_svc.on_agent_message = chat.add_agent_message
+        self.tariff_svc.on_set_pending = lambda a: setattr(self, '_pending_action', a)
+        self.tariff_svc.on_refresh_faktura = self._refresh_faktura_tab
+
+        self.merge_svc = MergeIntentService(self.draft)
+        self.merge_svc.on_activity = chat.add_activity
+        self.merge_svc.on_agent_message = chat.add_agent_message
+        self.merge_svc.on_set_pending = lambda a: setattr(self, '_pending_action', a)
+        self.merge_svc.on_refresh_naim = self._refresh_naimenovanja_tab
+        self.merge_svc.on_refresh_faktura = self._refresh_faktura_tab
+
+        self.naim_intent_svc = NaimenovanjaIntentService(self.draft)
+        self.naim_intent_svc.on_agent_message = chat.add_agent_message
+        self.naim_intent_svc.on_refresh_faktura = self._refresh_faktura_tab
+        self.naim_intent_svc.on_refresh_naim = self._refresh_naimenovanja_tab
+
+    def _refresh_faktura_tab(self):
+        """Osvježi Faktura tab tabelu."""
+        fw = self.faktura_tab.view if hasattr(self.faktura_tab, 'view') else self.faktura_tab
+        if fw and hasattr(fw, '_load_data_from_draft'):
+            fw._load_data_from_draft()
+
+    def _refresh_naimenovanja_tab(self):
+        """Osvježi Naimenovanja tab."""
+        if self.naimenovanje_tab:
+            getattr(self.naimenovanje_tab, 'reload_data', getattr(self.naimenovanje_tab, 'reload', lambda: None))()
 
     def _connect_signals(self):
         """Poveži view signale sa handler metodama."""
