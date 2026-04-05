@@ -201,70 +201,117 @@ class AgentController:
             return
 
         # ⭐ KLJUČNO: Prikupi samo stavke iz kombinovanih ILI samostalnih fajlova
-        # Kad je PDF+Excel par (sortirano: Excel PRVI, PDF DRUGI):
-        # - Excel (prvi): file_item.is_combined=False → PRESKOČI (sadržan u PDF-u)
-        # - PDF (drugi): file_item.is_combined=True  → UZMI (kombinovani rezultat)
-
-        all_lines = []
-        total_bruto = 0.0
-        total_neto = 0.0
         combined_files = []
         single_files = []
-
         for file_item in completed:
             if file_item.is_combined:
                 combined_files.append(file_item)
-                all_lines.extend(file_item.invoice_lines)
-                total_bruto += file_item.bruto_kg
-                total_neto += file_item.neto_kg
             else:
                 single_files.append(file_item)
 
-        # Standalone fajlovi koji NISU upareni sa kombinovanim → dodaj ih
-        if combined_files:
-            from services.import_service import _similar_invoice_number
-            for f in single_files:
-                # Preskači fajl ako mu je par već u combined_files (bez obzira na tip)
-                is_consumed = any(
-                    _similar_invoice_number(Path(f.filepath).stem, Path(c.filepath).stem)
-                    for c in combined_files
-                )
-                if not is_consumed:
-                    all_lines.extend(f.invoice_lines)
-                    total_bruto += f.bruto_kg
-                    total_neto += f.neto_kg
-        else:
-            # Nema kombinovanih - dodaj sve single fajlove (standalone import)
-            for f in single_files:
-                all_lines.extend(f.invoice_lines)
-                total_bruto += f.bruto_kg
-                total_neto += f.neto_kg
+        # ⭐ Obradi SVAKU fakturu ZASEBNO sa posebnim dijalogom
+        all_processed_lines = []
+        processed_total = 0
+        for file_item in completed:
+            if file_item.status != 'Completed' or not file_item.invoice_lines:
+                continue
 
-        # Agregatni has_origin_statement iz svih procesiranih fajlova
-        has_origin_statement = any(getattr(f, 'has_origin_statement', False) for f in completed)
+            lines = file_item.invoice_lines
+            invoice_name = file_item.invoice_number or Path(file_item.filepath).stem
+            has_os = file_item.has_origin_statement
+            bruto = file_item.bruto_kg
+            neto = file_item.neto_kg
 
-        print(f"[AgentController] Ukupno invoice_lines: {len(all_lines)}, draft: {self.draft is not None}")
-        print(f"[AgentController] Kombinovani: {len(combined_files)}, Samostalni: {len(single_files)}")
-        print(f"[AgentController] Ukupne težine: bruto={total_bruto:.3f}kg, neto={total_neto:.3f}kg")
-        print(f"[AgentController] has_origin_statement={has_origin_statement}")
-        chat.add_activity(f"📊 Ukupno stavki: {len(all_lines)}, mode: {self._current_mode}")
+            # Privremeno uvezi u draft za dijalog
+            self.draft.invoice_lines.clear()
+            self.draft.invoice_lines.extend(lines)
 
-        # Mode 1: Analiza - samo prikaži rezultate
-        if self._current_mode == "Analiza":
+            chat.add_activity(f"📥 [{invoice_name}] Uvoz {len(lines)} stavki...")
+            QApplication.processEvents()
+
+            # Refresh tabele
+            fw = self.faktura_tab.view if hasattr(self.faktura_tab, 'view') else self.faktura_tab
+            if fw and hasattr(fw, 'input_bruto') and hasattr(fw, 'input_neto'):
+                fw.input_bruto.setText(f"{bruto:,.3f}")
+                fw.input_neto.setText(f"{neto:,.3f}")
+                if hasattr(fw, '_load_data_from_draft'):
+                    fw._load_data_from_draft()
+                if hasattr(fw, 'input_bruto'):
+                    try:
+                        from services.faktura.mass_calculator import MassCalculator
+                        mass_calc = MassCalculator()
+                        b = float(fw.input_bruto.text().replace(",", "") or "0")
+                        n = float(fw.input_neto.text().replace(",", "") or "0")
+                        if b > 0 or n > 0:
+                            mass_calc.calculate_masses(self.draft.invoice_lines, b, n)
+                    except Exception:
+                        pass
+
+            # ⭐ PRIKAŽI REZIME FAKTURE
+            bez_tarife = sum(1 for l in lines if not l.tarifni_broj)
             chat.add_agent_message(
-                f"✅ <b>Analiza završena!</b><br>"
-                f"Pronađeno <b>{len(all_lines)}</b> stavki iz {len(completed)} fajlova.<br>"
-                f"Kliknite na fajl za pregled rezultata."
+                f"📄 <b>Faktura: {invoice_name}</b><br>"
+                f"Stavki: {len(lines)} | Bez tarifnog: {bez_tarife}<br>"
+                f"Bruto: {bruto:,.1f}kg | Neto: {neto:,.1f}kg"
             )
-            return
 
-        # Mode 2 i 3: Uvezi u deklaraciju
-        self._uvezi_u_deklaraciju(all_lines, chat, total_bruto, total_neto, has_origin_statement, completed)
+            # ⭐ DIJALOG ZA OVU FAKTURU
+            if has_os:
+                chat.add_activity(f"📄 [{invoice_name}] Ima izjavu — otvaram PE2 dijalog...")
+                try:
+                    from gui.dialogs.pe2_quick_dialog import PE2QuickDialog
+                    dialog = PE2QuickDialog(self.draft.invoice_lines, self.view, invoice_number=invoice_name)
+                    result_dlg = dialog.exec()
+                    if result_dlg == 1:
+                        pe2_data = dialog.get_data()
+                        if pe2_data:
+                            PE2QuickDialog.apply_pe2_data(self.draft.invoice_lines, pe2_data)
+                            chat.add_activity(f"✅ [{invoice_name}] PE2 primijenjen")
+                    else:
+                        chat.add_activity(f"ℹ️ [{invoice_name}] PE2 preskočen")
+                except Exception as e:
+                    chat.add_activity(f"⚠️ [{invoice_name}] PE2 greška: {e}")
+            else:
+                eur1_pending = [l for l in lines if getattr(l, 'povlastica', None)
+                                and not getattr(l, 'has_origin_statement', False)
+                                and not getattr(l, 'eur1_number', None)]
+                if eur1_pending:
+                    chat.add_activity(f"📋 [{invoice_name}] {len(eur1_pending)} stavki → EUR.1 dijalog...")
+                    try:
+                        from gui.dialogs.eur1_quick_dialog import Eur1QuickDialog
+                        dialog = Eur1QuickDialog(self.draft.invoice_lines, self.view, invoice_number=invoice_name)
+                        result_dlg = dialog.exec()
+                        if result_dlg == 1:
+                            eur1_data = dialog.get_data()
+                            if eur1_data:
+                                Eur1QuickDialog.apply_eur1_data(self.draft.invoice_lines, eur1_data)
+                                chat.add_activity(f"✅ [{invoice_name}] EUR.1 primijenjen")
+                        else:
+                            chat.add_activity(f"ℹ️ [{invoice_name}] EUR.1 preskočen")
+                    except Exception as e:
+                        chat.add_activity(f"⚠️ [{invoice_name}] EUR.1 greška: {e}")
 
-        # Mode 3: Puna automatizacija - XML template + export
-        if self._current_mode == "Puna automatizacija":
-            self._primjeni_xml_template(all_lines, chat)
-            self._izvezi_xml(chat)
+            # Sačuvaj procesirane linije (sa mogućim izmjenama iz dijaloga)
+            all_processed_lines.extend(self.draft.invoice_lines)
+            processed_total += len(lines)
+
+        # ⭐ SAČUVAJ SVE LINJE U DRAFT (posljednja faktura ostaje u draft-u)
+        self.draft.invoice_lines.clear()
+        self.draft.invoice_lines.extend(all_processed_lines)
+        if fw and hasattr(fw, '_load_data_from_draft'):
+            fw._load_data_from_draft()
+
+        # ⭐ KONAČNI REZIME SVIH FAKTURA
+        total_bez = sum(1 for l in self.draft.invoice_lines if not l.tarifni_broj)
+        chat.add_agent_message(
+            f"✅ <b>Sve fakture uvezene!</b><br>"
+            f"Ukupno stavki: <b>{processed_total}</b><br>"
+            f"Bez tarifnog: <b>{total_bez}</b><br><br>"
+            f"💡 <b>Šta dalje?</b><br>"
+            f"  • Reci <i>'popuni tarifne'</i> za prijedloge<br>"
+            f"  • Pregledaj tablicu i ručno dopuni<br>"
+            f"  • Kad si spreman, reci <i>'kreiraj naimenovanja'</i>"
+        )
 
     def _get_preference_by_country(self, country_code: str) -> str:
         """Vrati šifru povlastice na osnovu koda zemlje porijekla."""
