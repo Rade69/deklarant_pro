@@ -288,26 +288,19 @@ class TariffMappingService:
         self,
         product_code: str,
         naziv_robe: str,
-        min_similarity: float = 0.85,
+        min_similarity: float = 0.70,  # Sniženo sa 0.85 na 0.70
         zemlja_porijekla: str = ""
     ) -> Optional[TariffMapping]:
         """
         Pronađi mapping za proizvod.
 
         Matching prioritet:
-        1. Tačan match po product_code (sa prioritetom za istu zemlju)
-        2. Fuzzy match po nazivu (>min_similarity, sa prioritetom za istu zemlju)
+        1. Tačan match po product_code (similarity=1.0)
+        2. Fuzzy match po nazivu (min_similarity=0.70, vraća najbolji match)
 
-        Args:
-            product_code: Šifra proizvoda
-            naziv_robe: Naziv proizvoda
-            min_similarity: Minimalna sličnost za fuzzy match
-            zemlja_porijekla: Zemlja porijekla (za prioritizaciju matching-a)
-
-        Returns:
-            TariffMapping ili None ako nije pronađen
+        Vraća najbolji match ako je similarity >= min_similarity (0.70).
         """
-        logger.debug(f"🔍 find_mapping: product_code='{product_code}', naziv='{naziv_robe[:40] if naziv_robe else ''}', zemlja='{zemlja_porijekla}'")
+        logger.debug(f"🔍 find_mapping: product_code='{product_code}', naziv='{naziv_robe[:40] if naziv_robe else ''}', min_sim={min_similarity}")
 
         with get_db_connection() as conn:
             with conn.cursor() as cursor:

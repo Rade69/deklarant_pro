@@ -51,7 +51,7 @@ class AutoFillService:
 
     @staticmethod
     def fill_tariff_numbers(
-        items: List[InvoiceLine], min_similarity: float = 0.92
+        items: List[InvoiceLine], min_similarity: float = 0.70
     ) -> Dict[str, Any]:
         """
         Popuni tarifne brojeve iz baze znanja.
@@ -61,15 +61,7 @@ class AutoFillService:
             min_similarity: Minimalna sličnost za match (default 0.70)
 
         Returns:
-            Dict sa rezultatima:
-            {
-                "matched": int,
-                "unmatched": int,
-                "skipped": int,
-                "matched_details": List[tuple],
-                "unmatched_details": List[tuple],
-                "skipped_details": List[tuple]
-            }
+            Dict sa rezultatima
         """
         from services.tariff_mapping_service import TariffMappingService
         from services.country_origin_validator import merge_country_origin
@@ -96,7 +88,7 @@ class AutoFillService:
                 )
                 continue
 
-            # Pokušaj pronaći mapping
+            # Pokušaj pronaći mapping (sa sniženim pragom 0.70)
             mapping = service.find_mapping(
                 product_code=line.product_code,
                 naziv_robe=line.naziv_robe,
@@ -107,14 +99,15 @@ class AutoFillService:
             if mapping:
                 # Pronađen mapping
                 line.tarifni_broj = mapping.tarifni_broj
-                
+                line.tariff_similarity = mapping.similarity  # ⭐ SAČUVAJ SLIČNOST
+
                 # KORISTI merge_country_origin() za validaciju
                 validation_result = merge_country_origin(
                     zemlja_pdf=line.zemlja_porijekla,
                     zemlja_baza=mapping.zemlja_porijekla,
                     povlastica_baza=mapping.povlastica
                 )
-                
+
                 # Ažuriraj zemlju, povlasticu i confidence polja
                 line.zemlja_porijekla = validation_result.final_country
                 line.povlastica = validation_result.final_preference
@@ -142,7 +135,7 @@ class AutoFillService:
                 unmatched_details.append(
                     (line.line_no, line.product_code, line.naziv_robe[:50])
                 )
-                
+
                 # Ako nema mappinga, ali PDF ima zemlju → postavi HIGH confidence
                 if line.zemlja_porijekla:
                     line.country_confidence = "HIGH"

@@ -899,14 +899,25 @@ class FakturaView(BaseTabView):
         # Validate item
         result = self.validator.validate(item)
 
+        # ⭐ TARIFF SIMILARITY BOJENJE
+        # Ako je tarifni broj nađen fuzzy match-om sa sličnošću < 0.92
+        # oboj red žutom kao upozorenje da treba provjeriti
+        tariff_sim = getattr(item, 'tariff_similarity', 0.0) or 0.0
+
         # Check if item is UNMATCHED (came from invoice but not found in master list)
-        # UNMATCHED items don't have tarifni_broj and zemlja_porijekla
         is_unmatched = (
             not item.tarifni_broj or len(item.tarifni_broj.strip()) == 0
         ) and (not item.zemlja_porijekla or len(item.zemlja_porijekla.strip()) == 0)
 
         # Determine color based on validation result
-        if is_unmatched:
+        # ⭐ PRVO provjeri tariff similarity (žuta za fuzzy match < 0.92)
+        if item.tarifni_broj and 0.70 <= tariff_sim < 0.92:
+            # ŽUTA boja - fuzzy match, preporučuje se provjera
+            color_hex = "#fff9c4"  # Svijetlo žuta
+            tooltip = f"⚠️ Tarifni broj: {item.tarifni_broj}\n" \
+                      f"Pouzdanje: {tariff_sim:.0%}\n" \
+                      f"Preporučuje se ručna provjera tarifnog broja"
+        elif is_unmatched:
             # PLAVA boja za nepodudarajuće stavke (nisu pronađene u master listi)
             color_hex = "#cce5ff"  # Light blue for unmatched
             tooltip = "🔵 Nepodudarajuća stavka - nije pronađena u master listi. Popunite tarifni broj i zemlju porijekla."

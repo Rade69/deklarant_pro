@@ -75,6 +75,9 @@ class InvoiceLine:
     country_source: str = ""      # "PDF", "BAZA", "MATCH", "CONFLICT", "NONE"
     country_conflict_details: str = ""  # Detalji konflikta ako postoji
 
+    # Sličnost tarifnog broja iz baze znanja (0.0-1.0)
+    tariff_similarity: float = 0.0  # 1.0=tačan match, <1.0=fuzzy match
+
     jm: str = ""
     kolicina: float = 0.0
     cijena_jed: float = 0.0
