@@ -1245,43 +1245,148 @@ class SifarniciView(BaseTabView):
             raise
 
     def _setup_trgovacki_nazivi(self):
-        """Setup Trgovački nazivi (Carinske tarife)"""
-        self.table.setColumnCount(
-            2
-        )  # Smanjeno na 2 kolone: Tarifni kod, Naziv robe (uklonjena Akcije kolona)
+        """Setup Trgovački nazivi (Carinske tarife) — tabela + hijerarhijsko drvo"""
+        self.table.setColumnCount(2)
         self.table.setHorizontalHeaderLabels(["Tarifni kod", "Naziv robe"])
-        # Podesi širinu kolona - fiksna širina za tarifni kod, ostatak ide nazivu robe
-        self.table.setColumnWidth(0, 150)  # Tarifni kod - fiksna širina
-        # Kolona 1 (Naziv robe) će se automatski protegnuti da popuni ostatak prostora
-
-        # Omogući automatsko širenje kolona - kolona 1 (Naziv robe) će popuniti ostatak prostora
         header = self.table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)  # Tarifni kod
-        header.setSectionResizeMode(
-            1, QHeaderView.ResizeMode.Stretch
-        )  # Naziv robe - popunjava ostatak
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.table.setColumnWidth(0, 150)
 
-        # Povećaj font u tabeli
         font = self.table.font()
-        font.setPointSize(14)  # Povećaj font na 14pt
+        font.setPointSize(14)
         self.table.setFont(font)
-
-        # Povećaj visinu redova
         self.table.verticalHeader().setDefaultSectionSize(50)
+
+        # ⭐ HIJERARHIJSKO DRVO TARIFE — dodajemo u isti layout kao tabelu
+        # Pronađi parent layout od table
+        table_parent = self.table.parent()
+        if table_parent and table_parent.layout():
+            content_layout = table_parent.layout()
+        else:
+            content_layout = self.detail_container.parent().layout()
+
+        self.tariff_tree = QTreeWidget()
+        self.tariff_tree.setHeaderLabels(["Kod", "Opis", "Stopa MFN", "Stopa EU", "Stopa CEFTA"])
+        self.tariff_tree.setSortingEnabled(True)
+        self.tariff_tree.setAnimated(True)
+        self.tariff_tree.setIndentation(20)
+        self.tariff_tree.setFont(self.table.font())
+        self.tariff_tree.setSelectionBehavior(QTreeWidget.SelectRows)
+        self.tariff_tree.setAlternatingRowColors(True)
+        self.tariff_tree.setMinimumHeight(400)
+        # Sakrij drvo inicijalno
+        self.tariff_tree.setVisible(False)
+        if content_layout:
+            # Dodaj drvo na istu poziciju kao tabela (iza tabele)
+            content_layout.addWidget(self.tariff_tree, stretch=1)
+
+        # Dugme za prebacivanje između liste i drveta
+        self.view_toggle_btn = QPushButton("🌳 Prikaži kao drvo")
+        self.view_toggle_btn.setCheckable(True)
+        self.view_toggle_btn.clicked.connect(self._toggle_tariff_view)
+        self.view_toggle_btn.setStyleSheet("""
+            QPushButton {
+                background: #e7f3ff; border: 1px solid #b8daff;
+                border-radius: 5px; padding: 8px 16px; font-weight: bold;
+            }
+            QPushButton:checked {
+                background: #d4edda; border-color: #28a745; color: #155724;
+            }
+        """)
 
         grid = self.detail_container.layout()
 
-        # Single column for this one
         group = QGroupBox("≡ DETALJI")
         form = QFormLayout(group)
 
         self.tarifni_kod_field = QLineEdit()
         self.naziv_robe_field = QLineEdit()
 
+        form.addRow(self.view_toggle_btn)
         form.addRow("Tarifni kod:", self.tarifni_kod_field)
         form.addRow("Naziv robe:", self.naziv_robe_field)
 
-        grid.addWidget(group, 0, 0, 2, 2)  # Span both rows/cols
+        grid.addWidget(group, 0, 0, 2, 2)
+
+    def _toggle_tariff_view(self):
+        """Prebaci između tabele i hijerarhijskog drveta."""
+        is_tree = self.view_toggle_btn.isChecked()
+        self.table.setVisible(not is_tree)
+        self.tariff_tree.setVisible(is_tree)
+        if is_tree:
+            self.view_toggle_btn.setText("📋 Prikaži kao listu")
+            self._load_tariff_tree()
+        else:
+            self.view_toggle_btn.setText("🌳 Prikaži kao drvo")
+
+    def _load_tariff_tree(self):
+        """Učitaj hijerarhijsko drvo carinskih tarifa."""
+        from services.tariff_tree_service import _nivo_label
+
+        self.tariff_tree.clear()
+        self.tariff_tree.setUpdatesEnabled(False)
+
+        try:
+            results = self.db_manager.execute_query(
+                "SELECT tarifni_kod, opis, stopa_uvozna, stopa_eu, stopa_cefta, nivo "
+                "FROM catalogs.zvanicna_tarifa ORDER BY tarifni_kod",
+                fetch_all=True,
+            ) or []
+
+            # Grupiši po poglavljima (prve 2 cifre)
+            chapters = {}
+            for r in results:
+                kod = str(r['tarifni_kod'] or '')
+                if len(kod) < 2:
+                    continue
+                chapter = kod[:2]
+                if chapter not in chapters:
+                    chapters[chapter] = []
+                chapters[chapter].append(r)
+
+            for chapter_code in sorted(chapters.keys()):
+                items = chapters[chapter_code]
+
+                # Pronađi opis poglavlja
+                chapter_desc = f"Poglavlje {chapter_code}"
+                for item in items:
+                    if item['nivo'] == 'glava' and len(str(item['tarifni_kod'])) == 4:
+                        chapter_desc = item['opis']
+                        break
+
+                # Čvor poglavlja
+                ch_item = QTreeWidgetItem(self.tariff_tree)
+                ch_item.setText(0, chapter_code)
+                ch_item.setText(1, chapter_desc)
+                ch_item.setExpanded(False)
+
+                # Dodaj sve stavke ispod poglavlja
+                for r in items:
+                    kod = str(r['tarifni_kod'] or '')
+                    opis = r['opis'] or ''
+                    stopa = r['stopa_uvozna'] or ''
+                    stopa_eu = r['stopa_eu'] or ''
+                    stopa_cefta = r['stopa_cefta'] or ''
+                    nivo = r['nivo'] or ''
+
+                    child = QTreeWidgetItem(ch_item)
+                    emoji = _nivo_label(nivo)
+                    child.setText(0, f"{emoji} {kod}")
+                    child.setText(1, opis)
+                    child.setText(2, stopa if not stopa.endswith('%') else stopa)
+                    child.setText(3, stopa_eu if not stopa_eu.endswith('%') else stopa_eu)
+                    child.setText(4, stopa_cefta if not stopa_cefta.endswith('%') else stopa_cefta)
+
+            self.tariff_tree.resizeColumnToContents(0)
+            self.tariff_tree.resizeColumnToContents(1)
+            self.status_label.setText(f"🌳 Drvo: {len(chapters)} poglavlja učitano")
+
+        except Exception as e:
+            logger.error(f"Greška pri učitavanju drveta tarifa: {e}")
+            self.status_label.setText(f"❌ Greška: {e}")
+        finally:
+            self.tariff_tree.setUpdatesEnabled(True)
 
     def _setup_uvoznici(self):
         """Setup Uvoznici - INFO STRIP LAYOUT"""
