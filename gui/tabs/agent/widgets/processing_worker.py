@@ -32,26 +32,22 @@ class ProcessingWorker(QThread):
     def run(self):
         """
         Glavni thread loop - koristi import_service (ISTI KAO RUČNI UVOZ!).
-        
-        import_service SAM:
-        - Detektuje format (Blagić/Master Frigo/ŠUMAPROM/etc.)
-        - Detektuje parove (Excel+PDF sa istim brojem fakture)
-        - Kombinuje podatke (poziva combine_blagic_excel_and_pdf())
-        - Popunjava težine, zemlje, izjave o porijeklu
+
+        FIX: Preskače packing listove ako je odgovarajuća faktura već
+        parsirana sa automatskom kombinacijom (Blagić-Attos).
         """
         import time
         total_start = time.time()
-        
+
         from services.import_service import get_import_service
         from importers.import_result import ImportResult
+        from importers.blagic_attos_importer import find_matching_packing_list, is_blagic_attos_packing_list
 
         # ⭐ KLJUČNO: Koristi singleton import_service (isti kao Faktura Tab!)
         svc = get_import_service()
         svc.clear_memory()  # Resetuj memoriju za detekciju parova
 
         # ⭐ Sortiraj: grupiraj po imenu fajla, unutar grupe Excel PRVI pa PDF
-        # KLJUČNO za višestruke parove: 46VP Excel, 46VP PDF, 47VP Excel, 47VP PDF...
-        # Stari sort (svi Exceli pa svi PDF-ovi) kvari import_service memoriju!
         sorted_files = sorted(
             self.files,
             key=lambda f: (
@@ -59,6 +55,9 @@ class ProcessingWorker(QThread):
                 0 if f.filepath.lower().endswith(('.xlsx', '.xls')) else 1      # Excel prije PDF
             )
         )
+
+        # ⭐ TRACKING: Koji fajlovi su već "potrošeni" kroz kombinaciju
+        consumed_files: set[str] = set()
 
         self.progress.emit(f"📊 Ukupno fajlova: {len(sorted_files)}")
         self.progress.emit(f"🔍 import_service: {svc}")
@@ -69,19 +68,27 @@ class ProcessingWorker(QThread):
             if self._cancelled:
                 break
 
+            # ⭐ PRESKOČI ako je već potrošen kroz kombinaciju fakture
+            if file_item.filepath in consumed_files:
+                self.progress.emit(f"   ⏭️ Preskačem (već kombinovano sa fakturu): {file_item.filename}")
+                file_item.status = 'Skipped'
+                file_item.invoice_lines = []
+                self.file_completed.emit(file_item)
+                continue
+
             file_start = time.time()
             self.file_started.emit(file_item.filepath)
             self.progress.emit(f"\n📄 Parsing: {file_item.filename}")
             self.progress.emit(f"   📍 Tip: {file_item.file_type}")
-            
+
             try:
                 # ⭐ KORISTI IMPORT_SERVICE (ISTI KAO RUČNI UVOZ!)
                 self.progress.emit(f"   🔄 import_service.import_file()...")
                 result = svc.import_file(str(file_item.filepath))
-                
+
                 if isinstance(result, ImportResult):
                     invoice_lines = result.items
-                    
+
                     # ⭐ Sačuvaj SVE podatke iz ImportResult
                     file_item.bruto_kg = result.bruto_kg
                     file_item.neto_kg = result.neto_kg
@@ -107,6 +114,15 @@ class ProcessingWorker(QThread):
                     # Prikaži warnings (npr. neto nije pronađen)
                     for w in getattr(result, 'warnings', []):
                         self.progress.emit(f"   {w}")
+
+                    # ⭐ FIX: Ako je ovo Blagić-Attos faktura sa auto-kombinacijom,
+                    #   označi odgovarajući packing list kao "potrošen"
+                    detected_format = getattr(result, '_detected_format', '') or ''
+                    if 'blagic_attos' in detected_format.lower() or 'attos' in detected_format.lower():
+                        packing_path = find_matching_packing_list(str(file_item.filepath))
+                        if packing_path:
+                            consumed_files.add(packing_path)
+                            self.progress.emit(f"   📎 Packing list označen kao potrošen: {Path(packing_path).name}")
                 elif isinstance(result, list):
                     # Fallback na listu
                     invoice_lines = result
@@ -119,11 +135,11 @@ class ProcessingWorker(QThread):
                     file_item.status = 'Error'
                     file_item.error_message = "Nema rezultata"
                     self.progress.emit(f"   ❌ Nema rezultata")
-                
+
                 file_elapsed = time.time() - file_start
                 self.progress.emit(f"   ⏱️ Vrijeme: {file_elapsed:.1f}s")
                 self.file_completed.emit(file_item)
-                
+
             except Exception as e:
                 import traceback
                 file_item.status = 'Error'
