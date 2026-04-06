@@ -201,7 +201,7 @@ class _ColRatioFilter(QObject):
         if event.type() == QEvent.Type.Resize:
             avail = obj.viewport().width() - obj.columnWidth(0) - obj.columnWidth(3)
             if avail > 10:
-                obj.setColumnWidth(2, int(avail * 0.4))
+                obj.setColumnWidth(2, int(avail * 0.45))
         return False
 
 
@@ -397,7 +397,7 @@ class ZaglavljeView(BaseTabView):
         column.setFrameShape(QFrame.Shape.Box)
         column.setFrameShadow(QFrame.Shadow.Plain)
         column.setLineWidth(2)
-        column.setFixedWidth(620)
+        column.setFixedWidth(540)
         column.setObjectName("left_column")
         column.setAttribute(Qt.WA_StyledBackground, True)
         column.setStyleSheet("QFrame#left_column { background-color: #f5f9f5; }" + """
@@ -452,13 +452,6 @@ class ZaglavljeView(BaseTabView):
         layout.addWidget(self._create_hline())
 
         layout.addWidget(self._create_transport_group())
-        layout.addWidget(self._create_hline())
-
-        layout.addWidget(
-            self._create_simple_field(
-                "21. Aktivno transp. sredstvo na granici", "aktivno_transport"
-            )
-        )
         layout.addWidget(self._create_hline())
 
         layout.addWidget(self._create_vid_group())
@@ -567,42 +560,121 @@ class ZaglavljeView(BaseTabView):
         return group
 
     def _create_transport_group(self) -> QWidget:
-        """Rb.18-19 Transport — header QHBoxLayout, ispod QLineEdit."""
+        """
+        Rb.18 / Rb.19 / Rb.21 — transport blok.
+
+        Layout:
+          [18. Registracija (polazak)]  [Nacionalnost vozila]
+          [registracija field]          [BA/RS/DE field]
+
+          [21. Registracija (granica)]  [Nacionalnost vozila]
+          [registracija field]          [BA/RS/DE field]
+
+          [19. Kontejner □]  (ako čekirano → polje za broj kontejnera)
+        """
         group = QWidget()
         layout = QVBoxLayout(group)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(2)
+        layout.setSpacing(6)
 
-        header_row = QWidget()
-        header_layout = QHBoxLayout(header_row)
-        header_layout.setContentsMargins(0, 0, 0, 0)
-        header_layout.setSpacing(6)
+        bold = QFont("Segoe UI", 10, QFont.Weight.Bold)
 
-        label18 = QLabel("18. Identitet transp. sredstva")
-        label18.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
-        header_layout.addWidget(label18)
-        header_layout.addStretch()
+        # ── Rb.18 red ────────────────────────────────────────────────
+        lbl_row18 = QWidget()
+        lbl_row18_layout = QHBoxLayout(lbl_row18)
+        lbl_row18_layout.setContentsMargins(0, 0, 0, 0)
+        lbl_row18_layout.setSpacing(6)
+        lbl18 = QLabel("18. Registracija (polazak)")
+        lbl18.setFont(bold)
+        lbl_row18_layout.addWidget(lbl18, 3)
+        lbl_nat18 = QLabel("Nacionalnost vozila")
+        lbl_nat18.setFont(bold)
+        lbl_row18_layout.addWidget(lbl_nat18, 2)
+        layout.addWidget(lbl_row18)
 
-        label19 = QLabel("19. Kontejner")
-        label19.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
-        header_layout.addWidget(label19)
+        field_row18 = QWidget()
+        field_row18_layout = QHBoxLayout(field_row18)
+        field_row18_layout.setContentsMargins(0, 0, 0, 0)
+        field_row18_layout.setSpacing(6)
+        transport_id = QLineEdit()
+        transport_id.setPlaceholderText("npr. E25A456")
+        field_row18_layout.addWidget(transport_id, 3)
+        self.field_widgets["transport_id"] = transport_id
+        nat18 = QLineEdit()
+        nat18.setPlaceholderText("BA / RS / DE...")
+        nat18.setMaxLength(3)
+        field_row18_layout.addWidget(nat18, 2)
+        self.field_widgets["transport_nacionalnost"] = nat18
+        layout.addWidget(field_row18)
+
+        # ── Rb.21 red ────────────────────────────────────────────────
+        lbl_row21 = QWidget()
+        lbl_row21_layout = QHBoxLayout(lbl_row21)
+        lbl_row21_layout.setContentsMargins(0, 0, 0, 0)
+        lbl_row21_layout.setSpacing(6)
+        lbl21 = QLabel("21. Registracija (granica)")
+        lbl21.setFont(bold)
+        lbl_row21_layout.addWidget(lbl21, 3)
+        lbl_nat21 = QLabel("Nacionalnost vozila")
+        lbl_nat21.setFont(bold)
+        lbl_row21_layout.addWidget(lbl_nat21, 2)
+        layout.addWidget(lbl_row21)
+
+        field_row21 = QWidget()
+        field_row21_layout = QHBoxLayout(field_row21)
+        field_row21_layout.setContentsMargins(0, 0, 0, 0)
+        field_row21_layout.setSpacing(6)
+        aktivno = QLineEdit()
+        aktivno.setPlaceholderText("npr. E25A456")
+        field_row21_layout.addWidget(aktivno, 3)
+        self.field_widgets["aktivno_transport"] = aktivno
+        nat21 = QLineEdit()
+        nat21.setPlaceholderText("BA / RS / DE...")
+        nat21.setMaxLength(3)
+        field_row21_layout.addWidget(nat21, 2)
+        self.field_widgets["aktivno_transport_nat"] = nat21
+        layout.addWidget(field_row21)
+
+        # ── Rb.19 red — kontejner checkbox + uvjetno polje ───────────
+        kt_row = QWidget()
+        kt_layout = QHBoxLayout(kt_row)
+        kt_layout.setContentsMargins(0, 4, 0, 0)
+        kt_layout.setSpacing(8)
+
+        lbl19 = QLabel("19. Kontejner")
+        lbl19.setFont(bold)
+        kt_layout.addWidget(lbl19)
 
         kontejner = QCheckBox()
-        header_layout.addWidget(kontejner)
+        kt_layout.addWidget(kontejner)
         self.field_widgets["kontejner"] = kontejner
 
-        layout.addWidget(header_row)
+        lbl_br = QLabel("Broj kontejnera:")
+        lbl_br.setFont(QFont("Segoe UI", 10))
+        lbl_br.setVisible(False)
+        kt_layout.addWidget(lbl_br)
 
-        transport_id = QLineEdit()
-        transport_id.setPlaceholderText("Registracija vozila")
-        layout.addWidget(transport_id)
-        self.field_widgets["transport_id"] = transport_id
+        kontejner_broj = QLineEdit()
+        kontejner_broj.setPlaceholderText("npr. TCKU3953473")
+        kontejner_broj.setVisible(False)
+        kt_layout.addWidget(kontejner_broj, 1)
+        self.field_widgets["kontejner_broj"] = kontejner_broj
+
+        kt_layout.addStretch()
+        layout.addWidget(kt_row)
+
+        # Prikaži/sakrij polje za broj kontejnera
+        def _on_kontejner_toggled(checked: bool):
+            lbl_br.setVisible(checked)
+            kontejner_broj.setVisible(checked)
+
+        kontejner.toggled.connect(_on_kontejner_toggled)
 
         group.setAttribute(Qt.WA_StyledBackground, True)
         group.setProperty("section_card", True)
         return group
 
-    def _create_simple_field(self, title: str, field_name: str) -> QWidget:
+    def _create_simple_field(self, title: str, field_name: str, placeholder: str = "") -> QWidget:
         """Helper: label iznad QLineEdit."""
         group = QWidget()
         layout = QVBoxLayout(group)
@@ -614,6 +686,8 @@ class ZaglavljeView(BaseTabView):
         layout.addWidget(label)
 
         field = QLineEdit()
+        if placeholder:
+            field.setPlaceholderText(placeholder)
         layout.addWidget(field)
         self.field_widgets[field_name] = field
 
@@ -728,7 +802,7 @@ class ZaglavljeView(BaseTabView):
         column.setFrameShape(QFrame.Shape.Box)
         column.setFrameShadow(QFrame.Shadow.Plain)
         column.setLineWidth(2)
-        column.setFixedWidth(620)
+        column.setFixedWidth(540)
         column.setObjectName("middle_column")
         column.setAttribute(Qt.WA_StyledBackground, True)
         column.setStyleSheet("QFrame#middle_column { background-color: #f5f9f5; }" + """
@@ -864,15 +938,16 @@ class ZaglavljeView(BaseTabView):
         sep.setStyleSheet("color: #aaa; margin: 0 6px;")
         row_layout.addWidget(sep)
 
-        # Ured odredišta — read-only
-        ured_label = QLabel(ured or "–")
-        ured_label.setStyleSheet(
+        # Ured odredišta — read-only QLineEdit (da get_data() ga pokupi!)
+        ured_le = QLineEdit(ured or "")
+        ured_le.setReadOnly(True)
+        ured_le.setStyleSheet(
             "font-size: 13px; font-weight: bold; color: #333; padding: 3px 8px;"
             "background: #f0f0f0; border: 1px solid #ccc; border-radius: 3px;"
         )
-        ured_label.setToolTip("Ured odredišta (carinska ispostava)")
-        row_layout.addWidget(ured_label)
-        self.field_widgets["ured_odredista"] = ured_label
+        ured_le.setToolTip("Ured odredišta (carinska ispostava)")
+        row_layout.addWidget(ured_le)
+        self.field_widgets["ured_odredista"] = ured_le
 
         row_layout.addStretch()
         layout.addWidget(row)
@@ -1168,7 +1243,7 @@ class ZaglavljeView(BaseTabView):
 
         field1 = QLineEdit()
         field1.setPlaceholderText("CPT")
-        field1.setFixedWidth(50)
+        field1.setFixedWidth(70)
         row_layout.addWidget(field1)
         self.field_widgets["uslovi_kod"] = field1
 
@@ -1202,7 +1277,8 @@ class ZaglavljeView(BaseTabView):
         col22v_layout.addWidget(label22v)
         field22v = QLineEdit()
         field22v.setPlaceholderText("EUR")
-        field22v.setFixedWidth(50)
+        field22v.setFixedWidth(70)
+        field22v.setMinimumHeight(32)
         validator = QRegularExpressionValidator(QRegularExpression("^[A-Z]{3}$"))
         field22v.setValidator(validator)
         col22v_layout.addWidget(field22v)
@@ -1214,15 +1290,17 @@ class ZaglavljeView(BaseTabView):
         col22i_layout = QVBoxLayout(col22i)
         col22i_layout.setContentsMargins(0, 0, 0, 0)
         col22i_layout.setSpacing(3)
-        label22i = QLabel("Ukupan Iznos")
+        label22i = QLabel("22. Ukupan iznos fakture")
         label22i.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
         col22i_layout.addWidget(label22i)
         field22i = QLineEdit()
         field22i.setPlaceholderText("0.00")
+        field22i.setMinimumWidth(140)
+        field22i.setMinimumHeight(32)
         field22i.setAlignment(Qt.AlignmentFlag.AlignRight)
         col22i_layout.addWidget(field22i)
         self.field_widgets["iznos"] = field22i
-        row_layout.addWidget(col22i)
+        row_layout.addWidget(col22i, 1)
 
         # 23 Kurs
         col23 = QWidget()
@@ -1383,9 +1461,9 @@ class ZaglavljeView(BaseTabView):
         layout.setSpacing(0)
 
         # QTableWidget(20, 4)
-        self.table = QTableWidget(20, 4)
+        self.table = QTableWidget(20, 3)
         self.table.setHorizontalHeaderLabels(
-            ["Šifra", "Naziv dokumenta", "Referenca", "Pr."]
+            ["Šifra", "Naziv dokumenta", "Referenca"]
         )
         self.table.verticalHeader().setVisible(False)
         self.table.setStyleSheet(
@@ -1420,9 +1498,7 @@ class ZaglavljeView(BaseTabView):
         hdr.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
         hdr.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         hdr.setSectionResizeMode(2, QHeaderView.ResizeMode.Interactive)
-        hdr.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
-        self.table.setColumnWidth(0, 70)
-        self.table.setColumnWidth(3, 32)
+        self.table.setColumnWidth(0, 65)
 
         self._col_ratio_filter = _ColRatioFilter(self)
         self.table.installEventFilter(self._col_ratio_filter)
@@ -1433,12 +1509,6 @@ class ZaglavljeView(BaseTabView):
         self.table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
-        # Checkbox items u koloni 3
-        for row in range(20):
-            chk = QTableWidgetItem()
-            chk.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled)
-            chk.setCheckState(Qt.CheckState.Unchecked)
-            self.table.setItem(row, 3, chk)
 
         # IspravaDelegate na koloni 0
         self._isprave = _load_isprave_from_db()
@@ -1692,6 +1762,10 @@ class ZaglavljeView(BaseTabView):
     def set_data(self, data: Dict[str, Any]):
         """Popuni widgete podacima."""
         for key, value in data.items():
+            if key == 'attached_documents':
+                # Priložene isprave — popuni tabelu
+                self._populate_attached_table(value)
+                continue
             widget = self.field_widgets.get(key)
             if widget is None:
                 continue
@@ -1717,6 +1791,39 @@ class ZaglavljeView(BaseTabView):
             elif isinstance(widget, QCheckBox):
                 widget.setChecked(bool(value))
 
+    def _populate_attached_table(self, attached_docs: list):
+        """Popuni tabelu priloženih dokumenata."""
+        if not self.table:
+            return
+        if not attached_docs:
+            return
+
+        # Obriši postojeće redove
+        self.table.setRowCount(0)
+        self.table.setRowCount(20)
+
+        for idx, doc in enumerate(attached_docs):
+            if idx >= 20:
+                break  # Maksimalno 20 redova
+            code = doc.get('code', '')
+            name = doc.get('name', '')
+            number = doc.get('number', '')
+            from_rule = doc.get('from_rule', False)
+
+            # Kolona 0 — Šifra
+            code_item = QTableWidgetItem(code)
+            self.table.setItem(idx, 0, code_item)
+
+            # Kolona 1 — Naziv dokumenta
+            name_item = QTableWidgetItem(name)
+            name_item.setFlags(name_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            self.table.setItem(idx, 1, name_item)
+
+            # Kolona 2 — Referenca
+            ref_item = QTableWidgetItem(number)
+            self.table.setItem(idx, 2, ref_item)
+
+
     def clear_data(self):
         """Očisti sve podatke iz widgeta."""
         for widget in self.field_widgets.values():
@@ -1735,14 +1842,6 @@ class ZaglavljeView(BaseTabView):
 
         if self.table:
             self.table.clearContents()
-            # Obnovi checkbox items
-            for row in range(20):
-                chk = QTableWidgetItem()
-                chk.setFlags(
-                    Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled
-                )
-                chk.setCheckState(Qt.CheckState.Unchecked)
-                self.table.setItem(row, 3, chk)
 
         self.data_changed.emit()
 

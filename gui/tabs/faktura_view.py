@@ -2807,10 +2807,16 @@ class FakturaView(BaseTabView):
             ]
 
             # Auto-popuni tarifne brojeve za stavke bez tarifnog broja
+            # Izvuci naziv dobavljača iz prve linije (exporter.name)
+            supplier_name = ""
+            if self.draft.invoice_lines:
+                supplier_name = self.draft.invoice_lines[0].exporter.name or ""
+
             result = service.auto_populate_tariffs(
                 self.draft.invoice_lines,
-                min_similarity=0.92,
+                min_similarity=0.70,
                 overwrite_existing=False,
+                supplier=supplier_name,
             )
 
             # Dodaj skipped info u result

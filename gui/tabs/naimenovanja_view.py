@@ -260,7 +260,7 @@ class NaimenovanjaView(BaseTabView):
             "le_rubrika32": "ordinal_no",
             # Rubrika 33
             "le_rubrika33": "tariff_code",
-            "le_rubrika33_podbroj": "",  # Podbroj (custom)
+            "le_rubrika33_podbroj": "tariff_suffix",  # Podbroj (000 za većinu, 100 za lijekove)
             # Rubrika 34
             "le_rubrika34_zemlja": "origin_country_code",
             "le_rubrika34_regija": "",  # Regija (custom)
@@ -1417,6 +1417,11 @@ class NaimenovanjaView(BaseTabView):
         """Debounced tariff lookup - query nakon 400ms pauze u kucanju"""
         if self.is_loading:
             return
+
+        # Auto-popuni podbroj sa "000" ako je prazan i tarifni broj je unesen
+        podbroj_widget = self._get_widget("le_rubrika33_podbroj")
+        if podbroj_widget and not podbroj_widget.text().strip() and text.strip():
+            podbroj_widget.setText("000")
 
         # Spremi pending kod u Qt property (spremanje stanja izmedju poziva)
         self.tariff_timer.setProperty("pending_code", text.strip())

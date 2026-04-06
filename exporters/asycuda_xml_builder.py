@@ -296,11 +296,13 @@ class AsycudaXMLBuilder:
 
         dep_arr = ET.SubElement(means, "Departure_arrival_information")
         _val(dep_arr, "Identity", self._g("transport_id"))
-        _val(dep_arr, "Nationality", self._g("aktivno_transport") or self._g("drzava_izvoza_sifra"))
+        _val(dep_arr, "Nationality",
+             self._g("transport_nacionalnost") or self._g("drzava_izvoza_sifra"))
 
         border_info = ET.SubElement(means, "Border_information")
-        _val(border_info, "Identity", self._g("transport_id"))
-        _val(border_info, "Nationality", self._g("aktivno_transport") or self._g("drzava_izvoza_sifra"))
+        _val(border_info, "Identity", self._g("aktivno_transport") or self._g("transport_id"))
+        _val(border_info, "Nationality",
+             self._g("aktivno_transport_nat") or self._g("transport_nacionalnost") or self._g("drzava_izvoza_sifra"))
         vid = self._g("vid_granica") or "30"
         _val(border_info, "Mode", vid)
 
@@ -312,6 +314,9 @@ class AsycudaXMLBuilder:
 
         kontejner = getattr(self.draft, "kontejner", False)
         _val(transport, "Container_flag", "true" if kontejner else "false")
+        kontejner_broj = self._g("kontejner_broj")
+        if kontejner and kontejner_broj:
+            _val(transport, "Container_number", kontejner_broj)
 
         delivery = ET.SubElement(transport, "Delivery_terms")
         _val(delivery, "Code", self._g("uslovi_kod"))
@@ -332,7 +337,7 @@ class AsycudaXMLBuilder:
         place_loading = ET.SubElement(transport, "Place_of_loading")
         mjesto_ot = self._g("mjesto_otvaraca")
         if mjesto_ot:
-            _val(place_loading, "Code", "")
+            _null(place_loading, "Code")
             _val(place_loading, "Name", mjesto_ot)
         else:
             _null(place_loading, "Code")

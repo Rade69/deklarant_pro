@@ -63,6 +63,7 @@ class InvoiceLine:
     naziv_robe: str = ""
     product_code: str = ""  # Kod proizvoda iz fakture (za matching)
     tarifni_broj: str = ""
+    tariff_suffix: str = "000"   # Precision_1 (000 za većinu, 100 za lijekove)
     zemlja_porijekla: str = ""
     povlastica: str = ""  # prazno = nije navedeno / nema
 
@@ -341,8 +342,13 @@ class DeclarationDraft:
     # Rubrika 19 - Kontejner
     kontejner: bool = False
 
-    # Rubrika 21 - Aktivno transp. sredstvo na granici
+    # Rubrika 18 - Identitet + nacionalnost pri polasku
+    transport_nacionalnost: str = ""   # šifra države: BA, RS, DE...
+    # Rubrika 19 - Kontejner
+    kontejner_broj: str = ""           # broj kontejnera (vidljivo samo ako kontejner=True)
+    # Rubrika 21 - Aktivno transp. sredstvo na granici + nacionalnost
     aktivno_transport: str = ""
+    aktivno_transport_nat: str = ""    # nacionalnost na granici
 
     # Rubrika 25, 26, 27 - Vid unutra/granica i mjesto otvarača
     vid_unutra: str = ""

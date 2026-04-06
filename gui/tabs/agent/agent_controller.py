@@ -1209,6 +1209,19 @@ class AgentController:
                 self._upisi_u_kolonu(kolona, '', tab)
                 return
 
+        # --- DETEKCIJA NAMJERE: zapamti tarifni (korisnik potvrđuje tačan tarif) ---
+        # Format: "Zapamti 84713000 za laptop" / "Nauči 62034200 za muške pantalone"
+        _zapamti_match = _re.search(
+            r'(?:zapamti|nauci|nauči|snimi|upamti|sacuvaj|sačuvaj|dodaj u bazu)\s+'
+            r'(\d[\d\.\s]{5,12})\s+za\s+(.{3,60})',
+            msg,
+        )
+        if _zapamti_match:
+            _tariff_raw = _zapamti_match.group(1).strip()
+            _naziv_raw = _zapamti_match.group(2).strip().rstrip('?! ')
+            self.tariff_svc.learn_tariff(_naziv_raw, _tariff_raw)
+            return
+
         # --- DETEKCIJA NAMJERE: upiši tarifne za [keyword] ---
         import re as _re2
         _filter_tariff_match = _re2.search(
@@ -1225,13 +1238,21 @@ class AgentController:
                 self._predlozi_tarifne_po_filteru(keyword)
                 return
 
-        # --- DETEKCIJA NAMJERE: provjera tarifnog za konkretan naziv robe ---
-        # Format: "provjeri tarifni za X", "testiraj tarif za X", "koji je tarif za X"
+        # --- DETEKCIJA NAMJERE: provjera/prijedlog tarifnog za konkretan naziv robe ---
+        # Format: "predloži tarifni za X", "predloži tarifni broj za X", "koji tarif za X"
+        # Dozvoljava do 3 opcione riječi između glagola i "za" (npr. "predloži mi tarifni broj za X")
         _provjeri_tarif_match = _re.search(
-            r'(?:provjeri|testiraj|predloži|predlozi|traži|trazi|koji\s+je|kakav\s+je)\s+'
-            r'tarif\w*\s+za\s+(.+)',
+            r'(?:provjeri|testiraj|predloži|predlozi|traži|trazi|koji\s+je|kakav\s+je|daj)'
+            r'(?:\s+\w+){0,4}\s+za\s+(.+)',
             msg
         )
+        # Odbaci ako je uhvaćeni dio samo "naim/stavku" bez naziva robe
+        if _provjeri_tarif_match and 'tarif' not in msg:
+            _provjeri_tarif_match = None
+        if _provjeri_tarif_match:
+            _uhvaceno = _provjeri_tarif_match.group(1).strip()
+            if any(w in _uhvaceno for w in ['naim', 'stavk', 'prvo', 'drugi', 'treć']):
+                _provjeri_tarif_match = None
         if _provjeri_tarif_match:
             naziv = _provjeri_tarif_match.group(1).strip().rstrip('?!')
             if naziv and len(naziv) >= 3:
@@ -1284,6 +1305,30 @@ class AgentController:
             self._pretrazi_tarifu_hijerarhijski(_tariff_code_from_msg)
             return
 
+        # --- DETEKCIJA NAMJERE: prijedlog tarifnog za konkretno naimenovanje/stavku ---
+        # "predloži tarifni broj za prvo naimenovanje", "predloži tarif za naim 3" itd.
+        _predlozi_kw = ['predloži', 'predlozi', 'prijedlog', 'predloži mi', 'predlozi mi',
+                        'daj tarif', 'koji tarif', 'kakav tarif']
+        _has_predlozi_tarif_naim = (
+            any(kw in msg for kw in _predlozi_kw)
+            and 'tarif' in msg
+            and ('naim' in msg or 'stavk' in msg)
+        )
+        if _has_predlozi_tarif_naim:
+            # Izvuci redni broj — digitalni format ("naim 3", "stavku 5")
+            _ptn_digit = _re.search(r'(?:naim\w*|stavk\w*)\s*\.?\s*(\d+)', msg)
+            if _ptn_digit:
+                self._alternativni_tarifni_za_stavku(item_ordinal=int(_ptn_digit.group(1)))
+            elif _has_ordinal:
+                _p_ord = next((v for k, v in _REDNI.items() if k in msg and v > 0), None)
+                self._alternativni_tarifni_za_stavku(item_ordinal=_p_ord)
+            else:
+                # Bez rednog broja — uzmi naziv iz "za X"
+                _ptn_za = _re.search(r'za\s+([a-zšđčćžA-ZŠĐČĆŽ][^,?!\n]{2,40})', msg)
+                _naziv = _ptn_za.group(1).strip() if _ptn_za else ""
+                self._alternativni_tarifni_za_stavku(item_query=_naziv)
+            return
+
         # --- DETEKCIJA NAMJERE: brisanje tarifnih brojeva (MORA BITI ISPRED popune!) ---
         # Provjera: prisutan glagol brisanja I "tarif" u poruci
         _brisanje_glagoli = ['izbri', 'obri', 'ukloni', 'resetuj', 'ocisti', 'očisti',
@@ -1294,12 +1339,50 @@ class AgentController:
             self._obrisi_tarifne_brojeve()
             return
 
+        # --- DETEKCIJA NAMJERE: alternativni tarifni (korisnik nije zadovoljan) ---
+        # Korisnik ima popunjen tarif ali misli da je pogrešan — traži alternativu
+        _alt_tariff_signals = [
+            'drugi tarif', 'drugu tarifu', 'alternativni tarif', 'alternativnu tarifu',
+            'nije tačan tarif', 'nije tacna tarif', 'pogrešan tarif', 'pogresan tarif',
+            'nije dobar tarif', 'krivi tarif', 'promijeni tarif', 'drugačiji tarif',
+            'drukciji tarif', 'ispravi tarif', 'ispravni tarif', 'preispitaj tarif',
+        ]
+        _is_alt_tariff = (
+            any(sig in msg for sig in _alt_tariff_signals)
+            or ('alternativ' in msg and 'tarif' in msg)
+            or ('drugi' in msg and 'tarif' in msg and ('za' in msg or _has_specific_items))
+        )
+        if _is_alt_tariff:
+            # Pokušaj izvuci naziv robe: "za X", navodnici, ili po rednom broju
+            _alt_name_match = _re.search(r'za\s+["\']?([a-zšđčćžA-ZŠĐČĆŽ0-9][^,?!\n]{2,50})', msg)
+            _alt_quote_match = _re.search(r'["\'](.{3,50})["\']', msg)
+            item_q = ""
+            item_ord = None
+            if _alt_quote_match:
+                item_q = _alt_quote_match.group(1).strip()
+            elif _alt_name_match:
+                item_q = _alt_name_match.group(1).strip().rstrip('?! ')
+            # Redni broj stavke — digitalni format (npr. "naim 2", "stavku 3")
+            _alt_ord_match = _re.search(r'(?:stavk[ue]?|naim\w*|rb\.?|redni\s+br\.?)\s+(\d+)', msg)
+            if _alt_ord_match:
+                item_ord = int(_alt_ord_match.group(1))
+            # Redni broj stavke — srpski redni brojevi ("prvom", "drugom", "treće"...)
+            if item_ord is None and _has_ordinal:
+                for _ord_word, _ord_num in _REDNI.items():
+                    if _ord_word in msg and _ord_num > 0:
+                        item_ord = _ord_num
+                        break
+            self._alternativni_tarifni_za_stavku(item_query=item_q, item_ordinal=item_ord, is_alt=True)
+            return
+
         # Eksplicitni batch zahtjev (popuni sve / nađi sve bez / predloži tarifne)
+        # NAPOMENA: "predloži mi tarif za X" i "predloži tarif za X" su odstranjeni odavde
+        #           jer ih hvata _provjeri_tarif_match iznad.
         _generalni_tarif_kw = [
             'popuni tarif', 'nađi sve bez tarif', 'nađi stavke bez tarif',
             'predloži sve tarif', 'predlozi sve tarif',
-            'predloži mi tarif', 'predlozi mi tarif',
-            'predloži tarif', 'predlozi tarif',
+            'predloži tarif za sve', 'predlozi tarif za sve',
+            'predloži mi sve tarif', 'predlozi mi sve tarif',
             'auto tarif', 'batch tarif',
             'tarifne brojeve za sve', 'tarifne za sve',
             'tarifne brojeve za stavke', 'tarifne za stavke',
@@ -1315,8 +1398,15 @@ class AgentController:
             # Informativni upit o tarifi/naimenovanju → LLM
             pass
         elif any(kw in msg for kw in ['tarif', 'tarifn']) and not _has_specific_items and not _is_query:
-            # Generalni "tarife" bez konteksta → batch prijedlog
-            self._predlozi_tarifne_brojeve()
+            # Dvosmislena tarif-poruka: ima "za" ili naziv robe → classifier, inače batch
+            _has_za_nesto = bool(_re.search(r'\btarif\w*\s+za\s+\w{3,}', msg)
+                                 or _re.search(r'\bza\s+\w{3,}.{0,30}\btarif', msg))
+            if _has_za_nesto:
+                # Postoji "tarif za X" pattern → LLM classifier za pametno usmjeravanje
+                self._klasificiraj_i_usmjeri(message)
+            else:
+                # Bez konkretne robe → batch prijedlog
+                self._predlozi_tarifne_brojeve()
             return
 
         # --- DETEKCIJA NAMJERE: pregled i validacija naimenovanja ---
@@ -1581,6 +1671,292 @@ class AgentController:
     def _provjeri_tarifni_za_naziv(self, naziv_robe: str):
         """Provjeri tarifni za naziv — koristi TariffIntentService."""
         self.tariff_svc.check_tariff_for_name(naziv_robe)
+
+    def _alternativni_tarifni_za_stavku(self, item_query: str = "", item_ordinal: int = None, is_alt: bool = False):
+        """
+        Predloži alternativne tarifne za konkretnu stavku koristeći DeepSeek.
+
+        Korisnik nije zadovoljan popunjenim tarifom — traži drugi/ispravniji.
+        Handler pronađe stavku po ordinal broju (u naimenovanjima ili faktura linijama)
+        ili fuzzy matchom po nazivu, zatim pokrene ChatWorker sa ciljnim promptom.
+        """
+        from .widgets.chat_worker import ChatWorker
+        import re as _re_alt
+
+        chat = self.view.get_chat_panel()
+
+        if not self.draft:
+            chat.add_agent_message("⚠️ Nema učitanog drafta.")
+            return
+
+        naim_items = getattr(self.draft, 'items', [])
+        invoice_lines = getattr(self.draft, 'invoice_lines', [])
+
+        # Varijable za pronađenu stavku
+        item_name = ""
+        current_tariff = ""
+        zemlja = ""
+        iznos = 0.0
+
+        found = False
+
+        # 1. Pretraži NAIMENOVANJA po rednom broju (prioritet — korisnik najčešće misli na naim.)
+        if item_ordinal is not None and naim_items:
+            for it in naim_items:
+                if getattr(it, 'ordinal_no', None) == item_ordinal:
+                    item_name = getattr(it, 'goods_description', '') or ""
+                    current_tariff = getattr(it, 'tariff_code', '') or ""
+                    zemlja = getattr(it, 'origin_country_code', '') or ""
+                    found = True
+                    break
+
+        # 2. Pretraži FAKTURA LINIJE po rednom broju (ako nije nađeno u naim.)
+        if not found and item_ordinal is not None and invoice_lines:
+            idx = item_ordinal - 1
+            if 0 <= idx < len(invoice_lines):
+                l = invoice_lines[idx]
+                item_name = getattr(l, 'naziv_robe', '') or ""
+                current_tariff = getattr(l, 'tarifni_broj', '') or ""
+                zemlja = getattr(l, 'zemlja_porijekla', '') or ""
+                iznos = getattr(l, 'iznos', 0) or 0
+                found = True
+
+        # 3. Fuzzy match po nazivu u naim. pa u faktura linijama
+        if not found and item_query:
+            query_words = [w for w in _re_alt.findall(
+                r'[a-zšđčćžA-ZŠĐČĆŽ0-9]{3,}', item_query.lower()
+            )]
+            # Najprije u naim.
+            best_hits = 0
+            for it in naim_items:
+                naziv = (getattr(it, 'goods_description', '') or '').lower()
+                hits = sum(1 for w in query_words if w in naziv)
+                if hits > best_hits:
+                    best_hits = hits
+                    item_name = getattr(it, 'goods_description', '') or ""
+                    current_tariff = getattr(it, 'tariff_code', '') or ""
+                    zemlja = getattr(it, 'origin_country_code', '') or ""
+                    found = True
+            # Pa u faktura linijama
+            if not found or best_hits == 0:
+                for l in invoice_lines:
+                    naziv = (getattr(l, 'naziv_robe', '') or '').lower()
+                    hits = sum(1 for w in query_words if w in naziv)
+                    if hits > best_hits:
+                        best_hits = hits
+                        item_name = getattr(l, 'naziv_robe', '') or ""
+                        current_tariff = getattr(l, 'tarifni_broj', '') or ""
+                        zemlja = getattr(l, 'zemlja_porijekla', '') or ""
+                        iznos = getattr(l, 'iznos', 0) or 0
+                        found = True
+            if found and best_hits == 0:
+                found = False
+
+        # Ako nije nađena stavka — upozori
+        if not found:
+            if item_query:
+                chat.add_agent_message(
+                    f"⚠️ Nisam pronašao stavku <b>'{item_query}'</b>. "
+                    f"Pokušaj navesti tačniji naziv ili redni broj."
+                )
+            elif item_ordinal:
+                chat.add_agent_message(
+                    f"⚠️ Naimenovanje/stavka broj <b>{item_ordinal}</b> nije pronađena u draftu."
+                )
+            else:
+                chat.add_agent_message(
+                    "⚠️ Navedi naziv robe ili redni broj, npr: "
+                    "<i>alternativni tarif za startno uže</i> ili "
+                    "<i>u prvom naimenovanju je pogrešan tarif</i>"
+                )
+            return
+
+        if not item_name:
+            item_name = item_query or f"stavka {item_ordinal}"
+
+        # Konstruiši specifičan prompt za DeepSeek
+        zemlja_str = f" (zemlja porijekla: {zemlja})" if zemlja else ""
+        iznos_str = f", vrijednost {iznos:.2f} EUR" if iznos else ""
+
+        if current_tariff:
+            prompt = (
+                f'Tarifni broj {current_tariff} koji je trenutno upisan za robu "{item_name}"{zemlja_str}{iznos_str} '
+                f'vjerovatno nije tačan. '
+                f'Predloži mi 3 do 5 alternativnih HS tarifnih brojeva koji bi mogli biti ispravniji. '
+                f'Za svaki navedi: tarifni broj, zvanični opis iz HS nomenklature, '
+                f'i kratko obrazloženje zašto bi odgovarao (ili zašto {current_tariff} nije prikladan).'
+            )
+        else:
+            prompt = (
+                f'Predloži mi odgovarajući HS tarifni broj za robu: "{item_name}"{zemlja_str}{iznos_str}. '
+                f'Daj 3 do 5 opcija sa zvaničnim opisom i obrazloženjem za svaku.'
+            )
+
+        chat.add_activity(f"🔍 Tražim alternative za: {item_name[:60]}...")
+        chat.show_typing_indicator()
+
+        # Koristimo DIREKTNI LLM poziv — zaobilazimo ChatWorker i njegov sistem prompt
+        # koji zabranjuje korištenje HS znanja izvan baze.
+        # Za alternativne tarife TAČNO trebamo DeepSeekovo znanje o HS nomenklaturi.
+        from PySide6.QtCore import QThread, Signal as _Signal
+
+        _item_name = item_name
+        _current_tariff = current_tariff
+        _zemlja = zemlja
+        _iznos = iznos
+        _is_alt = is_alt
+
+        class _AltTariffWorker(QThread):
+            token_received = _Signal(str)
+            stream_started = _Signal()
+            response_ready = _Signal(str)
+            error_occurred = _Signal(str)
+
+            def run(self_):
+                try:
+                    from gui.tabs.agent.widgets.llm_provider import LLMProvider, parse_llm_error
+
+                    zemlja_str = f" (zemlja porijekla: {_zemlja})" if _zemlja else ""
+
+                    if _current_tariff and _is_alt:
+                        user_msg = (
+                            f'Roba: "{_item_name}"{zemlja_str}\n'
+                            f'Postojeći tarif {_current_tariff} nije tačan.\n'
+                            f'Predloži 4-5 ispravnijih HS tarifnih brojeva iz RAZLIČITIH poglavlja — '
+                            f'razmotri materijal (plastika, sintetička vlakna, čelik, guma), '
+                            f'funkciju i upotrebu robe.'
+                        )
+                    else:
+                        user_msg = (
+                            f'Roba: "{_item_name}"{zemlja_str}\n'
+                            f'Predloži 4-5 HS tarifnih brojeva iz RAZLIČITIH poglavlja — '
+                            f'razmotri materijal (plastika, sintetička vlakna, čelik, guma), '
+                            f'funkciju i upotrebu robe.'
+                        )
+
+                    messages = [
+                        {
+                            "role": "system",
+                            "content": (
+                                "Si stručnjak za HS carinsku nomenklaturu (Harmonizovani sistem, BiH tarifa). "
+                                "PRAVILA:\n"
+                                "1. Uvijek razmotri materijal (plastika, sintetička vlakna, čelik, guma...), "
+                                "funkciju i upotrebu — ne samo doslovan prijevod naziva.\n"
+                                "2. Predloži opcije iz RAZLIČITIH poglavlja HS-a — "
+                                "ne fokusiraj se na jedno poglavlje.\n"
+                                "3. Tarifni broj = 8 cifara bez tačaka.\n"
+                                "Format, svaka opcija u novom redu:\n"
+                                "**XXXXXXXX** — [naziv iz HS tarife] — [materijal/upotreba zašto odgovara]"
+                            )
+                        },
+                        {"role": "user", "content": user_msg},
+                    ]
+
+                    provider = LLMProvider()
+                    self_.stream_started.emit()
+                    full = ""
+                    for token in provider.stream_chat(messages, max_tokens=400):
+                        full += token
+                        self_.token_received.emit(token)
+                    self_.response_ready.emit(full.strip())
+
+                except Exception as e:
+                    from gui.tabs.agent.widgets.llm_provider import parse_llm_error
+                    self_.error_occurred.emit(parse_llm_error(e))
+
+        worker = _AltTariffWorker(parent=self.view)
+        worker.stream_started.connect(chat.start_streaming)
+        worker.token_received.connect(chat.append_stream_token)
+        worker.response_ready.connect(lambda _: chat.finalize_streaming())
+        worker.response_ready.connect(
+            lambda text: (
+                self.budget.estimate_output(text),
+                self._check_budget_after_response(),
+            )
+        )
+        worker.error_occurred.connect(lambda _: chat.hide_typing_indicator())
+        worker.error_occurred.connect(lambda err: chat.add_agent_message(f"⚠️ {err}"))
+        worker.finished.connect(worker.deleteLater)
+        worker.start()
+
+        if not hasattr(self, '_chat_workers'):
+            self._chat_workers = []
+        self._chat_workers.append(worker)
+        worker.finished.connect(
+            lambda: self._chat_workers.remove(worker) if worker in self._chat_workers else None
+        )
+
+    def _klasificiraj_i_usmjeri(self, message: str):
+        """
+        Async LLM klasifikacija za dvosmislene tarif-poruke.
+
+        Poziva IntentClassifier u pozadini (QThread), zatim usmjerava
+        na odgovarajući handler. Koristiti samo kad keyword detekcija
+        nije dovoljna.
+        """
+        from PySide6.QtCore import QThread, Signal
+
+        chat = self.view.get_chat_panel()
+        chat.add_activity("🤔 Analiziram šta tražiš...")
+
+        class _ClassifierWorker(QThread):
+            done = Signal(object)
+
+            def __init__(self_, msg, dft):
+                super().__init__()
+                self_._msg = msg
+                self_._dft = dft
+
+            def run(self_):
+                from services.agent.intent_classifier import IntentClassifier
+                clf = IntentClassifier()
+                summary = IntentClassifier.build_draft_summary(self_._dft)
+                result = clf.classify(self_._msg, summary)
+                self_.done.emit(result)
+
+        worker = _ClassifierWorker(message, self.draft)
+
+        def _on_classified(result):
+            import logging
+            logging.getLogger(__name__).debug(
+                f"[IntentClassifier] intent={result.intent} "
+                f"item_query={result.item_query!r} ordinal={result.item_ordinal}"
+            )
+            if result.intent == "ALT_TARIFF":
+                self._alternativni_tarifni_za_stavku(
+                    item_query=result.item_query,
+                    item_ordinal=result.item_ordinal,
+                    is_alt=True,
+                )
+            elif result.intent == "SINGLE_TARIFF" and result.item_query:
+                self._provjeri_tarifni_za_naziv(result.item_query)
+            elif result.intent == "BATCH_TARIFF":
+                self._predlozi_tarifne_brojeve()
+            else:
+                # QUERY ili OTHER → standardni LLM chat
+                from .widgets.chat_worker import ChatWorker
+                memory_service = chat.get_memory_service()
+                cw = ChatWorker(message, draft=self.draft, parent=self.view,
+                                memory_service=memory_service)
+                cw.stream_started.connect(chat.start_streaming)
+                cw.token_received.connect(chat.append_stream_token)
+                cw.response_ready.connect(lambda _: chat.finalize_streaming())
+                cw.error_occurred.connect(lambda _: chat.hide_typing_indicator())
+                cw.error_occurred.connect(lambda e: chat.add_agent_message(f"⚠️ {e}"))
+                cw.finished.connect(cw.deleteLater)
+                cw.start()
+
+        worker.done.connect(_on_classified)
+        worker.finished.connect(worker.deleteLater)
+        worker.start()
+
+        if not hasattr(self, '_classifier_workers'):
+            self._classifier_workers = []
+        self._classifier_workers.append(worker)
+        worker.finished.connect(
+            lambda: self._classifier_workers.remove(worker)
+            if worker in self._classifier_workers else None
+        )
 
     def _obrisi_tarifne_brojeve(self):
         """Obriši tarifne brojeve — koristi TariffIntentService."""

@@ -139,7 +139,20 @@ class ZaglavljeController:
             
             # Load data from XML via service
             data = self.service.load_from_xml(filename)
-            
+
+            # Rb.22 — iznos se uvijek uzima iz fakture/naim., ne iz XML-a
+            # XML može sadržavati zastarjeli iznos iz prethodne deklaracije
+            draft = self._get_draft_fn() if self._get_draft_fn else None
+            if draft:
+                invoice_lines = getattr(draft, 'invoice_lines', None) or []
+                iznos_iz_fakture = sum(getattr(l, 'iznos', 0.0) or 0.0 for l in invoice_lines)
+                if iznos_iz_fakture:
+                    data['iznos'] = f"{iznos_iz_fakture:.2f}"
+                    data['valuta'] = data.get('valuta') or next(
+                        (getattr(l, 'valuta', '') for l in invoice_lines if getattr(l, 'valuta', '')),
+                        ''
+                    )
+
             # Populate view with data
             self.view.set_data(data)
             

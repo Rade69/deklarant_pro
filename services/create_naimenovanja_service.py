@@ -205,6 +205,7 @@ class CreateNaimenovanjaService:
             ordinal_no=ordinal_no,
             # Osnovne informacije (koristi InvoiceLine field names!)
             tariff_code=line.tarifni_broj or '',
+            tariff_suffix=line.tariff_suffix or '000',
             goods_description=line.naziv_robe or '',
             goods_trade_name=line.naziv_robe or '',  # Trgovački naziv (I31_12)
             origin_country_code=line.zemlja_porijekla or '',
@@ -275,6 +276,7 @@ class CreateNaimenovanjaService:
             ordinal_no=ordinal_no,
             # Osnovne informacije (iz prve linije - koristi InvoiceLine field names!)
             tariff_code=first_line.tarifni_broj or '',
+            tariff_suffix=first_line.tariff_suffix or '000',
             origin_country_code=first_line.zemlja_porijekla or '',
             currency=first_line.valuta or 'EUR',
             package_code='PK',  # Podrazumevano

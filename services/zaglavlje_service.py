@@ -249,7 +249,38 @@ class ZaglavljeService:
         if transport is not None:
             data['transport_id'] = self._get_text_from_element(transport, ['ID', 'Number'])
             data['aktivno_transport'] = self._get_text_from_element(transport, ['Nationality', 'Country'])
-        
+
+        # ── Priložene isprave (Attached_documents) iz Item sekcija ─────────────
+        data['attached_documents'] = []
+        seen_docs = set()
+        ns_pro = {'n': root.tag.split('}')[0][1:]} if root.tag.startswith('{') else {}
+        tag_prefix = f"{{{root.tag.split('}')[0][1:]}}}Item" if ns_pro else "Item"
+        attached_tag_prefix = f"{{{root.tag.split('}')[0][1:]}}}Attached_documents" if ns_pro else "Attached_documents"
+        code_tag = f"{{{root.tag.split('}')[0][1:]}}}Attached_document_code" if ns_pro else "Attached_document_code"
+        name_tag = f"{{{root.tag.split('}')[0][1:]}}}Attached_document_name" if ns_pro else "Attached_document_name"
+        ref_tag = f"{{{root.tag.split('}')[0][1:]}}}Attached_document_reference" if ns_pro else "Attached_document_reference"
+        from_rule_tag = f"{{{root.tag.split('}')[0][1:]}}}Attached_document_from_rule" if ns_pro else "Attached_document_from_rule"
+
+        for item_el in root.iter(tag_prefix):
+            for att_el in item_el.iter(attached_tag_prefix):
+                code_el = att_el.find(code_tag)
+                name_el = att_el.find(name_tag)
+                ref_el = att_el.find(ref_tag)
+                from_rule_el = att_el.find(from_rule_tag)
+                code = code_el.text.strip() if code_el is not None and code_el.text else ''
+                name = name_el.text.strip() if name_el is not None and name_el.text else ''
+                ref = ref_el.text.strip() if ref_el is not None and ref_el.text else ''
+                from_rule = True  # Svaki upisani dokument je fizički priložen
+                doc_key = (code, ref)
+                if doc_key not in seen_docs and code:
+                    seen_docs.add(doc_key)
+                    data['attached_documents'].append({
+                        'code': code,
+                        'name': name,
+                        'number': ref,
+                        'from_rule': from_rule,
+                    })
+
         return data
     
     def _get_text_from_element(self, element: ET.Element, tag_variants: List[str]) -> str:
@@ -503,13 +534,18 @@ class ZaglavljeService:
         data['transport_id'] = getattr(draft, 'transport_id', '') or ''
         data['kontejner'] = bool(getattr(draft, 'kontejner', False))
 
-        # Rubrika 21 - Aktivno transportno sredstvo
+        # Rubrika 18 - nacionalnost pri polasku
+        data['transport_nacionalnost'] = getattr(draft, 'transport_nacionalnost', '') or ''
+        # Rubrika 19 - kontejner broj
+        data['kontejner_broj'] = getattr(draft, 'kontejner_broj', '') or ''
+        # Rubrika 21 - aktivno transp. + nacionalnost na granici
         data['aktivno_transport'] = getattr(draft, 'aktivno_transport', '') or ''
+        data['aktivno_transport_nat'] = getattr(draft, 'aktivno_transport_nat', '') or ''
 
-        # Rubrika 25, 26, 27 - Vid unutra/granica (draft nema vid_27 polje)
+        # Rubrika 25, 26, 27 - Vid unutra/granica/mjesto otvarač
         data['vid_25'] = getattr(draft, 'vid_unutra', '') or ''
         data['vid_26'] = getattr(draft, 'vid_granica', '') or ''
-        data['vid_27'] = ''  # nije u draft modelu
+        data['vid_27'] = getattr(draft, 'mjesto_otvaraca', '') or ''
 
         # Rubrika 29 - Izlazna carinarnica
         data['izlazna_carinarnica'] = getattr(draft, 'izlazna_carinarnica', '') or ''
@@ -565,9 +601,24 @@ class ZaglavljeService:
         data['uslovi_mjesto'] = getattr(draft, 'uslovi_mjesto', '') or ''
 
         # Rubrika 22, 23, 24 - Valuta, iznos, kurs
-        data['valuta'] = getattr(draft, 'valuta', '') or ''
-        iznos_val = getattr(draft, 'iznos', 0.0) or 0.0
-        data['iznos'] = str(iznos_val) if iznos_val else ''
+        # invoice_lines uvijek imaju prioritet — XML može sadržavati zastarjeli iznos
+        invoice_lines = getattr(draft, 'invoice_lines', None) or []
+        iznos_iz_fakture = sum(getattr(l, 'iznos', 0.0) or 0.0 for l in invoice_lines)
+        if iznos_iz_fakture:
+            iznos_val = iznos_iz_fakture
+            draft.iznos = iznos_val
+        else:
+            iznos_val = getattr(draft, 'iznos', 0.0) or 0.0
+        valuta = getattr(draft, 'valuta', '') or ''
+        if not valuta:
+            for l in invoice_lines:
+                v = getattr(l, 'valuta', '') or ''
+                if v:
+                    valuta = v
+                    draft.valuta = valuta
+                    break
+        data['valuta'] = valuta
+        data['iznos'] = f"{iznos_val:.2f}" if iznos_val else ''
         kurs_val = getattr(draft, 'kurs', 1.0) or 1.0
         data['kurs'] = str(kurs_val) if kurs_val != 1.0 else ''
         data['vrsta_trans_1'] = getattr(draft, 'vrsta_trans_1', '') or ''
@@ -594,7 +645,7 @@ class ZaglavljeService:
                     'code': getattr(doc, 'code', ''),
                     'name': getattr(doc, 'name', ''),
                     'number': getattr(doc, 'number', ''),
-                    'from_rule': getattr(doc, 'from_rule', False),
+                    'from_rule': True,  # Svaki upisani dokument je fizički priložen
                 })
 
         self._log_operation(f"Učitavanje iz Draft-a: {getattr(draft, 'broj_deklaracije', 'N/A')}")
@@ -675,12 +726,18 @@ class ZaglavljeService:
         draft.transport_id = safe_get('transport_id')
         draft.kontejner = bool(data.get('kontejner', False))
 
-        # Rubrika 21 - Aktivno transportno sredstvo
+        # Rubrika 18 - nacionalnost pri polasku
+        draft.transport_nacionalnost = safe_get('transport_nacionalnost')
+        # Rubrika 19 - kontejner broj
+        draft.kontejner_broj = safe_get('kontejner_broj')
+        # Rubrika 21 - Aktivno transportno sredstvo + nacionalnost na granici
         draft.aktivno_transport = safe_get('aktivno_transport')
+        draft.aktivno_transport_nat = safe_get('aktivno_transport_nat')
 
-        # Rubrika 25, 26 - Vid unutra/granica (vid_27 nema u draft modelu)
+        # Rubrika 25, 26, 27 - Vid unutra/granica/mjesto otvarač
         draft.vid_unutra = safe_get('vid_25')
         draft.vid_granica = safe_get('vid_26')
+        draft.mjesto_otvaraca = safe_get('vid_27')
 
         # Rubrika 29 - Izlazna carinarnica
         draft.izlazna_carinarnica = safe_get('izlazna_carinarnica')
@@ -843,17 +900,12 @@ class ZaglavljeService:
             data[r3] = lines[1] if len(lines) > 1 else ''
             data[r2] = lines[2] if len(lines) > 2 else ''
 
-        # ── Rb. 3, 4, 5: Obrasci, tovarni listovi, stavke ────────────────────
+        # ── Rb. 4: Tovarni listovi ────────────────────────────────────────
         prop = _find(root, "Property")
         if prop is not None:
-            forms = _find(prop, "Forms")
-            if forms is not None:
-                data['obrazac_1'] = _txt(forms, "Number_of_the_form")
-                data['obrazac_2'] = _txt(forms, "Total_number_of_forms")
             nbers = _find(prop, "Nbers")
             if nbers is not None:
                 data['tovarni_listovi'] = _txt(nbers, "Number_of_loading_lists")
-                data['stavke'] = _txt(nbers, "Total_number_of_items")
 
         # ── Rb. 1: Tip deklaracije ────────────────────────────────────────────
         ident = _find(root, "Identification")
@@ -907,15 +959,13 @@ class ZaglavljeService:
                     data['drzava_odredista_naziv'] = _txt(dest_el, "Destination_country_name")
             data['drzava_porijekla'] = _txt(gen_info, "Country_of_origin_name")
 
-        # ── Rb. 18, 19, 20, 21, 25, 26, 29, 30 ───────────────────────────────
+        # ── Rb. 19, 20, 25, 26, 29, 30 ───────────────────────────────
         transport_el = _find(root, "Transport")
         if transport_el is not None:
             means = _find(transport_el, "Means_of_transport")
             if means is not None:
                 border_info = _find(means, "Border_information")
                 if border_info is not None:
-                    data['transport_id'] = _txt(border_info, "Identity")
-                    data['aktivno_transport'] = _txt(border_info, "Nationality")
                     data['vid_25'] = _txt(border_info, "Mode")
                 data['vid_26'] = _txt(means, "Inland_mode_of_transport")
 
@@ -942,9 +992,6 @@ class ZaglavljeService:
             if fin_trans is not None:
                 data['vrsta_trans_1'] = _txt(fin_trans, "code1")
                 data['vrsta_trans_2'] = _txt(fin_trans, "code2")
-            def_pay = _find(financial, "Deffered_payment_reference")
-            if def_pay is not None and def_pay.text:
-                data['odgodjeno_placanje'] = def_pay.text.strip()
 
         # ── Rb. 49: Identifikacija skladišta ──────────────────────────────────
         warehouse = _find(root, "Warehouse")
@@ -956,6 +1003,20 @@ class ZaglavljeService:
         # ── Troškovi: trosak_1..5 ─────────────────────────────────────────────
         valuation = _find(root, "Valuation")
         if valuation is not None:
+            # ── Rb. 22, 23: Valuta, iznos, kurs ─────────────────────────────
+            gs_inv = _find(valuation, "Gs_Invoice")
+            if gs_inv is not None:
+                curr_code = _txt(gs_inv, "Currency_code")
+                if curr_code:
+                    data['valuta'] = curr_code
+                amt = _txt(gs_inv, "Amount_foreign_currency")
+                if amt and amt != "0":
+                    data['iznos'] = amt
+                rate = _txt(gs_inv, "Currency_rate")
+                if rate and rate != "1" and rate != "0":
+                    data['kurs'] = rate
+
+            # ── Troškovi: trosak_1..5 ─────────────────────────────────────────
             cost_map = {
                 'trosak_1': "Gs_external_freight",
                 'trosak_2': "Gs_insurance",
@@ -969,6 +1030,34 @@ class ZaglavljeService:
                     amt = _txt(gs, "Amount_foreign_currency")
                     if amt and amt != "0":
                         data[field] = amt.replace('.', ',')
+
+        # ── Priložene isprave (Attached_documents) iz Item sekcija ─────────────
+        data['attached_documents'] = []
+        seen_docs = set()
+        items = root.findall("Item")
+        if ns:
+            items = root.findall(f"n:Item", ns)
+
+        for item_el in items:
+            attached_elements = item_el.findall("Attached_documents")
+            if ns:
+                attached_elements = item_el.findall(f"n:Attached_documents", ns)
+            for att_el in attached_elements:
+                code = _txt(att_el, "Attached_document_code")
+                name = _txt(att_el, "Attached_document_name")
+                ref = _txt(att_el, "Attached_document_reference")
+                from_rule_str = _txt(att_el, "Attached_document_from_rule")
+                from_rule = (from_rule_str == "1")
+                # Deduplicate by (code, ref)
+                doc_key = (code, ref)
+                if doc_key not in seen_docs and code:
+                    seen_docs.add(doc_key)
+                    data['attached_documents'].append({
+                        'code': code,
+                        'name': name,
+                        'number': ref,
+                        'from_rule': from_rule,
+                    })
 
         return data
     

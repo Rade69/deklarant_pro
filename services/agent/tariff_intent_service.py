@@ -266,18 +266,26 @@ class TariffIntentService:
         self._msg(f"✅ Obrisano <b>{obrisano}</b> tarifnih brojeva iz Faktura taba.")
 
     # ─────────────────────────────────────────────────────
-    # PROVJERA TARIFNOG ZA NAZIV
+    # PRIJEDLOG TARIFNOG ZA KONKRETAN NAZIV (DeepSeek)
     # ─────────────────────────────────────────────────────
 
     def check_tariff_for_name(self, naziv_robe: str):
-        """Pozovi HybridTariffAgent za konkretan naziv robe."""
-        self._activity(f"🔍 Provjera tarifnog za: {naziv_robe}")
+        """
+        Predlaži tarifni broj za naziv robe.
 
-        from PySide6.QtCore import QThread, Signal, QObject
-        from services.agent.hybrid_tariff_agent import HybridTariffAgent
+        Tok:
+        1. Lokalna baza znanja (TariffMappingService fuzzy match)
+        2. RAG pretraga zvanicna_tarifa.db
+        3. DeepSeek direktni poziv sa HS kontekstom iz RAG-a
+        """
+        self._activity(f"🔍 Tražim tarifni za: {naziv_robe}")
 
-        class _TariffCheckWorker(QThread):
-            done = Signal(dict)
+        from PySide6.QtCore import QThread, Signal
+
+        svc_ref = self
+
+        class _Worker(QThread):
+            done = Signal(str)
             error = Signal(str)
 
             def __init__(self_, naziv):
@@ -286,52 +294,60 @@ class TariffIntentService:
 
             def run(self_):
                 try:
-                    agent = HybridTariffAgent()
-                    result = agent.decide_tariff(self_._naziv)
-                    self_.done.emit(result)
+                    naziv = self_._naziv
+
+                    # DeepSeek direktno — bez RAG, bez baze kao konteksta
+                    # RAG i baza znanja sidre model na pogrešan tarif.
+                    # DeepSeek poznaje HS nomenklaturu — pustiti ga da klasificira slobodno.
+                    from gui.tabs.agent.widgets.llm_provider import LLMProvider
+                    provider = LLMProvider()
+
+                    system_msg = (
+                        "Si ekspert za carinsku tarifu (Harmonizovani sistem — HS/TARIC). "
+                        "Odgovaraj na srpskom jeziku, kratko i precizno.\n"
+                        "PRAVILA:\n"
+                        "1. Uvijek razmotri materijal (plastika, sintetička vlakna, čelik, guma...), "
+                        "funkciju i upotrebu — ne samo doslovan prijevod naziva.\n"
+                        "2. Predloži opcije iz RAZLIČITIH poglavlja HS-a. "
+                        "Npr. isti predmet može biti klasificiran u poglavlju 39 (plastika), "
+                        "56 (sintetička vlakna/konopci), 73 (čelik) — sve ovisi o materijalu.\n"
+                        "3. Nikada ne predlažaj samo jedno poglavlje. "
+                        "Ako si nesiguran, navedite opcije za različite materijale.\n"
+                        "4. Format odgovora (svaka opcija u novom redu):\n"
+                        "**XXXXXXXX** — [naziv iz HS tarife] — [materijal i zašto odgovara]\n"
+                        "5. Tarifni broj = 8 cifara bez tačaka. Bez uvoda, bez zaključka."
+                    )
+
+                    user_msg = (
+                        f'Predloži tarifni HS broj za robu: "{naziv}"\n'
+                        f'Daj 4-5 opcija iz RAZLIČITIH poglavlja: '
+                        f'razmisli o sintetičkim vlaknima, plastici, gumi, metalu, '
+                        f'dijelovima mašina — i objasni za koji materijal/upotrebu odgovara svaki.'
+                    )
+
+                    messages = [
+                        {"role": "system", "content": system_msg},
+                        {"role": "user", "content": user_msg},
+                    ]
+                    result = provider.complete(messages, max_tokens=350, use_small_model=False)
+                    self_.done.emit(result.strip())
+
                 except Exception as e:
                     self_.error.emit(str(e))
 
-        worker = _TariffCheckWorker(naziv_robe)
+        worker = _Worker(naziv_robe)
 
-        def _on_done(result):
-            confidence = result.get('confidence', 0)
-            tarifni = result.get('tarifni_broj', 'N/A')
-            metoda = result.get('method', 'N/A')
-            needs_review = result.get('needs_review', False)
-            explanation = result.get('explanation', '')
-            candidates = result.get('candidates', [])
-
-            if confidence >= 0.85:
-                conf_ikona, conf_status = "✅", "visok — auto-prihvati"
-            elif confidence >= 0.60:
-                conf_ikona, conf_status = "⚠️", "srednji — pregledaj"
-            else:
-                conf_ikona, conf_status = "❌", "nizak — obavezno pregledaj"
-
-            lines = [
-                f"<b>📌 Tarifni broj:</b> <code>{tarifni}</code>",
-                f"<b>📊 Confidence:</b> {conf_ikona} {confidence:.0%} ({conf_status})",
-                f"<b>🔧 Metoda:</b> {metoda}",
-                f"<b>⚠️ Review:</b> {'DA' if needs_review else 'NE'}",
-            ]
-            if explanation:
-                lines.append(f"<br><b>📝 Objašnjenje:</b><br>{explanation[:300]}")
-            if candidates:
-                alts = []
-                for c in candidates[:3]:
-                    alts.append(
-                        f"• {c.get('tarifni_broj','?')} "
-                        f"({c.get('confidence',0):.0%}) — "
-                        f"{c.get('naziv_robe','')[:40]}"
-                    )
-                lines.append("<br><b>📋 Alternative:</b><br>" + "<br>".join(alts))
-
-            self._msg("<br>".join(lines))
-            self._activity(f"✅ Tarifni za '{naziv_robe}': {tarifni} ({confidence:.0%})")
+        def _on_done(text):
+            svc_ref._msg(
+                f"<b>📌 Prijedlog tarifnog za: {naziv_robe}</b><br><br>"
+                f"{text}<br><br>"
+                f"💾 Da sačuvaš u bazu znanja, reci npr.:<br>"
+                f"<i>Zapamti 84713000 za {naziv_robe}</i>"
+            )
+            svc_ref._activity(f"✅ Prijedlog tarifnog za '{naziv_robe}' gotov")
 
         def _on_error(err):
-            self._msg(f"❌ Greška pri provjeri tarifnog: {err}")
+            svc_ref._msg(f"❌ Greška pri traženju tarifnog: {err}")
 
         worker.done.connect(_on_done)
         worker.error.connect(_on_error)
@@ -343,6 +359,64 @@ class TariffIntentService:
                 ctrl._tariff_check_workers = []
             ctrl._tariff_check_workers.append(worker)
         worker.start()
+
+    # ─────────────────────────────────────────────────────
+    # SNIMANJE U BAZU ZNANJA
+    # ─────────────────────────────────────────────────────
+
+    def learn_tariff(self, naziv_robe: str, tarifni_broj: str):
+        """
+        Sačuvaj mapiranje naziv_robe → tarifni_broj u bazu znanja.
+        Korisnik eksplicitno kaže da je tarifni tačan.
+        """
+        import re
+        # Normalizuj — samo cifre, 8 znakova
+        digits = re.sub(r'\D', '', tarifni_broj)[:8]
+        if len(digits) != 8:
+            self._msg(
+                f"⚠️ Tarifni broj mora imati 8 cifara (upisano: <b>{tarifni_broj}</b>).<br>"
+                f"Primjer: <i>Zapamti 84713000 za laptop</i>"
+            )
+            return
+
+        # Pronađi product_code ako roba postoji u draft.invoice_lines
+        product_code = ""
+        if self.draft and self.draft.invoice_lines:
+            kw = naziv_robe.lower().strip()
+            for line in self.draft.invoice_lines:
+                if kw in (getattr(line, 'naziv_robe', '') or '').lower():
+                    product_code = getattr(line, 'product_code', '') or ''
+                    break
+
+        try:
+            from services.tariff_mapping_service import TariffMappingService
+            svc = TariffMappingService()
+
+            # Obriši sve stare zapise za ovaj naziv/product_code — korisnik potvrđuje tačan tarif.
+            # Bez brisanja, stari pogrešni zapis (sa visokim usage_count) pobijedi pri auto-popuni.
+            from database.db import get_db_connection
+            with get_db_connection() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("""
+                        DELETE FROM catalogs.product_tariff_mapping
+                        WHERE naziv_robe ILIKE %s
+                           OR (product_code = %s AND product_code != '')
+                    """, (f"%{naziv_robe}%", product_code or "__NONE__"))
+
+            ok = svc.save_mapping(
+                product_code=product_code,
+                naziv_robe=naziv_robe,
+                tarifni_broj=digits,
+            )
+            if ok:
+                self._msg(
+                    f"✅ <b>Zapamćeno!</b> <code>{digits}</code> → <b>{naziv_robe}</b><br>"
+                    f"<small>Sačuvano u bazu znanja — koristiće se automatski pri sljedećem uvozu.</small>"
+                )
+            else:
+                self._msg(f"⚠️ Nije sačuvano — provjeri tarifni broj <b>{digits}</b>.")
+        except Exception as e:
+            self._msg(f"❌ Greška pri snimanju: {e}")
 
     # ─────────────────────────────────────────────────────
     # HELPERS

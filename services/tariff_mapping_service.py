@@ -66,14 +66,12 @@ class TariffMapping:
     """Predstavlja jedno mapiranje proizvod → tarif."""
     product_code: str
     naziv_robe: str
-    tarifni_broj: str
+    tarifni_broj: str       # commodity_code — uvijek 8 cifara
+    precision_1: str        # Precision_1 — '000' ili '100' za lijekove
     zemlja_porijekla: str
     povlastica: str
     usage_count: int
     similarity: float = 1.0  # Za fuzzy matching (0.0-1.0)
-
-    def __post_init__(self):
-        self.tarifni_broj = _norm_tariff(self.tarifni_broj)
 
 
 @dataclass
@@ -165,8 +163,9 @@ class TariffMappingService:
     def auto_populate_tariffs(
         self,
         invoice_lines: List[InvoiceLine],
-        min_similarity: float = 0.85,
-        overwrite_existing: bool = False
+        min_similarity: float = 0.70,
+        overwrite_existing: bool = False,
+        supplier: str = ""
     ) -> MappingResult:
         """
         Automatski popuni tarifne brojeve za invoice lines.
@@ -199,12 +198,14 @@ class TariffMappingService:
                 product_code=line.product_code,
                 naziv_robe=line.naziv_robe,
                 min_similarity=min_similarity,
-                zemlja_porijekla=line.zemlja_porijekla  # Proslijedi zemlju iz PDF-a
+                zemlja_porijekla=line.zemlja_porijekla,
+                supplier=supplier or (line.exporter.name if line.exporter.name else "")
             )
 
             if mapping:
-                # Pronađen mapping - popuni SAMO tarifni broj
+                # Pronađen mapping - popuni tarifni broj i precision_1
                 line.tarifni_broj = mapping.tarifni_broj
+                line.tariff_suffix = mapping.precision_1
 
                 # ⚠️ NE DIRAJ povlasticu i eur1_number ako već postoje!
                 # Korisnik je već uneo kroz EUR.1/PE2 dialog
@@ -288,19 +289,23 @@ class TariffMappingService:
         self,
         product_code: str,
         naziv_robe: str,
-        min_similarity: float = 0.70,  # Sniženo sa 0.85 na 0.70
-        zemlja_porijekla: str = ""
+        min_similarity: float = 0.70,
+        zemlja_porijekla: str = "",
+        supplier: str = ""
     ) -> Optional[TariffMapping]:
         """
         Pronađi mapping za proizvod.
 
         Matching prioritet:
         1. Tačan match po product_code (similarity=1.0)
-        2. Fuzzy match po nazivu (min_similarity=0.70, vraća najbolji match)
+        2. Majority vote SAMO iz supplier zapisa (ako je supplier zadan)
+        3. Majority vote iz supplier + HISTORIJA zapisa
+        4. Majority vote iz svih zapisa (globalno)
+        5. Fuzzy match (globalno, min_similarity=0.70)
 
-        Vraća najbolji match ako je similarity >= min_similarity (0.70).
+        Zemlja porijekla se mečuje posebno unutar pobjedničkog commodity_code.
         """
-        logger.debug(f"🔍 find_mapping: product_code='{product_code}', naziv='{naziv_robe[:40] if naziv_robe else ''}', min_sim={min_similarity}")
+        logger.debug(f"🔍 find_mapping: product_code='{product_code}', naziv='{naziv_robe[:40] if naziv_robe else ''}', supplier='{supplier}'")
 
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
@@ -308,7 +313,8 @@ class TariffMappingService:
                 # 1. Pokušaj tačan match po product_code
                 if product_code and product_code.strip():
                     cursor.execute("""
-                        SELECT product_code, naziv_robe, tarifni_broj, zemlja_porijekla, povlastica, usage_count
+                        SELECT product_code, naziv_robe, commodity_code, precision_1,
+                               zemlja_porijekla, povlastica, usage_count
                         FROM catalogs.product_tariff_mapping
                         WHERE product_code ILIKE %s
                         ORDER BY usage_count DESC
@@ -320,14 +326,49 @@ class TariffMappingService:
                         return TariffMapping(
                             product_code=row["product_code"],
                             naziv_robe=row["naziv_robe"],
-                            tarifni_broj=row["tarifni_broj"],
+                            tarifni_broj=row["commodity_code"],
+                            precision_1=row["precision_1"],
                             zemlja_porijekla=row["zemlja_porijekla"] or "",
                             povlastica=row["povlastica"] or "",
                             usage_count=row["usage_count"],
-                            similarity=1.0  # Tačan match
+                            similarity=1.0
                         )
 
-                # 2. Pokušaj fuzzy match po nazivu (OPTIMIZOVANO)
+                # 2. Majority vote — u tri kruga po prioritetu
+                if naziv_robe and naziv_robe.strip():
+                    # Krug 1: samo zapisi ovog dobavljača
+                    if supplier:
+                        vote_result = self._majority_vote(
+                            cursor, naziv_robe, zemlja_porijekla,
+                            min_votes=2, min_ratio=0.60,
+                            supplier_filter=[supplier]
+                        )
+                        if vote_result:
+                            logger.debug(f"  🗳️  VOTE [{supplier}]: '{vote_result.naziv_robe[:40]}' → {vote_result.tarifni_broj}")
+                            return vote_result
+
+                    # Krug 2: dobavljač + verifikovana historija
+                    if supplier:
+                        vote_result = self._majority_vote(
+                            cursor, naziv_robe, zemlja_porijekla,
+                            min_votes=3, min_ratio=0.65,
+                            supplier_filter=[supplier, 'HISTORIJA']
+                        )
+                        if vote_result:
+                            logger.debug(f"  🗳️  VOTE [{supplier}+HISTORIJA]: '{vote_result.naziv_robe[:40]}' → {vote_result.tarifni_broj}")
+                            return vote_result
+
+                    # Krug 3: globalno (svi dobavljači)
+                    vote_result = self._majority_vote(
+                        cursor, naziv_robe, zemlja_porijekla,
+                        min_votes=3, min_ratio=0.65,
+                        supplier_filter=[]
+                    )
+                    if vote_result:
+                        logger.debug(f"  🗳️  VOTE [global]: '{vote_result.naziv_robe[:40]}' → {vote_result.tarifni_broj}")
+                        return vote_result
+
+                # 3. Fuzzy match po nazivu (OPTIMIZOVANO)
                 if naziv_robe and naziv_robe.strip():
                     naziv_lower = naziv_robe.strip().lower()
 
@@ -337,12 +378,12 @@ class TariffMappingService:
                     candidates = []
 
                     if keywords:
-                        # Pretraži sa ILIKE za svaku ključnu riječ
                         like_conditions = " OR ".join(["naziv_robe ILIKE %s" for _ in keywords])
                         like_params = [f"%{kw}%" for kw in keywords]
 
                         cursor.execute(f"""
-                            SELECT product_code, naziv_robe, tarifni_broj, zemlja_porijekla, povlastica, usage_count
+                            SELECT product_code, naziv_robe, commodity_code, precision_1,
+                                   zemlja_porijekla, povlastica, usage_count
                             FROM catalogs.product_tariff_mapping
                             WHERE ({like_conditions})
                             ORDER BY usage_count DESC
@@ -352,10 +393,10 @@ class TariffMappingService:
                         candidates = cursor.fetchall()
                         logger.debug(f"  📋 ILIKE pretraga našla {len(candidates)} kandidata")
 
-                    # Ako ILIKE nije našao kandidate, uzmi top 500 najčešće korišćenih
                     if not candidates:
                         cursor.execute("""
-                            SELECT product_code, naziv_robe, tarifni_broj, zemlja_porijekla, povlastica, usage_count
+                            SELECT product_code, naziv_robe, commodity_code, precision_1,
+                                   zemlja_porijekla, povlastica, usage_count
                             FROM catalogs.product_tariff_mapping
                             WHERE naziv_robe IS NOT NULL AND naziv_robe != ''
                             ORDER BY usage_count DESC
@@ -364,7 +405,6 @@ class TariffMappingService:
                         candidates = cursor.fetchall()
                         logger.debug(f"  📋 Fallback top 500: {len(candidates)} kandidata")
 
-                    # Multi-strategy matching: substring + word-based + fuzzy
                     best_match = None
                     best_similarity = 0.0
 
@@ -374,29 +414,22 @@ class TariffMappingService:
                         naziv_words = set(w for w in re.findall(r'\b\w+\b', naziv_lower) if len(w) > 2 and not w.isdigit())
                         candidate_words = set(w for w in re.findall(r'\b\w+\b', candidate_lower) if len(w) > 2 and not w.isdigit())
 
-                        # Strategy 1: Substring match
                         if naziv_lower in candidate_lower or candidate_lower in naziv_lower:
                             similarity = 0.95
-
-                        # Strategy 2: Word-based match
                         elif naziv_words and candidate_words:
                             common_words = naziv_words & candidate_words
                             if common_words:
                                 smaller_set_size = min(len(naziv_words), len(candidate_words))
                                 word_match_ratio = len(common_words) / smaller_set_size
-
                                 if word_match_ratio >= 0.8:
                                     similarity = 0.85 + (0.15 * word_match_ratio)
                                 else:
                                     similarity = 0.7 + (0.15 * word_match_ratio)
                             else:
                                 similarity = SequenceMatcher(None, naziv_lower, candidate_lower).ratio()
-
-                        # Strategy 3: Standard fuzzy match
                         else:
                             similarity = SequenceMatcher(None, naziv_lower, candidate_lower).ratio()
 
-                        # BONUS: Ista zemlja porijekla +10%
                         candidate_zemlja = row["zemlja_porijekla"] or ""
                         country_bonus = 0.0
                         if zemlja_porijekla and candidate_zemlja and zemlja_porijekla.upper() == candidate_zemlja.upper():
@@ -409,18 +442,18 @@ class TariffMappingService:
                             best_match = TariffMapping(
                                 product_code=row["product_code"] or "",
                                 naziv_robe=row["naziv_robe"],
-                                tarifni_broj=row["tarifni_broj"],
+                                tarifni_broj=row["commodity_code"],
+                                precision_1=row["precision_1"],
                                 zemlja_porijekla=row["zemlja_porijekla"] or "",
                                 povlastica=row["povlastica"] or "",
                                 usage_count=row["usage_count"],
                                 similarity=final_similarity
                             )
-                            # Early exit ako je gotovo savršen match
                             if best_similarity >= 0.98:
                                 break
 
                     if best_match:
-                        logger.debug(f"  ✅ MATCH FOUND: '{best_match.naziv_robe[:50]}' → {best_match.tarifni_broj} (similarity: {best_similarity:.2%})")
+                        logger.debug(f"  ✅ MATCH FOUND: '{best_match.naziv_robe[:50]}' → {best_match.tarifni_broj}/{best_match.precision_1} (similarity: {best_similarity:.2%})")
                     else:
                         logger.debug(f"  ❌ NO MATCH: best_similarity={best_similarity:.2%} < min_similarity={min_similarity:.2%}")
 
@@ -428,6 +461,130 @@ class TariffMappingService:
 
         logger.debug(f"  ⚠️  NO MATCH: naziv_robe je prazan ili nema product_code")
         return None
+
+    def _majority_vote(
+        self,
+        cursor,
+        naziv_robe: str,
+        zemlja_porijekla: str = "",
+        min_votes: int = 3,
+        min_ratio: float = 0.65,
+        supplier_filter: List[str] = []
+    ) -> Optional[TariffMapping]:
+        """
+        Majority vote matching — određuje commodity_code glasanjem po ključnim riječima.
+
+        supplier_filter: lista suppliara koji se pretražuju ([] = svi)
+        Zemlja porijekla se mečuje POSEBNO unutar pobjedničkog commodity_code.
+        """
+        from collections import Counter
+
+        # Izvuci ključne riječi — prvih 2 značajne (bez kratkih, bez brojeva, bez generičkih)
+        _generic = {'set', 'the', 'and', 'for', 'super', 'extra', 'plus', 'new',
+                    'ostalo', 'ostali', 'drugi', 'druge', 'type', 'per'}
+        words = [
+            w.lower() for w in re.findall(r'\b[a-zA-ZšđčćžŠĐČĆŽ]{3,}\b', naziv_robe)
+            if not w.isdigit() and w.lower() not in _generic
+        ][:2]
+
+        if not words:
+            return None
+
+        # Pretraži bazu sa ILIKE za svaku ključnu riječ
+        like_conditions = " OR ".join(["naziv_robe ILIKE %s" for _ in words])
+        like_params = [f"%{w}%" for w in words]
+
+        # Dodaj supplier filter ako je zadan
+        if supplier_filter:
+            placeholders = ", ".join(["%s"] * len(supplier_filter))
+            supplier_clause = f" AND supplier IN ({placeholders})"
+            params = like_params + supplier_filter
+        else:
+            supplier_clause = ""
+            params = like_params
+
+        cursor.execute(f"""
+            SELECT commodity_code, precision_1, zemlja_porijekla, povlastica, usage_count, naziv_robe
+            FROM catalogs.product_tariff_mapping
+            WHERE {like_conditions}{supplier_clause}
+            ORDER BY usage_count DESC
+            LIMIT 300
+        """, params)
+
+        rows = cursor.fetchall()
+        if not rows:
+            return None
+
+        # Glasaj po commodity_code (ponderirano sa usage_count)
+        # Zapisi koji sadrže direktni substring ulaza dobijaju 10× veći ponder
+        naziv_lower = naziv_robe.strip().lower()
+        input_words_set = set(w.lower() for w in words)
+
+        votes: Counter = Counter()
+        for row in rows:
+            candidate_lower = row["naziv_robe"].lower()
+            base_weight = max(1, row["usage_count"])
+
+            # Substring boost: ako kandidat sadrži sve ulazne ključne riječi
+            candidate_word_set = set(re.findall(r'\b\w+\b', candidate_lower))
+            matching_words = input_words_set & candidate_word_set
+            if len(matching_words) == len(input_words_set):
+                # Svi ulazni keywords pronađeni u kandidatu → 10× boost
+                weight = base_weight * 10
+            elif len(matching_words) >= 2:
+                # Barem 2 zajednička keyword → 3× boost
+                weight = base_weight * 3
+            else:
+                weight = base_weight
+
+            votes[row["commodity_code"]] += weight
+
+        total_votes = sum(votes.values())
+        dominant_code, dominant_count = votes.most_common(1)[0]
+        ratio = dominant_count / total_votes
+
+        logger.debug(f"  🗳️  Vote: '{' '.join(words)}' → {dominant_code} ({dominant_count}/{total_votes} = {ratio:.0%}), min_votes={min_votes}, min_ratio={min_ratio}")
+
+        if dominant_count < min_votes or ratio < min_ratio:
+            return None
+
+        # Pobjednički kod je određen — sad mečuj zemlju posebno
+        same_code = [r for r in rows if r["commodity_code"] == dominant_code]
+
+        # Pronađi precision_1 — koristi najčešće korišćen
+        best_record = max(same_code, key=lambda r: r["usage_count"])
+        precision = best_record["precision_1"]
+
+        # Mečuj zemlju porijekla posebno
+        matched_zemlja = ""
+        matched_povlastica = ""
+
+        if zemlja_porijekla:
+            zemlja_upper = zemlja_porijekla.upper()
+            country_matches = [
+                r for r in same_code
+                if (r["zemlja_porijekla"] or "").upper() == zemlja_upper
+            ]
+            if country_matches:
+                best_country = max(country_matches, key=lambda r: r["usage_count"])
+                matched_zemlja = best_country["zemlja_porijekla"]
+                matched_povlastica = best_country["povlastica"] or ""
+                logger.debug(f"  🌍  Zemlja match: {matched_zemlja} → povlastica={matched_povlastica or 'N/A'}")
+            else:
+                # Ista tarifa, ali zemlja nije u bazi — zadrži iz PDF-a, bez povlastice
+                matched_zemlja = zemlja_porijekla
+                logger.debug(f"  🌍  Zemlja {zemlja_porijekla} nije u bazi za {dominant_code} — zadržana iz PDF-a")
+
+        return TariffMapping(
+            product_code="",
+            naziv_robe=best_record["naziv_robe"],
+            tarifni_broj=dominant_code,
+            precision_1=precision,
+            zemlja_porijekla=matched_zemlja,
+            povlastica=matched_povlastica,
+            usage_count=dominant_count,
+            similarity=ratio
+        )
 
     def find_top_mappings(
         self,
@@ -462,7 +619,8 @@ class TariffMappingService:
                 # 1. Pokušaj tačan match po product_code
                 if product_code and product_code.strip():
                     cursor.execute("""
-                        SELECT product_code, naziv_robe, tarifni_broj, zemlja_porijekla, povlastica, usage_count
+                        SELECT product_code, naziv_robe, commodity_code, precision_1,
+                               zemlja_porijekla, povlastica, usage_count
                         FROM catalogs.product_tariff_mapping
                         WHERE product_code ILIKE %s
                         ORDER BY usage_count DESC
@@ -474,7 +632,8 @@ class TariffMappingService:
                         all_matches.append(TariffMapping(
                             product_code=row["product_code"],
                             naziv_robe=row["naziv_robe"],
-                            tarifni_broj=row["tarifni_broj"],
+                            tarifni_broj=row["commodity_code"],
+                            precision_1=row["precision_1"],
                             zemlja_porijekla=row["zemlja_porijekla"] or "",
                             povlastica=row["povlastica"] or "",
                             usage_count=row["usage_count"],
@@ -498,7 +657,8 @@ class TariffMappingService:
                         like_params = [f"%{kw}%" for kw in keywords]
 
                         cursor.execute(f"""
-                            SELECT product_code, naziv_robe, tarifni_broj, zemlja_porijekla, povlastica, usage_count
+                            SELECT product_code, naziv_robe, commodity_code, precision_1,
+                                   zemlja_porijekla, povlastica, usage_count
                             FROM catalogs.product_tariff_mapping
                             WHERE ({like_conditions})
                             ORDER BY usage_count DESC
@@ -509,7 +669,8 @@ class TariffMappingService:
 
                     if not candidates:
                         cursor.execute("""
-                            SELECT product_code, naziv_robe, tarifni_broj, zemlja_porijekla, povlastica, usage_count
+                            SELECT product_code, naziv_robe, commodity_code, precision_1,
+                                   zemlja_porijekla, povlastica, usage_count
                             FROM catalogs.product_tariff_mapping
                             WHERE naziv_robe IS NOT NULL AND naziv_robe != ''
                             ORDER BY usage_count DESC
@@ -553,7 +714,8 @@ class TariffMappingService:
                             candidate_matches.append(TariffMapping(
                                 product_code=row["product_code"] or "",
                                 naziv_robe=row["naziv_robe"],
-                                tarifni_broj=row["tarifni_broj"],
+                                tarifni_broj=row["commodity_code"],
+                                precision_1=row["precision_1"],
                                 zemlja_porijekla=row["zemlja_porijekla"] or "",
                                 povlastica=row["povlastica"] or "",
                                 usage_count=row["usage_count"],
@@ -582,7 +744,8 @@ class TariffMappingService:
         naziv_robe: str,
         tarifni_broj: str,
         zemlja_porijekla: str = "",
-        povlastica: str = ""
+        povlastica: str = "",
+        precision_1: str = "000"
     ) -> bool:
         """
         Sačuvaj novo mapiranje u bazu znanja.
@@ -590,31 +753,39 @@ class TariffMappingService:
         Args:
             product_code: Šifra proizvoda
             naziv_robe: Naziv proizvoda
-            tarifni_broj: Tarifni broj
+            tarifni_broj: Commodity_code — 8 cifara
             zemlja_porijekla: Zemlja porijekla
             povlastica: Povlastica
+            precision_1: Precision_1 (default '000', '100' za lijekove)
 
         Returns:
             True ako je uspješno sačuvano
         """
         try:
-            tarifni_broj = _norm_tariff(tarifni_broj)
+            # Normalizuj na 8 cifara (Commodity_code)
+            commodity = tarifni_broj.strip()[:8] if tarifni_broj else ""
+            if not commodity or not commodity.isdigit() or len(commodity) != 8:
+                logger.warning(f"⚠️  Nevalidan commodity_code: '{tarifni_broj}' — preskočeno")
+                return False
 
             with get_db_connection() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute("""
                         INSERT INTO catalogs.product_tariff_mapping
-                        (product_code, naziv_robe, tarifni_broj, zemlja_porijekla, povlastica, usage_count)
-                        VALUES (%s, %s, %s, %s, %s, 1)
-                        ON CONFLICT (COALESCE(product_code, ''), COALESCE(naziv_robe, '')) DO UPDATE SET
-                            tarifni_broj = EXCLUDED.tarifni_broj,
+                        (product_code, naziv_robe, commodity_code, precision_1, zemlja_porijekla, povlastica, usage_count)
+                        VALUES (%s, %s, %s, %s, %s, %s, 1)
+                        ON CONFLICT (product_code, naziv_robe, commodity_code) DO UPDATE SET
+                            precision_1 = CASE
+                                WHEN EXCLUDED.precision_1 != '000' THEN EXCLUDED.precision_1
+                                ELSE catalogs.product_tariff_mapping.precision_1
+                            END,
                             zemlja_porijekla = EXCLUDED.zemlja_porijekla,
                             povlastica = EXCLUDED.povlastica,
                             usage_count = catalogs.product_tariff_mapping.usage_count + 1,
                             last_used = CURRENT_TIMESTAMP
-                    """, (product_code, naziv_robe, tarifni_broj, zemlja_porijekla, povlastica))
+                    """, (product_code or "", naziv_robe or "", commodity, precision_1, zemlja_porijekla, povlastica))
 
-            logger.info(f"✅ Sačuvano mapiranje: {product_code} → {tarifni_broj}")
+            logger.info(f"✅ Sačuvano mapiranje: {product_code} → {commodity}/{precision_1}")
             return True
 
         except Exception as e:
@@ -630,10 +801,10 @@ class TariffMappingService:
                         UPDATE catalogs.product_tariff_mapping
                         SET usage_count = usage_count + 1,
                             last_used = CURRENT_TIMESTAMP
-                        WHERE tarifni_broj = %s
+                        WHERE commodity_code = %s
                           AND product_code = %s
                           AND naziv_robe = %s
-                    """, (tarifni_broj, product_code, naziv_robe))
+                    """, (tarifni_broj, product_code or "", naziv_robe))
 
         except Exception as e:
             logger.warning(f"⚠️  Greška pri ažuriranju usage_count: {e}")
@@ -672,7 +843,8 @@ class TariffMappingService:
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute("""
-                    SELECT product_code, naziv_robe, tarifni_broj, zemlja_porijekla, povlastica, usage_count
+                    SELECT product_code, naziv_robe, commodity_code, precision_1,
+                           zemlja_porijekla, povlastica, usage_count
                     FROM catalogs.product_tariff_mapping
                     ORDER BY usage_count DESC, last_used DESC
                 """)
@@ -682,7 +854,8 @@ class TariffMappingService:
                     mappings.append(TariffMapping(
                         product_code=row["product_code"] or "",
                         naziv_robe=row["naziv_robe"] or "",
-                        tarifni_broj=row["tarifni_broj"],
+                        tarifni_broj=row["commodity_code"],
+                        precision_1=row["precision_1"],
                         zemlja_porijekla=row["zemlja_porijekla"] or "",
                         povlastica=row["povlastica"] or "",
                         usage_count=row["usage_count"]
@@ -729,6 +902,8 @@ class TariffMappingService:
             with conn.cursor() as cursor:
                 for xml_path in xml_paths:
                     try:
+                        import os as _os
+                        source_name = _os.path.basename(xml_path)
                         logger.debug(f"\n📁 Parsiram: {xml_path}")
                         tree = ET.parse(xml_path)
                         root = tree.getroot()
@@ -742,6 +917,9 @@ class TariffMappingService:
                                 tarif_elem = item.find(".//Tarification/HScode/Commodity_code")
                                 tarif = tarif_elem.text.strip() if tarif_elem is not None and tarif_elem.text else ""
 
+                                prec_elem = item.find(".//Tarification/HScode/Precision_1")
+                                precision = prec_elem.text.strip() if prec_elem is not None and prec_elem.text else "000"
+
                                 naziv_elem = item.find(".//Goods_description/Commercial_Description")
                                 naziv = naziv_elem.text.strip() if naziv_elem is not None and naziv_elem.text else ""
 
@@ -751,7 +929,7 @@ class TariffMappingService:
                                 pov_elem = item.find(".//Tarification/Preference_code")
                                 povlastica = pov_elem.text.strip() if pov_elem is not None and pov_elem.text else ""
 
-                                if not tarif or not re.match(r'^\d{8,10}$', tarif):
+                                if not tarif or not re.match(r'^\d{8}$', tarif):
                                     stats['skipped'] += 1
                                     continue
 
@@ -766,10 +944,20 @@ class TariffMappingService:
 
                                 cursor.execute("""
                                     INSERT INTO catalogs.product_tariff_mapping
-                                    (product_code, naziv_robe, tarifni_broj, zemlja_porijekla, povlastica, usage_count)
-                                    VALUES (%s, %s, %s, %s, %s, 1)
-                                    ON CONFLICT (COALESCE(product_code, ''), COALESCE(naziv_robe, '')) DO NOTHING
-                                """, ("", naziv_clean, tarif, zemlja or "", povlastica or ""))
+                                    (product_code, naziv_robe, commodity_code, precision_1, zemlja_porijekla, povlastica, usage_count, source)
+                                    VALUES (%s, %s, %s, %s, %s, %s, 1, %s)
+                                    ON CONFLICT (product_code, naziv_robe, commodity_code) DO UPDATE SET
+                                        precision_1 = CASE
+                                            WHEN EXCLUDED.precision_1 != '000' THEN EXCLUDED.precision_1
+                                            ELSE catalogs.product_tariff_mapping.precision_1
+                                        END,
+                                        source = CASE
+                                            WHEN catalogs.product_tariff_mapping.source = '' THEN EXCLUDED.source
+                                            ELSE catalogs.product_tariff_mapping.source
+                                        END,
+                                        usage_count = catalogs.product_tariff_mapping.usage_count + 1,
+                                        last_used = CURRENT_TIMESTAMP
+                                """, ("", naziv_clean, tarif, precision, zemlja or "", povlastica or "", source_name))
 
                                 if cursor.rowcount > 0:
                                     stats['imported'] += 1
