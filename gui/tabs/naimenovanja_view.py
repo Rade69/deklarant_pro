@@ -1734,6 +1734,10 @@ class NaimenovanjaView(BaseTabView):
 
         item = self.draft.items[self.current_item_index]
 
+        # Zapamtimo stari tarifni broj prije izmjene (za sinhronizaciju)
+        old_tariff = item.tariff_code or ""
+        old_suffix = item.tariff_suffix or "000"
+
         for widget_name, field_name in self.field_map.items():
             if not field_name:
                 continue
@@ -1779,6 +1783,123 @@ class NaimenovanjaView(BaseTabView):
         self.draft.mark_dirty()
         if self.on_dirty:
             self.on_dirty()
+
+        # ── Sinhronizacija tarifnog broja ako je promijenjen ──────────────
+        new_tariff = item.tariff_code or ""
+        new_suffix = item.tariff_suffix or "000"
+        if new_tariff and (new_tariff != old_tariff or new_suffix != old_suffix):
+            self._sync_tariff_to_source(old_tariff, old_suffix, new_tariff, new_suffix, item)
+
+    def _sync_tariff_to_source(
+        self, old_tariff: str, old_suffix: str,
+        new_tariff: str, new_suffix: str,
+        naim_item,
+    ) -> None:
+        """
+        Sinhronizacija promjene tarifnog broja na 3 mjesta:
+        1. InvoiceLine (source iz PDF-a) — tarifni_broj + tariff_suffix
+        2. Baza znanja (product_tariff_mapping) — commodity_code + precision_1
+        3. Log obavijest korisniku
+
+        Pokreće se samo kad korisnik RUČNO promijeni tarif u Naimenovanja tabu.
+        """
+        import logging
+        log = logging.getLogger(__name__)
+
+        # ── 1. Pronađi izvornu InvoiceLine ────────────────────────────────
+        invoice_line = None
+        # Za 1:1 mapiranje: ordinal_no = index + 1
+        line_idx = naim_item.ordinal_no - 1
+        if hasattr(self.draft, 'invoice_lines') and self.draft.invoice_lines:
+            if 0 <= line_idx < len(self.draft.invoice_lines):
+                invoice_line = self.draft.invoice_lines[line_idx]
+
+        # Ako nismo našli po indexu, probaj po nazivu robe (za grupisane)
+        if invoice_line is None:
+            naziv = naim_item.goods_description or naim_item.goods_trade_name or ""
+            if naziv:
+                for line in self.draft.invoice_lines:
+                    if (line.naziv_robe or "").lower() == naziv.lower():
+                        invoice_line = line
+                        break
+
+        # ── 2. Ažuriraj InvoiceLine ───────────────────────────────────────
+        if invoice_line:
+            old_line_tariff = invoice_line.tarifni_broj or ""
+            invoice_line.tarifni_broj = new_tariff
+            invoice_line.tariff_suffix = new_suffix
+            if old_line_tariff and old_line_tariff != new_tariff:
+                log.info(
+                    f"🔄 Tariff sync: InvoiceLine '{invoice_line.naziv_robe[:40]}' "
+                    f"{old_line_tariff} → {new_tariff}/{new_suffix}"
+                )
+
+        # ── 3. Ažuriraj bazu znanja ───────────────────────────────────────
+        product_code = invoice_line.product_code if invoice_line else ""
+        naziv_robe = (
+            invoice_line.naziv_robe if invoice_line
+            else (naim_item.goods_description or naim_item.goods_trade_name or "")
+        )
+        zemlja = invoice_line.zemlja_porijekla if invoice_line else naim_item.origin_country_code
+
+        try:
+            from services.tariff_mapping_service import TariffMappingService
+            kb_svc = TariffMappingService()
+
+            # Prvo izbriši STARE zapise sa pogrešnom tarifom (isti naziv ili product_code)
+            from database.db import get_db_connection
+            with get_db_connection() as conn:
+                with conn.cursor() as cursor:
+                    # Izbriši zapise koji imaju ISTI naziv ali POGREŠNU tarifu
+                    cursor.execute("""
+                        DELETE FROM catalogs.product_tariff_mapping
+                        WHERE (naziv_robe ILIKE %s OR product_code = %s)
+                          AND commodity_code = %s
+                    """, (f"%{naziv_robe}%", product_code or "__NONE__", old_tariff))
+                    deleted = cursor.rowcount
+
+            # Zatim sačuvaj novi tarif sa increased usage_count
+            if naziv_robe and new_tariff:
+                kb_svc.save_mapping(
+                    product_code=product_code or "",
+                    naziv_robe=naziv_robe,
+                    tarifni_broj=new_tariff,
+                    zemlja_porijekla=zemlja or "",
+                    povlastica="",
+                    precision_1=new_suffix,
+                )
+                log.info(
+                    f"✅ KB sync: '{naziv_robe[:40]}' → {new_tariff}/{new_suffix} "
+                    f"({deleted} starih zapisa obrisano)"
+                )
+
+        except Exception as e:
+            log.warning(f"⚠️ Tariff KB sync failed for '{naziv_robe[:40]}': {e}")
+
+        # ── 4. Obavijest korisniku ────────────────────────────────────────
+        if invoice_line and old_tariff:
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.information(
+                self,
+                "Tarifni broj ažuriran",
+                f"✅ Tarifni broj promijenjen:\n"
+                f"  <b>{old_tariff}</b> → <b>{new_tariff}</b>"
+                f"{('/' + new_suffix if new_suffix != '000' else '')}\n\n"
+                f"📦 Proizvod: {naziv_robe[:80]}\n\n"
+                f"📋 Ažurirano u:\n"
+                f"  • Faktura linija (InvoiceLine)\n"
+                f"  • Baza znanja (product_tariff_mapping)"
+            )
+        elif old_tariff:
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.information(
+                self,
+                "Tarifni broj ažuriran",
+                f"✅ Tarifni broj promijenjen:\n"
+                f"  <b>{old_tariff}</b> → <b>{new_tariff}</b>"
+                f"{('/' + new_suffix if new_suffix != '000' else '')}\n\n"
+                f"📋 Sačuvano u bazu znanja."
+            )
 
     def _update_all_ui(self) -> None:
         """Update all UI elements"""
