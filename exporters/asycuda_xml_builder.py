@@ -277,13 +277,29 @@ class AsycudaXMLBuilder:
         _null(destination, "Destination_country_name")
         ET.SubElement(destination, "Destination_country_region")
 
-        # Zemlja porijekla na nivou zaglavlja (naziv najčešće korišćene)
-        origin_name = self._g("drzava_porijekla")
+        # Zemlja porijekla na nivou zaglavlja — naziv (ne šifra)
+        origin_code = self._g("drzava_porijekla")
+        origin_name = ""
+        if origin_code:
+            from sifrarnici.zemlje import get_zemlja_by_kod
+            z = get_zemlja_by_kod(origin_code.upper())
+            origin_name = z.naziv if z else origin_code
         if not origin_name and self.draft.items:
-            origin_name = self.draft.items[0].origin_country_name or ""
+            # Fallback: uzmi naziv iz prvog naimenovanja
+            from sifrarnici.zemlje import get_zemlja_by_kod
+            c = self.draft.items[0].origin_country_code or ""
+            z = get_zemlja_by_kod(c.upper())
+            origin_name = z.naziv if z else (self.draft.items[0].origin_country_name or "")
         _val(gen_info, "Country_of_origin_name", origin_name)
 
-        ET.SubElement(gen_info, "Value_details")
+        # Value_details = zbir vanjskog + unutrašnjeg frahta
+        t1 = _parse_cost(self._g("trosak_1"))
+        t4 = _parse_cost(self._g("trosak_4"))
+        val_details = t1 + t4
+        vd_elem = ET.SubElement(gen_info, "Value_details")
+        if val_details:
+            vd_elem.text = f"{val_details:.1f}"
+
         ET.SubElement(gen_info, "CAP")
         _null(gen_info, "Additional_information")
         _null(gen_info, "Comments_free_text")
@@ -368,7 +384,11 @@ class AsycudaXMLBuilder:
         _null(terms, "Code")
         _null(terms, "Description")
 
-        ET.SubElement(financial, "Total_invoice")
+        # Total_invoice = ukupan iznos fakture (Rb.22)
+        total_inv = ET.SubElement(financial, "Total_invoice")
+        iznos = self.draft.iznos or 0.0
+        if iznos:
+            total_inv.text = f"{iznos:.2f}"
 
         deffered = ET.SubElement(financial, "Deffered_payment_reference")
         deffered.text = self._g("odgodjeno_placanje") or ""
@@ -442,11 +462,20 @@ class AsycudaXMLBuilder:
         cost_elem = ET.SubElement(val, "Total_cost")
         cost_elem.text = f"{total_cost:.1f}" if total_cost else ""
 
-        ET.SubElement(val, "Total_CIF")
+        # Total_CIF = zbir vrijednosti svih stavki + ukupni troškovi
+        total_items_value = sum(item.item_value or 0.0 for item in self.draft.items)
+        total_cif = total_items_value + total_cost
+        cif_elem = ET.SubElement(val, "Total_CIF")
+        if total_cif:
+            cif_elem.text = f"{total_cif:.2f}"
 
         gs_inv = ET.SubElement(val, "Gs_Invoice")
         ET.SubElement(gs_inv, "Amount_national_currency")
-        ET.SubElement(gs_inv, "Amount_foreign_currency")
+        amt_inv = ET.SubElement(gs_inv, "Amount_foreign_currency")
+        # Rb.22 — iznos fakture (uvijek iz draft-a)
+        iznos = self.draft.iznos or 0.0
+        if iznos:
+            amt_inv.text = f"{iznos:.2f}"
         _val(gs_inv, "Currency_code", self._g("valuta", "EUR"))
         _val(gs_inv, "Currency_name", "Nema stranih valuta")
         kurs = self.draft.kurs or 1.0
@@ -643,7 +672,7 @@ class AsycudaXMLBuilder:
             _null(tl, "Duty_tax_MP")
             _null(tl, "Duty_tax_Type_of_calculation")
 
-        # Valuation_item
+        # Valuation_item — sa CIF kalkulacijom
         val_item = ET.SubElement(item_elem, "Valuation_item")
 
         wi = ET.SubElement(val_item, "Weight_itm")
@@ -654,33 +683,111 @@ class AsycudaXMLBuilder:
         if item.net_mass_kg:
             nw.text = f"{item.net_mass_kg:.0f}"
 
-        ET.SubElement(val_item, "Total_cost_itm")
-        ET.SubElement(val_item, "Total_CIF_itm")
-        _val(val_item, "Rate_of_adjustement", "1")
-        ET.SubElement(val_item, "Statistical_value")
-        ET.SubElement(val_item, "Alpha_coeficient_of_apportionment")
+        # Troškovi na nivou zaglavlja (raspodjeljuju se po stavkama)
+        t1 = _parse_cost(self._g("trosak_1"))
+        t2 = _parse_cost(self._g("trosak_2"))
+        t3 = _parse_cost(self._g("trosak_3"))
+        t4 = _parse_cost(self._g("trosak_4"))
+        t5 = _parse_cost(self._g("trosak_5"))
+        total_items_value = sum(it.item_value or 0.0 for it in self.draft.items)
 
+        self._fill_item_valuation(val_item, item, total_items_value, t1, t2, t3, t4, t5)
+
+    def _fill_item_valuation(
+        self,
+        val_item: ET.Element,
+        item: NaimenovanjeDraft,
+        total_items_value: float,
+        t1: float, t2: float, t3: float, t4: float, t5: float,
+    ) -> None:
+        """Popuni Valuation_item sekciju sa stvarnim CIF kalkulacijama."""
+        item_value = item.item_value or 0.0
+
+        # Alpha koeficijent — proporcionalni udio ove stavke u ukupnoj vrijednosti
+        if total_items_value > 0:
+            alpha = item_value / total_items_value
+        else:
+            alpha = 0.0
+
+        # Raspodjela troškova proporcionalno
+        item_ext_freight = t1 * alpha
+        item_int_freight = t4 * alpha
+        item_insurance = t2 * alpha
+        item_other = t3 * alpha
+        item_deduction = t5 * alpha  # popust (negativan)
+
+        total_cost_itm = item_ext_freight + item_int_freight + item_insurance + item_other - item_deduction
+        total_cif_itm = item_value + total_cost_itm
+
+        # --- Total_cost_itm ---
+        tci = ET.SubElement(val_item, "Total_cost_itm")
+        if total_cost_itm:
+            tci.text = f"{total_cost_itm:.2f}"
+
+        # --- Total_CIF_itm ---
+        cif_itm = ET.SubElement(val_item, "Total_CIF_itm")
+        if total_cif_itm:
+            cif_itm.text = f"{total_cif_itm:.2f}"
+
+        _val(val_item, "Rate_of_adjustement", "1")
+
+        # --- Statistical_value = Total_CIF_itm ---
+        sv = ET.SubElement(val_item, "Statistical_value")
+        if total_cif_itm:
+            sv.text = f"{total_cif_itm:.2f}"
+
+        # --- Alpha koeficijent ---
+        ac = ET.SubElement(val_item, "Alpha_coeficient_of_apportionment")
+        if alpha:
+            ac.text = f"{alpha:.10f}"
+
+        # --- Item_Invoice ---
         ii = ET.SubElement(val_item, "Item_Invoice")
         ET.SubElement(ii, "Amount_national_currency")
         iv = ET.SubElement(ii, "Amount_foreign_currency")
-        if item.item_value:
-            iv.text = f"{item.item_value:.2f}"
+        if item_value:
+            iv.text = f"{item_value:.2f}"
         _val(ii, "Currency_code", item.currency or "EUR")
         _null(ii, "Currency_name")
         ET.SubElement(ii, "Currency_rate")
 
-        _item_cost_section(val_item, "item_external_freight")
-        _item_cost_section(val_item, "item_internal_freight")
-        _item_cost_section(val_item, "item_insurance")
-        _item_cost_section(val_item, "item_other_cost")
-        _item_cost_section(val_item, "item_deduction")
+        # --- Troškovi po stavci ---
+        self._item_cost_section_filled(val_item, "item_external_freight", item_ext_freight)
+        self._item_cost_section_filled(val_item, "item_internal_freight", item_int_freight)
+        self._item_cost_section_filled(val_item, "item_insurance", item_insurance)
+        self._item_cost_section_filled(val_item, "item_other_cost", item_other)
+        self._item_cost_section_filled(val_item, "item_deduction", item_deduction, negative=True)
 
+        # --- Value_item string: "ext+int+ins+other-ded" ---
+        vi = ET.SubElement(val_item, "Value_item")
+        if item_value > 0 and alpha > 0:
+            parts = [
+                f"{item_ext_freight:.2f}",
+                f"{item_int_freight:.2f}",
+                f"{item_insurance:.2f}",
+                f"{item_other:.2f}",
+                f"-{item_deduction:.2f}" if item_deduction > 0 else f"{item_deduction:.2f}",
+            ]
+            # Ukloni nulte vrijednosti za čistiji output
+            vi.text = "+".join(p for p in parts if not p.startswith("0.00") and not p.startswith("-0.00")) or "0.00"
+
+        # --- Market_valuer ---
         mv = ET.SubElement(val_item, "Market_valuer")
         ET.SubElement(mv, "Rate")
         _null(mv, "Currency_code")
         ET.SubElement(mv, "Currency_amount")
         _null(mv, "Basis_description")
         ET.SubElement(mv, "Basis_amount")
+
+    def _item_cost_section_filled(self, parent: ET.Element, tag: str, amount: float, negative: bool = False) -> None:
+        """Kreira item_* sekciju troška stavke sa stvarnom vrijednošću."""
+        gs = ET.SubElement(parent, tag)
+        val = -amount if negative else amount
+        _val(gs, "Amount_national_currency", f"{val:.2f}" if val else "0")
+        _val(gs, "Amount_foreign_currency", f"{val:.2f}" if val else "0")
+        _null(gs, "Currency_code")
+        _val(gs, "Currency_name", "Nema stranih valuta")
+        _val(gs, "Currency_rate", "1" if val else "0")
 
     def _add_attached_doc(self, item_elem: ET.Element, doc: AttachedDocument) -> None:
         """Dodaje <Attached_documents> element."""
