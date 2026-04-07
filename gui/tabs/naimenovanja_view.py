@@ -123,11 +123,11 @@ class NaimenovanjaView(BaseTabView):
         # Field mapping - PRILAGOĐENO widget names iz naimenovanja_tab_OPTIMIZED.ui!
         self._init_field_mapping()
 
-        # Initialize widget cache for fast access (eliminates findChild in loops)
-        self._init_widget_cache()
-
         # 1. Load existing .ui file
         self._load_ui_from_file()
+
+        # Initialize widget cache AFTER loading UI
+        self._init_widget_cache()
 
         # 2. Hide old controls from .ui (keep only rubrike 31-46 form)
         self._hide_old_ui_controls()
@@ -316,14 +316,28 @@ class NaimenovanjaView(BaseTabView):
             self.widget_cache["le_r31_vrsta"] = self.combo_vrsta_pakovanja
 
     def _get_widget(self, widget_name: str) -> Optional[QWidget]:
-        """Get widget from cache or ui.findChild as fallback"""
+        """Get widget from cache or ui.findChild as fallback.
+        Handles deleted C++ objects gracefully."""
+        # Try cache first — but check if widget is still valid
         if widget_name in self.widget_cache:
-            return self.widget_cache[widget_name]
+            widget = self.widget_cache[widget_name]
+            try:
+                # Try to access the widget — raises RuntimeError if deleted
+                _ = widget.objectName()
+                return widget
+            except RuntimeError:
+                # C++ object deleted — remove from cache and re-find
+                del self.widget_cache[widget_name]
+
+        # Fallback: find in UI
         if hasattr(self, "ui") and self.ui:
-            widget = self.ui.findChild(QWidget, widget_name)
-            if widget:
-                self.widget_cache[widget_name] = widget
-            return widget
+            try:
+                widget = self.ui.findChild(QWidget, widget_name)
+                if widget:
+                    self.widget_cache[widget_name] = widget
+                return widget
+            except RuntimeError:
+                pass
         return None
 
     def _load_ui_from_file(self) -> None:
