@@ -1624,39 +1624,52 @@ class ZaglavljeService:
                 "message": "Rb.19 — Kontejner je označen, ali nedostaje broj kontejnera.",
             })
 
-        # 3c. Priložene isprave — export blokiran ako se ništa nije promijenilo od importa
+        # 3c. Priložene isprave — export blokiran ako obavezni dokumenti nisu ažurirani
+        #
+        # Obavezne šifre koje se mijenjaju za svaki uvoz:
+        # VOZ=Vozarina, OST=Posebna dokumenta, PZT=Potvrda o zdravstvenom...,
+        # N380=Faktura, DIS=Dispozicija, DV1=Prijava o carinskoj vrijednosti
+        OBAVEZNE_SIFRE = {"VOZ", "OST", "PZT", "N380", "DIS", "DV1"}
+
         view_attached = view_data.get("attached_documents", [])
 
         if import_attached_docs is None:
             # Nije bilo XML import-a — nema provjere (novi dokument, korisnik upisuje ručno)
             pass
         elif import_attached_docs:
-            # Bilo je XML import-a sa dokumentima — provjeri da li je išta promijenjeno
-
-            def _docs_to_set(docs):
-                """Skup (kod, referenca) za poređenje."""
-                result = set()
+            # Napravi mape: šifra → referenca, samo za obavezne šifre
+            def _docs_to_map(docs):
+                result = {}
                 for doc in docs if isinstance(docs, list) else []:
-                    if isinstance(doc, dict) and doc.get("code"):
-                        result.add((doc["code"].strip(), doc.get("number", "").strip()))
+                    if isinstance(doc, dict):
+                        code = (doc.get("code") or "").strip()
+                        if code in OBAVEZNE_SIFRE:
+                            result[code] = (doc.get("number") or "").strip()
                 return result
 
-            view_set = _docs_to_set(view_attached)
-            import_set = _docs_to_set(import_attached_docs)
+            import_map = _docs_to_map(import_attached_docs)
+            view_map = _docs_to_map(view_attached)
 
-            self.logger.debug(f"Docs check — import: {import_set}, view: {view_set}")
+            self.logger.debug(f"Docs check — import: {import_map}, view: {view_map}")
 
-            if view_set == import_set:
-                # Ništa nije promijenjeno — stari podaci, blokiraj export
+            # Provjeri koje obavezne šifre imaju nepromijenjenu referencu
+            neazurirani = []
+            for sifra, import_ref in import_map.items():
+                view_ref = view_map.get(sifra, "")
+                if import_ref and view_ref == import_ref:
+                    neazurirani.append(f"{sifra} ({import_ref})")
+
+            if neazurirani:
                 errors.append({
                     "rule": "attached_docs",
                     "field": "Priloženi dokumenti",
                     "message": (
-                        "Priloženi dokumenti — Reference nisu ažurirane od zadnjeg uvoza. "
-                        "Ažurirajte reference (broj fakture, vozarine, dispozicije...) "
-                        "za ovaj uvoz, pa ponovite export."
+                        "Priloženi dokumenti — Sljedeće reference nisu ažurirane od zadnjeg uvoza: "
+                        f"{', '.join(neazurirani)}. "
+                        "Unesite ispravne reference za ovaj uvoz, pa ponovite export."
                     ),
                 })
+                self.logger.warning(f"Export blocked: neažurirani dokumenti: {neazurirani}")
                 self.logger.warning("Export blocked: attached docs unchanged from import")
 
         # ── Rezultat ───────────────────────────────────────────────────────
