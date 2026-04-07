@@ -117,13 +117,15 @@ class ZaglavljeController:
 
             view_data = self.view.get_data()
 
-            # 3. Pokreni validaciju — sa import snapshot-om za detekciju promjena
+            # 3. Pokreni validaciju — sa import snapshot-om i flagom potvrde
             import_docs = self.view.get_import_attached_docs()
+            docs_confirmed = self.view.are_docs_confirmed()
             self.logger.info(
                 f"Import snapshot: {len(import_docs)} docs, "
-                f"view attached: {len(view_data.get('attached_documents', []))} docs"
+                f"view attached: {len(view_data.get('attached_documents', []))} docs, "
+                f"confirmed: {docs_confirmed}"
             )
-            result = self.service.validate(view_data, draft, import_docs)
+            result = self.service.validate(view_data, draft, import_docs, docs_confirmed)
 
             # 4. Prikaži rezultate
             self._show_validation_result(result)
@@ -381,7 +383,8 @@ class ZaglavljeController:
 
             view_data = self.view.get_data()
             import_docs = self.view.get_import_attached_docs()
-            result = self.service.validate(view_data, draft, import_docs)
+            docs_confirmed = self.view.are_docs_confirmed()
+            result = self.service.validate(view_data, draft, import_docs, docs_confirmed)
 
             if not result["valid"]:
                 self.view.show_error(

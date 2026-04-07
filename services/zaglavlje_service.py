@@ -1212,6 +1212,7 @@ class ZaglavljeService:
         view_data: Dict[str, Any],
         draft: DeclarationDraft,
         import_attached_docs: Optional[List[Dict[str, Any]]] = None,
+        docs_confirmed: bool = True,
     ) -> Dict[str, Any]:
         """
         Kompleksna validacija zaglavlja prije XML exporta.
@@ -1221,13 +1222,14 @@ class ZaglavljeService:
         2. Sinhronizaciju — da li su podaci ažurni u odnosu na draft
            (npr. iznos iz fakture, valuta, težine)
         3. Konzistentnost — da li su povezana polja logična
-        4. Priložene dokumente — poređenje sa import snapshot-om
+        4. Priložene dokumente — potvrda pregleda i poređenje sa import snapshot-om
 
         Args:
             view_data: Dictionary iz view.get_data()
             draft: Trenutni DeclarationDraft
             import_attached_docs: Snapshot dokumenata iz XML import-a
                                   (None = nije bilo import-a)
+            docs_confirmed: Da li je korisnik pregledao/potvrdio priložene isprave
 
         Returns:
             {
@@ -1395,21 +1397,27 @@ class ZaglavljeService:
                 "message": "Rb.19 — Kontejner je označen, ali nedostaje broj kontejnera.",
             })
 
-        # 3c. Priložene isprave — detekcija promjena u odnosu na import snapshot
+        # 3c. Priložene isprave — obavezna potvrda pregleda + detekcija promjena
         view_attached = view_data.get("attached_documents", [])
 
         if import_attached_docs is None:
-            # Nije bilo XML import-a — ne upozoravaj o praznim dokumentima
+            # Nije bilo XML import-a — nema provjere
             pass
-        elif len(import_attached_docs) == 0 and (not isinstance(view_attached, list) or len(view_attached) == 0):
-            # Import je imao 0 dokumenata, forma takođe 0 — warning da provjeri
-            warnings.append({
+        elif not docs_confirmed:
+            # Korisnik nije pregledao priložene isprave od zadnjeg učitavanja
+            # — ovo je GREŠKA koja blokira export
+            errors.append({
                 "rule": "44",
                 "field": "Priložene isprave",
-                "message": "Rb.44 — Nema priloženih isprava. Provjerite da li su potrebne.",
+                "message": (
+                    "Rb.44 — Priložene isprave nisu potvrđene. "
+                    "Pregledajte i uredite tabelu priloženih isprava prije exporta "
+                    "(kliknite u tabelu i provjerite reference)."
+                ),
             })
+            self.logger.warning("Export blocked: attached docs not confirmed after import")
         else:
-            # Bilo je XML import-a sa dokumentima — uporedi sa snapshot-om
+            # Korisnik je potvrdio — samo info provjera konzistentnosti
             view_set = set()
             for doc in view_attached if isinstance(view_attached, list) else []:
                 if isinstance(doc, dict) and doc.get("code"):
@@ -1438,13 +1446,10 @@ class ZaglavljeService:
                     "field": "Priložene isprave",
                     "message": (
                         f"Rb.44 — Priloženi dokumenti su promijenjeni od zadnjeg import-a. "
-                        f"{'; '.join(parts)}. "
-                        f"Provjerite da li su podaci tačni prije exporta."
+                        f"{'; '.join(parts)}."
                     ),
                 })
-                self.logger.info(
-                    f"Attached docs CHANGED: {'; '.join(parts)}"
-                )
+                self.logger.info(f"Attached docs changed from import: {'; '.join(parts)}")
 
         # ── Rezultat ───────────────────────────────────────────────────────
         valid = len(errors) == 0

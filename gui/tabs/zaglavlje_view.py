@@ -275,6 +275,12 @@ class ZaglavljeView(BaseTabView):
         # Koristi se za detekciju promjena u tabeli
         self._import_attached_docs: List[Dict[str, Any]] = []
 
+        # Flag — da li je korisnik pregledao/potvrdio priložene isprave nakon importa.
+        # Resetuje se na False svaki put kad se učitaju novi podaci (XML import ili load_from_draft).
+        # Postaje True kad korisnik uredi tabelu ili potvrdi podatke.
+        # Export je blokiran dok je False (nepotvrđeni uvozni podaci).
+        self._docs_confirmed: bool = True  # True na početku (nema importovanih podataka)
+
         # Setup UI
         self._setup_ui()
         self._apply_styles()
@@ -1523,6 +1529,8 @@ class ZaglavljeView(BaseTabView):
         self.table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
+        # Svaka promjena u tabeli = korisnik je pregledao isprave
+        self.table.itemChanged.connect(self._on_docs_table_changed)
 
         # IspravaDelegate na koloni 0
         self._isprave = _load_isprave_from_db()
@@ -1804,6 +1812,8 @@ class ZaglavljeView(BaseTabView):
                 # Priložene isprave — popuni tabelu i sačuvaj snapshot
                 self._import_attached_docs = [dict(d) for d in value] if value else []
                 self._populate_attached_table(value)
+                # Novi podaci su učitani — korisnik mora pregledati prije exporta
+                self._docs_confirmed = False
                 continue
             widget = self.field_widgets.get(key)
             if widget is None:
@@ -1834,12 +1844,27 @@ class ZaglavljeView(BaseTabView):
         """Vrati snapshot priloženih dokumenata iz zadnjeg XML import-a."""
         return list(self._import_attached_docs)
 
+    def are_docs_confirmed(self) -> bool:
+        """Da li je korisnik potvrdio (pregledao/uredio) priložene isprave od zadnjeg učitavanja."""
+        return self._docs_confirmed
+
+    def confirm_docs(self):
+        """Označi priložene isprave kao potvrđene (korisnik ih je pregledao)."""
+        self._docs_confirmed = True
+
+    def _on_docs_table_changed(self, item):
+        """Svaka promjena u tabeli znači da je korisnik pregledao/uredio podatke."""
+        self._docs_confirmed = True
+
     def _populate_attached_table(self, attached_docs: list):
         """Popuni tabelu priloženih dokumenata."""
         if not self.table:
             return
         if not attached_docs:
             return
+
+        # Blokiraj signal tokom punjenja — tek kad korisnik LIČNO promijeni nešto, flag se setuje
+        self.table.blockSignals(True)
 
         # Obriši postojeće redove
         self.table.setRowCount(0)
@@ -1866,6 +1891,7 @@ class ZaglavljeView(BaseTabView):
             ref_item = QTableWidgetItem(number)
             self.table.setItem(idx, 2, ref_item)
 
+        self.table.blockSignals(False)
 
     def clear_data(self):
         """Očisti sve podatke iz widgeta."""
