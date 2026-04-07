@@ -2451,8 +2451,8 @@ class NaimenovanjaView(BaseTabView):
         self.suggest_tariff_requested.emit()
 
     def _on_import_xml(self) -> None:
-        """Otvori file dialog za izbor XML fajla i emituj signal."""
-        from PySide6.QtWidgets import QFileDialog
+        """Otvori file dialog i uvezi naimenovanja iz XML fajla."""
+        from PySide6.QtWidgets import QFileDialog, QMessageBox
 
         filename, _ = QFileDialog.getOpenFileName(
             self,
@@ -2460,8 +2460,59 @@ class NaimenovanjaView(BaseTabView):
             "",
             "XML Files (*.xml);;All Files (*)",
         )
-        if filename:
-            self.import_xml_requested.emit(filename)
+        if not filename:
+            return
+
+        try:
+            # 1. Parsiraj naimenovanja iz XML
+            from services.zaglavlje_service import ZaglavljeService
+            svc = ZaglavljeService()
+            items = svc.parse_naimenovanja_from_xml(filename)
+
+            if not items:
+                self.show_warning(
+                    "XML fajl ne sadrži naimenovanja (Item sekcije).\n\n"
+                    "Provjerite da li je XML u ASYCUDA World ili Pro formatu."
+                )
+                return
+
+            # 2. Potvrda
+            reply = QMessageBox.question(
+                self,
+                "Uvoz naimenovanja",
+                f"Pronađeno {len(items)} naimenovanja u XML fajlu.\n\n"
+                f"Ovo će zamijeniti trenutna naimenovanja.\n"
+                f"Da li želite nastaviti?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if reply == QMessageBox.StandardButton.No:
+                return
+
+            # 3. Zamijeni draft.items
+            self.draft.items = items
+            self.draft.mark_dirty()
+
+            # 4. Resetuj na prvu stavku i reload
+            self.current_item_index = 0
+            self.reload_data()
+
+            self.show_success(
+                f"✅ Uvezeno {len(items)} naimenovanja iz XML-a.\n"
+                f"Kliknite 'Sačuvaj' da potvrdite promjene."
+            )
+
+        except FileNotFoundError:
+            self.show_error(f"Fajl ne postoji: {filename}")
+        except ValueError as e:
+            self.show_error(f"Neispravan XML format: {e}")
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Import XML failed: {e}", exc_info=True)
+            self.show_error(f"Greška pri uvozu: {e}")
+
+        # Emituj signal za controller (ako postoji)
+        self.import_xml_requested.emit(filename)
 
     def _suggest_tariff_impl(self) -> None:
         """
