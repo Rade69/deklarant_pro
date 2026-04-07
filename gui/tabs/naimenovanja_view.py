@@ -92,6 +92,7 @@ class NaimenovanjaView(BaseTabView):
 
     # data_changed naslijeđen iz BaseTabView
     import_xml_requested = Signal(str)
+    suggest_tariff_requested = Signal()
 
     def __init__(
         self, draft: Optional[DeclarationDraft] = None, on_dirty: Optional[Callable] = None
@@ -1758,15 +1759,60 @@ class NaimenovanjaView(BaseTabView):
                             widget.setText("")
                     else:
                         widget.setText(str(value) if value else "")
+                    # FORCE: osiguraj da je vidljiv (QUiLoader bug)
+                    if not widget.isVisible():
+                        widget.setVisible(True)
                     loaded += 1
                 elif isinstance(widget, QTextEdit):
                     widget.setPlainText(str(value) if value else "")
+                    # FORCE: osiguraj da je vidljiv (QUiLoader bug)
+                    if not widget.isVisible():
+                        widget.setVisible(True)
                     loaded += 1
             else:
                 not_found += 1
                 print(f"  ⚠️ Widget NOT FOUND: {widget_name} (field={field_name})")
 
+        # FORCE: osiguraj da je main_grid_frame vidljiv
+        if hasattr(self, "ui") and self.ui:
+            grid = self.ui.findChild(QFrame, "main_grid_frame")
+            if grid and not grid.isVisible():
+                grid.setVisible(True)
+            # FORCE: postavi direktni stylesheet na main_grid_frame (QUiLoader bug workaround)
+            if grid:
+                grid.setStyleSheet("QFrame#main_grid_frame { background-color: #f0f0f0; border: 1px solid #999; }")
+
         print(f"  📦 _load_current_item END — loaded={loaded}, not_found={not_found}")
+
+        # DEBUG: provjeri vidljivost prvih 5 widgeta
+        if loaded > 0 and self.current_item_index == 0:
+            for wname in ["le_rubrika33", "le_rubrika34_zemlja", "le_rubrika35", "le_rubrika36", "te_r31_opis"]:
+                w = self._get_widget(wname)
+                if w:
+                    geo = w.geometry()
+                    text_val = w.text() if hasattr(w, 'text') else (w.toPlainText() if hasattr(w, 'toPlainText') else 'N/A')
+                    style = w.styleSheet()[:50]
+                    print(f"    👁️ {wname}: visible={w.isVisible()}, enabled={w.isEnabled()}, pos=({geo.x()},{geo.y()}), size=({geo.width()}x{geo.height()}), text='{str(text_val)[:30]}', style='{style}'")
+                else:
+                    print(f"    ❌ {wname}: NOT FOUND")
+            # Provjeri main_grid_frame i self.ui
+            if hasattr(self, "ui") and self.ui:
+                grid = self.ui.findChild(QFrame, "main_grid_frame")
+                if grid:
+                    geo = grid.geometry()
+                    print(f"    📐 main_grid_frame: visible={grid.isVisible()}, pos=({geo.x()},{geo.y()}), size=({geo.width()}x{geo.height()})")
+            # Provjeri self.view visibility
+            print(f"    📐 self.isVisible()={self.isVisible()}, self.isEnabled()={self.isEnabled()}, self.geometry()={self.geometry()}")
+            if hasattr(self, "ui") and self.ui:
+                print(f"    📐 self.ui.isVisible()={self.ui.isVisible()}, self.ui.geometry()={self.ui.geometry()}")
+                # Provjeri parent chain
+                p = self.ui.parent()
+                parent_info = []
+                while p:
+                    parent_info.append(f"{type(p).__name__}(visible={p.isVisible()}, geo={p.geometry()})")
+                    p = p.parent()
+                print(f"    📐 Parent chain: {' -> '.join(parent_info)}")
+
         self.is_loading = False
 
         # KRITIČNO: Auto-popuni naziv pakovanja NAKON učitavanja podataka
@@ -2935,6 +2981,12 @@ class NaimenovanjaView(BaseTabView):
         self._load_current_item()
         print(f"  🔍 Pozivam _update_all_ui...")
         self._update_all_ui()
+        # FORCE: repaint sve widgete
+        if hasattr(self, "ui") and self.ui:
+            self.ui.update()
+            self.ui.repaint()
+        self.update()
+        self.repaint()
         print(f"  ✅ reload_data END")
         logger.info(f"  ✅ Naimenovanja Tab reloaded: {len(self.draft.items)} items")
 

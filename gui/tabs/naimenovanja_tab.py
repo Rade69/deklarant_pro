@@ -27,6 +27,11 @@ class NaimenovanjaTab(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.view)
 
+        # FORCE: osiguraj da se view expanduje
+        from PySide6.QtWidgets import QSizePolicy
+        self.view.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
     def reload_data(self):
         """Delegira reload_data() prema NaimenovanjaView."""
         self.view.reload_data()
