@@ -43,7 +43,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal, QSize, QObject, QEvent
 from PySide6.QtGui import QFont, QIcon, QRegularExpressionValidator, QPainter, QColor
 from PySide6.QtCore import QRegularExpression
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 try:
     import qtawesome as qta
@@ -243,6 +243,7 @@ class ZaglavljeView(BaseTabView):
     export_xml_requested = Signal()
     new_requested = Signal()
     close_requested = Signal()
+    validation_requested = Signal()
     search_company_requested = Signal(str)
     add_company_requested = Signal(str)
     deklaracija_sifra_changed = Signal(str)
@@ -269,6 +270,10 @@ class ZaglavljeView(BaseTabView):
 
         # Table for attached documents
         self.table: Optional[QTableWidget] = None
+
+        # Snapshot priloženih dokumenata iz zadnjeg XML import-a
+        # Koristi se za detekciju promjena u tabeli
+        self._import_attached_docs: List[Dict[str, Any]] = []
 
         # Setup UI
         self._setup_ui()
@@ -359,7 +364,7 @@ class ZaglavljeView(BaseTabView):
         self.btn_import = self._create_icon_button("Uvezi XML", "fa5s.file-import")
         self.btn_import.setObjectName("btnUveziXML")
 
-        self.btn_snimi = self._create_icon_button("Snimi", "fa5.save")
+        self.btn_snimi = self._create_icon_button("Provjeri", "fa5s.check-circle")
         self.btn_snimi.setObjectName("btnSnimi")
 
         self.btn_brisi = self._create_icon_button("Briši", "fa5s.trash-alt")
@@ -1551,7 +1556,7 @@ class ZaglavljeView(BaseTabView):
         """Poveži signale dugmadi."""
         self.btn_novi.clicked.connect(self.new_requested.emit)
         self.btn_import.clicked.connect(self._on_import_clicked)
-        self.btn_snimi.clicked.connect(self.save_requested.emit)
+        self.btn_snimi.clicked.connect(self.validation_requested.emit)
         self.btn_brisi.clicked.connect(self.delete_requested.emit)
         self.btn_izvezi.clicked.connect(self.export_xml_requested.emit)
         self.btn_izlaz.clicked.connect(self.close_requested.emit)
@@ -1762,17 +1767,42 @@ class ZaglavljeView(BaseTabView):
             if isinstance(widget, QLineEdit):
                 data[key] = widget.text()
             elif isinstance(widget, QComboBox):
-                data[key] = widget.currentText()
-                data[f"{key}_data"] = widget.currentData()
+                # Za editable combo-e, currentText() može biti prazan —
+                # koristi currentData() ako postoji, pa currentText() kao fallback
+                item_data = widget.currentData()
+                item_text = widget.currentText()
+                data[key] = item_data if item_data is not None else item_text
+                data[f"{key}_data"] = item_data
             elif isinstance(widget, QCheckBox):
                 data[key] = widget.isChecked()
+
+        # Tabela priloženih dokumenata — čitaj redove sa podacima
+        if self.table:
+            attached_docs = []
+            for row in range(self.table.rowCount()):
+                code_item = self.table.item(row, 0)
+                name_item = self.table.item(row, 1)
+                ref_item = self.table.item(row, 2)
+                code = code_item.text() if code_item else ""
+                name = name_item.text() if name_item else ""
+                number = ref_item.text() if ref_item else ""
+                if code:  # Samo redovi sa šifrom
+                    attached_docs.append({
+                        "code": code,
+                        "name": name,
+                        "number": number,
+                        "from_rule": False,
+                    })
+            data["attached_documents"] = attached_docs
+
         return data
 
     def set_data(self, data: Dict[str, Any]):
         """Popuni widgete podacima."""
         for key, value in data.items():
             if key == 'attached_documents':
-                # Priložene isprave — popuni tabelu
+                # Priložene isprave — popuni tabelu i sačuvaj snapshot
+                self._import_attached_docs = [dict(d) for d in value] if value else []
                 self._populate_attached_table(value)
                 continue
             widget = self.field_widgets.get(key)
@@ -1799,6 +1829,10 @@ class ZaglavljeView(BaseTabView):
                         widget.setEditText(str(value) if value is not None else "")
             elif isinstance(widget, QCheckBox):
                 widget.setChecked(bool(value))
+
+    def get_import_attached_docs(self) -> List[Dict[str, Any]]:
+        """Vrati snapshot priloženih dokumenata iz zadnjeg XML import-a."""
+        return list(self._import_attached_docs)
 
     def _populate_attached_table(self, attached_docs: list):
         """Popuni tabelu priloženih dokumenata."""

@@ -16,7 +16,7 @@ import math
 
 from database.db import get_db_connection
 from services.exceptions import ValidationError
-from core.draft.draft import DeclarationDraft
+from core.draft.draft import DeclarationDraft, AttachedDocument
 
 
 logger = logging.getLogger("asycuda_pro.services.zaglavlje")
@@ -809,8 +809,20 @@ class ZaglavljeService:
 
         # Priložene isprave (header_attached_documents)
         if 'attached_documents' in data and data['attached_documents']:
-            # TODO: Implement when AttachedDocument model is available
-            pass
+            draft.header_attached_documents = []
+            for doc in data['attached_documents']:
+                if isinstance(doc, dict) and doc.get('code'):
+                    draft.header_attached_documents.append(
+                        AttachedDocument(
+                            code=doc.get('code', ''),
+                            name=doc.get('name', ''),
+                            number=doc.get('number', ''),
+                            from_rule=doc.get('from_rule', False),
+                        )
+                    )
+        elif 'attached_documents' in data:
+            # Eksplicitno prazna lista — očisti
+            draft.header_attached_documents = []
 
         self._log_operation(f"Čuvanje u Draft: {getattr(draft, 'broj_deklaracije', 'N/A')}")
 
@@ -1188,5 +1200,259 @@ class ZaglavljeService:
             if 'aktivno_transport' in data:
                 trans_nat = ET.SubElement(transport, f"{{{ns}}}Nationality")
                 trans_nat.text = str(data['aktivno_transport'])
-        
+
         return root
+
+    # ============================================================
+    # VALIDACIJA
+    # ============================================================
+
+    def validate(
+        self,
+        view_data: Dict[str, Any],
+        draft: DeclarationDraft,
+        import_attached_docs: Optional[List[Dict[str, Any]]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Kompleksna validacija zaglavlja prije XML exporta.
+
+        Provjerava:
+        1. Obavezna polja — da li su popunjena
+        2. Sinhronizaciju — da li su podaci ažurni u odnosu na draft
+           (npr. iznos iz fakture, valuta, težine)
+        3. Konzistentnost — da li su povezana polja logična
+        4. Priložene dokumente — poređenje sa import snapshot-om
+
+        Args:
+            view_data: Dictionary iz view.get_data()
+            draft: Trenutni DeclarationDraft
+            import_attached_docs: Snapshot dokumenata iz XML import-a
+                                  (None = nije bilo import-a)
+
+        Returns:
+            {
+                'valid': bool,
+                'errors': List[Dict],   # Kritične greške (blokiraju export)
+                'warnings': List[Dict], # Upozorenja (ne blokiraju export)
+            }
+        """
+        errors: List[Dict[str, Any]] = []
+        warnings: List[Dict[str, Any]] = []
+
+        # ── 1. Obavezna polja ─────────────────────────────────────────────
+        required_fields = {
+            # Rubrika — key u view_data          — labela za poruku
+            "deklaracija_1": ("1/1", "Šifra deklaracije"),
+            "deklaracija_oznaka": ("1/1", "Oznaka postupka"),
+            # deklaracija_a (polje 1/2) nema UI widget — auto-popunjava se,
+            # nije obavezna za validaciju jer korisnik ne može ručno da je unese
+            # izvoznik_r2 (adresa) nije obavezna — može biti prazna
+            "izvoznik_r1": ("2", "Naziv izvoznika"),
+            "izvoznik_r3": ("2", "Grad izvoznika"),
+            "izvoznik_r5": ("2", "Država izvoznika"),
+            "primalac_r1": ("8", "Naziv primaoca"),
+            "primalac_r2": ("8", "Adresa primaoca"),
+            "primalac_r3": ("8", "Grad primaoca"),
+            # primalac_r5 (država primaoca) nije obavezna
+            "deklarant_r1": ("14", "Naziv deklaranta"),
+            "deklarant_r2": ("14", "Adresa deklaranta"),
+            "deklarant_r3": ("14", "Grad deklaranta"),
+            "transport_id": ("18", "Registracija trans. sredstva"),
+            "aktivno_transport": ("21", "Registracija na granici"),
+            "vid_25": ("25", "Vid unutra"),
+            "uslovi_kod": ("20", "Uslovi isporuke — kod"),
+            "uslovi_mjesto": ("20", "Uslovi isporuke — mjesto"),
+            "valuta": ("22", "Valuta"),
+            "iznos": ("22", "Iznos fakture"),
+        }
+
+        for key, (rule, label) in required_fields.items():
+            value = view_data.get(key, "")
+            # Poseban tretman za checkbox i numeričke vrijednosti
+            if key == "iznos":
+                if not value or float(str(value).replace(",", ".").strip() or "0") == 0:
+                    errors.append({
+                        "rule": rule,
+                        "field": label,
+                        "message": f"Rb.{rule} — {label}: polje je prazno ili nula",
+                    })
+                continue
+            if not value or str(value).strip() == "":
+                errors.append({
+                    "rule": rule,
+                    "field": label,
+                    "message": f"Rb.{rule} — {label}: polje je prazno",
+                })
+
+        # ── 2. Sinhronizacija sa draft-om (detekcija zastarjelih podataka) ─
+        invoice_lines = getattr(draft, "invoice_lines", None) or []
+
+        # 2a. Iznos fakture — mora odgovarati sumi invoice_lines
+        iznos_iz_fakture = sum(
+            getattr(l, "iznos", 0.0) or 0.0 for l in invoice_lines
+        )
+        view_iznos_str = str(view_data.get("iznos", "0")).replace(",", ".").strip()
+        try:
+            view_iznos = float(view_iznos_str) if view_iznos_str else 0.0
+        except ValueError:
+            view_iznos = 0.0
+
+        if invoice_lines and iznos_iz_fakture > 0:
+            if abs(view_iznos - iznos_iz_fakture) > 0.01:
+                errors.append({
+                    "rule": "22",
+                    "field": "Iznos fakture",
+                    "message": (
+                        f"Rb.22 — Iznos fakture NIJE ažuriran: "
+                        f"forma ima {view_iznos:.2f}, faktura ima {iznos_iz_fakture:.2f}. "
+                        f"Uvezite ponovo XML ili ručno ispravite iznos."
+                    ),
+                    "fixable": True,
+                    "fix_action": "auto_update_iznos",
+                })
+
+        # 2b. Valuta — mora odgovarati valuti iz invoice_lines
+        view_valuta = str(view_data.get("valuta", "")).strip()
+        draft_valuta = ""
+        for line in invoice_lines:
+            v = getattr(line, "valuta", "") or ""
+            if v:
+                draft_valuta = v
+                break
+
+        if invoice_lines and draft_valuta and view_valuta != draft_valuta:
+            warnings.append({
+                "rule": "22",
+                "field": "Valuta",
+                "message": (
+                    f"Rb.22 — Valuta se razlikuje: forma ima '{view_valuta}', "
+                    f"faktura ima '{draft_valuta}'."
+                ),
+                "fixable": True,
+                "fix_action": "auto_update_valuta",
+            })
+
+        # 2c. Težine — ukupna bruto/neto iz naimenovanja vs zaglavlje
+        items = getattr(draft, "items", None) or []
+        if items:
+            total_bruto = sum(getattr(it, "gross_mass_kg", 0.0) or 0.0 for it in items)
+            total_neto = sum(getattr(it, "net_mass_kg", 0.0) or 0.0 for it in items)
+            # Ako postoje stavke, a nema težina — warning
+            if total_bruto == 0 and total_neto == 0:
+                warnings.append({
+                    "rule": "35/38",
+                    "field": "Masa",
+                    "message": (
+                        "Rb.35/38 — Ukupna masa je 0. Provjerite da li su "
+                        "naimenovanja popunjena sa bruto/neto masama."
+                    ),
+                })
+
+        # 2d. Broj stavki — mora odgovarati
+        n_items_draft = len(draft.items) if draft.items else 0
+        view_stavke = str(view_data.get("stavke", "")).strip()
+        if view_stavke and view_stavke != str(n_items_draft):
+            warnings.append({
+                "rule": "5",
+                "field": "Broj stavki",
+                "message": (
+                    f"Rb.5 — Broj stavki se razlikuje: forma ima {view_stavke}, "
+                    f"naimenovanja imaju {n_items_draft}."
+                ),
+                "fixable": True,
+                "fix_action": "auto_update_stavke",
+            })
+
+        # ── 3. Konzistentnost povezanih polja ──────────────────────────────
+
+        # 3a. EX/IM konzistentnost — deklaracija_1 i deklaracija_oznaka
+        dek_sifra = str(view_data.get("deklaracija_1", "")).strip()
+        dek_oznaka = str(view_data.get("deklaracija_oznaka", "")).strip()
+        if dek_sifra and dek_oznaka:
+            valid_combos = {
+                "IM": {"H", "I", "J", "K"},
+                "EX": {"A", "C", "E"},
+            }
+            allowed = valid_combos.get(dek_sifra, set())
+            if allowed and dek_oznaka not in allowed:
+                errors.append({
+                    "rule": "1",
+                    "field": "Deklaracija",
+                    "message": (
+                        f"Rb.1 — Neispravna kombinacija: šifra='{dek_sifra}', "
+                        f"oznaka='{dek_oznaka}'. Dozvoljene oznake za {dek_sifra}: "
+                        f"{', '.join(sorted(allowed))}."
+                    ),
+                })
+
+        # 3b. Kontejner — ako je čekiran, mora imati broj
+        kontejner = view_data.get("kontejner", False)
+        kontejner_broj = str(view_data.get("kontejner_broj", "")).strip()
+        if kontejner and not kontejner_broj:
+            warnings.append({
+                "rule": "19",
+                "field": "Kontejner",
+                "message": "Rb.19 — Kontejner je označen, ali nedostaje broj kontejnera.",
+            })
+
+        # 3c. Priložene isprave — detekcija promjena u odnosu na import snapshot
+        view_attached = view_data.get("attached_documents", [])
+
+        if import_attached_docs is None:
+            # Nije bilo XML import-a — ne upozoravaj o praznim dokumentima
+            pass
+        elif len(import_attached_docs) == 0 and (not isinstance(view_attached, list) or len(view_attached) == 0):
+            # Import je imao 0 dokumenata, forma takođe 0 — warning da provjeri
+            warnings.append({
+                "rule": "44",
+                "field": "Priložene isprave",
+                "message": "Rb.44 — Nema priloženih isprava. Provjerite da li su potrebne.",
+            })
+        else:
+            # Bilo je XML import-a sa dokumentima — uporedi sa snapshot-om
+            view_set = set()
+            for doc in view_attached if isinstance(view_attached, list) else []:
+                if isinstance(doc, dict) and doc.get("code"):
+                    view_set.add((doc["code"], doc.get("number", "")))
+            import_set = set()
+            for doc in import_attached_docs:
+                if isinstance(doc, dict) and doc.get("code"):
+                    import_set.add((doc["code"], doc.get("number", "")))
+
+            self.logger.debug(
+                f"Attached docs check: view={view_set}, import={import_set}"
+            )
+
+            if view_set != import_set:
+                only_in_view = view_set - import_set
+                only_in_import = import_set - view_set
+                parts = []
+                if only_in_view:
+                    docs_str = ", ".join(f"{c} ({r})" for c, r in sorted(only_in_view))
+                    parts.append(f"dodano: {docs_str}")
+                if only_in_import:
+                    docs_str = ", ".join(f"{c} ({r})" for c, r in sorted(only_in_import))
+                    parts.append(f"uklonjeno: {docs_str}")
+                warnings.append({
+                    "rule": "44",
+                    "field": "Priložene isprave",
+                    "message": (
+                        f"Rb.44 — Priloženi dokumenti su promijenjeni od zadnjeg import-a. "
+                        f"{'; '.join(parts)}. "
+                        f"Provjerite da li su podaci tačni prije exporta."
+                    ),
+                })
+                self.logger.info(
+                    f"Attached docs CHANGED: {'; '.join(parts)}"
+                )
+
+        # ── Rezultat ───────────────────────────────────────────────────────
+        valid = len(errors) == 0
+
+        return {
+            "valid": valid,
+            "errors": errors,
+            "warnings": warnings,
+            "error_count": len(errors),
+            "warning_count": len(warnings),
+        }

@@ -61,13 +61,14 @@ class ZaglavljeController:
         self._connect_signals()
 
         self.logger.info("ZaglavljeController inicijalizovan")
-    
+
     def _connect_signals(self):
         """
         Poveži View signale sa controller metodama.
 
         Connections:
         - save_requested → _on_save
+        - validation_requested → _on_validate
         - delete_requested → _on_delete
         - import_xml_requested → _on_import_xml
         - export_xml_requested → _on_export_xml
@@ -77,6 +78,7 @@ class ZaglavljeController:
         - add_company_requested → _on_add_company
         """
         self.view.save_requested.connect(self._on_save)
+        self.view.validation_requested.connect(self._on_validate)
         self.view.delete_requested.connect(self._on_delete)
         self.view.import_xml_requested.connect(self._on_import_xml)
         self.view.export_xml_requested.connect(self._on_export_xml)
@@ -89,7 +91,198 @@ class ZaglavljeController:
     # ============================================================
     # EVENT HANDLERS
     # ============================================================
-    
+
+    def _on_validate(self):
+        """
+        Validiraj podatke prije XML exporta.
+
+        Workflow:
+        1. Snimi trenutne podatke u draft
+        2. Pozovi service.validate() sa import snapshot-om
+        3. Prikaži rezultate u dialogu
+        4. Ako ima fixable grešaka, ponudi auto-fix
+        """
+        try:
+            self.logger.info("Validation requested")
+
+            # 1. Snimi u draft da imamo najnovije podatke
+            if self._save_draft_fn:
+                self._save_draft_fn()
+
+            # 2. Dohvati draft i view data
+            draft = self._get_draft_fn() if self._get_draft_fn else None
+            if draft is None:
+                self.view.show_error("Nema draft podataka za validaciju.")
+                return
+
+            view_data = self.view.get_data()
+
+            # 3. Pokreni validaciju — sa import snapshot-om za detekciju promjena
+            import_docs = self.view.get_import_attached_docs()
+            self.logger.info(
+                f"Import snapshot: {len(import_docs)} docs, "
+                f"view attached: {len(view_data.get('attached_documents', []))} docs"
+            )
+            result = self.service.validate(view_data, draft, import_docs)
+
+            # 4. Prikaži rezultate
+            self._show_validation_result(result)
+
+            self.logger.info(
+                f"Validation complete: {result['error_count']} errors, "
+                f"{result['warning_count']} warnings"
+            )
+
+        except Exception as e:
+            self.logger.error(f"Validation failed: {e}", exc_info=True)
+            self.view.show_error(f"Greška pri validaciji: {e}")
+
+    def _show_validation_result(self, result: dict):
+        """
+        Prikaži rezultate validacije u dialogu.
+
+        Ako ima errors — prikaži ih i blokiraj dalje.
+        Ako ima samo warnings — prikaži upozorenja.
+        Ako je sve OK — prikaži success.
+        """
+        errors = result.get("errors", [])
+        warnings = result.get("warnings", [])
+        valid = result.get("valid", False)
+
+        if valid and not warnings:
+            self.view.show_success(
+                "✅ Validacija uspješna!\n\n"
+                "Sva obavezna polja su popunjena i podaci su sinhronizovani.\n"
+                "Možete nastaviti sa XML exportom."
+            )
+            return
+
+        # Sastavi poruku
+        msg_parts = []
+
+        # Fixable akcije (auto-update)
+        fixable = [e for e in errors if e.get("fixable")]
+        fixable_warnings = [w for w in warnings if w.get("fixable")]
+        all_fixable = fixable + fixable_warnings
+
+        if errors:
+            msg_parts.append(f"❌ {len(errors)} GREŠAKA (blokiraju export):\n")
+            for i, err in enumerate(errors, 1):
+                msg_parts.append(f"  {i}. {err['message']}")
+            msg_parts.append("")
+
+        if warnings:
+            non_fixable_warnings = [
+                w for w in warnings if not w.get("fixable")
+            ]
+            if non_fixable_warnings:
+                msg_parts.append(
+                    f"⚠️ {len(non_fixable_warnings)} UPOZORENJA:\n"
+                )
+                for i, w in enumerate(non_fixable_warnings, 1):
+                    msg_parts.append(f"  {i}. {w['message']}")
+                msg_parts.append("")
+
+        if all_fixable:
+            msg_parts.append(
+                f"🔧 {len(all_fixable)} AUTOMATSKIH POPRAVKI dostupno:\n"
+            )
+            for i, item in enumerate(all_fixable, 1):
+                msg_parts.append(f"  {i}. {item['message']}")
+            msg_parts.append("")
+
+        full_msg = "\n".join(msg_parts)
+
+        # Ako ima fixable, ponudi auto-fix
+        if all_fixable:
+            reply = QMessageBox.question(
+                self.view,
+                "Rezultat validacije",
+                full_msg + "\nŽelite li automatski popraviti ove greške?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.Yes,
+            )
+            if reply == QMessageBox.StandardButton.Yes:
+                self._apply_auto_fixes(all_fixable)
+                # Ponovo validiraj nakon fix-a
+                if self._save_draft_fn:
+                    self._save_draft_fn()
+                view_data = self.view.get_data()
+                draft = self._get_draft_fn() if self._get_draft_fn else None
+                if draft:
+                    new_result = self.service.validate(view_data, draft)
+                    self._show_validation_result(new_result)
+                return
+            # Ako user kaže Ne, samo prikaži info
+            QMessageBox.warning(
+                self.view,
+                "Validacija — ima grešaka",
+                full_msg,
+            )
+        else:
+            # Nema fixable — samo prikaži
+            if errors:
+                QMessageBox.critical(
+                    self.view,
+                    "Validacija — greške",
+                    full_msg,
+                )
+            else:
+                QMessageBox.information(
+                    self.view,
+                    "Validacija — upozorenja",
+                    full_msg,
+                )
+
+    def _apply_auto_fixes(self, fixable_items: list):
+        """
+        Primijeni automatske popravke na view podatke.
+
+        Podržane akcije:
+        - auto_update_iznos: ažuriraj iznos iz fakture
+        - auto_update_valuta: ažuriraj valutu iz fakture
+        - auto_update_stavke: ažuriraj broj stavki
+        """
+        draft = self._get_draft_fn() if self._get_draft_fn else None
+        if draft is None:
+            return
+
+        for item in fixable_items:
+            action = item.get("fix_action", "")
+
+            if action == "auto_update_iznos":
+                invoice_lines = getattr(draft, "invoice_lines", []) or []
+                iznos = sum(
+                    getattr(l, "iznos", 0.0) or 0.0 for l in invoice_lines
+                )
+                widget = self.view.field_widgets.get("iznos")
+                if widget and hasattr(widget, "setText"):
+                    widget.setText(f"{iznos:.2f}")
+                    self.logger.info(f"Auto-fix: iznos ažuriran na {iznos:.2f}")
+
+            elif action == "auto_update_valuta":
+                invoice_lines = getattr(draft, "invoice_lines", []) or []
+                valuta = ""
+                for line in invoice_lines:
+                    v = getattr(line, "valuta", "") or ""
+                    if v:
+                        valuta = v
+                        break
+                widget = self.view.field_widgets.get("valuta")
+                if widget and hasattr(widget, "setText"):
+                    widget.setText(valuta)
+                    self.logger.info(f"Auto-fix: valuta ažurirana na {valuta}")
+
+            elif action == "auto_update_stavke":
+                n_items = len(draft.items) if draft.items else 0
+                widget = self.view.field_widgets.get("stavke")
+                if widget and hasattr(widget, "setText"):
+                    widget.setText(str(n_items))
+                    self.logger.info(f"Auto-fix: broj stavki ažuriran na {n_items}")
+
+        # Označi dirty
+        self.view.data_changed.emit()
+
     def _on_save(self):
         """Snimi podatke u draft (in-memory)."""
         try:
@@ -155,7 +348,11 @@ class ZaglavljeController:
 
             # Populate view with data
             self.view.set_data(data)
-            
+
+            # Odmah snimi u draft da bi ostali tabovi (Naimenovanja) imali ažurne trosak/kurs
+            if self._save_draft_fn:
+                self._save_draft_fn()
+
             self.view.show_success(f"Podaci učitani iz: {filename}")
             self.logger.info(f"Import successful: {filename}")
             
@@ -176,6 +373,42 @@ class ZaglavljeController:
         try:
             self.logger.info("Export XML requested")
 
+            # 1. Provjeri da li je validacija prošla
+            draft = self._get_draft_fn() if self._get_draft_fn else None
+            if draft is None:
+                self.view.show_error("Nema draft podataka za export.")
+                return
+
+            view_data = self.view.get_data()
+            import_docs = self.view.get_import_attached_docs()
+            result = self.service.validate(view_data, draft, import_docs)
+
+            if not result["valid"]:
+                self.view.show_error(
+                    f"❌ Nije moguće izvesti XML — validacija nije prošla.\n\n"
+                    f"Pronađeno {result['error_count']} grešaka koje blokiraju export.\n"
+                    f"Kliknite na dugme 'Provjeri' da pregledate i popravite greške."
+                )
+                self.logger.warning(
+                    f"Export blocked: {result['error_count']} validation errors"
+                )
+                return
+
+            if result["warnings"]:
+                from PySide6.QtWidgets import QMessageBox
+                reply = QMessageBox.question(
+                    self.view,
+                    "Upozorenje prije exporta",
+                    f"⚠️ Validacija ima {len(result['warnings'])} upozorenja.\n\n"
+                    f"{'; '.join(w['message'][:80] for w in result['warnings'][:3])}\n\n"
+                    f"Da li želite nastaviti sa exportom?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No,
+                )
+                if reply == QMessageBox.StandardButton.No:
+                    return
+
+            # 2. File dialog
             from PySide6.QtWidgets import QFileDialog
             filename, _ = QFileDialog.getSaveFileName(
                 self.view,
@@ -190,20 +423,11 @@ class ZaglavljeController:
             if not filename.endswith('.xml'):
                 filename += '.xml'
 
-            # Snimi trenutne podatke u draft prije exporta
-            draft = None
-            if self._save_draft_fn and self._get_draft_fn:
-                self._save_draft_fn()
-                draft = self._get_draft_fn()
-            elif self._get_draft_fn:
-                draft = self._get_draft_fn()
-
+            # 3. Export
             if draft is not None:
-                # Koristi AsycudaXMLBuilder za kompletan ASYCUDA XML
                 from exporters.asycuda_xml_builder import export_to_xml
                 success = export_to_xml(draft, filename)
             else:
-                # Fallback na servisov export (bez draft-a)
                 data = self.view.get_data()
                 success = self.service.export_to_xml(data, filename)
 
