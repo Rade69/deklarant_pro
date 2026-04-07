@@ -66,6 +66,7 @@ class NaimenovanjaController:
         # Features
         self.view.suggest_tariff_requested.connect(self._on_suggest_tariff)
         self.view.validate_requested.connect(self._on_validate)
+        self.view.import_xml_requested.connect(self._on_import_xml)
 
         # Data changes - emit to parent (MainWindow expects this)
         # No internal handling needed to avoid recursion
@@ -310,14 +311,106 @@ class NaimenovanjaController:
     def _on_validate(self):
         """Handler za validaciju."""
         errors_by_index = self.service.validate_all_naimenovanja(self.items_data)
-        
+
         if not errors_by_index:
             self.handle_success("✅ Sve stavke su validne")
             return
-        
+
         # Show errors
         total_errors = sum(len(e) for e in errors_by_index.values())
         self.view.show_warning(f"Pronađeno {total_errors} grešaka u {len(errors_by_index)} stavki")
+
+    def _on_import_xml(self, filename: str):
+        """
+        Handler za import naimenovanja iz XML fajla.
+
+        Workflow:
+        1. Parsiraj XML → lista NaimenovanjeDraft
+        2. Zamijeni draft.items sa parsiranim stavkama
+        3. Ažuriraj view
+        4. Handle errors
+
+        Args:
+            filename: Putanja do XML fajla
+        """
+        try:
+            from PySide6.QtWidgets import QMessageBox
+
+            # 1. Parsiraj naimenovanja iz XML
+            from services.zaglavlje_service import ZaglavljeService
+            svc = ZaglavljeService()
+            items = svc.parse_naimenovanja_from_xml(filename)
+
+            if not items:
+                self.view.show_warning(
+                    "XML fajl ne sadrži naimenovanja (Item sekcije).\n\n"
+                    "Provjerite da li je XML u ASYCUDA World ili Pro formatu."
+                )
+                return
+
+            # 2. Potvrda od korisnika
+            reply = QMessageBox.question(
+                self.view,
+                "Uvoz naimenovanja",
+                f"Pronađeno {len(items)} naimenovanja u XML fajlu.\n\n"
+                f"Ovo će zamijeniti trenutna naimenovanja.\n"
+                f"Da li želite nastaviti?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if reply == QMessageBox.StandardButton.No:
+                return
+
+            # 3. Zamijeni draft.items
+            if self.draft:
+                self.draft.items = items
+                self.draft.mark_dirty()
+
+            # 4. Ažuriraj internal data
+            self.items_data = []
+            for item in items:
+                self.items_data.append({
+                    "item_id": item.item_id,
+                    "ordinal_no": item.ordinal_no,
+                    "tariff_code": item.tariff_code,
+                    "goods_trade_name": item.goods_trade_name,
+                    "origin_country_code": item.origin_country_code,
+                    "package_code": item.package_code,
+                    "package_name": item.package_name,
+                    "package_qty": item.package_qty,
+                    "container_number1": item.container_number1,
+                    "container_number2": item.container_number2,
+                    "goods_description": item.goods_description,
+                    "tariff_description1": item.tariff_description1,
+                    "tariff_description2": item.tariff_description2,
+                    "gross_mass_kg": item.gross_mass_kg,
+                    "net_mass_kg": item.net_mass_kg,
+                    "preference_code": item.preference_code,
+                    "item_value": item.item_value,
+                    "currency": item.currency,
+                    "statistical_value": item.statistical_value,
+                    "attached_document1": item.attached_document1,
+                    "attached_document2": item.attached_document2,
+                    "attached_document3": item.attached_document3,
+                    "attached_document4": item.attached_document4,
+                    "attached_document5": item.attached_document5,
+                })
+
+            # 5. Resetuj index i ažuriraj view
+            self.current_index = 0
+            self._update_view()
+
+            self.handle_success(
+                f"✅ Uvezeno {len(items)} naimenovanja iz XML-a.\n"
+                f"Kliknite 'Sačuvaj' da potvrdite promjene."
+            )
+
+        except FileNotFoundError:
+            self.view.show_error(f"Fajl ne postoji: {filename}")
+        except ValueError as e:
+            self.view.show_error(f"Neispravan XML format: {e}")
+        except Exception as e:
+            self.handle_error(e, "import_xml")
     
     def _on_data_changed(self):
         """Handler za promjenu podataka."""

@@ -16,7 +16,7 @@ import math
 
 from database.db import get_db_connection
 from services.exceptions import ValidationError
-from core.draft.draft import DeclarationDraft, AttachedDocument
+from core.draft.draft import DeclarationDraft, AttachedDocument, NaimenovanjeDraft
 
 
 logger = logging.getLogger("asycuda_pro.services.zaglavlje")
@@ -1072,15 +1072,244 @@ class ZaglavljeService:
                     })
 
         return data
-    
+
+    def parse_naimenovanja_from_xml(
+        self, filepath: str
+    ) -> List["NaimenovanjeDraft"]:
+        """
+        Parsiraj naimenovanja (Item sekcije) iz ASYCUDA XML fajla.
+
+        Ekstrahuje podatke iz svake <Item> sekcije i kreira
+        NaimenovanjeDraft objekte.
+
+        Args:
+            filepath: Putanja do XML fajla
+
+        Returns:
+            Lista NaimenovanjeDraft objekata
+
+        Raises:
+            FileNotFoundError: Ako fajl ne postoji
+            ValueError: Ako XML nije validan
+        """
+        filepath = Path(filepath)
+        if not filepath.exists():
+            raise FileNotFoundError(f"XML fajl ne postoji: {filepath}")
+
+        try:
+            tree = ET.parse(filepath)
+            root = tree.getroot()
+        except ET.ParseError as e:
+            raise ValueError(f"Neispravan XML format: {e}")
+
+        ns = {'n': root.tag.split('}')[0][1:]} if root.tag.startswith('{') else {}
+
+        def _find(parent, tag):
+            if ns:
+                return parent.find(f"n:{tag}", ns)
+            return parent.find(tag)
+
+        def _txt(parent, tag):
+            el = _find(parent, tag)
+            if el is not None and el.text:
+                return el.text.strip()
+            return ""
+
+        items = []
+        item_tag = f"{{{ns.get('n', '')}}}Item" if ns else "Item"
+
+        for ordinal, item_el in enumerate(root.iter(item_tag), start=1):
+            item_id = f"xml-import-{ordinal}"
+
+            # ── Rb.31 — Pakovanja i opis robe ────────────────────────
+            package_marks = _txt(item_el, "Marks_and_numbers")
+            package_qty = _txt(item_el, "Number_of_packages")
+            package_code = _txt(item_el, "Kind_of_packages")
+            package_name = _txt(item_el, "Kind_of_packages_description")
+
+            # Opis robe — više polja se spaja
+            descriptions = []
+            for tag in ["Goods_description", "Commercial_description", "Description"]:
+                desc = _txt(item_el, tag)
+                if desc:
+                    descriptions.append(desc)
+            goods_description = "\n".join(descriptions) if descriptions else ""
+
+            trade_name = _txt(item_el, "Commercial_name")
+            tariff_desc1 = _txt(item_el, "Tariff_description_1")
+            tariff_desc2 = _txt(item_el, "Tariff_description_2")
+
+            # Kontejneri
+            container_number1 = _txt(item_el, "Container_number")
+            container_number2 = ""  # ASYCUDA World obično ima samo jedan
+
+            # ── Rb.33 — Tarifni broj ─────────────────────────────────
+            tariff_code = _txt(item_el, "Commodity_code")
+            # U nekim formatima je Commodity_code unutar Commodity pod-elementa
+            if not tariff_code:
+                commodity_el = _find(item_el, "Commodity")
+                if commodity_el is not None:
+                    tariff_code = _txt(commodity_el, "Code")
+            tariff_suffix = _txt(item_el, "Tariff_suffix")
+
+            # ── Rb.34 — Zemlja porijekla ─────────────────────────────
+            origin_country_code = _txt(item_el, "Country_of_origin_code")
+            origin_country_name = _txt(item_el, "Country_of_origin_name")
+
+            # ── Rb.36 — Povlastica ───────────────────────────────────
+            preference_code = _txt(item_el, "Preference_code")
+            preference_name = _txt(item_el, "Preference_name")
+
+            # ── Rb.35/38 — Mase ──────────────────────────────────────
+            gross_mass_str = _txt(item_el, "Gross_mass")
+            net_mass_str = _txt(item_el, "Net_mass")
+            try:
+                gross_mass_kg = float(gross_mass_str) if gross_mass_str else 0.0
+            except ValueError:
+                gross_mass_kg = 0.0
+            try:
+                net_mass_kg = float(net_mass_str) if net_mass_str else 0.0
+            except ValueError:
+                net_mass_kg = 0.0
+
+            # ── Rb.37 — Procedura ────────────────────────────────────
+            procedure_code = _txt(item_el, "Procedure_code")
+            procedure_prev_code = _txt(item_el, "Procedure_previous_code")
+
+            # ── Rb.39 — Kvota ────────────────────────────────────────
+            quota_code = _txt(item_el, "Quota_order_number")
+
+            # ── Rb.40 — Prethodni dokumenti (tekstualna polja) ───────
+            prev_docs = []
+            for prev_el in item_el.iter(
+                f"{{{ns.get('n', '')}}}Previous_document" if ns else "Previous_document"
+            ):
+                prev_ref = _txt(prev_el, "Reference")
+                if prev_ref:
+                    prev_docs.append(prev_ref)
+            previous_document = prev_docs[0] if len(prev_docs) > 0 else ""
+            previous_document2 = prev_docs[1] if len(prev_docs) > 1 else ""
+            previous_document3 = prev_docs[2] if len(prev_docs) > 2 else ""
+
+            # ── Rb.41 — Dopunske jedinice ────────────────────────────
+            supplementary_unit_code = _txt(item_el, "Supplementary_unit_code")
+            supplementary_qty_str = _txt(item_el, "Supplementary_unit_quantity")
+            try:
+                supplementary_unit_qty = float(supplementary_qty_str) if supplementary_qty_str else 0.0
+            except ValueError:
+                supplementary_unit_qty = 0.0
+
+            # ── Rb.42 — Vrijednost ───────────────────────────────────
+            item_value_str = _txt(item_el, "Item_value")
+            currency = _txt(item_el, "Currency")
+            try:
+                item_value = float(item_value_str) if item_value_str else 0.0
+            except ValueError:
+                item_value = 0.0
+            if not currency:
+                currency = "EUR"
+
+            # ── Rb.44 — Priloženi dokumenti (tekstualna polja) ───────
+            attached_doc_fields = [""] * 5
+            doc_idx = 0
+            for att_el in item_el.iter(
+                f"{{{ns.get('n', '')}}}Attached_documents" if ns else "Attached_documents"
+            ):
+                code = _txt(att_el, "Attached_document_code")
+                ref = _txt(att_el, "Attached_document_reference")
+                if code and doc_idx < 5:
+                    attached_doc_fields[doc_idx] = f"{code} ({ref})" if ref else code
+                    doc_idx += 1
+
+            # ── Rb.44 — Strukturirani prilozi ────────────────────────
+            attached_documents = []
+            for att_el in item_el.iter(
+                f"{{{ns.get('n', '')}}}Attached_documents" if ns else "Attached_documents"
+            ):
+                code = _txt(att_el, "Attached_document_code")
+                name = _txt(att_el, "Attached_document_name")
+                ref = _txt(att_el, "Attached_document_reference")
+                from_rule_str = _txt(att_el, "Attached_document_from_rule")
+                from_rule = from_rule_str == "1" if from_rule_str else False
+                if code:
+                    attached_documents.append(
+                        AttachedDocument(
+                            code=code, name=name, number=ref, from_rule=from_rule
+                        )
+                    )
+
+            # ── Rb.46 — Statistička vrijednost ───────────────────────
+            stat_value_str = _txt(item_el, "Statistical_value")
+            try:
+                statistical_value = float(stat_value_str) if stat_value_str else 0.0
+            except ValueError:
+                statistical_value = 0.0
+
+            # ── Kreiraj NaimenovanjeDraft ────────────────────────────
+            draft = NaimenovanjeDraft(
+                item_id=item_id,
+                ordinal_no=ordinal,
+                # Rb.31
+                package_marks=package_marks,
+                package_qty=float(package_qty) if package_qty else 0.0,
+                package_code=package_code,
+                package_name=package_name,
+                goods_description=goods_description,
+                goods_trade_name=trade_name,
+                tariff_description1=tariff_desc1,
+                tariff_description2=tariff_desc2,
+                container_number1=container_number1,
+                container_number2=container_number2,
+                # Rb.33
+                tariff_code=tariff_code,
+                tariff_suffix=tariff_suffix,
+                # Rb.34
+                origin_country_code=origin_country_code,
+                origin_country_name=origin_country_name,
+                # Rb.36
+                preference_code=preference_code,
+                preference_name=preference_name,
+                # Rb.35/38
+                gross_mass_kg=gross_mass_kg,
+                net_mass_kg=net_mass_kg,
+                # Rb.37
+                procedure_code=procedure_code,
+                procedure_prev_code=procedure_prev_code,
+                # Rb.39
+                quota_code=quota_code,
+                # Rb.40
+                previous_document=previous_document,
+                previous_document2=previous_document2,
+                previous_document3=previous_document3,
+                # Rb.41
+                supplementary_unit_code=supplementary_unit_code,
+                supplementary_unit_qty=supplementary_unit_qty,
+                # Rb.42
+                item_value=item_value,
+                currency=currency,
+                # Rb.44
+                attached_document1=attached_doc_fields[0],
+                attached_document2=attached_doc_fields[1],
+                attached_document3=attached_doc_fields[2],
+                attached_document4=attached_doc_fields[3],
+                attached_document5=attached_doc_fields[4],
+                attached_documents=attached_documents,
+                # Rb.46
+                statistical_value=statistical_value,
+            )
+            items.append(draft)
+
+        self._log_operation(f"Parsirano {len(items)} naimenovanja iz XML-a")
+        return items
+
     def _build_xml(self, data: Dict[str, Any], format_type: str = "world") -> ET.Element:
         """
         Gradi ASYCUDA XML strukturu.
-        
+
         Args:
             data: Podaci zaglavlja
             format_type: Tip formata - "world" ili "pro" (default: "world")
-        
+
         Returns:
             Root XML element
         """

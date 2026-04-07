@@ -91,6 +91,7 @@ class NaimenovanjaView(BaseTabView):
     """
 
     # data_changed naslijeđen iz BaseTabView
+    import_xml_requested = Signal(str)
 
     def __init__(
         self, draft: Optional[DeclarationDraft] = None, on_dirty: Optional[Callable] = None
@@ -1281,6 +1282,13 @@ class NaimenovanjaView(BaseTabView):
         self.btn_suggest.clicked.connect(self._on_suggest_tariff)
         nav_layout.addWidget(self.btn_suggest)
 
+        # Section 5: Import XML
+        self.btn_import_xml = self._create_icon_button("Uvezi XML", "fa5s.file-import")
+        self.btn_import_xml.setObjectName("btnUveziXMLNaim")  # teal/zelena
+        self.btn_import_xml.setToolTip("Uvezi naimenovanja iz ASYCUDA XML fajla")
+        self.btn_import_xml.clicked.connect(self._on_import_xml)
+        nav_layout.addWidget(self.btn_import_xml)
+
         # Spacer
         nav_layout.addStretch()
 
@@ -2439,6 +2447,23 @@ class NaimenovanjaView(BaseTabView):
             QTimer.singleShot(500, lambda: widget.setStyleSheet(original_style))
 
     def _on_suggest_tariff(self) -> None:
+        """Emituj signal za sugestiju tarifnog broja."""
+        self.suggest_tariff_requested.emit()
+
+    def _on_import_xml(self) -> None:
+        """Otvori file dialog za izbor XML fajla i emituj signal."""
+        from PySide6.QtWidgets import QFileDialog
+
+        filename, _ = QFileDialog.getOpenFileName(
+            self,
+            "Uvezi naimenovanja iz XML fajla",
+            "",
+            "XML Files (*.xml);;All Files (*)",
+        )
+        if filename:
+            self.import_xml_requested.emit(filename)
+
+    def _suggest_tariff_impl(self) -> None:
         """
         Sugeriši tarifni broj za trenutno selektovano naimenovanje.
 
