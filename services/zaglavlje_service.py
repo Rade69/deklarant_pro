@@ -1624,44 +1624,59 @@ class ZaglavljeService:
                 "message": "Rb.19 — Kontejner je označen, ali nedostaje broj kontejnera.",
             })
 
-        # 3c. Priložene isprave — export blokiran ako obavezni dokumenti nisu ažurirani
+        # 3c. Priložene isprave — dvije provjere:
         #
-        # Obavezne šifre koje se mijenjaju za svaki uvoz:
-        # VOZ=Vozarina, OST=Posebna dokumenta, PZT=Potvrda o zdravstvenom...,
-        # N380=Faktura, DIS=Dispozicija, DV1=Prijava o carinskoj vrijednosti
-        OBAVEZNE_SIFRE = {"VOZ", "OST", "PZT", "N380", "DIS", "DV1"}
+        # A) Sve obavezne šifre moraju biti prisutne (neprazna referenca)
+        # B) Šifre koje se mijenjaju za svaki uvoz moraju imati drugačiju referencu od importa
+        #    (DIS=Dispozicija može ostati isti broj — isključen iz provjere promjene)
+        #
+        # VOZ=Vozarina, OST=Posebna dokumenta, PZT=Potvrda o zdravstvenom pregledu,
+        # N380=Faktura komercijalna, DIS=Dispozicija, DV1=Prijava o carinskoj vrijednosti
+        OBAVEZNE_SIFRE = ["VOZ", "OST", "PZT", "N380", "DIS", "DV1"]
+        MORAJU_SE_PROMIJENITI = {"VOZ", "OST", "PZT", "N380", "DV1"}  # DIS isključen
 
         view_attached = view_data.get("attached_documents", [])
 
-        if import_attached_docs is None:
-            # Nije bilo XML import-a — nema provjere (novi dokument, korisnik upisuje ručno)
-            pass
-        elif import_attached_docs:
-            # Napravi mape: šifra → referenca, samo za obavezne šifre
-            def _docs_to_map(docs):
-                result = {}
-                for doc in docs if isinstance(docs, list) else []:
-                    if isinstance(doc, dict):
-                        code = (doc.get("code") or "").strip()
-                        if code in OBAVEZNE_SIFRE:
-                            result[code] = (doc.get("number") or "").strip()
-                return result
+        def _docs_to_map(docs):
+            result = {}
+            for doc in docs if isinstance(docs, list) else []:
+                if isinstance(doc, dict):
+                    code = (doc.get("code") or "").strip()
+                    if code:
+                        result[code] = (doc.get("number") or "").strip()
+            return result
 
+        view_map = _docs_to_map(view_attached)
+
+        # A) Provjera prisutnosti — svaka obavezna šifra mora biti u tabeli sa referencom
+        nedostaju = [s for s in OBAVEZNE_SIFRE if not view_map.get(s)]
+        if nedostaju:
+            errors.append({
+                "rule": "attached_docs_missing",
+                "field": "Priloženi dokumenti",
+                "message": (
+                    "Priloženi dokumenti — Nedostaju obavezne isprave: "
+                    f"{', '.join(nedostaju)}. "
+                    "Dodajte ih prije exporta."
+                ),
+            })
+            self.logger.warning(f"Export blocked: nedostaju isprave: {nedostaju}")
+
+        # B) Provjera promjene — šifre koje se uvijek mijenjaju ne smiju imati staru referencu
+        if import_attached_docs:
             import_map = _docs_to_map(import_attached_docs)
-            view_map = _docs_to_map(view_attached)
-
             self.logger.debug(f"Docs check — import: {import_map}, view: {view_map}")
 
-            # Provjeri koje obavezne šifre imaju nepromijenjenu referencu
             neazurirani = []
-            for sifra, import_ref in import_map.items():
+            for sifra in MORAJU_SE_PROMIJENITI:
+                import_ref = import_map.get(sifra, "")
                 view_ref = view_map.get(sifra, "")
                 if import_ref and view_ref == import_ref:
                     neazurirani.append(f"{sifra} ({import_ref})")
 
             if neazurirani:
                 errors.append({
-                    "rule": "attached_docs",
+                    "rule": "attached_docs_unchanged",
                     "field": "Priloženi dokumenti",
                     "message": (
                         "Priloženi dokumenti — Sljedeće reference nisu ažurirane od zadnjeg uvoza: "
