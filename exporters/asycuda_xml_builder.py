@@ -165,11 +165,40 @@ class AsycudaXMLBuilder:
         ident = ET.SubElement(self.root, "Identification")
 
         office = ET.SubElement(ident, "Office_segment")
-        # ured_odredista format: "BA097012  CI Bijeljina"
+        # ured_odredista može biti: "BA097012" (samo sifra) ili "BA097012  CI Bijeljina"
         ured = self._g("ured_odredista")
-        ured_parts = ured.split()
-        office_code = ured_parts[0] if ured_parts else ""
-        office_name = " ".join(ured_parts[1:]) if len(ured_parts) > 1 else ured
+        if ured and len(ured) <= 10:
+            # Samo šifra — nađi naziv iz baze
+            try:
+                from database.db import get_db_connection
+                with get_db_connection() as conn:
+                    with conn.cursor() as cur:
+                        cur.execute(
+                            "SELECT naziv FROM catalogs.carinske_ispostave WHERE sifra = %s",
+                            (ured,)
+                        )
+                        row = cur.fetchone()
+                        if row:
+                            office_code = ured
+                            naziv = row["naziv"]
+                            # "1. Carinska ispostava Banja Luka" → "CI Banja Luka"
+                            if ". Carinska ispostava" in naziv:
+                                office_name = "CI " + naziv.split(". Carinska ispostava ")[-1]
+                            elif "Carinski referat" in naziv:
+                                office_name = "CR " + naziv.split("Carinski referat ")[-1]
+                            else:
+                                office_name = naziv
+                        else:
+                            office_code = ured
+                            office_name = ured
+            except Exception:
+                office_code = ured
+                office_name = ured
+        else:
+            # Puni format: "BA097012  CI Bijeljina"
+            ured_parts = ured.split()
+            office_code = ured_parts[0] if ured_parts else ""
+            office_name = " ".join(ured_parts[1:]) if len(ured_parts) > 1 else ured
         _val(office, "Customs_clearance_office_code", office_code)
         _val(office, "Customs_Clearance_office_name", office_name)
 

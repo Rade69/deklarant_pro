@@ -106,6 +106,8 @@ def _load_vrste_prijevoza_from_db() -> list:
 
 
 def _load_ured_odredista_from_db() -> str:
+    """Učitaj carinsku ispostavu. Trenutno hardkodirano na BA097012 (Bijeljina).
+    Kad firma ima više poslovnica — proširiti u QComboBox."""
     try:
         with get_db_connection() as conn:
             with conn.cursor() as cur:
@@ -115,8 +117,15 @@ def _load_ured_odredista_from_db() -> str:
                 )
                 row = cur.fetchone()
                 if row:
-                    grad = row["naziv"].split()[-1]
-                    return f"{row['sifra']}  CI {grad}"
+                    naziv = row["naziv"]
+                    # "1. Carinska ispostava Banja Luka" → "CI Banja Luka"
+                    if ". Carinska ispostava" in naziv:
+                        clean = "CI " + naziv.split(". Carinska ispostava ")[-1]
+                    elif "Carinski referat" in naziv:
+                        clean = "CR " + naziv.split("Carinski referat ")[-1]
+                    else:
+                        clean = naziv
+                    return f"{row['sifra']}  {clean}"
     except Exception as e:
         sys.stderr.write(f"⚠️ [ZaglavljeView] ured_odredista DB greška: {e}\n")
     return ""
@@ -938,7 +947,7 @@ class ZaglavljeView(BaseTabView):
         sep.setStyleSheet("color: #aaa; margin: 0 6px;")
         row_layout.addWidget(sep)
 
-        # Ured odredišta — read-only QLineEdit (da get_data() ga pokupi!)
+        # Ured odredišta — read-only QLineEdit (firmi ima samo jednu registrovanu ispostavu)
         ured_le = QLineEdit(ured or "")
         ured_le.setReadOnly(True)
         ured_le.setStyleSheet(
