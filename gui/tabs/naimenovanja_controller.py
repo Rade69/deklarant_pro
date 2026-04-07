@@ -348,6 +348,41 @@ class NaimenovanjaController:
         view_data = self.view.get_data()
         self.items_data[self.current_index].update(view_data)
     
+    def _compute_value_item_formula(self, item: Dict[str, Any]) -> str:
+        """Izračunaj Value_item formulu (Rb.44) za datu stavku."""
+        if not self.draft:
+            return ""
+        try:
+            def parse_cost(val) -> float:
+                try:
+                    return float(str(val or 0).replace(",", ".").replace(" ", ""))
+                except Exception:
+                    return 0.0
+
+            item_value = parse_cost(item.get("item_value", 0))
+            total_items_value = sum(
+                parse_cost(it.get("item_value", 0)) for it in self.items_data
+            )
+            if total_items_value <= 0 or item_value <= 0:
+                return ""
+
+            alpha = item_value / total_items_value
+            t1 = parse_cost(getattr(self.draft, "trosak_1", 0))
+            t2 = parse_cost(getattr(self.draft, "trosak_2", 0))
+            t3 = parse_cost(getattr(self.draft, "trosak_3", 0))
+            t4 = parse_cost(getattr(self.draft, "trosak_4", 0))
+            t5 = parse_cost(getattr(self.draft, "trosak_5", 0))
+
+            ext = t1 * alpha
+            int_fr = t4 * alpha
+            ins = t2 * alpha
+            other = t3 * alpha
+            ded = t5 * alpha
+            ded_str = f"-{ded:.2f}" if ded > 0 else f"+{ded:.2f}"
+            return f"{ext:.2f}+{int_fr:.2f}+{ins:.2f}+{other:.2f}{ded_str}"
+        except Exception:
+            return ""
+
     def _update_view(self):
         """Ažuriraj View sa trenutnom stavkom."""
         # Block combo_items signal to avoid recursion
@@ -360,6 +395,9 @@ class NaimenovanjaController:
         # Set current item data
         current_item = self._get_current_item()
         if current_item:
+            # Dodaj auto-izračunatu Value_item formulu za Rb.44
+            current_item = dict(current_item)
+            current_item["value_item_formula"] = self._compute_value_item_formula(current_item)
             self.view.set_data(current_item)
 
         # Update indicator and heading

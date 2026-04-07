@@ -272,10 +272,8 @@ class Ui_NaimenovanjaTab(object):
         self.lbl_rubrika44.setGeometry(QRect(5, 10, 75, 40))
         self.le_rubrika44_1 = QLineEdit(self.group_44)
         self.le_rubrika44_1.setObjectName(u"le_rubrika44_1")
-        self.le_rubrika44_1.setGeometry(QRect(85, 15, 140, 24))
-        self.le_rubrika44_2 = QLineEdit(self.group_44)
-        self.le_rubrika44_2.setObjectName(u"le_rubrika44_2")
-        self.le_rubrika44_2.setGeometry(QRect(230, 15, 140, 24))
+        self.le_rubrika44_1.setGeometry(QRect(85, 15, 285, 24))
+        self.le_rubrika44_1.setReadOnly(True)
         self.le_rubrika44_3 = QLineEdit(self.group_44)
         self.le_rubrika44_3.setObjectName(u"le_rubrika44_3")
         self.le_rubrika44_3.setGeometry(QRect(375, 15, 170, 24))
@@ -370,6 +368,7 @@ class Ui_NaimenovanjaTab(object):
         self.lbl_rubrika43_tekst.setText(QCoreApplication.translate("NaimenovanjaTab", u"V.M.", None))
         self.lbl_rubrika44.setText(QCoreApplication.translate("NaimenovanjaTab", u"44 Prilo\u017eene\n"
 "isprave", None))
+        self.le_rubrika44_1.setPlaceholderText(QCoreApplication.translate("NaimenovanjaTab", u"Tarification (auto)", None))
         self.lbl_rubrika45.setText(QCoreApplication.translate("NaimenovanjaTab", u"45  prilago\u0111enje", None))
         self.lbl_rubrika46.setText(QCoreApplication.translate("NaimenovanjaTab", u"46  statisti\u010dka vrijednost", None))
         self.status_bar_widget.setStyleSheet(QCoreApplication.translate("NaimenovanjaTab", u"background: qlineargradient(x1:0, y1:0, x2:1, y2:0,\n"

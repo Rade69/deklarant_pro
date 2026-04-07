@@ -422,16 +422,16 @@ class AsycudaXMLBuilder:
         deffered = ET.SubElement(financial, "Deffered_payment_reference")
         deffered.text = self._g("odgodjeno_placanje") or ""
 
-        _val(financial, "Mode_of_payment", "PLACANJE ")
+        _val(financial, "Mode_of_payment", "PLAĆANJE ")
 
         amounts = ET.SubElement(financial, "Amounts")
         ET.SubElement(amounts, "Total_manual_taxes")
-        _val(amounts, "Global_taxes", "0")
+        ET.SubElement(amounts, "Global_taxes")
         ET.SubElement(amounts, "Totals_taxes")
 
         guarantee = ET.SubElement(financial, "Guarantee")
         _null(guarantee, "Name")
-        _val(guarantee, "Amount", "0")
+        ET.SubElement(guarantee, "Amount")
         ET.SubElement(guarantee, "Date")
         excluded = ET.SubElement(guarantee, "Excluded_country")
         _null(excluded, "Code")
@@ -491,23 +491,28 @@ class AsycudaXMLBuilder:
         cost_elem = ET.SubElement(val, "Total_cost")
         cost_elem.text = f"{total_cost:.1f}" if total_cost else ""
 
-        # Total_CIF = zbir vrijednosti svih stavki + ukupni troškovi
-        total_items_value = sum(item.item_value or 0.0 for item in self.draft.items)
-        total_cif = total_items_value + total_cost
+        kurs = self.draft.kurs or 1.0
+        iznos = self.draft.iznos or 0.0
+
+        # Total_CIF = iznos_BAM + ext_freight (ista logika kao na stavkama)
+        # Formula iz referentnih fajlova: Total_CIF = (iznos_EUR × kurs) + Gs_external_freight
+        iznos_bam = round(iznos * kurs, 2)
+        total_cif = iznos_bam + t1
         cif_elem = ET.SubElement(val, "Total_CIF")
         if total_cif:
             cif_elem.text = f"{total_cif:.2f}"
 
         gs_inv = ET.SubElement(val, "Gs_Invoice")
-        ET.SubElement(gs_inv, "Amount_national_currency")
+        # Amount_national_currency = iznos u BAM (EUR × kurs)
+        anc_inv = ET.SubElement(gs_inv, "Amount_national_currency")
+        if iznos_bam:
+            anc_inv.text = f"{iznos_bam:.2f}"
         amt_inv = ET.SubElement(gs_inv, "Amount_foreign_currency")
-        # Rb.22 — iznos fakture (uvijek iz draft-a)
-        iznos = self.draft.iznos or 0.0
+        # Rb.22 — iznos fakture u stranoj valuti (uvijek iz draft-a)
         if iznos:
             amt_inv.text = f"{iznos:.2f}"
         _val(gs_inv, "Currency_code", self._g("valuta", "EUR"))
         _val(gs_inv, "Currency_name", "Nema stranih valuta")
-        kurs = self.draft.kurs or 1.0
         _val(gs_inv, "Currency_rate", f"{kurs:.5f}")
 
         # Troškovi: t1=prevoz vanjski, t2=osiguranje, t3=ostalo, t4=unutrašnji, t5=popust
@@ -544,6 +549,16 @@ class AsycudaXMLBuilder:
     ) -> None:
         """Dodaje jednu <Item> sekciju."""
         item_elem = ET.SubElement(self.root, "Item")
+
+        # Troškovi na nivou zaglavlja (potrebni za Value_item formulu u Tarification)
+        t1 = _parse_cost(self._g("trosak_1"))
+        t2 = _parse_cost(self._g("trosak_2"))
+        t3 = _parse_cost(self._g("trosak_3"))
+        t4 = _parse_cost(self._g("trosak_4"))
+        t5 = _parse_cost(self._g("trosak_5"))
+        total_items_value = sum(it.item_value or 0.0 for it in self.draft.items)
+        item_val = item.item_value or 0.0
+        alpha = item_val / total_items_value if total_items_value > 0 else 0.0
 
         # Priložene isprave
         from_rule_codes: list[str] = []
@@ -633,7 +648,17 @@ class AsycudaXMLBuilder:
             item_price.text = f"{item.item_value:.2f}"
 
         _val(tarif, "Valuation_method_code", "1")
-        ET.SubElement(tarif, "Value_item")
+
+        # Value_item — formula troškova po stavci (ext+int+ins+other-ded)
+        vi = ET.SubElement(tarif, "Value_item")
+        if item_val > 0 and alpha > 0:
+            ext = t1 * alpha
+            int_fr = t4 * alpha
+            ins = t2 * alpha
+            other = t3 * alpha
+            ded = t5 * alpha
+            ded_str = f"-{ded:.2f}" if ded > 0 else f"+{ded:.2f}"
+            vi.text = f"{ext:.2f}+{int_fr:.2f}+{ins:.2f}+{other:.2f}{ded_str}"
 
         # Attached_doc_item — kodovi from_rule dokumenata razdvojeni razmakom
         adi = ET.SubElement(tarif, "Attached_doc_item")
@@ -712,14 +737,6 @@ class AsycudaXMLBuilder:
         if item.net_mass_kg:
             nw.text = f"{item.net_mass_kg:.0f}"
 
-        # Troškovi na nivou zaglavlja (raspodjeljuju se po stavkama)
-        t1 = _parse_cost(self._g("trosak_1"))
-        t2 = _parse_cost(self._g("trosak_2"))
-        t3 = _parse_cost(self._g("trosak_3"))
-        t4 = _parse_cost(self._g("trosak_4"))
-        t5 = _parse_cost(self._g("trosak_5"))
-        total_items_value = sum(it.item_value or 0.0 for it in self.draft.items)
-
         self._fill_item_valuation(val_item, item, total_items_value, t1, t2, t3, t4, t5)
 
     def _fill_item_valuation(
@@ -729,8 +746,14 @@ class AsycudaXMLBuilder:
         total_items_value: float,
         t1: float, t2: float, t3: float, t4: float, t5: float,
     ) -> None:
-        """Popuni Valuation_item sekciju sa stvarnim CIF kalkulacijama."""
+        """Popuni Valuation_item sekciju sa stvarnim CIF kalkulacijama.
+
+        Rb.22 = Item_price = cijena robe u EUR (strana valuta)
+        Rb.46 = Statistical_value = cijena robe u BAM + vanjski prevoz do granice
+                Formula: (Item_price_EUR × kurs) + ext_freight_BAM
+        """
         item_value = item.item_value or 0.0
+        kurs = self.draft.kurs or 1.0
 
         # Alpha koeficijent — proporcionalni udio ove stavke u ukupnoj vrijednosti
         if total_items_value > 0:
@@ -743,24 +766,28 @@ class AsycudaXMLBuilder:
         item_int_freight = t4 * alpha
         item_insurance = t2 * alpha
         item_other = t3 * alpha
-        item_deduction = t5 * alpha  # popust (negativan)
+        item_deduction = t5 * alpha  # popust
 
         total_cost_itm = item_ext_freight + item_int_freight + item_insurance + item_other - item_deduction
-        total_cif_itm = item_value + total_cost_itm
+
+        # Rb.46 — statistička vrijednost = vrijednost robe u BAM + vanjski prevoz do granice
+        # (NE uključuje unutrašnji prevoz, osiguranje, ostalo)
+        item_value_bam = round(item_value * kurs, 2)
+        total_cif_itm = item_value_bam + item_ext_freight
 
         # --- Total_cost_itm ---
         tci = ET.SubElement(val_item, "Total_cost_itm")
         if total_cost_itm:
             tci.text = f"{total_cost_itm:.2f}"
 
-        # --- Total_CIF_itm ---
+        # --- Total_CIF_itm (= Statistical_value = Rb.46) ---
         cif_itm = ET.SubElement(val_item, "Total_CIF_itm")
         if total_cif_itm:
             cif_itm.text = f"{total_cif_itm:.2f}"
 
         _val(val_item, "Rate_of_adjustement", "1")
 
-        # --- Statistical_value = Total_CIF_itm ---
+        # --- Statistical_value = Rb.46 ---
         sv = ET.SubElement(val_item, "Statistical_value")
         if total_cif_itm:
             sv.text = f"{total_cif_itm:.2f}"
@@ -772,7 +799,10 @@ class AsycudaXMLBuilder:
 
         # --- Item_Invoice ---
         ii = ET.SubElement(val_item, "Item_Invoice")
-        ET.SubElement(ii, "Amount_national_currency")
+        # Amount_national_currency = vrijednost robe u BAM (EUR × kurs)
+        anc = ET.SubElement(ii, "Amount_national_currency")
+        if item_value_bam:
+            anc.text = f"{item_value_bam:.2f}"
         iv = ET.SubElement(ii, "Amount_foreign_currency")
         if item_value:
             iv.text = f"{item_value:.2f}"
@@ -786,19 +816,6 @@ class AsycudaXMLBuilder:
         self._item_cost_section_filled(val_item, "item_insurance", item_insurance)
         self._item_cost_section_filled(val_item, "item_other_cost", item_other)
         self._item_cost_section_filled(val_item, "item_deduction", item_deduction, negative=True)
-
-        # --- Value_item string: "ext+int+ins+other-ded" ---
-        vi = ET.SubElement(val_item, "Value_item")
-        if item_value > 0 and alpha > 0:
-            parts = [
-                f"{item_ext_freight:.2f}",
-                f"{item_int_freight:.2f}",
-                f"{item_insurance:.2f}",
-                f"{item_other:.2f}",
-                f"-{item_deduction:.2f}" if item_deduction > 0 else f"{item_deduction:.2f}",
-            ]
-            # Ukloni nulte vrijednosti za čistiji output
-            vi.text = "+".join(p for p in parts if not p.startswith("0.00") and not p.startswith("-0.00")) or "0.00"
 
         # --- Market_valuer ---
         mv = ET.SubElement(val_item, "Market_valuer")

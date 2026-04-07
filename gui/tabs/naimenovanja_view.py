@@ -285,12 +285,11 @@ class NaimenovanjaView(BaseTabView):
             "le_rubrika42": "item_value",
             # Rubrika 43
             "le_rubrika43": "currency",
-            # Rubrika 44 – priložene isprave
-            "le_rubrika44_1": "attached_document1",
-            "le_rubrika44_2": "attached_document2",
-            "le_rubrika44_3": "attached_document3",
-            "le_rubrika44_4": "attached_document4",
-            "le_rubrika44_5": "attached_document5",
+            # Rubrika 44 – Tarification formula + priložene isprave
+            "le_rubrika44_1": "value_item_formula",  # auto-izračun (read-only)
+            "le_rubrika44_3": "attached_document1",  # dokument porijekla (ref. br.)
+            "le_rubrika44_4": "attached_document2",
+            "le_rubrika44_5": "attached_document3",
             # Rubrika 45
             "le_rubrika45_sifra": "",  # Prilagođenje šifra
             "le_rubrika45_iznos": "",  # Prilagođenje iznos
@@ -831,6 +830,12 @@ class NaimenovanjaView(BaseTabView):
         """
         )
 
+        # Auto-expand: prilagodi visinu sadržaju (do dostupnog prostora u parent-u)
+        # group_31 ima height=380, widget počinje na y=200 → max raspoloživo ~170px
+        self._trg_naziv_min_h = geometry.height()  # originalna visina iz .ui (71px)
+        self._trg_naziv_max_h = parent.height() - geometry.y() - 10  # do dna parent-a minus margina
+        self.te_trg_naziv.document().contentsChanged.connect(self._adjust_trg_naziv_height)
+
         # Podigni widget na vrh (z-order)
         self.te_trg_naziv.setVisible(True)
         self.te_trg_naziv.show()
@@ -840,7 +845,20 @@ class NaimenovanjaView(BaseTabView):
         old_widget.setParent(None)
         old_widget.deleteLater()
 
-        logger.info(f" ✅ Zamijenjen le_r31_trg_naziv: QLineEdit → QTextEdit (multi-line, read-only)")
+        logger.info(f" ✅ Zamijenjen le_r31_trg_naziv: QLineEdit → QTextEdit (auto-expand, multi-line)")
+
+    def _adjust_trg_naziv_height(self) -> None:
+        """Prilagodi visinu te_trg_naziv prema sadržaju (auto-expand do dna group_31)."""
+        if not hasattr(self, "te_trg_naziv"):
+            return
+        doc_h = int(self.te_trg_naziv.document().size().height()) + 16  # +padding
+        min_h = getattr(self, "_trg_naziv_min_h", 71)
+        max_h = getattr(self, "_trg_naziv_max_h", 170)
+        new_h = max(min_h, min(doc_h, max_h))
+        geo = self.te_trg_naziv.geometry()
+        if geo.height() != new_h:
+            geo.setHeight(new_h)
+            self.te_trg_naziv.setGeometry(geo)
 
     def _setup_rb40_widgets(self) -> None:
         """
@@ -1585,6 +1603,46 @@ class NaimenovanjaView(BaseTabView):
     # DATA BINDING
     # ═══════════════════════════════════════════════════════════
 
+    def _parse_cost(self, val) -> float:
+        """Parse trošak iz stringa (podržava zarez i tačku kao decimalni separator)."""
+        try:
+            return float(str(val or 0).replace(",", ".").replace(" ", ""))
+        except Exception:
+            return 0.0
+
+    def _compute_item_value_formula(self, item) -> str:
+        """Rb.44 — Value_item formula: ext+int+ins+other-ded za trenutnu stavku."""
+        item_value = float(item.item_value or 0)
+        total_items_value = sum(float(it.item_value or 0) for it in self.draft.items)
+        if total_items_value <= 0 or item_value <= 0:
+            return ""
+        alpha = item_value / total_items_value
+        t1 = self._parse_cost(getattr(self.draft, "trosak_1", 0))
+        t2 = self._parse_cost(getattr(self.draft, "trosak_2", 0))
+        t3 = self._parse_cost(getattr(self.draft, "trosak_3", 0))
+        t4 = self._parse_cost(getattr(self.draft, "trosak_4", 0))
+        t5 = self._parse_cost(getattr(self.draft, "trosak_5", 0))
+        ext = t1 * alpha
+        int_fr = t4 * alpha
+        ins = t2 * alpha
+        other = t3 * alpha
+        ded = t5 * alpha
+        ded_str = f"-{ded:.2f}" if ded > 0 else f"+{ded:.2f}"
+        return f"{ext:.2f}+{int_fr:.2f}+{ins:.2f}+{other:.2f}{ded_str}"
+
+    def _compute_statistical_value(self, item) -> str:
+        """Rb.46 — statistička vrijednost: (item_value_EUR × kurs) + ext_freight_BAM."""
+        item_value = float(item.item_value or 0)
+        total_items_value = sum(float(it.item_value or 0) for it in self.draft.items)
+        if total_items_value <= 0 or item_value <= 0:
+            return ""
+        kurs = float(self.draft.kurs or 1.0) or 1.0
+        alpha = item_value / total_items_value
+        t1 = self._parse_cost(getattr(self.draft, "trosak_1", 0))
+        ext_freight = t1 * alpha
+        stat_val = round(item_value * kurs, 2) + ext_freight
+        return f"{stat_val:.2f}"
+
     def _load_current_item(self) -> None:
         """Load current item from draft into form fields"""
         if len(self.draft.items) == 0 or not hasattr(self, "ui"):
@@ -1603,7 +1661,13 @@ class NaimenovanjaView(BaseTabView):
             widget = self._get_widget(widget_name)
 
             if widget:
-                value = getattr(item, field_name, "")
+                # Virtuelna polja — dinamički izračun, ne čitaju se iz drafta
+                if field_name == "value_item_formula":
+                    value = self._compute_item_value_formula(item)
+                elif field_name == "statistical_value":
+                    value = self._compute_statistical_value(item)
+                else:
+                    value = getattr(item, field_name, "")
 
                 if isinstance(widget, QComboBox):
                     if value:
@@ -1738,8 +1802,11 @@ class NaimenovanjaView(BaseTabView):
         old_tariff = item.tariff_code or ""
         old_suffix = item.tariff_suffix or "000"
 
+        # Virtualna polja (auto-izračun) — ne čuvaju se u draftu
+        _READONLY_VIRTUAL_FIELDS = {"value_item_formula", "statistical_value"}
+
         for widget_name, field_name in self.field_map.items():
-            if not field_name:
+            if not field_name or field_name in _READONLY_VIRTUAL_FIELDS:
                 continue
 
             # Use cached widget access

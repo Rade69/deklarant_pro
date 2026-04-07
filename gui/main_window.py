@@ -84,6 +84,10 @@ class MainWindow(QMainWindow):
         # Registruj callback da ažurira sve tabove kada se draft podaci promene
         self.draft.register_data_change_callback(self._on_draft_data_changed)
 
+        # Osvježi naimenovanja izračune (Rb.44/46) kad se tab aktivira
+        self.tabs_widget = tabs
+        tabs.currentChanged.connect(self._on_tab_changed)
+
     def load_stylesheet(self):
         """
         Učitaj sve QSS stilove u ispravnom redosledu.
@@ -126,6 +130,15 @@ class MainWindow(QMainWindow):
         current_title = self.windowTitle()
         if not current_title.endswith("*"):
             self.setWindowTitle(current_title + " *")
+
+    def _on_tab_changed(self, index: int) -> None:
+        """Osvježi naimenovanja tab kada se aktivira — da uzme svježe kurs/trosak iz drafta."""
+        current_widget = self.tabs_widget.widget(index)
+        if current_widget is self.naimenovanje_tab:
+            # Pozovi refresh na naimenovanja view da ponovo izračuna Rb.44 i Rb.46
+            naim_view = getattr(self.naimenovanje_tab, "view", None)
+            if naim_view and hasattr(naim_view, "_load_current_item"):
+                naim_view._load_current_item()
 
     def _on_draft_data_changed(self) -> None:
         """Poziva se kada se draft podaci promene - ažurira sve tabove koji treba da se osveže."""
