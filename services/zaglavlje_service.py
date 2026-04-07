@@ -1420,10 +1420,10 @@ class ZaglavljeService:
             if view_set == import_set:
                 # Ništa nije promijenjeno — stari podaci, blokiraj export
                 errors.append({
-                    "rule": "44",
-                    "field": "Priložene isprave",
+                    "rule": "attached_docs",
+                    "field": "Priloženi dokumenti",
                     "message": (
-                        "Rb.44 — Reference priloženih isprava nisu ažurirane od zadnjeg uvoza. "
+                        "Priloženi dokumenti — Reference nisu ažurirane od zadnjeg uvoza. "
                         "Ažurirajte reference (broj fakture, vozarine, dispozicije...) "
                         "za ovaj uvoz, pa ponovite export."
                     ),
