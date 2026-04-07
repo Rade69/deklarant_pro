@@ -1079,8 +1079,7 @@ class ZaglavljeService:
         """
         Parsiraj naimenovanja (Item sekcije) iz ASYCUDA XML fajla.
 
-        Ekstrahuje podatke iz svake <Item> sekcije i kreira
-        NaimenovanjeDraft objekte.
+        Bazirano na ASYCUDA World XML formatu (BLAGIC.xml).
 
         Args:
             filepath: Putanja do XML fajla
@@ -1121,48 +1120,119 @@ class ZaglavljeService:
         for ordinal, item_el in enumerate(root.iter(item_tag), start=1):
             item_id = f"xml-import-{ordinal}"
 
-            # ── Rb.31 — Pakovanja i opis robe ────────────────────────
-            package_marks = _txt(item_el, "Marks_and_numbers")
-            package_qty = _txt(item_el, "Number_of_packages")
-            package_code = _txt(item_el, "Kind_of_packages")
-            package_name = _txt(item_el, "Kind_of_packages_description")
+            # ── Rb.31 — Pakovanja ────────────────────────
+            pkg_el = _find(item_el, "Packages")
+            if pkg_el is not None:
+                package_marks = _txt(pkg_el, "Marks1_of_packages") or _txt(pkg_el, "Marks2_of_packages")
+                package_qty = _txt(pkg_el, "Number_of_packages")
+                package_code = _txt(pkg_el, "Kind_of_packages_code")
+                package_name = _txt(pkg_el, "Kind_of_packages_name")
+            else:
+                package_marks = ""
+                package_qty = ""
+                package_code = ""
+                package_name = ""
 
-            # Opis robe — više polja se spaja
-            descriptions = []
-            for tag in ["Goods_description", "Commercial_description", "Description"]:
-                desc = _txt(item_el, tag)
-                if desc:
-                    descriptions.append(desc)
-            goods_description = "\n".join(descriptions) if descriptions else ""
-
-            trade_name = _txt(item_el, "Commercial_name")
-            tariff_desc1 = _txt(item_el, "Tariff_description_1")
-            tariff_desc2 = _txt(item_el, "Tariff_description_2")
-
-            # Kontejneri
+            # Kontejner
+            container_flag = _txt(item_el, "Container_flag")
             container_number1 = _txt(item_el, "Container_number")
-            container_number2 = ""  # ASYCUDA World obično ima samo jedan
+            container_number2 = ""
 
-            # ── Rb.33 — Tarifni broj ─────────────────────────────────
-            tariff_code = _txt(item_el, "Commodity_code")
-            # U nekim formatima je Commodity_code unutar Commodity pod-elementa
-            if not tariff_code:
-                commodity_el = _find(item_el, "Commodity")
-                if commodity_el is not None:
-                    tariff_code = _txt(commodity_el, "Code")
-            tariff_suffix = _txt(item_el, "Tariff_suffix")
+            # ── Rb.31 — Opis robe ────────────────────────
+            gd_el = _find(item_el, "Goods_description")
+            if gd_el is not None:
+                goods_description = _txt(gd_el, "Description_of_goods")
+                goods_trade_name = _txt(gd_el, "Commercial_Description")
+                origin_country_code = _txt(gd_el, "Country_of_origin_code")
+                origin_country_name = _txt(gd_el, "Country_of_origin_name")
+            else:
+                goods_description = ""
+                goods_trade_name = ""
+                origin_country_code = ""
+                origin_country_name = ""
 
-            # ── Rb.34 — Zemlja porijekla ─────────────────────────────
-            origin_country_code = _txt(item_el, "Country_of_origin_code")
-            origin_country_name = _txt(item_el, "Country_of_origin_name")
+            # ── Rb.33 — Tarifni broj ────────────────────────
+            tarif_el = _find(item_el, "Tarification")
+            if tarif_el is not None:
+                # Commodity_code može biti direktno ili unutar HScode
+                tariff_code = _txt(tarif_el, "Commodity_code")
+                if not tariff_code:
+                    hs_el = _find(tarif_el, "HScode")
+                    if hs_el is not None:
+                        tariff_code = _txt(hs_el, "Commodity_code")
+                        tariff_suffix = _txt(hs_el, "Precision_1")
+                    else:
+                        tariff_suffix = ""
+                else:
+                    tariff_suffix = _txt(tarif_el, "Precision_1")
 
-            # ── Rb.36 — Povlastica ───────────────────────────────────
-            preference_code = _txt(item_el, "Preference_code")
-            preference_name = _txt(item_el, "Preference_name")
+                preference_code = _txt(tarif_el, "Preference_code")
+                procedure_code = _txt(tarif_el, "Extended_customs_procedure")
+                procedure_prev_code = _txt(tarif_el, "National_customs_procedure")
+                item_value_str = _txt(tarif_el, "Item_price")
+                quota_code = _txt(tarif_el, "Quota_order_number")
 
-            # ── Rb.35/38 — Mase ──────────────────────────────────────
-            gross_mass_str = _txt(item_el, "Gross_mass")
-            net_mass_str = _txt(item_el, "Net_mass")
+                # Supplementary units
+                supp_unit_code = ""
+                supp_unit_qty = 0.0
+                for supp_el in item_el.iter(
+                    f"{{{ns.get('n', '')}}}Supplementary_unit" if ns else "Supplementary_unit"
+                ):
+                    c = _txt(supp_el, "Suppplementary_unit_code")
+                    q = _txt(supp_el, "Suppplementary_unit_quantity")
+                    if c and not supp_unit_code:
+                        supp_unit_code = c
+                        try:
+                            supp_unit_qty = float(q) if q else 0.0
+                        except ValueError:
+                            supp_unit_qty = 0.0
+                        break
+
+                # Prethodni dokumenti
+                prev_el = _find(item_el, "Previous_doc")
+                previous_document = ""
+                previous_document2 = ""
+                previous_document3 = ""
+                if prev_el is not None:
+                    summary = _txt(prev_el, "Summary_declaration")
+                    if summary:
+                        previous_document = summary
+                    prev_ref = _txt(prev_el, "Previous_document_reference")
+                    if prev_ref:
+                        if not previous_document:
+                            previous_document = prev_ref
+                        else:
+                            previous_document2 = prev_ref
+                free_text1 = _txt(item_el, "Free_text_1")
+                free_text2 = _txt(item_el, "Free_text_2")
+            else:
+                tariff_code = ""
+                tariff_suffix = ""
+                preference_code = ""
+                procedure_code = ""
+                procedure_prev_code = ""
+                item_value_str = ""
+                quota_code = ""
+                supp_unit_code = ""
+                supp_unit_qty = 0.0
+                previous_document = ""
+                previous_document2 = ""
+                previous_document3 = ""
+
+            # ── Rb.35/38 — Mase ────────────────────────
+            # Mase su unutar <Valuation_item><Weight_itm>
+            val_el = _find(item_el, "Valuation_item")
+            gross_mass_str = ""
+            net_mass_str = ""
+            if val_el is not None:
+                weight_el = _find(val_el, "Weight_itm")
+                if weight_el is not None:
+                    gross_mass_str = _txt(weight_el, "Gross_weight_itm")
+                    net_mass_str = _txt(weight_el, "Net_weight_itm")
+                # ── Rb.46 — Statistička vrijednost ────────────────
+                stat_val_str = _txt(val_el, "Statistical_value")
+            else:
+                stat_val_str = ""
             try:
                 gross_mass_kg = float(gross_mass_str) if gross_mass_str else 0.0
             except ValueError:
@@ -1171,58 +1241,21 @@ class ZaglavljeService:
                 net_mass_kg = float(net_mass_str) if net_mass_str else 0.0
             except ValueError:
                 net_mass_kg = 0.0
-
-            # ── Rb.37 — Procedura ────────────────────────────────────
-            procedure_code = _txt(item_el, "Procedure_code")
-            procedure_prev_code = _txt(item_el, "Procedure_previous_code")
-
-            # ── Rb.39 — Kvota ────────────────────────────────────────
-            quota_code = _txt(item_el, "Quota_order_number")
-
-            # ── Rb.40 — Prethodni dokumenti (tekstualna polja) ───────
-            prev_docs = []
-            for prev_el in item_el.iter(
-                f"{{{ns.get('n', '')}}}Previous_document" if ns else "Previous_document"
-            ):
-                prev_ref = _txt(prev_el, "Reference")
-                if prev_ref:
-                    prev_docs.append(prev_ref)
-            previous_document = prev_docs[0] if len(prev_docs) > 0 else ""
-            previous_document2 = prev_docs[1] if len(prev_docs) > 1 else ""
-            previous_document3 = prev_docs[2] if len(prev_docs) > 2 else ""
-
-            # ── Rb.41 — Dopunske jedinice ────────────────────────────
-            supplementary_unit_code = _txt(item_el, "Supplementary_unit_code")
-            supplementary_qty_str = _txt(item_el, "Supplementary_unit_quantity")
             try:
-                supplementary_unit_qty = float(supplementary_qty_str) if supplementary_qty_str else 0.0
+                statistical_value = float(stat_val_str) if stat_val_str else 0.0
             except ValueError:
-                supplementary_unit_qty = 0.0
+                statistical_value = 0.0
 
-            # ── Rb.42 — Vrijednost ───────────────────────────────────
-            item_value_str = _txt(item_el, "Item_value")
-            currency = _txt(item_el, "Currency")
+            # ── Rb.42 — Vrijednost ────────────────────────
             try:
                 item_value = float(item_value_str) if item_value_str else 0.0
             except ValueError:
                 item_value = 0.0
-            if not currency:
-                currency = "EUR"
 
-            # ── Rb.44 — Priloženi dokumenti (tekstualna polja) ───────
+            # ── Rb.44 — Priloženi dokumenti ────────────────
+            attached_documents = []
             attached_doc_fields = [""] * 5
             doc_idx = 0
-            for att_el in item_el.iter(
-                f"{{{ns.get('n', '')}}}Attached_documents" if ns else "Attached_documents"
-            ):
-                code = _txt(att_el, "Attached_document_code")
-                ref = _txt(att_el, "Attached_document_reference")
-                if code and doc_idx < 5:
-                    attached_doc_fields[doc_idx] = f"{code} ({ref})" if ref else code
-                    doc_idx += 1
-
-            # ── Rb.44 — Strukturirani prilozi ────────────────────────
-            attached_documents = []
             for att_el in item_el.iter(
                 f"{{{ns.get('n', '')}}}Attached_documents" if ns else "Attached_documents"
             ):
@@ -1237,15 +1270,32 @@ class ZaglavljeService:
                             code=code, name=name, number=ref, from_rule=from_rule
                         )
                     )
+                    if doc_idx < 5:
+                        attached_doc_fields[doc_idx] = f"{code} ({ref})" if ref else code
+                        doc_idx += 1
 
-            # ── Rb.46 — Statistička vrijednost ───────────────────────
-            stat_value_str = _txt(item_el, "Statistical_value")
-            try:
-                statistical_value = float(stat_value_str) if stat_value_str else 0.0
-            except ValueError:
-                statistical_value = 0.0
+            # ── Valuta — iz Item_Invoice ili header Financial ────────────────
+            currency = ""
+            invoice_el = _find(item_el, "Item_Invoice")
+            if invoice_el is not None:
+                currency = _txt(invoice_el, "Amount_foreign_currency")
+                # Ako postoji Amount, valuta je EUR (ili USD)
+                if currency:
+                    currency = "EUR"  # Pretpostavka
+            if not currency:
+                currency = _txt(item_el, "Currency_code")
+            if not currency:
+                fin_el = _find(root, "Financial")
+                if fin_el is not None:
+                    currency = _txt(fin_el, "Currency_code")
+            if not currency:
+                currency = "EUR"
 
-            # ── Kreiraj NaimenovanjeDraft ────────────────────────────
+            # ── Tarifni opisi ────────────────
+            tariff_desc1 = _txt(item_el, "Tariff_description_1")
+            tariff_desc2 = _txt(item_el, "Tariff_description_2")
+
+            # ── Kreiraj NaimenovanjeDraft ────────────────
             draft = NaimenovanjeDraft(
                 item_id=item_id,
                 ordinal_no=ordinal,
@@ -1255,20 +1305,19 @@ class ZaglavljeService:
                 package_code=package_code,
                 package_name=package_name,
                 goods_description=goods_description,
-                goods_trade_name=trade_name,
+                goods_trade_name=goods_trade_name,
                 tariff_description1=tariff_desc1,
                 tariff_description2=tariff_desc2,
                 container_number1=container_number1,
                 container_number2=container_number2,
                 # Rb.33
                 tariff_code=tariff_code,
-                tariff_suffix=tariff_suffix,
+                tariff_suffix=tariff_suffix or "000",
                 # Rb.34
                 origin_country_code=origin_country_code,
                 origin_country_name=origin_country_name,
                 # Rb.36
                 preference_code=preference_code,
-                preference_name=preference_name,
                 # Rb.35/38
                 gross_mass_kg=gross_mass_kg,
                 net_mass_kg=net_mass_kg,
@@ -1282,8 +1331,8 @@ class ZaglavljeService:
                 previous_document2=previous_document2,
                 previous_document3=previous_document3,
                 # Rb.41
-                supplementary_unit_code=supplementary_unit_code,
-                supplementary_unit_qty=supplementary_unit_qty,
+                supplementary_unit_code=supp_unit_code,
+                supplementary_unit_qty=supp_unit_qty,
                 # Rb.42
                 item_value=item_value,
                 currency=currency,

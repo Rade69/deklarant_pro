@@ -1667,13 +1667,17 @@ class NaimenovanjaView(BaseTabView):
 
     def _load_current_item(self) -> None:
         """Load current item from draft into form fields"""
+        print(f"  📦 _load_current_item START — items={len(self.draft.items)}, idx={self.current_item_index}")
         if len(self.draft.items) == 0 or not hasattr(self, "ui"):
+            print(f"  ⚠️ _load_current_item SKIPPED")
             return
 
         self.is_loading = True
         item = self.draft.items[self.current_item_index]
+        print(f"  📦 Item: tariff={item.tariff_code}, origin={item.origin_country_code}, value={item.item_value}")
 
         loaded = 0
+        not_found = 0
 
         for widget_name, field_name in self.field_map.items():
             if not field_name:
@@ -1758,7 +1762,11 @@ class NaimenovanjaView(BaseTabView):
                 elif isinstance(widget, QTextEdit):
                     widget.setPlainText(str(value) if value else "")
                     loaded += 1
+            else:
+                not_found += 1
+                print(f"  ⚠️ Widget NOT FOUND: {widget_name} (field={field_name})")
 
+        print(f"  📦 _load_current_item END — loaded={loaded}, not_found={not_found}")
         self.is_loading = False
 
         # KRITIČNO: Auto-popuni naziv pakovanja NAKON učitavanja podataka
@@ -2466,22 +2474,27 @@ class NaimenovanjaView(BaseTabView):
 
     def _on_import_xml(self) -> None:
         """Otvori file dialog i uvezi naimenovanja iz XML fajla."""
+        import traceback
         from PySide6.QtWidgets import QFileDialog, QMessageBox
 
-        filename, _ = QFileDialog.getOpenFileName(
-            self,
-            "Uvezi naimenovanja iz XML fajla",
-            "",
-            "XML Files (*.xml);;All Files (*)",
-        )
-        if not filename:
-            return
+        print("📥 _on_import_xml POZVAN")
 
         try:
+            filename, _ = QFileDialog.getOpenFileName(
+                self,
+                "Uvezi naimenovanja iz XML fajla",
+                "",
+                "XML Files (*.xml);;All Files (*)",
+            )
+            print(f"  📁 Izabran fajl: {filename}")
+            if not filename:
+                return
+
             # 1. Parsiraj naimenovanja iz XML
             from services.zaglavlje_service import ZaglavljeService
             svc = ZaglavljeService()
             items = svc.parse_naimenovanja_from_xml(filename)
+            print(f"  📄 Parsirano {len(items)} naimenovanja")
 
             if not items:
                 self.show_warning(
@@ -2500,29 +2513,30 @@ class NaimenovanjaView(BaseTabView):
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No,
             )
+            print(f"  ✅ Odgovor: {reply}")
             if reply == QMessageBox.StandardButton.No:
                 return
 
             # 3. Zamijeni draft.items
             self.draft.items = items
             self.draft.mark_dirty()
+            print(f"  📦 draft.items zamijenjen: {len(self.draft.items)} stavki")
 
             # 4. Resetuj na prvu stavku i reload
             self.current_item_index = 0
+            print(f"  🔄 Pozivam reload_data()...")
             self.reload_data()
+            print(f"  🔄 reload_data() završio")
 
             self.show_success(
                 f"✅ Uvezeno {len(items)} naimenovanja iz XML-a.\n"
                 f"Kliknite 'Sačuvaj' da potvrdite promjene."
             )
 
-        except FileNotFoundError:
-            self.show_error(f"Fajl ne postoji: {filename}")
-        except ValueError as e:
-            self.show_error(f"Neispravan XML format: {e}")
         except Exception as e:
-            import logging
-            logging.getLogger(__name__).error(f"Import XML failed: {e}", exc_info=True)
+            import traceback
+            print(f"❌ GREŠKA PRI IMPORTU: {e}")
+            traceback.print_exc()
             self.show_error(f"Greška pri uvozu: {e}")
 
         # Emituj signal za controller (ako postoji)
@@ -2904,18 +2918,24 @@ class NaimenovanjaView(BaseTabView):
         Public method to reload all naimenovanja data.
         Call this after naimenovanja are created/modified externally.
         """
+        print(f"  🔍 reload_data START — items={len(self.draft.items)}, current_idx={self.current_item_index}")
         # Reset to first item if no items or current index is out of bounds
         if len(self.draft.items) == 0:
             self.current_item_index = -1
+            print(f"  ⚠️  No naimenovanja to display")
             logger.warning("  ⚠️  No naimenovanja to display")
             return
 
         if self.current_item_index >= len(self.draft.items):
             self.current_item_index = 0
+            print(f"  ⚠️ Index out of bounds, reset to 0")
 
         # Reload current item and update all UI elements
+        print(f"  🔍 Pozivam _load_current_item...")
         self._load_current_item()
+        print(f"  🔍 Pozivam _update_all_ui...")
         self._update_all_ui()
+        print(f"  ✅ reload_data END")
         logger.info(f"  ✅ Naimenovanja Tab reloaded: {len(self.draft.items)} items")
 
     def keyPressEvent(self, event):
