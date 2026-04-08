@@ -255,7 +255,7 @@ class AsycudaXMLBuilder:
 
         # Financial (prazno)
         financial = ET.SubElement(traders, "Financial")
-        _null(financial, "Financial_code")
+        ET.SubElement(financial, "Financial_code")
         _null(financial, "Financial_name")
 
     def _add_representative(self) -> None:
@@ -319,7 +319,7 @@ class AsycudaXMLBuilder:
             c = self.draft.items[0].origin_country_code or ""
             z = get_zemlja_by_kod(c.upper())
             origin_name = z.naziv if z else (self.draft.items[0].origin_country_name or "")
-        _val(gen_info, "Country_of_origin_name", origin_name)
+        _val(country, "Country_of_origin_name", origin_name)
 
         # Value_details = zbir vanjskog + unutrašnjeg frahta
         t1 = _parse_cost(self._g("trosak_1"))
@@ -523,7 +523,9 @@ class AsycudaXMLBuilder:
         _gs_cost_section(val, "Gs_deduction", t5)
 
         total = ET.SubElement(val, "Total")
-        ET.SubElement(total, "Total_invoice")
+        ti = ET.SubElement(total, "Total_invoice")
+        if iznos_bam:
+            ti.text = f"{iznos_bam:.2f}"
         total_net = sum(item.net_mass_kg or 0.0 for item in self.draft.items)
         tw = ET.SubElement(total, "Total_weight")
         if total_net:
@@ -815,7 +817,7 @@ class AsycudaXMLBuilder:
         self._item_cost_section_filled(val_item, "item_internal_freight", item_int_freight)
         self._item_cost_section_filled(val_item, "item_insurance", item_insurance)
         self._item_cost_section_filled(val_item, "item_other_cost", item_other)
-        self._item_cost_section_filled(val_item, "item_deduction", item_deduction, negative=True)
+        self._item_cost_section_filled(val_item, "item_deduction", item_deduction)
 
         # --- Market_valuer ---
         mv = ET.SubElement(val_item, "Market_valuer")
