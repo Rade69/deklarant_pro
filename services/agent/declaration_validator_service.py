@@ -896,3 +896,142 @@ def test_agent_validation():
 
 if __name__ == "__main__":
     test_agent_validation()
+
+
+# ---------------------------------------------------------------------------
+# Backward compat: ComplianceCheckService (premješteno iz compliance_check_service.py)
+# ---------------------------------------------------------------------------
+
+import logging as _logging
+from dataclasses import dataclass as _dataclass, field as _field
+from typing import Literal as _Literal, List as _List
+
+_compliance_logger = _logging.getLogger("asycuda_pro.compliance_check")
+
+
+@_dataclass
+class Issue:
+    severity: _Literal['error', 'warning', 'info']
+    code: str
+    message: str
+    item_index: int = -1
+
+
+@_dataclass
+class ComplianceResult:
+    issues: _List[Issue] = _field(default_factory=list)
+
+    @property
+    def errors(self):
+        return [i for i in self.issues if i.severity == 'error']
+
+    @property
+    def warnings(self):
+        return [i for i in self.issues if i.severity == 'warning']
+
+    @property
+    def is_ok(self) -> bool:
+        return len(self.errors) == 0
+
+    def summary_html(self) -> str:
+        if not self.issues:
+            return "✅ <b>Deklaracija je kompletna</b> — nisu pronađeni problemi."
+        lines = []
+        if self.errors:
+            lines.append(f"<b style='color:#b05050;'>❌ Greške ({len(self.errors)}):</b>")
+            for iss in self.errors:
+                loc = f" [stavka {iss.item_index}]" if iss.item_index >= 0 else ""
+                lines.append(f"&nbsp;&nbsp;• {iss.message}{loc}")
+        if self.warnings:
+            lines.append(f"<b style='color:#b8963a;'>⚠️ Upozorenja ({len(self.warnings)}):</b>")
+            for iss in self.warnings:
+                loc = f" [stavka {iss.item_index}]" if iss.item_index >= 0 else ""
+                lines.append(f"&nbsp;&nbsp;• {iss.message}{loc}")
+        info_issues = [i for i in self.issues if i.severity == 'info']
+        if info_issues:
+            lines.append(f"<b style='color:#4a7890;'>ℹ️ Napomene ({len(info_issues)}):</b>")
+            for iss in info_issues:
+                lines.append(f"&nbsp;&nbsp;• {iss.message}")
+        return "<br>".join(lines)
+
+
+class ComplianceCheckService:
+    """
+    Provjerava kompletnost i konzistentnost stavki fakture/deklaracije.
+
+    Upotreba:
+        svc = ComplianceCheckService()
+        result = svc.check(draft)
+        html = result.summary_html()
+    """
+
+    def check(self, draft) -> ComplianceResult:
+        result = ComplianceResult()
+        lines = getattr(draft, 'invoice_lines', []) or []
+        if not lines:
+            result.issues.append(Issue('warning', 'empty', "Nema uvezenih stavki fakture."))
+            return result
+        self._check_tariff_codes(lines, result)
+        self._check_zemlja_porijekla(lines, result)
+        self._check_tezine(lines, result)
+        self._check_eur1_povlastica(lines, result)
+        self._check_naimenovanja(draft, result)
+        return result
+
+    def _check_tariff_codes(self, lines, result: ComplianceResult):
+        bez_tarife = [i for i, l in enumerate(lines, 1) if not getattr(l, 'tarifni_broj', None)]
+        if bez_tarife:
+            indices = ", ".join(str(i) for i in bez_tarife[:5])
+            msg = f"Stavke bez tarifnog broja: {indices}" if len(bez_tarife) <= 5 else f"{len(bez_tarife)} stavki nema tarifni broj."
+            result.issues.append(Issue('error', 'no_tariff', msg))
+        try:
+            from services.tarifa_service import trazi_po_kodu
+            seen = set()
+            for i, l in enumerate(lines, 1):
+                kod = (getattr(l, 'tarifni_broj', '') or '').strip()
+                if kod and kod not in seen:
+                    seen.add(kod)
+                    if not trazi_po_kodu(kod):
+                        result.issues.append(Issue('error', 'invalid_tariff',
+                            f"Tarifni broj '{kod}' nije pronađen u Carinskoj tarifi 2026.", item_index=i))
+        except Exception as e:
+            _compliance_logger.warning("Greška pri provjeri tarife: %s", e)
+
+    def _check_zemlja_porijekla(self, lines, result: ComplianceResult):
+        bez_zemlje = [i for i, l in enumerate(lines, 1) if not getattr(l, 'zemlja_porijekla', None)]
+        if bez_zemlje:
+            indices = ", ".join(str(i) for i in bez_zemlje[:5])
+            msg = f"Stavke bez zemlje porijekla: {indices}" if len(bez_zemlje) <= 5 else f"{len(bez_zemlje)} stavki nema zemlju porijekla."
+            result.issues.append(Issue('error', 'no_country', msg))
+
+    def _check_tezine(self, lines, result: ComplianceResult):
+        ukupno_bruto = sum(getattr(l, 'bruto_kg', 0) or 0 for l in lines)
+        ukupno_neto = sum(getattr(l, 'neto_kg', 0) or 0 for l in lines)
+        if ukupno_bruto <= 0:
+            result.issues.append(Issue('warning', 'no_weight', "Ukupna bruto težina je 0 — provjeri da li su težine učitane."))
+        elif ukupno_neto > ukupno_bruto:
+            result.issues.append(Issue('warning', 'weight_inconsistent',
+                f"Neto ({ukupno_neto:.3f} kg) je veći od bruto ({ukupno_bruto:.3f} kg)."))
+        elif ukupno_neto <= 0:
+            result.issues.append(Issue('info', 'no_neto', "Neto težina je 0 — biće jednaka bruto pri kreiranju naimenovanja."))
+
+    def _check_eur1_povlastica(self, lines, result: ComplianceResult):
+        needs_doc = [i for i, l in enumerate(lines, 1)
+                     if getattr(l, 'povlastica', None)
+                     and not getattr(l, 'has_origin_statement', False)
+                     and not getattr(l, 'eur1_number', None)]
+        if needs_doc:
+            indices = ", ".join(str(i) for i in needs_doc[:5])
+            msg = f"Stavke sa povlasticom ali bez EUR.1/izjave: {indices}" if len(needs_doc) <= 5 else f"{len(needs_doc)} stavki ima povlasticu ali nema EUR.1 ni izjavu o porijeklu."
+            result.issues.append(Issue('warning', 'no_eur1', msg))
+
+    def _check_naimenovanja(self, draft, result: ComplianceResult):
+        items = getattr(draft, 'items', []) or []
+        if not items:
+            return
+        bez_tarife_naim = [i for i, it in enumerate(items, 1) if not getattr(it, 'tariff_code', None)]
+        if bez_tarife_naim:
+            result.issues.append(Issue('error', 'naim_no_tariff', f"{len(bez_tarife_naim)} naimenovanja bez tarifnog broja."))
+        bez_procedure = [i for i, it in enumerate(items, 1) if not getattr(it, 'procedure_code', None)]
+        if bez_procedure:
+            result.issues.append(Issue('warning', 'naim_no_procedure', f"{len(bez_procedure)} naimenovanja bez šifre postupka (Rub.37)."))

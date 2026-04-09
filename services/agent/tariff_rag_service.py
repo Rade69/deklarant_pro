@@ -9,9 +9,41 @@ Koristi RAG (Retrieval-Augmented Generation) pristup:
 SVE KORISTI POSTGRESQL - nema SQLite!
 """
 
+import re
 from typing import Dict, List, Optional, Any
 from database.db import get_db_connection
-from services.agent.text_normalizer import TextNormalizer
+
+
+class TextNormalizer:
+    """Normalizuje tekst za bolju pretragu tarifnih naziva."""
+
+    STOP_WORDS = {
+        'i', 'a', 'u', 'o', 'e', 'se', 'je', 'li', 'da', 'za', 'od', 'do',
+        'sa', 'su', 'na', 'po', 'pri', 'pre', 'pod', 'nad', 'iz', 'bez',
+        'kroz', 'k', 'ka', 'kao', 'ili', 'ali', 'jer', 'ako', 'kad', 'kada',
+        'što', 'sta', 'koji', 'koja', 'koje', 'kojih', 'kojima', 'kojim',
+        'ovaj', 'ova', 'ovo', 'ovi', 'ove', 'onaj', 'ona', 'ono', 'oni',
+        'sam', 'si', 'je', 'smo', 'ste', 'su', 'biti', 'biće', 'bio', 'bila',
+        'za', 'sve', 'svi', 'sva', 'svega', 'nego', 'već', 'još', 'samo',
+        'pa', 'te', 'im', 'ih', 'mu', 'joj', 'ga', 'je', 'ju', 'mi', 'ti',
+        'njega', 'nje', 'njoj', 'njim', 'njima', 'čiji', 'čija', 'čije'
+    }
+
+    def normalize(self, text: str) -> str:
+        if not text:
+            return ""
+        text = text.replace('\n', ' ').replace('\r', ' ')
+        text = re.sub(r'\s+', ' ', text)
+        text = re.sub(r'[^\w\s\-]', '', text)
+        return text.lower().strip()
+
+    def extract_keywords(self, text: str, min_length: int = 3) -> List[str]:
+        normalized = self.normalize(text)
+        return [t for t in normalized.split()
+                if len(t) >= min_length and t not in self.STOP_WORDS]
+
+    def tokenize(self, text: str) -> List[str]:
+        return self.normalize(text).split()
 
 # Mapiranje ključnih riječi iz naziva robe na HS poglavlja (2 cifre)
 # Ako naziv robe sadrži neku od ovih riječi, pretraga se sužava na to poglavlje
