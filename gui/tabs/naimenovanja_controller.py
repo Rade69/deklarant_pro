@@ -263,50 +263,141 @@ class NaimenovanjaController:
             return
 
         try:
-            suggestions = self.service.suggest_tariff(
-                goods_trade_name=goods_name,
-                origin_country_code=origin_country,
+            # Pokušaj prvo sa enhanced suggestions
+            enhanced_result = self._try_enhanced_suggestions(
+                goods_name, 
+                origin_country
             )
-
-            if not suggestions:
-                self.view.show_warning("Nema prijedloga za ovaj proizvod")
-                return
-
-            # Get first suggestion
-            first = suggestions[0]
-            confidence = first.get('similarity', 0.5)
-            tariff_code = first['tariff_code']
-            needs_review = first.get('needs_review', False)
             
-            # Ako je confidence visok (>0.85), auto-popuni
-            if confidence >= 0.85 and not needs_review:
-                self.view.fields['tariff_code'].setText(tariff_code)
-                self.handle_success(f"✅ Auto-popunjeno: {tariff_code} (confidence: {confidence:.0%})")
-            else:
-                # Prikaži dijalog za potvrdu
-                from PySide6.QtWidgets import QMessageBox
-                
-                msg = QMessageBox(self.view)
-                msg.setIcon(QMessageBox.Question)
-                msg.setWindowTitle("🤖 AI Prijedlog")
-                msg.setText(f"Pronađen prijedlog za tarifni broj:")
-                msg.setInformativeText(
-                    f"<b>{tariff_code}</b><br><br>"
-                    f"Confidence: {confidence:.0%}<br>"
-                    f"Metoda: {first.get('method', 'AI')}<br><br>"
-                    f"Objašnjenje: {first.get('description', 'N/A')[:200]}"
-                )
-                msg.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
-                msg.setDefaultButton(QMessageBox.Ok)
-                
-                if msg.exec() == QMessageBox.Ok:
-                    self.view.fields['tariff_code'].setText(tariff_code)
-                    self.handle_success(f"Prihvaćen prijedlog: {tariff_code}")
-                else:
-                    self.handle_success("Odbijen prijedlog")
+            if enhanced_result:
+                # Enhanced suggestions uspješne
+                return
+            
+            # Fallback na postojeći sistem
+            self._fallback_to_basic_suggestions(goods_name, origin_country)
 
         except Exception as e:
             self.handle_error(e, "suggest_tariff")
+    
+    def _try_enhanced_suggestions(
+        self, 
+        goods_name: str, 
+        origin_country: str
+    ) -> bool:
+        """
+        Pokušaj sa enhanced suggestions.
+        
+        Returns:
+            True ako su enhanced suggestions korištene
+        """
+        try:
+            from services.agent.enhanced_tariff_suggestion_service import (
+                get_enhanced_suggestion_for_naimenovanja
+            )
+            
+            # Dobavi dodatne podatke za kontekst
+            supplier_name = self._get_current_supplier()
+            invoice_lines = self._get_current_invoice_lines()
+            
+            # Pozovi enhanced suggestion servis
+            selected_tariff = get_enhanced_suggestion_for_naimenovanja(
+                product_name=goods_name,
+                supplier_name=supplier_name,
+                origin_country=origin_country,
+                invoice_lines=invoice_lines,
+                show_dialog=True  # Uvijek prikaži enhanced dijalog
+            )
+            
+            if selected_tariff:
+                # Postavi odabrani tarifni broj
+                self.view.fields['tariff_code'].setText(selected_tariff)
+                self.handle_success(f"✅ Prihvaćen enhanced prijedlog: {selected_tariff}")
+                return True
+            
+            return False
+            
+        except ImportError:
+            # Enhanced servis nije dostupan
+            return False
+        except Exception as e:
+            print(f"⚠️ Greška pri enhanced suggestions: {e}")
+            return False
+    
+    def _fallback_to_basic_suggestions(
+        self, 
+        goods_name: str, 
+        origin_country: str
+    ):
+        """Fallback na postojeći sistem za sugestije."""
+        suggestions = self.service.suggest_tariff(
+            goods_trade_name=goods_name,
+            origin_country_code=origin_country,
+        )
+
+        if not suggestions:
+            self.view.show_warning("Nema prijedloga za ovaj proizvod")
+            return
+
+        # Get first suggestion
+        first = suggestions[0]
+        confidence = first.get('similarity', 0.5)
+        tariff_code = first['tariff_code']
+        needs_review = first.get('needs_review', False)
+        
+        # Ako je confidence visok (>0.85), auto-popuni
+        if confidence >= 0.85 and not needs_review:
+            self.view.fields['tariff_code'].setText(tariff_code)
+            self.handle_success(f"✅ Auto-popunjeno: {tariff_code} (confidence: {confidence:.0%})")
+        else:
+            # Prikaži dijalog za potvrdu
+            from PySide6.QtWidgets import QMessageBox
+            
+            msg = QMessageBox(self.view)
+            msg.setIcon(QMessageBox.Question)
+            msg.setWindowTitle("🤖 AI Prijedlog")
+            msg.setText(f"Pronađen prijedlog za tarifni broj:")
+            msg.setInformativeText(
+                f"<b>{tariff_code}</b><br><br>"
+                f"Confidence: {confidence:.0%}<br>"
+                f"Metoda: {first.get('method', 'AI')}<br><br>"
+                f"Objašnjenje: {first.get('description', 'N/A')[:200]}"
+            )
+            msg.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
+            msg.setDefaultButton(QMessageBox.Ok)
+            
+            if msg.exec() == QMessageBox.Ok:
+                self.view.fields['tariff_code'].setText(tariff_code)
+                self.handle_success(f"Prihvaćen prijedlog: {tariff_code}")
+            else:
+                self.handle_success("Odbijen prijedlog")
+    
+    def _get_current_supplier(self) -> str:
+        """Dobavi trenutnog dobavljača iz draft-a."""
+        if not self.draft:
+            return ""
+        
+        # Pokušaj dobaviti iz zaglavlja
+        try:
+            return getattr(self.draft, 'exporter_name', '')
+        except AttributeError:
+            return ""
+    
+    def _get_current_invoice_lines(self) -> List[Dict]:
+        """Dobavi trenutne stavke fakture."""
+        if not self.items_data:
+            return []
+        
+        # Konvertuj items_data u format za enhanced servis
+        invoice_lines = []
+        for item in self.items_data:
+            invoice_lines.append({
+                'naziv_robe': item.get('goods_trade_name', ''),
+                'tarifni_broj': item.get('tariff_code', ''),
+                'goods_trade_name': item.get('goods_trade_name', ''),
+                'tariff_code': item.get('tariff_code', ''),
+            })
+        
+        return invoice_lines
     
     def _on_validate(self):
         """Handler za validaciju."""
