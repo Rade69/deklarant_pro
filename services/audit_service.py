@@ -9,13 +9,16 @@ from datetime import datetime
 from typing import Optional, Dict, Any
 import json
 import logging
+from pathlib import Path
 
 # Setup structured logging
 audit_logger = logging.getLogger("audit")
 audit_logger.setLevel(logging.INFO)
 
 # File handler - JSON format
-fh = logging.FileHandler("audit.log")
+_logs_dir = Path(__file__).parent.parent / "logs"
+_logs_dir.mkdir(exist_ok=True)
+fh = logging.FileHandler(_logs_dir / "audit.log")
 fh.setLevel(logging.INFO)
 fh.setFormatter(logging.Formatter("%(message)s"))  # Raw JSON
 audit_logger.addHandler(fh)
