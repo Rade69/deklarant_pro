@@ -309,14 +309,36 @@ class PE2QuickDialog(QDialog):
         """
         Predloži povlasticu (Rub.36) na osnovu zemlje.
         
+        Poboljšana verzija koja koristi historijsko učenje ako je dostupno.
+        
         Pravila:
-        - EU zemlje → EUP
-        - CEFTA zemlje → CEFTAP
-        - Turska → TRP
-        - Ostale → (prazno)
+        1. Prvo probaj historijsko učenje (ako znamo exportera)
+        2. Fallback na hardcoded pravila
         """
         country_upper = country_code.upper()
         
+        # Pokušaj da koristiš historijsko učenje ako znamo exportera
+        try:
+            # Proveri da li imamo exporter name (možda je pročitan iz fakture)
+            exporter_name = ""
+            if hasattr(self, 'exporter_name') and self.exporter_name:
+                exporter_name = self.exporter_name
+            elif self.invoice_lines and hasattr(self.invoice_lines[0], 'exporter'):
+                # Pokušaj da ekstraktuješ exportera iz stavki
+                exporter_name = self.invoice_lines[0].exporter
+            
+            if exporter_name:
+                # Koristi sigurnu verziju historijskog učenja
+                from services.agent.historical_learning_service_safe import enhance_preference_logic
+                historical_pref = enhance_preference_logic(country_upper, exporter_name)
+                
+                if historical_pref:
+                    return historical_pref
+        except Exception:
+            # Silent fallback - nastavi sa hardcoded pravilima
+            pass
+        
+        # FALLBACK: Hardcoded pravila (originalna logika)
         # EU zemlje
         eu_countries = {
             'AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI',
@@ -333,6 +355,8 @@ class PE2QuickDialog(QDialog):
             return 'CEFTAP'
         elif country_upper == 'TR':
             return 'TRP'
+        elif country_upper == 'IR':
+            return 'IRP'
         else:
             return ''
     

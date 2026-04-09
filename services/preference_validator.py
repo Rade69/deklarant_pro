@@ -104,13 +104,51 @@ class PreferenceValidator:
         if povlastica in {'CEFTAP', 'EUP', 'TRP'}:
             # Mora imati EUR.1 (PE1) ILI izjavu
             if eur1_number:
-                return ValidationResult.ok()
+                # Dodaj historijsko warning ako je dostupno
+                return self._add_historical_warning(item, povlastica, ValidationResult.ok())
             if has_statement:
-                return ValidationResult.ok()
+                # Dodaj historijsko warning ako je dostupno
+                return self._add_historical_warning(item, povlastica, ValidationResult.ok())
             
             return ValidationResult.error(
                 f"Povlastica {povlastica} zahteva EUR.1 obrazac (PE1) ili izjavu o poreklu."
             )
+    
+    def _add_historical_warning(self, item: InvoiceLine, current_preference: str, result: ValidationResult) -> ValidationResult:
+        """
+        Dodaj historijsko warning ako je dostupno.
+        
+        Warning se dodaje ako:
+        - Znamo exportera
+        - Historijski podaci postoje
+        - Trenutna povlastica se ne slaže sa historijom
+        """
+        try:
+            # Pokušaj da dobiješ exporter name
+            exporter_name = ""
+            if hasattr(item, 'exporter') and item.exporter:
+                exporter_name = item.exporter
+            elif hasattr(item, 'invoice') and hasattr(item.invoice, 'exporter'):
+                exporter_name = item.invoice.exporter
+            
+            if not exporter_name or not item.zemlja_porijekla:
+                return result
+            
+            # Koristi HistoricalLearningServiceSafe
+            from services.agent.historical_learning_service_safe import enhance_preference_logic
+            
+            historical_pref = enhance_preference_logic(item.zemlja_porijekla, exporter_name)
+            
+            if historical_pref and historical_pref != current_preference:
+                # Dodaj warning
+                warning_msg = f"Historijski podaci: {exporter_name} obično koristi {historical_pref} za {item.zemlja_porijekla}."
+                result.warnings.append(warning_msg)
+                
+        except Exception:
+            # Silent fallback - vrati originalni result
+            pass
+        
+        return result
         
         return ValidationResult.ok()
     

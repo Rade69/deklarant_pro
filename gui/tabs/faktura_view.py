@@ -1738,8 +1738,29 @@ class FakturaView(BaseTabView):
         """Postavi agent mod — nema blokirajućih GUI dijaloga za povlastice."""
         self._agent_mode = enabled
 
-    def _suggest_preference_by_country(self, country_code: str) -> str:
-        """Vrati povlasticu (Rub.36) na osnovu koda zemlje."""
+    def _suggest_preference_by_country(self, country_code: str, exporter_name: str = "") -> str:
+        """
+        Vrati povlasticu (Rub.36) na osnovu koda zemlje.
+        
+        Poboljšana verzija koja koristi historijsko učenje ako je dostupno.
+        
+        Args:
+            country_code: Kod zemlje (npr. 'RS', 'DE')
+            exporter_name: Ime dobavljača (opcionalno)
+        """
+        # Prvo probaj historijsko učenje ako imamo exportera
+        if exporter_name and exporter_name.strip():
+            try:
+                # Koristi HistoricalLearningServiceSafe
+                from services.agent.historical_learning_service_safe import enhance_preference_logic
+                historical_pref = enhance_preference_logic(country_code, exporter_name)
+                if historical_pref:
+                    return historical_pref
+            except Exception:
+                # Silent fallback - nastavi sa hardcoded pravilima
+                pass
+        
+        # FALLBACK: Hardcoded pravila (originalna logika)
         eu_countries = {
             'AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI',
             'FR', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT',
@@ -1753,6 +1774,8 @@ class FakturaView(BaseTabView):
             return 'CEFTAP'
         if c == 'TR':
             return 'TRP'
+        if c == 'IR':
+            return 'IRP'
         return ''
 
     def _auto_handle_povlastice_agent(self, items, has_origin_statement: bool) -> dict:
@@ -1772,16 +1795,23 @@ class FakturaView(BaseTabView):
         updated_eur1 = 0
         eur1_pending = 0
 
+        # Pokušaj da dobiješ exporter name iz fakture
+        exporter_name = ""
+        if hasattr(self.draft, 'exporter') and self.draft.exporter:
+            exporter_name = self.draft.exporter
+        elif self.draft.invoice_lines and hasattr(self.draft.invoice_lines[0], 'exporter'):
+            exporter_name = self.draft.invoice_lines[0].exporter
+        
         for item in self.draft.invoice_lines:
             item_has_statement = getattr(item, 'has_origin_statement', has_origin_statement)
             if item_has_statement:
                 # PE2: izjava o porijeklu → samo postavi povlasticu po zemlji
                 if not getattr(item, 'povlastica', None) and item.zemlja_porijekla:
-                    item.povlastica = self._suggest_preference_by_country(item.zemlja_porijekla)
+                    item.povlastica = self._suggest_preference_by_country(item.zemlja_porijekla, exporter_name)
                 updated_pe2 += 1
             elif item.zemlja_porijekla:
                 # EUR1: nema izjave → postavi povlasticu, EUR1 broj fali
-                pov = self._suggest_preference_by_country(item.zemlja_porijekla)
+                pov = self._suggest_preference_by_country(item.zemlja_porijekla, exporter_name)
                 if pov and not getattr(item, 'povlastica', None):
                     item.povlastica = pov
                     updated_eur1 += 1

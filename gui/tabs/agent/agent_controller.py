@@ -51,8 +51,30 @@ class AgentController:
         from services.agent.tariff_intent_service import TariffIntentService
         from services.agent.merge_intent_service import MergeIntentService
         from services.agent.naimenovanja_intent_service import NaimenovanjaIntentService
+        from services.agent.historical_learning_service_safe import HistoricalLearningServiceSafe
 
         chat = self.view.get_chat_panel()
+        
+        # Historical Learning Service
+        self.historical_svc = HistoricalLearningServiceSafe()
+        
+        # Preload top exportera u background-u
+        try:
+            # Pokreni u background thread-u da ne blokira UI
+            import threading
+            def preload_in_background():
+                try:
+                    loaded = self.historical_svc.preload_top_exporters(limit=10)
+                    if loaded > 0:
+                        logger.debug(f"✅ Preloaded {loaded} top exportera u background-u")
+                except Exception:
+                    pass  # Silent error
+            
+            thread = threading.Thread(target=preload_in_background, daemon=True)
+            thread.start()
+        except Exception:
+            pass  # Silent error
+        
         self.tariff_svc = TariffIntentService(self.draft)
         self.tariff_svc._controller_ref = self
         self.tariff_svc.on_activity = chat.add_activity
@@ -403,8 +425,28 @@ class AgentController:
         from .workflow_state import WorkflowState
         self.workflow.transition(WorkflowState.COMPLETED)
 
-    def _get_preference_by_country(self, country_code: str) -> str:
-        """Vrati šifru povlastice na osnovu koda zemlje porijekla."""
+    def _get_preference_by_country(self, country_code: str, exporter_name: str = "") -> str:
+        """
+        Vrati šifru povlastice na osnovu koda zemlje porijekla.
+        
+        Poboljšana verzija koja koristi historijsko učenje ako je dostupno.
+        
+        Args:
+            country_code: Kod zemlje (npr. 'RS', 'DE')
+            exporter_name: Ime dobavljača (opcionalno)
+        """
+        # Prvo probaj historijsko učenje ako imamo exportera
+        if exporter_name and exporter_name.strip():
+            try:
+                # Koristi HistoricalLearningServiceSafe
+                historical_pref = self.historical_svc.get_preference_safe(exporter_name, country_code)
+                if historical_pref:
+                    return historical_pref
+            except Exception:
+                # Silent fallback - nastavi sa hardcoded pravilima
+                pass
+        
+        # FALLBACK: Hardcoded pravila (originalna logika)
         eu_countries = {
             'AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI',
             'FR', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT',
@@ -418,6 +460,8 @@ class AgentController:
             return 'CEFTAP'
         if c == 'TR':
             return 'TRP'
+        if c == 'IR':
+            return 'IRP'
         return ''
 
     def _auto_handle_povlastice(self, invoice_lines: list, chat,
