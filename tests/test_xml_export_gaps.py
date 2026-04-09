@@ -6,7 +6,7 @@ import os
 import tempfile
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from importers.blagic_attos_importer import parse_blagic_attos_with_auto_combine
 from core.draft.draft import DeclarationDraft, NaimenovanjeDraft, InvoiceLine
@@ -15,7 +15,7 @@ from exporters.asycuda_xml_builder import export_to_xml
 import xml.etree.ElementTree as ET
 
 
-FAKTURE_DIR = Path(__file__).parent / "najavauvoza" / "blagic-attos"
+FAKTURE_DIR = Path(__file__).resolve().parent.parent / "najavauvoza" / "blagic-attos"
 
 
 def _check_xpath(root: ET.Element, tag: str) -> str:
