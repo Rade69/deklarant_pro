@@ -1,7 +1,7 @@
 """
-Agent Validation Service
+Declaration Validator Service
 
-Inteligentna validacija kompletne deklaracije:
+Rule-based validacija kompletne deklaracije:
 1. Zaglavlje (obavezna polja, sinhronizacija)
 2. Naimenovanja (tarifni brojevi, konzistentnost)
 3. Historijska analiza (supplier profiling)
@@ -99,7 +99,7 @@ class ValidationReport:
         }
 
 
-class AgentValidationService:
+class DeclarationValidatorService:
     """
     Agent servis za inteligentnu validaciju kompletne deklaracije.
     
@@ -122,7 +122,7 @@ class AgentValidationService:
         # Cache za performance
         self.supplier_cache: Dict[str, Any] = {}
         
-        print("✅ AgentValidationService inicijalizovan")
+        print("✅ DeclarationValidatorService inicijalizovan")
     
     def validate_complete_declaration(
         self,
@@ -782,7 +782,7 @@ def validate_declaration_with_agent(
     Returns:
         ValidationReport
     """
-    service = AgentValidationService()
+    service = DeclarationValidatorService()
     return service.validate_complete_declaration(
         zaglavlje_data=zaglavlje_data,
         naimenovanja_data=naimenovanja_data,
@@ -794,9 +794,9 @@ def validate_declaration_with_agent(
 # Test funkcija
 def test_agent_validation():
     """Testiraj agent validation servis."""
-    print("🧪 Testiranje AgentValidationService...")
+    print("🧪 Testiranje DeclarationValidatorService...")
     
-    service = AgentValidationService()
+    service = DeclarationValidatorService()
     
     # Test podaci
     zaglavlje_data = {
