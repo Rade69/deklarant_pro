@@ -98,9 +98,9 @@ class ZaglavljeController:
 
         Workflow:
         1. Snimi trenutne podatke u draft
-        2. Pozovi service.validate() sa import snapshot-om
-        3. Prikaži rezultate u dialogu
-        4. Ako ima fixable grešaka, ponudi auto-fix
+        2. Pokušaj enhanced agent validaciju
+        3. Ako nije dostupna, koristi osnovnu validaciju
+        4. Prikaži rezultate u enhanced dialogu
         """
         try:
             self.logger.info("Validation requested")
@@ -116,26 +116,141 @@ class ZaglavljeController:
                 return
 
             view_data = self.view.get_data()
-
-            # 3. Pokreni validaciju — sa import snapshot-om za detekciju promjena
             import_docs = self.view.get_import_attached_docs()
-            self.logger.info(
-                f"Import snapshot: {len(import_docs)} docs, "
-                f"view attached: {len(view_data.get('attached_documents', []))} docs"
+            
+            # 3. Pokušaj enhanced agent validaciju
+            enhanced_result = self._try_enhanced_validation(
+                view_data, draft, import_docs
             )
-            result = self.service.validate(view_data, draft, import_docs)
-
-            # 4. Prikaži rezultate
-            self._show_validation_result(result)
-
-            self.logger.info(
-                f"Validation complete: {result['error_count']} errors, "
-                f"{result['warning_count']} warnings"
-            )
+            
+            if enhanced_result:
+                # Enhanced validacija uspješna
+                return
+            
+            # 4. Fallback na osnovnu validaciju
+            self._fallback_to_basic_validation(view_data, draft, import_docs)
 
         except Exception as e:
             self.logger.error(f"Validation failed: {e}", exc_info=True)
             self.view.show_error(f"Greška pri validaciji: {e}")
+    
+    def _try_enhanced_validation(
+        self,
+        view_data: Dict[str, Any],
+        draft: Any,
+        import_docs: List[Dict]
+    ) -> bool:
+        """
+        Pokušaj enhanced agent validaciju.
+        
+        Returns:
+            True ako je enhanced validacija korištena
+        """
+        try:
+            from services.agent.agent_validation_service import (
+                validate_declaration_with_agent
+            )
+            from gui.dialogs.enhanced_validation_dialog import (
+                show_enhanced_validation_dialog,
+                DialogConfig
+            )
+            
+            # Dobavi sve potrebne podatke
+            naimenovanja_data = self._get_naimenovanja_data()
+            invoice_lines = self._get_invoice_lines(draft)
+            
+            # Pokreni agent validaciju
+            report = validate_declaration_with_agent(
+                zaglavlje_data=view_data,
+                naimenovanja_data=naimenovanja_data,
+                invoice_lines=invoice_lines,
+                draft=draft
+            )
+            
+            # Prikaži enhanced dijalog
+            config = DialogConfig(
+                show_details=True,
+                show_recommendations=True,
+                allow_auto_fix=True,
+                show_export_button=report.valid
+            )
+            
+            result = show_enhanced_validation_dialog(report, self.view, config)
+            
+            if result:
+                self.logger.info(f"Enhanced validation completed: {report.error_count} errors")
+                
+                # Ako je validno i korisnik želi export, pokreni export
+                if report.valid:
+                    self._on_export()
+                
+                return True
+            
+            return False
+            
+        except ImportError:
+            self.logger.debug("Agent validation service nije dostupan")
+            return False
+        except Exception as e:
+            self.logger.error(f"Enhanced validation failed: {e}", exc_info=True)
+            return False
+    
+    def _fallback_to_basic_validation(
+        self,
+        view_data: Dict[str, Any],
+        draft: Any,
+        import_docs: List[Dict]
+    ):
+        """Fallback na osnovnu validaciju."""
+        # Pokreni osnovnu validaciju
+        result = self.service.validate(view_data, draft, import_docs)
+        
+        # Prikaži rezultate
+        self._show_validation_result(result)
+        
+        self.logger.info(
+            f"Basic validation complete: {result['error_count']} errors, "
+            f"{result['warning_count']} warnings"
+        )
+    
+    def _get_naimenovanja_data(self) -> List[Dict[str, Any]]:
+        """Dobavi podatke naimenovanja iz draft-a."""
+        draft = self._get_draft_fn() if self._get_draft_fn else None
+        if not draft or not hasattr(draft, 'items'):
+            return []
+        
+        naimenovanja_data = []
+        for item in draft.items:
+            item_data = {
+                'tariff_code': getattr(item, 'tariff_code', ''),
+                'goods_trade_name': getattr(item, 'goods_trade_name', ''),
+                'origin_country_code': getattr(item, 'origin_country_code', ''),
+                'preference_code': getattr(item, 'preference_code', ''),
+                'gross_mass_kg': getattr(item, 'gross_mass_kg', 0),
+                'net_mass_kg': getattr(item, 'net_mass_kg', 0),
+                'item_value': getattr(item, 'item_value', 0),
+            }
+            naimenovanja_data.append(item_data)
+        
+        return naimenovanja_data
+    
+    def _get_invoice_lines(self, draft: Any) -> List[Dict[str, Any]]:
+        """Dobavi stavke fakture iz draft-a."""
+        if not draft or not hasattr(draft, 'invoice_lines'):
+            return []
+        
+        invoice_lines = []
+        for line in draft.invoice_lines:
+            line_data = {
+                'naziv_robe': getattr(line, 'naziv_robe', ''),
+                'iznos': getattr(line, 'iznos', 0),
+                'valuta': getattr(line, 'valuta', ''),
+                'bruto_kg': getattr(line, 'bruto_kg', 0),
+                'neto_kg': getattr(line, 'neto_kg', 0),
+            }
+            invoice_lines.append(line_data)
+        
+        return invoice_lines
 
     def _show_validation_result(self, result: dict):
         """
