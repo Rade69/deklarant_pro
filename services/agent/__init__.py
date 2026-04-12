@@ -30,8 +30,7 @@ from services.agent.validation.xml_template_service import XmlTemplateService
 # tariff/
 from services.agent.tariff.hybrid_tariff_agent import HybridTariffAgent
 from services.agent.tariff.tariff_rag_service import TariffRAGService
-from services.agent.tariff.hybrid_matching_service import HybridMatchingService
-from services.agent.tariff.enhanced_tariff_suggestion_service import EnhancedTariffSuggestionService
+from services.agent.tariff.tariff_suggestion_service import HybridMatchingService, EnhancedTariffSuggestionService
 
 __all__ = [
     # chat
