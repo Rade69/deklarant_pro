@@ -2,7 +2,8 @@
 """
 AgentSessionManager — crash recovery za Agent tab.
 
-Snima stanje sesije u SQLite nakon svakog važnog događaja:
+Snima stanje sesije u PostgreSQL (catalogs.agent_sessions) nakon
+svakog važnog događaja:
   - upload fajla
   - pokretanje analize
   - završetak analize
@@ -14,26 +15,16 @@ ako je bila prekinuta u kritičnom stanju (ANALYZING / APPLYING).
 """
 
 import json
-import sqlite3
 import uuid
-import os
 import logging
 from datetime import datetime
 from typing import Optional, Dict, Any
 
+from database.db import get_db_connection
+
 logger = logging.getLogger("asycuda_pro.session_manager")
 
-_DB_PATH = os.path.normpath(
-    os.path.join(os.path.dirname(__file__), '..', '..', '..', 'database', 'asycuda_sistem.db')
-)
-
 _CRITICAL_STATES = {'analyzing', 'applying', 'failed'}
-
-
-def _get_conn() -> sqlite3.Connection:
-    conn = sqlite3.connect(_DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
 
 
 class AgentSessionManager:
@@ -49,7 +40,6 @@ class AgentSessionManager:
     def __init__(self):
         self._session_id: str = str(uuid.uuid4())
         self._created_at: str = datetime.now().isoformat()
-        self._ensure_table()
 
     @property
     def session_id(self) -> str:
@@ -68,28 +58,34 @@ class AgentSessionManager:
         token_output: int,
         pending_confirmation: Optional[str] = None,
     ):
-        """Snimi trenutno stanje sesije u DB."""
+        """Snimi trenutno stanje sesije u bazu."""
         try:
-            conn = _get_conn()
-            conn.execute("""
-                INSERT OR REPLACE INTO agent_sessions
-                    (session_id, created_at, updated_at, workflow_state,
-                     selected_mode, uploaded_files, token_input, token_output,
-                     pending_confirmation)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                self._session_id,
-                self._created_at,
-                datetime.now().isoformat(),
-                workflow_state_value,
-                selected_mode,
-                json.dumps(uploaded_files, ensure_ascii=False),
-                token_input,
-                token_output,
-                pending_confirmation,
-            ))
-            conn.commit()
-            conn.close()
+            with get_db_connection() as conn:
+                conn.cursor().execute("""
+                    INSERT INTO catalogs.agent_sessions
+                        (session_id, created_at, updated_at, workflow_state,
+                         selected_mode, uploaded_files, token_input, token_output,
+                         pending_confirmation)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (session_id) DO UPDATE SET
+                        updated_at          = EXCLUDED.updated_at,
+                        workflow_state      = EXCLUDED.workflow_state,
+                        selected_mode       = EXCLUDED.selected_mode,
+                        uploaded_files      = EXCLUDED.uploaded_files,
+                        token_input         = EXCLUDED.token_input,
+                        token_output        = EXCLUDED.token_output,
+                        pending_confirmation = EXCLUDED.pending_confirmation
+                """, (
+                    self._session_id,
+                    self._created_at,
+                    datetime.now().isoformat(),
+                    workflow_state_value,
+                    selected_mode,
+                    json.dumps(uploaded_files, ensure_ascii=False),
+                    token_input,
+                    token_output,
+                    pending_confirmation,
+                ))
         except Exception as e:
             logger.error("Greška pri snimanju sesije: %s", e)
 
@@ -103,16 +99,17 @@ class AgentSessionManager:
         Koristi se za crash recovery pri pokretanju.
         """
         try:
-            conn = _get_conn()
-            row = conn.execute("""
-                SELECT * FROM agent_sessions
-                WHERE workflow_state IN ('analyzing', 'applying', 'failed')
-                  AND session_id != ?
-                ORDER BY updated_at DESC
-                LIMIT 1
-            """, (self._session_id,)).fetchone()
-            conn.close()
-            return _row_to_dict(row) if row else None
+            with get_db_connection() as conn:
+                cur = conn.cursor()
+                cur.execute("""
+                    SELECT * FROM catalogs.agent_sessions
+                    WHERE workflow_state IN ('analyzing', 'applying', 'failed')
+                      AND session_id != %s
+                    ORDER BY updated_at DESC
+                    LIMIT 1
+                """, (self._session_id,))
+                row = cur.fetchone()
+                return _row_to_dict(row) if row else None
         except Exception as e:
             logger.error("Greška pri čitanju sesije: %s", e)
             return None
@@ -120,42 +117,18 @@ class AgentSessionManager:
     def load_latest(self) -> Optional[Dict[str, Any]]:
         """Vrati najnoviju sesiju (za prikaz prethodnog stanja)."""
         try:
-            conn = _get_conn()
-            row = conn.execute("""
-                SELECT * FROM agent_sessions
-                WHERE session_id != ?
-                ORDER BY updated_at DESC LIMIT 1
-            """, (self._session_id,)).fetchone()
-            conn.close()
-            return _row_to_dict(row) if row else None
+            with get_db_connection() as conn:
+                cur = conn.cursor()
+                cur.execute("""
+                    SELECT * FROM catalogs.agent_sessions
+                    WHERE session_id != %s
+                    ORDER BY updated_at DESC LIMIT 1
+                """, (self._session_id,))
+                row = cur.fetchone()
+                return _row_to_dict(row) if row else None
         except Exception as e:
             logger.error("Greška pri čitanju sesije: %s", e)
             return None
-
-    # ─────────────────────────────────────────────────
-    # Interno
-    # ─────────────────────────────────────────────────
-
-    def _ensure_table(self):
-        try:
-            conn = _get_conn()
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS agent_sessions (
-                    session_id          TEXT PRIMARY KEY,
-                    created_at          TEXT NOT NULL,
-                    updated_at          TEXT NOT NULL,
-                    workflow_state      TEXT NOT NULL,
-                    selected_mode       TEXT,
-                    uploaded_files      TEXT,
-                    token_input         INTEGER DEFAULT 0,
-                    token_output        INTEGER DEFAULT 0,
-                    pending_confirmation TEXT
-                )
-            """)
-            conn.commit()
-            conn.close()
-        except Exception as e:
-            logger.error("DB init greška: %s", e)
 
 
 def _row_to_dict(row) -> Dict[str, Any]:
