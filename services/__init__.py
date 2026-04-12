@@ -4,7 +4,7 @@ Business logic services za ASYCUDA Pro aplikaciju
 """
 
 # Osnovni servisi - bez zavisnosti
-from .error_handler import ErrorHandler, ErrorSeverity, ErrorResponse, error_handler
+from .core.error_handler import ErrorHandler, ErrorSeverity, ErrorResponse, error_handler
 from .validation.validation_service import (
     ValidationService,
     ValidationLevel,
