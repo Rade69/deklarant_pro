@@ -8,7 +8,7 @@ Nema business logike.
 """
 
 import logging
-from typing import Callable, Optional, TYPE_CHECKING
+from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
 
 from PySide6.QtWidgets import QMessageBox
 from PySide6.QtCore import Qt
