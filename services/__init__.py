@@ -13,9 +13,6 @@ from .validation_service import (
     FakturaItemValidator,
     NaimenovanjeValidator,
 )
-from .autocomplete_service import AutocompleteService
-from .audit_service import AuditService, AuditEvent
-
 # Import servisi - zavise od error_handler
 from .import_service import ImportService
 from .import_worker import ImportWorker
@@ -33,11 +30,6 @@ __all__ = [
     "ValidationResult",
     "FakturaItemValidator",
     "NaimenovanjeValidator",
-    # Autocomplete
-    "AutocompleteService",
-    # Audit
-    "AuditService",
-    "AuditEvent",
     # Import
     "ImportService",
     "ImportWorker",
