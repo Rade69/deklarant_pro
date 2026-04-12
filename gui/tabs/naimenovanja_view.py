@@ -47,6 +47,7 @@ from PySide6.QtGui import QColor, QIcon, QPainter, QTextOption
 from services.naimenovanja.tariff_service import TariffService
 from services.naimenovanja.constants import NaimenovanjaConstants
 from services.tariff_mapping_service import TariffMapping, validate_preference
+from services.tariff_controls_service import check_tariff_controls
 from gui.tabs.base_view import BaseTabView
 
 from core.draft import DeclarationDraft, NaimenovanjeDraft
@@ -1326,6 +1327,22 @@ class NaimenovanjaView(BaseTabView):
         )  # CSS in naimenovanja_components.qss
         heading_layout.addWidget(self.lbl_heading)
 
+        # Upozorenje o inspekcijskoj kontroli (skriveno dok nema kontrolisanog tarifnog broja)
+        self.lbl_tariff_warning = QLabel()
+        self.lbl_tariff_warning.setStyleSheet("""
+            QLabel {
+                background-color: #FF8C00;
+                color: #FFFFFF;
+                font-weight: bold;
+                font-size: 12px;
+                padding: 2px 10px;
+                border-radius: 4px;
+                border: 1px solid #CC6600;
+            }
+        """)
+        self.lbl_tariff_warning.setVisible(False)
+        heading_layout.addWidget(self.lbl_tariff_warning)
+
         # Spacer to position buttons at 1257px from left edge
         heading_layout.addSpacing(1017)
 
@@ -1515,6 +1532,39 @@ class NaimenovanjaView(BaseTabView):
                 full_description or "", short_description or ""
             )
 
+        # Provjeri inspekcijsku kontrolu za uneseni tarifni broj
+        self._check_and_show_tariff_warning(tariff_code)
+
+    def _check_and_show_tariff_warning(self, tariff_code: str) -> None:
+        """Provjeri da li tarifni broj podlijeze inspekcijskoj kontroli i pokazi upozorenje."""
+        if not hasattr(self, "lbl_tariff_warning"):
+            return
+
+        if not tariff_code or len(tariff_code.strip()) < 4:
+            self.lbl_tariff_warning.setVisible(False)
+            return
+
+        try:
+            result = check_tariff_controls(tariff_code)
+        except Exception as e:
+            logger.warning(f"Greška pri provjeri kontrola: {e}")
+            self.lbl_tariff_warning.setVisible(False)
+            return
+
+        if result and result.ima_kontrolu:
+            kontrole = result.skracenice
+            self.lbl_tariff_warning.setText(f"⚠️  Kontrolisana roba: {kontrole}")
+            self.lbl_tariff_warning.setToolTip(
+                "Roba podlijeze inspekcijskoj kontroli:\n"
+                + "\n".join(f"  • {k}" for k in result.opis_kontrola)
+                + (f"\n\nNapomena: {result.napomena}" if result.napomena else "")
+                + "\n\nIzvor: BiH UIO Objedinjen spisak inspekcijskih kontrola (mart 2015)"
+            )
+            self.lbl_tariff_warning.setVisible(True)
+            logger.info(f"⚠️  Tarifni broj {tariff_code} podlijeze kontroli: {kontrole}")
+        else:
+            self.lbl_tariff_warning.setVisible(False)
+
     def _populate_tariff_description(
         self, description_full: str, description_short: str = ""
     ) -> None:
@@ -1672,6 +1722,10 @@ class NaimenovanjaView(BaseTabView):
         if len(self.draft.items) == 0 or not hasattr(self, "ui"):
             print(f"  ⚠️ _load_current_item SKIPPED")
             return
+
+        # Sakrij upozorenje pri svakom prelasku na novi item (ažurira se u _perform_tariff_lookup)
+        if hasattr(self, "lbl_tariff_warning"):
+            self.lbl_tariff_warning.setVisible(False)
 
         self.is_loading = True
         item = self.draft.items[self.current_item_index]

@@ -1,78 +1,68 @@
 #!/usr/bin/env python3
 """
 ASYCUDA Pro - Application Launcher
-Jednostavno pokretanje aplikacije
 """
 
 import sys
 import os
 
-# Dodaj venv site-packages u sys.path ako venv nije aktiviran
+# Projektni root = direktorij gdje se nalazi ovaj fajl
 _script_dir = os.path.dirname(os.path.abspath(__file__))
-if not os.environ.get("VIRTUAL_ENV"):
-    import glob as _glob
-    _patterns = os.path.join(_script_dir, "venv", "lib", "python*", "site-packages")
-    for _sp in _glob.glob(_patterns):
-        if _sp not in sys.path:
-            sys.path.insert(0, _sp)
+
+# KRITIČNO: osiguraj da je projektni root u sys.path
+# (desktop ikonica nema CWD = project root, za razliku od terminala)
+if _script_dir not in sys.path:
+    sys.path.insert(0, _script_dir)
+
+# Greške pri pokretanju pisati u log fajl (vidljivo i bez terminala)
+_log_file = os.path.join(_script_dir, "asycuda_launch.log")
+
 import logging
 import warnings
 
-# Suppress RuntimeWarnings about signal disconnections
 warnings.filterwarnings('ignore', category=RuntimeWarning, message='Failed to disconnect')
 
-# Redirect stderr and stdout to suppress verbose startup messages
-# (QtAwesome load messages, etc.)
-class StderrSuppressor:
-    """Suppress stderr messages during startup"""
-    def write(self, text):
-        pass  # Ignore all stderr output
-    def flush(self):
-        pass
+logging.basicConfig(
+    level=logging.WARNING,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%H:%M:%S',
+    handlers=[
+        logging.StreamHandler(sys.stderr),
+        logging.FileHandler(_log_file, encoding="utf-8"),
+    ]
+)
 
-# Save original stderr for later restoration
-_original_stderr = sys.stderr
-
-# Suppress stderr during imports (QtAwesome, etc.)
-sys.stderr = StderrSuppressor()
-sys.stdout = StderrSuppressor()
-
-# Add parent directory to path so asycuda_pro.* imports work
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if parent_dir not in sys.path:
-    sys.path.insert(0, parent_dir)
-
-from PySide6.QtWidgets import QApplication
-from PySide6.QtGui import QFont
-from gui.main_window import MainWindow
+try:
+    from PySide6.QtWidgets import QApplication, QMessageBox
+    from gui.main_window import MainWindow
+except Exception as _import_err:
+    # Upiši grešku u log fajl pa prikaži korisniku
+    with open(_log_file, "a", encoding="utf-8") as _f:
+        import traceback
+        _f.write(f"\n=== IMPORT GREŠKA ===\n{traceback.format_exc()}\n")
+    raise
 
 
 def main():
-    """Pokreni ASYCUDA Pro aplikaciju"""
-
-    # Restore stderr/stdout so errors and warnings can be seen
-    sys.stderr = _original_stderr
-    sys.stdout = _original_stderr
-
-    # Configure logging - WARNING level hides verbose INFO messages
-    # force=True resetuje postojeće log konfiguracije
-    logging.basicConfig(
-        level=logging.WARNING,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        datefmt='%H:%M:%S',
-        force=True
-    )
-
-    # Kreiraj Qt aplikaciju
     app = QApplication(sys.argv)
     app.setApplicationName("ASYCUDA Pro")
     app.setOrganizationName("Carina")
 
-    # Kreiraj i prikaži glavni prozor
-    window = MainWindow()
-    window.show()
+    try:
+        window = MainWindow()
+        window.show()
+    except Exception as e:
+        import traceback
+        msg = QMessageBox()
+        msg.setWindowTitle("ASYCUDA Pro — Greška pri pokretanju")
+        msg.setText(str(e))
+        msg.setDetailedText(traceback.format_exc())
+        msg.setIcon(QMessageBox.Critical)
+        msg.exec()
+        with open(_log_file, "a", encoding="utf-8") as f:
+            f.write(f"\n=== RUNTIME GREŠKA ===\n{traceback.format_exc()}\n")
+        sys.exit(1)
 
-    # Pokreni event loop
     sys.exit(app.exec())
 
 
