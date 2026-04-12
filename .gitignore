@@ -82,6 +82,12 @@ reimport_*.py
 # Kiro IDE
 .kiro/
 
+# Roo / Cline / Qodo IDE alati (lokalna konfiguracija)
+.roo/
+.qodo/
+.crush/
+.agent_memory/
+
 # Test data - XML deklaracije (ogromne datoteke, nisu za git)
 data/xml_deklaracije/
 data/*.xml
