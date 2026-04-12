@@ -43,6 +43,11 @@ def main() -> None:
     app.setPalette(palette)
     app.setStyle("Fusion")
 
+    # Provjeri konekciju na bazu — prikaži setup dialog ako treba
+    from gui.dialogs.db_setup_dialog import check_and_setup_db
+    if not check_and_setup_db(app):
+        raise SystemExit(0)
+
     win = MainWindow()
     win.show()
     raise SystemExit(app.exec())
