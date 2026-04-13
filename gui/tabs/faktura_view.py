@@ -1314,14 +1314,20 @@ class FakturaView(BaseTabView):
     def _on_import_xml(self):
         """Handle Import XML button click."""
         filepath, _ = QFileDialog.getOpenFileName(
-            self, "Odaberi ASYCUDA XML", "", "XML Files (*.xml);;All Files (*)"
+            self, "Odaberi XML fakturu ili ASYCUDA XML", "", "XML Files (*.xml);;All Files (*)"
         )
 
         if filepath:
             try:
+                # Pekabesko faktura XML (<Faktura>/<Stavke>) → preusmjeri na _start_import
+                from importers.vendors.leburic.leburic_pekabesko_xml_parser import detect_leburic_pekabesko_xml
+                if detect_leburic_pekabesko_xml(filepath):
+                    self._start_import(filepath)
+                    return
+
                 from importers.xml_importer import XMLImporter
 
-                # Parse XML
+                # Parse XML (ASYCUDA format)
                 importer = XMLImporter()
                 result = importer.import_file(Path(filepath))
 
