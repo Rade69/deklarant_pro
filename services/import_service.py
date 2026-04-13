@@ -23,7 +23,7 @@ logger = logging.getLogger("asycuda_pro.import")
 # Poznati vendor formati koji se NE tretiraju kao packing lista
 _KNOWN_VENDOR_FORMATS = {
     "invoice_improved", "blagic_loren", "blagic_attos",
-    "imamoglu", "master_frigo", "medicopharm"
+    "imamoglu", "master_frigo", "medicopharm", "leburic_pekabesko"
 }
 
 
