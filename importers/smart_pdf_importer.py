@@ -39,7 +39,11 @@ def parse_smart_pdf(pdf_path: str) -> ImportResult:
 
     # 2. PARSIRANJE PREMA FORMATU
     try:
-        if pdf_format == "invoice_improved":
+        if pdf_format == "leburic_pekabesko":
+            logger.info("   📋 Koristim Leburic/Pekabesko specijalizovanu funkciju")
+            result = _parse_leburic_pekabesko(pdf_path)
+
+        elif pdf_format == "invoice_improved":
             logger.info("   📋 Koristim Invoice-Improved specijalizovanu funkciju")
             result = _parse_invoice_improved(pdf_path)
 
@@ -199,6 +203,10 @@ def _detect_pdf_format(pdf_path: str) -> str:
                 if "FAKTURA" in text_upper or "INVOICE" in text_upper:
                     return "sumaprom"
 
+            # LEBURIC / PEKABESKO — PDF je supplement (uz Excel), ne importuje se direktno
+            if "PEKABESKO" in text_upper:
+                return "leburic_pekabesko"
+
             # Nepoznat format - generička extraction
             return "generic"
 
@@ -300,6 +308,12 @@ def _parse_proton_system(pdf_path: str) -> ImportResult:
     """Parsira Proton System DOO format (MGM fakture)."""
     from importers.medicopharm_importer import parse_medicopharm_pdf
     return parse_medicopharm_pdf(pdf_path)
+
+
+def _parse_leburic_pekabesko(pdf_path: str) -> ImportResult:
+    """Parsira Leburic/Pekabesko PDF format (skenirani OCR dokumenti)."""
+    from importers.vendors.leburic.leburic_pekabesko_pdf_parser import parse_leburic_pekabesko_pdf
+    return parse_leburic_pekabesko_pdf(pdf_path)
 
 
 # Alias za kompatibilnost
