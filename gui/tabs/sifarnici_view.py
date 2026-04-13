@@ -2076,154 +2076,21 @@ class SifarniciView(BaseTabView):
             )
 
     def _search_zemlje(self, query: str):
-        """Search zemlje in database using ILIKE - like Pošiljaoci"""
+        """Search zemlje using Service layer."""
         try:
             logger.info(f"Pretraga zemalja sa query-jem: '{query}'")
 
-            # Sanitize search query
-            clean_query = self.validator.sanitize_input(query)
+            results = self.service.search_zemlje(query)
 
-            # Clear existing data
-            self.table.setRowCount(0)
+            self._populate_table_from_service(
+                results,
+                columns=["sifra", "naziv"],
+            )
 
-            # Query with ILIKE for case-insensitive search
-            if clean_query:
-                result = self.db_manager.execute_query(
-                    """SELECT sifra, naziv 
-                       FROM catalogs.drzave 
-                       WHERE sifra ILIKE %s OR naziv ILIKE %s
-                       ORDER BY sifra""",
-                    (f"{clean_query}%", f"{clean_query}%"),
-                    fetch_all=True,
-                )
-                logger.info(f"Pronađeno {len(result)} rezultata za pretragu")
-            else:
-                # If empty query, load all
-                result = self.db_manager.execute_query(
-                    "SELECT sifra, naziv FROM catalogs.drzave ORDER BY sifra",
-                    fetch_all=True,
-                )
-                logger.info(f"Učitano svih {len(result)} zemalja")
-
-            result = result or []
-
-            # Populate table
-            for row_data in result:
-                row = self.table.rowCount()
-                self.table.insertRow(row)
-
-                # sifra (Šifra)
-                sifra_item = QTableWidgetItem(str(row_data[0] or ""))
-                sifra_item.setTextAlignment(Qt.AlignCenter)
-                self.table.setItem(row, 0, sifra_item)
-
-                # naziv (Naziv)
-                naziv_item = QTableWidgetItem(str(row_data[1] or ""))
-                self.table.setItem(row, 1, naziv_item)
-
-            # Update status
-            try:
-                self._update_status()
-            except Exception:
-                pass
-            try:
-                self._update_pager()
-            except Exception:
-                pass
-
-            logger.info(f"Uspešno učitano {len(result)} zemalja")
+            logger.info(f"Uspešno učitano {len(results)} zemalja")
 
         except Exception as e:
             logger.error(f"Greška pri pretrazi zemalja: {str(e)}")
-            raise
-
-    def _search_generic(
-        self,
-        query: str,
-        table_name: str,
-        columns: List[str],
-        search_columns: List[str],
-        order_by: str = "naziv",
-        format_fn: Optional[Callable[[str], str]] = None,
-        add_actions: bool = True,
-    ):
-        """Generička pretraga za sve kategorije
-
-        Args:
-            query: Pretraga tekst
-            table_name: Ime tabele u bazi
-            columns: Lista kolona za SELECT
-            search_columns: Lista kolona za WHERE ILIKE
-            order_by: Redosled sortiranja
-            format_fn: Optional funkcija za formatiranje vrednosti (npr. format_tarifni_kod)
-            add_actions: Da li da doda kolonu za akcije (default True)
-        """
-        try:
-            logger.info(f"Pretraga {table_name} sa query-jem: '{query}'")
-
-            clean_query = self.validator.sanitize_input(query)
-            self.table.setRowCount(0)
-
-            # Izgradi WHERE deo query-ja
-            if clean_query:
-                where_parts = [f"{col} ILIKE %s" for col in search_columns]
-                where_clause = " OR ".join(where_parts)
-                params = tuple(f"%{clean_query}%" for _ in search_columns)
-                query_str = f"SELECT {', '.join(columns)} FROM {table_name} WHERE {where_clause} ORDER BY {order_by}"
-            else:
-                query_str = (
-                    f"SELECT {', '.join(columns)} FROM {table_name} ORDER BY {order_by}"
-                )
-                params = ()
-
-            results = (
-                self.db_manager.execute_query(query_str, params, fetch_all=True) or []
-            )
-            logger.info(f"Pronađeno {len(results)} rezultata za pretragu")
-
-            if not results:
-                logger.info("Nema rezultata za datu pretragu")
-                self.table.setRowCount(1)
-                self.table.setItem(0, 0, QTableWidgetItem("Nema rezultata"))
-                if len(columns) > 1:
-                    self.table.setSpan(0, 0, 1, len(columns))
-                return
-
-            # Popuni tabelu
-            self.table.setSortingEnabled(False)
-            self.table.setUpdatesEnabled(False)
-            self.table.setRowCount(len(results))
-
-            for row, row_data in enumerate(results):
-                for col, value in enumerate(row_data):
-                    formatted_value = format_fn(value) if format_fn else value
-                    self.table.setItem(
-                        row, col, QTableWidgetItem(str(formatted_value or ""))
-                    )
-
-                # Dodaj akcije kao tekst (ne widget!) samo ako je add_actions=True
-                # i ako tabela ima više kolona od broja podataka
-                if add_actions and len(columns) < self.table.columnCount():
-                    item_actions = QTableWidgetItem("✏️  🗑️")
-                    item_actions.setTextAlignment(Qt.AlignCenter)
-                    item_actions.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
-                    self.table.setItem(row, len(columns), item_actions)
-
-            self.table.setUpdatesEnabled(True)
-            self.table.setSortingEnabled(True)
-
-            # Osveži UI
-            self.table.show()
-            self.table.setVisible(True)
-            self.table.setEnabled(True)
-            self.table.viewport().update()
-            self.table.update()
-            self.table.repaint()
-
-            logger.info(f"Uspešno prikazano {len(results)} rezultata u GUI")
-
-        except Exception as e:
-            logger.error(f"Greška pri pretrazi: {str(e)}")
             raise
 
     def _on_table_cell_clicked(self, row: int, col: int):
@@ -2387,35 +2254,28 @@ class SifarniciView(BaseTabView):
             logger.error(f"Greška pri popunjavanju forme: {str(e)}")
 
     def _delete_from_database(self, data: Dict[str, Any]):
-        """Delete record from database"""
+        """Delete record from database using Service layer"""
         try:
             if self.current_category in ["Pošiljaoci", "Uvoznici"]:
-                table_name = (
-                    "catalogs.izvoznici"
-                    if self.current_category == "Pošiljaoci"
-                    else "catalogs.uvoznici"
-                )
                 jib = data.get("jib")
                 if jib:
-                    query = f"DELETE FROM {table_name} WHERE jib = %s"
-                    self.db_manager.execute_update(query, (jib,))
-                    logger.info(f"Zapis sa JIB {jib} obrisan iz {table_name}")
+                    if self.current_category == "Pošiljaoci":
+                        self.service.delete_posiljalac(jib)
+                    else:
+                        self.service.delete_uvoznik(jib)
+                    logger.info(f"Zapis sa JIB {jib} obrisan")
             elif self.current_category == "Carinske tarife":
-                table_name = "catalogs.zvanicna_tarifa"
                 tarifni_kod = data.get("tarifni_kod")
                 if tarifni_kod:
-                    query = f"DELETE FROM {table_name} WHERE tarifni_kod = %s"
-                    self.db_manager.execute_update(query, (tarifni_kod,))
+                    self.service.delete_trgovacki_naziv(tarifni_kod)
                     logger.info(
-                        f"Zapis sa tarifnim kodom {tarifni_kod} obrisan iz {table_name}"
+                        f"Zapis sa tarifnim kodom {tarifni_kod} obrisan"
                     )
             elif self.current_category == "Carinarnice":
-                table_name = "catalogs.carinske_ispostave"
                 sifra = data.get("sifra")
                 if sifra:
-                    query = f"DELETE FROM {table_name} WHERE sifra = %s"
-                    self.db_manager.execute_update(query, (sifra,))
-                    logger.info(f"Zapis sa šifrom {sifra} obrisan iz {table_name}")
+                    self.service.delete_carinarnica(sifra)
+                    logger.info(f"Zapis sa šifrom {sifra} obrisan")
         except Exception as e:
             logger.error(f"Greška pri brisanju iz baze: {str(e)}")
             raise
@@ -2636,32 +2496,18 @@ class SifarniciView(BaseTabView):
             logger.error(f"Greška pri live pretrazi: {str(e)}")
 
     def _search_posiljaoci(self, query: str):
-        """Search posiljaoci in database using generic method"""
+        """Search posiljaoci using Service layer."""
         try:
             logger.info(f"Pretraga pošiljalaca sa query-jem: '{query}'")
 
-            # Use generic search with text-based actions (no widgets)
-            self._search_generic(
-                query=query,
-                table_name="catalogs.izvoznici",
-                columns=[
-                    "jib",
-                    "naziv",
-                    "adresa",
-                    "grad",
-                    "drzava",
-                    "telefon",
-                    "email",
-                    "kontakt",
-                    "pdv_broj",
-                    "maticni",
-                ],
-                search_columns=["jib", "naziv", "grad", "telefon", "email"],
-                order_by="naziv",
-                add_actions=False,
+            results = self.service.search_posiljaoci(query)
+
+            self._populate_table_from_service(
+                results,
+                columns=["jib", "naziv", "adresa", "grad", "drzava"],
             )
 
-            logger.info(f"Uspešno prikazano rezultati za pošiljaoce")
+            logger.info(f"Uspešno prikazano {len(results)} rezultata za pošiljaoce")
         except Exception as e:
             logger.error(f"Greška pri pretrazi pošiljalaca: {str(e)}")
             QMessageBox.critical(
@@ -3072,22 +2918,24 @@ class SifarniciView(BaseTabView):
             return kod_str
 
     def _search_trgovacki_nazivi(self, query: str):
-        """Search trgovački nazivi in database using generic method"""
+        """Search trgovački nazivi using Service layer."""
         try:
             logger.info(f"Pretraga trgovačkih naziva sa query-jem: '{query}'")
 
-            # Use generic search with text-based actions (no widgets), no format function, and no actions column
-            self._search_generic(
-                query=query,
-                table_name="catalogs.zvanicna_tarifa",
+            def _clean_tariff_opis(v):
+                if not v:
+                    return v
+                return _TAIL_RATES_RE.sub('', str(v)).rstrip(' –-').strip()
+
+            results = self.service.search_trgovacki_nazivi(query)
+
+            self._populate_table_from_service(
+                results,
                 columns=["tarifni_kod", "opis"],
-                search_columns=["tarifni_kod", "opis"],
-                order_by="tarifni_kod",
-                format_fn=lambda v: _TAIL_RATES_RE.sub('', str(v)).rstrip(' –-').strip() if v else v,
-                add_actions=False,
+                format_fn=_clean_tariff_opis,
             )
 
-            logger.info(f"Uspešno prikazano rezultati za trgovačke nazive")
+            logger.info(f"Uspešno prikazano {len(results)} rezultata za trgovačke nazive")
         except Exception as e:
             logger.error(f"Greška pri pretrazi trgovačkih naziva: {str(e)}")
             QMessageBox.critical(
@@ -3095,32 +2943,18 @@ class SifarniciView(BaseTabView):
             )
 
     def _search_uvoznici(self, query: str):
-        """Search uvoznici in database using generic method"""
+        """Search uvoznici using Service layer."""
         try:
             logger.info(f"Pretraga uvoznika sa query-jem: '{query}'")
 
-            # Use generic search with text-based actions (no widgets)
-            self._search_generic(
-                query=query,
-                table_name="catalogs.uvoznici",
-                columns=[
-                    "jib",
-                    "naziv",
-                    "adresa",
-                    "grad",
-                    "drzava",
-                    "telefon",
-                    "email",
-                    "kontakt",
-                    "pdv_broj",
-                    "maticni",
-                ],
-                search_columns=["jib", "naziv", "grad", "telefon", "email"],
-                order_by="naziv",
-                add_actions=False,
+            results = self.service.search_uvoznici(query)
+
+            self._populate_table_from_service(
+                results,
+                columns=["jib", "naziv", "adresa", "grad", "drzava"],
             )
 
-            logger.info(f"Uspešno prikazano rezultati za uvoznike")
+            logger.info(f"Uspešno prikazano {len(results)} rezultata za uvoznike")
         except Exception as e:
             logger.error(f"Greška pri pretrazi uvoznika: {str(e)}")
             QMessageBox.critical(
@@ -3220,15 +3054,17 @@ class SifarniciView(BaseTabView):
                     return
                 jib = jib_item.text()
 
-                # Dohvati podatke iz baze (samo postojeće kolone)
-                db_row = self.db_manager.execute_query(
-                    "SELECT jib, naziv, adresa, grad, postanski_broj, drzava "
-                    "FROM catalogs.uvoznici WHERE jib = %s",
-                    (jib,),
-                )
+                # Dohvati podatke iz baze preko Service layer-a
+                uvoznici = self.service.load_uvoznici_data(jib)
+                db_row = uvoznici[0] if uvoznici else None
 
                 if db_row:
-                    jib_val, naziv, adresa, grad, ptt, drzava = db_row
+                    jib_val = db_row.get("jib", "")
+                    naziv = db_row.get("naziv", "")
+                    adresa = db_row.get("adresa", "")
+                    grad = db_row.get("grad", "")
+                    ptt = db_row.get("postanski_broj", "")
+                    drzava = db_row.get("drzava", "")
                     jib_str = str(jib_val) if jib_val else ""
                     # DB čuva 12-cifreni PDV; JIB (13 cifara) = "4" + PDV
                     self.jib_field.setText(jib_str)                     # PDV (12 cifara)
@@ -3450,11 +3286,22 @@ class SifarniciView(BaseTabView):
 
             if reply == QMessageBox.Yes:
                 try:
-                    # Delete from database using centralized manager
-                    self.db_manager.execute_update(
-                        f"DELETE FROM {table_name} WHERE {identifier_field} = %s",
-                        (identifier_value,),
-                    )
+                    # Delete from database using Service layer
+                    deleted = False
+                    if self.current_category == "Pošiljaoci":
+                        deleted = self.service.delete_posiljalac(identifier_value)
+                    elif self.current_category == "Uvoznici":
+                        deleted = self.service.delete_uvoznik(identifier_value)
+                    elif self.current_category == "Carinske tarife":
+                        deleted = self.service.delete_trgovacki_naziv(identifier_value)
+                    elif self.current_category == "Carinarnice":
+                        deleted = self.service.delete_carinarnica(identifier_value)
+
+                    if not deleted:
+                        QMessageBox.warning(
+                            self, "Upozorenje", f"Neuspešno brisanje {entity_name}."
+                        )
+                        return
 
                     # Reload data
                     if self.current_category == "Pošiljaoci":
@@ -3497,135 +3344,81 @@ class SifarniciView(BaseTabView):
                 if self.is_editing:
                     # Update existing record
                     if self.current_category == "Pošiljaoci":
-                        self.db_manager.execute_update(
-                            """
-                            UPDATE catalogs.izvoznici
-                            SET naziv = %s, adresa = %s, grad = %s,
-                                postanski_broj = %s, drzava = %s,
-                                telefon = %s, email = %s, kontakt = %s,
-                                pdv_broj = %s, maticni = %s
-                            WHERE jib = %s
-                        """,
-                            (
-                                form_data["naziv"],
-                                form_data["adresa"],
-                                form_data["grad"],
-                                form_data["postanski_broj"],
-                                form_data["zemlja"],
-                                form_data["telefon"],
-                                form_data["email"],
-                                form_data["kontakt"],
-                                form_data["pdv"],
-                                form_data["maticni"],
-                                form_data["jib"],
-                            ),
-                        )
-                        # Reload data for Pošiljaoci
-                        self._load_posiljaoci_data()
+                        success = self.service.update_posiljalac({
+                            "jib": form_data["jib"],
+                            "naziv": form_data["naziv"],
+                            "adresa": form_data["adresa"],
+                            "grad": form_data["grad"],
+                            "drzava": form_data["zemlja"],
+                            "telefon": form_data["telefon"],
+                            "email": form_data["email"],
+                            "kontakt": form_data["kontakt"],
+                            "pdv_broj": form_data["pdv"],
+                            "maticni": form_data["maticni"],
+                        })
+                        if success:
+                            self._load_posiljaoci_data()
                     elif self.current_category == "Uvoznici":
-                        self.db_manager.execute_update(
-                            """
-                            UPDATE catalogs.uvoznici
-                            SET naziv = %s, adresa = %s, grad = %s,
-                                postanski_broj = %s, drzava = %s,
-                                telefon = %s, email = %s, kontakt = %s,
-                                pdv_broj = %s, maticni = %s
-                            WHERE jib = %s
-                        """,
-                            (
-                                form_data["naziv"],
-                                form_data["adresa"],
-                                form_data["grad"],
-                                form_data["postanski_broj"],
-                                form_data["zemlja"],
-                                form_data["telefon"],
-                                form_data["email"],
-                                form_data["kontakt"],
-                                form_data["pdv"],
-                                form_data["maticni"],
-                                form_data["jib"],
-                            ),
-                        )
-                        # Reload data for Uvoznici
-                        self._load_uvoznici_data()
+                        success = self.service.update_uvoznik({
+                            "jib": form_data["jib"],
+                            "naziv": form_data["naziv"],
+                            "adresa": form_data["adresa"],
+                            "grad": form_data["grad"],
+                            "drzava": form_data["zemlja"],
+                            "telefon": form_data["telefon"],
+                            "email": form_data["email"],
+                            "kontakt": form_data["kontakt"],
+                            "pdv_broj": form_data["pdv"],
+                            "maticni": form_data["maticni"],
+                        })
+                        if success:
+                            self._load_uvoznici_data()
                     elif self.current_category == "Carinske tarife":
-                        self.db_manager.execute_update(
-                            """
-                            UPDATE catalogs.zvanicna_tarifa
-                            SET opis = %s
-                            WHERE tarifni_kod = %s
-                        """,
-                            (
-                                form_data["naziv_robe"],
-                                form_data["tarifni_kod"],
-                            ),
+                        success = self.service.update_trgovacki_naziv(
+                            form_data["tarifni_kod"],
+                            form_data["naziv_robe"],
                         )
-                        # Reload data for Carinske tarife
-                        self._load_trgovacki_nazivi_data()
+                        if success:
+                            self._load_trgovacki_nazivi_data()
                 else:
                     # Insert new record
                     if self.current_category == "Pošiljaoci":
-                        self.db_manager.execute_update(
-                            """
-                            INSERT INTO catalogs.izvoznici
-                            (jib, naziv, adresa, grad, postanski_broj, drzava,
-                             telefon, email, kontakt, pdv_broj, maticni)
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                        """,
-                            (
-                                form_data["jib"],
-                                form_data["naziv"],
-                                form_data["adresa"],
-                                form_data["grad"],
-                                form_data["postanski_broj"],
-                                form_data["zemlja"],
-                                form_data["telefon"],
-                                form_data["email"],
-                                form_data["kontakt"],
-                                form_data["pdv"],
-                                form_data["maticni"],
-                            ),
-                        )
-                        # Reload data for Pošiljaoci
-                        self._load_posiljaoci_data()
+                        success = self.service.add_posiljalac({
+                            "jib": form_data["jib"],
+                            "naziv": form_data["naziv"],
+                            "adresa": form_data["adresa"],
+                            "grad": form_data["grad"],
+                            "drzava": form_data["zemlja"],
+                            "telefon": form_data["telefon"],
+                            "email": form_data["email"],
+                            "kontakt": form_data["kontakt"],
+                            "pdv_broj": form_data["pdv"],
+                            "maticni": form_data["maticni"],
+                        })
+                        if success:
+                            self._load_posiljaoci_data()
                     elif self.current_category == "Uvoznici":
-                        self.db_manager.execute_update(
-                            """
-                            INSERT INTO catalogs.uvoznici
-                            (jib, naziv, adresa, grad, postanski_broj, drzava,
-                             telefon, email, kontakt, pdv_broj, maticni)
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                        """,
-                            (
-                                form_data["jib"],
-                                form_data["naziv"],
-                                form_data["adresa"],
-                                form_data["grad"],
-                                form_data["postanski_broj"],
-                                form_data["zemlja"],
-                                form_data["telefon"],
-                                form_data["email"],
-                                form_data["kontakt"],
-                                form_data["pdv"],
-                                form_data["maticni"],
-                            ),
-                        )
-                        # Reload data for Uvoznici
-                        self._load_uvoznici_data()
+                        success = self.service.add_uvoznik({
+                            "jib": form_data["jib"],
+                            "naziv": form_data["naziv"],
+                            "adresa": form_data["adresa"],
+                            "grad": form_data["grad"],
+                            "drzava": form_data["zemlja"],
+                            "telefon": form_data["telefon"],
+                            "email": form_data["email"],
+                            "kontakt": form_data["kontakt"],
+                            "pdv_broj": form_data["pdv"],
+                            "maticni": form_data["maticni"],
+                        })
+                        if success:
+                            self._load_uvoznici_data()
                     elif self.current_category == "Carinske tarife":
-                        self.db_manager.execute_update(
-                            """
-                            INSERT INTO catalogs.zvanicna_tarifa
-                            (tarifni_kod, opis)
-                            VALUES (%s, %s)
-                        """,
-                            (
-                                form_data["tarifni_kod"],
-                                form_data["naziv_robe"],
-                            ),
+                        success = self.service.add_trgovacki_naziv(
+                            form_data["tarifni_kod"],
+                            form_data["naziv_robe"],
                         )
-                        # Reload data for Carinske tarife
-                        self._load_trgovacki_nazivi_data()
+                        if success:
+                            self._load_trgovacki_nazivi_data()
                     elif self.current_category == "Carinarnice":
                         if (
                             self.is_editing
@@ -3634,32 +3427,18 @@ class SifarniciView(BaseTabView):
                             and self.current_tree_item.parent()
                         ):
                             # Update existing customs post
-                            self.db_manager.execute_update(
-                                """
-                                UPDATE catalogs.carinske_ispostave
-                                SET naziv = %s
-                                WHERE sifra = %s
-                            """,
-                                (
-                                    form_data["naziv"],
-                                    form_data["sifra"],
-                                ),
+                            success = self.service.update_carinarnica(
+                                form_data["sifra"],
+                                form_data["naziv"],
                             )
                         else:
                             # Insert new customs post
-                            self.db_manager.execute_update(
-                                """
-                                INSERT INTO catalogs.carinske_ispostave
-                                (sifra, naziv)
-                                VALUES (%s, %s)
-                            """,
-                                (
-                                    form_data["sifra"],
-                                    form_data["naziv"],
-                                ),
+                            success = self.service.add_carinarnica(
+                                form_data["sifra"],
+                                form_data["naziv"],
                             )
-                        # Reload data for Carinarnice
-                        self._load_carinarnice_data()
+                        if success:
+                            self._load_carinarnice_data()
 
                 # Clear form
                 self._clear_form()
@@ -3724,29 +3503,24 @@ class SifarniciView(BaseTabView):
                     if hasattr(self, "pdv_field"):
                         self.pdv_field.setText("4" + pdv_val if pdv_val else "")
 
-                    # Dohvati dodatna polja iz baze
-                    jib_val = (
-                        pdv_val if self.current_category == "Uvoznici" else pdv_val
-                    )
+                    # Dohvati dodatna polja iz baze preko Service layer-a
+                    jib_val = pdv_val
                     if self.current_category == "Pošiljaoci":
-                        db_row = self.db_manager.execute_query(
-                            "SELECT telefon, email, kontakt, pdv_broj, maticni "
-                            "FROM catalogs.izvoznici WHERE jib = %s",
-                            (jib_val,),
-                        )
+                        results = self.service.load_posiljaoci_data(jib_val)
                     else:
-                        db_row = self.db_manager.execute_query(
-                            "SELECT telefon, email, kontakt, pdv_broj, maticni "
-                            "FROM catalogs.uvoznici WHERE jib = %s",
-                            (jib_val,),
-                        )
+                        results = self.service.load_uvoznici_data(jib_val)
+                    db_row = results[0] if results else None
                     if db_row:
-                        telefon, email, kontakt, pdv_broj, maticni = db_row
-                        self.telefon_field.setText(telefon or "")
-                        self.email_field.setText(email or "")
-                        self.kontakt_field.setText(kontakt or "")
-                        self.pdv_field.setText(pdv_broj or "")
-                        self.maticni_field.setText(maticni or "")
+                        telefon = db_row.get("telefon", "")
+                        email = db_row.get("email", "")
+                        kontakt = db_row.get("kontakt", "")
+                        pdv_broj = db_row.get("pdv_broj", "")
+                        maticni = db_row.get("maticni", "")
+                        self.telefon_field.setText(str(telefon) if telefon else "")
+                        self.email_field.setText(str(email) if email else "")
+                        self.kontakt_field.setText(str(kontakt) if kontakt else "")
+                        self.pdv_field.setText(str(pdv_broj) if pdv_broj else "")
+                        self.maticni_field.setText(str(maticni) if maticni else "")
 
                     logger.debug(f"Popunjeni vidljivi podaci za red {current_row}")
                 except Exception as e:
