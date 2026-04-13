@@ -367,7 +367,36 @@ class SifarniciService:
         except Exception as e:
             self._log_error("delete_posiljalac", e)
             return False
-    
+
+    def update_posiljalac(self, data: Dict[str, str]) -> bool:
+        """Ažuriraj postojećeg pošiljaoca."""
+        try:
+            with get_db_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        UPDATE catalogs.izvoznici
+                        SET naziv = %s, adresa = %s, grad = %s,
+                            drzava = %s, telefon = %s, email = %s,
+                            kontakt = %s, pdv_broj = %s, maticni = %s
+                        WHERE jib = %s
+                    """, (
+                        data.get("naziv", ""),
+                        data.get("adresa", ""),
+                        data.get("grad", ""),
+                        data.get("drzava", ""),
+                        data.get("telefon", ""),
+                        data.get("email", ""),
+                        data.get("kontakt", ""),
+                        data.get("pdv_broj", ""),
+                        data.get("maticni", ""),
+                        data.get("jib", "")
+                    ))
+                    conn.commit()
+                    return cur.rowcount > 0
+        except Exception as e:
+            self._log_error("update_posiljalac", e)
+            return False
+
     # ============================================================
     # UVOZNICI (Importers)
     # ============================================================
@@ -445,28 +474,57 @@ class SifarniciService:
         except Exception as e:
             self._log_error("delete_uvoznik", e)
             return False
+
+    def update_uvoznik(self, data: Dict[str, str]) -> bool:
+        """Ažuriraj postojećeg uvoznika."""
+        try:
+            with get_db_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        UPDATE catalogs.uvoznici
+                        SET naziv = %s, adresa = %s, grad = %s,
+                            drzava = %s, telefon = %s, email = %s,
+                            kontakt = %s, pdv_broj = %s, maticni = %s
+                        WHERE jib = %s
+                    """, (
+                        data.get("naziv", ""),
+                        data.get("adresa", ""),
+                        data.get("grad", ""),
+                        data.get("drzava", ""),
+                        data.get("telefon", ""),
+                        data.get("email", ""),
+                        data.get("kontakt", ""),
+                        data.get("pdv_broj", ""),
+                        data.get("maticni", ""),
+                        data.get("jib", "")
+                    ))
+                    conn.commit()
+                    return cur.rowcount > 0
+        except Exception as e:
+            self._log_error("update_uvoznik", e)
+            return False
     
     # ============================================================
     # TRGOVAČKI NAZIVI (Trade Names)
     # ============================================================
     
     def load_trgovacki_nazivi_data(self, search_query: str = "") -> List[Dict[str, Any]]:
-        """Dohvati podatke o trgovačkim nazivima robe."""
+        """Dohvati podatke o tarifnim nazivima robe iz catalogs.zvanicna_tarifa."""
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
                     if search_query:
                         search_pattern = f"%{search_query}%"
                         cur.execute("""
-                            SELECT tarifni_kod, naziv
-                            FROM catalogs.tarifa_nazivi
-                            WHERE tarifni_kod ILIKE %s OR naziv ILIKE %s
+                            SELECT tarifni_kod, opis
+                            FROM catalogs.zvanicna_tarifa
+                            WHERE tarifni_kod ILIKE %s OR opis ILIKE %s
                             ORDER BY tarifni_kod
                         """, (search_pattern, search_pattern))
                     else:
                         cur.execute("""
-                            SELECT tarifni_kod, naziv
-                            FROM catalogs.tarifa_nazivi
+                            SELECT tarifni_kod, opis
+                            FROM catalogs.zvanicna_tarifa
                             ORDER BY tarifni_kod
                         """)
                     results = cur.fetchall()
@@ -590,6 +648,7 @@ class SifarniciService:
 
     def load_deklaranti_data(self, search_query: str = "") -> List[Dict[str, Any]]:
         """Dohvati podatke o deklarantima sa opcionom pretragom."""
+        # NOTE: catalogs.deklaranti tabela treba da postoji — kreirati je ako ne postoji
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
@@ -619,7 +678,7 @@ class SifarniciService:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
                     cur.execute("""
-                        INSERT INTO catalogs.deklaranti 
+                        INSERT INTO catalogs.deklaranti
                         (jib, naziv, adresa, grad, drzava, telefon, email, kontakt, pdv_broj, maticni)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT (jib) DO UPDATE SET
@@ -666,22 +725,38 @@ class SifarniciService:
     # CARINARNICE - CRUD OPERACIJE
     # ============================================================
 
-    def add_carinarnica(self, sifra: str, naziv: str, opis: str = "") -> bool:
-        """Dodaj novu carinarnicu."""
+    def add_carinarnica(self, sifra: str, naziv: str, regionalni_centar_id: Optional[int] = None) -> bool:
+        """Dodaj novu carinarnicu (carinsku ispostavu)."""
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
                     cur.execute("""
-                        INSERT INTO catalogs.carinske_ispostave (sifra, naziv, opis)
+                        INSERT INTO catalogs.carinske_ispostave (sifra, naziv, regionalni_centar_id)
                         VALUES (%s, %s, %s)
                         ON CONFLICT (sifra) DO UPDATE SET
                             naziv = EXCLUDED.naziv,
-                            opis = EXCLUDED.opis
-                    """, (sifra, naziv, opis))
+                            regionalni_centar_id = EXCLUDED.regionalni_centar_id
+                    """, (sifra, naziv, regionalni_centar_id))
                     conn.commit()
                     return cur.rowcount > 0
         except Exception as e:
             self._log_error("add_carinarnica", e)
+            return False
+
+    def update_carinarnica(self, sifra: str, naziv: str) -> bool:
+        """Ažuriraj carinarnicu."""
+        try:
+            with get_db_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        UPDATE catalogs.carinske_ispostave
+                        SET naziv = %s
+                        WHERE sifra = %s
+                    """, (naziv, sifra))
+                    conn.commit()
+                    return cur.rowcount > 0
+        except Exception as e:
+            self._log_error("update_carinarnica", e)
             return False
 
     def delete_carinarnica(self, sifra: str) -> bool:
@@ -700,18 +775,19 @@ class SifarniciService:
     # CARINSKI POSTUPCI - CRUD OPERACIJE
     # ============================================================
 
-    def add_carinski_postupak(self, sifra: str, naziv: str, opis: str = "") -> bool:
+    def add_carinski_postupak(self, sifra: str, opis: str, vrsta: str = "", oznaka: str = "") -> bool:
         """Dodaj novi carinski postupak."""
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
                     cur.execute("""
-                        INSERT INTO catalogs.carinski_postupci (sifra, naziv, opis)
-                        VALUES (%s, %s, %s)
+                        INSERT INTO catalogs.carinski_postupci (sifra, opis, vrsta, oznaka)
+                        VALUES (%s, %s, %s, %s)
                         ON CONFLICT (sifra) DO UPDATE SET
-                            naziv = EXCLUDED.naziv,
-                            opis = EXCLUDED.opis
-                    """, (sifra, naziv, opis))
+                            opis = EXCLUDED.opis,
+                            vrsta = EXCLUDED.vrsta,
+                            oznaka = EXCLUDED.oznaka
+                    """, (sifra, opis, vrsta, oznaka))
                     conn.commit()
                     return cur.rowcount > 0
         except Exception as e:
@@ -734,18 +810,17 @@ class SifarniciService:
     # ZEMLJE - CRUD OPERACIJE
     # ============================================================
 
-    def add_zemlja(self, sifra: str, naziv: str, opis: str = "") -> bool:
+    def add_zemlja(self, sifra: str, naziv: str) -> bool:
         """Dodaj novu zemlju."""
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
                     cur.execute("""
-                        INSERT INTO catalogs.drzave (sifra, naziv, opis)
-                        VALUES (%s, %s, %s)
+                        INSERT INTO catalogs.drzave (sifra, naziv)
+                        VALUES (%s, %s)
                         ON CONFLICT (sifra) DO UPDATE SET
-                            naziv = EXCLUDED.naziv,
-                            opis = EXCLUDED.opis
-                    """, (sifra, naziv, opis))
+                            naziv = EXCLUDED.naziv
+                    """, (sifra, naziv))
                     conn.commit()
                     return cur.rowcount > 0
         except Exception as e:
@@ -768,23 +843,18 @@ class SifarniciService:
     # TRGOVAČKI NAZIVI - CRUD OPERACIJE
     # ============================================================
 
-    def add_trgovacki_naziv(self, tarifni_kod: str, naziv_robe: str, opis: str = "", 
-                           stopa_pdv: float = 0.0, stopa_uvoz: float = 0.0, stopa_akciza: float = 0.0) -> bool:
-        """Dodaj novi trgovački naziv."""
+    def add_trgovacki_naziv(self, tarifni_kod: str, opis: str) -> bool:
+        """Dodaj novi trgovački naziv (carinsku tarifu)."""
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
                     cur.execute("""
-                        INSERT INTO catalogs.tarifa_2026 
-                        (tarifni_kod, naziv_robe, opis, stopa_pdv, stopa_uvoz, stopa_akciza)
-                        VALUES (%s, %s, %s, %s, %s, %s)
+                        INSERT INTO catalogs.zvanicna_tarifa
+                        (tarifni_kod, opis)
+                        VALUES (%s, %s)
                         ON CONFLICT (tarifni_kod) DO UPDATE SET
-                            naziv_robe = EXCLUDED.naziv_robe,
-                            opis = EXCLUDED.opis,
-                            stopa_pdv = EXCLUDED.stopa_pdv,
-                            stopa_uvoz = EXCLUDED.stopa_uvoz,
-                            stopa_akciza = EXCLUDED.stopa_akciza
-                    """, (tarifni_kod, naziv_robe, opis, stopa_pdv, stopa_uvoz, stopa_akciza))
+                            opis = EXCLUDED.opis
+                    """, (tarifni_kod, opis))
                     conn.commit()
                     return cur.rowcount > 0
         except Exception as e:
@@ -796,11 +866,27 @@ class SifarniciService:
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
-                    cur.execute("DELETE FROM catalogs.tarifa_2026 WHERE tarifni_kod = %s", (tarifni_kod,))
+                    cur.execute("DELETE FROM catalogs.zvanicna_tarifa WHERE tarifni_kod = %s", (tarifni_kod,))
                     conn.commit()
                     return cur.rowcount > 0
         except Exception as e:
             self._log_error("delete_trgovacki_naziv", e)
+            return False
+
+    def update_trgovacki_naziv(self, tarifni_kod: str, opis: str) -> bool:
+        """Ažuriraj trgovački naziv."""
+        try:
+            with get_db_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        UPDATE catalogs.zvanicna_tarifa
+                        SET opis = %s
+                        WHERE tarifni_kod = %s
+                    """, (opis, tarifni_kod))
+                    conn.commit()
+                    return cur.rowcount > 0
+        except Exception as e:
+            self._log_error("update_trgovacki_naziv", e)
             return False
 
     # ============================================================
@@ -928,5 +1014,147 @@ class SifarniciService:
             errors.append("Naziv robe je obavezan")
         elif len(naziv_robe) < 2:
             errors.append("Naziv robe mora imati najmanje 2 karaktera")
-        
+
         return errors
+
+    # ============================================================
+    # SEARCH METODE (sa ILIKE pretragom)
+    # ============================================================
+
+    def search_posiljaoci(self, query: str) -> List[Dict[str, Any]]:
+        """Pretraga pošiljalaca po nazivu, JIB-u, gradu."""
+        return self.load_posiljaoci_data(query)
+
+    def search_uvoznici(self, query: str) -> List[Dict[str, Any]]:
+        """Pretraga uvoznika po nazivu, JIB-u, gradu."""
+        return self.load_uvoznici_data(query)
+
+    def search_zemlje(self, query: str) -> List[Dict[str, Any]]:
+        """Pretraga zemalja po nazivu ili šifri."""
+        return self.load_zemlje_data(query)
+
+    def search_trgovacki_nazivi(self, query: str) -> List[Dict[str, Any]]:
+        """Pretraga tarifa po tarifnom kodu ili opisu."""
+        return self.load_trgovacki_nazivi_data(query)
+
+    def search_deklaranti(self, query: str) -> List[Dict[str, Any]]:
+        """Pretraga deklaranta po nazivu, JIB-u, gradu."""
+        return self.load_deklaranti_data(query)
+
+    def search_carinski_postupci(self, query: str) -> List[Dict[str, Any]]:
+        """Pretraga carinskih postupaka."""
+        try:
+            with get_db_connection() as conn:
+                with conn.cursor() as cur:
+                    pattern = f"%{query}%"
+                    cur.execute("""
+                        SELECT sifra, opis, vrsta, oznaka
+                        FROM catalogs.carinski_postupci
+                        WHERE sifra ILIKE %s OR opis ILIKE %s OR vrsta ILIKE %s OR oznaka ILIKE %s
+                        ORDER BY sifra
+                    """, (pattern, pattern, pattern, pattern))
+                    results = cur.fetchall()
+                    return [dict(row) for row in results]
+        except Exception as e:
+            self._log_error("search_carinski_postupci", e)
+            return []
+
+    # ============================================================
+    # HIERARHIJSKI PRIKAZ — CARINARNICE SA REGIONALNIM CENTRIMA
+    # ============================================================
+
+    def load_carinarnice_hierarchical(self) -> List[Dict[str, Any]]:
+        """Učitaj carinske ispostave grupisane po regionalnim centrima.
+
+        Returns:
+            Lista dict-ova sa ključevima:
+            - rc_id, rc_sifra, rc_naziv (regionalni centar)
+            - ispostave: [(ci_sifra, ci_naziv), ...]
+        """
+        try:
+            with get_db_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        SELECT rc.id as rc_id, rc.sifra as rc_sifra, rc.naziv as rc_naziv,
+                               ci.sifra as ci_sifra, ci.naziv as ci_naziv
+                        FROM catalogs.regionalni_centri rc
+                        LEFT JOIN catalogs.carinske_ispostave ci ON rc.id = ci.regionalni_centar_id
+                        ORDER BY rc.sifra, ci.sifra
+                    """)
+                    results = cur.fetchall()
+
+            # Grupisanje po regionalnom centru
+            regional_centers = {}
+            for row in results:
+                rc_id = row["rc_id"]
+                if rc_id not in regional_centers:
+                    regional_centers[rc_id] = {
+                        "rc_id": rc_id,
+                        "rc_sifra": row["rc_sifra"],
+                        "rc_naziv": row["rc_naziv"],
+                        "ispostave": [],
+                    }
+                ci_sifra = row.get("ci_sifra")
+                ci_naziv = row.get("ci_naziv")
+                if ci_sifra and ci_naziv:
+                    regional_centers[rc_id]["ispostave"].append({
+                        "ci_sifra": ci_sifra,
+                        "ci_naziv": ci_naziv,
+                    })
+
+            return list(regional_centers.values())
+        except Exception as e:
+            self._log_error("load_carinarnices_hierarchical", e)
+            return []
+
+    # ============================================================
+    # COUNT METODE (za status bar)
+    # ============================================================
+
+    def count_izvoznici(self) -> int:
+        """Broj pošiljalaca u bazi."""
+        try:
+            with get_db_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT COUNT(*) FROM catalogs.izvoznici")
+                    row = cur.fetchone()
+                    return row["count"] if row else 0
+        except Exception as e:
+            self._log_error("count_izvoznici", e)
+            return 0
+
+    def count_uvoznici(self) -> int:
+        """Broj uvoznika u bazi."""
+        try:
+            with get_db_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT COUNT(*) FROM catalogs.uvoznici")
+                    row = cur.fetchone()
+                    return row["count"] if row else 0
+        except Exception as e:
+            self._log_error("count_uvoznici", e)
+            return 0
+
+    def count_zvanicna_tarifa(self) -> int:
+        """Broj tarifa u bazi."""
+        try:
+            with get_db_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT COUNT(*) FROM catalogs.zvanicna_tarifa")
+                    row = cur.fetchone()
+                    return row["count"] if row else 0
+        except Exception as e:
+            self._log_error("count_zvanicna_tarifa", e)
+            return 0
+
+    def count_carinske_ispostave(self) -> int:
+        """Broj carinskih ispostava u bazi."""
+        try:
+            with get_db_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT COUNT(*) FROM catalogs.carinske_ispostave")
+                    row = cur.fetchone()
+                    return row["count"] if row else 0
+        except Exception as e:
+            self._log_error("count_carinske_ispostave", e)
+            return 0
