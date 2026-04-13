@@ -55,7 +55,7 @@ class PE2QuickDialog(QDialog):
                            "background: #d4edda; padding: 10px; border-radius: 5px;")
         layout.addWidget(header)
         
-        subheader = QLabel("Štikliraj zemlje koje imaju PE2 povlasticu (izjava na fakturi).\nSve stavke iste zemlje idu pod istu šifru.")
+        subheader = QLabel("Čekiraj zemlje koje imaju izjavu o porijeklu (PE2).\nBroj fakture je opcionalan — upiši ga ako ga imaš.")
         subheader.setStyleSheet("color: #666; padding: 5px;")
         layout.addWidget(subheader)
         
@@ -93,7 +93,7 @@ class PE2QuickDialog(QDialog):
         layout.addWidget(global_group)
 
         # INFO LABEL (mora PRIJE scroll area da bi signal ne pucao)
-        self.info_label = QLabel("ℹ️ Unesi broj fakture i izaberi zemlje koje imaju izjavu")
+        self.info_label = QLabel("ℹ️ Čekiraj zemlju koja ima izjavu o porijeklu")
         self.info_label.setStyleSheet("font-weight: bold; color: #0c5460; "
                                      "background: #d1ecf1; padding: 10px; border-radius: 5px;")
         layout.addWidget(self.info_label)
@@ -253,27 +253,31 @@ class PE2QuickDialog(QDialog):
         """Ažuriraj info label sa brojem stavki za ažuriranje."""
         total = 0
         countries_count = 0
-        
-        # Proveri da li je unesen broj fakture
+
         invoice_number = self.global_invoice_number.text().strip()
 
         for country, data in self.country_inputs.items():
             if data['checkbox'].isChecked():
                 total += len(data['items'])
                 countries_count += 1
-        
-        if total > 0 and invoice_number:
-            self.info_label.setText(f"✅ {total} stavki iz {countries_count} zemlje će dobiti PE2 (Faktura: {invoice_number})")
-            self.info_label.setStyleSheet("font-weight: bold; color: #155724; "
-                                         "background: #d4edda; padding: 10px; border-radius: 5px;")
+
+        if total > 0:
+            # Dugme aktivno čim je bar jedna zemlja čekirana — broj fakture je opcionalan
+            inv_info = f" (Faktura: {invoice_number})" if invoice_number else ""
+            self.info_label.setText(
+                f"✅ {total} stavki iz {countries_count} zemlje će dobiti PE2{inv_info}"
+            )
+            self.info_label.setStyleSheet(
+                "font-weight: bold; color: #155724; "
+                "background: #d4edda; padding: 10px; border-radius: 5px;"
+            )
             self.ok_button.setEnabled(True)
         else:
-            if not invoice_number:
-                self.info_label.setText("ℹ️ Unesi broj fakture prvo")
-            else:
-                self.info_label.setText("ℹ️ Izaberi zemlje koje imaju izjavu")
-            self.info_label.setStyleSheet("font-weight: bold; color: #0c5460; "
-                                         "background: #d1ecf1; padding: 10px; border-radius: 5px;")
+            self.info_label.setText("ℹ️ Čekiraj zemlju koja ima izjavu o porijeklu")
+            self.info_label.setStyleSheet(
+                "font-weight: bold; color: #0c5460; "
+                "background: #d1ecf1; padding: 10px; border-radius: 5px;"
+            )
             self.ok_button.setEnabled(False)
     
     def get_data(self) -> Dict[str, Dict]:

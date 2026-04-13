@@ -105,37 +105,38 @@ class Eur1QuickDialog(QDialog):
         
         # Grupiši stavke po zemlji
         countries = self._group_by_country()
-        
+
         for country_code, items in sorted(countries.items()):
             country_name = self._get_country_name(country_code)
             group = self._create_country_group(country_code, country_name, items)
             self.scroll_layout.addWidget(group)
-        
+
         self.scroll_layout.addStretch()
         scroll.setWidget(scroll_content)
         layout.addWidget(scroll)
-        
+
         # INFO LABEL - Broj stavki
-        self.info_label = QLabel("ℹ️ Izaberi zemlju i unesi EUR.1 broj")
+        self.info_label = QLabel("ℹ️ Unesi EUR.1 broj i klikni Primijeni")
         self.info_label.setStyleSheet("font-weight: bold; color: #0c5460; "
                                      "background: #d1ecf1; padding: 10px; border-radius: 5px;")
         layout.addWidget(self.info_label)
-        
+
         # BUTTONS
         self.ok_button = QPushButton("✅ Primijeni")
         self.ok_button.clicked.connect(self._on_accept)
         self.ok_button.setEnabled(False)  # Disabled until valid input
         self.ok_button.setMinimumHeight(40)
-        
+
         cancel_button = QPushButton("❌ Preskoči")
         cancel_button.clicked.connect(self.reject)
         cancel_button.setMinimumHeight(40)
-        
+
         button_layout = QHBoxLayout()
         button_layout.addStretch()
         button_layout.addWidget(self.ok_button)
         button_layout.addWidget(cancel_button)
         layout.addLayout(button_layout)
+
     
     def _group_by_country(self) -> Dict[str, List[InvoiceLine]]:
         """Grupiši stavke po zemlji porijekla."""
@@ -207,7 +208,7 @@ class Eur1QuickDialog(QDialog):
         eur1_number = QLineEdit()
         eur1_number.setPlaceholderText("npr. 000456/2025")
         eur1_number.setMaximumWidth(150)
-        eur1_number.textChanged.connect(self._update_info)
+        eur1_number.textChanged.connect(lambda _text: self._update_info())
         layout.addWidget(eur1_number)
         
         layout.addSpacing(20)
@@ -231,13 +232,7 @@ class Eur1QuickDialog(QDialog):
         return frame
     
     def _on_checkbox_changed(self):
-        """Ažuriraj UI kad se checkbox promeni."""
-        # Ažuriraj vidljivost inputa (opciono - možemo ostaviti sve vidljive)
-        for country, data in self.country_inputs.items():
-            checked = data['checkbox'].isChecked()
-            data['eur1_number'].setEnabled(checked)
-        
-        # Ažuriraj info label i OK button
+        """Ažuriraj dugme kada se checkbox promeni."""
         self._update_info()
     
     def _on_accept(self):
@@ -250,25 +245,32 @@ class Eur1QuickDialog(QDialog):
     
     def _update_info(self):
         """Ažuriraj info label sa brojem stavki za ažuriranje."""
-        total = 0
-        countries_count = 0
-        
+        ready_countries = []
+
         for country, data in self.country_inputs.items():
             if data['checkbox'].isChecked():
                 eur1_number = data['eur1_number'].text().strip()
-                if eur1_number:  # Samo ako je unesen broj
-                    total += len(data['items'])
-                    countries_count += 1
-        
-        if total > 0:
-            self.info_label.setText(f"✅ {total} stavki iz {countries_count} zemlje će biti ažurirano")
-            self.info_label.setStyleSheet("font-weight: bold; color: #155724; "
-                                         "background: #d4edda; padding: 10px; border-radius: 5px;")
+                if eur1_number:
+                    ready_countries.append(country)
+
+        if ready_countries:
+            total_items = sum(
+                len(self.country_inputs[c]['items']) for c in ready_countries
+            )
+            self.info_label.setText(
+                f"✅ {total_items} stavki iz {len(ready_countries)} zemlje će biti ažurirano"
+            )
+            self.info_label.setStyleSheet(
+                "font-weight: bold; color: #155724; "
+                "background: #d4edda; padding: 10px; border-radius: 5px;"
+            )
             self.ok_button.setEnabled(True)
         else:
-            self.info_label.setText("ℹ️ Izaberi zemlju i unesi EUR.1 broj")
-            self.info_label.setStyleSheet("font-weight: bold; color: #0c5460; "
-                                         "background: #d1ecf1; padding: 10px; border-radius: 5px;")
+            self.info_label.setText("ℹ️ Unesi EUR.1 broj i klikni Primijeni")
+            self.info_label.setStyleSheet(
+                "font-weight: bold; color: #0c5460; "
+                "background: #d1ecf1; padding: 10px; border-radius: 5px;"
+            )
             self.ok_button.setEnabled(False)
     
     def _suggest_preference(self, country_code: str) -> str:
