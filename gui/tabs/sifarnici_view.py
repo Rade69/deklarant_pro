@@ -48,6 +48,7 @@ from core.draft import DeclarationDraft
 from gui.tabs.base_view import BaseTabView
 
 # Import database functions
+from services.sifarnici_service import SifarniciService
 from database.db import (
     get_izvoznik_by_jib,
     search_izvoznike,
@@ -435,6 +436,7 @@ class SifarniciView(BaseTabView):
         self.db_manager = DatabaseManager()
         self.validator = FormValidator()
         self.ui_helper = UIHelper()
+        self.service = SifarniciService()
 
         self.setObjectName("SifarniciTab")
 
@@ -1596,7 +1598,7 @@ class SifarniciView(BaseTabView):
             elif self.current_category == "Uvoznici":
                 self._load_uvoznici_data()
             elif self.current_category == "Deklaranti":
-                self._load_not_implemented("Deklaranti")
+                self._load_deklaranti_data()
             elif self.current_category == "Carinarnice":
                 self._load_carinarnice_data()
             elif self.current_category == "Carinski postupci":
@@ -1650,24 +1652,18 @@ class SifarniciView(BaseTabView):
         return table
 
     def _load_uvoznici_data(self):
-        """Load data from catalogs.uvoznici table using generic method"""
+        """Load data from catalogs.uvoznici table using Service layer."""
         try:
-            logger.info("Učitavanje podataka o uvoznicima iz baze")
+            logger.info("Učitavanje podataka o uvoznicima iz baze (preko Service)")
 
-            self._load_data_generic(
-                table_name="catalogs.uvoznici",
-                columns=[
-                    "jib",
-                    "naziv",
-                    "adresa",
-                    "grad",
-                    "drzava",
-                ],
-                order_by="CASE WHEN naziv = '' THEN 'zzzzzzzzzz' ELSE naziv END",
-                add_actions=False,
+            results = self.service.load_uvoznici_data()
+
+            self._populate_table_from_service(
+                results,
+                columns=["jib", "naziv", "adresa", "grad", "drzava"],
             )
 
-            logger.info("Uspešno učitano uvoznici")
+            logger.info(f"Uspešno učitano {len(results)} uvoznika")
         except Exception as e:
             logger.error(f"Greška pri učitavanju uvoznika: {str(e)}")
             QMessageBox.critical(
@@ -1675,24 +1671,18 @@ class SifarniciView(BaseTabView):
             )
 
     def _load_posiljaoci_data(self):
-        """Load data from catalogs.izvoznici table using generic method"""
+        """Load data from catalogs.izvoznici table using Service layer."""
         try:
-            logger.info("Učitavanje podataka o pošiljaocima iz baze")
+            logger.info("Učitavanje podataka o pošiljaocima iz baze (preko Service)")
 
-            self._load_data_generic(
-                table_name="catalogs.izvoznici",
-                columns=[
-                    "jib",
-                    "naziv",
-                    "adresa",
-                    "grad",
-                    "drzava",
-                ],
-                order_by="CASE WHEN naziv = '' THEN 'zzzzzzzzzz' ELSE naziv END",
-                add_actions=False,
+            results = self.service.load_posiljaoci_data()
+
+            self._populate_table_from_service(
+                results,
+                columns=["jib", "naziv", "adresa", "grad", "drzava"],
             )
 
-            logger.info("Uspešno učitano pošiljaoci")
+            logger.info(f"Uspešno učitano {len(results)} pošiljalaca")
         except Exception as e:
             logger.error(f"Greška pri učitavanju pošiljalaca: {str(e)}")
             QMessageBox.critical(
@@ -1700,28 +1690,72 @@ class SifarniciView(BaseTabView):
             )
 
     def _load_trgovacki_nazivi_data(self):
-        """Load Trgovački nazivi data from catalogs.tarifa_nazivi table using generic method"""
+        """Load Trgovački nazivi data from catalogs.zvanicna_tarifa using Service layer."""
         try:
-            logger.info("Učitavanje podataka o tarifnim nazivima robe iz baze")
+            logger.info("Učitavanje podataka o tarifnim nazivima robe iz baze (preko Service)")
 
             def _clean_tariff_opis(v):
                 if not v:
                     return v
                 return _TAIL_RATES_RE.sub('', str(v)).rstrip(' –-').strip()
 
-            self._load_data_generic(
-                table_name="catalogs.zvanicna_tarifa",
+            results = self.service.load_trgovacki_nazivi_data()
+
+            self._populate_table_from_service(
+                results,
                 columns=["tarifni_kod", "opis"],
-                order_by="tarifni_kod",
                 format_fn=_clean_tariff_opis,
                 max_rows=20000,
-                add_actions=False,
             )
 
-            logger.info("Uspešno učitano trgovački nazivi")
+            logger.info(f"Uspešno učitano {len(results)} tarifa")
         except Exception as e:
             logger.error(f"Greška pri učitavanju tarifnih naziva robe: {str(e)}")
             raise
+
+    def _populate_table_from_service(
+        self,
+        results: List[Dict[str, Any]],
+        columns: List[str],
+        format_fn: Optional[Callable] = None,
+        max_rows: int = 20000,
+    ):
+        """Popuni tabelu sa rezultatima iz Service layer-a (lista dict-ova).
+
+        Args:
+            results: Lista dict-ova iz Service-a
+            columns: Koje kolone prikazati (ključevi iz dict-a)
+            format_fn: Optional funkcija za formatiranje vrednosti
+            max_rows: Maksimalni broj redova
+        """
+        self.table.setSortingEnabled(False)
+        self.table.setUpdatesEnabled(False)
+
+        actual_rows = min(len(results), max_rows)
+        self.table.setRowCount(actual_rows)
+
+        for row in range(actual_rows):
+            row_data = results[row]
+            for col, col_name in enumerate(columns):
+                value = row_data.get(col_name, "")
+                formatted_value = format_fn(value) if format_fn else value
+                self.table.setItem(
+                    row, col, QTableWidgetItem(str(formatted_value or ""))
+                )
+
+        self.table.setUpdatesEnabled(True)
+        self.table.setSortingEnabled(True)
+        self.table.viewport().update()
+        QApplication.processEvents()
+
+        try:
+            self._update_status()
+        except Exception:
+            pass
+        try:
+            self._update_pager()
+        except Exception:
+            pass
 
     def _load_data_generic(
         self,
@@ -1809,54 +1843,24 @@ class SifarniciView(BaseTabView):
             raise
 
     def _load_carinarnice_data(self):
-        """Load Carinarnice data from catalogs.carinske_ispostave table (hierarchical view)."""
+        """Load Carinarnice data using Service layer (hierarchical view)."""
         try:
             logger.info(
-                "Učitavanje podataka o carinarnicama iz baze (hijerarhijski prikaz)"
+                "Učitavanje podataka o carinarnicama iz baze (hijerarhijski prikaz, preko Service)"
             )
 
-            # Load all regional centers and their customs posts from database
-            query = """
-                SELECT rc.id as rc_id, rc.sifra as rc_sifra, rc.naziv as rc_naziv,
-                       ci.sifra as ci_sifra, ci.naziv as ci_naziv
-                FROM catalogs.regionalni_centri rc
-                LEFT JOIN catalogs.carinske_ispostave ci ON rc.id = ci.regionalni_centar_id
-                ORDER BY rc.sifra, ci.sifra
-            """
+            regional_centers = self.service.load_carinarnice_hierarchical()
 
-            result = self.db_manager.execute_query(query, fetch_all=True) or []
-
-            logger.info(f"Pronađeno {len(result)} zapisa za prikaz")
-
-            # Clear existing items
+            # Clear tree widget
             self.table.clear()
 
-            # Create a dictionary to group customs posts by regional center
-            regional_centers = {}
-            for row_data in result:
-                rc_id = row_data[0]
-                rc_sifra = row_data[1]
-                rc_naziv = row_data[2]
-                ci_sifra = row_data[3]
-                ci_naziv = row_data[4]
-
-                if rc_id not in regional_centers:
-                    regional_centers[rc_id] = {
-                        "sifra": rc_sifra,
-                        "naziv": rc_naziv,
-                        "ispostave": [],
-                    }
-
-                if ci_sifra and ci_naziv:  # Only add if customs post exists
-                    regional_centers[rc_id]["ispostave"].append((ci_sifra, ci_naziv))
-
             # Add regional centers and their customs posts to the tree
-            for rc_id, rc_data in regional_centers.items():
+            for rc_data in regional_centers:
                 # Create top-level item for regional center
                 rc_item = QTreeWidgetItem(self.table)
-                rc_item.setText(0, str(rc_data["sifra"] or ""))
-                rc_item.setText(1, str(rc_data["naziv"] or ""))
-                rc_item.setText(2, "")  # No actions for regional center
+                rc_item.setText(0, str(rc_data["rc_sifra"] or ""))
+                rc_item.setText(1, str(rc_data["rc_naziv"] or ""))
+                rc_item.setText(2, "")
 
                 # Make regional center item bold
                 font = rc_item.font(0)
@@ -1864,13 +1868,11 @@ class SifarniciView(BaseTabView):
                 rc_item.setFont(0, font)
                 rc_item.setFont(1, font)
 
-                # Add child items for each customs post under this regional center
-                for ci_sifra, ci_naziv in rc_data["ispostave"]:
+                # Add child items for each customs post
+                for ci_data in rc_data["ispostave"]:
                     ci_item = QTreeWidgetItem(rc_item)
-                    ci_item.setText(0, str(ci_sifra or ""))
-                    ci_item.setText(1, str(ci_naziv or ""))
-
-                    # Nema više kolone za akcije - samo prikazujemo podatke
+                    ci_item.setText(0, str(ci_data["ci_sifra"] or ""))
+                    ci_item.setText(1, str(ci_data["ci_naziv"] or ""))
 
             # Expand all items by default
             self.table.expandAll()
@@ -2021,112 +2023,57 @@ class SifarniciView(BaseTabView):
             raise
 
     def _load_carinski_postupci_data(self):
-        """Load Carinski postupci data from catalogs.carinski_postupci table."""
+        """Load Carinski postupci data using Service layer."""
         try:
-            logger.info("Učitavanje carinskih postupaka iz baze")
+            logger.info("Učitavanje carinskih postupaka iz baze (preko Service)")
 
-            # Query from database
-            query = """
-                SELECT sifra, opis, vrsta, oznaka
-                FROM catalogs.carinski_postupci
-                ORDER BY sifra
-            """
+            results = self.service.load_carinski_postupci_data()
 
-            result = self.db_manager.execute_query(query, fetch_all=True) or []
+            self._populate_table_from_service(
+                results,
+                columns=["sifra", "opis", "vrsta", "oznaka"],
+            )
 
-            logger.info(f"Pronađeno {len(result)} carinskih postupaka")
-
-            # Clear table
-            self.table.setRowCount(0)
-
-            # Populate table
-            for row_data in result:
-                row = self.table.rowCount()
-                self.table.insertRow(row)
-
-                # sifra (Šifra)
-                sifra_item = QTableWidgetItem(str(row_data[0] or ""))
-                sifra_item.setTextAlignment(Qt.AlignCenter)
-                self.table.setItem(row, 0, sifra_item)
-
-                # opis (Postupak)
-                postupak_item = QTableWidgetItem(str(row_data[1] or ""))
-                self.table.setItem(row, 1, postupak_item)
-
-                # vrsta (Vrsta)
-                vrsta_item = QTableWidgetItem(str(row_data[2] or ""))
-                vrsta_item.setTextAlignment(Qt.AlignCenter)
-                self.table.setItem(row, 2, vrsta_item)
-
-                # oznaka (Oznaka)
-                oznaka_item = QTableWidgetItem(str(row_data[3] or ""))
-                oznaka_item.setTextAlignment(Qt.AlignCenter)
-                self.table.setItem(row, 3, oznaka_item)
-
-            # Update status
-            try:
-                self._update_status()
-            except Exception:
-                pass
-            try:
-                self._update_pager()
-            except Exception:
-                pass
-
-            logger.info(f"Uspešno učitano {len(result)} carinskih postupaka")
-
+            logger.info(f"Uspešno učitano {len(results)} carinskih postupaka")
         except Exception as e:
             logger.error(f"Greška pri učitavanju carinskih postupaka: {str(e)}")
             raise
 
     def _load_zemlje_data(self):
-        """Load Zemlje data from catalogs.drzave table."""
+        """Load Zemlje data using Service layer."""
         try:
-            logger.info("Učitavanje zemalja iz baze")
+            logger.info("Učitavanje zemalja iz baze (preko Service)")
 
-            # Query from database
-            query = """
-                SELECT sifra, naziv
-                FROM catalogs.drzave
-                ORDER BY sifra
-            """
+            results = self.service.load_zemlje_data()
 
-            result = self.db_manager.execute_query(query, fetch_all=True) or []
+            self._populate_table_from_service(
+                results,
+                columns=["sifra", "naziv"],
+            )
 
-            logger.info(f"Pronađeno {len(result)} zemalja")
-
-            # Clear table
-            self.table.setRowCount(0)
-
-            # Populate table
-            for row_data in result:
-                row = self.table.rowCount()
-                self.table.insertRow(row)
-
-                # sifra (Šifra)
-                sifra_item = QTableWidgetItem(str(row_data[0] or ""))
-                sifra_item.setTextAlignment(Qt.AlignCenter)
-                self.table.setItem(row, 0, sifra_item)
-
-                # naziv (Naziv)
-                naziv_item = QTableWidgetItem(str(row_data[1] or ""))
-                self.table.setItem(row, 1, naziv_item)
-
-            # Update status
-            try:
-                self._update_status()
-            except Exception:
-                pass
-            try:
-                self._update_pager()
-            except Exception:
-                pass
-
-            logger.info(f"Uspešno učitano {len(result)} zemalja")
-
+            logger.info(f"Uspešno učitano {len(results)} zemalja")
         except Exception as e:
             logger.error(f"Greška pri učitavanju zemalja: {str(e)}")
             raise
+
+    def _load_deklaranti_data(self):
+        """Load Deklaranti data using Service layer."""
+        try:
+            logger.info("Učitavanje deklaranta iz baze (preko Service)")
+
+            results = self.service.load_deklaranti_data()
+
+            self._populate_table_from_service(
+                results,
+                columns=["jib", "naziv", "adresa", "grad", "drzava"],
+            )
+
+            logger.info(f"Uspešno učitano {len(results)} deklaranta")
+        except Exception as e:
+            logger.error(f"Greška pri učitavanju deklaranta: {str(e)}")
+            QMessageBox.critical(
+                self, "Greška", f"Greška pri učitavanju deklaranta:\n{str(e)}"
+            )
 
     def _search_zemlje(self, query: str):
         """Search zemlje in database using ILIKE - like Pošiljaoci"""
