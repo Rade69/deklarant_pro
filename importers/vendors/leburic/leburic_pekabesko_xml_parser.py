@@ -133,6 +133,7 @@ def parse_leburic_pekabesko_xml(filepath: str) -> ImportResult:
             line_no = int(stavka.get("br", len(invoice_lines) + 1))
 
             naziv     = _txt(stavka.find("Opis"))
+            tarifa    = _txt(stavka.find("TarifniBroj"))
             barcode   = _txt(stavka.find("BarKod"))
             jm_raw    = _txt(stavka.find("JedinicaMere"))
             neto_item = _num(stavka.find("NetoKgr"))
@@ -141,17 +142,16 @@ def parse_leburic_pekabesko_xml(filepath: str) -> ImportResult:
             iznos     = _num(stavka.find("UkupnoEUR"))
 
             # Normalizuj JM: Kgr/Par/Kom → kg/par/kom
-            jm = _normalize_jm(jm_raw)
+            jm = _normalize_jm(jm_raw) if jm_raw else "kg"
 
-            # product_code: koristimo bar kod kao privremeni identifikator
-            # (XML nema Pekabesko item šifru; tarifa se popunjava naknadno)
+            # product_code: bar kod kao identifikator (XML nema Pekabesko item šifru)
             product_code = barcode if barcode else str(line_no)
 
             line = InvoiceLine(
                 line_no=line_no,
                 product_code=product_code,
                 naziv_robe=naziv,
-                tarifni_broj="",          # XML nema tarifne šifre
+                tarifni_broj=tarifa,
                 zemlja_porijekla=zemlja,
                 povlastica="",
                 jm=jm,
