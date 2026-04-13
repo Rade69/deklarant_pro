@@ -75,15 +75,18 @@ def _generate_lookup_codes(tarifni_broj: str) -> list[str]:
         return []
 
     candidates = [digits]
-    # 4-cifreni heading uvijek
-    if len(digits) >= 4:
-        candidates.append(digits[:4])
-    # 6-cifreni
-    if len(digits) >= 6:
-        candidates.append(digits[:6])
     # 8-cifreni
     if len(digits) >= 8:
         candidates.append(digits[:8])
+    # 6-cifreni
+    if len(digits) >= 6:
+        candidates.append(digits[:6])
+    # 4-cifreni heading
+    if len(digits) >= 4:
+        candidates.append(digits[:4])
+    # 2-cifreni chapter (Glava) — za chapterne koji nemaju pod-headinge
+    if len(digits) >= 2:
+        candidates.append(digits[:2])
 
     return list(dict.fromkeys(candidates))  # deduplikacija, zadrzava redosled
 
