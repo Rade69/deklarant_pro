@@ -1121,18 +1121,20 @@ class NaimenovanjaView(BaseTabView):
 
                     result = cursor.fetchone()
 
-                    # If no exact match, try prefix matching
+                    # Ako nema tačnog match-a, pokušaj prefix pretragu
                     if not result:
                         fallback_codes = generate_fallback_codes(tariff_code)
                         for code in fallback_codes:
+                            is_short = len(code) <= 4  # 4-cifreni prefiks = heading lookup
+                            order = "tarifni_kod ASC" if is_short else "tarifni_kod ASC"
                             cursor.execute(
-                                """
+                                f"""
                                 SELECT tarifni_kod, opis
                                 FROM catalogs.zvanicna_tarifa
                                 WHERE tarifni_kod LIKE %s || '%%'
-                                ORDER BY LENGTH(tarifni_kod) DESC
+                                ORDER BY {order}
                                 LIMIT 1
-                            """,
+                                """,
                                 (code,),
                             )
 
@@ -1157,24 +1159,15 @@ class NaimenovanjaView(BaseTabView):
 
     def _extract_short_code(self, tariff_code: str) -> str:
         """
-        Extract 4-6 digit code from tariff code for higher level classification.
-        For example:
-        - Input: "18069031000" → Output: "1806" or "180690"
-        - Input: "85437090000" → Output: "8543" or "854370"
+        Vrati 4-cifreni prefiks za traženje heading opisa (viši nivo klasifikacije).
+        Primjer: "1601009100" → "1601", "1602421000" → "1602"
         """
         if not tariff_code:
             return ""
-
-        # Extract only digits
         digits = "".join(filter(str.isdigit, tariff_code))
-
-        # Return 4-6 digit code (preferably 6 digits if available)
-        if len(digits) >= 6:
-            return digits[:6]  # First 6 digits for more specificity
-        elif len(digits) >= 4:
-            return digits[:4]  # First 4 digits as minimum
-        else:
-            return digits  # Return whatever digits we have
+        if len(digits) >= 4:
+            return digits[:4]
+        return digits
 
     def _clean_tariff_description(self, description: str) -> str:
         """
@@ -1182,17 +1175,24 @@ class NaimenovanjaView(BaseTabView):
         Primjeri:
           '– ostalo – 15 0 0 10,' → '– ostalo'
           '– – – – punjeni – 10+1KM/kg 0 0 6+1KM/kg 0 0 0 0' → '– – – – punjeni'
+          '– – od domaće svinje – 10+3,5KM/kg 10+3,5KM/kg 0 ...' → '– – od domaće svinje'
         """
         if not description:
             return ""
 
         import re
 
-        # Ukloni KM/kg format tarifnih stopa (npr. "10+1KM/kg 0 0 6+1KM/kg 0 0 0 0")
-        cleaned = re.sub(r"\s+\d+(?:[+/]\d+)*[A-Z/%][A-Za-z/kg%]*.*$", "", description)
-        # Ukloni sufiks sa 4+ prostorima odvojena broja
+        # Ukloni KM/kg stope: npr. "10+3,5KM/kg", "0+1,5KM/kg", "10+3KM/kg"
+        # Ključna ispravka: (?:[,.]\d+)? pokriva i decimalni zarez (10+1,5KM/kg)
+        cleaned = re.sub(
+            r"\s+\d+(?:[+/]\d+(?:[,.]\d+)?)*[A-Z/%][A-Za-z/kg%]*.*$",
+            "",
+            description,
+        )
+        # Ukloni sufiks sa 4+ prostorima odvojena broja (npr. "kd 0 0 0 0 5 5 5")
         cleaned = re.sub(r"(?:\s+\w{1,3})?(?:\s+\d+){4,}[\s,]*$", "", cleaned)
-        cleaned = cleaned.rstrip(" –-").strip()
+        # Ukloni trailing crtice i razmake (en-dash, em-dash, hyphen)
+        cleaned = cleaned.rstrip(" \u2012\u2013\u2014-").strip()
 
         return cleaned if cleaned else description
 
