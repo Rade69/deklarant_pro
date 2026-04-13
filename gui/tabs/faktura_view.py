@@ -1583,6 +1583,19 @@ class FakturaView(BaseTabView):
             # Enable buttons
             self._set_buttons_enabled(True)
 
+            # EUR.1 / PE2 DIALOG — prikaži korisniku i za grupni uvoz
+            has_origin = any(
+                getattr(item, 'has_origin_statement', False)
+                for item in all_items
+            )
+            if has_origin:
+                logger.info("📦 [grupni uvoz] → otvaram PE2 dialog")
+                first_invoice = Path(filepaths[0]).stem if filepaths else "Grupni uvoz"
+                self._show_pe2_dialog(first_invoice)
+            elif self._should_show_eur1_dialog(all_items):
+                logger.info("📦 [grupni uvoz] → otvaram EUR.1 dialog")
+                self._show_eur1_dialog()
+
             # Prikaži statistiku
             message = f"📦 Grupni uvoz završen!\n\n"
             message += f"✅ Uspješno: {successful_imports}/{len(filepaths)} faktura\n"
@@ -2177,7 +2190,7 @@ class FakturaView(BaseTabView):
                 # EUR.1 / PE2 DIALOG - Pitaj korisnika na osnovu toga da li faktura ima izjavu
                 logger.info(f"🔍 [dialog check] has_origin_statement={has_origin_statement}, agent_mode={self._agent_mode}, items={len(items)}")
                 if self._agent_mode:
-                    # Agent mod: bez blokirajućih dijaloga — auto-postavi povlastice
+                    # Agent mod: auto-postavi povlastice, ali EUR1 broj zahtijeva korisnika
                     logger.info(f"🤖 [dialog check] Agent mod — auto-handle povlastice")
                     result = self._auto_handle_povlastice_agent(items, has_origin_statement)
                     if result['pe2'] > 0:
@@ -2185,6 +2198,10 @@ class FakturaView(BaseTabView):
                     if result['eur1'] > 0:
                         logger.info(f"🤖 EUR1 povlastica auto-postavljena za {result['eur1']} stavki, {result['eur1_pending']} čeka EUR1 broj")
                     self._load_data_from_draft()
+                    # Ako ima stavki koje čekaju EUR1 broj → prikaži dialog
+                    if result.get('eur1_pending', 0) > 0 and self._should_show_eur1_dialog(items):
+                        logger.info(f"🤖 → EUR1 pending={result['eur1_pending']}: otvaram EUR.1 dialog")
+                        self._show_eur1_dialog()
                 elif has_origin_statement:
                     # ✅ Faktura IMA izjavu → PE2 dialog
                     logger.info(f"🔍 [dialog check] → otvaram PE2 dialog")
@@ -2693,8 +2710,9 @@ class FakturaView(BaseTabView):
         logger.debug(f"\n⚖️  Odnos neto/bruto = {neto_bruto_ratio:.6f}")
 
         # Razdvoji stavke po scenariju
-        items_without_both = []  # Nemaju ni bruto ni neto (PDF stavke)
-        items_with_partial = []  # Imaju bruto ALI ne neto (Excel stavke)
+        items_without_both = []   # Nemaju ni bruto ni neto (PDF stavke)
+        items_with_partial = []   # Imaju bruto ALI ne neto (Excel stavke)
+        items_neto_only = []      # Imaju neto ALI ne bruto (Leburic Excel stavke)
 
         for item in items_to_update:
             has_bruto = item.bruto_kg and item.bruto_kg > 0
@@ -2704,10 +2722,13 @@ class FakturaView(BaseTabView):
                 items_without_both.append(item)
             elif has_bruto and not has_neto:
                 items_with_partial.append(item)
+            elif has_neto and not has_bruto:
+                items_neto_only.append(item)
 
         logger.debug(f"\n📋 Kategorizacija:")
         logger.debug(f" Bez obe težine (PDF): {len(items_without_both)} stavki")
-        logger.debug(f" Sa bruto, bez neto (Excel): {len(items_with_partial)} stavki")
+        logger.debug(f" Sa bruto, bez neto: {len(items_with_partial)} stavki")
+        logger.debug(f" Sa neto, bez bruto (Leburic): {len(items_neto_only)} stavki")
 
         # Distribucija za stavke BEZ obe težine (PDF stavke)
         if items_without_both:
@@ -2740,23 +2761,38 @@ class FakturaView(BaseTabView):
                         elif item.bruto_kg:
                             item.neto_kg = round(item.bruto_kg * neto_bruto_ratio, 3)
 
-        # Izračun neto za stavke SA bruto ALI BEZ neto (Excel stavke)
+        # Izračun neto za stavke SA bruto ALI BEZ neto
         if items_with_partial and neto_bruto_ratio > 0:
-            logger.debug(f"\n🧮 Izračunavam neto za Excel stavke (imaju bruto, nemaju neto):")
-            logger.debug(f"   Odnos neto/bruto: {neto_bruto_ratio:.6f}")
-
-            for i, item in enumerate(items_with_partial[:3]):  # Prikaži prvih 3
+            logger.debug(f"\n🧮 Izračunavam neto za stavke sa bruto, bez neto:")
+            for i, item in enumerate(items_with_partial[:3]):
                 old_neto = item.neto_kg
-                item.neto_kg = item.bruto_kg * neto_bruto_ratio
+                item.neto_kg = round(item.bruto_kg * neto_bruto_ratio, 3)
                 logger.debug(f" [{i}] bruto={item.bruto_kg:.2f} → neto={item.neto_kg:.2f} (bilo {old_neto})")
-
-            # Procesuj ostatak bez debug ispisa
             for item in items_with_partial[3:]:
-                item.neto_kg = item.bruto_kg * neto_bruto_ratio
-
+                item.neto_kg = round(item.bruto_kg * neto_bruto_ratio, 3)
             logger.debug(f" Ukupno obrađeno: {len(items_with_partial)} stavki")
 
-        updated_count = len(items_without_both) + len(items_with_partial)
+        # Izračun BRUTA za stavke SA neto ALI BEZ bruta (Leburic Excel)
+        # Distribuira ukupni bruto proporcionalno po individualnom netu
+        if items_neto_only and bruto_total > 0:
+            logger.debug(f"\n🧮 Izračunavam bruto za Leburic stavke (imaju neto, nemaju bruto):")
+            total_neto_items = sum(item.neto_kg or 0.0 for item in items_neto_only)
+            logger.debug(f"   Ukupan neto stavki: {total_neto_items:.3f} kg")
+            logger.debug(f"   Ukupan bruto za distribuciju: {bruto_total:.3f} kg")
+
+            if total_neto_items > 0:
+                for i, item in enumerate(items_neto_only[:3]):
+                    proportion = (item.neto_kg or 0.0) / total_neto_items
+                    item.bruto_kg = round(bruto_total * proportion, 3)
+                    logger.debug(f" [{i}] neto={item.neto_kg:.3f} → bruto={item.bruto_kg:.3f}")
+                for item in items_neto_only[3:]:
+                    proportion = (item.neto_kg or 0.0) / total_neto_items
+                    item.bruto_kg = round(bruto_total * proportion, 3)
+                logger.debug(f" Ukupno obrađeno: {len(items_neto_only)} stavki")
+        elif items_neto_only and bruto_total <= 0:
+            logger.warning("⚠️  Leburic stavke imaju neto ali nema ukupnog bruta u toolbar polju")
+
+        updated_count = len(items_without_both) + len(items_with_partial) + len(items_neto_only)
         skipped_count = len(self.draft.invoice_lines) - updated_count
 
         logger.info(f"\n✅ ZAVRŠENO:")
@@ -2768,12 +2804,18 @@ class FakturaView(BaseTabView):
         self._load_data_from_draft()
 
         # Show success message
-        message = f"Težine proporcionalno raspoređene na {updated_count} stavki.\n\n"
-        message += f"Ukupna bruto: {bruto_total:.3f} kg\n"
-        message += f"Ukupna neto: {neto_total:.3f} kg\n"
+        message = f"Težine raspoređene na {updated_count} stavki.\n\n"
+        if bruto_total > 0:
+            message += f"Ukupna bruto: {bruto_total:.3f} kg\n"
+        if neto_total > 0:
+            message += f"Ukupna neto: {neto_total:.3f} kg\n"
+        if items_neto_only and bruto_total > 0:
+            message += f"\n✅ Bruto raspoređen proporcionalno po netu ({len(items_neto_only)} stavki)."
+        elif items_neto_only and bruto_total <= 0:
+            message += f"\n⚠️ {len(items_neto_only)} stavki ima neto ali nedostaje ukupni bruto u polju iznad."
 
         if skipped_count > 0:
-            message += f"\n⚠️ Preskočeno {skipped_count} stavki koje već imaju težine."
+            message += f"\n⚠️ Preskočeno {skipped_count} stavki koje već imaju obe težine."
 
         QMessageBox.information(self, "Težine raspoređene", message)
 
