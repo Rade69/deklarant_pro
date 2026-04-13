@@ -2891,98 +2891,17 @@ class SifarniciView(BaseTabView):
             }
 
             if self.current_category == "Pošiljaoci":
-                # For Pošiljaoci, get the actual count from database
-                try:
-                    count_result = self.db_manager.execute_query(
-                        "SELECT COUNT(*) FROM catalogs.izvoznici"
-                    )
-                    total = count_result[0] if count_result else 0
-                    self.lbl_totals.setText(
-                        f"Ukupno: {total} pošiljalaca | Prikazano: {total}"
-                    )
-                    logger.debug(f"Ažuriran status za pošiljaoce: {total} ukupno")
-                except Exception as e:
-                    # Fallback to table count if database query fails
-                    logger.warning(f"Neuspešan query za brojanje pošiljalaca: {e}")
-                    # Check if table is QTableWidget or QTreeWidget
-                    if hasattr(self.table, "rowCount"):  # QTableWidget
-                        total = self.table.rowCount()
-                        visible = sum(
-                            1 for row in range(total) if not self.table.isRowHidden(row)
-                        )
-                    elif hasattr(self.table, "topLevelItemCount"):  # QTreeWidget
-                        # For QTreeWidget, count all items (both parent and child)
-                        total = self._get_tree_widget_count()
-                        visible = total  # For now, assume all are visible
-                    else:
-                        total = 0
-                        visible = 0
-                    self.lbl_totals.setText(
-                        f"Ukupno: {total} pošiljalaca | Prikazano: {visible}"
-                    )
+                total = self.service.count_izvoznici()
+                self.lbl_totals.setText(f"Ukupno: {total} pošiljalaca | Prikazano: {total}")
             elif self.current_category == "Uvoznici":
-                # For Uvoznici, get the actual count from database
-                try:
-                    count_result = self.db_manager.execute_query(
-                        "SELECT COUNT(*) FROM catalogs.uvoznici"
-                    )
-                    total = count_result[0] if count_result else 0
-                    self.lbl_totals.setText(
-                        f"Ukupno: {total} uvoznika | Prikazano: {total}"
-                    )
-                    logger.debug(f"Ažuriran status za uvoznike: {total} ukupno")
-                except Exception as e:
-                    # Fallback to table count if database query fails
-                    logger.warning(f"Neuspešan query za brojanje uvoznika: {e}")
-                    total = self.table.rowCount()
-                    visible = sum(
-                        1 for row in range(total) if not self.table.isRowHidden(row)
-                    )
-                    self.lbl_totals.setText(
-                        f"Ukupno: {total} uvoznika | Prikazano: {visible}"
-                    )
+                total = self.service.count_uvoznici()
+                self.lbl_totals.setText(f"Ukupno: {total} uvoznika | Prikazano: {total}")
             elif self.current_category == "Carinske tarife":
-                # For Carinske tarife, get the actual count from database
-                try:
-                    count_result = self.db_manager.execute_query(
-                        "SELECT COUNT(*) FROM catalogs.zvanicna_tarifa"
-                    )
-                    total = count_result[0] if count_result else 0
-                    self.lbl_totals.setText(
-                        f"Ukupno: {total} carinskih tarifa | Prikazano: {total}"
-                    )
-                    logger.debug(f"Ažuriran status za carinske tarife: {total} ukupno")
-                except Exception as e:
-                    # Fallback to table count if database query fails
-                    logger.warning(f"Neuspešan query za brojanje carinskih tarifa: {e}")
-                    total = self.table.rowCount()
-                    visible = sum(
-                        1 for row in range(total) if not self.table.isRowHidden(row)
-                    )
-                    self.lbl_totals.setText(
-                        f"Ukupno: {total} carinskih tarifa | Prikazano: {visible}"
-                    )
+                total = self.service.count_zvanicna_tarifa()
+                self.lbl_totals.setText(f"Ukupno: {total} carinskih tarifa | Prikazano: {total}")
             elif self.current_category == "Carinarnice":
-                # For Carinarnice, get the actual count from database
-                try:
-                    count_result = self.db_manager.execute_query(
-                        "SELECT COUNT(*) FROM catalogs.carinske_ispostave"
-                    )
-                    total = count_result[0] if count_result else 0
-                    self.lbl_totals.setText(
-                        f"Ukupno: {total} carinarnica | Prikazano: {total}"
-                    )
-                    logger.debug(f"Ažuriran status za carinarnice: {total} ukupno")
-                except Exception as e:
-                    # Fallback to table count if database query fails
-                    logger.warning(f"Neuspešan query za brojanje carinarnica: {e}")
-                    total = self.table.rowCount()
-                    visible = sum(
-                        1 for row in range(total) if not self.table.isRowHidden(row)
-                    )
-                    self.lbl_totals.setText(
-                        f"Ukupno: {total} carinarnica | Prikazano: {visible}"
-                    )
+                total = self.service.count_carinske_ispostave()
+                self.lbl_totals.setText(f"Ukupno: {total} carinarnica | Prikazano: {total}")
             else:
                 name = category_plural.get(self.current_category, "stavki")
                 self.lbl_totals.setText(
