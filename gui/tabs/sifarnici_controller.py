@@ -35,36 +35,64 @@ class SifarniciController:
     - Business logike
     """
 
-    # Mapiranje kategorija na tabele
+    # Mapiranje kategorija na tabele i service metode
     CATEGORY_CONFIG = {
+        "Carinske tarife": {
+            "columns": ["Tarifni kod", "Naziv robe", "Opis", "PDV", "Uvoz", "Akciza"],
+            "table": "catalogs.tarifa_2026",
+            "service_method": "load_trgovacki_nazivi_data",
+            "add_method": "add_trgovacki_naziv",
+            "delete_method": "delete_trgovacki_naziv",
+            "validate_method": "validate_trgovacki_naziv_data",
+        },
         "Pošiljaoci": {
-            "columns": ["JIB", "Naziv", "Adresa", "Grad", "Zemlja"],
+            "columns": ["JIB", "Naziv", "Adresa", "Grad", "Zemlja", "Telefon", "Email"],
             "table": "catalogs.izvoznici",
+            "service_method": "load_posiljaoci_data",
+            "add_method": "add_posiljalac",
+            "delete_method": "delete_posiljalac",
+            "validate_method": "validate_posiljalac_data",
         },
         "Uvoznici": {
-            "columns": ["JIB", "Naziv", "Adresa", "Grad", "Zemlja"],
+            "columns": ["JIB", "Naziv", "Adresa", "Grad", "Zemlja", "Telefon", "Email"],
             "table": "catalogs.uvoznici",
+            "service_method": "load_uvoznici_data",
+            "add_method": "add_uvoznik",
+            "delete_method": "delete_uvoznik",
+            "validate_method": "validate_uvoznik_data",
         },
-        "Carinske tarife": {
-            "columns": ["Tarifni kod", "Naziv robe"],
-            "table": "catalogs.zvanicna_tarifa",
+        "Deklaranti": {
+            "columns": ["JIB", "Naziv", "Adresa", "Grad", "Zemlja", "Telefon", "Email"],
+            "table": "catalogs.deklaranti",
+            "service_method": "load_deklaranti_data",
+            "add_method": "add_deklarant",
+            "delete_method": "delete_deklarant",
+            "validate_method": "validate_deklarant_data",
         },
         "Carinarnice": {
             "columns": ["Šifra", "Naziv"],
             "table": "catalogs.carinske_ispostave",
+            "service_method": "load_carinarnice_data",
+            "add_method": "add_carinarnica",
+            "delete_method": "delete_carinarnica",
+            "validate_method": "validate_carinarnica_data",
             "hierarchical": True,
         },
         "Carinski postupci": {
-            "columns": ["Šifra", "Carinski postupci", "Vrsta", "Oznaka"],
+            "columns": ["Šifra", "Naziv"],
             "table": "catalogs.carinski_postupci",
+            "service_method": "load_carinski_postupci_data",
+            "add_method": "add_carinski_postupak",
+            "delete_method": "delete_carinski_postupak",
+            "validate_method": "validate_carinski_postupak_data",
         },
         "Zemlje": {
             "columns": ["Šifra", "Naziv"],
-            "table": "catalogs.zemlje",
-        },
-        "Deklaranti": {
-            "columns": ["Kod", "Naziv", "Licenca", "Kontakt"],
-            "table": "catalogs.deklaranti",
+            "table": "catalogs.drzave",
+            "service_method": "load_zemlje_data",
+            "add_method": "add_zemlja",
+            "delete_method": "delete_zemlja",
+            "validate_method": "validate_zemlja_data",
         },
     }
 
@@ -167,13 +195,28 @@ class SifarniciController:
 
         try:
             config = self.CATEGORY_CONFIG.get(self.current_category, {})
-            table_name = config.get("table", "")
+            service_method_name = config.get("service_method", "")
             
-            if not table_name:
+            if not service_method_name:
                 return
 
-            # Load from service
-            data = self.service.load_category_data(table_name)
+            # Get search query
+            search_query = ""
+            if self.view.search_input:
+                search_query = self.view.search_input.text().strip()
+
+            # Call appropriate service method
+            service_method = getattr(self.service, service_method_name, None)
+            if not service_method:
+                self.handle_error(Exception(f"Service method {service_method_name} not found"), "load_data")
+                return
+
+            # Load data with optional search
+            if search_query:
+                data = service_method(search_query)
+            else:
+                data = service_method()
+                
             self.current_data = data
 
             # Display in table
@@ -184,17 +227,21 @@ class SifarniciController:
 
     def _display_data(self, data: List[Dict[str, Any]]):
         """Display data in table."""
-        if not self.view.table:
+        if not data:
+            self.view.set_data({"items": [], "columns": []})
             return
 
-        self.view.table.setRowCount(0)
-        self.view.table.setRowCount(len(data))
-
-        for row, item in enumerate(data):
-            for col, (key, value) in enumerate(item.items()):
-                table_item = QTableWidgetItem(str(value or ""))
-                self.view.table.setItem(row, col, table_item)
-
+        # Get columns from first item
+        columns = list(data[0].keys()) if data else []
+        
+        # Format data for view
+        formatted_data = {
+            "items": data,
+            "columns": columns
+        }
+        
+        # Use view's set_data method
+        self.view.set_data(formatted_data)
         self._update_status()
 
     def _on_novi(self):
@@ -234,36 +281,101 @@ class SifarniciController:
                 self.view.show_warning("Odaberite red za brisanje")
                 return
 
+            if not self.current_category:
+                self.view.show_warning("Odaberite kategoriju")
+                return
+
+            # Get the record to delete
+            if row >= len(self.current_data):
+                self.view.show_warning("Nevažeći red")
+                return
+
+            record = self.current_data[row]
+            config = self.CATEGORY_CONFIG.get(self.current_category, {})
+            
+            # Get identifier (JIB for companies, sifra for others, tarifni_kod for trade names)
+            identifier = None
+            if "jib" in record:
+                identifier = record["jib"]
+            elif "sifra" in record:
+                identifier = record["sifra"]
+            elif "tarifni_kod" in record:
+                identifier = record["tarifni_kod"]
+            else:
+                self.view.show_error("Nije moguće identifikovati zapis za brisanje")
+                return
+
+            # Confirm deletion
             reply = QMessageBox.question(
                 self.view,
                 "Potvrda brisanja",
-                f"Da li ste sigurni da želite obrisati red {row + 1}?",
+                f"Da li ste sigurni da želite obrisati zapis '{identifier}'?",
                 QMessageBox.Yes | QMessageBox.No,
                 QMessageBox.No,
             )
 
             if reply == QMessageBox.Yes:
-                self._delete_row(row)
-                self.handle_success(f"Red {row + 1} obrisan")
+                # Delete from database
+                delete_method_name = config.get("delete_method", "")
+                if not delete_method_name:
+                    self.handle_error(Exception("Delete method not configured"), "obrisi")
+                    return
+
+                delete_method = getattr(self.service, delete_method_name, None)
+                if not delete_method:
+                    self.handle_error(Exception(f"Service method {delete_method_name} not found"), "obrisi")
+                    return
+
+                success = delete_method(identifier)
+                if success:
+                    self._load_data()  # Reload table
+                    self.handle_success(f"Zapis '{identifier}' obrisan")
+                else:
+                    self.view.show_error("Greška pri brisanju zapisa")
+                    
         except Exception as e:
             self.handle_error(e, "obrisi")
 
     def _on_snimi(self):
         """Snimi record."""
         try:
-            data = self.view.get_data()
-            
-            if self.is_editing and self.current_row_index >= 0:
-                # Update existing
-                self._update_row(self.current_row_index, data)
-            else:
-                # Insert new
-                self._insert_row(data)
+            if not self.current_category:
+                self.view.show_warning("Odaberite kategoriju")
+                return
 
-            self.view.set_readonly_mode(readonly=True)
-            self.is_editing = False
-            self._load_data()  # Reload table
-            self.handle_success("Podaci sačuvani")
+            data = self.view.get_data()
+            config = self.CATEGORY_CONFIG.get(self.current_category, {})
+            
+            # Validate data
+            validate_method_name = config.get("validate_method", "")
+            if validate_method_name:
+                validate_method = getattr(self.service, validate_method_name, None)
+                if validate_method:
+                    errors = validate_method(data) if "data" in validate_method.__code__.co_varnames else validate_method(**data)
+                    if errors:
+                        self.view.show_warning("\n".join(errors))
+                        return
+
+            # Save to database
+            add_method_name = config.get("add_method", "")
+            if not add_method_name:
+                self.handle_error(Exception("Add method not configured"), "snimi")
+                return
+
+            add_method = getattr(self.service, add_method_name, None)
+            if not add_method:
+                self.handle_error(Exception(f"Service method {add_method_name} not found"), "snimi")
+                return
+
+            success = add_method(data)
+            if success:
+                self.view.set_readonly_mode(readonly=True)
+                self.is_editing = False
+                self._load_data()  # Reload table
+                self.handle_success("Podaci sačuvani")
+            else:
+                self.view.show_error("Greška pri čuvanju podataka")
+                
         except Exception as e:
             self.handle_error(e, "snimi")
 
@@ -286,21 +398,15 @@ class SifarniciController:
         if not self.view.search_input:
             return
 
-        search_text = self.view.search_input.text()
+        search_text = self.view.search_input.text().strip()
         
         if not search_text:
-            self._display_data(self.current_data)
+            # Reload without search
+            self._load_data()
             return
 
-        # Filter data
-        filtered = []
-        for item in self.current_data:
-            for value in item.values():
-                if search_text.lower() in str(value).lower():
-                    filtered.append(item)
-                    break
-
-        self._display_data(filtered)
+        # Use service method with search
+        self._load_data()  # This will use the search query from search_input
 
     def _on_data_changed(self):
         """Data changed."""
@@ -358,20 +464,7 @@ class SifarniciController:
 
         self.view.set_data(data)
 
-    def _delete_row(self, row: int):
-        """Delete row from data."""
-        if 0 <= row < len(self.current_data):
-            del self.current_data[row]
-            self._display_data(self.current_data)
-
-    def _update_row(self, row: int, data: Dict[str, Any]):
-        """Update row with new data."""
-        if 0 <= row < len(self.current_data):
-            self.current_data[row].update(data)
-
-    def _insert_row(self, data: Dict[str, Any]):
-        """Insert new row."""
-        self.current_data.append(data)
+    # Old CRUD methods removed - now handled by service layer
 
     def _update_status(self):
         """Update status bar."""

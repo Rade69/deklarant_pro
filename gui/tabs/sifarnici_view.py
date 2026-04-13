@@ -427,7 +427,6 @@ class SifarniciView(BaseTabView):
         self.current_category = None
         self.is_editing = False
         self.current_row_index = -1
-        self._editing_jib = ""  # Čuva stari jib pri editovanju (za WHERE uslov u UPDATE)
         self.db_manager = DatabaseManager()
         self.validator = FormValidator()
         self.ui_helper = UIHelper()
@@ -1050,7 +1049,7 @@ class SifarniciView(BaseTabView):
         grid.setSpacing(15)
         grid.setContentsMargins(0, 15, 0, 0)
 
-    def _build_partner_form_strip(self, show_jib: bool = False) -> QWidget:
+    def _build_partner_form_strip(self) -> QWidget:
         """
         Kreira kompaktni info-strip za pošiljaoca/uvoznika.
 
@@ -1085,7 +1084,7 @@ class SifarniciView(BaseTabView):
         outer.setSpacing(0)
         outer.setContentsMargins(1, 1, 1, 1)  # prostor za border
 
-        # ── Header row: Naziv ────────────────────────────────────────────
+        # ── Header row: JIB + Naziv ──────────────────────────────────────
         header = QWidget()
         header.setObjectName("strip_header")
         header.setStyleSheet(
@@ -1096,6 +1095,9 @@ class SifarniciView(BaseTabView):
         h_layout.setContentsMargins(14, 9, 14, 9)
         h_layout.setSpacing(6)
 
+        lbl_jib = QLabel("PDV:")
+        lbl_jib.setStyleSheet(_LBL)
+        lbl_jib.setFixedWidth(32)
         self.jib_field = QLineEdit()
         self.jib_field.setFixedWidth(175)
         self.jib_field.setStyleSheet(_FIELD)
@@ -1108,14 +1110,9 @@ class SifarniciView(BaseTabView):
         self.naziv_field.setStyleSheet(_FIELD)
         self.naziv_field.setPlaceholderText("Naziv firme")
 
-        if show_jib:
-            lbl_jib = QLabel("JIB:")
-            lbl_jib.setStyleSheet(_LBL)
-            lbl_jib.setFixedWidth(32)
-            h_layout.addWidget(lbl_jib)
-            h_layout.addWidget(self.jib_field)
-            h_layout.addSpacing(18)
-
+        h_layout.addWidget(lbl_jib)
+        h_layout.addWidget(self.jib_field)
+        h_layout.addSpacing(18)
         h_layout.addWidget(lbl_naziv)
         h_layout.addWidget(self.naziv_field, 1)
         outer.addWidget(header)
@@ -1179,14 +1176,17 @@ class SifarniciView(BaseTabView):
         self.telefon_field.setStyleSheet(_FIELD)
         self.email_field = QLineEdit()
         self.email_field.setStyleSheet(_FIELD)
-        # pdv_field i maticni_field ostaju kao interni (skriveni) — nisu u layoutu
         self.pdv_field = QLineEdit()
+        self.pdv_field.setStyleSheet(_FIELD)
         self.maticni_field = QLineEdit()
+        self.maticni_field.setStyleSheet(_FIELD)
         self.kontakt_field = QLineEdit()
         self.kontakt_field.setStyleSheet(_FIELD)
 
         rf.addRow("Telefon:", self.telefon_field)
         rf.addRow("Email:", self.email_field)
+        rf.addRow("JIB:", self.pdv_field)
+        rf.addRow("Matični:", self.maticni_field)
         rf.addRow("Kontakt:", self.kontakt_field)
 
         b_layout.addWidget(left, 6)
@@ -1320,7 +1320,7 @@ class SifarniciView(BaseTabView):
 
             # Info strip (spanning oba grid kolone)
             grid = self.detail_container.layout()
-            strip = self._build_partner_form_strip(show_jib=True)
+            strip = self._build_partner_form_strip()
             grid.addWidget(strip, 0, 0, 1, 2)
             grid.setColumnStretch(0, 1)
             grid.setColumnStretch(1, 1)
@@ -1644,100 +1644,23 @@ class SifarniciView(BaseTabView):
             )
 
     def _load_trgovacki_nazivi_data(self):
-        """Load Trgovački nazivi data — hijerarhijski prikaz za brojeve"""
+        """Load Trgovački nazivi data from catalogs.tarifa_nazivi table using generic method"""
         try:
             logger.info("Učitavanje podataka o tarifnim nazivima robe iz baze")
-
-            # Provjeri da li je pretraga broj (hijerarhijski prikaz)
-            search_text = self.search_input.text().strip() if hasattr(self, 'search_input') else ''
-            is_code_search = bool(re.match(r'^\d{2,}$', search_text)) if search_text else False
 
             def _clean_tariff_opis(v):
                 if not v:
                     return v
                 return _TAIL_RATES_RE.sub('', str(v)).rstrip(' –-').strip()
 
-            if is_code_search:
-                # Hijerarhijski drill-down iz SQLite tarifa_2026
-                import sqlite3 as _sqlite3
-                import os as _os
-                _DB = _os.path.normpath(_os.path.join(
-                    _os.path.dirname(__file__), '..', '..', 'database', 'asycuda_sistem.db'
-                ))
-
-                prefix = search_text.replace(' ', '').replace('.', '')
-
-                # Dohvati traženi čvor i SVE potomke koji počinju tim prefiksom
-                _conn = _sqlite3.connect(_DB)
-                _conn.row_factory = _sqlite3.Row
-
-                root_row = _conn.execute(
-                    "SELECT kod, naziv, stopa_uvozna, nivo FROM tarifa_2026 WHERE kod = ?",
-                    (prefix,)
-                ).fetchone()
-
-                # Svi potomci sortirani po kodu (max 300)
-                desc_rows = _conn.execute(
-                    "SELECT kod, naziv, stopa_uvozna, nivo FROM tarifa_2026 "
-                    "WHERE kod LIKE ? AND kod != ? ORDER BY kod LIMIT 300",
-                    (prefix + '%', prefix)
-                ).fetchall()
-                _conn.close()
-
-                # Nivo → oznaka i indentacija po dužini koda
-                _nivo_ikona = {
-                    'glava': '📂',
-                    'podglava': '📁',
-                    'tarifni_broj': '📋',
-                    'podbroj': '📄',
-                }
-                prefix_len = len(prefix)
-
-                def _indent(kod):
-                    extra = len(kod) - prefix_len
-                    # Svaka 2 cifre = jedan nivo dublje
-                    return '  ' * max(0, extra // 2)
-
-                rows_to_show = []
-                if root_row:
-                    rows_to_show.append((root_row['kod'], root_row['naziv'],
-                                         root_row['stopa_uvozna'], root_row['nivo'], True))
-                for r in desc_rows:
-                    rows_to_show.append((r['kod'], r['naziv'],
-                                         r['stopa_uvozna'], r['nivo'], False))
-
-                self.table.setRowCount(len(rows_to_show))
-                for i, (kod, naziv, stopa, nivo, is_root) in enumerate(rows_to_show):
-                    ikona = _nivo_ikona.get(nivo, '•')
-                    indent = '' if is_root else _indent(kod)
-                    stopa_str = ''
-                    if stopa:
-                        stopa_str = stopa if str(stopa).endswith('%') else str(stopa) + '%'
-
-                    item_kod = QTableWidgetItem(indent + ikona + ' ' + kod)
-                    item_naziv = QTableWidgetItem(naziv or '')
-                    if stopa_str:
-                        item_naziv.setToolTip(f"Stopa uvozna: {stopa_str}")
-
-                    if is_root:
-                        font = item_kod.font()
-                        font.setBold(True)
-                        item_kod.setFont(font)
-                        item_naziv.setFont(font)
-
-                    self.table.setItem(i, 0, item_kod)
-                    self.table.setItem(i, 1, item_naziv)
-                self.table.setColumnWidth(0, 200)
-            else:
-                # Obična pretraga — kao prije
-                self._load_data_generic(
-                    table_name="catalogs.zvanicna_tarifa",
-                    columns=["tarifni_kod", "opis"],
-                    order_by="tarifni_kod",
-                    format_fn=_clean_tariff_opis,
-                    max_rows=20000,
-                    add_actions=False,
-                )
+            self._load_data_generic(
+                table_name="catalogs.zvanicna_tarifa",
+                columns=["tarifni_kod", "opis"],
+                order_by="tarifni_kod",
+                format_fn=_clean_tariff_opis,
+                max_rows=20000,
+                add_actions=False,
+            )
 
             logger.info("Uspešno učitano trgovački nazivi")
         except Exception as e:
@@ -2691,14 +2614,9 @@ class SifarniciView(BaseTabView):
                 "Primaoci",
                 "Deklaranti",
             ]:
-                # Za Carinske tarife — direktno iz baze (hijerarhijski za brojeve)
-                if self.current_category == "Carinske tarife":
-                    logger.info(f"▶️ Pozivam _search_trgovacki_nazivi za '{self.current_category}'")
-                    self._search_trgovacki_nazivi(text)
-                else:
-                    # Za ostale kategorije — filter tabele
-                    logger.info(f"▶️ Pozivam _filter_table za '{self.current_category}'")
-                    self._filter_table(text)
+                # For editable categories, also use table filtering as immediate feedback
+                logger.info(f"▶️ Pozivam _filter_table za '{self.current_category}'")
+                self._filter_table(text)
                 self._update_status()
             else:
                 logger.info(
@@ -2741,7 +2659,7 @@ class SifarniciView(BaseTabView):
             )
 
     def _filter_table(self, search_text: str):
-        """Filter table rows based on search text — contains matching"""
+        """Filter table rows based on search text - prefix matching only"""
         try:
             search_text = search_text.lower().strip()
             logger.debug(f"Filtriranje tabele sa tekstom: '{search_text}'")
@@ -2753,12 +2671,14 @@ class SifarniciView(BaseTabView):
                     # No search text - show all
                     match = True
                 else:
-                    # Proveri sve kolone — CONTAINS match (ne samo prefix)
+                    # Proveri sve kolone
                     for col in range(self.table.columnCount()):
                         item = self.table.item(row, col)
                         if item:
                             cell_text = item.text().lower()
-                            if search_text in cell_text:
+
+                            # Prefix match only - starts with
+                            if cell_text.startswith(search_text):
                                 match = True
                                 break
 
@@ -2795,12 +2715,12 @@ class SifarniciView(BaseTabView):
             if hasattr(self, "search_zemlja"):
                 self.search_zemlja.setCurrentIndex(0)
 
-            # For Pošiljaoci, Uvoznici and Carinske tarife, reload all data from database
+            # For Pošiljaoci, Uvoznici and Trgovački nazivi, reload all data from database
             if self.current_category == "Pošiljaoci":
                 self._load_posiljaoci_data()
             elif self.current_category == "Uvoznici":
                 self._load_uvoznici_data()
-            elif self.current_category == "Carinske tarife":
+            elif self.current_category == "Trgovački nazivi":
                 self._load_trgovacki_nazivi_data()
             else:
                 # Show all rows for other categories
@@ -3214,139 +3134,27 @@ class SifarniciView(BaseTabView):
             return kod_str
 
     def _search_trgovacki_nazivi(self, query: str):
-        """Pretraga carinskih tarifa — hijerarhijski za brojeve, tekst za opis."""
+        """Search trgovački nazivi in database using generic method"""
         try:
-            query = query.strip()
-            if not query:
-                self._load_trgovacki_nazivi_data()
-                return
+            logger.info(f"Pretraga trgovačkih naziva sa query-jem: '{query}'")
 
-            clean_query = query.replace(" ", "")
-            is_code = clean_query.isdigit()
+            # Use generic search with text-based actions (no widgets), no format function, and no actions column
+            self._search_generic(
+                query=query,
+                table_name="catalogs.zvanicna_tarifa",
+                columns=["tarifni_kod", "opis"],
+                search_columns=["tarifni_kod", "opis"],
+                order_by="tarifni_kod",
+                format_fn=lambda v: _TAIL_RATES_RE.sub('', str(v)).rstrip(' –-').strip() if v else v,
+                add_actions=False,
+            )
 
-            def _clean(v):
-                return _TAIL_RATES_RE.sub('', str(v)).rstrip(' –-').strip() if v else v
-
-            # Ako je pretraga brojčana, koristi hijerarhijski prikaz iz SQLite (kao u _load_trgovacki_nazivi_data)
-            if is_code and len(clean_query) >= 2:
-                # Hijerarhijski drill-down iz SQLite tarifa_2026
-                import sqlite3 as _sqlite3
-                import os as _os
-                _DB = _os.path.normpath(_os.path.join(
-                    _os.path.dirname(__file__), '..', '..', 'database', 'asycuda_sistem.db'
-                ))
-
-                prefix = clean_query.replace(' ', '').replace('.', '')
-
-                # Dohvati traženi čvor i SVE potomke koji počinju tim prefiksom
-                _conn = _sqlite3.connect(_DB)
-                _conn.row_factory = _sqlite3.Row
-
-                root_row = _conn.execute(
-                    "SELECT kod, naziv, stopa_uvozna, nivo FROM tarifa_2026 WHERE kod = ?",
-                    (prefix,)
-                ).fetchone()
-
-                # Svi potomci sortirani po kodu (max 300)
-                desc_rows = _conn.execute(
-                    "SELECT kod, naziv, stopa_uvozna, nivo FROM tarifa_2026 "
-                    "WHERE kod LIKE ? AND kod != ? ORDER BY kod LIMIT 300",
-                    (prefix + '%', prefix)
-                ).fetchall()
-                _conn.close()
-
-                # Nivo → oznaka i indentacija po dužini koda
-                _nivo_ikona = {
-                    'glava': '📂',
-                    'podglava': '📁',
-                    'tarifni_broj': '📋',
-                    'podbroj': '📄',
-                }
-                prefix_len = len(prefix)
-
-                def _indent(kod):
-                    extra = len(kod) - prefix_len
-                    # Svaka 2 cifre = jedan nivo dublje
-                    return '  ' * max(0, extra // 2)
-
-                rows_to_show = []
-                if root_row:
-                    rows_to_show.append((root_row['kod'], root_row['naziv'],
-                                         root_row['stopa_uvozna'], root_row['nivo'], True))
-                for r in desc_rows:
-                    rows_to_show.append((r['kod'], r['naziv'],
-                                         r['stopa_uvozna'], r['nivo'], False))
-
-                self.table.setRowCount(len(rows_to_show))
-                for i, (kod, naziv, stopa, nivo, is_root) in enumerate(rows_to_show):
-                    ikona = _nivo_ikona.get(nivo, '•')
-                    indent = '' if is_root else _indent(kod)
-                    stopa_str = ''
-                    if stopa:
-                        stopa_str = stopa if str(stopa).endswith('%') else str(stopa) + '%'
-
-                    item_kod = QTableWidgetItem(indent + ikona + ' ' + kod)
-                    item_naziv = QTableWidgetItem(naziv or '')
-                    if stopa_str:
-                        item_naziv.setToolTip(f"Stopa uvozna: {stopa_str}")
-
-                    if is_root:
-                        font = item_kod.font()
-                        font.setBold(True)
-                        item_kod.setFont(font)
-                        item_naziv.setFont(font)
-
-                    self.table.setItem(i, 0, item_kod)
-                    self.table.setItem(i, 1, item_naziv)
-                self.table.setColumnWidth(0, 200)
-            else:
-                # Za tekstualnu pretragu ili kratke brojeve (<2 cifre), koristi običnu pretragu
-                if is_code and len(clean_query) < 2:
-                    # Za kratke brojeve (<2 cifre) - obična pretraga
-                    sql = "SELECT tarifni_kod, opis FROM catalogs.zvanicna_tarifa WHERE tarifni_kod LIKE %s ORDER BY tarifni_kod"
-                    params = (f"{clean_query}%",)
-                else:
-                    # Tekstualna pretraga
-                    sql = "SELECT tarifni_kod, opis FROM catalogs.zvanicna_tarifa WHERE tarifni_kod ILIKE %s OR opis ILIKE %s ORDER BY tarifni_kod"
-                    params = (f"%{query}%", f"%{query}%")
-
-                results = self.db_manager.execute_query(sql, params, fetch_all=True)
-                if results is None:
-                    results = []
-
-                # Ručno punjenje tabele (sigurno za tuple i dict)
-                self.table.setRowCount(len(results))
-                for i, r in enumerate(results):
-                    try:
-                        if isinstance(r, tuple):
-                            # Proveri da li tuple ima dovoljno elemenata
-                            if len(r) >= 2:
-                                kod = str(r[0]) if r[0] is not None else ""
-                                opis = _clean(r[1]) if r[1] is not None else ""
-                            else:
-                                kod, opis = "", ""
-                        elif isinstance(r, dict):
-                            kod = str(r.get('tarifni_kod', ''))
-                            opis = _clean(r.get('opis', ''))
-                        else:
-                            kod, opis = "", ""
-                        
-                        self.table.setItem(i, 0, QTableWidgetItem(kod))
-                        self.table.setItem(i, 1, QTableWidgetItem(opis))
-                    except (IndexError, KeyError, TypeError) as e:
-                        logger.warning(f"Greška pri obradi reda {i}: {e}")
-                        self.table.setItem(i, 0, QTableWidgetItem(""))
-                        self.table.setItem(i, 1, QTableWidgetItem(""))
-                
-                self.table.setColumnWidth(0, 150)
-            
-            # Osiguraj da su svi redovi vidljivi
-            for row in range(self.table.rowCount()):
-                self.table.setRowHidden(row, False)
-
+            logger.info(f"Uspešno prikazano rezultati za trgovačke nazive")
         except Exception as e:
-            logger.error(f"Greška pri pretrazi tarifa: {e}")
-            QMessageBox.critical(self, "Greška", f"Greška pri pretrazi tarifa:\n{str(e)}")
+            logger.error(f"Greška pri pretrazi trgovačkih naziva: {str(e)}")
+            QMessageBox.critical(
+                self, "Greška", f"Greška pri pretrazi trgovačkih naziva:\n{str(e)}"
+            )
 
     def _search_uvoznici(self, query: str):
         """Search uvoznici in database using generic method"""
@@ -3386,11 +3194,10 @@ class SifarniciView(BaseTabView):
         try:
             logger.info("Kreiranje novog zapisa")
 
-            if self.current_category in ["Pošiljaoci", "Carinske tarife", "Uvoznici"]:
+            if self.current_category in ["Pošiljaoci", "Carinske tarife"]:
                 self._clear_form()
                 self.btn_snimi.setEnabled(True)
                 self.is_editing = False
-                self._editing_jib = ""  # Reset pri novom zapisu
                 # Enable editing mode
                 self._set_readonly_mode(readonly=False)
                 logger.info(
@@ -3429,52 +3236,36 @@ class SifarniciView(BaseTabView):
 
                 # Load data from selected row to form
                 jib_item = self.table.item(row, 0)
+                naziv_item = self.table.item(row, 1)
+                adresa_item = self.table.item(row, 2)
+                grad_item = self.table.item(row, 3)
+                drzava_item = self.table.item(row, 4)
+
+                if jib_item:
+                    self.jib_field.setText(jib_item.text())
+                if naziv_item:
+                    self.naziv_field.setText(naziv_item.text())
+                if adresa_item:
+                    self.adresa_field.setText(adresa_item.text())
+                if grad_item:
+                    self.grad_field.setText(grad_item.text())
+                if drzava_item:
+                    self.zemlja_field.setText(drzava_item.text())
+
+                # JIB (13 cifara) = "4" + PDV (12 cifara iz DB)
                 jib_val = jib_item.text() if jib_item else ""
-
-                # Sačuvaj stari jib za WHERE uslov u UPDATE
-                self._editing_jib = jib_val
-
-                # Dohvati kompletne podatke iz baze (izvoznici nema postanski_broj)
-                db_row = self.db_manager.execute_query(
-                    "SELECT jib, naziv, adresa, grad, drzava, "
-                    "telefon, email, kontakt, pdv_broj, maticni "
-                    "FROM catalogs.izvoznici WHERE jib = %s",
-                    (jib_val,),
-                )
-
-                if db_row:
-                    jib_db, naziv, adresa, grad, drzava, tel, email, kontakt, pdv_broj, maticni = db_row
-                    self.jib_field.setText(str(jib_db) if jib_db else "")
-                    self.naziv_field.setText(str(naziv) if naziv else "")
-                    self.adresa_field.setText(str(adresa) if adresa else "")
-                    self.grad_field.setText(str(grad) if grad else "")
-                    self.postanski_broj_field.setText("")  # ne postoji u izvoznici
-                    self.zemlja_field.setText(str(drzava) if drzava else "")
-                    self.telefon_field.setText(str(tel) if tel else "")
-                    self.email_field.setText(str(email) if email else "")
-                    self.kontakt_field.setText(str(kontakt) if kontakt else "")
-                    self.pdv_field.setText(str(pdv_broj) if pdv_broj else "")
-                    self.maticni_field.setText(str(maticni) if maticni else "")
-                else:
-                    # Fallback: popuni iz tabele
-                    self.jib_field.setText(jib_val)
-                    self.naziv_field.setText(self.table.item(row, 1).text() if self.table.item(row, 1) else "")
-                    self.adresa_field.setText(self.table.item(row, 2).text() if self.table.item(row, 2) else "")
-                    self.grad_field.setText(self.table.item(row, 3).text() if self.table.item(row, 3) else "")
-                    self.zemlja_field.setText(self.table.item(row, 4).text() if self.table.item(row, 4) else "")
-                    self.postanski_broj_field.setText("")
-                    self.pdv_field.setText("")
-                    self.telefon_field.setText("")
-                    self.email_field.setText("")
-                    self.kontakt_field.setText("")
-                    self.maticni_field.setText("")
+                self.pdv_field.setText("4" + jib_val if jib_val else "")
+                self.telefon_field.setText("")
+                self.email_field.setText("")
+                self.kontakt_field.setText("")
+                self.maticni_field.setText("")
 
                 self.current_row_index = row
                 self.btn_snimi.setEnabled(True)
                 self.is_editing = True
                 # Enable editing mode
                 self._set_readonly_mode(readonly=False)
-                logger.info(f"Pošiljalac {jib_val!r} uspješno učitan za uređivanje")
+                logger.info(f"Zapis {row} uspešno učitan za uređivanje")
             elif self.current_category == "Uvoznici":
                 if row is None:
                     current_row = self.table.currentRow()
@@ -3491,33 +3282,32 @@ class SifarniciView(BaseTabView):
                     return
                 jib = jib_item.text()
 
-                # Sačuvaj stari jib za WHERE uslov u UPDATE
-                self._editing_jib = jib
-
-                # Dohvati kompletne podatke iz baze
+                # Dohvati podatke iz baze (samo postojeće kolone)
                 db_row = self.db_manager.execute_query(
-                    "SELECT jib, naziv, adresa, grad, postanski_broj, drzava, "
-                    "telefon, email, kontakt, pdv_broj, maticni "
+                    "SELECT jib, naziv, adresa, grad, postanski_broj, drzava "
                     "FROM catalogs.uvoznici WHERE jib = %s",
                     (jib,),
                 )
 
                 if db_row:
-                    jib_db, naziv, adresa, grad, ptt, drzava, tel, email, kontakt, pdv_broj, maticni = db_row
-                    self.jib_field.setText(str(jib_db) if jib_db else "")
+                    jib_val, naziv, adresa, grad, ptt, drzava = db_row
+                    jib_str = str(jib_val) if jib_val else ""
+                    # DB čuva 12-cifreni PDV; JIB (13 cifara) = "4" + PDV
+                    self.jib_field.setText(jib_str)                     # PDV (12 cifara)
                     self.naziv_field.setText(str(naziv) if naziv else "")
                     self.adresa_field.setText(str(adresa) if adresa else "")
                     self.grad_field.setText(str(grad) if grad else "")
                     self.postanski_broj_field.setText(str(ptt) if ptt else "")
                     self.zemlja_field.setText(str(drzava) if drzava else "")
-                    self.telefon_field.setText(str(tel) if tel else "")
-                    self.email_field.setText(str(email) if email else "")
-                    self.kontakt_field.setText(str(kontakt) if kontakt else "")
-                    self.pdv_field.setText(str(pdv_broj) if pdv_broj else "")
-                    self.maticni_field.setText(str(maticni) if maticni else "")
+                    self.pdv_field.setText("4" + jib_str if jib_str else "")  # JIB (13 cifara)
+                    self.telefon_field.setText("")
+                    self.email_field.setText("")
+                    self.kontakt_field.setText("")
+                    self.maticni_field.setText("")
                 else:
-                    # Fallback: popuni iz tabele
-                    self.jib_field.setText(jib or "")
+                    # Fallback: popuni iz tabele (col 0 = PDV, 12 cifara)
+                    pdv_val = jib
+                    self.jib_field.setText(pdv_val or "")  # PDV (12 cifara)
                     for col, field in [
                         (1, self.naziv_field),
                         (2, self.adresa_field),
@@ -3527,7 +3317,9 @@ class SifarniciView(BaseTabView):
                         item = self.table.item(row, col)
                         if item:
                             field.setText(item.text())
-                    self.pdv_field.setText("")
+                    self.pdv_field.setText(
+                        "4" + pdv_val if pdv_val else ""
+                    )  # JIB (13 cifara)
 
                 self.current_row_index = row
                 self.btn_snimi.setEnabled(True)
@@ -3767,47 +3559,16 @@ class SifarniciView(BaseTabView):
                 if self.is_editing:
                     # Update existing record
                     if self.current_category == "Pošiljaoci":
-                        # Koristimo _editing_jib (stari JIB) za WHERE, ali ažuriramo i jib polje
-                        old_jib = self._editing_jib or form_data["jib"]
                         self.db_manager.execute_update(
                             """
                             UPDATE catalogs.izvoznici
-                            SET jib = %s, naziv = %s, adresa = %s, grad = %s,
-                                drzava = %s,
-                                telefon = %s, email = %s, kontakt = %s,
-                                pdv_broj = %s, maticni = %s
-                            WHERE jib = %s
-                        """,
-                            (
-                                form_data["jib"],
-                                form_data["naziv"],
-                                form_data["adresa"],
-                                form_data["grad"],
-                                form_data["zemlja"],
-                                form_data["telefon"],
-                                form_data["email"],
-                                form_data["kontakt"],
-                                form_data["pdv"],
-                                form_data["maticni"],
-                                old_jib,
-                            ),
-                        )
-                        self._editing_jib = ""
-                        # Reload data for Pošiljaoci
-                        self._load_posiljaoci_data()
-                    elif self.current_category == "Uvoznici":
-                        old_jib_uv = self._editing_jib or form_data["jib"]
-                        self.db_manager.execute_update(
-                            """
-                            UPDATE catalogs.uvoznici
-                            SET jib = %s, naziv = %s, adresa = %s, grad = %s,
+                            SET naziv = %s, adresa = %s, grad = %s,
                                 postanski_broj = %s, drzava = %s,
                                 telefon = %s, email = %s, kontakt = %s,
                                 pdv_broj = %s, maticni = %s
                             WHERE jib = %s
                         """,
                             (
-                                form_data["jib"],
                                 form_data["naziv"],
                                 form_data["adresa"],
                                 form_data["grad"],
@@ -3818,10 +3579,35 @@ class SifarniciView(BaseTabView):
                                 form_data["kontakt"],
                                 form_data["pdv"],
                                 form_data["maticni"],
-                                old_jib_uv,
+                                form_data["jib"],
                             ),
                         )
-                        self._editing_jib = ""
+                        # Reload data for Pošiljaoci
+                        self._load_posiljaoci_data()
+                    elif self.current_category == "Uvoznici":
+                        self.db_manager.execute_update(
+                            """
+                            UPDATE catalogs.uvoznici
+                            SET naziv = %s, adresa = %s, grad = %s,
+                                postanski_broj = %s, drzava = %s,
+                                telefon = %s, email = %s, kontakt = %s,
+                                pdv_broj = %s, maticni = %s
+                            WHERE jib = %s
+                        """,
+                            (
+                                form_data["naziv"],
+                                form_data["adresa"],
+                                form_data["grad"],
+                                form_data["postanski_broj"],
+                                form_data["zemlja"],
+                                form_data["telefon"],
+                                form_data["email"],
+                                form_data["kontakt"],
+                                form_data["pdv"],
+                                form_data["maticni"],
+                                form_data["jib"],
+                            ),
+                        )
                         # Reload data for Uvoznici
                         self._load_uvoznici_data()
                     elif self.current_category == "Carinske tarife":
@@ -3844,15 +3630,16 @@ class SifarniciView(BaseTabView):
                         self.db_manager.execute_update(
                             """
                             INSERT INTO catalogs.izvoznici
-                            (jib, naziv, adresa, grad, drzava,
+                            (jib, naziv, adresa, grad, postanski_broj, drzava,
                              telefon, email, kontakt, pdv_broj, maticni)
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         """,
                             (
                                 form_data["jib"],
                                 form_data["naziv"],
                                 form_data["adresa"],
                                 form_data["grad"],
+                                form_data["postanski_broj"],
                                 form_data["zemlja"],
                                 form_data["telefon"],
                                 form_data["email"],
@@ -4130,7 +3917,7 @@ if __name__ == "__main__":
     # Apply global style
     app.setStyle("Fusion")
 
-    tab = SifarniciView()
+    tab = SifarniciTab()
     window.setCentralWidget(tab)
 
     window.show()
