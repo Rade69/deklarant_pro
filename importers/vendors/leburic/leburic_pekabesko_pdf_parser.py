@@ -179,6 +179,7 @@ def detect_leburic_pekabesko_pdf(pdf_path: str) -> bool:
 
 # X-granice kolona (lijeva, desna)
 _COL_ITEM_CODE   = (38,  205)
+_COL_DESC        = (54,  202)  # naziv robe (između koda i barkoda)
 _COL_BARCODE     = (200, 262)
 _COL_TARIFF      = (260, 330)
 _COL_QTY         = (335, 390)
@@ -288,6 +289,9 @@ def parse_leburic_pekabesko_pdf(pdf_path: str) -> ImportResult:
         f"  Footer: bruto={bruto_kg:.3f}kg, neto={neto_kg:.3f}kg, zemlja={zemlja}"
     )
 
+    # ── 2b. EXCEL PODACI (nazivi + tarife, ako postoji u istom folderu) ──
+    excel_data = _load_excel_data(pdf_path, invoice_number)
+
     # ── 3. STAVKE: grupiši po y, čitaj kolone po x ─────────────────
     # Pronađi prvu y-poziciju stavke (prva pojava 5+ cifrenog item code-a)
     # i zadnju y-poziciju (footer počinje Paritet/Btol/Nto)
@@ -347,9 +351,9 @@ def parse_leburic_pekabesko_pdf(pdf_path: str) -> ImportResult:
 
         # Item code mora biti 5 cifara (Pekabesko format)
         item_code_str = " ".join(w["text"] for w in item_code_words).strip()
-        # Normalizuj OCR artefakte: "603:13" → "60313", "60/85" → "60485"
-        # Važno: "/" zamijeni s "4" PRIJE brisanja ostalih artefakata
-        item_code_clean = item_code_str.replace("/", "4")
+        # Normalizuj OCR artefakte: "603:13" → "60313", "60/85" → "60785"
+        # "/" je OCR za "7" (ne "4") u Pekabesko kodovima
+        item_code_clean = item_code_str.replace("/", "7")
         item_code_clean = re.sub(r"[:\\;]", "", item_code_clean)
 
         if not re.search(r"\d{5}", item_code_clean):
@@ -363,19 +367,23 @@ def parse_leburic_pekabesko_pdf(pdf_path: str) -> ImportResult:
             continue
         item_code = m_code.group(1)
 
-        # Barcode
-        barcode_raw = " ".join(w["text"] for w in barcode_words).strip()
-        barcode = _LEADING_TRASH.sub("", barcode_raw).strip()
-
-        # Tarifni broj
+        # Tarifni broj (OCR — može biti neprecizan)
         tariff_raw = " ".join(w["text"] for w in tariff_words).strip()
         # Filtriraj jedinice mjere (qr, gr, kgr...); tariff mora imati ukupno ≥4 cifre
-        # Koristimo ukupan broj cifara (ne nužno uzastopnih) jer OCR unosi artefakte
         tariff_parts = [
             t for t in tariff_raw.split()
             if len(re.findall(r"\d", t)) >= 4
         ]
         tariff = _clean_tariff(" ".join(tariff_parts)) if tariff_parts else ""
+
+        # Naziv robe i Excel override: Excel > PDF > prazan string
+        desc_words = [w for w in row_words if _in_col(w, _COL_DESC)]
+        pdf_naziv = _extract_desc(desc_words)
+        excel_entry = excel_data.get(item_code, {})
+        naziv = excel_entry.get("naziv") or pdf_naziv
+        # Tarifa iz Excel-a pouzdanija nego OCR (npr. "1601009100" vs "0601009100")
+        if excel_entry.get("tariff"):
+            tariff = excel_entry["tariff"]
 
         # Količina
         qty_raw = " ".join(w["text"] for w in qty_words).strip()
@@ -399,7 +407,7 @@ def parse_leburic_pekabesko_pdf(pdf_path: str) -> ImportResult:
         line = InvoiceLine(
             line_no=line_no,
             product_code=item_code,
-            naziv_robe=barcode,  # koristimo barcode kao placeholder naziv
+            naziv_robe=naziv,
             tarifni_broj=tariff,
             zemlja_porijekla=zemlja,
             povlastica="",
@@ -437,6 +445,96 @@ def _in_col(word: dict, col: tuple[int, int]) -> bool:
     """Provjeri je li word unutar x-granica kolone."""
     x = word["x0"]
     return col[0] <= x < col[1]
+
+
+def _extract_desc(desc_words: list[dict]) -> str:
+    """
+    Pokušaj izvući naziv robe iz zone opisa (x=54-202).
+
+    Filtrira OCR artefakte — prihvata samo riječi s bar 2 slova.
+    Ako nema ništa čitljivo, vrać prazan string.
+    """
+    words = [
+        w["text"] for w in desc_words
+        if len(re.sub(r"[^a-zA-ZšđčćžŠĐČĆŽäöüÄÖÜ]", "", w["text"])) >= 2
+    ]
+    return " ".join(words).strip()
+
+
+def _load_excel_data(pdf_path: str, pdf_invoice_number: str = "") -> dict[str, dict]:
+    """
+    Pokušaj pronaći Excel fajl u istom folderu i učitaj nazive + tarife po product_code.
+
+    Vraća dict {product_code: {"naziv": ..., "tariff": ...}}.
+    Ključ je i 6-cifreni (originalni) i 5-cifreni (bez prefixnog "1").
+
+    Matching logika:
+    - Ako je poznat PDF invoice broj (npr. "0504-3-20-00015"), traži Excel čiji stem
+      se nalazi u tom broju (npr. "20-00015" IN "0504-3-20-00015" → True)
+    - Ako PDF invoice nije poznat, provjeri da li Excel invoice ćelija sadrži xlsx stem
+    """
+    try:
+        import openpyxl
+        folder = Path(pdf_path).parent
+        pdf_inv_norm = pdf_invoice_number.lower().replace(" ", "")
+
+        # Sortiraj po dužini stem-a — duži match ima prednost
+        all_xlsx = sorted(folder.glob("*.xlsx"), key=lambda p: len(p.stem), reverse=True)
+
+        for xlsx in all_xlsx:
+            try:
+                xlsx_stem = xlsx.stem.lower()
+                wb = openpyxl.load_workbook(xlsx, data_only=True, read_only=True)
+                ws = wb.worksheets[0]
+                header = {
+                    str(ws.cell(1, c).value or "").strip().lower(): c
+                    for c in range(1, ws.max_column + 1)
+                    if ws.cell(1, c).value
+                }
+                col_item   = header.get("item", 0)
+                col_desc   = header.get("description", 0)
+                col_tariff = header.get("customid", 0)
+                if not col_item or not col_desc:
+                    wb.close()
+                    continue
+
+                # Čitaj podatke i provjeri match
+                data: dict[str, dict] = {}
+                invoice_match = False
+                for row in range(2, ws.max_row + 1):
+                    inv_cell = str(ws.cell(row, 1).value or "").strip().lower().replace(" ", "")
+                    code = str(ws.cell(row, col_item).value or "").strip()
+                    desc = str(ws.cell(row, col_desc).value or "").strip()
+                    desc = re.sub(r"_x000D_|\n|\r", " ", desc).strip()
+                    tariff_raw = str(ws.cell(row, col_tariff).value or "").strip() if col_tariff else ""
+                    tariff_clean = re.sub(r"[.\s]", "", tariff_raw)
+                    tariff_clean = re.sub(r"0+$", lambda m: m.group()[:max(0, len(m.group())-1)], tariff_clean) if tariff_clean.endswith("0" * 3) else tariff_clean
+
+                    if not invoice_match and xlsx_stem:
+                        if pdf_inv_norm and xlsx_stem in pdf_inv_norm:
+                            # PDF invoice broj sadrži xlsx stem (npr. "20-00015" u "0504-3-20-00015")
+                            invoice_match = True
+                        elif not pdf_inv_norm and inv_cell and xlsx_stem in inv_cell:
+                            # Fallback SAMO kada PDF invoice broj nije poznat:
+                            # Excel invoice ćelija sadrži xlsx stem
+                            invoice_match = True
+
+                    if code and desc:
+                        entry = {"naziv": desc, "tariff": tariff_clean}
+                        data[code] = entry
+                        if len(code) == 6 and code[0] == "1":
+                            data[code[1:]] = entry
+                wb.close()
+
+                # Koristi ovaj Excel ako postoji match ili ako je jedini u folderu
+                if data and (invoice_match or len(all_xlsx) == 1):
+                    logger.info(f"  📋 Excel podaci: {xlsx.name} ({len(data)//2} stavki, match={invoice_match})")
+                    return data
+            except Exception:
+                continue
+    except Exception as e:
+        logger.debug(f"Greška pri učitavanju Excel-a: {e}")
+    return {}
 
 
 def _parse_neto_kgr(raw: str) -> float:
