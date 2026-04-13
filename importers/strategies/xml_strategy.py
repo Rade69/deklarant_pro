@@ -112,17 +112,27 @@ class XMLImportStrategy(ImportStrategy):
             # Javi 50% progress prije parsiranja
             if progress_callback:
                 progress_callback(50)
-            
-            # Pozovi XML importer
+
+            # Pekabesko/Leburic faktura XML format (<Faktura>/<Stavke>)
+            from importers.vendors.leburic.leburic_pekabesko_xml_parser import (
+                detect_leburic_pekabesko_xml, parse_leburic_pekabesko_xml
+            )
+            if detect_leburic_pekabesko_xml(str(filepath)):
+                result = parse_leburic_pekabesko_xml(str(filepath))
+                if progress_callback:
+                    progress_callback(100)
+                return result
+
+            # Standardni ASYCUDA XML format
             data = self.importer.import_file(filepath)
-            
+
             # Javi 100% progress nakon parsiranja
             if progress_callback:
                 progress_callback(100)
-            
+
             # Konvertuj dictionary u ImportResult
             result = self._convert_to_import_result(data)
-            
+
             return result
             
         except FileNotSupportedError:
