@@ -1,6 +1,7 @@
 # gui/tabs/sifarnici_tab.py
 import logging
 import re
+import traceback
 
 # Čisti sufiks s tarifnim stopama iz opisa (npr. "kd 0 0 0 0 0 0 0 0")
 _TAIL_RATES_RE = re.compile(r'(?:\s+\w{1,3})?(?:\s+\d+){4,}\s*$')
@@ -125,6 +126,7 @@ class DatabaseManager:
             Exception: Ako konekcija ne uspe
         """
         try:
+            
             pool = cls.get_pool()
             if pool:
                 conn = pool.getconn()
@@ -135,6 +137,7 @@ class DatabaseManager:
             import psycopg2
             from psycopg2.extras import RealDictCursor
             s = get_db_settings()
+            
             conn = psycopg2.connect(
                 host=s.host, port=s.port, database=s.database,
                 user=s.user, password=s.password, cursor_factory=RealDictCursor
@@ -178,7 +181,9 @@ class DatabaseManager:
         """
         conn = None
         try:
+            
             conn = DatabaseManager.get_connection()
+            
             with conn.cursor() as cur:
                 cur.execute(query, params or ())
                 if fetch_all:
@@ -679,6 +684,16 @@ class SifarniciView(BaseTabView):
 
         return header
 
+    def set_title(self, title: str):
+        """Postavi naslov u header bar-u"""
+        try:
+            if hasattr(self, 'title_label') and self.title_label:
+                self.title_label.setText(title)
+            else:
+                logger.warning(f"⚠️ WARNING: title_label ne postoji ili nije inicijalizovan")
+        except Exception as e:
+            logger.error(f"Greška pri postavljanju naslova: {str(e)}")
+
     def _create_toolbar(self) -> QWidget:
         """CRUD toolbar sa shortcuts"""
         toolbar = QWidget()
@@ -743,8 +758,12 @@ class SifarniciView(BaseTabView):
             for field_name in field_names:
                 if hasattr(self, field_name):
                     field = getattr(self, field_name)
-                    if hasattr(field, "clear"):
-                        field.clear()
+                    try:
+                        if field and hasattr(field, "clear"):
+                            field.clear()
+                    except RuntimeError:
+                        # Widget je već obrisan, ignoriši
+                        pass
 
             logger.debug("Forma uspešno očišćena")
         except Exception as e:
@@ -935,6 +954,42 @@ class SifarniciView(BaseTabView):
         layout.addWidget(self.lbl_last_change)
 
         return status
+
+    def update_totals(self, total: int, displayed: int):
+        """Ažuriraj prikaz ukupnog broja zapisa"""
+        try:
+            if hasattr(self, 'lbl_totals') and self.lbl_totals:
+                # Pronađi trenutnu kategoriju za prikaz
+                category = self.current_category or "zapisa"
+                if category == "Pošiljaoci":
+                    category_text = "pošiljalaca"
+                elif category == "Uvoznici":
+                    category_text = "uvoznika"
+                elif category == "Carinske tarife":
+                    category_text = "tarifa"
+                elif category == "Deklaranti":
+                    category_text = "deklaranta"
+                elif category == "Carinarnice":
+                    category_text = "carinarnica"
+                elif category == "Carinski postupci":
+                    category_text = "postupaka"
+                elif category == "Zemlje":
+                    category_text = "zemalja"
+                else:
+                    category_text = "zapisa"
+                
+                self.lbl_totals.setText(f"Ukupno: {total} {category_text} | Prikazano: {displayed}")
+            else:
+                logger.warning(f"⚠️ WARNING: lbl_totals ne postoji ili nije inicijalizovan")
+        except Exception as e:
+            logger.error(f"Greška pri ažuriranju totals: {str(e)}")
+
+    def update_position(self, current: int, total: int):
+        """Ažuriraj prikaz trenutne pozicije (za pager)"""
+        try:
+            pass  # pager widget nije implementiran
+        except Exception as e:
+            logger.error(f"Greška pri ažuriranju pozicije: {str(e)}")
 
     def _restore_table_widget(self):
         """Restore QTableWidget when switching from Carinarnice (which uses QTreeWidget)"""
@@ -1372,9 +1427,14 @@ class SifarniciView(BaseTabView):
 
             # Kreiraj novi QTreeWidget
             self.tree_widget = QTreeWidget()
-            self.tree_widget.setHeaderLabels(
-                ["Šifra", "Naziv"]
-            )  # Uklonjena Akcije kolona
+            
+            try:
+                self.tree_widget.setHeaderLabels(
+                    ["Šifra", "Naziv"]
+                )  # Uklonjena Akcije kolona
+            except Exception as e:
+                logger.error(f"setHeaderLabels FAILED na QTreeWidget: {str(e)}")
+                raise
 
             # Stylesheet za povećan font (20pt) - mora biti PRIJE setFont!
             self.tree_widget.setStyleSheet(
@@ -1521,6 +1581,12 @@ class SifarniciView(BaseTabView):
         da ne ostanu podaci iz prethodne kategorije (to je izgledalo kao 'bug' u GUI).
         """
         try:
+            
+            if not hasattr(self, 'db_manager'):
+                logger.error("db_manager NE POSTOJI!")
+            if not hasattr(self, 'validator'):
+                logger.error("validator NE POSTOJI!")
+
             logger.info(f"Učitavanje podataka za kategoriju: {self.current_category}")
 
             if self.current_category == "Pošiljaoci":
@@ -1596,13 +1662,8 @@ class SifarniciView(BaseTabView):
                     "adresa",
                     "grad",
                     "drzava",
-                    "telefon",
-                    "email",
-                    "kontakt",
-                    "pdv_broj",
-                    "maticni",
                 ],
-                order_by="naziv",
+                order_by="CASE WHEN naziv = '' THEN 'zzzzzzzzzz' ELSE naziv END",
                 add_actions=False,
             )
 
@@ -1626,13 +1687,8 @@ class SifarniciView(BaseTabView):
                     "adresa",
                     "grad",
                     "drzava",
-                    "telefon",
-                    "email",
-                    "kontakt",
-                    "pdv_broj",
-                    "maticni",
                 ],
-                order_by="naziv",
+                order_by="CASE WHEN naziv = '' THEN 'zzzzzzzzzz' ELSE naziv END",
                 add_actions=False,
             )
 
@@ -1688,10 +1744,17 @@ class SifarniciView(BaseTabView):
         """
         try:
             logger.info(f"Učitavanje podataka iz {table_name}")
+            
+            # Proveri da li db_manager postoji
+            if not hasattr(self, 'db_manager') or self.db_manager is None:
+                logger.error("db_manager NE POSTOJI u _load_data_generic()!")
+                raise Exception("DatabaseManager nije inicijalizovan")
+
+            query = f"SELECT {', '.join(columns)} FROM {table_name} ORDER BY {order_by}"
 
             results = (
                 self.db_manager.execute_query(
-                    f"SELECT {', '.join(columns)} FROM {table_name} ORDER BY {order_by}",
+                    query,
                     fetch_all=True,
                 )
                 or []
@@ -2858,8 +2921,17 @@ class SifarniciView(BaseTabView):
     def _update_status(self):
         """Update status bar totals"""
         try:
-            total = self.table.rowCount()
-            visible = sum(1 for row in range(total) if not self.table.isRowHidden(row))
+            # Check if table is QTableWidget or QTreeWidget
+            if hasattr(self.table, "rowCount"):  # QTableWidget
+                total = self.table.rowCount()
+                visible = sum(1 for row in range(total) if not self.table.isRowHidden(row))
+            elif hasattr(self.table, "topLevelItemCount"):  # QTreeWidget (Carinarnice)
+                # For QTreeWidget, count all items (both parent and child)
+                total = self._get_tree_widget_count()
+                visible = total  # For now, assume all are visible
+            else:
+                total = 0
+                visible = 0
 
             category_plural = {
                 "Pošiljaoci": "pošiljalaca",
@@ -2986,7 +3058,7 @@ class SifarniciView(BaseTabView):
 
     def _get_tree_widget_count(self) -> int:
         """Count total items in tree widget (both parent and child nodes)"""
-        if not hasattr(self, "tree_widget") or self.table != self.tree_widget:
+        if not hasattr(self.table, "topLevelItemCount"):
             return 0
 
         total = 0
@@ -2998,8 +3070,8 @@ class SifarniciView(BaseTabView):
                 count += count_children(child)  # Recursively count children
             return count
 
-        for i in range(self.tree_widget.topLevelItemCount()):
-            top_item = self.tree_widget.topLevelItem(i)
+        for i in range(self.table.topLevelItemCount()):
+            top_item = self.table.topLevelItem(i)
             total += count_children(top_item)
 
         return total
