@@ -50,6 +50,9 @@ from gui.tabs.base_view import BaseTabView
 # Import database functions
 from services.sifarnici_service import SifarniciService
 
+# Izdvojene komponente
+from gui.tabs.sifarnici import PartnerFormStrip, populate_tariff_hierarchy, is_code_search
+
 logger = logging.getLogger(__name__)
 
 
@@ -948,150 +951,26 @@ class SifarniciView(BaseTabView):
         grid.setSpacing(15)
         grid.setContentsMargins(0, 15, 0, 0)
 
-    def _build_partner_form_strip(self) -> QWidget:
+    def _build_partner_form_strip(self) -> PartnerFormStrip:
         """
         Kreira kompaktni info-strip za pošiljaoca/uvoznika.
 
-        Layout:
-          ┌ Header ──────────────────────────────────────────┐
-          │  JIB: [_______]   Naziv: [_____________________] │
-          ├──────────────────────────────┬───────────────────┤
-          │  Adresa: [________________] │ Telefon: [_______] │
-          │  Grad:   [________] PTT:[__] │ Email:   [_______] │
-          │  Zemlja: [________________] │ PDV:     [_______] │
-          │                             │ Matični: [_______] │
-          │                             │ Kontakt: [_______] │
-          └─────────────────────────────┴───────────────────┘
+        Delegira na PartnerFormStrip klasu.
         """
-        _FIELD = (
-            "QLineEdit { background: white; border: 1px solid #c8cdd4; "
-            "border-radius: 3px; padding: 4px 7px; font-size: 12px; }"
-            "QLineEdit:focus { border: 1px solid #2196F3; }"
-            "QLineEdit:read-only { background: #f5f5f5; color: #555; }"
-        )
-        _LBL = "color: #4a5568; font-size: 12px; font-weight: bold;"
+        strip = PartnerFormStrip(self)
 
-        # Outer strip — bordered card (WA_StyledBackground omogućava rendering)
-        strip = QWidget()
-        strip.setObjectName("partner_strip")
-        strip.setAttribute(Qt.WA_StyledBackground, True)
-        strip.setStyleSheet(
-            "QWidget#partner_strip { border: 1px solid #c8cdd4; "
-            "border-radius: 4px; background: white; }"
-        )
-        outer = QVBoxLayout(strip)
-        outer.setSpacing(0)
-        outer.setContentsMargins(1, 1, 1, 1)  # prostor za border
-
-        # ── Header row: JIB + Naziv ──────────────────────────────────────
-        header = QWidget()
-        header.setObjectName("strip_header")
-        header.setStyleSheet(
-            "QWidget#strip_header { background: #eef2f7; "
-            "border-bottom: 1px solid #d0d5db; }"
-        )
-        h_layout = QHBoxLayout(header)
-        h_layout.setContentsMargins(14, 9, 14, 9)
-        h_layout.setSpacing(6)
-
-        lbl_jib = QLabel("PDV:")
-        lbl_jib.setStyleSheet(_LBL)
-        lbl_jib.setFixedWidth(32)
-        self.jib_field = QLineEdit()
-        self.jib_field.setFixedWidth(175)
-        self.jib_field.setStyleSheet(_FIELD)
-        self.jib_field.setPlaceholderText("JIB broj")
-
-        lbl_naziv = QLabel("Naziv:")
-        lbl_naziv.setStyleSheet(_LBL)
-        lbl_naziv.setFixedWidth(44)
-        self.naziv_field = QLineEdit()
-        self.naziv_field.setStyleSheet(_FIELD)
-        self.naziv_field.setPlaceholderText("Naziv firme")
-
-        h_layout.addWidget(lbl_jib)
-        h_layout.addWidget(self.jib_field)
-        h_layout.addSpacing(18)
-        h_layout.addWidget(lbl_naziv)
-        h_layout.addWidget(self.naziv_field, 1)
-        outer.addWidget(header)
-
-        # ── Body row: Adresa | separator | Kontakt ───────────────────────
-        body = QWidget()
-        body.setStyleSheet("background: white;")
-        b_layout = QHBoxLayout(body)
-        b_layout.setSpacing(0)
-        b_layout.setContentsMargins(0, 0, 0, 0)
-
-        # Left panel – Adresa
-        left = QWidget()
-        left.setStyleSheet("QLabel { color: #4a5568; font-size: 12px; }")
-        lf = QFormLayout(left)
-        lf.setContentsMargins(14, 10, 14, 10)
-        lf.setSpacing(9)
-        lf.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
-
-        self.adresa_field = QLineEdit()
-        self.adresa_field.setStyleSheet(_FIELD)
-
-        grad_row = QWidget()
-        gr_lay = QHBoxLayout(grad_row)
-        gr_lay.setContentsMargins(0, 0, 0, 0)
-        gr_lay.setSpacing(6)
-        self.grad_field = QLineEdit()
-        self.grad_field.setStyleSheet(_FIELD)
-        ptt_lbl = QLabel("PTT:")
-        ptt_lbl.setFixedWidth(30)
-        ptt_lbl.setStyleSheet("color: #666; font-size: 11px;")
-        self.postanski_broj_field = QLineEdit()
-        self.postanski_broj_field.setFixedWidth(68)
-        self.postanski_broj_field.setStyleSheet(_FIELD)
-        gr_lay.addWidget(self.grad_field, 2)
-        gr_lay.addWidget(ptt_lbl)
-        gr_lay.addWidget(self.postanski_broj_field)
-
-        self.zemlja_field = QLineEdit()
-        self.zemlja_field.setStyleSheet(_FIELD)
-
-        lf.addRow("Adresa:", self.adresa_field)
-        lf.addRow("Grad:", grad_row)
-        lf.addRow("Zemlja:", self.zemlja_field)
-
-        # Vertical separator
-        sep = QFrame()
-        sep.setFrameShape(QFrame.VLine)
-        sep.setFixedWidth(1)
-        sep.setStyleSheet("background: #d0d5db;")
-
-        # Right panel – Kontakt & Ostalo
-        right = QWidget()
-        right.setStyleSheet("QLabel { color: #4a5568; font-size: 12px; }")
-        rf = QFormLayout(right)
-        rf.setContentsMargins(14, 10, 14, 10)
-        rf.setSpacing(9)
-        rf.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
-
-        self.telefon_field = QLineEdit()
-        self.telefon_field.setStyleSheet(_FIELD)
-        self.email_field = QLineEdit()
-        self.email_field.setStyleSheet(_FIELD)
-        self.pdv_field = QLineEdit()
-        self.pdv_field.setStyleSheet(_FIELD)
-        self.maticni_field = QLineEdit()
-        self.maticni_field.setStyleSheet(_FIELD)
-        self.kontakt_field = QLineEdit()
-        self.kontakt_field.setStyleSheet(_FIELD)
-
-        rf.addRow("Telefon:", self.telefon_field)
-        rf.addRow("Email:", self.email_field)
-        rf.addRow("JIB:", self.pdv_field)
-        rf.addRow("Matični:", self.maticni_field)
-        rf.addRow("Kontakt:", self.kontakt_field)
-
-        b_layout.addWidget(left, 6)
-        b_layout.addWidget(sep)
-        b_layout.addWidget(right, 4)
-        outer.addWidget(body)
+        # Expose fields kao atributi za backward compatibility
+        self.jib_field = strip.jib_field
+        self.naziv_field = strip.naziv_field
+        self.adresa_field = strip.adresa_field
+        self.grad_field = strip.grad_field
+        self.postanski_broj_field = strip.postanski_broj_field
+        self.zemlja_field = strip.zemlja_field
+        self.telefon_field = strip.telefon_field
+        self.email_field = strip.email_field
+        self.pdv_field = strip.pdv_field
+        self.maticni_field = strip.maticni_field
+        self.kontakt_field = strip.kontakt_field
 
         return strip
 
@@ -1546,95 +1425,12 @@ class SifarniciView(BaseTabView):
                 return _TAIL_RATES_RE.sub('', str(v)).rstrip(' –-').strip()
 
             if is_code_search:
-                # Hijerarhijski drill-down iz SQLite tarifa_2026
-                import sqlite3 as _sqlite3
-                import os as _os
-                _DB = _os.path.normpath(_os.path.join(
-                    _os.path.dirname(__file__), '..', '..', 'database', 'asycuda_sistem.db'
-                ))
-
-                prefix = search_text.replace(' ', '').replace('.', '')
-
-                # Dohvati traženi čvor i SVE potomke koji počinju tim prefiksom
-                _conn = _sqlite3.connect(_DB)
-                _conn.row_factory = _sqlite3.Row
-
-                root_row = _conn.execute(
-                    "SELECT kod, naziv, stopa_uvozna, nivo FROM tarifa_2026 WHERE kod = ?",
-                    (prefix,)
-                ).fetchone()
-
-                # Svi potomci sortirani po kodu (max 300)
-                desc_rows = _conn.execute(
-                    "SELECT kod, naziv, stopa_uvozna, nivo FROM tarifa_2026 "
-                    "WHERE kod LIKE ? AND kod != ? ORDER BY kod LIMIT 300",
-                    (prefix + '%', prefix)
-                ).fetchall()
-                _conn.close()
-
-                # Nivo → oznaka i indentacija po dužini koda
-                _nivo_ikona = {
-                    'glava':      '📂',
-                    'podglava':   '📁',
-                    'tarifni_broj': '📋',
-                    'podbroj':    '📄',
-                }
-                # QtAwesome fallback za nivoe
-                _nivo_qta_icon = {
-                    'glava':        ('fa5s.folder', '#5a8060'),
-                    'podglava':     ('fa5s.folder-open', '#7a9a7a'),
-                    'tarifni_broj': ('fa5s.file-alt', '#333'),
-                    'podbroj':      ('fa5s.file', '#666'),
-                }
-                prefix_len = len(prefix)
-
-                def _indent(kod):
-                    extra = len(kod) - prefix_len
-                    # Svaka 2 cifre = jedan nivo dublje
-                    return '  ' * max(0, extra // 2)
-
-                rows_to_show = []
-                if root_row:
-                    rows_to_show.append((root_row['kod'], root_row['naziv'],
-                                         root_row['stopa_uvozna'], root_row['nivo'], True))
-                for r in desc_rows:
-                    rows_to_show.append((r['kod'], r['naziv'],
-                                         r['stopa_uvozna'], r['nivo'], False))
-
-                self.table.setRowCount(len(rows_to_show))
-                for i, (kod, naziv, stopa, nivo, is_root) in enumerate(rows_to_show):
-                    ikona = _nivo_ikona.get(nivo, '•')
-                    indent = '' if is_root else _indent(kod)
-                    stopa_str = ''
-                    if stopa:
-                        stopa_str = stopa if str(stopa).endswith('%') else str(stopa) + '%'
-
-                    # Pokušaj sa QtAwesome ikonicom, fallback na emoji
-                    if QTAWESOME_AVAILABLE and nivo in _nivo_qta_icon:
-                        icon_name, icon_color = _nivo_qta_icon[nivo]
-                        try:
-                            qta_icon = qta.icon(icon_name, color=icon_color, scale_factor=0.9)
-                            item_kod = QTableWidgetItem()
-                            item_kod.setIcon(qta_icon)
-                            item_kod.setText(indent + ' ' + kod)
-                        except Exception:
-                            item_kod = QTableWidgetItem(indent + ikona + ' ' + kod)
-                    else:
-                        item_kod = QTableWidgetItem(indent + ikona + ' ' + kod)
-
-                    item_naziv = QTableWidgetItem(naziv or '')
-                    if stopa_str:
-                        item_naziv.setToolTip(f"Stopa uvozna: {stopa_str}")
-
-                    if is_root:
-                        font = item_kod.font()
-                        font.setBold(True)
-                        item_kod.setFont(font)
-                        item_naziv.setFont(font)
-
-                    self.table.setItem(i, 0, item_kod)
-                    self.table.setItem(i, 1, item_naziv)
-                self.table.setColumnWidth(0, 200)
+                # Hijerarhijski prikaz iz SQLite — delegiraj na modul
+                populate_tariff_hierarchy(
+                    self.table,
+                    prefix=search_text.replace(' ', '').replace('.', ''),
+                    clean_opis_fn=_clean_tariff_opis,
+                )
             else:
                 # Obična pretraga — prikaži sve tarife iz PostgreSQL
                 results = self.service.load_trgovacki_nazivi_data()
@@ -2789,95 +2585,11 @@ class SifarniciView(BaseTabView):
 
             # Ako je pretraga brojčana, koristi hijerarhijski prikaz iz SQLite
             if is_code and len(clean_query) >= 2:
-                # Hijerarhijski drill-down iz SQLite tarifa_2026
-                import sqlite3 as _sqlite3
-                import os as _os
-                _DB = _os.path.normpath(_os.path.join(
-                    _os.path.dirname(__file__), '..', '..', 'database', 'asycuda_sistem.db'
-                ))
-
-                prefix = clean_query.replace(' ', '').replace('.', '')
-
-                # Dohvati traženi čvor i SVE potomke koji počinju tim prefiksom
-                _conn = _sqlite3.connect(_DB)
-                _conn.row_factory = _sqlite3.Row
-
-                root_row = _conn.execute(
-                    "SELECT kod, naziv, stopa_uvozna, nivo FROM tarifa_2026 WHERE kod = ?",
-                    (prefix,)
-                ).fetchone()
-
-                # Svi potomci sortirani po kodu (max 300)
-                desc_rows = _conn.execute(
-                    "SELECT kod, naziv, stopa_uvozna, nivo FROM tarifa_2026 "
-                    "WHERE kod LIKE ? AND kod != ? ORDER BY kod LIMIT 300",
-                    (prefix + '%', prefix)
-                ).fetchall()
-                _conn.close()
-
-                # Nivo → oznaka i indentacija po dužini koda
-                _nivo_ikona = {
-                    'glava':      '📂',
-                    'podglava':   '📁',
-                    'tarifni_broj': '📋',
-                    'podbroj':    '📄',
-                }
-                # QtAwesome fallback za nivoe
-                _nivo_qta_icon = {
-                    'glava':        ('fa5s.folder', '#5a8060'),
-                    'podglava':     ('fa5s.folder-open', '#7a9a7a'),
-                    'tarifni_broj': ('fa5s.file-alt', '#333'),
-                    'podbroj':      ('fa5s.file', '#666'),
-                }
-                prefix_len = len(prefix)
-
-                def _indent(kod):
-                    extra = len(kod) - prefix_len
-                    # Svaka 2 cifre = jedan nivo dublje
-                    return '  ' * max(0, extra // 2)
-
-                rows_to_show = []
-                if root_row:
-                    rows_to_show.append((root_row['kod'], root_row['naziv'],
-                                         root_row['stopa_uvozna'], root_row['nivo'], True))
-                for r in desc_rows:
-                    rows_to_show.append((r['kod'], r['naziv'],
-                                         r['stopa_uvozna'], r['nivo'], False))
-
-                self.table.setRowCount(len(rows_to_show))
-                for i, (kod, naziv, stopa, nivo, is_root) in enumerate(rows_to_show):
-                    ikona = _nivo_ikona.get(nivo, '•')
-                    indent = '' if is_root else _indent(kod)
-                    stopa_str = ''
-                    if stopa:
-                        stopa_str = stopa if str(stopa).endswith('%') else str(stopa) + '%'
-
-                    # Pokušaj sa QtAwesome ikonicom, fallback na emoji
-                    if QTAWESOME_AVAILABLE and nivo in _nivo_qta_icon:
-                        icon_name, icon_color = _nivo_qta_icon[nivo]
-                        try:
-                            qta_icon = qta.icon(icon_name, color=icon_color, scale_factor=0.9)
-                            item_kod = QTableWidgetItem()
-                            item_kod.setIcon(qta_icon)
-                            item_kod.setText(indent + ' ' + kod)
-                        except Exception:
-                            item_kod = QTableWidgetItem(indent + ikona + ' ' + kod)
-                    else:
-                        item_kod = QTableWidgetItem(indent + ikona + ' ' + kod)
-
-                    item_naziv = QTableWidgetItem(naziv or '')
-                    if stopa_str:
-                        item_naziv.setToolTip(f"Stopa uvozna: {stopa_str}")
-
-                    if is_root:
-                        font = item_kod.font()
-                        font.setBold(True)
-                        item_kod.setFont(font)
-                        item_naziv.setFont(font)
-
-                    self.table.setItem(i, 0, item_kod)
-                    self.table.setItem(i, 1, item_naziv)
-                self.table.setColumnWidth(0, 200)
+                populate_tariff_hierarchy(
+                    self.table,
+                    prefix=clean_query,
+                    clean_opis_fn=_clean,
+                )
             else:
                 # Za tekstualnu pretragu ili kratke brojeve (<2 cifre), koristi običnu pretragu
                 if is_code and len(clean_query) < 2:
