@@ -49,13 +49,6 @@ from gui.tabs.base_view import BaseTabView
 
 # Import database functions
 from services.sifarnici_service import SifarniciService
-from database.db import (
-    get_izvoznik_by_jib,
-    search_izvoznike,
-    get_partner_by_jib,
-    search_partnere,
-    get_connection_pool,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -85,156 +78,6 @@ class ValidationRule:
     is_required: bool = True
     min_length: int = 0
     max_length: int = 255
-
-
-class DatabaseManager:
-    """Centralizovani menadžer za database konekcije sa connection pooling-om
-
-    Obezbeđuje:
-    - Connection pooling za efikasno korišćenje konekcija
-    - Transaction management
-    - Error handling
-    - Logging
-    """
-
-    # Class-level connection pool
-    _connection_pool = None
-
-    @classmethod
-    def get_pool(cls):
-        """Kreira i vraća connection pool (lazy initialization)
-
-        Returns:
-            psycopg2.pool.SimpleConnectionPool or None
-        """
-        if cls._connection_pool is None:
-            try:
-                cls._connection_pool = get_connection_pool()
-                logger.info("Connection pool uspešno kreiran")
-            except Exception as e:
-                logger.error(f"Greška pri kreiranju connection pool-a: {str(e)}")
-                raise
-        return cls._connection_pool
-
-    @classmethod
-    def get_connection(cls):
-        """Kreira i vraća database konekciju iz pool-a
-
-        Returns:
-            psycopg2 connection object
-
-        Raises:
-            Exception: Ako konekcija ne uspe
-        """
-        try:
-            
-            pool = cls.get_pool()
-            if pool:
-                conn = pool.getconn()
-                logger.debug("Database konekcija dobijena iz pool-a")
-                return conn
-            # Fallback ako pool nije kreiran — direktna konekcija (bez pooling-a)
-            from config.settings import get_db_settings
-            import psycopg2
-            from psycopg2.extras import RealDictCursor
-            s = get_db_settings()
-            
-            conn = psycopg2.connect(
-                host=s.host, port=s.port, database=s.database,
-                user=s.user, password=s.password, cursor_factory=RealDictCursor
-            )
-            logger.debug("Database konekcija uspostavljena (fallback direktna)")
-            return conn
-        except Exception as e:
-            logger.error(f"Greška pri dobijanju database konekcije: {str(e)}")
-            raise Exception(f"Neuspešna database konekcija: {str(e)}")
-
-    @classmethod
-    def return_connection(cls, conn):
-        """Vraća konekciju nazad u pool
-
-        Args:
-            conn: psycopg2 connection object za vraćanje
-        """
-        try:
-            if cls._connection_pool:
-                cls._connection_pool.putconn(conn)
-                logger.debug("Database konekcija vraćena u pool")
-            else:
-                conn.close()
-                logger.debug("Database konekcija zatvorena (nema pool-a)")
-        except Exception as e:
-            logger.error(f"Greška pri vraćanju konekcije: {str(e)}")
-
-    @staticmethod
-    def execute_query(
-        query: str, params: Optional[Tuple] = None, fetch_all: bool = False
-    ) -> Union[List[Tuple], Tuple, None]:
-        """Izvršava SQL SELECT query i vraća rezultate
-
-        Args:
-            query: SQL query string
-            params: Parametri za query (opciono)
-            fetch_all: Ako je True vraća sve redove, inače samo prvi
-
-        Returns:
-            Query rezultati kao TUPLE (indeks pristup)
-        """
-        conn = None
-        try:
-            
-            conn = DatabaseManager.get_connection()
-            
-            with conn.cursor() as cur:
-                cur.execute(query, params or ())
-                if fetch_all:
-                    result = cur.fetchall()
-                    # Convert dict rows to tuples for backward compatibility
-                    if result and isinstance(result[0], dict):
-                        result = [tuple(row.values()) for row in result]
-                    logger.debug(f"Query vraća {len(result)} redova")
-                    return result
-                result = cur.fetchone()
-                # Convert dict row to tuple for backward compatibility
-                if result and isinstance(result, dict):
-                    result = tuple(result.values())
-                logger.debug("Query vraća jedan red")
-                return result
-        except Exception as e:
-            logger.error(f"Database query error: {str(e)}")
-            raise Exception(f"Database query error: {str(e)}")
-        finally:
-            if conn:
-                DatabaseManager.return_connection(conn)
-
-    @staticmethod
-    def execute_update(query: str, params: Optional[Tuple] = None) -> bool:
-        """Izvršava UPDATE/INSERT/DELETE operacije
-
-        Args:
-            query: SQL query string
-            params: Parametri za query (opciono)
-
-        Returns:
-            True ako operacija uspe
-
-        Raises:
-            Exception: Ako update ne uspe
-        """
-        conn = None
-        try:
-            conn = DatabaseManager.get_connection()
-            with conn.cursor() as cur:
-                cur.execute(query, params or ())
-                conn.commit()
-                logger.info("Database update uspešan")
-                return True
-        except Exception as e:
-            logger.error(f"Database update error: {str(e)}")
-            raise Exception(f"Database update error: {str(e)}")
-        finally:
-            if conn:
-                DatabaseManager.return_connection(conn)
 
 
 class FormValidator:
@@ -433,7 +276,6 @@ class SifarniciView(BaseTabView):
         self.current_category = None
         self.is_editing = False
         self.current_row_index = -1
-        self.db_manager = DatabaseManager()
         self.validator = FormValidator()
         self.ui_helper = UIHelper()
         self.service = SifarniciService()
@@ -1756,91 +1598,6 @@ class SifarniciView(BaseTabView):
             self._update_pager()
         except Exception:
             pass
-
-    def _load_data_generic(
-        self,
-        table_name: str,
-        columns: List[str],
-        order_by: str = "naziv",
-        format_fn: Optional[Callable[[str], str]] = None,
-        max_rows: int = 5000,
-        add_actions: bool = True,
-    ):
-        """Generičko učitavanje podataka za sve kategorije
-
-        Args:
-            table_name: Ime tabele u bazi
-            columns: Lista kolona za SELECT
-            order_by: Redosled sortiranja
-            format_fn: Optional funkcija za formatiranje vrednosti
-            max_rows: Maksimalni broj redova za učitavanje
-            add_actions: Da li da doda kolonu za akcije (default True)
-        """
-        try:
-            logger.info(f"Učitavanje podataka iz {table_name}")
-            
-            # Proveri da li db_manager postoji
-            if not hasattr(self, 'db_manager') or self.db_manager is None:
-                logger.error("db_manager NE POSTOJI u _load_data_generic()!")
-                raise Exception("DatabaseManager nije inicijalizovan")
-
-            query = f"SELECT {', '.join(columns)} FROM {table_name} ORDER BY {order_by}"
-
-            results = (
-                self.db_manager.execute_query(
-                    query,
-                    fetch_all=True,
-                )
-                or []
-            )
-
-            logger.info(f"Pronađeno {len(results)} zapisa za učitavanje")
-
-            # Performance: disable sorting/updates while filling
-            self.table.setSortingEnabled(False)
-            self.table.setUpdatesEnabled(False)
-
-            # Limit the number of rows to prevent freezing for large datasets
-            actual_rows = min(len(results), max_rows)
-            self.table.setRowCount(actual_rows)
-
-            # Process all rows efficiently
-            for row in range(actual_rows):
-                row_data = results[row]
-                for col, value in enumerate(row_data):
-                    formatted_value = format_fn(value) if format_fn else value
-                    self.table.setItem(
-                        row, col, QTableWidgetItem(str(formatted_value or ""))
-                    )
-
-                # Add action buttons (using text instead of widgets to avoid freezing)
-                if add_actions and len(columns) < self.table.columnCount():
-                    item_actions = QTableWidgetItem("✏️  🗑️")
-                    item_actions.setTextAlignment(Qt.AlignCenter)
-                    item_actions.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
-                    self.table.setItem(row, len(columns), item_actions)
-
-            self.table.setUpdatesEnabled(True)
-            self.table.setSortingEnabled(True)
-
-            # Final refresh
-            self.table.viewport().update()
-            QApplication.processEvents()
-
-            logger.info(f"Uspešno učitano {actual_rows} od {len(results)} zapisa")
-
-            try:
-                self._update_status()
-            except Exception:
-                pass
-            try:
-                self._update_pager()
-            except Exception:
-                pass
-
-        except Exception as e:
-            logger.error(f"Greška pri učitavanju podataka: {str(e)}")
-            raise
 
     def _load_carinarnice_data(self):
         """Load Carinarnice data using Service layer (hierarchical view)."""
