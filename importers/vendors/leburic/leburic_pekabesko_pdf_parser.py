@@ -56,12 +56,16 @@ _TARIFF_OCR = str.maketrans({
 # Zamjene za numeričke vrijednosti (cijene, mase)
 _NUM_OCR = str.maketrans({
     "I": "1", "l": "1", "i": "1",
+    "r": "1",              # OCR česta greška: 'r' za '1' u brojevima
+    "/": "7",              # OCR česta greška: '/' za '7' (npr. '5/15' → '5715')
     "O": "0", "o": "0",
-    "S": "5", "Z": "2",
+    "S": "5", "s": "5", "Z": "2",
     "t": "", "f": "", "C": "", "c": "",
     "!": "", "(": "", ")": "",
     "{": "", "}": "", "[": "", "]": "",
     ":": "", ";": "", "?": "",
+    "'": "", "\u2019": "", "\u2018": "",  # OCR quote artefakti
+    "-": "",               # crtice kao artefakti (ne decimalni separator)
 })
 
 
@@ -76,10 +80,14 @@ def _clean_tariff(raw: str) -> str:
     s = re.sub(r"[^\d]", "", s)
     if not s:
         return ""
-    # Pad na 8 ili 10 cifara ako su izgubljene vodeće nule
+    # Pad na 8 ili 10 cifara ako su izgubljene vodeće cifre
     n = len(s)
     if n == 9:
-        s = s.zfill(10)
+        if s.startswith("6"):
+            # OCR ispustio vodeću '1': '601009100' → '1601009100' (meso = poglavlje 16)
+            s = "1" + s
+        else:
+            s = s.zfill(10)
     elif n == 7:
         s = s.zfill(8)
     return s
@@ -101,6 +109,8 @@ def _clean_number(raw: str) -> Optional[float]:
     s = raw.strip()
     # Primijeni OCR zamjene
     s = s.translate(_NUM_OCR)
+    # Ukloni interne razmake (OCR split broja: "1 504" → "1504")
+    s = s.replace(" ", "")
     # Ukloni leading/trailing smeće
     s = _LEADING_TRASH.sub("", s)
     s = _TRAILING_TRASH.sub("", s)
@@ -177,14 +187,17 @@ def detect_leburic_pekabesko_pdf(pdf_path: str) -> bool:
 # Glavni parser
 # ──────────────────────────────────────────────────────────────────
 
-# X-granice kolona (lijeva, desna)
+# X-granice kolona (lijeva, desna) — izmjereno iz pdfplumber.extract_words()
+# Redoslijed kolona u fakturi: No | Item | Description | BarCode | Tarif | JM | Packets | Neto(kgr) | Qty in Unit | Price/Unit | Total EUR
 _COL_ITEM_CODE   = (38,  205)
 _COL_DESC        = (54,  202)  # naziv robe (između koda i barkoda)
 _COL_BARCODE     = (200, 262)
 _COL_TARIFF      = (260, 330)
-_COL_QTY         = (335, 390)
-_COL_NETO_KGR    = (385, 430)
-_COL_TOTAL_EUR   = (523, 580)
+_COL_PACKETS     = (335, 390)  # broj paketa (Packets) — NE koristi se za kolicina
+_COL_NETO_KGR    = (385, 440)  # neto težina stavke u kgr
+_COL_QTY_UNIT    = (440, 496)  # količina u jedinici mjere (Qty in Unit of measure)
+_COL_PRICE       = (496, 534)  # cijena po jedinici mjere (Price per Unit)
+_COL_TOTAL_EUR   = (534, 592)  # ukupni iznos u EUR (Total in EUR)
 
 # Y-raspon za header (invoice broj, datum)
 _HEADER_Y_MAX    = 230
@@ -345,8 +358,9 @@ def parse_leburic_pekabesko_pdf(pdf_path: str) -> ImportResult:
         item_code_words  = [w for w in row_words if _in_col(w, _COL_ITEM_CODE)]
         barcode_words    = [w for w in row_words if _in_col(w, _COL_BARCODE)]
         tariff_words     = [w for w in row_words if _in_col(w, _COL_TARIFF)]
-        qty_words        = [w for w in row_words if _in_col(w, _COL_QTY)]
         neto_words       = [w for w in row_words if _in_col(w, _COL_NETO_KGR)]
+        qty_unit_words   = [w for w in row_words if _in_col(w, _COL_QTY_UNIT)]
+        price_words      = [w for w in row_words if _in_col(w, _COL_PRICE)]
         total_eur_words  = [w for w in row_words if _in_col(w, _COL_TOTAL_EUR)]
 
         # Item code mora biti 5 cifara (Pekabesko format)
@@ -385,23 +399,26 @@ def parse_leburic_pekabesko_pdf(pdf_path: str) -> ImportResult:
         if excel_entry.get("tariff"):
             tariff = excel_entry["tariff"]
 
-        # Količina
-        qty_raw = " ".join(w["text"] for w in qty_words).strip()
-        qty = _clean_number(qty_raw) or 0.0
-
-        # Neto kg (spoji sve u koloni, uzmi ukupnu vrijednost)
+        # Neto kg
         neto_raw = " ".join(w["text"] for w in neto_words).strip()
         neto_item = _parse_neto_kgr(neto_raw)
 
+        # Količina u jedinici mjere (Qty in Unit of measure)
+        qty_raw = " ".join(w["text"] for w in qty_unit_words).strip()
+        qty = _parse_qty(qty_raw)
+
+        # Cijena po jedinici mjere
+        price_raw = " ".join(w["text"] for w in price_words).strip()
+        cijena = _parse_price(price_raw)
+
         # EUR iznos
         total_raw = " ".join(w["text"] for w in total_eur_words).strip()
-        # Spoj split vrijednosti (npr. "53" + "532,066")
         total_eur = _parse_joined_value(total_raw)
 
         line_no += 1
         logger.debug(
             f"  Stavka {line_no}: code={item_code}, tariff={tariff}, "
-            f"qty={qty:.1f}, neto={neto_item:.3f}kg, EUR={total_eur:.2f}"
+            f"qty={qty:.3f}, cijena={cijena:.3f}, neto={neto_item:.3f}kg, EUR={total_eur:.3f}"
         )
 
         line = InvoiceLine(
@@ -413,7 +430,7 @@ def parse_leburic_pekabesko_pdf(pdf_path: str) -> ImportResult:
             povlastica="",
             jm="kg",
             kolicina=qty,
-            cijena_jed=0.0,       # teško pouzdano iz OCR-a
+            cijena_jed=cijena,
             iznos=total_eur,
             valuta="EUR",
             bruto_kg=0.0,         # ukupni bruto je u ImportResult
@@ -508,7 +525,10 @@ def _load_excel_data(pdf_path: str, pdf_invoice_number: str = "") -> dict[str, d
                     desc = re.sub(r"_x000D_|\n|\r", " ", desc).strip()
                     tariff_raw = str(ws.cell(row, col_tariff).value or "").strip() if col_tariff else ""
                     tariff_clean = re.sub(r"[.\s]", "", tariff_raw)
-                    tariff_clean = re.sub(r"0+$", lambda m: m.group()[:max(0, len(m.group())-1)], tariff_clean) if tariff_clean.endswith("0" * 3) else tariff_clean
+                    # Excel float-repr: '1602411000.0' → '16024110000' (11 cifara) → skrati na 10
+                    # NE uklanjati nule iz 10-cifrenih kodova (1602411000 je validan!)
+                    if len(tariff_clean) == 11 and tariff_clean[-1] == "0":
+                        tariff_clean = tariff_clean[:10]
 
                     if not invoice_match and xlsx_stem:
                         if pdf_inv_norm and xlsx_stem in pdf_inv_norm:
@@ -535,6 +555,114 @@ def _load_excel_data(pdf_path: str, pdf_invoice_number: str = "") -> dict[str, d
     except Exception as e:
         logger.debug(f"Greška pri učitavanju Excel-a: {e}")
     return {}
+
+
+def _parse_qty(raw: str) -> float:
+    """
+    Parsira količinu u JM iz OCR-a.
+
+    Pekabesko qty vrijednosti: 336.00, 1504.00, 3376.00, 544.75, itd.
+    OCR problemi:
+      - '33760(' → '33760' (5 cifara bez decimalnog zareza) → ÷10 = 3376.0
+      - '3360C'  → '3360'  (4 cifre, OCR gubi zarez iz '336,00') → ÷10 = 336.0
+      - '544 7'  → split → '544.7' (drugi dio = decimale)
+      - '3s8400' → '358400' (6 cifara) → ÷100 = 3584.0
+    """
+    s = raw.strip()
+    if not s:
+        return 0.0
+
+    s_tr = s.translate(_NUM_OCR)
+    s_clean = _LEADING_TRASH.sub("", s_tr)
+    s_clean = _TRAILING_TRASH.sub("", s_clean)
+    if not s_clean:
+        return 0.0
+
+    # Slučaj: dva tokena razdvojena razmakom (OCR razbio broj na dva dijela)
+    parts = s_clean.split()
+    if len(parts) == 2:
+        p1, p2 = parts[0], parts[1]
+        p2_digits = re.sub(r"[^\d]", "", p2)
+        if p2_digits and len(p2_digits) <= 3 and "." not in p1 and "," not in p1:
+            # Kraći drugi dio = decimale: "544 75" → "544.75"
+            p1_norm = re.sub(r"[^\d.,]", "", p1).replace(",", ".")
+            try:
+                return float(f"{p1_norm}.{p2_digits}")
+            except ValueError:
+                pass
+        else:
+            # Duži drugi dio: spoji kao jedan broj i primijeni implicitne decimale
+            joined = re.sub(r"[^\d]", "", "".join(parts))
+            if joined:
+                return _apply_qty_decimal(joined)
+
+    # Jedan token: ima li decimalni separator?
+    s_single = s_clean.replace(",", ".")
+    if "." in s_single:
+        try:
+            return float(s_single)
+        except ValueError:
+            pass
+
+    digits = re.sub(r"[^\d]", "", s_clean)
+    return _apply_qty_decimal(digits)
+
+
+def _apply_qty_decimal(digits: str) -> float:
+    """
+    Implicitne decimale za qty kolonu (Pekabesko fakture uvijek imaju 2 decimale).
+    OCR briše zarez pa '3376,00' → '337600' ili '33760'.
+    Pravilo: uvijek ÷10 za 4-5 cifara, ÷100 za 6 cifara.
+    """
+    if not digits:
+        return 0.0
+    try:
+        val = float(digits)
+    except ValueError:
+        return 0.0
+    n = len(digits)
+    if n <= 5:
+        return val / 10   # '3360' → 336.0,  '33760' → 3376.0
+    if n == 6:
+        return val / 100  # '358400' → 3584.0
+    return val / 1000
+
+
+def _parse_price(raw: str) -> float:
+    """
+    Parsira cijenu po jedinici mjere iz OCR-a.
+
+    Pekabesko cijene imaju uvijek 3 decimale: 3,800 / 6,453 / 0,970
+    OCR problemi:
+      - '2,841'  → direktno ✓
+      - '3 80('  → split na zarezu → digits '380' (3 cifre) → ÷100 = 3.80
+      - '6453'   → 4 cifre → ÷1000 = 6.453
+      - '0,97('  → zarez → '0.97' ✓
+    """
+    s = raw.strip().translate(_NUM_OCR).replace(" ", "")
+    s = _LEADING_TRASH.sub("", s)
+    s = _TRAILING_TRASH.sub("", s)
+    if not s:
+        return 0.0
+
+    # Ima li decimalni separator?
+    if "," in s or "." in s:
+        try:
+            return float(s.replace(",", "."))
+        except ValueError:
+            pass
+
+    # Integer bez separatora — OCR je izbrisao zarez
+    digits = re.sub(r"[^\d]", "", s)
+    if not digits:
+        return 0.0
+    n = len(digits)
+    val = float(digits)
+    if n == 2: return val / 10    # '38' → 3.8 (rijedak slučaj)
+    if n == 3: return val / 100   # '380' → 3.80
+    if n == 4: return val / 1000  # '6453' → 6.453
+    if n == 5: return val / 1000  # '03648' → 3.648
+    return val
 
 
 def _parse_neto_kgr(raw: str) -> float:
