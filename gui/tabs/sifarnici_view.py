@@ -1574,10 +1574,17 @@ class SifarniciView(BaseTabView):
 
                 # Nivo → oznaka i indentacija po dužini koda
                 _nivo_ikona = {
-                    'glava': '📂',
-                    'podglava': '📁',
+                    'glava':      '📂',
+                    'podglava':   '📁',
                     'tarifni_broj': '📋',
-                    'podbroj': '📄',
+                    'podbroj':    '📄',
+                }
+                # QtAwesome fallback za nivoe
+                _nivo_qta_icon = {
+                    'glava':        ('fa5s.folder', '#5a8060'),
+                    'podglava':     ('fa5s.folder-open', '#7a9a7a'),
+                    'tarifni_broj': ('fa5s.file-alt', '#333'),
+                    'podbroj':      ('fa5s.file', '#666'),
                 }
                 prefix_len = len(prefix)
 
@@ -1602,7 +1609,19 @@ class SifarniciView(BaseTabView):
                     if stopa:
                         stopa_str = stopa if str(stopa).endswith('%') else str(stopa) + '%'
 
-                    item_kod = QTableWidgetItem(indent + ikona + ' ' + kod)
+                    # Pokušaj sa QtAwesome ikonicom, fallback na emoji
+                    if QTAWESOME_AVAILABLE and nivo in _nivo_qta_icon:
+                        icon_name, icon_color = _nivo_qta_icon[nivo]
+                        try:
+                            qta_icon = qta.icon(icon_name, color=icon_color, scale_factor=0.9)
+                            item_kod = QTableWidgetItem()
+                            item_kod.setIcon(qta_icon)
+                            item_kod.setText(indent + ' ' + kod)
+                        except Exception:
+                            item_kod = QTableWidgetItem(indent + ikona + ' ' + kod)
+                    else:
+                        item_kod = QTableWidgetItem(indent + ikona + ' ' + kod)
+
                     item_naziv = QTableWidgetItem(naziv or '')
                     if stopa_str:
                         item_naziv.setToolTip(f"Stopa uvozna: {stopa_str}")
@@ -2798,10 +2817,17 @@ class SifarniciView(BaseTabView):
 
                 # Nivo → oznaka i indentacija po dužini koda
                 _nivo_ikona = {
-                    'glava': '📂',
-                    'podglava': '📁',
+                    'glava':      '📂',
+                    'podglava':   '📁',
                     'tarifni_broj': '📋',
-                    'podbroj': '📄',
+                    'podbroj':    '📄',
+                }
+                # QtAwesome fallback za nivoe
+                _nivo_qta_icon = {
+                    'glava':        ('fa5s.folder', '#5a8060'),
+                    'podglava':     ('fa5s.folder-open', '#7a9a7a'),
+                    'tarifni_broj': ('fa5s.file-alt', '#333'),
+                    'podbroj':      ('fa5s.file', '#666'),
                 }
                 prefix_len = len(prefix)
 
@@ -2826,7 +2852,19 @@ class SifarniciView(BaseTabView):
                     if stopa:
                         stopa_str = stopa if str(stopa).endswith('%') else str(stopa) + '%'
 
-                    item_kod = QTableWidgetItem(indent + ikona + ' ' + kod)
+                    # Pokušaj sa QtAwesome ikonicom, fallback na emoji
+                    if QTAWESOME_AVAILABLE and nivo in _nivo_qta_icon:
+                        icon_name, icon_color = _nivo_qta_icon[nivo]
+                        try:
+                            qta_icon = qta.icon(icon_name, color=icon_color, scale_factor=0.9)
+                            item_kod = QTableWidgetItem()
+                            item_kod.setIcon(qta_icon)
+                            item_kod.setText(indent + ' ' + kod)
+                        except Exception:
+                            item_kod = QTableWidgetItem(indent + ikona + ' ' + kod)
+                    else:
+                        item_kod = QTableWidgetItem(indent + ikona + ' ' + kod)
+
                     item_naziv = QTableWidgetItem(naziv or '')
                     if stopa_str:
                         item_naziv.setToolTip(f"Stopa uvozna: {stopa_str}")
