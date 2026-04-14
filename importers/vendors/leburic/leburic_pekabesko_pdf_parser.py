@@ -82,6 +82,10 @@ def _clean_tariff(raw: str) -> str:
         return ""
     # Pad na 8 ili 10 cifara ako su izgubljene vodeće cifre
     n = len(s)
+    # Obreži na 10 cifara ako je OCR spojio dva broja (npr. "1601009100602491300" → 18 cifara)
+    if n > 10:
+        s = s[:10]
+        n = 10
     if n == 9:
         if s.startswith("6"):
             # OCR ispustio vodeću '1': '601009100' → '1601009100' (meso = poglavlje 16)
@@ -187,17 +191,18 @@ def detect_leburic_pekabesko_pdf(pdf_path: str) -> bool:
 # Glavni parser
 # ──────────────────────────────────────────────────────────────────
 
-# X-granice kolona (lijeva, desna) — izmjereno iz pdfplumber.extract_words()
-# Redoslijed kolona u fakturi: No | Item | Description | BarCode | Tarif | JM | Packets | Neto(kgr) | Qty in Unit | Price/Unit | Total EUR
-_COL_ITEM_CODE   = (38,  205)
+# X-granice kolona (lijeva, desna) — podešeno da radi i za jednostraničnu i višestraničnu
+# varijantu fakture (koordinate se neznatno razlikuju između PDF-ova, ~5px pomak)
+# Redoslijed kolona: No | Item | Description | BarCode | Tarif | JM | Packets | Neto(kgr) | Qty in Unit | Price/Unit | Total EUR
+_COL_ITEM_CODE   = (22,  205)  # prošireno na x=22 za višestranične (row_no+item_code na x24)
 _COL_DESC        = (54,  202)  # naziv robe (između koda i barkoda)
 _COL_BARCODE     = (200, 262)
 _COL_TARIFF      = (260, 330)
-_COL_PACKETS     = (335, 390)  # broj paketa (Packets) — NE koristi se za kolicina
-_COL_NETO_KGR    = (385, 440)  # neto težina stavke u kgr
-_COL_QTY_UNIT    = (440, 496)  # količina u jedinici mjere (Qty in Unit of measure)
-_COL_PRICE       = (496, 534)  # cijena po jedinici mjere (Price per Unit)
-_COL_TOTAL_EUR   = (534, 592)  # ukupni iznos u EUR (Total in EUR)
+_COL_PACKETS     = (332, 390)  # broj paketa (Packets) — NE koristi se za kolicina
+_COL_NETO_KGR    = (382, 436)  # neto težina stavke u kgr (x387-410 u različitim fakturama)
+_COL_QTY_UNIT    = (436, 492)  # količina u jedinici mjere (x436-460)
+_COL_PRICE       = (490, 533)  # cijena po jedinici mjere (x492-505)
+_COL_TOTAL_EUR   = (533, 598)  # ukupni iznos u EUR (x534-557)
 
 # Y-raspon za header (invoice broj, datum)
 _HEADER_Y_MAX    = 230
@@ -251,8 +256,15 @@ def parse_leburic_pekabesko_pdf(pdf_path: str) -> ImportResult:
     all_words: list[dict] = []
 
     with pdfplumber.open(pdf_path) as pdf:
-        for page in pdf.pages:
+        for page_no, page in enumerate(pdf.pages):
             words = page.extract_words(x_tolerance=3, y_tolerance=3)
+            # Dodaj y-offset da sprijecimo preklapanje koordinata izmedju stranica
+            # Stranica 2 ima iste y-koordinate kao stranica 1 (npr. y=200 na obe)
+            # Offset 2000px po stranici garantuje da se opsezi ne preklapaju
+            offset = page_no * 2000
+            for w in words:
+                w["top"] += offset
+                w["bottom"] += offset
             all_words.extend(words)
 
     # ── 1. HEADER: invoice broj, datum ──────────────────────────────
@@ -314,11 +326,11 @@ def parse_leburic_pekabesko_pdf(pdf_path: str) -> ImportResult:
     for w in all_words:
         # Za detekciju prve stavke: normalizuj OCR artefakte u kodu
         clean_code = re.sub(r"[^0-9]", "", w["text"])
-        if re.match(r"^\d{5,6}$", clean_code) and _in_col(w, _COL_ITEM_CODE):
+        if re.match(r"^\d{5,8}$", clean_code) and _in_col(w, _COL_ITEM_CODE):
             if first_data_y is None:
                 first_data_y = w["top"]
         if re.match(r"paritet|btol|btoi|nto[il]|poreklo", w["text"], re.IGNORECASE):
-            if last_data_y is None or w["top"] < last_data_y:
+            if last_data_y is None or w["top"] > last_data_y:  # zadnji footer (max y)
                 last_data_y = w["top"]
 
     if first_data_y is None:
@@ -336,15 +348,17 @@ def parse_leburic_pekabesko_pdf(pdf_path: str) -> ImportResult:
     ]
     data_words.sort(key=lambda w: (w["top"], w["x0"]))
 
-    # Grupiši adaptivno: nova grupa ako je y razlika od centra grupe > 10px
+    # Grupiši po y-koordinati: nova grupa ako je y razlika od PRVE riječi u grupi > 8px
+    # Koristimo prvu riječ (anchor) a ne pomični prosjek — adaptive centar drifta i
+    # može spojiti fragmente susjednih redova (OCR baseline razlike do ±6px unutar reda)
     row_groups: list[list[dict]] = []
     for w in data_words:
         if not row_groups:
             row_groups.append([w])
             continue
         current = row_groups[-1]
-        row_center_y = sum(x["top"] for x in current) / len(current)
-        if abs(w["top"] - row_center_y) <= 10:
+        anchor_y = current[0]["top"]  # prva y kao anchor — ne drifta
+        if abs(w["top"] - anchor_y) <= 10:
             current.append(w)
         else:
             row_groups.append([w])
@@ -370,16 +384,21 @@ def parse_leburic_pekabesko_pdf(pdf_path: str) -> ImportResult:
         item_code_clean = item_code_str.replace("/", "7")
         item_code_clean = re.sub(r"[:\\;]", "", item_code_clean)
 
-        if not re.search(r"\d{5}", item_code_clean):
+        # Šifra mora imati bar 5 cifara i ne smije počinjati s 0
+        if not re.search(r"[1-9]\d{4}", item_code_clean):
             continue
 
         # Pekabesko kodovi počinju sa "6" → prednostna pretraga
-        m_code = re.search(r"(6\d{4})", item_code_clean)
+        # Na stranici 2 OCR spaja redni broj + šifru: "10160835" = red 10 + šifra 60835
+        m_code = re.search(r"(6\d{4,5})", item_code_clean)
         if not m_code:
-            m_code = re.search(r"(\d{5,6})", item_code_clean)
+            m_code = re.search(r"([1-9]\d{4,5})", item_code_clean)
         if not m_code:
             continue
         item_code = m_code.group(1)
+        # Obreži na max 6 cifara (OCR može spojiti redni broj ispred)
+        if len(item_code) > 6:
+            item_code = item_code[-6:]
 
         # Tarifni broj (OCR — može biti neprecizan)
         tariff_raw = " ".join(w["text"] for w in tariff_words).strip()
@@ -414,6 +433,11 @@ def parse_leburic_pekabesko_pdf(pdf_path: str) -> ImportResult:
         # EUR iznos
         total_raw = " ".join(w["text"] for w in total_eur_words).strip()
         total_eur = _parse_joined_value(total_raw)
+
+        # Preskoči potpuno prazne redove — OCR artefakti iz footer zone
+        if not tariff and qty == 0.0 and neto_item == 0.0 and total_eur == 0.0:
+            logger.debug(f"  Skip prazni red: code={item_code} (sve 0, bez tarife)")
+            continue
 
         line_no += 1
         logger.debug(
@@ -682,6 +706,7 @@ def _parse_neto_kgr(raw: str) -> float:
 
     # Primijeni OCR zamjene
     s = s.translate(_NUM_OCR)
+    s = s.replace(" ", "")  # OCR razdvoji znakove: '7 3 8 , 2 6 0' → '738,260'
     s = _LEADING_TRASH.sub("", s)
     s = _TRAILING_TRASH.sub("", s)
     if not s:
