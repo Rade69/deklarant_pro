@@ -114,8 +114,10 @@ class SifarniciController:
         self.is_editing: bool = False
         self.current_row_index: int = -1
 
-        # Connect signals
-        self._connect_signals()
+        # NOTE: _connect_signals je namjerno prazan u ovoj fazi refaktorisanja.
+        # View (SifarniciView) samostalno upravlja svim event-ima.
+        # Controller će se aktivirati u Fazi 5 kada se uspostavi pravilna MVC komunikacija.
+        # self._connect_signals()  # DISABLED — uzrokuje dupli event handling + QTreeWidget conflict
 
     def _connect_signals(self):
         """Povezivanje View signala sa handler metodama."""

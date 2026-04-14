@@ -20,13 +20,18 @@ from importers.exceptions import ImportError as ImportException
 
 logger = logging.getLogger("asycuda_pro.import")
 
-# Poznati vendor formati koji se NE tretiraju kao packing lista
+# SECTION: known_vendor_formats
+# PURPOSE: Guard set koji sprječava da se PDF poznatog vendora tretira kao packing lista
+# DOC: docs/sections/known_vendor_formats.md
 _KNOWN_VENDOR_FORMATS = {
     "invoice_improved", "blagic_loren", "blagic_attos",
     "imamoglu", "master_frigo", "medicopharm", "leburic_pekabesko"
 }
 
 
+# SECTION: invoice_number_similarity
+# PURPOSE: Fuzzy matching imena fajlova za automatsko sparivanje Excel+PDF parova
+# DOC: docs/sections/invoice_number_similarity.md
 def _similar_invoice_number(name1: str, name2: str) -> bool:
     """
     Provjera da li dva imena fajlova imaju sličan broj fakture.
@@ -85,6 +90,9 @@ class ImportService:
         self.last_import_type = None
         self.logger.info("🗑️ Import memory cleared")
 
+    # SECTION: import_pipeline
+    # PURPOSE: Glavni orchestrator - 4-koračni pipeline sa auto-kombinovanjem parova
+    # DOC: docs/sections/import_pipeline.md
     def import_file(
         self,
         filepath: str | Path,
@@ -144,6 +152,9 @@ class ImportService:
             self.logger.exception(f"❌ Neočekivana greška tokom importa")
             raise ImportException(f"Import failed: {e}") from e
 
+    # SECTION: packing_list_gate
+    # PURPOSE: Kapija koja odlučuje da li je PDF packing lista PRIJE slanja u registry
+    # DOC: docs/sections/packing_list_gate.md
     def _try_import_as_packing_list(self, filepath: Path) -> Optional[ImportResult]:
         """
         Pokušaj import kao packing lista (samo za PDF koji nisu poznati vendor format).
@@ -175,6 +186,9 @@ class ImportService:
             self.logger.warning(f"Packing list detekcija nije uspjela: {e}")
             return None
 
+    # SECTION: import_state_machine
+    # PURPOSE: Detektuje tip upravo uvezenog fajla i pamti ga za buduće kombinovanje
+    # DOC: docs/sections/import_state_machine.md
     def _save_import_state(self, filepath: Path, result) -> None:
         """Detektuj tip importa i sačuvaj stanje za sljedeći import."""
         ext = filepath.suffix.lower()
@@ -217,6 +231,9 @@ class ImportService:
         else:
             self.last_import_type = "other"
 
+    # SECTION: combine_pairs
+    # PURPOSE: 4-case state machine za sparivanje konsekutivnih importa u jedan rezultat
+    # DOC: docs/sections/combine_pairs.md
     def _try_combine_with_previous(
         self, filepath: Path
     ) -> Optional[Union[List[InvoiceLine], ImportResult]]:

@@ -18,6 +18,9 @@ from importers.generic_pdf_importer import parse_generic_pdf
 logger = logging.getLogger("asycuda_pro.import.smart_pdf")
 
 
+# SECTION: pdf_parse_pipeline
+# PURPOSE: 5-koračni pipeline sa fallback lancem: specijalizirani → generic → OCR
+# DOC: docs/sections/pdf_parse_pipeline.md
 def parse_smart_pdf(pdf_path: str) -> ImportResult:
     """
     Pametno parsira bilo koji PDF - automatski detektuje format i koristi
@@ -135,6 +138,9 @@ def parse_smart_pdf(pdf_path: str) -> ImportResult:
     return result
 
 
+# SECTION: pdf_format_detection
+# PURPOSE: Analizira tekst PDF-a i vraća string-key formata; redoslijed provjera je bitan
+# DOC: docs/sections/pdf_format_detection.md
 def _detect_pdf_format(pdf_path: str) -> str:
     """
     Detektuje format PDF-a analizirajući tekst.
@@ -247,6 +253,9 @@ def _parse_imamoglu(pdf_path: str) -> ImportResult:
     return parse_imamoglu_pdf(pdf_path)
 
 
+# SECTION: master_frigo_mapping
+# PURPOSE: Pronalazi Excel fajl sa tarifama/zemljama koji vrijedi za sve Master Frigo fakture
+# DOC: docs/sections/master_frigo_mapping.md
 def _find_master_frigo_mapping_xlsx(pdf_path: str) -> str | None:
     """
     Traži Excel fajl sa tarifama/zemljama u istom folderu kao PDF.
