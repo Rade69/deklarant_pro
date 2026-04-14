@@ -115,3 +115,5 @@ docs/Carinski dokumenti/
 data/knowledge_base/NOVA ASIKUDA/
 tests.7z
 .aider*
+*.csv
+database/*.csv
