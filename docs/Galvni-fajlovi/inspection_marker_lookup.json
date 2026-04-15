@@ -1,0 +1,18 @@
+[
+  {
+    "marker": "+",
+    "meaning": "standard positive marking in specific inspection column"
+  },
+  {
+    "marker": "+**",
+    "meaning": "special sanitary marking for products intended for general use"
+  },
+  {
+    "marker": "+²",
+    "meaning": "quality control / market inspection marker tied to liquid fuels regime"
+  },
+  {
+    "marker": "+*",
+    "meaning": "Agencija za lijekove i medicinska sredstva BiH"
+  }
+]

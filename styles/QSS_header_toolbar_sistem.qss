@@ -263,6 +263,8 @@ QLineEdit {
     border-radius: 5px;
     padding: 6px;
     color: #1F2937;
+    selection-background-color: #DBEAFE;
+    selection-color: #1E40AF;
 }
 
 QLineEdit:focus {
@@ -293,6 +295,8 @@ QTextEdit {
     border-radius: 5px;
     padding: 6px;
     color: #1F2937;
+    selection-background-color: #DBEAFE;
+    selection-color: #1E40AF;
 }
 
 QTextEdit:focus {

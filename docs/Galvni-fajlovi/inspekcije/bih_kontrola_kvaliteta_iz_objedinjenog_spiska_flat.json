@@ -1,0 +1,12 @@
+[
+  {
+    "chapter": "27",
+    "tariff_code": "2710",
+    "tariff_label": "Kompletan tarifni broj",
+    "inspection_regime": "kontrola_kvaliteta",
+    "marker": "+²",
+    "inspection_authority": "tržna inspekcija",
+    "scope_note": "Odnosi se samo na robu koja podliježe Odluci o kontroli kvaliteta tečnih naftnih goriva.",
+    "source_page": 12
+  }
+]

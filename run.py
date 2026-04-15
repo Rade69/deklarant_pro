@@ -48,6 +48,17 @@ def main():
     app.setApplicationName("ASYCUDA Pro")
     app.setOrganizationName("Carina")
 
+    # Globalna paleta: selekcija teksta čitljiva na svim widgetima
+    # (QPalette Highlight/HighlightedText važi i za widgete sa inline setStyleSheet())
+    from PySide6.QtGui import QPalette, QColor
+    palette = app.palette()
+    palette.setColor(QPalette.Highlight, QColor("#DBEAFE"))          # Svijetlo plava pozadina
+    palette.setColor(QPalette.HighlightedText, QColor("#1E3A8A"))    # Tamno plavi tekst
+    # Inactive selection (kad prozor nema fokus) — isti stil
+    palette.setColor(QPalette.Inactive, QPalette.Highlight, QColor("#DBEAFE"))
+    palette.setColor(QPalette.Inactive, QPalette.HighlightedText, QColor("#1E3A8A"))
+    app.setPalette(palette)
+
     try:
         window = MainWindow()
         window.show()
