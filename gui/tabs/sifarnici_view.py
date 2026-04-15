@@ -176,15 +176,16 @@ class SifarniciView(BaseTabView):
 
         # Kategorije sa Font Awesome 5 Solid ikonicama
         categories = [
-            ("fa5s.list-alt",    "Carinske tarife",   "Carinske tarife"),
-            ("fa5s.paper-plane", "Pošiljaoci",         "Pošiljaoci"),
-            ("fa5s.truck",       "Uvoznici",           "Uvoznici"),
-            ("fa5s.id-card",     "Deklaranti",         "Deklaranti"),
-            ("fa5s.landmark",    "Carinarnice",        "Carinarnice"),
-            ("fa5s.cogs",        "Carinski postupci",  "Carinski postupci"),
-            ("fa5s.globe",       "Zemlje",             "Zemlje"),
+            ("fa5s.list-alt",      "Carinske tarife",      "Carinske tarife"),
+            ("fa5s.paper-plane",   "Pošiljaoci",            "Pošiljaoci"),
+            ("fa5s.truck",         "Uvoznici",              "Uvoznici"),
+            ("fa5s.id-card",       "Deklaranti",            "Deklaranti"),
+            ("fa5s.landmark",      "Carinarnice",           "Carinarnice"),
+            ("fa5s.cogs",          "Carinski postupci",     "Carinski postupci"),
+            ("fa5s.globe",         "Zemlje",                "Zemlje"),
+            ("fa5s.clipboard-check", "Inspekcijska pravila", "Inspekcijska pravila"),
         ]
-        fallback_emojis = ["📦", "📤", "📥", "💼", "🏛", "⚙️", "🌐"]
+        fallback_emojis = ["📦", "📤", "📥", "💼", "🏛", "⚙️", "🌐", "🔬"]
 
         for i, (icon_name, display, data) in enumerate(categories):
             if QTAWESOME_AVAILABLE:
@@ -243,6 +244,11 @@ class SifarniciView(BaseTabView):
             # Search panel
             self.search_panel = self._create_search_panel()
             content_layout.addWidget(self.search_panel)
+
+            # Filter panel za Inspekcijska pravila (hidden by default)
+            self.inspection_filter_panel = self._create_inspection_filter_panel()
+            self.inspection_filter_panel.setVisible(False)
+            content_layout.addWidget(self.inspection_filter_panel)
 
             # Tabela BEZ scroll area
             self.table = QTableWidget()
@@ -718,6 +724,17 @@ class SifarniciView(BaseTabView):
             # (in case we came from Carinarnice which uses QTreeWidget)
             self._restore_table_widget()
 
+            # Reset table settings koje može postaviti neka kategorija (npr. Inspekcijska pravila)
+            if hasattr(self, 'table') and hasattr(self.table, 'setWordWrap'):
+                self.table.setWordWrap(False)
+                vh = self.table.verticalHeader()
+                vh.setDefaultSectionSize(50)          # Resetuj visinu PRIJE zaključavanja
+                vh.setSectionResizeMode(QHeaderView.Fixed)
+
+            # Sakrij inspection filter panel — prikazuje se samo za Inspekcijska pravila
+            if hasattr(self, 'inspection_filter_panel'):
+                self.inspection_filter_panel.setVisible(category == "Inspekcijska pravila")
+
             # Setup per category
             setup_methods = {
                 "Pošiljaoci": self._setup_posiljaoci,
@@ -726,7 +743,12 @@ class SifarniciView(BaseTabView):
                 "Deklaranti": self._setup_deklaranti,
                 "Carinarnice": self._setup_carinarnice,
                 "Carinski postupci": self._setup_carinski_postupci,
+                "Inspekcijska pravila": self._setup_inspekcijska_pravila,
             }
+
+            # Reset skrivenih kolona pri svakoj promjeni kategorije
+            for col in range(self.table.columnCount()):
+                self.table.setColumnHidden(col, False)
 
             if category in setup_methods:
                 setup_methods[category]()
@@ -810,15 +832,16 @@ class SifarniciView(BaseTabView):
                 if layout:
                     layout.replaceWidget(self.tree_widget, self.table)
 
-            # Table columns (BEZ ACTION kolone)
+            # Table columns — JIB je u koloni 0 ali skrivena (koristi se za delete/edit)
+            # Pošiljaoci su strani partneri — nemaju BiH JIB, prikazujemo samo poslovne podatke
             self.table.setColumnCount(5)
             self.table.setHorizontalHeaderLabels(
                 ["JIB", "Naziv", "Adresa", "Grad", "Zemlja"]
             )
-            self.table.setColumnWidth(0, 180)  # JIB - prošireno
-            self.table.setColumnWidth(1, 250)  # Naziv
-            self.table.setColumnWidth(2, 350)  # Adresa - prošireno za pune adrese
-            self.table.setColumnWidth(3, 200)  # Grad - prošireno za pune nazive
+            self.table.setColumnHidden(0, True)
+            self.table.setColumnWidth(1, 280)  # Naziv
+            self.table.setColumnWidth(2, 370)  # Adresa
+            self.table.setColumnWidth(3, 200)  # Grad
             self.table.setColumnWidth(4, 100)  # Zemlja
 
             logger.debug(f"Tabela podešena sa {self.table.columnCount()} kolona")
@@ -1140,6 +1163,8 @@ class SifarniciView(BaseTabView):
                 self._load_carinski_postupci_data()
             elif self.current_category == "Zemlje":
                 self._load_zemlje_data()
+            elif self.current_category == "Inspekcijska pravila":
+                self._load_inspekcijska_pravila_data()
             else:
                 self._load_not_implemented(str(self.current_category))
 
@@ -1239,6 +1264,10 @@ class SifarniciView(BaseTabView):
                 return _TAIL_RATES_RE.sub('', str(v)).rstrip(' –-').strip()
 
             if is_code_search:
+                # Guard: populate_tariff_hierarchy zahtijeva QTableWidget
+                if not hasattr(self.table, 'setRowCount'):
+                    logger.warning("_load_trgovacki_nazivi_data: self.table je QTreeWidget — restauriram")
+                    self._restore_table_widget()
                 # Hijerarhijski prikaz iz SQLite — delegiraj na modul
                 populate_tariff_hierarchy(
                     self.table,
@@ -1275,6 +1304,11 @@ class SifarniciView(BaseTabView):
             format_fn: Optional funkcija za formatiranje vrednosti
             max_rows: Maksimalni broj redova
         """
+        # Guard: ako je self.table slučajno ostao QTreeWidget (od Carinarnice), restauriraj
+        if not hasattr(self.table, 'setRowCount'):
+            logger.warning("_populate_table_from_service: self.table je QTreeWidget — restauriram QTableWidget")
+            self._restore_table_widget()
+
         self.table.setSortingEnabled(False)
         self.table.setUpdatesEnabled(False)
 
@@ -1500,6 +1534,376 @@ class SifarniciView(BaseTabView):
         except Exception as e:
             logger.error(f"Greška pri učitavanju carinskih postupaka: {str(e)}")
             raise
+
+    # ============================================================
+    # INSPEKCIJSKA PRAVILA — novi panel
+    # ============================================================
+
+    # Kratke oznake po tipu inspekcije
+    _INSP_LABELS = {
+        "sanitary":        ("SAN", "#c8e6c9"),
+        "veterinary":      ("VET", "#fff9c4"),
+        "phytosanitary":   ("FIT", "#a5d6a7"),
+        "quality_control": ("UVK", "#bbdefb"),
+        "medicines_agency": ("AGL", "#e1bee7"),
+    }
+
+    def _create_inspection_filter_panel(self) -> QWidget:
+        """Kreira filter traku za Inspekcijska pravila (hidden by default)."""
+        panel = QWidget()
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(0, 4, 0, 4)
+        layout.setSpacing(6)
+
+        # --- Red 1: tip inspekcije ---
+        type_row = QHBoxLayout()
+        type_row.setSpacing(6)
+        type_label = QLabel("Tip:")
+        type_label.setStyleSheet("font-weight: bold; font-size: 12pt;")
+        type_row.addWidget(type_label)
+
+        self._insp_type_filters: dict[str, QPushButton] = {}
+        type_defs = [
+            ("sve",              "Sve",  "#5a8060", "white"),
+            ("sanitary",         "SAN",  "#2e7d32", "white"),
+            ("veterinary",       "VET",  "#f57f17", "white"),
+            ("phytosanitary",    "FIT",  "#1b5e20", "white"),
+            ("quality_control",  "UVK",  "#0d47a1", "white"),
+            ("medicines_agency", "AGL",  "#6a1b9a", "white"),
+        ]
+        for key, label, bg, fg in type_defs:
+            btn = QPushButton(label)
+            btn.setCheckable(True)
+            btn.setChecked(key == "sve")
+            btn.setFixedHeight(28)
+            btn.setStyleSheet(
+                f"QPushButton {{ background: {bg}; color: {fg}; border-radius: 4px;"
+                f" padding: 4px 12px; font-weight: bold; font-size: 11pt; }}"
+                f"QPushButton:!checked {{ background: #e0e0e0; color: #555; }}"
+            )
+            btn.clicked.connect(lambda checked, k=key: self._on_insp_type_filter(k))
+            self._insp_type_filters[key] = btn
+            type_row.addWidget(btn)
+        type_row.addStretch()
+
+        # --- Red 2: status ---
+        status_row = QHBoxLayout()
+        status_row.setSpacing(6)
+        status_label = QLabel("Status:")
+        status_label.setStyleSheet("font-weight: bold; font-size: 12pt;")
+        status_row.addWidget(status_label)
+
+        self._insp_status_filter: dict[str, QPushButton] = {}
+        status_defs = [
+            ("sve",          "Sve"),
+            ("auto",         "Automatski"),
+            ("conditional",  "Uslovno"),
+            ("manual",       "Ručni pregled"),
+        ]
+        for key, label in status_defs:
+            btn = QPushButton(label)
+            btn.setCheckable(True)
+            btn.setChecked(key == "sve")
+            btn.setFixedHeight(28)
+            btn.setStyleSheet(
+                "QPushButton { background: #5a8060; color: white; border-radius: 4px;"
+                " padding: 4px 12px; font-size: 11pt; }"
+                "QPushButton:!checked { background: #e0e0e0; color: #555; }"
+            )
+            btn.clicked.connect(lambda checked, k=key: self._on_insp_status_filter(k))
+            self._insp_status_filter[key] = btn
+            status_row.addWidget(btn)
+        status_row.addStretch()
+
+        layout.addLayout(type_row)
+        layout.addLayout(status_row)
+
+        # Interno stanje filtera
+        self._active_insp_type = "sve"
+        self._active_insp_status = "sve"
+
+        return panel
+
+    def _on_insp_type_filter(self, key: str):
+        """Tip-filter kliknut."""
+        self._active_insp_type = key
+        for k, btn in self._insp_type_filters.items():
+            btn.setChecked(k == key)
+        self._load_inspekcijska_pravila_data()
+
+    def _on_insp_status_filter(self, key: str):
+        """Status-filter kliknut."""
+        self._active_insp_status = key
+        for k, btn in self._insp_status_filter.items():
+            btn.setChecked(k == key)
+        self._load_inspekcijska_pravila_data()
+
+    def _setup_inspekcijska_pravila(self):
+        """Setup tabele za Inspekcijska pravila (read-only)."""
+        try:
+            self._restore_table_widget()
+
+            self.table.setColumnCount(5)
+            self.table.setHorizontalHeaderLabels(
+                ["Tarifni kod", "Opis robe", "Inspekcije", "Status", "Napomena"]
+            )
+            self.table.setEditTriggers(QTableWidget.NoEditTriggers)
+            self.table.setSelectionBehavior(QTableWidget.SelectRows)
+            self.table.setWordWrap(True)
+
+            header = self.table.horizontalHeader()
+            if header:
+                header.setSectionResizeMode(0, QHeaderView.ResizeToContents)  # Tarifni kod
+                header.setSectionResizeMode(1, QHeaderView.Stretch)            # Opis robe
+                header.setSectionResizeMode(2, QHeaderView.ResizeToContents)   # Inspekcije
+                header.setSectionResizeMode(3, QHeaderView.ResizeToContents)   # Status
+                header.setSectionResizeMode(4, QHeaderView.Stretch)            # Napomena
+            # Vertikalni header ostaje Fixed — ResizeToContents je presporo za >1000 redova
+
+            # CRUD dugmad — ne primjenjuju se ovdje
+            self.btn_novi.setEnabled(False)
+            self.btn_uredi.setEnabled(False)
+            self.btn_obrisi.setEnabled(False)
+            # Detalji se prikazuju kroz postojeći _on_row_selected handler
+
+        except Exception as e:
+            logger.error(f"Greška pri podešavanju Inspekcijska pravila: {e}")
+            raise
+
+    def _load_inspekcijska_pravila_data(self):
+        """Učitaj inspekcijska pravila iz PostgreSQL (catalogs.inspection_rules)."""
+        from collections import defaultdict
+
+        search_text = self.search_input.text().strip() if hasattr(self, 'search_input') else ''
+        insp_type = self._active_insp_type if self._active_insp_type != "sve" else ""
+
+        try:
+            all_rows = self.service.load_inspection_rules(
+                search=search_text,
+                insp_type=insp_type,
+                only_active=True,
+                limit=2000,
+            )
+
+            # Status filter (radimo u Pythonu jer servis nema taj parametar)
+            status = self._active_insp_status
+            if status == "auto":
+                all_rows = [
+                    r for r in all_rows
+                    if r["can_auto_decide"] and not r["condition_text"]
+                ]
+            elif status == "conditional":
+                all_rows = [r for r in all_rows if r["condition_text"]]
+            elif status == "manual":
+                all_rows = [
+                    r for r in all_rows
+                    if not r["can_auto_decide"] and not r["condition_text"]
+                ]
+
+            # Grupisanje po tariff_code_norm (jedan red po tarifnom kodu)
+            groups: dict = defaultdict(list)
+            for r in all_rows:
+                groups[r["tariff_code_norm"]].append(r)
+
+            sorted_norms = sorted(groups.keys())
+
+            self.table.setSortingEnabled(False)
+            self.table.setUpdatesEnabled(False)
+            self.table.setRowCount(len(sorted_norms))
+
+            for i, norm in enumerate(sorted_norms):
+                rule_list = groups[norm]
+                first = rule_list[0]
+
+                # Tarifni kod (prikazujemo čisti kod bez markera)
+                self.table.setItem(i, 0, QTableWidgetItem(first["tariff_code"] or norm))
+
+                # Opis robe
+                desc = first["description"] or ""
+                self.table.setItem(i, 1, QTableWidgetItem(desc))
+
+                # Inspekcije (kratke oznake)
+                type_order = ["sanitary", "veterinary", "phytosanitary", "quality_control", "medicines_agency"]
+                types_in_group = {r["inspection_type"] for r in rule_list}
+                labels = [
+                    self._INSP_LABELS.get(t, (t.upper(), "#eee"))[0]
+                    for t in type_order if t in types_in_group
+                ]
+                self.table.setItem(i, 2, QTableWidgetItem(", ".join(labels)))
+
+                # Status (najrestriktivniji od svih pravila za taj kod)
+                has_condition = any(r["condition_text"] for r in rule_list)
+                all_auto = all(r["can_auto_decide"] for r in rule_list)
+                if has_condition:
+                    status_txt = "uslovno"
+                elif all_auto:
+                    status_txt = "automatski"
+                else:
+                    status_txt = "ručni pregled"
+                self.table.setItem(i, 3, QTableWidgetItem(status_txt))
+
+                # Napomena — svi condition_text-ovi, bez duplikata
+                conds = list(dict.fromkeys(
+                    r["condition_text"] for r in rule_list if r["condition_text"]
+                ))
+                self.table.setItem(i, 4, QTableWidgetItem("; ".join(conds)))
+
+                # Sačuvaj norm kod i ID za detalje
+                self.table.item(i, 0).setData(Qt.UserRole, norm)
+
+            self.table.setUpdatesEnabled(True)
+            self.table.setSortingEnabled(True)
+            self._update_status()
+
+        except Exception as e:
+            logger.error(f"Greška pri učitavanju inspekcijskih pravila: {e}")
+
+    def _on_inspekcijska_row_selected(self):
+        """Prikaz detalja za odabrani tarifni kod u inspection tabeli."""
+        if self.current_category != "Inspekcijska pravila":
+            return
+
+        selected = self.table.selectedItems()
+        if not selected:
+            return
+
+        row = selected[0].row()
+        code_item = self.table.item(row, 0)
+        if not code_item:
+            return
+
+        tariff_code = code_item.text()
+        norm_code = code_item.data(Qt.UserRole) or tariff_code.replace(" ", "")
+
+        try:
+            all_rules = self.service.load_inspection_rules(
+                search=norm_code, only_active=False, limit=50
+            )
+            # Filtriraj tačan pogodak po norm kodu
+            rules = [r for r in all_rules if r["tariff_code_norm"] == norm_code]
+        except Exception as e:
+            logger.error(f"Greška pri učitavanju detalja: {e}")
+            return
+
+        # Prikaz u detail_container
+        self._clear_detail_panel()
+        grid = self.detail_container.layout()
+
+        detail_widget = QWidget()
+        detail_layout = QVBoxLayout(detail_widget)
+        detail_layout.setContentsMargins(0, 8, 0, 0)
+        detail_layout.setSpacing(10)
+
+        # ── Naslov + opis robe ──────────────────────────────────────
+        title = QLabel(f"<b>Tarifni broj: {tariff_code}</b>")
+        title.setStyleSheet("font-size: 14pt; color: #1e3820; padding-bottom: 2px;")
+        detail_layout.addWidget(title)
+
+        # Opis robe — uzimamo iz prvog pravila (isti za sve tipove)
+        first_desc = next((r["description"] for r in rules if r.get("description")), "")
+        if first_desc:
+            desc_lbl = QLabel(first_desc)
+            desc_lbl.setWordWrap(True)
+            desc_lbl.setStyleSheet("font-size: 12pt; color: #333; padding-bottom: 4px;")
+            detail_layout.addWidget(desc_lbl)
+
+        # Separator
+        sep = QFrame()
+        sep.setFrameShape(QFrame.HLine)
+        sep.setStyleSheet("color: #c0d8c0;")
+        detail_layout.addWidget(sep)
+
+        # ── Blok po tipu inspekcije ─────────────────────────────────
+        type_order = ["sanitary", "veterinary", "phytosanitary", "quality_control", "medicines_agency"]
+        type_names = {
+            "sanitary":         "SAN — Sanitarna inspekcija",
+            "veterinary":       "VET — Veterinarska inspekcija",
+            "phytosanitary":    "FIT — Fitosanitarna inspekcija",
+            "quality_control":  "UVK — Kontrola kvaliteta",
+            "medicines_agency": "AGL — Agencija za lijekove",
+        }
+
+        for itype in type_order:
+            matching = [r for r in rules if r["inspection_type"] == itype]
+            if not matching:
+                continue
+
+            _, bg = self._INSP_LABELS.get(itype, (itype, "#f5f5f5"))
+
+            block = QFrame()
+            block.setFrameShape(QFrame.StyledPanel)
+            block.setStyleSheet(
+                f"QFrame {{ background: {bg}; border-radius: 6px; }}"
+            )
+            block_layout = QVBoxLayout(block)
+            block_layout.setContentsMargins(12, 8, 12, 8)
+            block_layout.setSpacing(4)
+
+            header_lbl = QLabel(f"<b>{type_names.get(itype, itype)}</b>")
+            header_lbl.setStyleSheet("font-size: 13pt;")
+            block_layout.addWidget(header_lbl)
+
+            # Svaki red posebno (može biti više redova za isti tip)
+            for r in matching:
+                # Status
+                if r["condition_text"]:
+                    status_txt = "Status: <b>uslovno</b>"
+                elif r["can_auto_decide"]:
+                    status_txt = "Status: <b>automatski</b>"
+                else:
+                    status_txt = "Status: <b>ručni pregled</b>"
+                status_lbl = QLabel(status_txt)
+                status_lbl.setStyleSheet("font-size: 12pt;")
+                block_layout.addWidget(status_lbl)
+
+                # Marker (**, *, +)
+                if r.get("marker"):
+                    marker_lbl = QLabel(f"Oznaka: <b>{r['marker']}</b>")
+                    marker_lbl.setStyleSheet("font-size: 11pt; color: #555;")
+                    block_layout.addWidget(marker_lbl)
+
+                # Uslov
+                if r["condition_text"]:
+                    cond_lbl = QLabel(f"Uslov: {r['condition_text']}")
+                    cond_lbl.setWordWrap(True)
+                    cond_lbl.setStyleSheet("font-size: 12pt; color: #222;")
+                    block_layout.addWidget(cond_lbl)
+
+                # Napomena korisnika
+                if r.get("notes"):
+                    notes_lbl = QLabel(f"Napomena: {r['notes']}")
+                    notes_lbl.setWordWrap(True)
+                    notes_lbl.setStyleSheet(
+                        "font-size: 11pt; color: #444; font-style: italic;"
+                    )
+                    block_layout.addWidget(notes_lbl)
+
+                # Izvor + stranica
+                src_parts = []
+                if r.get("source_dataset"):
+                    src_parts.append(r["source_dataset"])
+                if r.get("source_page"):
+                    src_parts.append(f"str. {r['source_page']}")
+                if src_parts:
+                    src_lbl = QLabel(f"Izvor: {', '.join(src_parts)}")
+                    src_lbl.setStyleSheet("font-size: 11pt; color: #666;")
+                    block_layout.addWidget(src_lbl)
+
+                # Scope / match strength
+                scope_txt = f"Podudaranje: {r.get('match_strength', '—')} / {r.get('scope', '—')}"
+                scope_lbl = QLabel(scope_txt)
+                scope_lbl.setStyleSheet("font-size: 10pt; color: #888;")
+                block_layout.addWidget(scope_lbl)
+
+            detail_layout.addWidget(block)
+
+        if not any(r["inspection_type"] in type_order for r in rules):
+            empty_lbl = QLabel("Nema inspekcijskih pravila za ovaj tarifni broj.")
+            empty_lbl.setStyleSheet("font-size: 12pt; color: #888;")
+            detail_layout.addWidget(empty_lbl)
+
+        detail_layout.addStretch()
+        grid.addWidget(detail_widget, 0, 0, 1, 2)
 
     def _load_zemlje_data(self):
         """Load Zemlje data using Service layer."""
@@ -1866,6 +2270,8 @@ class SifarniciView(BaseTabView):
                 self._search_uvoznici(query)
             elif self.current_category == "Carinske tarife":
                 self._search_trgovacki_nazivi(query)
+            elif self.current_category == "Inspekcijska pravila":
+                self._load_inspekcijska_pravila_data()
             elif self.current_category == "Carinarnice":
                 self._search_carinarnice(query)
             elif self.current_category == "Primaoci":
@@ -2399,6 +2805,10 @@ class SifarniciView(BaseTabView):
 
             # Ako je pretraga brojčana, koristi hijerarhijski prikaz iz SQLite
             if is_code and len(clean_query) >= 2:
+                # Guard: populate_tariff_hierarchy zahtijeva QTableWidget
+                if not hasattr(self.table, 'setRowCount'):
+                    logger.warning("_search_trgovacki_nazivi: self.table je QTreeWidget — restauriram")
+                    self._restore_table_widget()
                 populate_tariff_hierarchy(
                     self.table,
                     prefix=clean_query,
@@ -2960,6 +3370,11 @@ class SifarniciView(BaseTabView):
                 self.btn_uredi.setEnabled(False)
                 self.btn_obrisi.setEnabled(False)
                 logger.debug("Nijedan red nije selektovan")
+                return
+
+            # Za Inspekcijska pravila — prikaz detalja, bez CRUD dugmadi
+            if self.current_category == "Inspekcijska pravila":
+                self._on_inspekcijska_row_selected()
                 return
 
             self.btn_uredi.setEnabled(True)

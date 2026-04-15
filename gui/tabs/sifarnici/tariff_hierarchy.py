@@ -31,7 +31,7 @@ except ImportError:
 # ============================================================
 
 _DB_PATH = os.path.normpath(
-    os.path.join(os.path.dirname(__file__), '..', '..', 'database', 'asycuda_sistem.db')
+    os.path.join(os.path.dirname(__file__), '..', '..', '..', 'database', 'asycuda_sistem.db')
 )
 
 _NIVO_EMOJI = {
@@ -101,6 +101,11 @@ def populate_tariff_hierarchy(
         rows_to_show.append((r['kod'], r['naziv'],
                              r['stopa_uvozna'], r['nivo'], False))
 
+    # Ako nema tačnog podudaranja, bolduj prvi red (najširi roditeljski)
+    if not root_row and rows_to_show:
+        kod, naziv, stopa, nivo, _ = rows_to_show[0]
+        rows_to_show[0] = (kod, naziv, stopa, nivo, True)
+
     table.setRowCount(len(rows_to_show))
     for i, (kod, naziv, stopa, nivo, is_root) in enumerate(rows_to_show):
         emoji = _NIVO_EMOJI.get(nivo, '•')
@@ -127,7 +132,8 @@ def populate_tariff_hierarchy(
             item_naziv.setToolTip(f"Stopa uvozna: {stopa_str}")
 
         if is_root:
-            font = item_kod.font()
+            # Uzmi font TABELE (ne itema) da naslijedimo tačnu veličinu (14pt)
+            font = table.font()
             font.setBold(True)
             item_kod.setFont(font)
             item_naziv.setFont(font)
@@ -136,4 +142,10 @@ def populate_tariff_hierarchy(
         table.setItem(i, 1, item_naziv)
 
     table.setColumnWidth(0, 200)
+
+    # Selektuj i skroluj na prvi red (root / najspecifičniji pogodak)
+    if rows_to_show:
+        table.setCurrentCell(0, 0)
+        table.scrollToTop()
+
     return len(rows_to_show)

@@ -94,6 +94,15 @@ class SifarniciController:
             "delete_method": "delete_zemlja",
             "validate_method": "validate_zemlja_data",
         },
+        "Inspekcijska pravila": {
+            "columns": ["Tarifni kod", "Opis robe", "Inspekcije", "Status", "Napomena"],
+            "table": "inspection_tariff_rules",
+            "service_method": "",  # Direktno čita SQLite, ne koristi SifarniciService
+            "add_method": "",
+            "delete_method": "",
+            "validate_method": "",
+            "readonly": True,
+        },
     }
 
     def __init__(self, view: SifarniciView, service: SifarniciService):
@@ -171,11 +180,15 @@ class SifarniciController:
             # Clear form
             self.view.clear_form()
 
+            # Restauriraj QTableWidget ako je ostao QTreeWidget od Carinarnice
+            if hasattr(self.view, '_restore_table_widget'):
+                self.view._restore_table_widget()
+
             # Setup table columns based on category
             config = self.CATEGORY_CONFIG.get(category, {})
             columns = config.get("columns", [])
-            
-            if columns and self.view.table:
+
+            if columns and self.view.table and hasattr(self.view.table, 'setColumnCount'):
                 self.view.table.setColumnCount(len(columns))
                 self.view.table.setHorizontalHeaderLabels(columns)
 

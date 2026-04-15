@@ -1157,4 +1157,197 @@ class SifarniciService:
                     return row["count"] if row else 0
         except Exception as e:
             self._log_error("count_carinske_ispostave", e)
+
+    # ============================================================
+    # SECTION: inspection-rules-pg-service
+    # PURPOSE: CRUD i pretraga inspekcijskih pravila iz PostgreSQL
+    # DOC: docs/sections/inspection-rules-pg.md
+    # ============================================================
+
+    def load_inspection_rules(
+        self,
+        search: str = "",
+        insp_type: str = "",
+        only_active: bool = True,
+        limit: int = 500,
+    ) -> list[dict]:
+        """
+        Dohvati inspekcijska pravila iz catalogs.inspection_rules.
+
+        Args:
+            search:      Tekst pretrage (tariff_code_norm ili description)
+            insp_type:   Filter po tipu (veterinary, sanitary, ...)
+            only_active: Ako True, vraća samo is_active = TRUE redove
+            limit:       Maksimalan broj redova
+
+        Returns:
+            Lista rječnika sa svim kolonama inspekcijskog pravila
+        """
+        try:
+            clauses = []
+            params: list = []
+
+            if only_active:
+                clauses.append("is_active = TRUE")
+
+            if insp_type:
+                clauses.append("inspection_type = %s")
+                params.append(insp_type)
+
+            if search:
+                norm_search = search.replace(" ", "")
+                clauses.append(
+                    "(tariff_code_norm LIKE %s OR description ILIKE %s)"
+                )
+                params.append(norm_search + "%")
+                params.append("%" + search + "%")
+
+            where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+            params.append(limit)
+
+            with get_db_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(f"""
+                        SELECT
+                            id, inspection_type, tariff_code, tariff_code_norm,
+                            tariff_len, scope, chapter, description, marker,
+                            condition_text, match_strength, can_auto_decide,
+                            source_dataset, source_page, is_active, notes
+                        FROM catalogs.inspection_rules
+                        {where}
+                        ORDER BY inspection_type, tariff_code_norm
+                        LIMIT %s
+                    """, params)
+                    return [dict(row) for row in cur.fetchall()]
+        except Exception as e:
+            self._log_error("load_inspection_rules", e)
+            return []
+
+    def count_inspection_rules(self, only_active: bool = True) -> int:
+        """Ukupan broj inspekcijskih pravila (za status bar)."""
+        try:
+            with get_db_connection() as conn:
+                with conn.cursor() as cur:
+                    where = "WHERE is_active = TRUE" if only_active else ""
+                    cur.execute(
+                        f"SELECT COUNT(*) FROM catalogs.inspection_rules {where}"
+                    )
+                    row = cur.fetchone()
+                    return row["count"] if row else 0
+        except Exception as e:
+            self._log_error("count_inspection_rules", e)
+            return 0
+
+    def get_inspection_rule(self, rule_id: int) -> dict | None:
+        """Dohvati jedno pravilo po ID-u."""
+        try:
+            with get_db_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        SELECT
+                            id, inspection_type, tariff_code, tariff_code_norm,
+                            tariff_len, scope, chapter, description, marker,
+                            condition_text, match_strength, can_auto_decide,
+                            source_dataset, source_page, is_active, notes
+                        FROM catalogs.inspection_rules
+                        WHERE id = %s
+                    """, (rule_id,))
+                    row = cur.fetchone()
+                    return dict(row) if row else None
+        except Exception as e:
+            self._log_error("get_inspection_rule", e)
+            return None
+
+    def update_inspection_rule(self, rule_id: int, updates: dict) -> bool:
+        """
+        Ažurira inspekcijsko pravilo (samo dozvoljene kolone).
+
+        Dozvoljene kolone za izmjenu: description, condition_text,
+        can_auto_decide, is_active, notes, marker.
+        """
+        ALLOWED = {
+            "description", "condition_text", "can_auto_decide",
+            "is_active", "notes", "marker",
+        }
+        filtered = {k: v for k, v in updates.items() if k in ALLOWED}
+        if not filtered:
+            return False
+        try:
+            set_clause = ", ".join(f"{k} = %s" for k in filtered)
+            vals = list(filtered.values()) + [rule_id]
+            with get_db_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        f"UPDATE catalogs.inspection_rules "
+                        f"SET {set_clause}, updated_at = NOW() "
+                        f"WHERE id = %s",
+                        vals,
+                    )
+                conn.commit()
+                return True
+        except Exception as e:
+            self._log_error("update_inspection_rule", e)
+            return False
+
+    def deactivate_inspection_rule(self, rule_id: int) -> bool:
+        """Soft-delete: postavlja is_active = FALSE."""
+        return self.update_inspection_rule(rule_id, {"is_active": False})
+
+    def activate_inspection_rule(self, rule_id: int) -> bool:
+        """Reaktivacija: postavlja is_active = TRUE."""
+        return self.update_inspection_rule(rule_id, {"is_active": True})
+
+    def add_inspection_rule(self, data: dict) -> int | None:
+        """
+        Doda novo inspekcijsko pravilo.
+
+        Returns:
+            ID novog reda, ili None ako je greška.
+        """
+        import re as _re
+        required = {"inspection_type", "tariff_code"}
+        if not required.issubset(data.keys()):
+            return None
+
+        raw_code = (data.get("tariff_code") or "").strip()
+        norm = _re.sub(r"\s+", "", raw_code)
+
+        try:
+            with get_db_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        INSERT INTO catalogs.inspection_rules
+                            (inspection_type, tariff_code, tariff_code_norm, tariff_len,
+                             scope, chapter, description, marker, condition_text,
+                             match_strength, can_auto_decide, source_dataset,
+                             is_active, notes)
+                        VALUES
+                            (%(inspection_type)s, %(tariff_code)s, %(norm)s, %(tlen)s,
+                             %(scope)s, %(chapter)s, %(description)s, %(marker)s,
+                             %(condition_text)s, %(match_strength)s, %(can_auto_decide)s,
+                             %(source_dataset)s, TRUE, %(notes)s)
+                        RETURNING id
+                    """, {
+                        "inspection_type":  data["inspection_type"],
+                        "tariff_code":      raw_code,
+                        "norm":             norm,
+                        "tlen":             len(norm),
+                        "scope":            data.get("scope") or "tariff_code",
+                        "chapter":          data.get("chapter") or norm[:2],
+                        "description":      data.get("description") or "",
+                        "marker":           data.get("marker") or "",
+                        "condition_text":   data.get("condition_text") or None,
+                        "match_strength":   data.get("match_strength") or (
+                            "exact" if len(norm) >= 8 else "prefix"
+                        ),
+                        "can_auto_decide":  not bool(data.get("condition_text")),
+                        "source_dataset":   data.get("source_dataset") or "manual",
+                        "notes":            data.get("notes") or None,
+                    })
+                    row = cur.fetchone()
+                conn.commit()
+                return row["id"] if row else None
+        except Exception as e:
+            self._log_error("add_inspection_rule", e)
+            return None
             return 0
