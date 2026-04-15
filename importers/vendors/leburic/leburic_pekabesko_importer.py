@@ -262,6 +262,7 @@ def parse_leburic_pekabesko_excel(filepath: str) -> ImportResult:
     bruto_kg = 0.0
     neto_kg_ukupno = 0.0
     zemlja_default = "MK"  # Pekabesko je uvijek iz Makedonije
+    consumed_pdf: list[str] = []
 
     pdf_path = _find_pdf_for_excel(filepath)
     if pdf_path:
@@ -270,6 +271,7 @@ def parse_leburic_pekabesko_excel(filepath: str) -> ImportResult:
             bruto_kg = bruto_pdf
         if zemlja_pdf:
             zemlja_default = zemlja_pdf
+        consumed_pdf = [pdf_path]  # PDF je iskorišten — agent ne treba da ga obrađuje ponovo
 
     # --- Čitaj stavke ---
     invoice_lines = []
@@ -334,4 +336,5 @@ def parse_leburic_pekabesko_excel(filepath: str) -> ImportResult:
         currency="EUR",
         import_type="leburic_pekabesko",
         exporter=Party(name="PEKABESKO"),
+        consumed_paths=consumed_pdf,
     )

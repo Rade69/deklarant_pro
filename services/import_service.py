@@ -274,8 +274,9 @@ class ImportService:
             if last_is_loren_excel and current_is_loren_pdf:
                 if _similar_invoice_number(current_basename, last_basename):
                     logger.info("   ✅ CASE 1: Excel+PDF par - kombinujem")
+                    _excel_path = self.last_import_path
                     combined_items, stats = combine_blagic_excel_and_pdf(
-                        self.last_import_path, str(filepath)
+                        _excel_path, str(filepath)
                     )
                     self.clear_memory()
                     return ImportResult(
@@ -288,14 +289,16 @@ class ImportService:
                         import_type="loren_excel",
                         has_origin_statement=stats.get("has_origin_statement", False),
                         origin_statements=stats.get("origin_statements", []),
+                        consumed_paths=[_excel_path],  # Excel je potrošen
                     )
 
             # CASE 2: PDF → Excel
             elif last_is_loren_pdf and current_is_loren_excel:
                 if _similar_invoice_number(current_basename, last_basename):
                     logger.info("   ✅ CASE 2: PDF+Excel par - kombinujem")
+                    _pdf_path = self.last_import_path
                     combined_items, stats = combine_blagic_excel_and_pdf(
-                        str(filepath), self.last_import_path
+                        str(filepath), _pdf_path
                     )
                     self.clear_memory()
                     return ImportResult(
@@ -308,6 +311,7 @@ class ImportService:
                         import_type="loren_excel",
                         has_origin_statement=stats.get("has_origin_statement", False),
                         origin_statements=stats.get("origin_statements", []),
+                        consumed_paths=[_pdf_path],  # PDF je potrošen
                     )
 
         except Exception as e:

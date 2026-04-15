@@ -40,6 +40,7 @@ class ImportResult:
     warnings: List[str] = field(default_factory=list)  # Upozorenja koja treba prikazati korisniku
     exporter: Optional[Party] = None  # Izvoznik/pošiljalac iz fakture
     importer: Optional[Party] = None  # Uvoznik/primalac iz fakture
+    consumed_paths: List[str] = field(default_factory=list)  # Putanje fajlova koje je ovaj import interno koristio (ne obrađivati ponovo)
 
     def __len__(self) -> int:
         """Return number of items (for len() support)."""

@@ -49,6 +49,7 @@ from services.naimenovanja.constants import NaimenovanjaConstants
 from services.tariff_mapping_service import TariffMapping, validate_preference
 from services.tariff_controls_service import check_tariff_controls
 from gui.tabs.base_view import BaseTabView
+from gui.dialogs.inspection_dialog import InspectionDialog
 
 from core.draft import DeclarationDraft, NaimenovanjeDraft
 
@@ -291,7 +292,7 @@ class NaimenovanjaView(BaseTabView):
             # Rubrika 44 – Tarification formula + priložene isprave
             "le_rubrika44_1": "value_item_formula",  # auto-izračun (read-only)
             "le_rubrika44_3": "attached_document1",  # dokument porijekla (ref. br.)
-            "le_rubrika44_4": "attached_document2",
+            "le_rubrika44_4": "attached_document4",  # master polje (PE1/PE2 + broj)
             "le_rubrika44_5": "attached_document3",
             # Rubrika 45
             "le_rubrika45_sifra": "",  # Prilagođenje šifra
@@ -1305,6 +1306,13 @@ class NaimenovanjaView(BaseTabView):
         self.btn_import_xml.clicked.connect(self._on_import_xml)
         nav_layout.addWidget(self.btn_import_xml)
 
+        # Section 6: Inspekcije
+        self.btn_inspekcije = self._create_icon_button("Inspekcije", "fa5s.clipboard-check")
+        self.btn_inspekcije.setObjectName("btnInspekcije")
+        self.btn_inspekcije.setToolTip("Pregled naimenovanja koja zahtijevaju inspekciju")
+        self.btn_inspekcije.clicked.connect(self._on_inspekcije)
+        nav_layout.addWidget(self.btn_inspekcije)
+
         # Spacer
         nav_layout.addStretch()
 
@@ -1481,6 +1489,16 @@ class NaimenovanjaView(BaseTabView):
         if podbroj_widget and not podbroj_widget.text().strip() and text.strip():
             podbroj_widget.setText("000")
 
+        # Odmah vizualno obriši stare opise dok korisnik kuca novu tarifu
+        te_opis = self._get_widget("te_r31_opis")
+        te_opis_2 = self._get_widget("te_r31_opis_2")
+        for w in (te_opis, te_opis_2):
+            if w:
+                w.setReadOnly(False)
+                w.setText("")
+                w.setReadOnly(True)
+                w.setStyleSheet("")
+
         # Spremi pending kod u Qt property (spremanje stanja izmedju poziva)
         self.tariff_timer.setProperty("pending_code", text.strip())
         # Resetuj timer - ako korisnik kuca jos jedan karakter, countdown pocinje iznova
@@ -1488,49 +1506,49 @@ class NaimenovanjaView(BaseTabView):
         self.tariff_timer.start(400)
 
     def _perform_tariff_lookup(self) -> None:
-        """Izvrsi tariff lookup sa cache-om (poziva se nakon 400ms pauze)"""
+        """Izvrsi tariff lookup sa cache-om (poziva se nakon 400ms pauze).
+
+        Popunjava dva nivoa opisa:
+          - te_r31_opis   → 4-cifreni heading (npr. "8471")
+          - te_r31_opis_2 → 6-8 cifreni podbroj (precizni opis, npr. "847130")
+        Uvijek poziva _populate_tariff_description kako bi se polja očistila
+        kada novi tarifni broj nije pronađen.
+        """
         tariff_code = self.tariff_timer.property("pending_code")
         if not tariff_code or len(tariff_code.strip()) == 0:
+            # Ako je polje prazno — obriši oba opisa
+            self._populate_tariff_description("", "")
             return
 
-        # 1. Provjeri cache prvo (O(1) lookup)
-        if tariff_code in self.tariff_cache:
-            # Ako imamo već keširan tačan opis, koristi ga
-            full_description = self.tariff_cache[tariff_code]
-            # Takođe pretraži viši nivo (4-6 cifara)
-            short_code = self._extract_short_code(tariff_code)
-            short_description = ""
-            if short_code and short_code != tariff_code:
-                # Ako nema keširanog opisa za viši nivo, pozovi lookup
-                if short_code in self.tariff_cache:
-                    short_description = self.tariff_cache[short_code]
-                else:
-                    short_description = self._load_tariff_description_from_db(
-                        short_code
-                    )
-                    if short_description:
-                        self.tariff_cache[short_code] = short_description
-            self._populate_tariff_description(full_description, short_description)
-            return
+        digits = "".join(filter(str.isdigit, tariff_code.strip()))
 
-        # 2. Ako nije u cache-u, izvrsi DB query za tačan broj (8-10 cifara)
-        full_description = self._load_tariff_description_from_db(tariff_code)
+        # 4-cifreni heading (viši nivo)
+        heading_code = digits[:4] if len(digits) >= 4 else digits
 
-        # 3. Takođe pretraži viši nivo (4-6 cifara)
-        short_code = self._extract_short_code(tariff_code)
-        short_description = ""
-        if short_code and short_code != tariff_code:
-            short_description = self._load_tariff_description_from_db(short_code)
-            if short_description:
-                self.tariff_cache[short_code] = short_description
+        # 6-cifreni subheading (srednji nivo, ako postoji dovoljno cifara)
+        subheading_code = digits[:6] if len(digits) >= 6 else ""
 
-        if full_description or short_description:
-            # Sacuvaj tačan opis u cache za buduce upotrebe
-            if full_description:
-                self.tariff_cache[tariff_code] = full_description
-            self._populate_tariff_description(
-                full_description or "", short_description or ""
-            )
+        def _get_cached_or_lookup(code: str) -> str:
+            if not code:
+                return ""
+            if code in self.tariff_cache:
+                return self.tariff_cache[code]
+            desc = self._load_tariff_description_from_db(code)
+            if desc:
+                self.tariff_cache[code] = desc
+            return desc
+
+        # Tačan opis (8-10 cifara, sa fallback na 6+)
+        full_description = _get_cached_or_lookup(digits) if digits else ""
+
+        # Heading opis (4 cifre)
+        heading_description = _get_cached_or_lookup(heading_code) if heading_code else ""
+
+        # Uvijek ažuriraj polja (čisti stare opise ako nema match-a)
+        self._populate_tariff_description(full_description, heading_description)
+
+        if full_description:
+            self.tariff_cache[digits] = full_description
 
         # Provjeri inspekcijsku kontrolu za uneseni tarifni broj
         self._check_and_show_tariff_warning(tariff_code)
@@ -2569,8 +2587,8 @@ class NaimenovanjaView(BaseTabView):
             QTimer.singleShot(500, lambda: widget.setStyleSheet(original_style))
 
     def _on_suggest_tariff(self) -> None:
-        """Emituj signal za sugestiju tarifnog broja."""
-        self.suggest_tariff_requested.emit()
+        """Pokreni sugestiju tarifnog broja direktno (view implementacija)."""
+        self._suggest_tariff_impl()
 
     def _on_import_xml(self) -> None:
         """Otvori file dialog i uvezi naimenovanja iz XML fajla."""
@@ -2641,6 +2659,15 @@ class NaimenovanjaView(BaseTabView):
 
         # Emituj signal za controller (ako postoji)
         self.import_xml_requested.emit(filename)
+
+    def _on_inspekcije(self) -> None:
+        """Otvori dijalog sa inspekcijskim pregledom naimenovanja."""
+        try:
+            dlg = InspectionDialog(self.draft, parent=self)
+            dlg.exec()
+        except Exception as e:
+            logger.error(f"Greška pri otvaranju inspekcijskog dijaloga: {e}")
+            self.show_error(f"Greška pri otvaranju inspekcijskog pregleda:\n{e}")
 
     def _suggest_tariff_impl(self) -> None:
         """

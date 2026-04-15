@@ -619,7 +619,7 @@ def _detect_origin_statement(text: str) -> bool:
         True ako je nađena izjava, False inače
     """
     try:
-        from services.origin_statement_detector import OriginStatementDetector
+        from services.tariff.origin_statement_detector import OriginStatementDetector
 
         detector = OriginStatementDetector()
         result = detector.detect_in_text(text)
@@ -647,7 +647,7 @@ def _detect_all_origin_statements(text: str) -> List:
         Lista OriginStatementMatch objekata
     """
     try:
-        from services.origin_statement_detector import OriginStatementDetector
+        from services.tariff.origin_statement_detector import OriginStatementDetector
 
         detector = OriginStatementDetector()
         statements = detector.detect_all_in_text(text)

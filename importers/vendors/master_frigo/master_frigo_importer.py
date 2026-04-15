@@ -470,7 +470,7 @@ def _detect_all_origin_statements(text: str) -> list:
         Lista OriginStatementMatch objekata
     """
     try:
-        from services.origin_statement_detector import OriginStatementDetector
+        from services.tariff.origin_statement_detector import OriginStatementDetector
 
         detector = OriginStatementDetector()
         statements = detector.detect_all_in_text(text)

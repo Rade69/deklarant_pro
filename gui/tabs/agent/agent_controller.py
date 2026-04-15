@@ -365,7 +365,12 @@ class AgentController:
                 except Exception as e:
                     chat.add_activity(f"⚠️ [{invoice_name}] PE2 greška: {e}")
             else:
-                eur1_pending = [l for l in lines if getattr(l, 'povlastica', None)
+                # Prikaži EUR.1 dijalog za sve stavke koje imaju zemlju porijekla,
+                # bez PE2 izjave i bez EUR.1 broja — bez obzira na to da li je
+                # povlastica postavljena (Leburić ima povlastica="" → falsy, ali
+                # i dalje treba EUR.1 dijalog)
+                eur1_pending = [l for l in lines
+                                if getattr(l, 'zemlja_porijekla', None)
                                 and not getattr(l, 'has_origin_statement', False)
                                 and not getattr(l, 'eur1_number', None)]
                 if eur1_pending:
@@ -378,6 +383,7 @@ class AgentController:
                             eur1_data = dialog.get_data()
                             if eur1_data:
                                 Eur1QuickDialog.apply_eur1_data(self.draft.invoice_lines, eur1_data)
+                                self._apply_eur1_to_naimenovanja(eur1_data, chat)
                                 chat.add_activity(f"✅ [{invoice_name}] EUR.1 primijenjen")
                         else:
                             chat.add_activity(f"ℹ️ [{invoice_name}] EUR.1 preskočen")
@@ -527,6 +533,36 @@ class AgentController:
             )
 
         return result
+
+    def _apply_eur1_to_naimenovanja(self, eur1_data: dict, chat) -> None:
+        """
+        Propagira EUR.1 broj na existing naimenovanja u draftu.
+
+        Poziva se nakon Eur1QuickDialog.apply_eur1_data() da ažurira
+        attached_document4 na svim naimenovanjima čiji preference_code
+        odgovara unesenim podacima.
+        """
+        if not self.draft or not getattr(self.draft, 'items', None):
+            return
+
+        updated = 0
+        for country, data in eur1_data.items():
+            eur1_num = (data.get('eur1_number') or '').strip()
+            preference = (data.get('preference') or '').strip()
+            has_stmt = data.get('has_origin_statement', False)
+            doc_code = "PE2" if has_stmt else "PE1"
+            doc44 = f"{doc_code} {eur1_num}".strip()
+
+            for item in self.draft.items:
+                pov = (getattr(item, 'preference_code', '') or '').strip()
+                origin = (getattr(item, 'origin_country_code', '') or '').strip()
+                # Podudaranje po povlastici ili po zemlji
+                if pov == preference or origin.upper() == country.upper():
+                    item.attached_document4 = doc44
+                    updated += 1
+
+        if updated:
+            chat.add_activity(f"📋 Rb.44 ažuriran na {updated} naimenovanja ({doc44})")
 
     def _izracunaj_težine_interno(self, invoice_lines: list, chat) -> int:
         """
@@ -921,6 +957,8 @@ class AgentController:
                                 self.draft.invoice_lines, eur1_data
                             )
                             chat.add_activity(f"✅ EUR.1 primijenjen na {updated_count} stavki")
+                            # Propagiraj na postojeća naimenovanja u draftu
+                            self._apply_eur1_to_naimenovanja(eur1_data, chat)
                             if hasattr(faktura_widget, '_load_data_from_draft'):
                                 faktura_widget._load_data_from_draft()
                     else:

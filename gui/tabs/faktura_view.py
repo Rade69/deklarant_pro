@@ -2263,6 +2263,10 @@ class FakturaView(BaseTabView):
                 # Dodaj info poruku o redoslijedu
                 if is_combined:
                     message += f"🔗 Redoslijed stavki održan iz PDF fakture."
+                elif import_type == "loren_excel":
+                    message += f"⚠️  LOREN EXCEL: Iznosi (cijene) dolaze iz PDF-a!\n"
+                    message += f"   Uvezite PDF fajl sa istim brojem fakture da biste dobili\n"
+                    message += f"   ispravne iznose. Trenutno su svi iznosi = 0."
                 else:
                     message += f"💡 Možete nastaviti sa uvozom dodatnih faktura.\n"
                     message += f"   Svaka faktura će biti dodana u draft održavajući svoj redoslijed."
@@ -2753,6 +2757,9 @@ class FakturaView(BaseTabView):
                             item.neto_kg = round(neto_total * proportion, 3)
                         elif item.bruto_kg:
                             item.neto_kg = round(item.bruto_kg * neto_bruto_ratio, 3)
+                        # Ako imamo neto ali ne bruto (samo neto unesen u toolbar), izračunaj bruto
+                        if item.neto_kg and item.neto_kg > 0 and (not item.bruto_kg or item.bruto_kg <= 0):
+                            item.bruto_kg = round(item.neto_kg / neto_bruto_ratio, 3)
                         logger.debug(f" [{i}] Količina={qty} → bruto={item.bruto_kg:.2f}, neto={item.neto_kg:.2f}")
 
                 # Procesuj ostatak bez debug ispisa
@@ -2766,6 +2773,9 @@ class FakturaView(BaseTabView):
                             item.neto_kg = round(neto_total * proportion, 3)
                         elif item.bruto_kg:
                             item.neto_kg = round(item.bruto_kg * neto_bruto_ratio, 3)
+                        # Ako imamo neto ali ne bruto (samo neto unesen u toolbar), izračunaj bruto
+                        if item.neto_kg and item.neto_kg > 0 and (not item.bruto_kg or item.bruto_kg <= 0):
+                            item.bruto_kg = round(item.neto_kg / neto_bruto_ratio, 3)
 
         # Izračun neto za stavke SA bruto ALI BEZ neto
         if items_with_partial and neto_bruto_ratio > 0:
@@ -2797,6 +2807,10 @@ class FakturaView(BaseTabView):
                 logger.debug(f" Ukupno obrađeno: {len(items_neto_only)} stavki")
         elif items_neto_only and bruto_total <= 0:
             logger.warning("⚠️  Leburic stavke imaju neto ali nema ukupnog bruta u toolbar polju")
+            # Fallback: izračunaj bruto iz neta koristeći default odnos (0.95)
+            for item in items_neto_only:
+                if item.neto_kg and item.neto_kg > 0:
+                    item.bruto_kg = round(item.neto_kg / neto_bruto_ratio, 3)
 
         updated_count = len(items_without_both) + len(items_with_partial) + len(items_neto_only)
         skipped_count = len(self.draft.invoice_lines) - updated_count

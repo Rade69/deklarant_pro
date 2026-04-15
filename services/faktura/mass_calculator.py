@@ -72,6 +72,9 @@ class MassCalculator:
                             item.neto_kg = round(neto_total * proportion, 3)
                         elif item.bruto_kg:
                             item.neto_kg = round(item.bruto_kg * neto_bruto_ratio, 3)
+                        # Ako imamo neto ali ne bruto (samo neto unesen), izračunaj bruto
+                        if item.neto_kg and item.neto_kg > 0 and (not item.bruto_kg or item.bruto_kg <= 0):
+                            item.bruto_kg = round(item.neto_kg / neto_bruto_ratio, 3)
 
         # SCENARIJ 2: Stavke SA bruto ALI BEZ neto → izračunaj neto iz bruto
         if items_with_bruto_only and neto_bruto_ratio > 0:
@@ -89,6 +92,11 @@ class MassCalculator:
                 group_bruto = bruto_total * (neto_sum / neto_total)
                 for item in items_with_neto_only:
                     item.bruto_kg = item.neto_kg * (group_bruto / neto_sum)
+        elif items_with_neto_only and bruto_total <= 0:
+            # Fallback: nema ukupnog bruta → procijeni bruto iz neta (neto = bruto × 0.95)
+            for item in items_with_neto_only:
+                if item.neto_kg and item.neto_kg > 0:
+                    item.bruto_kg = round(item.neto_kg / neto_bruto_ratio, 3)
 
         updated_count = len(items_without_both) + len(items_with_bruto_only) + len(items_with_neto_only)
         skipped_count = len(items) - updated_count
