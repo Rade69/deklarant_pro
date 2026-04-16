@@ -277,15 +277,15 @@ class Eur1QuickDialog(QDialog):
         """
         Predloži povlasticu (Rub.36) na osnovu zemlje.
         
-        Poboljšana verzija koja koristi historijsko učenje ako je dostupno.
+        Poboljšana verzija koja koristi istorijsko učenje ako je dostupno.
         
         Pravila:
-        1. Prvo probaj historijsko učenje (ako znamo exportera)
+        1. Prvo probaj istorijsko učenje (ako znamo exportera)
         2. Fallback na hardcoded pravila
         """
         country_upper = country_code.upper()
         
-        # Pokušaj da koristiš historijsko učenje ako znamo exportera
+        # Pokušaj da koristiš istorijsko učenje ako znamo exportera
         try:
             # Proveri da li imamo exporter name (možda je pročitan iz fakture)
             exporter_name = ""
@@ -296,7 +296,7 @@ class Eur1QuickDialog(QDialog):
                 exporter_name = self.invoice_lines[0].exporter
             
             if exporter_name:
-                # Koristi sigurnu verziju historijskog učenja
+                # Koristi sigurnu verziju istorijskog učenja
                 from services.agent.historical_learning_service_safe import enhance_preference_logic
                 historical_pref = enhance_preference_logic(country_upper, exporter_name)
                 

@@ -1,21 +1,22 @@
 # importers/vendors/leburic/leburic_pekabesko_xml_parser.py
 """
-ASYCUDA Pro - Leburic/Pekabesko XML Parser
+ASYCUDA Pro - Faktura XML Parser (Pekabesko / Medicopharm / slični)
 
-Parsira Pekabesko AD fakture u XML formatu.
+Parsira fakture u XML formatu od različitih dobavljača.
 
-Format:
+Format (zajednička struktura):
     <Faktura>
         <Zaglavlje>
             <BrojFakture>, <Datum>, <Prodavac>, <Kupac>, ...
         </Zaglavlje>
         <Stavke>
             <Stavka br="N">
-                <Opis>, <BarKod>, <JedinicaMere>,
-                <NetoKgr>, <Kolicina>, <CenaPoJedinici>, <UkupnoEUR>
+                <Opis>, <BarKod>, <JedinicaMere>, <Sifra>,
+                <NetoKgr>, <Kolicina>, <CenaPoJedinici>/<CenaEUR>, <UkupnoEUR>,
+                <ZemljaPorekla> ili <Porijeklo>  ← opciono, po stavci
             </Stavka>
         </Stavke>
-        <Sumarno>
+        <Sumarno>  ← opciono
             <UkupnoNetoKg>, <UkupnoBrutoKg>, <UkupnoEUR>, <Poreklo>
         </Sumarno>
     </Faktura>
@@ -23,7 +24,9 @@ Format:
 Napomene:
 - XML nema tarifne šifre (CustomID) — tarife se mogu auto-popuniti
   preko TariffMappingService po nazivu/bar-kodu
-- Zemlja porijekla se čita iz <Poreklo> (default: MK)
+- Zemlja porijekla: prvo <ZemljaPorekla> po stavci → <Porijeklo> po stavci
+  → <Sumarno><Poreklo> → default "MK"
+- Prodavac se čita iz <Zaglavlje><Prodavac><Naziv>
 """
 
 from __future__ import annotations
@@ -83,7 +86,7 @@ def _num(element: ET.Element | None, default: float = 0.0) -> float:
 
 def parse_leburic_pekabesko_xml(filepath: str) -> ImportResult:
     """
-    Parsira Pekabesko faktura XML fajl.
+    Parsira faktura XML fajl (Pekabesko, Medicopharm, slični).
 
     Args:
         filepath: Putanja do XML fajla
@@ -91,7 +94,7 @@ def parse_leburic_pekabesko_xml(filepath: str) -> ImportResult:
     Returns:
         ImportResult sa stavkama, težinama i metapodacima
     """
-    logger.info(f"Leburic/Pekabesko XML parsiranje: {Path(filepath).name}")
+    logger.info(f"Faktura XML parsiranje: {Path(filepath).name}")
 
     tree = ET.parse(filepath)
     root = tree.getroot()
@@ -99,29 +102,34 @@ def parse_leburic_pekabesko_xml(filepath: str) -> ImportResult:
     # ── Zaglavlje ──────────────────────────────────────────────────
     zaglavlje = root.find("Zaglavlje")
     invoice_number = ""
-    zemlja = "MK"
+    exporter_name = ""
 
     if zaglavlje is not None:
         invoice_number = (
             _txt(zaglavlje.find("NalogBroj"))
             or _txt(zaglavlje.find("BrojFakture"))
         )
+        # Prodavac (Exporter)
+        prodavac = zaglavlje.find("Prodavac")
+        if prodavac is not None:
+            exporter_name = _txt(prodavac.find("Naziv"))
 
     # ── Sumarno ────────────────────────────────────────────────────
     sumarno = root.find("Sumarno")
     bruto_kg = 0.0
     neto_kg = 0.0
+    default_zemlja = "MK"
 
     if sumarno is not None:
         bruto_kg = _num(sumarno.find("UkupnoBrutoKg"))
         neto_kg  = _num(sumarno.find("UkupnoNetoKg"))
         poreklo  = _txt(sumarno.find("Poreklo")).upper()
         if poreklo:
-            zemlja = poreklo
+            default_zemlja = poreklo
 
     logger.info(
         f"  Header: faktura={invoice_number!r}, "
-        f"bruto={bruto_kg:.3f}kg, neto={neto_kg:.3f}kg, zemlja={zemlja}"
+        f"bruto={bruto_kg:.3f}kg, neto={neto_kg:.3f}kg, default_zemlja={default_zemlja}"
     )
 
     # ── Stavke ─────────────────────────────────────────────────────
@@ -135,24 +143,33 @@ def parse_leburic_pekabesko_xml(filepath: str) -> ImportResult:
             naziv     = _txt(stavka.find("Opis"))
             tarifa    = _txt(stavka.find("TarifniBroj"))
             barcode   = _txt(stavka.find("BarKod"))
+            sifra     = _txt(stavka.find("Sifra"))
             jm_raw    = _txt(stavka.find("JedinicaMere"))
             neto_item = _num(stavka.find("NetoKgr"))
             kolicina  = _num(stavka.find("Kolicina"))
-            cijena    = _num(stavka.find("CenaPoJedinici"))
+
+            # Cena: CenaPoJedinici ili CenaEUR
+            cijena = _num(stavka.find("CenaPoJedinici")) or _num(stavka.find("CenaEUR"))
             iznos     = _num(stavka.find("UkupnoEUR"))
+
+            # Porijeklo po stavci → fallback na default zemlju
+            stavka_poreklo = _txt(stavka.find("ZemljaPorekla")).upper()
+            if not stavka_poreklo:
+                stavka_poreklo = _txt(stavka.find("Porijeklo")).upper()
+            zemlja_stavke = stavka_poreklo if stavka_poreklo else default_zemlja
 
             # Normalizuj JM: Kgr/Par/Kom → kg/par/kom
             jm = _normalize_jm(jm_raw) if jm_raw else "kg"
 
-            # product_code: bar kod kao identifikator (XML nema Pekabesko item šifru)
-            product_code = barcode if barcode else str(line_no)
+            # product_code: šifra > bar kod > line number
+            product_code = sifra if sifra else (barcode if barcode else str(line_no))
 
             line = InvoiceLine(
                 line_no=line_no,
                 product_code=product_code,
                 naziv_robe=naziv,
                 tarifni_broj=tarifa,
-                zemlja_porijekla=zemlja,
+                zemlja_porijekla=zemlja_stavke,
                 povlastica="",
                 jm=jm,
                 kolicina=kolicina,
@@ -164,9 +181,11 @@ def parse_leburic_pekabesko_xml(filepath: str) -> ImportResult:
             )
             invoice_lines.append(line)
 
+    exporter = Party(name=exporter_name) if exporter_name else None
+
     logger.info(
         f"  ✅ Parsed {len(invoice_lines)} stavki, "
-        f"bruto={bruto_kg:.3f}kg, neto={neto_kg:.3f}kg"
+        f"bruto={bruto_kg:.3f}kg, neto={neto_kg:.3f}kg, exporter={exporter_name!r}"
     )
 
     return ImportResult(
@@ -176,7 +195,7 @@ def parse_leburic_pekabesko_xml(filepath: str) -> ImportResult:
         invoice_name=invoice_number,
         currency="EUR",
         import_type="leburic_pekabesko",
-        exporter=Party(name="PEKABESKO AD"),
+        exporter=exporter,
     )
 
 

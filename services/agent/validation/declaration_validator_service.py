@@ -4,7 +4,7 @@ Declaration Validator Service
 Rule-based validacija kompletne deklaracije:
 1. Zaglavlje (obavezna polja, sinhronizacija)
 2. Naimenovanja (tarifni brojevi, konzistentnost)
-3. Historijska analiza (supplier profiling)
+3. Istorijska analiza (supplier profiling)
 4. Kontekstualne provjere (faktura analiza)
 5. Pravne provjere (povlastice, dokumentacija)
 
@@ -29,7 +29,7 @@ class ValidationCategory(Enum):
     REQUIRED_FIELD = "required_field"
     SYNCHRONIZATION = "synchronization"
     CONSISTENCY = "consistency"
-    HISTORICAL = "historical"
+    ISTORIJA = "historical"
     LEGAL = "legal"
     CONTEXTUAL = "contextual"
     DOCUMENTATION = "documentation"
@@ -106,7 +106,7 @@ class DeclarationValidatorService:
     Kombinuje:
     1. Postojeću validaciju (ZaglavljeService)
     2. Supplier profiling (SupplierProfilingService)
-    3. Historijsko učenje (HistoricalLearningService)
+    3. Istorijsko učenje (HistoricalLearningService)
     4. Enhanced tariff suggestions
     5. Kontekstualnu analizu
     """
@@ -162,7 +162,7 @@ class DeclarationValidatorService:
         )
         all_items.extend(naimenovanja_items)
         
-        # 3. Historijska analiza (ako imamo suppliera)
+        # 3. Istorijska analiza (ako imamo suppliera)
         supplier_name = zaglavlje_data.get('izvoznik_r1', '')
         if supplier_name:
             historical_items = self._validate_historical(
@@ -183,22 +183,29 @@ class DeclarationValidatorService:
             zaglavlje_data, naimenovanja_data, invoice_lines
         )
         all_items.extend(contextual_items)
+
+        # 6. Provjera inspekcijskih dokumenata u Rb.44
+        inspection_doc_items = self._validate_inspection_documents(
+            naimenovanja_data, draft
+        )
+        all_items.extend(inspection_doc_items)
+        contextual_items = contextual_items + inspection_doc_items
         
-        # 6. Izračunaj statistiku
+        # 7. Izračunaj statistiku
         error_count = sum(1 for item in all_items if item.severity == ValidationSeverity.ERROR)
         warning_count = sum(1 for item in all_items if item.severity == ValidationSeverity.WARNING)
         info_count = sum(1 for item in all_items if item.severity == ValidationSeverity.INFO)
         suggestion_count = sum(1 for item in all_items if item.severity == ValidationSeverity.SUGGESTION)
         
-        # 7. Generiši sažetak
+        # 8. Generiši sažetak
         summary = self._generate_summary(
             error_count, warning_count, info_count, suggestion_count
         )
         
-        # 8. Generiši preporuke
+        # 9. Generiši preporuke
         recommendations = self._generate_recommendations(all_items)
         
-        # 9. Kreiraj report
+        # 10. Kreiraj report
         report = ValidationReport(
             valid=error_count == 0,
             error_count=error_count,
@@ -325,7 +332,22 @@ class DeclarationValidatorService:
                     message=f"Stavka {item_num}: Tarifni broj '{tariff}' sadrži ne-digit karaktere",
                     explanation="Tarifni brojevi bi trebali sadržavati samo cifre."
                 ))
-            
+
+            # Provjeri da li tarifni broj postoji u zvaničnoj tarifi
+            if tariff and tariff.isdigit():
+                if not self._tariff_exists_in_db(tariff):
+                    items.append(ValidationItem(
+                        severity=ValidationSeverity.ERROR,
+                        category=ValidationCategory.CONSISTENCY,
+                        rule=f"Na{item_num}",
+                        field="Tarifni broj",
+                        message=f"Stavka {item_num}: Tarifni broj '{tariff}' nije pronađen u zvaničnoj tarifi",
+                        explanation=(
+                            "Uneseni tarifni broj ne postoji u bazi zvanične carinske tarife. "
+                            "Provjerite da li je broj tačan (uobičajeno 10 cifara)."
+                        )
+                    ))
+
             # Provjeri težine
             gross = item.get('gross_mass_kg', 0)
             net = item.get('net_mass_kg', 0)
@@ -390,7 +412,7 @@ class DeclarationValidatorService:
         naimenovanja_data: List[Dict[str, Any]],
         invoice_lines: List[Dict[str, Any]]
     ) -> List[ValidationItem]:
-        """Historijska analiza na osnovu supplier profiling."""
+        """Istorijska analiza na osnovu supplier profiling."""
         items = []
         
         try:
@@ -400,82 +422,65 @@ class DeclarationValidatorService:
             profile = service.get_complete_profile(supplier_name)
             
             if not profile:
-                # Nema historijskih podataka
+                # Nema istorijskih podataka
                 items.append(ValidationItem(
                     severity=ValidationSeverity.INFO,
-                    category=ValidationCategory.HISTORICAL,
-                    rule="Historija",
+                    category=ValidationCategory.ISTORIJA,
+                    rule="Istorija",
                     field="Supplier",
-                    message=f"Nema historijskih podataka za {supplier_name}",
-                    explanation="Ovo je prva deklaracija za ovog dobavljača ili nema historije u sistemu."
+                    message=f"Nema istorijskih podataka za {supplier_name}",
+                    explanation="Ovo je prva deklaracija za ovog dobavljača ili nema istorije u sistemu."
                 ))
                 return items
             
-            # Supplier ima historiju
+            # Supplier ima istoriju
             items.append(ValidationItem(
                 severity=ValidationSeverity.INFO,
-                category=ValidationCategory.HISTORICAL,
-                rule="Historija",
+                category=ValidationCategory.ISTORIJA,
+                rule="Istorija",
                 field="Supplier",
-                message=f"{supplier_name}: {profile.total_declarations} historijskih deklaracija",
+                message=f"{supplier_name}: {profile.total_declarations} istorijskih deklaracija",
                 explanation=f"Supplier je ranije koristio sistem {profile.total_declarations} puta."
             ))
             
-            # Analiziraj naimenovanja u odnosu na historiju
+            # Analiziraj naimenovanja u odnosu na istoriju —
+            # javljamo SAMO ako je poznat proizvod dobio drugačiji tarifni broj
             for i, item in enumerate(naimenovanja_data):
                 item_num = i + 1
                 product_name = item.get('goods_trade_name', '')
                 tariff_code = item.get('tariff_code', '')
-                
+
                 if not product_name or not tariff_code:
                     continue
-                
-                # Provjeri da li je proizvod nov za suppliera
-                is_new = True
+
                 for product_profile in profile.product_profiles.values():
                     similarity = self._calculate_similarity(
                         product_name,
                         product_profile.product_name
                     )
-                    
-                    if similarity > 0.7:  # Visoka sličnost
-                        is_new = False
-                        
-                        # Provjeri da li je tarifni broj isti
+                    if similarity > 0.7:
                         if tariff_code != product_profile.tariff_code:
                             items.append(ValidationItem(
                                 severity=ValidationSeverity.WARNING,
-                                category=ValidationCategory.HISTORICAL,
+                                category=ValidationCategory.ISTORIJA,
                                 rule=f"Na{item_num}",
                                 field="Tarifni broj",
                                 message=(
-                                    f"Stavka {item_num}: Nov tarifni broj za poznat proizvod\n"
-                                    f"Historijski: {product_profile.tariff_code}, Sada: {tariff_code}"
+                                    f"Stavka {item_num}: Promjena tarifnog broja — "
+                                    f"istorijski {product_profile.tariff_code}, sada {tariff_code}"
                                 ),
                                 explanation=(
                                     f"{supplier_name} je ranije koristio {product_profile.tariff_code} "
-                                    f"za sličan proizvod '{product_profile.product_name[:50]}...'"
+                                    f"za '{product_profile.product_name[:60]}'. "
+                                    f"Provjeri da li je promjena ispravna."
                                 )
                             ))
                         break
-                
-                if is_new:
-                    items.append(ValidationItem(
-                        severity=ValidationSeverity.INFO,
-                        category=ValidationCategory.HISTORICAL,
-                        rule=f"Na{item_num}",
-                        field="Proizvod",
-                        message=f"Stavka {item_num}: Nov proizvod za {supplier_name}",
-                        explanation=(
-                            f"'{product_name[:50]}...' se prvi put pojavljuje kod ovog dobavljača. "
-                            f"Provjeri tarifni broj."
-                        )
-                    ))
             
         except ImportError:
             print("⚠️ SupplierProfilingService nije dostupan")
         except Exception as e:
-            print(f"⚠️ Greška pri historijskoj analizi: {e}")
+            print(f"⚠️ Greška pri istorijskoj analizi: {e}")
         
         return items
     
@@ -506,7 +511,7 @@ class DeclarationValidatorService:
                 if not country or not preference:
                     continue
                 
-                # Dobavi historijsku povlasticu
+                # Dobavi istorijsku povlasticu
                 historical_pref = service.get_preference_safe(supplier_name, country)
                 
                 if historical_pref and historical_pref != preference:
@@ -516,8 +521,8 @@ class DeclarationValidatorService:
                         rule=f"Na{item_num}",
                         field="Povlastica",
                         message=(
-                            f"Stavka {item_num}: Povlastica se razlikuje od historijske\n"
-                            f"Historijski: {historical_pref}, Sada: {preference}"
+                            f"Stavka {item_num}: Povlastica se razlikuje od istorijske\n"
+                            f"Istorijski: {historical_pref}, Sada: {preference}"
                         ),
                         explanation=(
                             f"{supplier_name} je ranije koristio {historical_pref} "
@@ -757,6 +762,107 @@ class DeclarationValidatorService:
         
         return recommendations
     
+    def _tariff_exists_in_db(self, tariff_code: str) -> bool:
+        """Provjeri da li tarifni broj postoji u catalogs.zvanicna_tarifa."""
+        try:
+            from database.db import get_db_connection
+            norm = tariff_code.strip()
+            with get_db_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "SELECT 1 FROM catalogs.zvanicna_tarifa WHERE tarifni_kod = %s LIMIT 1",
+                        (norm,)
+                    )
+                    return cur.fetchone() is not None
+        except Exception as e:
+            print(f"⚠️ Greška pri provjeri tarife {tariff_code}: {e}")
+            return True  # U slučaju greške ne blokiramo
+
+    # Mapiranje tipa inspekcije na šifru dokumenta u priloženim dokumentima zaglavlja
+    _INSPECTION_DOC_MAP: dict[str, tuple[str, list[str]]] = {
+        #                    primarni   alternativne šifre
+        "sanitary":         ("N852", []),   # Inspekcija za hranu
+        "veterinary":       ("N853", []),   # Veterinarska inspekcija
+        "phytosanitary":    ("N851", []),   # Fitosanitarna inspekcija
+        "quality_control":  ("N003", []),   # Zdravstvena inspekcija
+        "market_inspection": ("N003", []),  # Tržna inspekcija (nema posebnog koda, koristi N003)
+        "medicines_agency": ("AGL",  []),   # Agencija za lijekove
+    }
+
+    def _validate_inspection_documents(
+        self,
+        naimenovanja_data: List[Dict[str, Any]],
+        draft: Any
+    ) -> List[ValidationItem]:
+        """
+        Provjeri da li su inspekcijska uvjerenja priložena u Rb.44
+        za stavke koje zahtijevaju inspekciju.
+        """
+        items = []
+        if not draft:
+            return items
+
+        try:
+            from services.inspection_service import get_inspection_service
+
+            svc = get_inspection_service()
+
+            # Skup šifri dokumenata koji su priloženi u Rb.44
+            attached_codes = {
+                doc.code.strip().upper()
+                for doc in getattr(draft, "header_attached_documents", [])
+                if doc.code
+            }
+
+            # Za svaki tip inspekcije pamtimo koje stavke ga zahtijevaju
+            # da bismo dali jedno objedinjeno upozorenje po tipu, ne po stavci
+            missing: dict[str, list[int]] = {}
+
+            for i, item in enumerate(naimenovanja_data):
+                tariff = item.get("tariff_code", "")
+                if not tariff:
+                    continue
+
+                result = svc.check(tariff)
+                if not result.requires_any_inspection:
+                    continue
+
+                for match in result.matches:
+                    itype = match.inspection_type
+                    entry = self._INSPECTION_DOC_MAP.get(itype)
+                    if not entry:
+                        continue
+                    primary, alternatives = entry
+                    all_accepted = {primary.upper()} | {a.upper() for a in alternatives}
+                    if not all_accepted & attached_codes:
+                        missing.setdefault(itype, []).append(i + 1)
+
+            from services.inspection_service import INSPECTION_LABELS
+            for itype, stavke in missing.items():
+                primary, alternatives = self._INSPECTION_DOC_MAP[itype]
+                label = INSPECTION_LABELS.get(itype, itype)
+                alt_str = f" (ili {', '.join(alternatives)})" if alternatives else ""
+                items.append(ValidationItem(
+                    severity=ValidationSeverity.WARNING,
+                    category=ValidationCategory.DOCUMENTATION,
+                    rule="Inspekcija",
+                    field="Priloženi dokumenti u zaglavlju",
+                    message=(
+                        f"{label}: dokument '{primary}'{alt_str} nije priložen "
+                        f"(stavke: {', '.join(map(str, stavke))})"
+                    ),
+                    explanation=(
+                        f"Stavke {', '.join(map(str, stavke))} imaju tarifne brojeve koji "
+                        f"zahtijevaju {label.lower()}. Dodajte dokument šifre '{primary}' "
+                        f"u priložene dokumente u zaglavlju."
+                    )
+                ))
+
+        except Exception as e:
+            print(f"⚠️ Greška pri provjeri inspekcijskih dokumenata: {e}")
+
+        return items
+
     def clear_cache(self):
         """Očisti cache."""
         self.supplier_cache.clear()

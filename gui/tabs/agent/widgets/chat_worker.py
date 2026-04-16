@@ -72,18 +72,18 @@ class ChatWorker(QThread):
 
     def _build_messages(self, context: str, chat_history: list) -> list:
         """
-        ENHANCED: Sastavi messages listu za API sa chat historijom.
+        ENHANCED: Sastavi messages listu za API sa chat istorijom.
         
         Format:
         1. System prompt (kontekst + sistemske instrukcije)
-        2. Chat historija (zadnjih 10 poruka)
+        2. Chat istorija (zadnjih 10 poruka)
         3. Trenutna korisnička poruka
         """
         system = {"role": "system", "content": self._system_prompt(context)}
         
         messages = [system]
         
-        # ENHANCED: Dodaj chat historiju (bez system poruka iz historije)
+        # ENHANCED: Dodaj chat istoriju (bez system poruka iz istorije)
         for hist_msg in chat_history:
             if hist_msg["role"] in ("user", "assistant"):
                 messages.append({
@@ -417,7 +417,7 @@ class ChatWorker(QThread):
             zones.add('tariff_val')
 
         # Pretraga deklaracija
-        decl_kw = ['deklaracija', 'prethodni uvoz', 'xml', 'historija uvoza']
+        decl_kw = ['deklaracija', 'prethodni uvoz', 'xml', 'istorija uvoza']
         if any(k in msg for k in decl_kw):
             zones.add('declarations')
 
@@ -459,7 +459,7 @@ class ChatWorker(QThread):
             result.append("=== BAZA ZNANJA — prijedlozi tarife za stavke bez tarife ===")
             result.extend(kb_prijedlozi)
 
-        # RAG prijedlozi (historija deklaracija)
+        # RAG prijedlozi (istorija deklaracija)
         rag_prijedlozi = []
         try:
             from services.agent.tariff_rag_service import TariffRAGService
@@ -473,7 +473,7 @@ class ChatWorker(QThread):
                     for r in results:
                         rag_prijedlozi.append(
                             f"  '{naziv[:40]}' → tarifa={r.get('tarifni_kod', '?')} "
-                            f"(historija: {r.get('naziv_robe', '')[:40]})"
+                            f"(istorija: {r.get('naziv_robe', '')[:40]})"
                         )
         except Exception:
             pass
@@ -713,10 +713,10 @@ class ChatWorker(QThread):
 
     @staticmethod
     def _is_declaration_search(msg: str) -> bool:
-        """Da li korisnik pita za historijske deklaracije, partnere ili bazu?"""
+        """Da li korisnik pita za istorijske deklaracije, partnere ili bazu?"""
         keywords = [
-            # Historija deklaracija
-            'historij', 'prethodn', 'ranije', 'deklaracij', 'xml', 'asycuda',
+            # Istorija deklaracija
+            'istorij', 'prethodn', 'ranije', 'deklaracij', 'xml', 'asycuda',
             'starih', 'arhiv', 'uvoz', 'izvoz',
             # Pretraga robe
             'pronađi', 'pretraži', 'nađi', 'potraži', 'koji tarifni',
@@ -753,7 +753,7 @@ class ChatWorker(QThread):
             if tariff_match:
                 results = svc.search_by_tariff(tariff_match, limit=8)
                 if results:
-                    ctx.append(f"\nHistorijske stavke sa tarifom {tariff_match}:")
+                    ctx.append(f"\nIstorijske stavke sa tarifom {tariff_match}:")
                     for r in results:
                         ctx.append(
                             f"  {r.get('hs_code','?')} | "
@@ -767,7 +767,7 @@ class ChatWorker(QThread):
             if not tariff_match or 'pronađi' in msg or 'pretraži' in msg or 'nađi' in msg:
                 results = svc.search_by_goods(query, limit=8)
                 if results:
-                    ctx.append(f"\nRoba pronađena u historijskim deklaracijama:")
+                    ctx.append(f"\nRoba pronađena u istorijskim deklaracijama:")
                     seen = set()
                     for r in results:
                         key = r.get('hs_code', '') + r.get('commercial_desc', '')[:30]
@@ -787,7 +787,7 @@ class ChatWorker(QThread):
             if any(k in msg for k in partner_keywords):
                 results = svc.search_by_partner(query, limit=6)
                 if results:
-                    ctx.append(f"\nPartneri pronađeni u historijskim deklaracijama:")
+                    ctx.append(f"\nPartneri pronađeni u istorijskim deklaracijama:")
                     for r in results:
                         ctx.append(
                             f"  Izvoznik: {r.get('exporter_name','?')[:50]} | "
@@ -939,7 +939,7 @@ class ChatWorker(QThread):
             "- Imaš pristup bazi znanja (product_tariff_mapping) — prijedlozi tarife za nepoznate proizvode\n"
             "- Imaš pristup istoriji deklaracija — tarife koje su ranije korišćene za iste/slične proizvode\n"
             "- Imaš pristup zakonskoj regulativi (carinski zakoni, pravilnici BiH) — relevantni odlomci su priloženi u kontekstu\n"
-            "- Možeš pretraživati arhiv od 2500+ historijskih XML deklaracija iz sistema ASYCUDA\n"
+            "- Možeš pretraživati arhiv od 2500+ istorijskih XML deklaracija iz sistema ASYCUDA\n"
             "- Možeš pretraživati PostgreSQL bazu podataka: partnere (izvoznike, primaoce), tarifne mappinge\n"
             "- Vidiš pošiljaoca (iz fakture) i uvoznika (JIB iz rubrike 8) — na osnovu toga pronalažen XML predložak iz baze\n"
             "- Možeš analizirati probleme i predlagati rješenja\n\n"

@@ -1681,8 +1681,21 @@ class ZaglavljeService:
         #
         # VOZ=Vozarina, OST=Posebna dokumenta, PZT=Potvrda o zdravstvenom pregledu,
         # N380=Faktura komercijalna, DIS=Dispozicija, DV1=Prijava o carinskoj vrijednosti
-        OBAVEZNE_SIFRE = ["VOZ", "OST", "PZT", "N380", "DIS", "DV1"]
-        MORAJU_SE_PROMIJENITI = {"VOZ", "OST", "PZT", "N380", "DV1"}  # DIS isključen
+        #
+        # VOZ nije obavezna ako je paritet (Rb.20) jedan od Incoterms uslova gdje
+        # je vozarina uključena u cijenu fakture: CIF, CIP, CFR, CPT, DAP, DPU, DDP.
+        # Za EXW, FCA, FAS, FOB — vozarina se plaća posebno, VOZ je obavezna.
+        _INCOTERMS_VOZ_UKLJUCENA = {"CIF", "CIP", "CFR", "CPT", "DAP", "DPU", "DDP"}
+        _paritet = str(view_data.get("uslovi_kod", "")).strip().upper()
+        _voz_obavezna = _paritet not in _INCOTERMS_VOZ_UKLJUCENA
+
+        OBAVEZNE_SIFRE = ["OST", "PZT", "N380", "DIS", "DV1"]
+        MORAJU_SE_PROMIJENITI = {"OST", "PZT", "N380", "DV1"}  # DIS isključen
+        if _voz_obavezna:
+            OBAVEZNE_SIFRE.insert(0, "VOZ")
+            MORAJU_SE_PROMIJENITI.add("VOZ")
+        else:
+            self.logger.debug(f"VOZ izostavljena iz obaveznih isprava — paritet {_paritet!r} uključuje vozarinu u cijenu")
 
         view_attached = view_data.get("attached_documents", [])
 

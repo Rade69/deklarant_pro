@@ -184,8 +184,9 @@ class SifarniciView(BaseTabView):
             ("fa5s.cogs",          "Carinski postupci",     "Carinski postupci"),
             ("fa5s.globe",         "Zemlje",                "Zemlje"),
             ("fa5s.clipboard-check", "Inspekcijska pravila", "Inspekcijska pravila"),
+            ("fa5s.exchange-alt",  "Inkoterms",             "Inkoterms"),
         ]
-        fallback_emojis = ["📦", "📤", "📥", "💼", "🏛", "⚙️", "🌐", "🔬"]
+        fallback_emojis = ["📦", "📤", "📥", "💼", "🏛", "⚙️", "🌐", "🔬", "🚢"]
 
         for i, (icon_name, display, data) in enumerate(categories):
             if QTAWESOME_AVAILABLE:
@@ -744,6 +745,7 @@ class SifarniciView(BaseTabView):
                 "Carinarnice": self._setup_carinarnice,
                 "Carinski postupci": self._setup_carinski_postupci,
                 "Inspekcijska pravila": self._setup_inspekcijska_pravila,
+                "Inkoterms": self._setup_inkoterms,
             }
 
             # Reset skrivenih kolona pri svakoj promjeni kategorije
@@ -1165,6 +1167,8 @@ class SifarniciView(BaseTabView):
                 self._load_zemlje_data()
             elif self.current_category == "Inspekcijska pravila":
                 self._load_inspekcijska_pravila_data()
+            elif self.current_category == "Inkoterms":
+                self._load_inkoterms_data()
             else:
                 self._load_not_implemented(str(self.current_category))
 
@@ -1637,6 +1641,86 @@ class SifarniciView(BaseTabView):
         for k, btn in self._insp_status_filter.items():
             btn.setChecked(k == key)
         self._load_inspekcijska_pravila_data()
+
+    def _setup_inkoterms(self):
+        """Setup tabele za Incoterms 2020 (read-only pregled)."""
+        self._restore_table_widget()
+
+        self.table.setColumnCount(4)
+        self.table.setHorizontalHeaderLabels(
+            ["Kod", "Naziv (EN)", "Vidovi transporta", "Vozarina u cijeni"]
+        )
+        self.table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.table.setSelectionBehavior(QTableWidget.SelectRows)
+
+        header = self.table.horizontalHeader()
+        if header:
+            header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
+            header.setSectionResizeMode(1, QHeaderView.Stretch)
+            header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
+            header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
+
+        self.btn_novi.setEnabled(False)
+        self.btn_uredi.setEnabled(False)
+        self.btn_obrisi.setEnabled(False)
+
+    def _load_inkoterms_data(self):
+        """Učitaj Incoterms 2020 iz catalogs.incoterms."""
+        # Transport mode — čitljivi opisi
+        _TRANSPORT_LABELS = {
+            "any": "Svi vidovi",
+            "sea_inland_waterway": "Pomorski / unutrašnji vodeni",
+        }
+        # Incoterms gdje je vozarina uključena u cijenu fakture
+        _VOZ_U_CIJENI = {"CIF", "CIP", "CFR", "CPT", "DAP", "DPU", "DDP"}
+
+        try:
+            rows = self.service.load_incoterms()
+        except Exception as e:
+            logger.error(f"Greška pri učitavanju Incoterms: {e}")
+            rows = []
+
+        # Fallback na hardkodovanu listu ako tabela još ne postoji
+        if not rows:
+            rows = [
+                {"code": "EXW", "name_en": "Ex Works",                       "name_bs": "Franko fabrika",                       "transport_mode": "any"},
+                {"code": "FCA", "name_en": "Free Carrier",                   "name_bs": "Franko prevoznik",                     "transport_mode": "any"},
+                {"code": "CPT", "name_en": "Carriage Paid To",               "name_bs": "Prevoz plaćen do",                     "transport_mode": "any"},
+                {"code": "CIP", "name_en": "Carriage and Insurance Paid To", "name_bs": "Prevoz i osiguranje plaćeni do",        "transport_mode": "any"},
+                {"code": "DAP", "name_en": "Delivered At Place",             "name_bs": "Isporučeno na odredištu",              "transport_mode": "any"},
+                {"code": "DPU", "name_en": "Delivered at Place Unloaded",    "name_bs": "Isporučeno na odredištu — istovareno", "transport_mode": "any"},
+                {"code": "DDP", "name_en": "Delivered Duty Paid",            "name_bs": "Isporučeno, carina plaćena",           "transport_mode": "any"},
+                {"code": "FAS", "name_en": "Free Alongside Ship",            "name_bs": "Franko uz bok broda",                  "transport_mode": "sea_inland_waterway"},
+                {"code": "FOB", "name_en": "Free On Board",                  "name_bs": "Franko brod",                          "transport_mode": "sea_inland_waterway"},
+                {"code": "CFR", "name_en": "Cost and Freight",               "name_bs": "Cijena i vozarina",                    "transport_mode": "sea_inland_waterway"},
+                {"code": "CIF", "name_en": "Cost, Insurance and Freight",    "name_bs": "Cijena, osiguranje i vozarina",         "transport_mode": "sea_inland_waterway"},
+            ]
+
+        self.table.setRowCount(len(rows))
+        for r, row in enumerate(rows):
+            code = row.get("code", "")
+            voz_u_cijeni = code in _VOZ_U_CIJENI
+            transport_label = _TRANSPORT_LABELS.get(
+                row.get("transport_mode", "any"), row.get("transport_mode", "")
+            )
+
+            name_en = row.get("name_en", "")
+            name_bs = row.get("name_bs", "")
+            combined = f"{name_en} — {name_bs}" if name_bs else name_en
+
+            self.table.setItem(r, 0, QTableWidgetItem(code))
+            self.table.setItem(r, 1, QTableWidgetItem(combined))
+            self.table.setItem(r, 2, QTableWidgetItem(transport_label))
+
+            voz_item = QTableWidgetItem("Da — vozarina uključena" if voz_u_cijeni else "Ne — vozarina posebna")
+            if voz_u_cijeni:
+                voz_item.setForeground(QColor("#1B5E20"))
+            else:
+                voz_item.setForeground(QColor("#B71C1C"))
+            self.table.setItem(r, 3, voz_item)
+
+        self.table.resizeRowsToContents()
+        self._update_status()
 
     def _setup_inspekcijska_pravila(self):
         """Setup tabele za Inspekcijska pravila (read-only)."""
@@ -2355,6 +2439,7 @@ class SifarniciView(BaseTabView):
                 "Uvoznici",
                 "Primaoci",
                 "Deklaranti",
+                "Inkoterms",
             ]:
                 # Za ostale kategorije — filter tabele
                 logger.info(f"▶️ Pozivam _filter_table za '{self.current_category}'")
@@ -3372,9 +3457,11 @@ class SifarniciView(BaseTabView):
                 logger.debug("Nijedan red nije selektovan")
                 return
 
-            # Za Inspekcijska pravila — prikaz detalja, bez CRUD dugmadi
+            # Za Inspekcijska pravila / Inkoterms — read-only, bez CRUD dugmadi
             if self.current_category == "Inspekcijska pravila":
                 self._on_inspekcijska_row_selected()
+                return
+            if self.current_category == "Inkoterms":
                 return
 
             self.btn_uredi.setEnabled(True)

@@ -113,12 +113,11 @@ class XMLImportStrategy(ImportStrategy):
             if progress_callback:
                 progress_callback(50)
 
-            # Pekabesko/Leburic faktura XML format (<Faktura>/<Stavke>)
-            from importers.vendors.leburic.leburic_pekabesko_xml_parser import (
-                detect_leburic_pekabesko_xml, parse_leburic_pekabesko_xml
-            )
-            if detect_leburic_pekabesko_xml(str(filepath)):
-                result = parse_leburic_pekabesko_xml(str(filepath))
+            # Univerzalni faktura XML parser (<Faktura>/<Stavke>)
+            # Radi sa Pekabesko, Medicopharm, i bilo kojim drugim dobavljačem
+            from importers.faktura_xml_parser import detect_faktura_xml, parse_faktura_xml
+            if detect_faktura_xml(str(filepath)):
+                result = parse_faktura_xml(str(filepath))
                 if progress_callback:
                     progress_callback(100)
                 return result

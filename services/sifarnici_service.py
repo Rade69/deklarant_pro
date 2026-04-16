@@ -1350,4 +1350,22 @@ class SifarniciService:
         except Exception as e:
             self._log_error("add_inspection_rule", e)
             return None
-            return 0
+
+    # ============================================================
+    # INCOTERMS 2020
+    # ============================================================
+
+    def load_incoterms(self) -> List[Dict[str, Any]]:
+        """Dohvati sve Incoterms 2020 kodove iz catalogs.incoterms."""
+        try:
+            with get_db_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        SELECT code, name_en, name_bs, transport_mode, freight_in_price
+                        FROM catalogs.incoterms
+                        ORDER BY code
+                    """)
+                    return [dict(row) for row in cur.fetchall()]
+        except Exception as e:
+            self._log_error("load_incoterms", e)
+            return []

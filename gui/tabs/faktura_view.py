@@ -126,6 +126,11 @@ class FakturaView(BaseTabView):
         # Track last import item count (for REPLACE logic)
         self.last_import_count: int = 0
 
+        # Provjera konzistentnosti pošiljaoca/uvoznika između uvoza
+        # Pamtimo ime iz prvog uvoza i poredimo pri svakom sljedećem
+        self._expected_exporter: str = ""   # Pošiljalac iz prvog uvoza
+        self._expected_importer: str = ""   # Uvoznik iz prvog uvoza
+
         # Debounce timer za validaciju i dirty signal nakon editovanja ćelije
         self._debounce_timer = QTimer(self)
         self._debounce_timer.setSingleShot(True)
@@ -1319,9 +1324,9 @@ class FakturaView(BaseTabView):
 
         if filepath:
             try:
-                # Pekabesko faktura XML (<Faktura>/<Stavke>) → preusmjeri na _start_import
-                from importers.vendors.leburic.leburic_pekabesko_xml_parser import detect_leburic_pekabesko_xml
-                if detect_leburic_pekabesko_xml(filepath):
+                # Univerzalni faktura XML parser (<Faktura>/<Stavke>) → preusmjeri na _start_import
+                from importers.faktura_xml_parser import detect_faktura_xml
+                if detect_faktura_xml(filepath):
                     self._start_import(filepath)
                     return
 
@@ -1647,11 +1652,11 @@ class FakturaView(BaseTabView):
             bruto_kg = result.bruto_kg
             neto_kg = result.neto_kg
             invoice_name_from_result = result.invoice_name
-            is_combined = (
-                result.is_combined
-            )  # Flag za kombinovane importe (Excel + PDF)
-            import_type = getattr(result, "import_type", "invoice")  # Tip importa
+            is_combined = result.is_combined
+            import_type = getattr(result, "import_type", "invoice")
             has_origin_statement = getattr(result, "has_origin_statement", False)
+            exporter_name = getattr(result.exporter, "name", "") if result.exporter else ""
+            importer_name = getattr(result.importer, "name", "") if result.importer else ""
         else:
             # Backward compatibility: result is just List[InvoiceLine]
             items = result
@@ -1661,6 +1666,8 @@ class FakturaView(BaseTabView):
             is_combined = False
             import_type = "invoice"
             has_origin_statement = False
+            exporter_name = ""
+            importer_name = ""
 
         return (
             items,
@@ -1670,6 +1677,8 @@ class FakturaView(BaseTabView):
             is_combined,
             import_type,
             has_origin_statement,
+            exporter_name,
+            importer_name,
         )
 
     def _get_invoice_name(self, invoice_name_from_result: str) -> str:
@@ -1690,6 +1699,94 @@ class FakturaView(BaseTabView):
             self.imported_excel_count += 1
         elif filepath.lower().endswith(".pdf"):
             self.imported_pdf_count += 1
+
+    @staticmethod
+    def _normalize_partner(name: str) -> str:
+        """Normalizuj naziv partnera za poređenje (mala slova, bez interpunkcije)."""
+        import re
+        name = name.lower().strip()
+        name = re.sub(r"[.\-,;:'/\\()]", " ", name)
+        name = re.sub(r"\b(doo|d\.o\.o|dd|a\.d|ad|llc|ltd|gmbh|srl)\b", "", name)
+        return re.sub(r"\s+", " ", name).strip()
+
+    def _check_partner_consistency(self, exporter_name: str, importer_name: str) -> bool:
+        """
+        Provjeri konzistentnost pošiljaoca/uvoznika sa prethodnim uvozom.
+
+        Ako je ovo prvi uvoz koji nosi podatke o partneru — zapamti ih.
+        Ako se razlikuju od zapamćenih za više od praga — upitaj korisnika.
+
+        Vraća True ako treba nastaviti sa uvozom, False ako korisnik odbija.
+        """
+        def similar(a: str, b: str) -> bool:
+            na, nb = self._normalize_partner(a), self._normalize_partner(b)
+            if not na or not nb:
+                return True  # Nema podataka — ne blokiraj
+            # Token overlap: koliko zajedničkih tokena
+            ta, tb = set(na.split()), set(nb.split())
+            if not ta or not tb:
+                return True
+            overlap = len(ta & tb) / max(len(ta), len(tb))
+            return overlap >= 0.6  # 60% zajedničkih tokena = isti partner
+
+        # Ažuriraj expected ako je prazno (prvi uvoz)
+        if exporter_name and not self._expected_exporter:
+            self._expected_exporter = exporter_name
+        if importer_name and not self._expected_importer:
+            self._expected_importer = importer_name
+
+        warnings = []
+
+        if (exporter_name and self._expected_exporter
+                and not similar(exporter_name, self._expected_exporter)):
+            warnings.append(
+                f"<b>Pošiljalac (izvoznik):</b><br>"
+                f"&nbsp;&nbsp;Očekivano: <b>{self._expected_exporter}</b><br>"
+                f"&nbsp;&nbsp;Uvezeno:&nbsp;&nbsp; <b>{exporter_name}</b>"
+            )
+
+        if (importer_name and self._expected_importer
+                and not similar(importer_name, self._expected_importer)):
+            warnings.append(
+                f"<b>Uvoznik (primalac):</b><br>"
+                f"&nbsp;&nbsp;Očekivano: <b>{self._expected_importer}</b><br>"
+                f"&nbsp;&nbsp;Uvezeno:&nbsp;&nbsp; <b>{importer_name}</b>"
+            )
+
+        if not warnings:
+            return True
+
+        from PySide6.QtWidgets import QMessageBox
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Upozorenje — Pogrešan partner?")
+        msg.setIcon(QMessageBox.Icon.Warning)
+        msg.setTextFormat(Qt.TextFormat.RichText)
+        msg.setText(
+            "<b>⚠️ Podaci o partnerima se razlikuju od prethodnog uvoza!</b><br><br>"
+            + "<br><br>".join(warnings)
+            + "<br><br>Da li želite nastaviti sa ovim uvozom?"
+        )
+        msg.setStandardButtons(
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        msg.setDefaultButton(QMessageBox.StandardButton.No)
+        msg.button(QMessageBox.StandardButton.Yes).setText("Nastavi svejedno")
+        msg.button(QMessageBox.StandardButton.No).setText("Odustani od uvoza")
+
+        if msg.exec() == QMessageBox.StandardButton.Yes:
+            # Korisnik je svjestan — ažuriraj expected na nove
+            if exporter_name:
+                self._expected_exporter = exporter_name
+            if importer_name:
+                self._expected_importer = importer_name
+            return True
+
+        return False  # Odbijen uvoz
+
+    def _reset_partner_expectations(self):
+        """Resetuj zapamćene partnere (poziva se pri brisanju deklaracije)."""
+        self._expected_exporter = ""
+        self._expected_importer = ""
 
     def _format_weight(self, weight: float) -> str:
         """
@@ -1761,13 +1858,13 @@ class FakturaView(BaseTabView):
         """
         Vrati povlasticu (Rub.36) na osnovu koda zemlje.
         
-        Poboljšana verzija koja koristi historijsko učenje ako je dostupno.
+        Poboljšana verzija koja koristi istorijsko učenje ako je dostupno.
         
         Args:
             country_code: Kod zemlje (npr. 'RS', 'DE')
             exporter_name: Ime dobavljača (opcionalno)
         """
-        # Prvo probaj historijsko učenje ako imamo exportera
+        # Prvo probaj istorijsko učenje ako imamo exportera
         if exporter_name and exporter_name.strip():
             try:
                 # Koristi HistoricalLearningServiceSafe
@@ -2018,6 +2115,8 @@ class FakturaView(BaseTabView):
                 is_combined,
                 import_type,
                 has_origin_statement,
+                exporter_name,
+                importer_name,
             ) = self._extract_import_result_data(result)
 
             # Get invoice name
@@ -2025,6 +2124,12 @@ class FakturaView(BaseTabView):
 
             # Track file type
             self._track_file_type()
+
+            # Provjeri konzistentnost pošiljaoca/uvoznika
+            if not self._check_partner_consistency(exporter_name, importer_name):
+                # Korisnik je odbio uvoz — očisti progress i izađi
+                self.progress_bar.setVisible(False)
+                return
 
             # VAŽNO: NE akumuliraj težine ovdje - preuranjeno!
             # Težine će biti akumulirane kasnije, nakon što se utvrdi da li je isti invoice
@@ -2392,6 +2497,9 @@ class FakturaView(BaseTabView):
             # Reset last invoice name
             self.last_invoice_name = None
 
+            # Reset zapamćenih partnera
+            self._reset_partner_expectations()
+
             # Clear assembly
             self.assembly = DeclarationAssembly()
 
@@ -2448,7 +2556,7 @@ class FakturaView(BaseTabView):
         reply = QMessageBox.question(
             self,
             "Kreiraj Naimenovanja",
-            f"Kreirati naimenovanja iz {len(self.draft.invoice_lines)} faktura?\n\n"
+            f"Kreirati naimenovanja iz {len(self.draft.invoice_lines)} stavki?\n\n"
             f"Naimenovanja će biti grupisana po:\n"
             f"  • Tarifa (33)\n"
             f"  • Zemlja porijekla (34)\n"
@@ -2474,7 +2582,7 @@ class FakturaView(BaseTabView):
             QMessageBox.information(
                 self,
                 "Uspjeh!",
-                f"✅ Kreirano {count} naimenovanja iz {len(self.draft.invoice_lines)} faktura!\n\n"
+                f"✅ Kreirano {count} naimenovanja iz {len(self.draft.invoice_lines)} stavki!\n\n"
                 f"Naimenovanja su grupisana po tarifi, zemlji porijekla i povlastici.\n\n"
                 f"Možete ih pregledati i editovati u tabu 'Naimenovanja'.",
             )

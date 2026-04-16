@@ -2692,7 +2692,13 @@ class NaimenovanjaView(BaseTabView):
             )
             return
 
+        # Sačuvaj trenutne vrijednosti iz UI u draft prije pretrage
+        # (korisnik možda nije napustio polje, pa draft nije ažuriran)
+        self._save_current_item()
+
         current_item = self.draft.items[self.current_item_index]
+
+        logger.debug(f"[suggest] goods_trade_name={current_item.goods_trade_name!r}")
 
         # Edge Case 1: Naziv robe prazan
         if (

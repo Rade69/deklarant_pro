@@ -104,10 +104,10 @@ class PreferenceValidator:
         if povlastica in {'CEFTAP', 'EUP', 'TRP'}:
             # Mora imati EUR.1 (PE1) ILI izjavu
             if eur1_number:
-                # Dodaj historijsko warning ako je dostupno
+                # Dodaj istorijsko warning ako je dostupno
                 return self._add_historical_warning(item, povlastica, ValidationResult.ok())
             if has_statement:
-                # Dodaj historijsko warning ako je dostupno
+                # Dodaj istorijsko warning ako je dostupno
                 return self._add_historical_warning(item, povlastica, ValidationResult.ok())
             
             return ValidationResult.error(
@@ -116,12 +116,12 @@ class PreferenceValidator:
     
     def _add_historical_warning(self, item: InvoiceLine, current_preference: str, result: ValidationResult) -> ValidationResult:
         """
-        Dodaj historijsko warning ako je dostupno.
+        Dodaj istorijsko warning ako je dostupno.
         
         Warning se dodaje ako:
         - Znamo exportera
-        - Historijski podaci postoje
-        - Trenutna povlastica se ne slaže sa historijom
+        - Istorijski podaci postoje
+        - Trenutna povlastica se ne slaže sa istorijom
         """
         try:
             # Pokušaj da dobiješ exporter name
@@ -141,7 +141,7 @@ class PreferenceValidator:
             
             if historical_pref and historical_pref != current_preference:
                 # Dodaj warning
-                warning_msg = f"Historijski podaci: {exporter_name} obično koristi {historical_pref} za {item.zemlja_porijekla}."
+                warning_msg = f"Istorijski podaci: {exporter_name} obično koristi {historical_pref} za {item.zemlja_porijekla}."
                 result.warnings.append(warning_msg)
                 
         except Exception:

@@ -1,7 +1,7 @@
 """
 Chat Memory Service - Pamćenje konteksta chat sesije.
 
-Čuva chat historiju tokom sesije i omogućava AI-u da "pamti"
+Čuva chat istoriju tokom sesije i omogućava AI-u da "pamti"
 šta je korisnik već pitao i šta je agent odgovorio.
 
 Usage:
@@ -49,14 +49,14 @@ class ChatMemoryService:
     Čuva poruke u memoriji tokom sesije i omogućava:
     - Dodavanje poruka
     - Dobijanje konteksta za AI
-    - Pretraživanje historije
+    - Pretraživanje istorije
     - Čuvanje/ucitavanje sesije
     """
     
     # Max poruka u kontekstu (za AI limit)
     MAX_CONTEXT_MESSAGES = 20
     
-    # Max ukupnih poruka u historiji
+    # Max ukupnih poruka u istoriji
     MAX_HISTORY_MESSAGES = 100
     
     def __init__(self, project: str = "asycuda_pro"):
@@ -84,7 +84,7 @@ Ako ne znaš odgovor, reci "Ne znam" umjesto da izmišljaš.
     
     def add_message(self, role: str, content: str) -> ChatMessage:
         """
-        Dodaj poruku u chat historiju.
+        Dodaj poruku u chat istoriju.
         
         Args:
             role: "user" | "assistant" | "system"
@@ -99,7 +99,7 @@ Ako ne znaš odgovor, reci "Ne znam" umjesto da izmišljaš.
         message = ChatMessage(role, clean_content)
         self.messages.append(message)
         
-        # Ograniči veličinu historije
+        # Ograniči veličinu istorije
         if len(self.messages) > self.MAX_HISTORY_MESSAGES:
             self.messages = self.messages[-self.MAX_HISTORY_MESSAGES:]
         
@@ -132,12 +132,12 @@ Ako ne znaš odgovor, reci "Ne znam" umjesto da izmišljaš.
         return [msg.to_dict() for msg in recent]
     
     def get_full_history(self) -> List[Dict[str, str]]:
-        """Dobij kompletnu chat historiju."""
+        """Dobij kompletnu chat istoriju."""
         return [msg.to_dict() for msg in self.messages]
     
     def search_history(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
         """
-        Pretraži chat historiju po keyword-ima.
+        Pretraži chat istoriju po keyword-ima.
         
         Args:
             query: Query string
@@ -196,7 +196,7 @@ Ako ne znaš odgovor, reci "Ne znam" umjesto da izmišljaš.
         )
     
     def clear(self):
-        """Očisti chat historiju."""
+        """Očisti chat istoriju."""
         self.messages.clear()
         self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
     

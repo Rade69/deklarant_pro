@@ -31,19 +31,141 @@ logger = logging.getLogger("asycuda_pro.inspection")
 
 # Mapiranje internih ključeva na čitljive nazive
 INSPECTION_LABELS: dict[str, str] = {
-    "veterinary":      "Veterinarska inspekcija",
-    "phytosanitary":   "Fitosanitarna inspekcija",
-    "sanitary":        "Sanitarna inspekcija",
+    "sanitary":         "Inspekcija za hranu",
+    "veterinary":       "Veterinarska inspekcija",
+    "phytosanitary":    "Fitosanitarna inspekcija",
+    "quality_control":  "Zdravstvena inspekcija",
+    "market_inspection": "Tržna inspekcija",
     "medicines_agency": "Agencija za lijekove",
-    "quality_control": "Kontrola kvaliteta",
 }
 
 INSPECTION_ICONS: dict[str, str] = {
-    "veterinary":      "🐄",
-    "phytosanitary":   "🌿",
-    "sanitary":        "🔬",
+    "sanitary":         "🍽️",
+    "veterinary":       "🐄",
+    "phytosanitary":    "🌿",
+    "quality_control":  "🏥",
+    "market_inspection": "⛽",
     "medicines_agency": "⚕️",
-    "quality_control": "📊",
+}
+
+# Mapiranje tarifnog poglavlja/broja na vrstu hrane (formular Inspekcije za hranu)
+# Ključ: prefix tarifnog broja (2 ili 4 cifre), vrijednost: naziv kategorije na latinici
+CHAPTER_TO_VRSTA_HRANE: dict[str, str] = {
+    # Meso i prerađevine
+    "02":   "Meso",
+    "1601": "Mesne prerađevine",
+    "1602": "Mesne prerađevine",
+    # Riba
+    "03":   "Riba i proizvodi od ribe",
+    "1603": "Riba i proizvodi od ribe",
+    "1604": "Riba i proizvodi od ribe",
+    "1605": "Riba i proizvodi od ribe",
+    # Mlijecni proizvodi, jaja, med
+    "0401": "Mlijeko",
+    "0402": "Mlijeko",
+    "0403": "Mlijecni proizvodi",
+    "0404": "Mlijecni proizvodi",
+    "0405": "Mlijecni proizvodi",
+    "0406": "Mlijecni proizvodi",
+    "0407": "Jaja i proizvodi od jaja",
+    "0408": "Jaja i proizvodi od jaja",
+    "0409": "Med i drugi pcelinji proizvodi",
+    # Povrce
+    "07":   "Povrce",
+    "2001": "Preradevine od povrca",
+    "2002": "Preradevine od povrca",
+    "2003": "Preradevine od povrca",
+    "2004": "Preradevine od povrca",
+    "2005": "Preradevine od povrca",
+    # Voce i vocni sokovi
+    "08":   "Voce",
+    "0801": "Orasasti plodovi",
+    "0802": "Orasasti plodovi",
+    "2006": "Preradevine od voca",
+    "2007": "Preradevine od voca",
+    "2008": "Preradevine od voca",
+    "2009": "Vocni sokovi",
+    # Kafa, caj, zacini
+    "0901": "Kafa i proizvodi od kafe",
+    "2101": "Kafa i proizvodi od kafe",
+    "0902": "Cajevi",
+    "0904": "Zacini",
+    "0905": "Zacini",
+    "0906": "Zacini",
+    "0907": "Zacini",
+    "0908": "Zacini",
+    "0909": "Zacini",
+    "0910": "Zacini",
+    "2103": "Zacini",
+    "2209": "Zacini",
+    # Zitarice
+    "1001": "Psenica za ishranu ljudi",
+    "1005": "Kukuruz za ishranu ljudi",
+    "10":   "Ostale zitarice za ishranu ljudi",
+    # Brasno i skrob
+    "11":   "Brasno",
+    # Sacme (ostaci uljarica)
+    "2301": "Stocno brasno i mekinje",
+    "2302": "Stocno brasno i mekinje",
+    "2303": "Sacme",
+    "2304": "Sacme",
+    "2305": "Sacme",
+    "2306": "Sacme",
+    "2309": "Premiksi",
+    "23":   "Stocna hrana (ostalo)",
+    # Ulje i masti
+    "15":   "Ulje, margarin, majoneza, mast",
+    # Secer
+    "17":   "Secer",
+    # Kakao, konditorski
+    "18":   "Konditorski proizvodi",
+    # Pekarski, tjestenine, djecija hrana
+    "1901": "Djecija hrana",
+    "1902": "Tjestenine",
+    "1904": "Konditorski proizvodi",
+    "1905": "Pekarski proizvodi",
+    "19":   "Pekarski proizvodi",
+    # Sladoled
+    "2105": "Sladoled",
+    # Aditivi i ostala hrana
+    "2102": "Aditivi",
+    "2106": "Aditivi",
+    "21":   "Ostala hrana",
+    # Pica
+    "2201": "Flasirana voda za pice",
+    "2202": "Osvjezavajuca pica",
+    "2203": "Pivo i sirovine",
+    "2204": "Alkoholna pica",
+    "2205": "Alkoholna pica",
+    "2206": "Alkoholna pica",
+    "2207": "Alkoholna pica",
+    "2208": "Alkoholna pica",
+    "22":   "Osvjezavajuca pica",
+    # So
+    "2501": "So za jelo",
+}
+
+# Mapiranje tarifnog poglavlja na vrstu zdravstvene robe (formular Zdravstvene inspekcije)
+CHAPTER_TO_VRSTA_ZDRAVSTVENE: dict[str, str] = {
+    "24":   "Duvan, duvanske preradevine i pribor za pusenje",
+    "33":   "Kozmeticka sredstva",
+    "34":   "Sredstva za odrzavanje cistоce",
+    # Materijali u kontaktu sa hranom
+    "3923": "Posude, pribor za jelo i drugi materijali koji dolaze u kontakt sa hranom",
+    "3924": "Posude, pribor za jelo i drugi materijali koji dolaze u kontakt sa hranom",
+    "4419": "Posude, pribor za jelo i drugi materijali koji dolaze u kontakt sa hranom",
+    "6911": "Posude, pribor za jelo i drugi materijali koji dolaze u kontakt sa hranom",
+    "6912": "Posude, pribor za jelo i drugi materijali koji dolaze u kontakt sa hranom",
+    "7013": "Posude, pribor za jelo i drugi materijali koji dolaze u kontakt sa hranom",
+    "7323": "Posude, pribor za jelo i drugi materijali koji dolaze u kontakt sa hranom",
+    "7615": "Posude, pribor za jelo i drugi materijali koji dolaze u kontakt sa hranom",
+    # Igracke
+    "95":   "Djecje igracke",
+    # Odjeca, obuca, tekstil (dodir sa kozom)
+    "61":   "Sredstva koja dolaze u neposredan dodir sa kozom i sluzokoзom",
+    "62":   "Sredstva koja dolaze u neposredan dodir sa kozom i sluzokozom",
+    "63":   "Sredstva koja dolaze u neposredan dodir sa kozom i sluzokozom",
+    "64":   "Sredstva koja dolaze u neposredan dodir sa kozom i sluzokozom",
 }
 
 # Redoslijed prikaza u dijalogu
@@ -52,6 +174,7 @@ INSPECTION_ORDER = [
     "veterinary",
     "phytosanitary",
     "quality_control",
+    "market_inspection",
     "medicines_agency",
 ]
 
@@ -210,6 +333,33 @@ class InspectionService:
             logger.error(f"Greška pri provjeri inspekcije za {tariff_code}: {e}")
 
         return result
+
+    def suggest_vrsta_robe(self, tariff_code: str, inspection_type: str) -> str | None:
+        """
+        Predlozi vrstu robe za inspekcijski formular na osnovu tarifnog broja.
+
+        inspection_type: 'sanitary', 'veterinary', 'phytosanitary' → CHAPTER_TO_VRSTA_HRANE
+                         'quality_control'                          → CHAPTER_TO_VRSTA_ZDRAVSTVENE
+
+        Vraca naziv kategorije (latinica) ili None ako ne moze odrediti.
+        Matching ide od najspecificnijeg (4 cifre) ka poglavlju (2 cifre).
+        """
+        norm = self.normalize(tariff_code)
+        if not norm:
+            return None
+
+        mapping = (
+            CHAPTER_TO_VRSTA_ZDRAVSTVENE
+            if inspection_type == "quality_control"
+            else CHAPTER_TO_VRSTA_HRANE
+        )
+
+        for length in (4, 3, 2):
+            prefix = norm[:length]
+            if prefix in mapping:
+                return mapping[prefix]
+
+        return None
 
     def check_bulk(self, tariff_codes: list[str]) -> dict[str, InspectionResult]:
         """

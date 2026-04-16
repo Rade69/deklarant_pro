@@ -196,6 +196,10 @@ class InspectionDialog(QDialog):
         }
         no_inspection: list[NaimenovanjeDraft] = []
 
+        # Tipovi inspekcije koji pokrivaju hranu — ako naim ima bilo koji od ovih,
+        # isključuje se iz quality_control (zdravstvena inspekcija nije za prehrambene)
+        FOOD_TYPES = {"sanitary", "veterinary", "phytosanitary"}
+
         for naim in items:
             if not naim.tariff_code:
                 no_inspection.append(naim)
@@ -206,10 +210,16 @@ class InspectionDialog(QDialog):
                 no_inspection.append(naim)
                 continue
 
+            has_food_inspection = any(m.inspection_type in FOOD_TYPES for m in result.matches)
+
             for match in result.matches:
                 itype = match.inspection_type
-                if itype in type_to_items:
-                    type_to_items[itype].append((naim, match))
+                if itype not in type_to_items:
+                    continue
+                # Prehrambeni proizvodi ne idu u Zdravstvenu inspekciju
+                if itype == "quality_control" and has_food_inspection:
+                    continue
+                type_to_items[itype].append((naim, match))
 
         # Kreiraj sekciju za svaki tip koji ima stavki
         has_any = False
@@ -282,7 +292,7 @@ class InspectionDialog(QDialog):
         layout.addWidget(title_widget)
 
         # --- Tabela stavki ---
-        table = self._build_table(entries)
+        table = self._build_table(entries, itype)
         layout.addWidget(table)
 
         # --- Uslovni tekst ako postoji ---
@@ -300,10 +310,14 @@ class InspectionDialog(QDialog):
         return frame
 
     def _build_table(
-        self, entries: list[tuple[NaimenovanjeDraft, InspectionMatch]]
+        self,
+        entries: list[tuple[NaimenovanjeDraft, InspectionMatch]],
+        itype: str,
     ) -> QTableWidget:
-        """Tabela sa kolonama: Rb. | Naziv robe | JM | Količina | Neto kg | Zemlja | Tarifa."""
-        cols = ["Rb.", "Naziv robe", "JM", "Količina", "Neto kg", "Zemlja", "Tarifni br."]
+        """Tabela sa kolonama: Rb. | Naziv robe | JM | Količina | Neto kg | Zemlja | Tarifa | Vrsta robe."""
+        from PySide6.QtGui import QColor
+
+        cols = ["Rb.", "Naziv robe", "JM", "Količina", "Neto kg", "Zemlja", "Tarifni br.", "Vrsta robe"]
         table = QTableWidget(len(entries), len(cols))
         table.setHorizontalHeaderLabels(cols)
         table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
@@ -311,10 +325,13 @@ class InspectionDialog(QDialog):
         table.setAlternatingRowColors(True)
         table.verticalHeader().setVisible(False)
 
-        # Širine kolona
-        col_widths = [35, 280, 50, 75, 80, 60, 90]
+        # Širine kolona — posljednja kolona dobija više prostora
+        col_widths = [35, 230, 50, 75, 80, 55, 90, 180]
         for i, w in enumerate(col_widths):
             table.setColumnWidth(i, w)
+
+        vrsta_col = len(cols) - 1
+        highlight_bg = QColor("#FFF9C4")   # blago žuta — ističe kolonu za web formu
 
         # Popuni redove
         for row_idx, (naim, match) in enumerate(entries):
@@ -328,7 +345,10 @@ class InspectionDialog(QDialog):
             zemlja = naim.origin_country_code or "—"
             tarifa = naim.tariff_code or "—"
 
-            values = [rb, naziv, jm, kolicina, neto, zemlja, tarifa]
+            # Predloži vrstu robe za inspekcijski formular
+            vrsta = self._service.suggest_vrsta_robe(naim.tariff_code or "", itype) or "—"
+
+            values = [rb, naziv, jm, kolicina, neto, zemlja, tarifa, vrsta]
             for col_idx, val in enumerate(values):
                 item = QTableWidgetItem(val)
                 if col_idx == 0:
@@ -339,6 +359,9 @@ class InspectionDialog(QDialog):
                     item.setTextAlignment(
                         Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
                     )
+                # Istakni kolonu "Vrsta robe"
+                if col_idx == vrsta_col:
+                    item.setBackground(highlight_bg)
                 table.setItem(row_idx, col_idx, item)
 
         table.resizeRowsToContents()
@@ -375,10 +398,11 @@ class InspectionDialog(QDialog):
     def _section_color(itype: str) -> str:
         """Boja zaglavlja sekcije po tipu inspekcije."""
         colors = {
-            "sanitary":        "#d4edda",   # zelena
-            "veterinary":      "#cce5ff",   # plava
-            "phytosanitary":   "#d4edda",   # zelena (blija nijansa)
-            "quality_control": "#fff3cd",   # žuta
-            "medicines_agency": "#f8d7da",  # crvena/roze
+            "sanitary":          "#d4edda",   # zelena
+            "veterinary":        "#cce5ff",   # plava
+            "phytosanitary":     "#c8f0c8",   # zelena (blija nijansa)
+            "quality_control":   "#fff3cd",   # žuta
+            "market_inspection": "#ffe0b2",   # narandzasta (naftni derivati)
+            "medicines_agency":  "#f8d7da",   # crvena/roze
         }
         return colors.get(itype, "#e9ecef")

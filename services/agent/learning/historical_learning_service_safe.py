@@ -1,7 +1,7 @@
 """
 Historical Learning Service
 
-Analizira historijske XML deklaracije i uči pattern-e za povlastice:
+Analizira istorijske XML deklaracije i uči pattern-e za povlastice:
 1. Koje povlastice se koriste za koje dobavljače
 2. Koje zemlje porijekla su tipične za svakog dobavljača
 3. Koje kombinacije (dobavljač + zemlja → povlastica) su najčešće
@@ -31,7 +31,7 @@ logger = logging.getLogger("asycuda_pro.historical_learning")
 
 @dataclass
 class SupplierProfile:
-    """Profil dobavljača sa historijskim podacima."""
+    """Profil dobavljača sa istorijskim podacima."""
     exporter_normalized: str
     total_declarations: int = 0
     total_items: int = 0
@@ -50,7 +50,7 @@ class SupplierProfile:
 
 @dataclass
 class HistoricalPattern:
-    """Historijski pattern za kombinaciju dobavljač + zemlja."""
+    """Istorijski pattern za kombinaciju dobavljač + zemlja."""
     exporter_normalized: str
     country_code: str
     preference_code: str
@@ -64,7 +64,7 @@ class HistoricalPattern:
 
 class HistoricalLearningServiceSafe:
     """
-    Servis za učenje iz historijskih XML deklaracija.
+    Servis za učenje iz istorijskih XML deklaracija.
 
     Sve metode su wrapped u try/except — greške su silent i ne utiču
     na ostatak aplikacije. Koristi cache da izbjegne višestruko čitanje
@@ -458,7 +458,7 @@ class HistoricalLearningServiceSafe:
         else:
             profile = self.learn_from_exporter(exporter_norm)
             if not profile:
-                return None, 0.0, f"Nema historijskih podataka za exportera '{exporter_norm}'"
+                return None, 0.0, f"Nema istorijskih podataka za exportera '{exporter_norm}'"
             self.supplier_profiles[exporter_norm] = profile
 
         if country_code in profile.country_preference_map:
@@ -499,7 +499,7 @@ class HistoricalLearningServiceSafe:
             )
             return pref_code, confidence, explanation
 
-        return None, 0.0, f"Nema historijskih podataka za kombinaciju {exporter_norm} + {country_code}"
+        return None, 0.0, f"Nema istorijskih podataka za kombinaciju {exporter_norm} + {country_code}"
 
     def batch_learn_top_exporters(self, limit: int = 20) -> Dict[str, SupplierProfile]:
         """Uči pattern-e za top N exportera."""
@@ -535,7 +535,7 @@ class HistoricalLearningServiceSafe:
 
     def get_preference_safe(self, exporter_name: str, country_code: str) -> Optional[str]:
         """
-        Sigurno dobavi povlasticu iz historije. Nikad ne baca exception.
+        Sigurno dobavi povlasticu iz istorije. Nikad ne baca exception.
         """
         try:
             if not self.is_available():
@@ -584,7 +584,7 @@ class HistoricalLearningServiceSafe:
                 self.supplier_profiles[exporter_norm] = profile
                 logger.debug(f"✅ Naučen profil za '{exporter_norm}': {profile.total_items} stavki")
             else:
-                logger.debug(f"ℹ️ Nema historijskih podataka za '{exporter_norm}'")
+                logger.debug(f"ℹ️ Nema istorijskih podataka za '{exporter_norm}'")
 
             return profile
 
@@ -707,9 +707,9 @@ def enhance_preference_logic(country_code: str, exporter_name: str = "") -> str:
     Glavna funkcija za predlaganje povlastice.
 
     Pravila:
-    1. Ako znamo exportera → koristi historijsko učenje
+    1. Ako znamo exportera → koristi istorijsko učenje
     2. Ako ne znamo exportera → koristi hardcoded pravila
-    3. Ako historijsko učenje ne radi → silent fallback
+    3. Ako istorijsko učenje ne radi → silent fallback
     """
     try:
         service = get_historical_service()

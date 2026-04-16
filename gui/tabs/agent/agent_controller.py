@@ -435,13 +435,13 @@ class AgentController:
         """
         Vrati šifru povlastice na osnovu koda zemlje porijekla.
         
-        Poboljšana verzija koja koristi historijsko učenje ako je dostupno.
+        Poboljšana verzija koja koristi istorijsko učenje ako je dostupno.
         
         Args:
             country_code: Kod zemlje (npr. 'RS', 'DE')
             exporter_name: Ime dobavljača (opcionalno)
         """
-        # Prvo probaj historijsko učenje ako imamo exportera
+        # Prvo probaj istorijsko učenje ako imamo exportera
         if exporter_name and exporter_name.strip():
             try:
                 # Koristi HistoricalLearningServiceSafe

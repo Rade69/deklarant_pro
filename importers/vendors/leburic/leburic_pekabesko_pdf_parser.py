@@ -70,7 +70,7 @@ _NUM_OCR = str.maketrans({
 
 
 def _clean_tariff(raw: str) -> str:
-    """Očisti tarifni broj od OCR artefakata i vrati 8 ili 10-cifreni string."""
+    """Očisti tarifni broj od OCR artefakata i ZADRŽI pune cifre."""
     s = raw.strip()
     # Ukloni leading non-digit prefixe (i, r, , . itd.)
     s = _LEADING_TRASH.sub("", s)
@@ -80,18 +80,22 @@ def _clean_tariff(raw: str) -> str:
     s = re.sub(r"[^\d]", "", s)
     if not s:
         return ""
-    # Pad na 8 ili 10 cifara ako su izgubljene vodeće cifre
-    n = len(s)
-    # Obreži na 10 cifara ako je OCR spojio dva broja (npr. "1601009100602491300" → 18 cifara)
-    if n > 10:
+    # Zadrži puni broj cifara — ne siječi (precision kodovi su namjerni)
+    # Ali ako je OCR očigledno spojio više brojeva (>14 cifara), skrati
+    if len(s) > 14:
         s = s[:10]
-        n = 10
+    # Pad na 8/10 ako su izgubljene vodeće cifre (kratki kodovi)
+    n = len(s)
     if n == 9:
         if s.startswith("6"):
             # OCR ispustio vodeću '1': '601009100' → '1601009100' (meso = poglavlje 16)
             s = "1" + s
         else:
             s = s.zfill(10)
+    elif n < 8 and n >= 4:
+        # Možda su izgubljene vodeće nule — ne dodaj automatski
+        pass
+    return s
     elif n == 7:
         s = s.zfill(8)
     return s

@@ -430,6 +430,7 @@ class ZaglavljeView(BaseTabView):
         border: 1px solid #a0c4a0;
         border-radius: 3px;
         padding: 2px 8px;
+        font-size: 13px;
         color: #1e3820;
     }
     QComboBox:hover { background: #eef6ec; border-color: #7aa080; }
@@ -438,8 +439,13 @@ class ZaglavljeView(BaseTabView):
     QComboBox QAbstractItemView {
         background: #fafcfa;
         border: 1px solid #a0c4a0;
+        font-size: 13px;
         selection-background-color: #d4e8d4;
         color: #1e3820;
+    }
+    QComboBox QAbstractItemView::item {
+        padding: 5px 10px;
+        min-height: 24px;
     }
 """)
         layout = QVBoxLayout(column)
@@ -835,6 +841,7 @@ class ZaglavljeView(BaseTabView):
         border: 1px solid #a0c4a0;
         border-radius: 3px;
         padding: 2px 8px;
+        font-size: 13px;
         color: #1e3820;
     }
     QComboBox:hover { background: #eef6ec; border-color: #7aa080; }
@@ -843,8 +850,13 @@ class ZaglavljeView(BaseTabView):
     QComboBox QAbstractItemView {
         background: #fafcfa;
         border: 1px solid #a0c4a0;
+        font-size: 13px;
         selection-background-color: #d4e8d4;
         color: #1e3820;
+    }
+    QComboBox QAbstractItemView::item {
+        padding: 5px 10px;
+        min-height: 24px;
     }
 """)
         layout = QVBoxLayout(column)
@@ -1165,9 +1177,12 @@ class ZaglavljeView(BaseTabView):
         col15_layout.addWidget(label15)
         field15 = QLineEdit()
         field15.setPlaceholderText("Naziv")
+        field15.setMinimumWidth(160)
+        from PySide6.QtWidgets import QSizePolicy
+        field15.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         col15_layout.addWidget(field15)
         self.field_widgets["drzava_izvoza_naziv"] = field15
-        row_layout.addWidget(col15)
+        row_layout.addWidget(col15, stretch=1)
 
         # 15 šifra
         col15s = QWidget()
@@ -1179,7 +1194,7 @@ class ZaglavljeView(BaseTabView):
         col15s_layout.addWidget(label15s)
         field15s = QLineEdit()
         field15s.setPlaceholderText("RS")
-        field15s.setFixedWidth(40)
+        field15s.setFixedWidth(55)
         col15s_layout.addWidget(field15s)
         self.field_widgets["drzava_izvoza_sifra"] = field15s
         row_layout.addWidget(col15s)
@@ -1194,7 +1209,7 @@ class ZaglavljeView(BaseTabView):
         col17s_layout.addWidget(label17s)
         field17s = QLineEdit()
         field17s.setPlaceholderText("BA")
-        field17s.setFixedWidth(40)
+        field17s.setFixedWidth(55)
         col17s_layout.addWidget(field17s)
         self.field_widgets["drzava_odredista_sifra"] = field17s
         row_layout.addWidget(col17s)
@@ -1458,6 +1473,7 @@ class ZaglavljeView(BaseTabView):
         border: 1px solid #a0c4a0;
         border-radius: 3px;
         padding: 2px 8px;
+        font-size: 13px;
         color: #1e3820;
     }
     QComboBox:hover { background: #eef6ec; border-color: #7aa080; }
@@ -1466,8 +1482,13 @@ class ZaglavljeView(BaseTabView):
     QComboBox QAbstractItemView {
         background: #fafcfa;
         border: 1px solid #a0c4a0;
+        font-size: 13px;
         selection-background-color: #d4e8d4;
         color: #1e3820;
+    }
+    QComboBox QAbstractItemView::item {
+        padding: 5px 10px;
+        min-height: 24px;
     }
 """)
         layout = QVBoxLayout(column)

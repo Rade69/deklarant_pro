@@ -212,7 +212,7 @@ class ChatPanel(QWidget):
         # Dugme za brisanje memorije
         self.clear_memory_btn = QPushButton(qta.icon('fa5s.trash-alt', color=COLOR_TEXT_MUTED), "")
         self.clear_memory_btn.setFixedSize(24, 24)
-        self.clear_memory_btn.setToolTip("Obriši chat historiju")
+        self.clear_memory_btn.setToolTip("Obriši chat istoriju")
         self.clear_memory_btn.clicked.connect(self._clear_memory)
         self.clear_memory_btn.setStyleSheet(f"""
             QPushButton {{

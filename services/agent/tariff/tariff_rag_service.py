@@ -1,8 +1,8 @@
 """
-Tariff RAG Service - Pretraga tarifnih brojeva iz historije i zvaničnih tarifa.
+Tariff RAG Service - Pretraga tarifnih brojeva iz istorije i zvaničnih tarifa.
 
 Koristi RAG (Retrieval-Augmented Generation) pristup:
-1. Pretražuje historiju deklaracija (PostgreSQL - catalogs shema)
+1. Pretražuje istoriju deklaracija (PostgreSQL - catalogs shema)
 2. Pretražuje zvanične tarife (PostgreSQL - catalogs.zvanicna_tarifa)
 3. Kombinuje rezultate sa confidence skorom
 
@@ -95,7 +95,7 @@ _CATEGORY_HINTS: Dict[str, str] = {
 
 class TariffRAGService:
     """
-    Service za pretragu tarifnih brojeva iz historije i zvaničnih tarifa.
+    Service za pretragu tarifnih brojeva iz istorije i zvaničnih tarifa.
     Sve ide kroz PostgreSQL - catalogs shema.
     """
     
@@ -104,14 +104,14 @@ class TariffRAGService:
     
     def search_historical(self, naziv_robe: str, limit: int = 5) -> List[Dict[str, Any]]:
         """
-        Pretražuje historijske deklaracije (PostgreSQL catalogs.declaration_items).
+        Pretražuje istorijske deklaracije (PostgreSQL catalogs.declaration_items).
         
         Args:
             naziv_robe: Naziv robe za pretragu
             limit: Maksimalan broj rezultata
             
         Returns:
-            Lista rezultata sa tarifnim brojevima iz historije
+            Lista rezultata sa tarifnim brojevima iz istorije
         """
         results = []
         
@@ -165,7 +165,7 @@ class TariffRAGService:
                     })
                 
         except Exception as e:
-            print(f"⚠️ Greška pri pretrazi historije: {e}")
+            print(f"⚠️ Greška pri pretrazi istorije: {e}")
         
         return results
     
@@ -257,7 +257,7 @@ class TariffRAGService:
     
     def search(self, naziv_robe: str, limit: int = 5) -> Dict[str, Any]:
         """
-        Kombinuje pretragu historije i zvaničnih tarifa.
+        Kombinuje pretragu istorije i zvaničnih tarifa.
         
         Args:
             naziv_robe: Naziv robe za pretragu
@@ -269,7 +269,7 @@ class TariffRAGService:
             - candidates: Lista kandidata
             - needs_ai: Da li treba AI odluku (confidence < 0.80)
         """
-        # Pretraži historiju
+        # Pretraži istoriju
         historical_results = self.search_historical(naziv_robe, limit)
         
         # Pretraži zvanične tarife
