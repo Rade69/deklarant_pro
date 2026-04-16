@@ -3,7 +3,7 @@ Hybrid Tariff Agent - Inteligentno predlaganje tarifnih brojeva.
 
 Kombinuje tri nivoa pretrage:
 1. TariffMappingService (fuzzy match, confidence > 0.85)
-2. TariffRAGService (historija + tarifa, confidence > 0.80)
+2. TariffRAGService (istorija + tarifa, confidence > 0.80)
 3. AIDecisionService (Groq/Ollama za edge cases)
 
 Vraća: {tarifni_broj, confidence, method, needs_review}
@@ -139,7 +139,7 @@ class AIDecisionService:
             top = rag_context[0]
             return {'tarifni_broj': top.get('tarifni_broj', ''),
                     'confidence': round(top.get('confidence', 0.5) * 0.8, 2),
-                    'explanation': 'Preuzeto iz historije (AI nije dostupan)', 'source': 'historical_fallback'}
+                    'explanation': 'Preuzeto iz istorije (AI nije dostupan)', 'source': 'historical_fallback'}
         return {'tarifni_broj': '', 'confidence': 0.0,
                 'explanation': 'Nema rezultata i AI nije dostupan', 'source': 'none'}
 
@@ -160,7 +160,7 @@ class HybridTariffAgent:
     
     Tri nivoa:
     1. Fuzzy match iz postojećih mapiranja (najbrži)
-    2. RAG pretraga historije i zvaničnih tarifa
+    2. RAG pretraga istorije i zvaničnih tarifa
     3. AI odluka za edge cases
     """
     
@@ -209,7 +209,7 @@ class HybridTariffAgent:
             result['needs_review'] = False
             return result
         
-        # NIVO 2: TariffRAGService (historija + tarifa)
+        # NIVO 2: TariffRAGService (istorija + tarifa)
         rag_result = self._try_rag(naziv_robe)
         
         if rag_result and rag_result['confidence'] >= self.THRESHOLD_DIRECT:

@@ -20,13 +20,18 @@ from importers.exceptions import ImportError as ImportException
 
 logger = logging.getLogger("asycuda_pro.import")
 
-# Poznati vendor formati koji se NE tretiraju kao packing lista
+# SECTION: known_vendor_formats
+# PURPOSE: Guard set koji sprječava da se PDF poznatog vendora tretira kao packing lista
+# DOC: docs/sections/known_vendor_formats.md
 _KNOWN_VENDOR_FORMATS = {
     "invoice_improved", "blagic_loren", "blagic_attos",
-    "imamoglu", "master_frigo", "medicopharm"
+    "imamoglu", "master_frigo", "medicopharm", "leburic_pekabesko"
 }
 
 
+# SECTION: invoice_number_similarity
+# PURPOSE: Fuzzy matching imena fajlova za automatsko sparivanje Excel+PDF parova
+# DOC: docs/sections/invoice_number_similarity.md
 def _similar_invoice_number(name1: str, name2: str) -> bool:
     """
     Provjera da li dva imena fajlova imaju sličan broj fakture.
@@ -85,6 +90,9 @@ class ImportService:
         self.last_import_type = None
         self.logger.info("🗑️ Import memory cleared")
 
+    # SECTION: import_pipeline
+    # PURPOSE: Glavni orchestrator - 4-koračni pipeline sa auto-kombinovanjem parova
+    # DOC: docs/sections/import_pipeline.md
     def import_file(
         self,
         filepath: str | Path,
@@ -144,6 +152,9 @@ class ImportService:
             self.logger.exception(f"❌ Neočekivana greška tokom importa")
             raise ImportException(f"Import failed: {e}") from e
 
+    # SECTION: packing_list_gate
+    # PURPOSE: Kapija koja odlučuje da li je PDF packing lista PRIJE slanja u registry
+    # DOC: docs/sections/packing_list_gate.md
     def _try_import_as_packing_list(self, filepath: Path) -> Optional[ImportResult]:
         """
         Pokušaj import kao packing lista (samo za PDF koji nisu poznati vendor format).
@@ -175,6 +186,9 @@ class ImportService:
             self.logger.warning(f"Packing list detekcija nije uspjela: {e}")
             return None
 
+    # SECTION: import_state_machine
+    # PURPOSE: Detektuje tip upravo uvezenog fajla i pamti ga za buduće kombinovanje
+    # DOC: docs/sections/import_state_machine.md
     def _save_import_state(self, filepath: Path, result) -> None:
         """Detektuj tip importa i sačuvaj stanje za sljedeći import."""
         ext = filepath.suffix.lower()
@@ -217,6 +231,9 @@ class ImportService:
         else:
             self.last_import_type = "other"
 
+    # SECTION: combine_pairs
+    # PURPOSE: 4-case state machine za sparivanje konsekutivnih importa u jedan rezultat
+    # DOC: docs/sections/combine_pairs.md
     def _try_combine_with_previous(
         self, filepath: Path
     ) -> Optional[Union[List[InvoiceLine], ImportResult]]:
@@ -257,8 +274,9 @@ class ImportService:
             if last_is_loren_excel and current_is_loren_pdf:
                 if _similar_invoice_number(current_basename, last_basename):
                     logger.info("   ✅ CASE 1: Excel+PDF par - kombinujem")
+                    _excel_path = self.last_import_path
                     combined_items, stats = combine_blagic_excel_and_pdf(
-                        self.last_import_path, str(filepath)
+                        _excel_path, str(filepath)
                     )
                     self.clear_memory()
                     return ImportResult(
@@ -271,14 +289,16 @@ class ImportService:
                         import_type="loren_excel",
                         has_origin_statement=stats.get("has_origin_statement", False),
                         origin_statements=stats.get("origin_statements", []),
+                        consumed_paths=[_excel_path],  # Excel je potrošen
                     )
 
             # CASE 2: PDF → Excel
             elif last_is_loren_pdf and current_is_loren_excel:
                 if _similar_invoice_number(current_basename, last_basename):
                     logger.info("   ✅ CASE 2: PDF+Excel par - kombinujem")
+                    _pdf_path = self.last_import_path
                     combined_items, stats = combine_blagic_excel_and_pdf(
-                        str(filepath), self.last_import_path
+                        str(filepath), _pdf_path
                     )
                     self.clear_memory()
                     return ImportResult(
@@ -291,6 +311,7 @@ class ImportService:
                         import_type="loren_excel",
                         has_origin_statement=stats.get("has_origin_statement", False),
                         origin_statements=stats.get("origin_statements", []),
+                        consumed_paths=[_pdf_path],  # PDF je potrošen
                     )
 
         except Exception as e:

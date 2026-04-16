@@ -1,0 +1,1514 @@
+[
+  {
+    "code": "0101",
+    "chapter_number": 1,
+    "chapter_title": "Žive životinje",
+    "description": "Živi konji, magarci, mule i mazge.",
+    "qualification": "Svi.",
+    "source_page": 6
+  },
+  {
+    "code": "0102",
+    "chapter_number": 1,
+    "chapter_title": "Žive životinje",
+    "description": "Živa goveda.",
+    "qualification": "Svi.",
+    "source_page": 6
+  },
+  {
+    "code": "0103",
+    "chapter_number": 1,
+    "chapter_title": "Žive životinje",
+    "description": "Žive svinje.",
+    "qualification": "Svi.",
+    "source_page": 6
+  },
+  {
+    "code": "010410",
+    "chapter_number": 1,
+    "chapter_title": "Žive životinje",
+    "description": "Živa ovce.",
+    "qualification": "Svi.",
+    "source_page": 6
+  },
+  {
+    "code": "010420",
+    "chapter_number": 1,
+    "chapter_title": "Žive životinje",
+    "description": "Žive koze.",
+    "qualification": "Svi.",
+    "source_page": 6
+  },
+  {
+    "code": "0105",
+    "chapter_number": 1,
+    "chapter_title": "Žive životinje",
+    "description": "Živa perad, kokoši vrste Gallus domesticus, patke, guske, ćurke i perlinke.",
+    "qualification": "Svi. Svi, obuhvata sve žive životinje iz sljedećih tarifnih podbrojeva: 01061100 (primati) 01061200 (kitovi, delfini i pliskavice (sisari iz reda Cetacea); lamnatine i moronje (sisari iz reda Sirenia)); tuljani, morski lavovi i morževi (sisari iz podroda Pinnipedia)",
+    "source_page": 6
+  },
+  {
+    "code": "0106",
+    "chapter_number": 1,
+    "chapter_title": "Žive životinje",
+    "description": "Druge žive životinje.",
+    "qualification": "01061300 (kamile i druge životinje iz skupine kamila (Camelidae)) 01061410 (domaći zečevi) 01061490 (ostali kunići i zečevi, osim domaćih kunića) 01061900 (ostali): sisari, osim onih iz tarifnih brojeva 0101, 0102, 0103, 0104, 010611, 010612, 010613 i 010614; obuhvata pse i mačke 01062000 (gmazovi, uključujući zmije i kornjače) 01063100 (ptice: ptice grabljivice) 01063200 (ptice: Psittaciformes (uključujući papige, papigice, makae i kakadue)) 01063300 (nojevi; emui (Dromaius novaehollandiae)) 010639 (ostali): obuhvata ptice, osim onih iz tarifnih brojeva 0105, 010631, 010632 i 010633, uključujući golubove. 01064100 (pčele) 01064900 (drugi kukci osim pčela) 01069000 (ostale): sve druge žive životinje koje nisu obuhvaćene na drugom mjestu, osim sisara, ptica i gmazova. Ovim tarifnim brojem su obuhvaćene žive žabe bilo da su namijenjene za vivarije ili za prehranu ljudi.",
+    "source_page": 6
+  },
+  {
+    "code": "0201",
+    "chapter_number": 2,
+    "chapter_title": null,
+    "description": "Meso od životinja vrste goveda, svježe ili rashlađeno.",
+    "qualification": "Svi, međutim, sirovine koje nisu namijenjene ni prikladne za prehranu ljudi nisu obuhvaćene ovom oznakom.",
+    "source_page": 8
+  },
+  {
+    "code": "0202",
+    "chapter_number": 2,
+    "chapter_title": null,
+    "description": "Meso od životinja vrste goveda, smrznuto.",
+    "qualification": "Svi, međutim, sirovine koje nisu namijenjene ni prikladne za prehranu ljudi nisu obuhvaćene ovom oznakom.",
+    "source_page": 8
+  },
+  {
+    "code": "0203",
+    "chapter_number": 2,
+    "chapter_title": null,
+    "description": "Meso svinja, svježe, rashlađeno ili smrznuto.",
+    "qualification": "Svi, međutim, sirovine koje nisu namijenjene ni prikladne za prehranu ljudi nisu obuhvaćene ovom oznakom.",
+    "source_page": 8
+  },
+  {
+    "code": "0204",
+    "chapter_number": 2,
+    "chapter_title": null,
+    "description": "Meso ovaca ili koza, svježe, rashlađeno smrznuto. ili",
+    "qualification": "Svi, međutim, sirovine koje nisu namijenjene ni prikladne za prehranu ljudi nisu obuhvaćene ovom oznakom.",
+    "source_page": 8
+  },
+  {
+    "code": "020500",
+    "chapter_number": 2,
+    "chapter_title": null,
+    "description": "Meso konja, magaraca, mula ili mazgi, svježe, rashlađeno ili smrznuto.",
+    "qualification": "Svi, međutim, sirovine koje nisu namijenjene ni prikladne za prehranu ljudi nisu obuhvaćene ovom oznakom.",
+    "source_page": 8
+  },
+  {
+    "code": "0206",
+    "chapter_number": 2,
+    "chapter_title": null,
+    "description": "Jestivi nusproizvodi klanja životinja goveda, svinja, ovaca, koza, konja, magaraca, mula ili mazgi, svježi, rashlađeni ili smrznuti.",
+    "qualification": "vrste Svi, međutim, sirovine koje nisu namijenjene ni prikladne za prehranu ljudi nisu obuhvaćene ovom oznakom.",
+    "source_page": 8
+  },
+  {
+    "code": "0207",
+    "chapter_number": 2,
+    "chapter_title": null,
+    "description": "Meso i jestivi nusproizvodi klanja peradi pod tarifnim brojem 0105, svježe, rashlađeno ili smrznuto.",
+    "qualification": "Svi, međutim, sirovine koje nisu namijenjene ni prikladne za prehranu ljudi nisu obuhvaćene ovom oznakom. Svi, međutim, sirovine koje nisu namijenjene ni prikladne za prehranu ljudi nisu obuhvaćene ovom oznakom. Ovo uključuje kosti i druge materije za proizvodnju želatine ili kolagena za prehranu",
+    "source_page": 8
+  },
+  {
+    "code": "0208",
+    "chapter_number": 2,
+    "chapter_title": null,
+    "description": "Ostalo meso i jestivi mesni nusproizvodi klanja, svježi, rashlađeni ili smrznuti.",
+    "qualification": "ljudi. Obuhvata svo meso i jestive mesne otpatke iz sljedećih tarifnih podbrojeva: 020810 (od kunića ili zečeva) 02083000 (od primata) 020840 (kitova, delfina i pliskavica (sisara iz roda Cetacea); lamnatina i moronja (sisara iz roda Sirenia); tuljana, morskih lavova i morževa (sisara iz podroda Pinnipedia) 02085000 (gmazova, uključujući i od zmija i kornjača) 02086000 (kamila i drugih životinja iz skupine kamila (Camelidae))",
+    "source_page": 8
+  },
+  {
+    "code": "0209",
+    "chapter_number": 2,
+    "chapter_title": null,
+    "description": "Svinjska mast, bez krtog mesa, mast netopljena ili izdvojena na neki drugi svježa, rashlađena, smrznuta, soljena, salamuri, sušena ili dimljena.",
+    "qualification": "020890 (ostalo): od domaćih golubova, divljači, osim zečeva ili kunića) obuhvata meso prepelica, sjevernih jelena ili bilo kojih drugih vrsta sisara. Obuhvata žablje batake iz oznake CT 02089070. peradi, način, Svi, uključuje i mast i prerađenu mast kako je opisano u rubrici 2. čak i ako su u primjerene samo za industrijsku upotrebu (neprikladne za prehranu ljudi). Svi, obuhvata meso, mesne proizvode i ostale proizvode životinjskog porijekla.",
+    "source_page": 8
+  },
+  {
+    "code": "0210",
+    "chapter_number": 2,
+    "chapter_title": null,
+    "description": "Meso i jestivi mesni nusproizvodi klanja, soljeni, u salamuri, sušeni ili dimljeni; jestivo brašno i krupica od mesa ili od nusproizvoda klanja.",
+    "qualification": "Međutim, sirovine koje nisu namijenjene ni prikladne za prehranu ljudi nisu obuhvaćene ovom oznakom. Obuhvata prerađene životinjske bjelančevine i sušene svinjske uši za prehranu ljudi. Čak i kad se te sušene svinjske uši upotrebljavaju kao hrana za životinje. Međutim, sušeni nusproizvodi klanja i svinjske uši neprimjereni za prehranu ljudi razvrstani su u 0511 99 85. Kosti za prehranu ljudi obuhvaćene su tarifnim brojem 0506. Kobasice su obuhvaćene tarifnim brojem 1601. Ekstrakti i sokovi od mesa obuhvaćeni su tarifnim brojem 1603. Čvarci su obuhvaćeni tarifnim brojem 2301.",
+    "source_page": 8
+  },
+  {
+    "code": "0301",
+    "chapter_number": 3,
+    "chapter_title": "Ribe, rakovi, mekušci i drugi vodeni beskičmenjaci",
+    "description": "Živa riba.",
+    "qualification": "Sva; obuhvata pastrmku, jegulju, šarana ili bilo koju drugu vrstu ili bilo koju ribu uvezenu radi uzgoja ili rasploda.",
+    "source_page": 10
+  },
+  {
+    "code": "0302",
+    "chapter_number": 3,
+    "chapter_title": "Ribe, rakovi, mekušci i drugi vodeni beskičmenjaci",
+    "description": "Riba, svježa ili rashlađena, isključujući pod tarifnim brojem 0304.",
+    "qualification": "veterinarskog pregleda tretiraju se kao da su proizvodi. Obuhvata ukrasne ribe pod tarifnim podbrojem 0301 10. filete riba i drugog ribljeg mesa Svi; obuhvata jetru i ikru, svježu ili rashlađenu, pod oznakom CT 030270.",
+    "source_page": 10
+  },
+  {
+    "code": "0303",
+    "chapter_number": 3,
+    "chapter_title": "Ribe, rakovi, mekušci i drugi vodeni beskičmenjaci",
+    "description": "Riba, smrznuta, isključujući filete riba tarifnim brojem 0304.",
+    "qualification": "i drugog ribljeg mesa pod Svi; obuhvata: pacifičkog lososa, ne isključujući jetru i ikru; sockeye lososa (crvenog lososa); druge salmonidne",
+    "source_page": 10
+  },
+  {
+    "code": "0304",
+    "chapter_number": 3,
+    "chapter_title": "Ribe, rakovi, mekušci i drugi vodeni beskičmenjaci",
+    "description": "Riblji fileti i drugo meso riba (mljeveno smrznuto.",
+    "qualification": "lososa; i svu drugu ribu. ili ne), svježe, rashlađeno ili Svi.",
+    "source_page": 10
+  },
+  {
+    "code": "0305",
+    "chapter_number": 3,
+    "chapter_title": "Ribe, rakovi, mekušci i drugi vodeni beskičmenjaci",
+    "description": "Riba, sušena, soljena ili u salamuri; dimljenja ili ne ili tokom postupka dimljenja;",
+    "qualification": "dimljena riba, kuhana prije Svi; obuhvata druge riblje proizvode poput brašna, grubo brašna, grubo mljevena mljevenog brašna i pelete riba, prikladne za prehranu",
+    "source_page": 10
+  },
+  {
+    "code": "0306",
+    "chapter_number": 3,
+    "chapter_title": "Ribe, rakovi, mekušci i drugi vodeni beskičmenjaci",
+    "description": "brašna i peleti riba, prikladni za prehranu Rakovi, u ljusci ili ne, živi, svježi, rashlađeni, ili u salamuri; dimljeni rakovi, u ljusci tokom procesa dimljenja; rakovi, u ljusci, rashlađeni ili ne, smrznuti, sušeni, soljeni mljevena brašna i peleti rakova, prikladni",
+    "qualification": "ljudi. ljudi, od riba, rakova ili drugih vodenih beskičmenjaka. smrznuti, sušeni, soljeni Svi; živi rakovi uvezeni za neposrednu prehranu ljudi u ili ne, bilo da su kuhani prije ili svrhu veterinarskog pregleda tretiraju se kao da su kuhani na pari ili u vodi, proizvodi. ili u salamuri; brašna, grubo Obuhvata ukrasne morske rakove i njihova jaja, za za prehranu ljudi. držanje kao kućne ljubimce; i svi živi ukrasni rakovi.",
+    "source_page": 10
+  },
+  {
+    "code": "0307",
+    "chapter_number": 3,
+    "chapter_title": "Ribe, rakovi, mekušci i drugi vodeni beskičmenjaci",
+    "description": "Mekušci u ljusci ili ne, živi, svježi, rashlađeni, ili u salamuri; dimljeni mekušci, u ljusci ili ne ili tokom postupka dimljenja; peleti mekušaca, prikladni za prehranu",
+    "qualification": "smrznuti, sušeni, soljeni To obuhvata mekušce koji su možda bili kuhani a potom ili ne, kuhani prije dimljenja dimljeni. Drugi kuhani mekušci obuhvaćeni su pod brašna, grubo mljevena brašna i tarifnim brojem 1605. Obuhvata žive ukrasne mekušce. ljudi. Živi mekušci uvezeni za neposrednu prehranu ljudi u svrhu veterinarskog pregleda tretiraju se kao da su proizvodi. Obuhvata sve što je pod tarifnim podbrojevima od 030711 do 030799, kao što su sljedeći primjeri: 030760 (puževi osim morskih puževa), obuhvata kopnene gastropode (puževe) vrsta Helix pomatia, Helix aspersar, Helix lucorum i vrste iz porodice Achatinidae. Obuhvata žive puževe (uključujući slatkovodne puževe) za neposrednu prehranu ljudi i meso puževa za prehranu ljudi. Obuhvata neznatno prethodno kuhane ili prethodno prerađene puževe. Dodatno prerađeni proizvodi",
+    "source_page": 11
+  },
+  {
+    "code": "0308",
+    "chapter_number": 3,
+    "chapter_title": "Ribe, rakovi, mekušci i drugi vodeni beskičmenjaci",
+    "description": "Vodeni beskičmenjaci osim rakova i smrznuti, sušeni, soljeni ili u salamuri; osim rakova i mekušaca kuhanih prije postupka dimljenja; brašna, grubo mljevena beskičmenjaka osim rakova i mekušaca,",
+    "qualification": "obuhvaćeni su pod tarifnim brojem 1605. 03079100 (živi, svježi ili rashlađeni drugi mekušci osim ostriga, kapesanti, mušula, sipa, hobotnica, puževa (osim morskih puževa), ladinki, srčanki, kunjki, abalona, ali uključujući brašna, grubo mljevena brašna i peleti od tih životinja prikladne za prehranu ljudi). Obuhvata meso vrsta morskih puževa u ljusci ili bez. Ne obuhvata puževe kućice. 030799 ostali mekušci osim ostriga, kapesanti, mušula, sipa, hobotnica, puževa (osim morskih puževa), ladinki, srčanki, kunjki, abalona, osim živih, svježih ili rashlađenih; ali uključujući brašna, grubo mljevena brašna i peleti od tih životinja, pogodne za prehranu ljudi). mekušaca, živi, svježi, rashlađeni, Svi dimljeni vodeni beskičmenjaci dimljenja ili ne ili tokom brašna i peleti vodenih prikladni za prehranu ljudi.",
+    "source_page": 11
+  },
+  {
+    "code": "0401",
+    "chapter_number": 4,
+    "chapter_title": "Mliječni proizvodi; ptičija jaja; prirodni med; jestivi proizvodi životinjskoga porijekla koji nisu drugdje navedeni ili uključeni",
+    "description": "Mlijeko i vrhnje, nekoncentrirano šećera ili drugih sladila.",
+    "qualification": "i bez dodatog Svi: mlijeko obuhvata sirovo mlijeko, pasterizirano ili toplotno obrađeno, uključujući smrznuto. Obuhvata frakcije mlijeka. Mlijeko za stočnu hranu obuhvaćeno je ovim tarifnim brojem,",
+    "source_page": 13
+  },
+  {
+    "code": "0402",
+    "chapter_number": 4,
+    "chapter_title": "Mliječni proizvodi; ptičija jaja; prirodni med; jestivi proizvodi životinjskoga porijekla koji nisu drugdje navedeni ili uključeni",
+    "description": "Mlijeko i vrhnje, koncentrirano šećerom ili drugim sladilima.",
+    "qualification": "brojem 2309. Mlijeko za terapeutske ili profilaktičke namjene obuhvaćeno je tarifnim brojem 3001. ili sa dodanim Svi, uključujući mlijeko za dojenčad.",
+    "source_page": 13
+  },
+  {
+    "code": "0403",
+    "chapter_number": 4,
+    "chapter_title": "Mliječni proizvodi; ptičija jaja; prirodni med; jestivi proizvodi životinjskoga porijekla koji nisu drugdje navedeni ili uključeni",
+    "description": "Mlaćenica, kiselo mlijeko i drugo fermentirano ili koncentrirani ili ne, ili",
+    "qualification": "i kiselo vrhnje, jogurt, kefir Svi, obuhvata vrhnje, aromatizirano ili koje sadrži voće, zakiseljeno mlijeko i vrhnje, smrznuto i fermentirano mlijeko, za prehranu ljudi. koji sadrži dodati šećer ili Sladoled je obuhvaćen pod tarifnim brojem 2105. Pića koja",
+    "source_page": 13
+  },
+  {
+    "code": "0404",
+    "chapter_number": 4,
+    "chapter_title": "Mliječni proizvodi; ptičija jaja; prirodni med; jestivi proizvodi životinjskoga porijekla koji nisu drugdje navedeni ili uključeni",
+    "description": "druga sladila, ili aromatizirani voće, orahe ili kakao. Surutka, koncentrirana šećer ili druga sladila; prirodnih mliječnih sastava, ili",
+    "qualification": "koji sadrže dodato sadrže mlijeko aromatizirano sa kakaom ili drugim supstancama, obuhvaćena su pod tarifnim brojem 2202 ili ne, ili koja sadrži dodati Svi, obuhvata mliječne proizvode za dojenčad. Oznakom CT proizvodi koji se sastoje od 04041048 obuhvaćen je kolostrum goveda u tekućem obliku, sa ili bez dodatog šećera odmašćen i bez kazeina, za prehranu ljudi, a oznakom CT",
+    "source_page": 13
+  },
+  {
+    "code": "0405",
+    "chapter_number": 4,
+    "chapter_title": "Mliječni proizvodi; ptičija jaja; prirodni med; jestivi proizvodi životinjskoga porijekla koji nisu drugdje navedeni ili uključeni",
+    "description": "obuhvaćeni. Maslac i druge masti i mliječni namazi.",
+    "qualification": "dobiven suhim raspršivanjem, iz kojeg nije uklonjen kazein, za prehranu ljudi. ulja dobveni od mlijeka; Svi: uključuje mliječne namaze.",
+    "source_page": 13
+  },
+  {
+    "code": "0406",
+    "chapter_number": 4,
+    "chapter_title": "Mliječni proizvodi; ptičija jaja; prirodni med; jestivi proizvodi životinjskoga porijekla koji nisu drugdje navedeni ili uključeni",
+    "description": "Sir i skuta.",
+    "qualification": "Svi",
+    "source_page": 13
+  },
+  {
+    "code": "0407",
+    "chapter_number": 4,
+    "chapter_title": "Mliječni proizvodi; ptičija jaja; prirodni med; jestivi proizvodi životinjskoga porijekla koji nisu drugdje navedeni ili uključeni",
+    "description": "Ptičija jaja, u ljusci, svježa,",
+    "qualification": "konzervirana ili kuhana. Svi: Uključuje jaja za valenje ili jaja bez specifičnih patogena (SPF), oplođena jaja za inkubaciju (040711 i 040719). Obuhvata svježa jaja (040721 to 040729) i druga jaja (040790), koja jesu i koja nisu prikladna za prehranu ljudi.",
+    "source_page": 13
+  },
+  {
+    "code": "0408",
+    "chapter_number": 4,
+    "chapter_title": "Mliječni proizvodi; ptičija jaja; prirodni med; jestivi proizvodi životinjskoga porijekla koji nisu drugdje navedeni ili uključeni",
+    "description": "Ptičija jaja koja nisu u sušena, kuhana na pari",
+    "qualification": "Obuhvata \"stogodišnja jaja\". Albumin iz jaja koji nije pogodan za prehranu ljudi obuhvaćen je tarifnim brojem 3502. ljusci i žumanca, svježa, Svi: ovaj tarifni broj obuhvata proizvode od jaja koji jesu ili nisu ili u vodi, oblikovana ili toplotno obrađeni i proizvode koji su neprikladni za prehranu",
+    "source_page": 13
+  },
+  {
+    "code": "04090000",
+    "chapter_number": 4,
+    "chapter_title": "Mliječni proizvodi; ptičija jaja; prirodni med; jestivi proizvodi životinjskoga porijekla koji nisu drugdje navedeni ili uključeni",
+    "description": "ili drugih sladila. Prirodni med.",
+    "qualification": "Svi.",
+    "source_page": 13
+  },
+  {
+    "code": "04100000",
+    "chapter_number": 4,
+    "chapter_title": "Mliječni proizvodi; ptičija jaja; prirodni med; jestivi proizvodi životinjskoga porijekla koji nisu drugdje navedeni ili uključeni",
+    "description": "Jestivi proizvodi životinjskog drugdje navedeni ili uključeni.",
+    "qualification": "porijekla, koji nisu Svi: ovaj tarifni broj obuhvata \"Royal Jelly\" i propolis (za proizvodnju farmaceutskih proizvoda i dodataka hrani), te druge supstance dobivene od životinja za prehranu ljudi, osim kostiju (koje su obuhvaćene tarifnim brojem 0506). Kukci ili jaja kukaca za prehranu ljudi obuhvaćeni su pod ovom oznakom CT.",
+    "source_page": 13
+  },
+  {
+    "code": "05021000",
+    "chapter_number": 5,
+    "chapter_title": "Proizvodi životinjskoga porijekla, koji nisu drugdje navedeni ili uključeni",
+    "description": "Čekinje i dlake divlje ili domaće čekinja ili dlaka.",
+    "qualification": "Svi, obrađeni i neobrađeni. Neobrađene čekinje svinja su čekinje svinja koje nisu podvrgnute svinje i otpaci takvih tvorničkom pranju, dobivene štavljenjem ili tretirane nekom drugom metodom kako bi se osiguralo da na njima ne preostanu nikakvi uzročnici bolesti.",
+    "source_page": 15
+  },
+  {
+    "code": "05040000",
+    "chapter_number": 5,
+    "chapter_title": "Proizvodi životinjskoga porijekla, koji nisu drugdje navedeni ili uključeni",
+    "description": "Crijeva, mjehuri i želuci životinja njihovi dijelovi, svježi, rashlađeni, salamuri, osušeni ili dimljeni.",
+    "qualification": "(osim riba), čitavi i Svi: obuhvata želuce, mjehure i crijeva, očišćena, usoljena, sušena ili smrznuti, soljeni, u grijana, porijeklom od goveda, svinja, ovaca, koza ili peradi. Svi: obuhvata lovačke trofeje ptica, ali isključujući obrađeno ukrasno perje, obrađeno perje koje putnici koriste u privatne svrhe ili pošiljke",
+    "source_page": 15
+  },
+  {
+    "code": "**0505",
+    "chapter_number": 5,
+    "chapter_title": "Proizvodi životinjskoga porijekla, koji nisu drugdje navedeni ili uključeni",
+    "description": "Kože i drugi dijelovi ptica, s perjem dijelovi perja (sa ili bez podrezanih koje je samo očišćeno bez daljnje obrađeno radi očuvanja; prah i otpad perja.",
+    "qualification": "obrađenog perja, slane privatnim osobama u neindustrijske svrhe. ili paperjem, perje ili Član 25. st. 1. tačka (b) Pravilnika zabranjuje uvoz u i provoz kroz krajeva) i paperje, Bosnu i Hercegovinu neobrađenog perja ili dijelova perja i paperja. obrade, dezinficirano ili Veterinarski pregledi se primjenjuju na perje neovisno od njegove perja ili dijelova obrade kako je navedeno u tački c) poglavlja VII Priloga XIII Pravilnika. Dodatni posebni zahtjevi za lovne trofeje utvrđeni su u odjeljku 5. Poglavlja II Priloga XIV Pravilnika. Odjeljak 6. Poglavlja II Priloga XIV Pravilnika obuhvata perje koje se koristi za prepariranje, paperje, sirovo ili drugo perje.",
+    "source_page": 15
+  },
+  {
+    "code": "0506",
+    "chapter_number": 5,
+    "chapter_title": "Proizvodi životinjskoga porijekla, koji nisu drugdje navedeni ili uključeni",
+    "description": "Kosti i srž rogova, neobrađeni, odmašćeni, pripremljeni (ali neoblikovani), deželatinizirani; prah i otpaci tih",
+    "qualification": "Obuhvata kosti koje se koriste kao žvakalice za pse i kosti za proizvodnju želatine ili kolagena, ako su dobivene od trupova životinja zaklanih za prehranu ljudi. Koštano brašno za prehranu ljudi obuhvaćeno je tarifnim brojem 0410. jednostavno Posebni zahtjevi za takve proizvode koji nisu namijenjeni za obrađeni kiselinom ili prehranu ljudi utvrđeni su u redu 6. (trofeji divljači), redu 11. (kosti i proizvoda. proizvodi od kostiju (isključujući koštano brašno), rogovi i proizvodi od rogova (isključujući brašno od rogova) te kopita i proizvodi od kopita (isključujući brašno od kopita) za drugu upotrebu osim kao hrana za životinje, organsko gnojivo ili poboljšivač tla) i redu 12.",
+    "source_page": 15
+  },
+  {
+    "code": "0507",
+    "chapter_number": 5,
+    "chapter_title": "Proizvodi životinjskoga porijekla, koji nisu drugdje navedeni ili uključeni",
+    "description": "Bjelokost, kornjačevina, kitova kost, rogovi, parošci, kopita, nokti, kandže jednostavno pripremljeni ali neisječeni otpaci tih proizvoda.",
+    "qualification": "(žvakalice za pse) u tablici 2. odjeljka 1. Poglavlja II Priloga XIV Pravilnika. Posebni zahtjevi za lovne trofeje utvrđeni su u redu 6. tablice 2. dlake, kitove kosti, Odjeljka 1. Poglavlja II Priloga XIV Pravilnika. i kljunovi, sirovi ili Obuhvata obrađene lovne trofeje ptica i kopitara, koji se sastoje u oblike; prah i isključivo od kostiju, rogova, kopita, kandži, parošaca, zuba, te krupne ili sitne kože iz trećih zemalja. Prazne školjke za upotrebu kao hrana i upotrebu kao sirovina za",
+    "source_page": 15
+  },
+  {
+    "code": "**050800",
+    "chapter_number": 5,
+    "chapter_title": "Proizvodi životinjskoga porijekla, koji nisu drugdje navedeni ili uključeni",
+    "description": "Korali i slični materijali, neobrađeni pripremljeni, ali ne na drugačiji 00| mekušaca, rakova ili bodljokožaca neobrađene ili jednostavno pripremljene prah i otpaci proizvoda.",
+    "qualification": "glukozamin. ili jednostavno Osim toga, obuhvaćene su školjke, uključujući sipine kosti, koje način obrađeni; ljuske sadržavaju meko tkivo i meso iz člana 12. tačka (m) alineja (1) i sipine kosti, Odluke o nusproizvodima životinjskog porijekla i njihovim ali neoblikovane, proizvodima koji nisu namijenjeni prehrani ljudi (\"Službeni glasnik BiH\", broj 19/11). Ne obuhvata kućice od puževa.",
+    "source_page": 15
+  },
+  {
+    "code": "**051000",
+    "chapter_number": 5,
+    "chapter_title": "Proizvodi životinjskoga porijekla, koji nisu drugdje navedeni ili uključeni",
+    "description": "Ambra siva, kastoreum, cibet i mošus; sušene ili nesušene; žlijezde i ostale 00 svježe, rashlađene ili smrznute ili konzervirane.",
+    "qualification": "U redu 14. u tablici 2. odjeljka 1. Poglavlja II Priloga XIV Pravilnika utvrđeni su posebni zahtjevi za životinjske nusproizvode za proizvodnju hrane za kućne ljubimce, osim sirove hrane za kućne kantaride, žuči ljubimce i proizvoda dobijenih preradom osnovnog proizvoda za životinjske tvari, korištenje izvan hranidbenog lanca za životinje (za farmaceutske i drugačije privremeno druge tehničke proizvode). Ovom oznakom obuhvaćene su žlijezde i drugi proizvodi dobiveni od životinja. Sušene žlijezde i proizvodi su obuhvaćeni tarifnim brojem 3001. Svi, obuhvata tarifne podbrojeve 051110 do 051199. Obuhvata genetski materijal (sjeme i zametke životinjskog porijekla poput goveda, ovaca, koza, konja i svinja) i životinjske nusproizvode kategorije 1. i 2. U nastavku su navedeni primjeri životinjskih proizvoda koji potpadaju pod tarifne podbrojeve od 051110 do 051199: 05111000 (sjeme goveda). 051191 (proizvodi od ribe ili rakova, mekušaca ili drugih vodenih beskičmenjaka):",
+    "source_page": 16
+  },
+  {
+    "code": "**0511",
+    "chapter_number": 5,
+    "chapter_title": "Proizvodi životinjskoga porijekla, koji nisu drugdje navedeni ili uključeni",
+    "description": "Proizvodi životinjskog porijekla obuhvaćeni na drugom mjestu; mrtve poglavlja 1. ili 3. neprikladne za",
+    "qualification": "svi, obuhvata riblja jaja za valenje, mrtve životinje, životinjske nusproizvode za proizvodnju hrane za kućne ljubimce i za farmaceutske i druge tehničke proizvode. Obuhvata mrtve životinje iz poglavlja 3, nejestive ili razvrstane kao neprikladne za prehranu ljudi, na primjer, dafnije, poznate kao vodenbuhe, i druge ostrakode ili filopode, osušene, za hranjenje akvarijskih riba; obuhvata mamac za ribe. **05119910 (tetive; obresci i slični otpaci sirove krupne i sitne kože). Veterinarski pregledi nužni su za neobrađene kože iz tačke C2 poglavlja V Priloga XIII. **05119931 (sirove spužve, prirodne, životinjskog porijekla): svi, ukoliko su za prehranu ljudi; ukoliko nisu za prehranu ljudi, samo koji nisu navedeni ili one namijenjene za hranu za kućne ljubimce. Posebni zahtjevi za životinje iz proizvode koji nisu primjereni za prehranu ljudi utvrđeni su u redu 12 prehranu ljudi. tablici 2 odjeljku 1. Poglavlje II Priloga XIV Pravilnika. **05119939 (drugi proizvodi životinjskog porijekla): svi, ukoliko su za prehranu ljudi; ukoliko nisu za prehranu ljudi, samo oni namijenjeni za hranu za kućne ljubimce. Posebni zahtjevi za proizvode koji nisu primjereni za prehranu ljudi utvrđeni su u redu 12 tablice 2. odjeljka 1. Poglavlja II Priloga XIV Pravilnika. 05119939 (drugi proizvodi životinjskog porijekla): svi, ukoliko su za prehranu ljudi; ukoliko nisu za prehranu ljudi, samo oni namijenjeni za hranu za kućne ljubimce. 05119985 (drugi proizvodi životinjskog porijekla koji nisu navedeni ili obuhvaćeni na drugom mjestu; mrtve životinje iz poglavlja 1., neprimjerene za prehranu ljudi): svi: pod taj tarifni broj potpadaju zameci, jajne ćelije, sjeme i genetski materijal koji nije obuhvaćen pod 051110 i od vrsta osim goveda. Obuhvata životinjske nusproizvode za proizvodnju hrane za kućne ljubimce ili druge tehnološke proizvode. Obuhvata neprerađenu konjsku grivu, pčelarske proizvode, osim voskova za pčelarstvo ili tehničku upotrebu, spermaceti za tehničku upotrebu, mrtve životinje iz poglavlja 1. koje nisu jestive ili nisu za prehranu ljudi (na primjer psi, mačke, insekti), životinjski materijal kojem ključne karakteristike nisu promijenjene, te jestiva krv životinja koja nije dobivena od riba, za prehranu ljudi.",
+    "source_page": 16
+  },
+  {
+    "code": "**060290",
+    "chapter_number": 6,
+    "chapter_title": "Živo drveće i druge biljke; lukovice, korijenje i slično; rezano cvijeće i ukrasno lišće",
+    "description": "10 Miceliji gljiva.",
+    "qualification": "Samo ako sadržavaju prerađeni stajski gnoj životinjskog porijekla.",
+    "source_page": 18
+  },
+  {
+    "code": "10059000",
+    "chapter_number": 10,
+    "chapter_title": "Žitarice",
+    "description": "00 * Ostali kukuruz ako je za stočnu",
+    "qualification": "ishranu. Svi.",
+    "source_page": 20
+  },
+  {
+    "code": "**100590",
+    "chapter_number": 10,
+    "chapter_title": "Žitarice",
+    "description": "0090* Kukuruz za preradu za proizvode",
+    "qualification": "koji se upotrebljavaju za ishranu životinja. Svi.",
+    "source_page": 20
+  },
+  {
+    "code": "1201*",
+    "chapter_number": 12,
+    "chapter_title": "Uljano sjemenje i plodovi; razno zrnevlje, sjemenje i plodovi; industrijsko i ljekovito bilje; slama i stočna hrana",
+    "description": "Kompletan tarifni broj.",
+    "qualification": "Ako je za stočnu ishranu.",
+    "source_page": 22
+  },
+  {
+    "code": "12019000",
+    "chapter_number": 12,
+    "chapter_title": "Uljano sjemenje i plodovi; razno zrnevlje, sjemenje i plodovi; industrijsko i ljekovito bilje; slama i stočna hrana",
+    "description": "Ostala soja u zrnu, uključujući 00",
+    "qualification": "i lomljenu. Ako je za stočnu ishranu.",
+    "source_page": 22
+  },
+  {
+    "code": "1206*",
+    "chapter_number": 12,
+    "chapter_title": "Uljano sjemenje i plodovi; razno zrnevlje, sjemenje i plodovi; industrijsko i ljekovito bilje; slama i stočna hrana",
+    "description": "Kompletan tarifni broj.",
+    "qualification": "Ako je za stočnu ishranu.",
+    "source_page": 22
+  },
+  {
+    "code": "12060091",
+    "chapter_number": 12,
+    "chapter_title": "Uljano sjemenje i plodovi; razno zrnevlje, sjemenje i plodovi; industrijsko i ljekovito bilje; slama i stočna hrana",
+    "description": "00 Ostalo suncokretovo sjeme, oljušteno; u sivobijeloj",
+    "qualification": "uključujući i lomljeno, Ako je za stočnu ishranu. prugastoj ljuspici.",
+    "source_page": 22
+  },
+  {
+    "code": "12060099",
+    "chapter_number": 12,
+    "chapter_title": "Uljano sjemenje i plodovi; razno zrnevlje, sjemenje i plodovi; industrijsko i ljekovito bilje; slama i stočna hrana",
+    "description": "00 Ostalo suncokretovo sjeme.",
+    "qualification": "Ako je za stočnu ishranu.",
+    "source_page": 22
+  },
+  {
+    "code": "1208*",
+    "chapter_number": 12,
+    "chapter_title": "Uljano sjemenje i plodovi; razno zrnevlje, sjemenje i plodovi; industrijsko i ljekovito bilje; slama i stočna hrana",
+    "description": "Kompletan tarifni broj.",
+    "qualification": "Ako je za stočnu ishranu.",
+    "source_page": 22
+  },
+  {
+    "code": "**12129995",
+    "chapter_number": 12,
+    "chapter_title": "Uljano sjemenje i plodovi; razno zrnevlje, sjemenje i plodovi; industrijsko i ljekovito bilje; slama i stočna hrana",
+    "description": "Pčelinji polen.",
+    "qualification": "Svi.",
+    "source_page": 22
+  },
+  {
+    "code": "**12130000",
+    "chapter_number": 12,
+    "chapter_title": "Uljano sjemenje i plodovi; razno zrnevlje, sjemenje i plodovi; industrijsko i ljekovito bilje; slama i stočna hrana",
+    "description": "Slama i pljeva od žitarica, ne, mljevene, presovane",
+    "qualification": "nepripremljene, sječene ili Obuhvata samo slamu. ili u obliku peleta.",
+    "source_page": 22
+  },
+  {
+    "code": "**121490",
+    "chapter_number": 12,
+    "chapter_title": "Uljano sjemenje i plodovi; razno zrnevlje, sjemenje i plodovi; industrijsko i ljekovito bilje; slama i stočna hrana",
+    "description": "Broskva, stočna repa, sijeno, lucerna (alfalfa), kelj, lupina, grahorica hranu, u obliku peleta lucerne (alfalfa).",
+    "qualification": "korjenjače za ishranu stoke, djetelina, grahorka, stočni i slični proizvodi za stočnu Obuhvata samo sijeno. ili ne: osim krupica i peleta od",
+    "source_page": 22
+  },
+  {
+    "code": "1501",
+    "chapter_number": 15,
+    "chapter_title": "Masti i ulja životinjskoga ili biljnoga porijekla te proizvodi njihove razgradnje; prerađene jestive masti; životinjski ili biljni voskovi",
+    "description": "Svinjska mast (uključujući salo) tarifnog broja 0209 ili 1503.",
+    "qualification": "i mast peradi, osim iz Svi.",
+    "source_page": 24
+  },
+  {
+    "code": "15011010",
+    "chapter_number": 15,
+    "chapter_title": "Masti i ulja životinjskoga ili biljnoga porijekla te proizvodi njihove razgradnje; prerađene jestive masti; životinjski ili biljni voskovi",
+    "description": "00 Mast, za industrijsku upotrebu.",
+    "qualification": "Osim za proizvodnju prehrambenih proizvoda za ljudsku prehranu.",
+    "source_page": 24
+  },
+  {
+    "code": "15011090",
+    "chapter_number": 15,
+    "chapter_title": "Masti i ulja životinjskoga ili biljnoga porijekla te proizvodi njihove razgradnje; prerađene jestive masti; životinjski ili biljni voskovi",
+    "description": "00 Ostala.",
+    "qualification": null,
+    "source_page": 24
+  },
+  {
+    "code": "15012010",
+    "chapter_number": 15,
+    "chapter_title": "Masti i ulja životinjskoga ili biljnoga porijekla te proizvodi njihove razgradnje; prerađene jestive masti; životinjski ili biljni voskovi",
+    "description": "00 Ostala svinjska masnoća.",
+    "qualification": "Za industrijsku upotrebu.",
+    "source_page": 24
+  },
+  {
+    "code": "15012090",
+    "chapter_number": 15,
+    "chapter_title": "Masti i ulja životinjskoga ili biljnoga porijekla te proizvodi njihove razgradnje; prerađene jestive masti; životinjski ili biljni voskovi",
+    "description": "00 Ostala.",
+    "qualification": null,
+    "source_page": 24
+  },
+  {
+    "code": "15019090",
+    "chapter_number": 15,
+    "chapter_title": "Masti i ulja životinjskoga ili biljnoga porijekla te proizvodi njihove razgradnje; prerađene jestive masti; životinjski ili biljni voskovi",
+    "description": "00 Ostala.",
+    "qualification": null,
+    "source_page": 24
+  },
+  {
+    "code": "1502",
+    "chapter_number": 15,
+    "chapter_title": "Masti i ulja životinjskoga ili biljnoga porijekla te proizvodi njihove razgradnje; prerađene jestive masti; životinjski ili biljni voskovi",
+    "description": "Masti od goveda, ovaca ili koza, 1503.",
+    "qualification": "osim iz tarifnog broja Svi.",
+    "source_page": 24
+  },
+  {
+    "code": "15021010",
+    "chapter_number": 15,
+    "chapter_title": "Masti i ulja životinjskoga ili biljnoga porijekla te proizvodi njihove razgradnje; prerađene jestive masti; životinjski ili biljni voskovi",
+    "description": "00 Loj od goveda, ovaca, ili koza.",
+    "qualification": "Za industrijsku upotrebu.",
+    "source_page": 24
+  },
+  {
+    "code": "15021090",
+    "chapter_number": 15,
+    "chapter_title": "Masti i ulja životinjskoga ili biljnoga porijekla te proizvodi njihove razgradnje; prerađene jestive masti; životinjski ili biljni voskovi",
+    "description": "00 Loj, od goveda, ovaca, ili koza.",
+    "qualification": "Ostali.",
+    "source_page": 24
+  },
+  {
+    "code": "15029010",
+    "chapter_number": 15,
+    "chapter_title": "Masti i ulja životinjskoga ili biljnoga porijekla te proizvodi njihove razgradnje; prerađene jestive masti; životinjski ili biljni voskovi",
+    "description": "00 Loj, ostala.",
+    "qualification": "Za industrijsku upotrebu.",
+    "source_page": 24
+  },
+  {
+    "code": "15029090",
+    "chapter_number": 15,
+    "chapter_title": "Masti i ulja životinjskoga ili biljnoga porijekla te proizvodi njihove razgradnje; prerađene jestive masti; životinjski ili biljni voskovi",
+    "description": "00 Loj ostala.",
+    "qualification": null,
+    "source_page": 24
+  },
+  {
+    "code": "150300",
+    "chapter_number": 15,
+    "chapter_title": "Masti i ulja životinjskoga ili biljnoga porijekla te proizvodi njihove razgradnje; prerađene jestive masti; životinjski ili biljni voskovi",
+    "description": "Stearin iz sala, ulje iz sala, oleostearin, loja, koje nije emulgirano ili miješano",
+    "qualification": "oleo-ulje i ulje iz Svi. ili pripremljeno na",
+    "source_page": 24
+  },
+  {
+    "code": "15030011",
+    "chapter_number": 15,
+    "chapter_title": "Masti i ulja životinjskoga ili biljnoga porijekla te proizvodi njihove razgradnje; prerađene jestive masti; životinjski ili biljni voskovi",
+    "description": "neki drugi način. 00 Stearin od svinjske masnoće i oleostearin.",
+    "qualification": "Za industrijske svrhe.",
+    "source_page": 24
+  },
+  {
+    "code": "15030019",
+    "chapter_number": 15,
+    "chapter_title": "Masti i ulja životinjskoga ili biljnoga porijekla te proizvodi njihove razgradnje; prerađene jestive masti; životinjski ili biljni voskovi",
+    "description": "00 Ostali stearin od svinjske masnoće",
+    "qualification": "i oleostearin.",
+    "source_page": 24
+  },
+  {
+    "code": "15030030",
+    "chapter_number": 15,
+    "chapter_title": "Masti i ulja životinjskoga ili biljnoga porijekla te proizvodi njihove razgradnje; prerađene jestive masti; životinjski ili biljni voskovi",
+    "description": "00 Ulje od loja za industrijske svrhe.",
+    "qualification": "Osim za proizvodnju prehrambenih proizvoda za ljude.",
+    "source_page": 24
+  },
+  {
+    "code": "15030090",
+    "chapter_number": 15,
+    "chapter_title": "Masti i ulja životinjskoga ili biljnoga porijekla te proizvodi njihove razgradnje; prerađene jestive masti; životinjski ili biljni voskovi",
+    "description": "00 Ostalo ulje.",
+    "qualification": null,
+    "source_page": 24
+  },
+  {
+    "code": "1504",
+    "chapter_number": 15,
+    "chapter_title": "Masti i ulja životinjskoga ili biljnoga porijekla te proizvodi njihove razgradnje; prerađene jestive masti; životinjski ili biljni voskovi",
+    "description": "Masti i ulja i njihove frakcije, od rafinirana ili nerafinirana, koja nisu",
+    "qualification": "riba ili morskih sisara, Svi, riblja ulja - i ulja od ribljih proizvoda i morskih sisara. Razni hemijski modificirana. jestivi pripravci obuhvaćeni su poglavljem 21.",
+    "source_page": 24
+  },
+  {
+    "code": "15042010",
+    "chapter_number": 15,
+    "chapter_title": "Masti i ulja životinjskoga ili biljnoga porijekla te proizvodi njihove razgradnje; prerađene jestive masti; životinjski ili biljni voskovi",
+    "description": "00 Masti ulja i njihove frakcije, od džigerice, čvrste frakcije.",
+    "qualification": "riba, osim od riblje",
+    "source_page": 24
+  },
+  {
+    "code": "15042090",
+    "chapter_number": 15,
+    "chapter_title": "Masti i ulja životinjskoga ili biljnoga porijekla te proizvodi njihove razgradnje; prerađene jestive masti; životinjski ili biljni voskovi",
+    "description": "00 Ostale masti ulja i njihove frakcije, džigerice.",
+    "qualification": "od riba, osim od riblje",
+    "source_page": 24
+  },
+  {
+    "code": "15043010",
+    "chapter_number": 15,
+    "chapter_title": "Masti i ulja životinjskoga ili biljnoga porijekla te proizvodi njihove razgradnje; prerađene jestive masti; životinjski ili biljni voskovi",
+    "description": "00 Masti ulja i njihove frakcije od morskih frakcije.",
+    "qualification": "sisara, čvrste",
+    "source_page": 24
+  },
+  {
+    "code": "15043090",
+    "chapter_number": 15,
+    "chapter_title": "Masti i ulja životinjskoga ili biljnoga porijekla te proizvodi njihove razgradnje; prerađene jestive masti; životinjski ili biljni voskovi",
+    "description": "00 Ostale masti, ulja i njihove frakcije",
+    "qualification": "od morskih sisara.",
+    "source_page": 24
+  },
+  {
+    "code": "150500",
+    "chapter_number": 15,
+    "chapter_title": "Masti i ulja životinjskoga ili biljnoga porijekla te proizvodi njihove razgradnje; prerađene jestive masti; životinjski ili biljni voskovi",
+    "description": "Mast od vune i masne supstance (uključujući lanolin).",
+    "qualification": "dobivene od nje Svi, uvoz bez ograničenja je moguć za obrađenu vunu iz tačke B poglavlja VII Priloga XVIII Pravilnika. Ukoliko je u skladu sa uvjetima iz člana 42. Odluke o nusproizvodima životinjskog porijekla",
+    "source_page": 24
+  },
+  {
+    "code": "15060000",
+    "chapter_number": 15,
+    "chapter_title": "Masti i ulja životinjskoga ili biljnoga porijekla te proizvodi njihove razgradnje; prerađene jestive masti; životinjski ili biljni voskovi",
+    "description": "Ostale životinjske masti i ulja i njihove ili nerafinirane, ali hemijski nemodificirane.",
+    "qualification": "i njihovim proizvodima koji nisu namijenjeni ishrani ljudi (\"Službeni glasnik BiH\", broj 19/11). Svi: nepodijeljene masti ili ulja, te njihove početne frakcije, frakcije, rafinirane proizvedene prema metodi iz tačke 1 Poglavlja XI Priloga XIII",
+    "source_page": 24
+  },
+  {
+    "code": "151610",
+    "chapter_number": 15,
+    "chapter_title": "Masti i ulja životinjskoga ili biljnoga porijekla te proizvodi njihove razgradnje; prerađene jestive masti; životinjski ili biljni voskovi",
+    "description": "Masti i ulja životinjskog porijekla djelimično ili potpuno hidrogenirane, reesterificirane ili elaidinizirane,",
+    "qualification": "Pravilnika. i njihove frakcije, Svi: životinjske masti i ulja. interesterificirane, U veterinarske svrhe derivati masti obuhvataju proizvode prve faze bez obzira jesu li dobivene od životinjskih masti i ulja kada su u njihovom čistom stanju",
+    "source_page": 24
+  },
+  {
+    "code": "**1517",
+    "chapter_number": 15,
+    "chapter_title": "Masti i ulja životinjskoga ili biljnoga porijekla te proizvodi njihove razgradnje; prerađene jestive masti; životinjski ili biljni voskovi",
+    "description": "rafinirane ili nerafinirane, koje nisu Margarin, jestive mješavine ili pripravci životinjskog ili biljnog porijekla ili ulja iz tog poglavlja, osim jestivih",
+    "qualification": "dalje pripremljene. dobiveni postupkom predviđenim u tački 1 poglavlja XI Priloga XIII Pravilnika. masti ili ulja Obuhvata samo životinjske masti ili ulja. ili frakcija različitih masti masti ili ulja ili",
+    "source_page": 24
+  },
+  {
+    "code": "15171010",
+    "chapter_number": 15,
+    "chapter_title": "Masti i ulja životinjskoga ili biljnoga porijekla te proizvodi njihove razgradnje; prerađene jestive masti; životinjski ili biljni voskovi",
+    "description": "njihovih frakcija iz tarifnog broja 00 Margarin.",
+    "qualification": "1516. Isključujući tečni margarin sa sadržajem po masi mliječnih masnoća većim od 10% ali ne većim od 15%.",
+    "source_page": 24
+  },
+  {
+    "code": "15171090",
+    "chapter_number": 15,
+    "chapter_title": "Masti i ulja životinjskoga ili biljnoga porijekla te proizvodi njihove razgradnje; prerađene jestive masti; životinjski ili biljni voskovi",
+    "description": "00 Ostali margarini.",
+    "qualification": null,
+    "source_page": 24
+  },
+  {
+    "code": "15179010",
+    "chapter_number": 15,
+    "chapter_title": "Masti i ulja životinjskoga ili biljnoga porijekla te proizvodi njihove razgradnje; prerađene jestive masti; životinjski ili biljni voskovi",
+    "description": "00 Ostalo, sa sadržajem po masi mliječnih 10% ali ne većim od 15%.",
+    "qualification": "masnoća većim od",
+    "source_page": 25
+  },
+  {
+    "code": "15179093",
+    "chapter_number": 15,
+    "chapter_title": "Masti i ulja životinjskoga ili biljnoga porijekla te proizvodi njihove razgradnje; prerađene jestive masti; životinjski ili biljni voskovi",
+    "description": "00 Ostale jestive mješavine ili preparati, upotrebljavaju za podmazivanje",
+    "qualification": "koji se Ako sadrži materijale životinjskog porijekla. kalupa.",
+    "source_page": 25
+  },
+  {
+    "code": "15179099",
+    "chapter_number": 15,
+    "chapter_title": "Masti i ulja životinjskoga ili biljnoga porijekla te proizvodi njihove razgradnje; prerađene jestive masti; životinjski ili biljni voskovi",
+    "description": "00 Ostalo.",
+    "qualification": "Ako sadrži materijale životinjskog porijekla.",
+    "source_page": 25
+  },
+  {
+    "code": "**15180091",
+    "chapter_number": 15,
+    "chapter_title": "Masti i ulja životinjskoga ili biljnoga porijekla te proizvodi njihove razgradnje; prerađene jestive masti; životinjski ili biljni voskovi",
+    "description": "Masti i ulja biljnog ili životinjskog frakcije, kuhane, oksidirane, dehidrirane, puhane, polimerizirane toplinom",
+    "qualification": "porijekla i njihove Samo životinjske masti i ulja, topljene. sumporizirane, Derivati masti dobveni metodom predviđenom u tački 1 poglavlja XI u vakuumu ili u inertnom Priloga XIII Pravilnika. Posebni zahtjevi utvrđeni su u redu 17",
+    "source_page": 25
+  },
+  {
+    "code": "1518009500",
+    "chapter_number": 15,
+    "chapter_title": "Masti i ulja životinjskoga ili biljnoga porijekla te proizvodi njihove razgradnje; prerađene jestive masti; životinjski ili biljni voskovi",
+    "description": "plinu ili modificirane na neki drugi iz tarifnog broja 1516. Nejestive mješavine ili pripravci životinjskih i biljnih masti i ulja",
+    "qualification": "način, izuzimajući one (topljene masti) i redu 18 (derivati masti) tablica 2 Odjeljka 1 Poglavlja II Priloga XIV Pravilnika. životinjskih ili Svi: Samo pripravci masti ulja dobiveni od životinja, prerađene masti i i njihovih frakcija. derivati dobiveni od životinja; uključujući korišteno ulje za kuhanje, namijenjeno za upotrebu u okviru područja primjene. Derivati masti",
+    "source_page": 25
+  },
+  {
+    "code": "**15180099",
+    "chapter_number": 15,
+    "chapter_title": "Masti i ulja životinjskoga ili biljnoga porijekla te proizvodi njihove razgradnje; prerađene jestive masti; životinjski ili biljni voskovi",
+    "description": "Ostalo.",
+    "qualification": "proizvedeni prema metodi iz tačke 1 Poglavlja XI Priloga XIII Pravilnika. Samo ako je sadržana mast od životinja.",
+    "source_page": 25
+  },
+  {
+    "code": "15219091",
+    "chapter_number": 15,
+    "chapter_title": "Masti i ulja životinjskoga ili biljnoga porijekla te proizvodi njihove razgradnje; prerađene jestive masti; životinjski ili biljni voskovi",
+    "description": "Sirovi pčelinji vosak i vosak drugih",
+    "qualification": "kukaca. Svi, obuhvata vosak u prirodnim saćima, sirovi pčelinji vosak za pčelarstvo ili u tehničke svrhe. Član 25. stav (1) tačka C Pravilnika zabranjuje uvoz u i provoz kroz Bosnu i Hercegovinu pčelinjeg voska u obliku pčelinjeg saća. Specifični zahtjevi za pčelarske nusproizvode",
+    "source_page": 25
+  },
+  {
+    "code": "15219099",
+    "chapter_number": 15,
+    "chapter_title": "Masti i ulja životinjskoga ili biljnoga porijekla te proizvodi njihove razgradnje; prerađene jestive masti; životinjski ili biljni voskovi",
+    "description": "Pčelinji vosak i vosak drugih kukaca, obojen ili ne, osim sirovog.",
+    "qualification": "utvrđeni su u redu 10 tablice 2 Odjeljka 1 Poglavlja II Priloga Pravilnika. rafiniran ili ne, Svi, obuhvata vosak, prerađen ili rafiniran, izbijeljen ili ne, obojen ili ne, za pčelarstvo ili u tehničke svrhe. Posebni zahtjevi za pčelarske nusproizvode utvrđeni su u redu 10 tablice 2 Odjeljka 1 Poglavlja II Priloga Pravilnika. Za pčelarske nusproizvode, osim pčelinjeg voska,",
+    "source_page": 25
+  },
+  {
+    "code": "**152200",
+    "chapter_number": 15,
+    "chapter_title": "Masti i ulja životinjskoga ili biljnoga porijekla te proizvodi njihove razgradnje; prerađene jestive masti; životinjski ili biljni voskovi",
+    "description": "Degra; ostaci dobiveni preradom životinjskog i biljnog voska.",
+    "qualification": "zahtijevaju se veterinarski pregledi pod oznakom CT 0511 99 85 \"Drugo\". | masnih supstanci ili Samo životinjskog porijekla",
+    "source_page": 25
+  },
+  {
+    "code": "160100",
+    "chapter_number": 16,
+    "chapter_title": "Pripravci od mesa, riba ili rakova, mekušaca ili drugih vodenih beskičmenjaka",
+    "description": "Kobasice i slični proizvodi od mesa, od mesa ili krvi; prehrambeni pripravci",
+    "qualification": "nusproizvodi Svi, obuhvata konzervirano meso u različitim oblicima. temeljeni na",
+    "source_page": 27
+  },
+  {
+    "code": "1602",
+    "chapter_number": 16,
+    "chapter_title": "Pripravci od mesa, riba ili rakova, mekušaca ili drugih vodenih beskičmenjaka",
+    "description": "tim proizvodima. Drugo pripremljeno ili konzervirano nusproizvodi ili krv.",
+    "qualification": "meso, mesni Svi, obuhvata konzervirano meso u različitim oblicima.",
+    "source_page": 27
+  },
+  {
+    "code": "160300",
+    "chapter_number": 16,
+    "chapter_title": "Pripravci od mesa, riba ili rakova, mekušaca ili drugih vodenih beskičmenjaka",
+    "description": "Ekstrakti i sokovi mesa, riba ili rakova, ili drugih beskičmenjaka koji žive u",
+    "qualification": "mekušaca Svi, obuhvata mesne ekstrakte i mesne koncentrate, riblje bjelančevine u vodi. želatinoznom obliku rashlađene ili smrznute, hrskavicu morskih pasa.",
+    "source_page": 27
+  },
+  {
+    "code": "**1604",
+    "chapter_number": 16,
+    "chapter_title": "Pripravci od mesa, riba ili rakova, mekušaca ili drugih vodenih beskičmenjaka",
+    "description": "Pripremljena ili konzervirana riba; kavijar nadomjesci kavijara pripremljeni od",
+    "qualification": "i Svi: kuhani ili prethodno kuhani kulinarski pripravci koji sadrže ribe ili riblje ribljih jaja. proizvode ili su s njima miješani. Obuhvata surimi pod oznakom CT 16042005. Obuhvata ribu u konzervama i kavijar u konzervama u spremnicima koji ne propuštaju zrak, kao i suši (ukoliko nisu uvršteni u poglavlje 19). Tjestenina, punjena ribljim proizvodima obuhvaćena je tarifnim brojem 1902.",
+    "source_page": 27
+  },
+  {
+    "code": "**1605",
+    "chapter_number": 16,
+    "chapter_title": "Pripravci od mesa, riba ili rakova, mekušaca ili drugih vodenih beskičmenjaka",
+    "description": "Rakovi, mekušci i drugi beskičmenjaci vodi, pripremljeni ili konzervirani.",
+    "qualification": "Takozvani riblji ražnjići (sirovo riblje meso/kozice s povrćem na drvenim štapićima) obuhvaćeni su oznakom CT 16041997. Za kompozitne/mješovite proizvode zahtijevati tumačenje u skladu sa članom 5. i 8. ove Odluke. koji žive u Svi: uključujući u potpunosti pripremljene ili prethodno pripremljene puževe. Obuhvata rakove ili druge vodene beskičmenjake, u konzervama te prašak školjki. Za kompozitne/mješovite proizvode zahtijevati tumačenje u skladu sa članom 5. i 8. ove Odluke.",
+    "source_page": 27
+  },
+  {
+    "code": "**1702",
+    "chapter_number": 17,
+    "chapter_title": "Šećer i proizvodi od šećera",
+    "description": "Ostali šećeri, uključujući hemijski krutom stanju; šećerni sirupi bez dodatih umjetni med, neovisno o tome je li",
+    "qualification": "čistu laktozu, maltozu, glukozu i fruktozu, u Umjetni med, laktoza, mješavine prirodnog i aroma ili supstanci za bojenje; umjetnog meda i mješavine koje sadržavaju pomiješan s prirodnim medom ili ne. laktozu.",
+    "source_page": 29
+  },
+  {
+    "code": "**170211",
+    "chapter_number": 17,
+    "chapter_title": "Šećer i proizvodi od šećera",
+    "description": "Laktoza i sirup laktoze, koji po masi anhidrična laktoza, računato prema",
+    "qualification": "Za kompozitne/mješovite proizvode zahtijevati tumačenje u skladu sa članom 5. i 8. ove Odluke. sadrži 99% ili više laktoze, izražene kao Svi, obuhvata umjetni med i mješavine prirodnog i suhoj materiji. umjetnog meda, i mješavine koje sadrže laktozu. Za kompozitne/mješovite proizvode zahtijevati tumačenje u skladu sa članom 5. i 8. ove Odluke.",
+    "source_page": 29
+  },
+  {
+    "code": "**1806",
+    "chapter_number": 18,
+    "chapter_title": "Kakao i proizvodi od kakaa",
+    "description": "Čokolada i ostali prehrambeni proizvodi kakaom.",
+    "qualification": "Koji sadržavaju proizvode životinjskog porijekla, na primjer mliječni proizvodi. s Za kompozitne/mješovite proizvode zahtjevati tumačenje u skladu sa članom 5. i 8. ove Odluke.",
+    "source_page": 31
+  },
+  {
+    "code": "**1901",
+    "chapter_number": 19,
+    "chapter_title": "Pripravci žitarica, brašna, škroba ili mlijeka; pekarski proizvodi",
+    "description": "Sladni ekstrakt; prehrambeni pripravci škroba i sladnog ekstrakta, bez dodatog dodatim kakao prahom u količini računato na potpuno odmašćenu ili obuhvaćeni na drugom mjestu; robe iz tarifnog broja 0401 do 0404 praha ili s dodatim kakao prahom",
+    "qualification": "od brašna, krupice, kakao praha ili s Ne obuhvata one koji sadržavaju manje od 20% proizvoda manjoj od 40% po masi, životinjskog porijekla. osnovu, koji nisu navedeni Obuhvata hranu za bebe na bazi mlijeka, nekuhane pizze s dodacima prehrambeni pripravci od životinjskog porijekla. Kulinarski pripravci obuhvaćeni su bez dodatog kakao poglavljima 16. i 21. u količini manjoj od 5% Za kompozitne/mješovite proizvode zahtijevati tumačenje u skladu",
+    "source_page": 33
+  },
+  {
+    "code": "19021100",
+    "chapter_number": 19,
+    "chapter_title": "Pripravci žitarica, brašna, škroba ili mlijeka; pekarski proizvodi",
+    "description": "po masi računato na potpuno odmašćenu navedeni ili obuhvaćeni na drugom Nekuhana tjestenina, koja nije punjena pripremljena i koja sadrži jaja.",
+    "qualification": "osnovu, koji nisu sa članom 5. i 8. ove Odluke. mjestu. ili na drugačiji način Svi.",
+    "source_page": 33
+  },
+  {
+    "code": "19022010",
+    "chapter_number": 19,
+    "chapter_title": "Pripravci žitarica, brašna, škroba ili mlijeka; pekarski proizvodi",
+    "description": "Punjena tjestenina, kuhana ili nekuhana način pripremljena i koja sadrži drugih beskičmenjaka koji žive ili",
+    "qualification": "na drugačiji ribe, rakova, mekušaca ili Svi. u vodi.",
+    "source_page": 33
+  },
+  {
+    "code": "19022030",
+    "chapter_number": 19,
+    "chapter_title": "Pripravci žitarica, brašna, škroba ili mlijeka; pekarski proizvodi",
+    "description": "Punjena tjestenina, kuhana ili nekuhana način pripremljena, i koja sadrži proizvoda od mesa i mesnog otpada ili",
+    "qualification": "na drugačiji kobasica i sličnih Svi. svih vrsta, uključujući i",
+    "source_page": 33
+  },
+  {
+    "code": "**19022091",
+    "chapter_number": 19,
+    "chapter_title": "Pripravci žitarica, brašna, škroba ili mlijeka; pekarski proizvodi",
+    "description": "masti bilo koje vrste ili porijekla Kuhana punjena tjestenina.",
+    "qualification": "(veći od 20% po masi). Koja sadrži proizvode životinjskog porijekla.",
+    "source_page": 33
+  },
+  {
+    "code": "**19022099",
+    "chapter_number": 19,
+    "chapter_title": "Pripravci žitarica, brašna, škroba ili mlijeka; pekarski proizvodi",
+    "description": "Drugo (druga punjena tjestenina,",
+    "qualification": "nekuhana). Koja sadrži proizvode životinjskog porijekla.",
+    "source_page": 33
+  },
+  {
+    "code": "**19023010",
+    "chapter_number": 19,
+    "chapter_title": "Pripravci žitarica, brašna, škroba ili mlijeka; pekarski proizvodi",
+    "description": "Druga tjestenina, osim tjestenine 190211, 190219 i 190220.",
+    "qualification": "iz tarifnih podbrojeva Koja sadrži proizvode životinjskog porijekla.",
+    "source_page": 33
+  },
+  {
+    "code": "**19024010",
+    "chapter_number": 19,
+    "chapter_title": "Pripravci žitarica, brašna, škroba ili mlijeka; pekarski proizvodi",
+    "description": "Kuskus.",
+    "qualification": "Koji sadrži proizvode životinjskog porijekla. Obuhvata pripremljen kuskus, na primjer, kuskus pripremljen s mesom, povrćem i drugim sastojcima.",
+    "source_page": 33
+  },
+  {
+    "code": "**19049010",
+    "chapter_number": 19,
+    "chapter_title": "Pripravci žitarica, brašna, škroba ili mlijeka; pekarski proizvodi",
+    "description": "Pripremljena hrana dobivena od",
+    "qualification": "Koja sadrži proizvode životinjskog porijekla, na primjer suši riže. (ukoliko nisu uvršteni u poglavlje 16.).",
+    "source_page": 33
+  },
+  {
+    "code": "**190410",
+    "chapter_number": 19,
+    "chapter_title": "Pripravci žitarica, brašna, škroba ili mlijeka; pekarski proizvodi",
+    "description": "Prehrambeni proizvodi dobiveni 10 kukuruza.",
+    "qualification": "bubrenjem ili prženjem Ne obuhvata one koji sadržavaju manje od 20% proizvoda životinjskog porijekla. Obuhvata pripravke koji sadržavaju manje od 20% mesa ili ostalih",
+    "source_page": 33
+  },
+  {
+    "code": "**1905",
+    "chapter_number": 19,
+    "chapter_title": "Pripravci žitarica, brašna, škroba ili mlijeka; pekarski proizvodi",
+    "description": "Fino pecivo.",
+    "qualification": "proizvoda životinjskog porijekla, na primjer: **1905 32 91: vafli ili vafli punjeni mesom ili sirom (na primjer burek); **1905 32 99: vafli ili vafli punjeni proizvodima životinjskog porijekla osim mesa ili sira; **1905 90: prethodno kuhana ili kuhana pizza ili pita punjena ili prekrivena proizvodima životinjskog porijekla; **1905 90 90: ako",
+    "source_page": 33
+  },
+  {
+    "code": "19052010",
+    "chapter_number": 19,
+    "chapter_title": "Pripravci žitarica, brašna, škroba ili mlijeka; pekarski proizvodi",
+    "description": "Medenjaci začinjeni (đumbirom) 00 saharoze manjim od 30% po masi šećer izražen kao saharoza).",
+    "qualification": "imaju kratki rok trajanja. i slično, sa sadržajem Obuhvata pripravke koji sadržavaju manje od 20% mesa ili ostalih (uključujući invertni proizvoda životinjskog porijekla.",
+    "source_page": 33
+  },
+  {
+    "code": "19052030",
+    "chapter_number": 19,
+    "chapter_title": "Pripravci žitarica, brašna, škroba ili mlijeka; pekarski proizvodi",
+    "description": "Medenjaci začinjeni (đumbirom) 00 saharoze 30% ili većim ali manjim (uključujući invertni šećer izražen",
+    "qualification": "i slično, sa sadržajem Obuhvata pripravke koji sadržavaju manje od 20% mesa ili ostalih od 50% po masi proizvoda životinjskog porijekla. kao saharoza).",
+    "source_page": 33
+  },
+  {
+    "code": "19052090",
+    "chapter_number": 19,
+    "chapter_title": "Pripravci žitarica, brašna, škroba ili mlijeka; pekarski proizvodi",
+    "description": "Medenjaci začinjeni (đumbirom) 00 saharoze 50% po masi ili većim.",
+    "qualification": "i slično, sa sadržajem Obuhvata pripravke koji sadržavaju manje od 20% mesa ili ostalih proizvoda životinjskog porijekla.",
+    "source_page": 33
+  },
+  {
+    "code": "19053130",
+    "chapter_number": 19,
+    "chapter_title": "Pripravci žitarica, brašna, škroba ili mlijeka; pekarski proizvodi",
+    "description": "Biskviti i njima slični proizvodi, 00 mliječnih masnoća 8% po masi",
+    "qualification": "slatki, sa sadržajem Obuhvata pripravke koji sadržavaju manje od 20% mesa ili ostalih ili većim. proizvoda životinjskog porijekla.",
+    "source_page": 33
+  },
+  {
+    "code": "19053211",
+    "chapter_number": 19,
+    "chapter_title": "Pripravci žitarica, brašna, škroba ili mlijeka; pekarski proizvodi",
+    "description": "Vafli i oblatne u orginalnim pakiranjima 00 od 85 grama.",
+    "qualification": "neto-mase ne veće Obuhvata pripravke koji sadržavaju manje od 20% mesa ili ostalih proizvoda životinjskog porijekla.",
+    "source_page": 33
+  },
+  {
+    "code": "**2004*",
+    "chapter_number": 20,
+    "chapter_title": "Pripravci od povrća, voća, orašastih plodova ili drugih dijelova biljaka",
+    "description": "Drugo povrće pripremljeno ili konzervirano sirćetnoj kiselini, smrznuto, osim proizvoda",
+    "qualification": "na drugi način osim u sirćetu ili u Obuhvata one pripravke koji sadrže proizvode iz tarifnog broja 2006. životinjskog porijekla.",
+    "source_page": 35
+  },
+  {
+    "code": "**2005*",
+    "chapter_number": 20,
+    "chapter_title": "Pripravci od povrća, voća, orašastih plodova ili drugih dijelova biljaka",
+    "description": "Ostalo povrće, pripremljeno ili konzervirano sirćetnoj kiselini, nesmrznuto, osim",
+    "qualification": "na drugi način osim u sirćetu ili Obuhvata one pripravke koji sadrže proizvode proizvoda iz tarifnog broja 2006. životinjskog porijekla.",
+    "source_page": 35
+  },
+  {
+    "code": "**21039090",
+    "chapter_number": 21,
+    "chapter_title": null,
+    "description": "Umaci i pripravci za umake; miješani začinska sredstva; brašno i krupica",
+    "qualification": "začini i miješana Obuhvata one pripravke koji sadrže proizvode životinjskog od gorušice i porijekla.",
+    "source_page": 37
+  },
+  {
+    "code": "**2104",
+    "chapter_number": 21,
+    "chapter_title": null,
+    "description": "pripremljena gorušica (senf) – Ostali. Supe i mesne supe i pripravci za homogenizirani kompozitni/mješoviti pripravci.",
+    "qualification": "te proizvode; Obuhvata pripravke koji sadržavaju proizvode životinjskog prehrambeni porijekla, uključujući hranu za bebe u spremnicima neto težine koja ne prelazi 250 grama.",
+    "source_page": 37
+  },
+  {
+    "code": "**210500",
+    "chapter_number": 21,
+    "chapter_title": null,
+    "description": "Sladoled i drugi jestivi led, koji",
+    "qualification": "Za kompozitne/mješovite proizvode zahtijevati tumačenje u skladu sa članom 5. i 8. ove Odluke. sadrži ili ne sadrži kakao. Obuhvata one proizvode koji sadrže sirovo ili prerađeno mlijeko.",
+    "source_page": 37
+  },
+  {
+    "code": "**210610",
+    "chapter_number": 21,
+    "chapter_title": null,
+    "description": "Koncentrati bjelančevina i bjelančevinskih",
+    "qualification": "supstanci. Obuhvata one pripravke koji sadrže proizvode životinjskog porijekla.",
+    "source_page": 37
+  },
+  {
+    "code": "**21069092",
+    "chapter_number": 21,
+    "chapter_title": null,
+    "description": "Drugi prehrambeni pripravci koji obuhvaćeni na drugom mijestu, masti, saharozu, izoglukozu, glukozu manje od 1,5% težine mliječnih",
+    "qualification": "nisu navedeni ili Obuhvata prehrambene proizvode (na primjer dodatke hrani) koji koji ne sadrže mliječne sadržavaju proizvode životinjskog porijekla, na primjer izolate ili škrob ili koji sadrže bjelančevine sirutke, kondroitin, glukozamin, kitosan, kalcijev masti, 5% težine saharoze karbonat, pasterizirani slani tekući žumanjak, životinjska ulja (na",
+    "source_page": 37
+  },
+  {
+    "code": "**21069098",
+    "chapter_number": 21,
+    "chapter_title": null,
+    "description": "ili izoglukoze, 5% težine glukoze Drugi prehrambeni pripravci koji obuhvaćeni na drugom mjestu. ili",
+    "qualification": "škroba. primjer riblje ulje u kapsulama), s drugim supstancama ili bez njih. Za kompozitne/mješovite proizvode zahtijevati tumačenje u skladu sa članom 5. i 8. ove Odluke. nisu navedeni ili Obuhvata prehrambene proizvode (na primjer dodatke prehrani, sirni fondue) koji sadržavaju proizvode životinjskog porijekla, na primjer kondroitin, glukozamin, životinjska ulja (na primjer riblje ulje u kapsulama). Za kompozitne/mješovite proizvode zahtijevati tumačenje u skladu sa članom 5. i 8. ove Odluke.",
+    "source_page": 37
+  },
+  {
+    "code": "**220291",
+    "chapter_number": 22,
+    "chapter_title": "Pića, alkoholna pića i sirća",
+    "description": "Ostala bezalkoholna pića, osim povrća iz tarifnog broja 2009, s dobivene od proizvoda iz tarifnih",
+    "qualification": "voćnih sokova ili sokova od Obuhvata bezalkoholna pića koja sadržavaju prerađene masenim udjelom masnoće proizvode životinjskog porijekla, na primjer pića na bazi brojeva 0401 do 0404 jogurta sa žitnim pahuljicama, kahvu ili čokoladne napitke.",
+    "source_page": 39
+  },
+  {
+    "code": "**220290",
+    "chapter_number": 22,
+    "chapter_title": "Pića, alkoholna pića i sirća",
+    "description": "manjim od 0,2%. 95. Ostala bezalkoholna pića, osim povrća iz tarifnog broja 2009, s dobivene od proizvoda iz tarifnih",
+    "qualification": "Za kompozitne/mješovite proizvode zahtijevati tumačenje u skladu sa članom 5. i 8. ove Odluke. voćnih sokova ili sokova od Obuhvata bezalkoholna pića koja sadržavaju prerađene masenim udjelom masnoće proizvode životinjskog porijekla, na primjer pića na bazi brojeva 0401 do 0404 od jogurta sa žitnim pahuljicama, kahvu ili čokoladne napitke.",
+    "source_page": 39
+  },
+  {
+    "code": "**220290",
+    "chapter_number": 22,
+    "chapter_title": "Pića, alkoholna pića i sirća",
+    "description": "0,2% ili većim, ali manjim od 2%. 99 Ostala bezalkoholna pića, osim povrća iz tarifnog broja 2009, s dobivene od proizvoda iz tarifnih",
+    "qualification": "Za kompozitne/mješovite proizvode zahtijevati tumačenje u skladu sa članom 5. i 8. ove Odluke. voćnih sokova ili sokova od Obuhvata bezalkoholna pića koja sadržavaju prerađene masenim udjelom masnoće proizvode životinjskog porijekla, na primjer pića na bazi brojeva 0401 do 0404 od 2% jogurta sa žitnim pahuljicama, kahvu ili čokoladne napitke.",
+    "source_page": 39
+  },
+  {
+    "code": "**220870",
+    "chapter_number": 22,
+    "chapter_title": "Pića, alkoholna pića i sirća",
+    "description": "ili većim. Likeri i sredstva za okrjepu.",
+    "qualification": "Za kompozitne/mješovite proizvode zahtijevati tumačenje u skladu sa članom 5. i 8. ove Odluke. Likeri, uključujući jaka alkoholna pića, koji se sastoje od emulzija jakih alkoholnih pića s proizvodima životinjskog porijekla kao što je žumance ili vrhnje. Za kompozitne/mješovite proizvode zahtijevati tumačenje u skladu sa članom 5. i 8. ove Odluke.",
+    "source_page": 39
+  },
+  {
+    "code": "2301",
+    "chapter_number": 23,
+    "chapter_title": "Ostaci i otpaci prehrambene industrije; pripremljena hrana za životinje",
+    "description": "Brašno, prah i peleti od mesa nusproizvoda, od ribe ili od rakova, mekušaca ili ostalih vodenih beskičmenjaka, neprikladni za ljudi; čvarci. ili",
+    "qualification": "mesnog Svi, obuhvata prerađene životinjske bjelančevine koje nisu za prehranu ljudi, jela od mesa koja nisu za prehanu ljudi i čvarke, prikladne za prehranu ljudi ili ne. Jelo od perja obuhvaćeno je pod tarifnim brojem 0505. Posebni zahtjevi za prerađene prehranu životinjske bjelančevine utvrđeni su u redu 1 tablice 1 Odjeljka 1 Poglavlja I Priloga XIV Pravilnika o utvrđivanju veterinarsko-zdravstvenih uvjeta za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda",
+    "source_page": 41
+  },
+  {
+    "code": "23012000",
+    "chapter_number": 23,
+    "chapter_title": "Ostaci i otpaci prehrambene industrije; pripremljena hrana za životinje",
+    "description": "00 Brašno, prah i peleti od ribe ili mekušaca ili ostalih vodenih",
+    "qualification": "životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi, detaljno se propisuju veterinarsko-zdravstveni uvjeti za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi (\"Službeni glasnik BiH\", broj 30/12). ljuskara, Svi, obuhvata i prerađene životinjske bjelančevine koje nisu za prehranu ljudi, mesna brašna koja nisu za ljudsku prehranu i čvarke bez obzira na namjenu.",
+    "source_page": 41
+  },
+  {
+    "code": "2302*",
+    "chapter_number": 23,
+    "chapter_title": "Ostaci i otpaci prehrambene industrije; pripremljena hrana za životinje",
+    "description": "beskičmenjaka. Posije ili mekinje i ostali ostaci prosijavanjem, mljevenjem ili",
+    "qualification": "dobiveni Ako je za stočnu ishranu. drugom",
+    "source_page": 41
+  },
+  {
+    "code": "23040000",
+    "chapter_number": 23,
+    "chapter_title": "Ostaci i otpaci prehrambene industrije; pripremljena hrana za životinje",
+    "description": "nepeletirani ili peletirani. 00* Uljane pogače i ostali čvrsti ostaci dobiveni pri ekstrakciji ulja od",
+    "qualification": "Ako je za stočnu ishranu. soje.",
+    "source_page": 41
+  },
+  {
+    "code": "23063000",
+    "chapter_number": 23,
+    "chapter_title": "Ostaci i otpaci prehrambene industrije; pripremljena hrana za životinje",
+    "description": "00* Uljane pogače i ostali čvrsti ostaci dobiveni pri ekstrakciji biljnih",
+    "qualification": "Ako je za stočnu ishranu. masnoća",
+    "source_page": 41
+  },
+  {
+    "code": "23069005",
+    "chapter_number": 23,
+    "chapter_title": "Ostaci i otpaci prehrambene industrije; pripremljena hrana za životinje",
+    "description": "od sjemena suncokreta. 00* Ostalo, od klica kukuruza.",
+    "qualification": "Ako je za stočnu ishranu.",
+    "source_page": 41
+  },
+  {
+    "code": "**2309",
+    "chapter_number": 23,
+    "chapter_title": "Ostaci i otpaci prehrambene industrije; pripremljena hrana za životinje",
+    "description": "Pripravci koji se koriste za ishranu životinja.",
+    "qualification": "Svi, osim tarifnih podbrojeva 23099020 i 23099091. Obuhvata, između ostalih stvari, pseću ili mačju hranu stavljenu u maloprodaju (tarifni podbroj 230910), koja sadržava proizvode životinjskog porijekla i topljivu hranu za ribe i morske sisare (oznaka CT 23099010). Proizvodi za ishranu životinja, uključujući mješavine jela (poput papaka i rogova). Ovo poglavlje obuhvata tekuće mlijeko, kolostrum i proizvode koji sadrže mliječne proizvode, kolostrum i/ili ugljikohidrate, koji nisu za prehranu ljudi već za ishranu životinja. Obuhvata hranu za kućne ljubimce, žvakalice za pse i mješavine različitih vrsta brašna, mješavine mogu sadržavati mrtve kukce. Posebni zahtjevi za hranu za kućne ljubimce, uključujući žvakalice za pse, utvrđene su u redu 12 tablice 2 Odjeljka 1 Poglavlja I Priloga XIV Pravilnika o utvrđivanju veterinarsko- zdravstvenih uvjeta za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi, detaljno se propisuju veterinarsko-zdravstveni uvjeti za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i",
+    "source_page": 42
+  },
+  {
+    "code": "23099096*",
+    "chapter_number": 23,
+    "chapter_title": "Ostaci i otpaci prehrambene industrije; pripremljena hrana za životinje",
+    "description": "Ostala hrana za ishranu životinja.",
+    "qualification": "odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi (\"Službeni glasnik BiH\", broj 30/12). Obuhvata proizvode od jaja koji nisu za prehranu ljudi, te druge prerađene proizvode životinjskog porijekla koji nisu za prehranu ljudi. Posebni zahtjevi za proizvode od jaja utvrđeni su u redu 9 tablici 1 Odjeljka 1 Poglavlja I Priloga XIV Pravilnika o utvrđivanju veterinarsko-zdravstvenih uvjeta za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi, detaljno se propisuju veterinarsko-zdravstveni uvjeti za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi (\"Službeni glasnik BiH\", broj 30/12).",
+    "source_page": 42
+  },
+  {
+    "code": "**28352500",
+    "chapter_number": 28,
+    "chapter_title": "Anorganski hemijski proizvodi; organski ili anorganski spojevi plemenitih metala, rijetkih zemljinih metala, radioaktivnih elemenata ili izotopa",
+    "description": "Kalcij hidrogenortofosfat (\"dikalcijev fosfat\").",
+    "qualification": "Samo životinjskog porijekla. Posebni zahtjevi za dikalcijev fosfat utvrđeni su u redu 6 tablice 1 Odjeljka 1 Poglavlja I Priloga XIV Pravilnika o utvrđivanju veterinarsko-zdravstvenih uvjeta za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi, detaljno se propisuju veterinarsko-zdravstveni uvjeti za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi (\"Službeni glasnik BiH\", broj 30/12).",
+    "source_page": 44
+  },
+  {
+    "code": "**28352600",
+    "chapter_number": 28,
+    "chapter_title": "Anorganski hemijski proizvodi; organski ili anorganski spojevi plemenitih metala, rijetkih zemljinih metala, radioaktivnih elemenata ili izotopa",
+    "description": "Ostali kalcijevi fosfati.",
+    "qualification": "Samo trikalcijev fosfat životinjskog porijekla. Posebni zahtjevi za trikalcijev fosfat utvrđeni su u redu 7 tablice 1 Odjeljka 1 Poglavlja I Priloga XIV Pravilnika o utvrđivanju veterinarsko- zdravstvenih uvjeta za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi, detaljno se propisuju veterinarsko-zdravstveni uvjeti za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi (\"Službeni glasnik BiH\", broj 30/12).",
+    "source_page": 44
+  },
+  {
+    "code": "**292249",
+    "chapter_number": 29,
+    "chapter_title": null,
+    "description": "Ostale aminokiseline, osim onih jedne vrste kisikove skupine,",
+    "qualification": "koji sadržavaju više od Samo sirovine životinjskog porijekla koje se upotrebljavaju kao i njihovi estri; njihove soli.. dodaci prehrani ili kao hrana za životinje.",
+    "source_page": 46
+  },
+  {
+    "code": "**292529",
+    "chapter_number": 29,
+    "chapter_title": null,
+    "description": "00 Ostali imini i njihovi derivati, njihove soli.",
+    "qualification": "osim hlordimeforma (ISO); Kreatin životinjskog porijekla.",
+    "source_page": 46
+  },
+  {
+    "code": "**2930",
+    "chapter_number": 29,
+    "chapter_title": null,
+    "description": "Organski sumporni spojevi.",
+    "qualification": "Određene aminokiseline životinjskog porijekla: **2930 90 13 cistein i cistin; **2930 90 16 Derivati cisteina i cistina.",
+    "source_page": 46
+  },
+  {
+    "code": "**293299",
+    "chapter_number": 29,
+    "chapter_title": null,
+    "description": "00 Ostali heterociklički spojevi samo heteroatomima kisika.",
+    "qualification": "s heteroatomom ili Samo ako su životinjskog porijekla, na primjer glukozamin, glukozamin-6-fosfat i njihovi sulfati.",
+    "source_page": 46
+  },
+  {
+    "code": "2941*",
+    "chapter_number": 29,
+    "chapter_title": null,
+    "description": "Kompletan tarifni broj.",
+    "qualification": "Proizvodi koji podliježu kontroli granične veterinarske inspekcije, a koji se koriste u veterinarskoj medicini.",
+    "source_page": 46
+  },
+  {
+    "code": "**294200",
+    "chapter_number": 29,
+    "chapter_title": null,
+    "description": "00 Ostali organski spojevi.",
+    "qualification": "Samo ako su životinjskog porijekla.",
+    "source_page": 46
+  },
+  {
+    "code": "30012090",
+    "chapter_number": 30,
+    "chapter_title": "Farmaceutski proizvodi",
+    "description": "Ekstrakti žlijezda ili drugih organa onih ljudskog porijekla. ili",
+    "qualification": "njihovih izlučevina, osim Svi, obuhvata proizvod koji djeluje kao zamjena za majčin kolostrum i koji se koristi za hranjenje teladi.",
+    "source_page": 48
+  },
+  {
+    "code": "**30019091",
+    "chapter_number": 30,
+    "chapter_title": "Farmaceutski proizvodi",
+    "description": "Životinjske supstance pripremljene svrhe: heparin i njegove soli.",
+    "qualification": "za terapijske ili profilaktičke Svi proizvodi životinjskog porijekla koji su namijenjeni daljnjoj obradi. Svi: osim žlijezda i drugih organa. Ovo tarifno",
+    "source_page": 48
+  },
+  {
+    "code": "30019098",
+    "chapter_number": 30,
+    "chapter_title": "Farmaceutski proizvodi",
+    "description": "Druge životinjske supstance osim pripremljene za terapijske ili profilaktičke drugdje navedene ili obuhvaćene.",
+    "qualification": "potpoglavlje obuhvata hipofizu, nadbubrežne žlijezde i heparina i njegovih soli, štitnjaču; osim onih iz člana 34. Odluke o nusproizvodima svrhe, koje nisu životinjskog porijekla i njihovim proizvodima koji nisu namijenjeni prehrani ljudi (\"Službeni glasnik BiH\", broj 19/11).",
+    "source_page": 48
+  },
+  {
+    "code": "3002",
+    "chapter_number": 30,
+    "chapter_title": "Farmaceutski proizvodi",
+    "description": "Životinjska krv pripremljena za dijagnostičku upotrebu; antiserumi, imunološki proizvodi, neovisno biotehnološkim postupcima ili mikroorganizama (osim kvasaca)",
+    "qualification": "terapijsku, profilaktičku ili ostale frakcije krvi i Ukoliko se koristi u veterinarskoj medicini jesu li modificirani ili dobiveni (izuzev uzoraka za uporedna ispitivanja između ne; vakcine, toksini, kulture laboratorija). i slični proizvodi. Samo antiserumi životinjskog porijekla. Isključuje gotove",
+    "source_page": 48
+  },
+  {
+    "code": "**30021010",
+    "chapter_number": 30,
+    "chapter_title": "Farmaceutski proizvodi",
+    "description": "Antiserumi, modificirani ili ne postupcima ili na drugi način.",
+    "qualification": "medicinske proizvode za krajnjeg potrošača. U okviru tarifnog broja 3002 utvrđeni su posebni zahtjevi za životinjske nusproizvode obuhvaćene u tablici 2 Odjeljka 1 ili dobiveni biotehnološkim Poglavlja II Priloga XIV Pravilnika i posebno navedenih u sljedećim redovima: Red 2: proizvodi od krvi, osim od krvi jednoprstnih",
+    "source_page": 48
+  },
+  {
+    "code": "**30021091",
+    "chapter_number": 30,
+    "chapter_title": "Farmaceutski proizvodi",
+    "description": "Hemoglobin, globulini iz krvi ili ne ili dobiveni biotehnološkim",
+    "qualification": "kopitara; red 3: krv i proizvodi od krvi jednoprstnih kopitara. i serumski globulini, modificirani Samo materijal životinjskog porijekla. postupcima ili na drugi način.",
+    "source_page": 48
+  },
+  {
+    "code": "**30021098",
+    "chapter_number": 30,
+    "chapter_title": "Farmaceutski proizvodi",
+    "description": "Druge frakcije krvi i imunološki ili dobiveni biotehnološkim postupcima",
+    "qualification": "proizvodi, modificirani ili ne Samo materijal životinjskog porijekla. ili na drugi način.",
+    "source_page": 48
+  },
+  {
+    "code": "3002300000*",
+    "chapter_number": 30,
+    "chapter_title": "Farmaceutski proizvodi",
+    "description": "Vakcine za veterinarsku upotrebu.",
+    "qualification": "Sve.",
+    "source_page": 48
+  },
+  {
+    "code": "30029030",
+    "chapter_number": 30,
+    "chapter_title": "Farmaceutski proizvodi",
+    "description": "Životinjska krv pripremljena za dijagnostičke svrhe.",
+    "qualification": "terapijske, profilaktičke ili Svi, (izuzev uzoraka za uporedna ispitivanja između laboratorija).",
+    "source_page": 48
+  },
+  {
+    "code": "**30029050",
+    "chapter_number": 30,
+    "chapter_title": "Farmaceutski proizvodi",
+    "description": "Kulture mikroorganizama.",
+    "qualification": "Patogeni i kulture patogena.",
+    "source_page": 48
+  },
+  {
+    "code": "**30029090",
+    "chapter_number": 30,
+    "chapter_title": "Farmaceutski proizvodi",
+    "description": "Drugo.",
+    "qualification": "Patogeni i kulture patogena.",
+    "source_page": 48
+  },
+  {
+    "code": "**3003*",
+    "chapter_number": 30,
+    "chapter_title": "Farmaceutski proizvodi",
+    "description": "Lijekovi.",
+    "qualification": "Samo koji se koriste u veterinarskoj medicini.",
+    "source_page": 48
+  },
+  {
+    "code": "**3004*",
+    "chapter_number": 30,
+    "chapter_title": "Farmaceutski proizvodi",
+    "description": "Lijekovi.",
+    "qualification": "Samo koji se koriste u veterinarskoj medicini.",
+    "source_page": 48
+  },
+  {
+    "code": "**30069200",
+    "chapter_number": 30,
+    "chapter_title": "Farmaceutski proizvodi",
+    "description": "Farmaceutski otpad.",
+    "qualification": "Samo materijal životinjskog porijekla. Farmaceutski otpad, farmaceutski proizvodi koji nisu pogodni za njihovu prvobitnu namjenu.",
+    "source_page": 48
+  },
+  {
+    "code": "**31010000",
+    "chapter_number": 31,
+    "chapter_title": null,
+    "description": "Životinjska gnojiva, miješana ili ne ili hemijski obrađena; gnojiva dobivena miješanjem ili hemijskom obradom proizvoda životinjskog biljnog porijekla.",
+    "qualification": "zajedno Samo proizvodi dobiveni preradom temeljnog proizvoda životinjskog porijekla u nepromijenjenom obliku. Obuhvata guano, stajsko gnojivo, ali isključene su mješavine stajskog gnojiva i ili hemikalija koje se koriste kao gnojiva (na primjer tarifni broj 3105). Obuhvata stajsko gnojivo miješano sa prerađenim životinjskim bjelančevinama, ukoliko se koristi kao gnojivo. Specifični zahtjevi za stajsko gnojivo, prerađeno stajsko gnojivo ili proizvode od prerađenog stajskog gnojiva utvrđeni su u redu 1 tablice 2 Odjeljka 1 Poglavlja II Priloga XIV Pravilnika o utvrđivanju veterinarsko- zdravstvenih uvjeta za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i",
+    "source_page": 50
+  },
+  {
+    "code": "**3105",
+    "chapter_number": 31,
+    "chapter_title": null,
+    "description": "10 00 Roba iz ovog poglavlja u obliku ili u sličnim oblicima ili u pakiranjima bruto mase ne veće od 10 kg.",
+    "qualification": "sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi, detaljno se propisuju veterinarsko-zdravstveni uvjeti za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi (\"Službeni glasnik BiH\", broj 30/12). tableta Samo gnojiva koja sadržavaju proizvode životinjskog porijekla. Posebni zahtjevi za stajski gnoj, prerađeni stajski gnoj ili prerađene proizvode od stajskog gnoja utvrđeni su u redu 1 tablice 2 Odjeljka 1 Poglavlja II Priloga XIV Pravilnika o utvrđivanju veterinarsko-zdravstvenih uvjeta za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi, detaljno se propisuju veterinarsko-zdravstveni uvjeti za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi (\"Službeni glasnik BiH\", broj 30/12).",
+    "source_page": 50
+  },
+  {
+    "code": "**3204",
+    "chapter_number": 32,
+    "chapter_title": "Ekstrakti za štavljenje ili bojenje; tanini i njihovi derivati; bojila, pigmenti i druge supstance za bojenje; boje i lakovi; kitovi i druge mase za brtvljenje; štamparske boje i tinte",
+    "description": "Sintetizirana organska bojila, neovisno sintetiziranih organskih bojila navedenih organski proizvodi vrsta koje se koriste luminofori, neovisno jesu li hemijski",
+    "qualification": "jesu li hemijski određena ili ne; pripravci na osnovi Samo disperzije boja na osnovi u napomeni 3 uz ovo poglavlje; sintetizirani mliječne masti koje se koriste u kao sredstva za fluorescentno izbjeljivanje ili kao proizvodnji hrane ili hrane za određeni ili ne. životinje.",
+    "source_page": 52
+  },
+  {
+    "code": "**3302",
+    "chapter_number": 33,
+    "chapter_title": "Eterična ulja i rezinoidi; parfimerijski, kozmetički ili toaletni proizvodi",
+    "description": "Smješe mirisnih supstanci i smješe više tih supstanci, vrsta koje se koriste osnovi mirisnih supstanci koje se koriste",
+    "qualification": "(uključujući alkoholne otopine) na osnovi jedne ili Samo poboljšivači okusa na osnovi mliječne kao sirovine u industriji; ostali pripravci na masti koji se koriste kao hrana ili hrana za u proizvodnji pića. životinje.",
+    "source_page": 54
+  },
+  {
+    "code": "**3501",
+    "chapter_number": 35,
+    "chapter_title": "Bjelančevinaste supstance; modificirani škrob; ljepila; enzimi",
+    "description": "Kazein, kazeinati i drugi derivati ljepila.",
+    "qualification": "kazeina; kazeinska Kazein za prehranu ljudi, ishranu životinja ili u tehničke svrhe. Posebni zahtjevi za mlijeko, proizvode na bazi mlijeka i kolostrum, koji nisu za prehranu ljudi, utvrđeni su u redu 4 tablice 1 Odjeljka 1 Poglavlja I Priloga XIV Pravilnika o utvrđivanju veterinarsko- zdravstvenih uvjeta za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog",
+    "source_page": 56
+  },
+  {
+    "code": "**3502",
+    "chapter_number": 35,
+    "chapter_title": "Bjelančevinaste supstance; modificirani škrob; ljepila; enzimi",
+    "description": "Albumini (uključujući koncentrate proteina iz sirutke, koji sadrže bjelančevine računato prema suhoj materiji), derivati albumina.",
+    "qualification": "porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi, detaljno se propisuju veterinarsko-zdravstveni uvjeti za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi (\"Službeni glasnik BiH\", broj 30/12). dva ili više Obuhvata proizvode dobivene od jaja i proizvode dobivene od mlijeka sirutke, prikladne za prehranu ljudi ili neprikladne za prehranu ljudi (uključujući albuminati i drugi ishranu životinja) kako je navedeno ispod: Proizvodi od jaja i mlijeka i prerađeni proizvodi za prehranu ljudi utvrđeni su u Prilogu I Pravilnika o higijeni hrane životinjskog porijekla (\"Službeni glasnik BiH\", broj 103/12). Posebni zahtjevi za mlijeko, proizvode na bazi mlijeka i kolostrum, koji nisu za prehranu ljudi utvrđeni su u redu 4 tablice 1 Odjeljka 1 Poglavlja I Priloga XIV Pravilnika o utvrđivanju veterinarsko-zdravstvenih uvjeta za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi, detaljno se propisuju veterinarsko- zdravstveni uvjeti za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi (\"Službeni glasnik BiH\", broj 30/12), a za proizvode od jaja koji nisu za prehranu ljudi, u redu 9 tablici 1 Odjeljka 1 Poglavlja I Priloga XIV Pravilnika o utvrđivanju veterinarsko-zdravstvenih uvjeta za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi, detaljno se propisuju veterinarsko- zdravstveni uvjeti za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi (\"Službeni glasnik BiH\", broj 30/12).",
+    "source_page": 56
+  },
+  {
+    "code": "350300",
+    "chapter_number": 35,
+    "chapter_title": "Bjelančevinaste supstance; modificirani škrob; ljepila; enzimi",
+    "description": "Želatin (uključujući želatin u pravougaonim [uključujući kvadratnim] oblicima, ili ne ili obojen) i derivati želatina; mjehura; druga ljepila životinjskoga isključujući kazeinska ljepila iz",
+    "qualification": "Obuhvata želatin za prehranu ljudi i prehrambenu industriju. površinski obrađen Veterinarski pregledi se ne zahtijevaju za želatin koji je uvršten pod želatin iz ribljeg tarifnim brojem 9602 (prerađeni, nestvrdnuti želatin (npr. prazne porijekla, kapsule)). tarifnog broja 3501. Posebni zahtjevi za želatin i hidrolizirane bjelančevine, koje nisu za prehranu ljudi, utvrđeni su u redu 5 tablice 1 Odjeljka 1 Poglavlja I Priloga XIV Pravilnika o utvrđivanju veterinarsko-zdravstvenih uvjeta za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i",
+    "source_page": 57
+  },
+  {
+    "code": "**350400",
+    "chapter_number": 35,
+    "chapter_title": "Bjelančevinaste supstance; modificirani škrob; ljepila; enzimi",
+    "description": "Peptoni i njihovi derivati; druge supstance i njihovi derivati, koji navedeni ili obuhvaćeni; prah kože",
+    "qualification": "izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi, detaljno se propisuju veterinarsko- zdravstveni uvjeti za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi (\"Službeni glasnik BiH\", broj 30/12), a za želatin u fotografske svrhe, u Odjeljku 11 Poglavlja II Priloga XIV istog Pravilnika. bjelančevinaste Obuhvata kolagen i hidrolizirane bjelančevine za prehranu ljudi i za nisu drugdje prehrambenu industriju. Posebni zahtjevi za kolagen utvrđeni su u redu 8 hromiran ili ne. a za hidrolizirane bjelančevine u redu 5 tablice 1 Odjeljka 1 Poglavlja I Priloga XIV Pravilnika o utvrđivanju veterinarsko-zdravstvenih uvjeta za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi, detaljno se propisuju veterinarsko- zdravstveni uvjeti za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog",
+    "source_page": 57
+  },
+  {
+    "code": "**35071000",
+    "chapter_number": 35,
+    "chapter_title": "Bjelančevinaste supstance; modificirani škrob; ljepila; enzimi",
+    "description": "Sirište i njegovi koncentrati.",
+    "qualification": "porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi (\"Službeni glasnik BiH\", broj 30/12). Obuhvata kolagenske proizvode na bazi bjelančevina dobivene od koža i tetiva životinja, uključujući kosti u slučaju svinja, peradi i riba. Obuhvata hidrolizirane bjelančevine koje se sastoje od polipeptida, peptida ili amino-kiselina te njihovih mješavina, dobivenih hidrolizom životinjskih nusproizvoda. One nisu obuhvaćene veterinarskim pregledima kada se koriste kao aditivi u pripremi hrane (tarifni broj 2106). Obuhvata bilo koje nusproizvode mlijeka namijenjene za prehranu ljudi u slučaju da nisu obuhvaćeni pod tarifnim brojem 0404. Sirište i koncentrati za prehranu ljudi, dobiveni samo od proizvoda životinjskog porijekla.",
+    "source_page": 57
+  },
+  {
+    "code": "**350790",
+    "chapter_number": 35,
+    "chapter_title": "Bjelančevinaste supstance; modificirani škrob; ljepila; enzimi",
+    "description": "90. Ostali enzimi osim sirišta i njegovih lipoproteinske lipaze ili aspergilne",
+    "qualification": "koncentrata ili Samo ako su životinjskog porijekla i koriste se u prehrambenoj alkalne proteaze. industriji, na primjer pepsin ili enzimi sa 45% laktoze.",
+    "source_page": 57
+  },
+  {
+    "code": "**38220000",
+    "chapter_number": 38,
+    "chapter_title": "Razni hemijski proizvodi",
+    "description": "Dijagnostički ili laboratorijski reagensi na podlozi, pripremljeni dijagnostički ili laboratorijski reagensi na podlozi ili ne, osim onih",
+    "qualification": "Samo proizvodi dobijeni od proizvoda životinjskog porijekla, (izuzev uzoraka za uporedna ispitivanja između laboratorija).",
+    "source_page": 59
+  },
+  {
+    "code": "**38251000",
+    "chapter_number": 38,
+    "chapter_title": "Razni hemijski proizvodi",
+    "description": "iz tarifnih brojeva 3002 i 3006; certificirani referentni materijali. Komunalni (gradski) otpad.",
+    "qualification": "Svi otpaci iz ugostiteljstva, koji sadrže proizvode životinjskog porijekla, uključujući korištena kuhinjska ulja koja sadrže proizvode životinjskog porijekla (član 3. tačka h) alineja 3) Odluke o nusproizvodima životinjskog porijekla koji nisu namijenjeni prehrani",
+    "source_page": 59
+  },
+  {
+    "code": "382600",
+    "chapter_number": 38,
+    "chapter_title": "Razni hemijski proizvodi",
+    "description": "Biodizel i njegove mješavine koje sadrže manje od 70% težine naftnih ulja ili ulja dobivenih iz bituminoznih minerala.",
+    "qualification": "ljudi (\"Službeni glasnik BiH\", broj 19/11). ne Sve topljene masti, uključujući ulja ili masti životinjskog porijekla, kako su utvrđene u redu 17 tablice 2 Odjeljka 1 Poglavlja II Priloga XIV Pravilnika o utvrđivanju veterinarsko-zdravstvenih uvjeta za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi, detaljno se propisuju veterinarsko-zdravstveni uvjeti za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi (\"Službeni glasnik BiH\", broj 30/12).",
+    "source_page": 59
+  },
+  {
+    "code": "**39139000",
+    "chapter_number": 39,
+    "chapter_title": "Plastične mase i proizvodi od plastičnih masa",
+    "description": "Ostali prirodni polimeri (osim alginske njenih soli i estera) i modificiranih polimera (npr. stvrdnute bjelančevine, derivati prirodnog kaučuka), koji",
+    "qualification": "kiseline, Samo proizvodi dobiveni od proizvoda životinjskog porijekla, na primjer prirodnih hondroitin sulfat, glukozamin, hitozan stvrdnuti želatin. hemijski nisu spomenuti niti",
+    "source_page": 61
+  },
+  {
+    "code": "**39171010",
+    "chapter_number": 39,
+    "chapter_title": "Plastične mase i proizvodi od plastičnih masa",
+    "description": "obuhvaćeni na drugom mjestu, u oblicima. Umjetna crijeva (crijeva za kobasice) bjelančevina ili celuloznih materijala.",
+    "qualification": "primarnim od stvrdnutih Samo proizvodi dobiveni od proizvoda životinjskog porijekla.",
+    "source_page": 61
+  },
+  {
+    "code": "**392690",
+    "chapter_number": 39,
+    "chapter_title": "Plastične mase i proizvodi od plastičnih masa",
+    "description": "92 Ostali proizvodi od plastičnih masa ostalih materijala iz tarifnih brojeva izrađeni od listova.",
+    "qualification": "i proizvodi od Prazne kapsule od stvrdnutog želatina za ishranu životinja; red 5 tablica 1 3901 do 3914 Odjeljka 1 Poglavlja I Priloga XIV Pravilnika o utvrđivanju veterinarsko- zdravstvenih uvjeta za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi, detaljno se propisuju veterinarsko-zdravstveni uvjeti za odlaganje, korištenje,",
+    "source_page": 61
+  },
+  {
+    "code": "**392690",
+    "chapter_number": 39,
+    "chapter_title": "Plastične mase i proizvodi od plastičnih masa",
+    "description": "97 Ostali proizvodi od plastičnih masa ostalih materijala iz tarifnih brojeva osim onih izrađenih od listova.",
+    "qualification": "sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi (\"Službeni glasnik BiH\", broj 30/12), a za želatin u fotografske svrhe, u Odjeljku 11 Poglavlja II Priloga XIV istog Pravilnika. i proizvodi od Prazne kapsule od stvrdnutog želatina za ishranu životinja; posebni 3901 do 3914, zahtjevi utvrđeni su u redu 5 tablice 1 Odjeljka 1 Poglavlja I Priloga XIV Pravilnika o utvrđivanju veterinarsko-zdravstvenih uvjeta za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi, detaljno se propisuju veterinarsko-zdravstveni uvjeti za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi (\"Službeni glasnik BiH\", broj 30/12), a za želatin u fotografske svrhe, u Odjeljku 11 Poglavlja II Priloga XIV istog Pravilnika.",
+    "source_page": 61
+  },
+  {
+    "code": "**4101",
+    "chapter_number": 41,
+    "chapter_title": "Sirova koža (osim krzna",
+    "description": "Sirova krupna i sitna koža goveda (kao kopitara (svježa ili usoljena, sušena, ili konzervirana na drugi način, ali ne pergamenizirana ili dalje prerađena), ili ne.",
+    "qualification": "i bizona) ili Veterinarski pregled primjenjuje se samo na svježu, rashlađenu ili obrađenu vapnena, ukiseljena krupnu i sitnu kožu, uključujući sušenu, suho soljenu, vlažno soljenu ili štavljena, konzerviranu na drugi način, ali ne štavljenjem. Uvoz bez ograničenja je bez dlaka i rezana moguć za prerađenu kožu iz tačke C 2 poglavlja V Priloga XIII Pravilnika, ukoliko su u skladu sa članom 42. stav (3) Odluke o nusproizvodima",
+    "source_page": 63
+  },
+  {
+    "code": "**4102",
+    "chapter_number": 41,
+    "chapter_title": "Sirova koža (osim krzna",
+    "description": "Sirova ovčija ili jagnjeća koža (svježa sušena, vapnena, ukiseljena ili konzervirana način, ali ne štavljena, pergamenizirana prerađena), bez vune i rezana ili ne, napomenom 1 (c) ovog poglavlja.",
+    "qualification": "životinjskog porijekla i njihovim proizvodima koji nisu namijenjeni prehrani ljudi (\"Službeni glasnik BiH\", broj 19/11), naročito za **41012080 i **41015090 ili usoljena, Veterinarski pregledi primjenjuju se samo na svježu, rashlađenu ili obrađenu na drugi krupnu i sitnu kožu, uključujući sušenu, suho soljenu, vlažno soljenu ili ili dalje konzerviranu na drugi način, ali ne štavljenjem. Uvoz bez ograničenja je osim one isključene moguć za obrađenu krupnu i sitnu kožu iz tačke C 2 poglavlja V Priloga XIII Pravilnika, ukoliko su u skladu sa članom 42. stav (3) Odluke o",
+    "source_page": 63
+  },
+  {
+    "code": "**4103",
+    "chapter_number": 41,
+    "chapter_title": "Sirova koža (osim krzna",
+    "description": "Ostale sirove krupne i sitne kože (svježe sušene, vapnene, ukiseljene ili konzervirane način, ali ne štavljene, pergamenizirane prerađene), bez vune i rezane ili ne, isključenih napomenom 1 (b) ili 1 (c)",
+    "qualification": "nusproizvodima životinjskog porijekla i njihovim proizvodima koji nisu namijenjeni prehrani ljudi (\"Službeni glasnik BiH\", broj 19/11), naročito za **41022100 i **41022900. ili usoljene, Veterinarski pregledi primjenjuju se samo na svježu, rashlađenu ili obrađenu na drugi krupnu i sitnu kožu, uključujući sušenu, suho soljenu, vlažno soljenu ili ili dalje konzerviranu na drugi način, ali ne štavljenjem. Uvoz bez ograničenja je osim onih moguć za obrađenu iz tačke C 2 poglavlja V Priloga XIII Pravilnika, ovog poglavlja. ukoliko su u skladu sa članom 42. stav (3) Odluke o nusproizvodima životinjskog porijekla i njihovim proizvodima koji nisu namijenjeni prehrani ljudi (\"Službeni glasnik BiH\", broj 19/11), naročito za **41039000.",
+    "source_page": 63
+  },
+  {
+    "code": "**42050090",
+    "chapter_number": 42,
+    "chapter_title": "Proizvodi od kože; sedlarski i remenarski proizvodi; predmeti za putovanje, ručne torbe i slični proizvodi; proizvodi od životinjskih crijeva (osim dudovog svilca",
+    "description": "Ostali predmeti od kože ili imitacije",
+    "qualification": "kože. Obuhvata materijal za proizvodnju žvakalica za pse.",
+    "source_page": 65
+  },
+  {
+    "code": "**42060000",
+    "chapter_number": 42,
+    "chapter_title": "Proizvodi od kože; sedlarski i remenarski proizvodi; predmeti za putovanje, ručne torbe i slični proizvodi; proizvodi od životinjskih crijeva (osim dudovog svilca",
+    "description": "Proizvodi od crijeva (osim crijeva ili od tetiva.",
+    "qualification": "dudovog svilca) od pozlaćene kože, mjehura Obuhvata materijal za proizvodnju žvakalica za pse.",
+    "source_page": 65
+  },
+  {
+    "code": "**4301",
+    "chapter_number": 43,
+    "chapter_title": "Prirodno i umjetno krzno; proizvodi od krzna",
+    "description": "Sirova krzna (uključujući glave, repove, i ostale dijelove ili isječke, prikladne krznarsku upotrebu), osim sirovih krupnih sitnih koža iz tarifnih brojeva 4101, 4103.",
+    "qualification": "šape Svi, osim krzna obrađenog u skladu sa poglavljem VIII Priloga XVIII Pravilnika o za utvrđivanju veterinarsko-zdravstvenih uvjeta za odlaganje, korištenje, sakupljanje, i prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje 4102 ili na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi, detaljno se propisuju veterinarsko- zdravstveni uvjeti za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi (\"Službeni glasnik BiH\", broj 30/12), ukoliko je u skladu sa članom 42. stav (3) Odluke o nusproizvodima životinjskog porijekla i njihovim proizvodima koji nisu namijenjeni prehrani ljudi (\"Službeni glasnik BiH\", broj 19/11). Obuhvata sljedeće tarifne podbrojeve: **43011000| (od nerca, cijelog, sa glavom, repom ili šapama ili bez njih): posebni zahtjevi za proizvode dobivene preradom temeljnog proizvoda, za korištenja izvan hranidbenog lanca (krzno) utvrđeni su u redu 14 tablice 2 Odjeljka 1 Poglavlja II Priloga XIV Pravilnika o utvrđivanju veterinarsko-zdravstvenih uvjeta za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi, detaljno se propisuju veterinarsko-zdravstveni uvjeti za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi (\"Službeni glasnik BiH\", broj 30/12). **43013000| (sljedećih vrsta jagnjadi: astrahan, jagnjad sa širokim repom iz Male Azije, karakul, perzijska jagnjad, indijska, kineska, mongolska ili tibetanska jagnjad, čitava, sa ili bez glave, repa ili šapa): posebni zahtjevi za kože kopitara utvrđeni su u redu 5 tablice 2 Odjeljka 1 Poglavlja II Priloga XIV Pravilnika o utvrđivanju veterinarsko-zdravstvenih uvjeta za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi, detaljno se propisuju veterinarsko-zdravstveni uvjeti za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi (\"Službeni glasnik BiH\", broj 30/12). **43016000 | (lisice, cijele, sa glavom, repom, šapama ili bez njih): posebni zahtjevi za dobivene proizvode za upotrebu izvan lanca ishrane (krzno) utvrđene su u redu 14 tablice 2 Odjeljka 1 Poglavlja II Priloga Pravilnika o utvrđivanju veterinarsko- zdravstvenih uvjeta za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi, detaljno se propisuju veterinarsko-zdravstveni uvjeti za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi (\"Službeni glasnik BiH\", broj 30/12). **43018000 | (ostala krzna, cijela, s glavom, repom, nogama ili bez njih): osim kopitara, na primjer mrmota, divljih mačaka, tuljana, nutrija. Posebni zahtjevi za proizvode dobivene preradom osnovnog proizvoda za upotrebu izvan lanca ishrane (krzno) utvrđene su u redu 14 tablice 2 Odjeljka 1 Poglavlja II Priloga XIV Pravilnika o utvrđivanju veterinarsko-zdravstvenih uvjeta za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje",
+    "source_page": 68
+  },
+  {
+    "code": "**5101",
+    "chapter_number": 51,
+    "chapter_title": "Vuna, fina ili gruba životinjska dlaka; pređa i tkanine od konjske grive",
+    "description": "Vuna, negrebana niti češljana",
+    "qualification": "Neprerađena vuna",
+    "source_page": 71
+  },
+  {
+    "code": "**5102",
+    "chapter_number": 51,
+    "chapter_title": "Vuna, fina ili gruba životinjska dlaka; pređa i tkanine od konjske grive",
+    "description": "Fina ili gruba životinjska dlaka, negrebana",
+    "qualification": "niti češljana Neprerađene dlake, uključujući i grube dlake sa potrbušine goveda ili jednoprstnih kopitara",
+    "source_page": 71
+  },
+  {
+    "code": "**5103",
+    "chapter_number": 51,
+    "chapter_title": "Vuna, fina ili gruba životinjska dlaka; pređa i tkanine od konjske grive",
+    "description": "Otpad vune ili fine ili grube životinjske pređe, ali isključujući sakupljene zalihe",
+    "qualification": "dlake, uključujući otpad Neprerađena vuna ili dlake",
+    "source_page": 71
+  },
+  {
+    "code": "**67010000",
+    "chapter_number": 67,
+    "chapter_title": "Preparirano perje i paperje i proizvodi izrađeni od perja i paperja; umjetno cvijeće; proizvodi od ljudske kose",
+    "description": "Kože i drugi dijelovi ptica, sa njihovim perjem ili paperjem, perjem, dijelovima perja, paperja i od njih izrađeni (osim proizvoda iz tarifnog broja obrađenog perja i badrljica).",
+    "qualification": "Samo kože i drugi dijelovi ptica sa njihovim perjem ili paperjem, perjem i paperjem i dijelovima perja koji su obrađeni u skladu sa postupkom koji nije proizvodi postupak običnog čišćenja, dezinficiranja ili konzerviranja. Posebni zahtjevi za 0505 i perje utvrđeni su u redu 9 tablice 2 Odjeljka 1 Poglavlja II Priloga XIV Pravilnika o utvrđivanju veterinarsko-zdravstvenih uvjeta za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi, detaljno se propisuju veterinarsko-zdravstveni uvjeti za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi (\"Službeni glasnik BiH\", broj 30/12). Proizvodi od neobrađenih ili samo očišćenih koža, perja ili paperja i dijelova perja; na primjer jedinstveno obrađeno perje koje ima žičani okvir, namijenjeno korištenju, na primjer, kao ukras za šešire, kao i jedinstvena sastavljena perja iz različitih elemenata, ukrasi od perja ili paperja, na primjer za šešire, boe, okovratnike; osim obrađenog ukrasnog perja, obrađeno perje koje putnici nose za ličnu upotrebu ili pošiljke obrađenog perja poslate privatnim osobama u neindustrijske svrhe.",
+    "source_page": 73
+  },
+  {
+    "code": "**710121",
+    "chapter_number": 71,
+    "chapter_title": "Prirodni ili kultivirani biseri, dragulji ili poludragulji, plemenite kovine, kovine platirane plemenitim kovinama i proizvodi od njih; imitacije draguljarskih proizvoda; kovani novac",
+    "description": "Neobrađeni Obuhvata kamenice kultivirani biseri. očuvane u Pravilnikom identifikaciju nusproizvoda propisuju veterinarsko-zdravstveni sljedivost, životinjskog 30/12).",
+    "qualification": "neprikladne za prehranu ljudi, koje sadržavaju jedan kultivirani biser ili više njih, salamuri ili na različite načine i pakirane u hermetičke metalne spremnike u skladu sa o utvrđivanju veterinarsko-zdravstvenih uvjeta za odlaganje, korištenje, sakupljanje, prijevoz, i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi, detaljno se uvjeti za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi (\"Službeni glasnik BiH\", broj",
+    "source_page": 75
+  },
+  {
+    "code": "**95081000",
+    "chapter_number": 95,
+    "chapter_title": "Igračke, rekviziti za društvene igre i sport; njihovi dijelovi i pribor",
+    "description": "Putujući cirkusi i putujući zvjerinjaci.",
+    "qualification": "Samo sa živim životinjama.",
+    "source_page": 77
+  },
+  {
+    "code": "**95089000",
+    "chapter_number": 95,
+    "chapter_title": "Igračke, rekviziti za društvene igre i sport; njihovi dijelovi i pribor",
+    "description": "Drugo: razonode iz zabavnog",
+    "qualification": "parka, putujuća pozorišta. Samo sa živim životinjama.",
+    "source_page": 77
+  },
+  {
+    "code": "**960200",
+    "chapter_number": 96,
+    "chapter_title": "Razni gotovi proizvodi",
+    "description": "Obrađeni, nestvrdnuti želatin (osim želatina iz tarifnog broja 3503) i proizvodi od nestvrdnutog želatina.",
+    "qualification": "Prazne kapsule od stvrdnutog želatina za hranu ili za ishranu životinja; posebni zahtjevi utvrđeni su redu 5 tablice 1 Odjeljka 1 Poglavlja I Priloga XIV Pravilnika o utvrđivanju veterinarsko-zdravstvenih uvjeta za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi, detaljno se propisuju veterinarsko-zdravstveni uvjeti za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi (\"Službeni glasnik BiH\", broj 30/12).",
+    "source_page": 79
+  },
+  {
+    "code": "**97050000",
+    "chapter_number": 97,
+    "chapter_title": "Umjetnine, kolekcionarski komadi i antikviteti",
+    "description": "Kolekcije i kolekcionarski komadi zoološkog, botaničkog, mineraloškog, anatomskog, povijesnog, arheološkog, paleontološkog, etnografskog ili numizmatičkog interesa.",
+    "qualification": "od Samo proizvodi dobiveni od životinja. Posebni zahtjevi za lovne trofeje utvrđeni su u redu 6 tablice 2 Odjeljka 1 Poglavlja II Priloga XIV Pravilnika o utvrđivanju veterinarsko-zdravstvenih uvjeta za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi, detaljno se propisuju veterinarsko-zdravstveni uvjeti za odlaganje, korištenje, sakupljanje, prijevoz, identifikaciju i sljedivost, registraciju i odobravanje postrojenja, stavljanje na tržište, uvoz, tranzit i izvoz nusproizvoda životinjskog porijekla i njihovih proizvoda koji nisu namijenjeni prehrani ljudi (\"Službeni glasnik BiH\", broj 30/12). Isključuje lovne trofeje papkara ili ptica koje su prošle cjelovitu obradu prepariranja što osigurava njihovo očuvanje pri sobnim temperaturama i lovne trofeje drugih vrsta osim papkara i ptica (obrađene ili neobrađene).",
+    "source_page": 81
+  }
+]

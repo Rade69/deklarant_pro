@@ -200,6 +200,17 @@ class CreateNaimenovanjaService:
         # Kreiraj referencu izvora
         source_ref = f"Faktura linija {line.line_no}" if line.line_no > 0 else "Faktura linija"
 
+        # Rb.44 dokument porijekla na osnovu povlastice i has_origin_statement
+        pov = line.povlastica or ''
+        eur1 = (getattr(line, 'eur1_number', '') or '').strip()
+        has_stmt = getattr(line, 'has_origin_statement', False)
+        doc44 = ""
+        if pov:
+            if has_stmt:
+                doc44 = f"PE2 {eur1}".strip() if eur1 else "PE2"
+            else:
+                doc44 = f"PE1 {eur1}".strip() if eur1 else "PE1"
+
         naimenovanje = NaimenovanjeDraft(
             item_id=str(uuid.uuid4()),
             ordinal_no=ordinal_no,
@@ -223,7 +234,9 @@ class CreateNaimenovanjaService:
             # Procedura (podrazumevano 4000 = definitivni uvoz)
             procedure_code='4000',
             # Povlastica (povlastica → preference_code)
-            preference_code=line.povlastica or '',
+            preference_code=pov,
+            # Rb.44 – dokument porijekla (PE1=EUR.1, PE2=izjava na fakturi)
+            attached_document4=doc44,
             # Praćenje izvora
             source_invoice_refs=[source_ref]
         )
@@ -260,16 +273,15 @@ class CreateNaimenovanjaService:
         # Proveri da li sve linije imaju isti EUR.1 broj
         eur1_numbers = set(line.eur1_number for line in lines if line.eur1_number)
         eur1_number = eur1_numbers.pop() if len(eur1_numbers) == 1 else ""
-        
-        # Odredi kod dokumenta na osnovu has_origin_statement
+
+        # Odredi kod dokumenta porijekla
         # PE1 = EUR.1 obrazac (nema izjave na fakturi)
-        # PE2 = Izjava o poreklu na fakturi (ima izjavu)
+        # PE2 = Izjava o porijeklu na fakturi (has_origin_statement)
+        pov_group = first_line.povlastica or ''
+        has_stmt_group = getattr(first_line, 'has_origin_statement', False)
         doc_code = ""
-        if eur1_number:
-            if first_line.has_origin_statement:
-                doc_code = "PE2"  # Izjava na fakturi
-            else:
-                doc_code = "PE1"  # EUR.1 obrazac
+        if pov_group:
+            doc_code = "PE2" if has_stmt_group else "PE1"
 
         naimenovanje = NaimenovanjeDraft(
             item_id=str(uuid.uuid4()),
@@ -292,7 +304,8 @@ class CreateNaimenovanjaService:
             statistical_value=item_value,
             package_marks='X',  # Podrazumevano: "X" (Oznake i broj)
             # EUR.1 u Rub.44.4 (plavi border - master polje) - format: "PE1 {broj}" ili "PE2 {broj}"
-            attached_document4=f"{doc_code} {eur1_number}" if doc_code and eur1_number else "",
+            # Ako nema broja — postavi samo šifru (PE1/PE2) kao podsjetnik za ručni unos
+            attached_document4=f"{doc_code} {eur1_number}".strip() if doc_code else "",
             # Praćenje izvora
             source_invoice_refs=source_refs
         )

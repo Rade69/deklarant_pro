@@ -112,17 +112,26 @@ class XMLImportStrategy(ImportStrategy):
             # Javi 50% progress prije parsiranja
             if progress_callback:
                 progress_callback(50)
-            
-            # Pozovi XML importer
+
+            # Univerzalni faktura XML parser (<Faktura>/<Stavke>)
+            # Radi sa Pekabesko, Medicopharm, i bilo kojim drugim dobavljačem
+            from importers.faktura_xml_parser import detect_faktura_xml, parse_faktura_xml
+            if detect_faktura_xml(str(filepath)):
+                result = parse_faktura_xml(str(filepath))
+                if progress_callback:
+                    progress_callback(100)
+                return result
+
+            # Standardni ASYCUDA XML format
             data = self.importer.import_file(filepath)
-            
+
             # Javi 100% progress nakon parsiranja
             if progress_callback:
                 progress_callback(100)
-            
+
             # Konvertuj dictionary u ImportResult
             result = self._convert_to_import_result(data)
-            
+
             return result
             
         except FileNotSupportedError:

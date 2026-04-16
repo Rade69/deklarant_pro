@@ -1,0 +1,943 @@
+[
+  {
+    "item": "1.1",
+    "category": "bilje_namijenjeno_sadnji",
+    "description": "Bilje namijenjeno sadnji, osim sjemena, roda Amelanchier Med., Chaenomeles Lindl., Cotoneaster Ehrh., Crataegus L., Cydonia Mill., Eriobotrya Lindl., Malus Mill., Mespilus L., Photinia davidiana (Dcne.) Cardot, Prunus L. (isključujući Prunus laurocerasus L. i Prunus lusitanica L.), Pyracantha Roem., Pyrus L. i Sorbus L.",
+    "source_page": 74,
+    "part": "A",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za čitavu teritoriju Bosne i Hercegovine i koje mora pratiti biljni pasoš ako se premještaju na njenu teritoriju"
+  },
+  {
+    "item": "1.2",
+    "category": "bilje_namijenjeno_sadnji",
+    "description": "Bilje Beta vulgaris L. i Humulus lupulus L., namijenjeno sadnji.",
+    "source_page": 74,
+    "part": "A",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za čitavu teritoriju Bosne i Hercegovine i koje mora pratiti biljni pasoš ako se premještaju na njenu teritoriju"
+  },
+  {
+    "item": "1.3",
+    "category": "bilje_namijenjeno_sjetvi_ili_sadnji",
+    "description": "Bilje vrsta iz roda Solanum L. koje stvara vriježe i krtole ili njihovi hibridi, namijenjeno sjetvi ili sadnji.",
+    "source_page": 74,
+    "part": "A",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za čitavu teritoriju Bosne i Hercegovine i koje mora pratiti biljni pasoš ako se premještaju na njenu teritoriju"
+  },
+  {
+    "item": "1.4",
+    "category": "bilje",
+    "description": "Bilje Fortunella Swingle, Poncirus Raf. i njihovih hibrida i Vitis L., isključujući plodove i sjeme.",
+    "source_page": 74,
+    "part": "A",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za čitavu teritoriju Bosne i Hercegovine i koje mora pratiti biljni pasoš ako se premještaju na njenu teritoriju"
+  },
+  {
+    "item": "1.5",
+    "category": "bilje",
+    "description": "Ne dovodeći u pitanje tačku 1.6, bilje Citrus L. i njegovi hibridi, isključujući plodove i sjeme.",
+    "source_page": 74,
+    "part": "A",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za čitavu teritoriju Bosne i Hercegovine i koje mora pratiti biljni pasoš ako se premještaju na njenu teritoriju"
+  },
+  {
+    "item": "1.6",
+    "category": "plodovi",
+    "description": "Plodovi Citrus L., Fortunella Swingle, Poncirus Raf. i njihovih hibrida, s lišćem i peteljkama.",
+    "source_page": 74,
+    "part": "A",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za čitavu teritoriju Bosne i Hercegovine i koje mora pratiti biljni pasoš ako se premještaju na njenu teritoriju"
+  },
+  {
+    "item": "1.7a",
+    "category": "drvo",
+    "description": "Drvo u smislu člana 3. stav (3) Zakona, dobijeno u cijelosti ili dijelom od drveta Platanus L., uključujući i drvo koje nije zadržalo svoju prirodnu oblu površinu.",
+    "source_page": 74,
+    "part": "A",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za čitavu teritoriju Bosne i Hercegovine i koje mora pratiti biljni pasoš ako se premještaju na njenu teritoriju"
+  },
+  {
+    "item": "1.7b",
+    "category": "tarifne_oznake",
+    "description": "Tarifne oznake povezane s drvetom iz tačke 1.7.",
+    "source_page": 75,
+    "part": "A",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za čitavu teritoriju Bosne i Hercegovine i koje mora pratiti biljni pasoš ako se premještaju na njenu teritoriju"
+  },
+  {
+    "part": "A",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za čitavu teritoriju Bosne i Hercegovine i koje mora pratiti biljni pasoš ako se premještaju na njenu teritoriju",
+    "parent_item": "1.7b",
+    "item_type": "tariff_line",
+    "tariff_code": "4401 10 00",
+    "description": "Ogrjevno drvo u oblicama, cjepanicama, granama, snopovima ili u sličnim oblicima - iverje, trijeske i slično.",
+    "source_page": 75
+  },
+  {
+    "part": "A",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za čitavu teritoriju Bosne i Hercegovine i koje mora pratiti biljni pasoš ako se premještaju na njenu teritoriju",
+    "parent_item": "1.7b",
+    "item_type": "tariff_line",
+    "tariff_code": "4401 22 00",
+    "description": "Ogrjevno drvo u oblicama, cjepanicama, granama, snopovima ili u sličnim oblicima - od ostalog drveća.",
+    "source_page": 75
+  },
+  {
+    "part": "A",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za čitavu teritoriju Bosne i Hercegovine i koje mora pratiti biljni pasoš ako se premještaju na njenu teritoriju",
+    "parent_item": "1.7b",
+    "item_type": "tariff_line",
+    "tariff_code": "44 01 30 80",
+    "description": "Drvni otpadi i ostaci (isključujući piljevinu), neaglomerirani u oblice, brikete, palete ili slične oblike.",
+    "source_page": 75
+  },
+  {
+    "part": "A",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za čitavu teritoriju Bosne i Hercegovine i koje mora pratiti biljni pasoš ako se premještaju na njenu teritoriju",
+    "parent_item": "1.7b",
+    "item_type": "tariff_line",
+    "tariff_code": "44 03 10 00",
+    "description": "Neobrađeno ili grubo obrađeno (učetvoreno) drvo, okorano drvo (sa skinutom korom) ili sa skinutom bjeljikom - zaštićeno bojom, kreozotom ili drugim zaštitnim sredstvima; - ostalo.",
+    "source_page": 75
+  },
+  {
+    "part": "A",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za čitavu teritoriju Bosne i Hercegovine i koje mora pratiti biljni pasoš ako se premještaju na njenu teritoriju",
+    "parent_item": "1.7b",
+    "item_type": "tariff_line",
+    "tariff_code": "44 03 99",
+    "description": "Drvo (osim drveta četinara i tropskog drveta navedenog u poglavlju 44. Carinske tarife, u napomeni za tarifne podbrojeve, i drugog tropskog drveta, hrasta (Quercus spp.) i bukve (Fagus spp.)), neobrađeno, sa korom ili bez kore ili bjeljike, ili grubo obrađeno (učetvoreno), koje nije zaštićeno bojom, kreozotom ili drugim zaštitnim sredstvima.",
+    "source_page": 75
+  },
+  {
+    "part": "A",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za čitavu teritoriju Bosne i Hercegovine i koje mora pratiti biljni pasoš ako se premještaju na njenu teritoriju",
+    "parent_item": "1.7b",
+    "item_type": "tariff_line",
+    "tariff_code": "44 04 20 00",
+    "description": "Drvo za obruče, cjepovi i kolci, zašiljeni kolci i stupovi, drvne motike, okresane ali netokarene, nesavijane ili drugačije obrađene, prikladne za proizvodnju štapova, kišobrana, drški alata ili slične tanke vrpce dobijene cijepanje, uključujući i crnogorično drvo.",
+    "source_page": 75
+  },
+  {
+    "part": "A",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za čitavu teritoriju Bosne i Hercegovine i koje mora pratiti biljni pasoš ako se premještaju na njenu teritoriju",
+    "parent_item": "1.7b",
+    "item_type": "tariff_line",
+    "tariff_code": "44 07 99",
+    "description": "Drvo obrađeno po dužini piljenjem, glodanjem ili rezanjem ili ljuštenjem, uključujući i blanjano, brušeno ili spojeno na krajevima više od 6 mm.",
+    "source_page": 75
+  },
+  {
+    "item": "2",
+    "category": "bilje_biljni_proizvodi_i_regulisani_objekti",
+    "description": "Bilje, biljni proizvodi i drugi regulirani objekti koje su proizveli proizvođači ovlašteni proizvoditi bilje za prodaju profesionalnim proizvođačima bilja, isključujući bilje, biljne proizvode i druge regulirane objekte koji su pripremljeni i spremni za prodaju krajnjem korisniku, ako nadležno entitetsko ministarstvo ili Odjel za poljoprivredu Brčko distrikta BiH garantira da je proizvodnja za profesionalne proizvođače jasno odvojena od proizvodnje za druge namjene.",
+    "source_page": 75,
+    "part": "A",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za čitavu teritoriju Bosne i Hercegovine i koje mora pratiti biljni pasoš ako se premještaju na njenu teritoriju"
+  },
+  {
+    "item": "2.1",
+    "category": "bilje_namijenjeno_sadnji",
+    "description": "Bilje namijenjeno sadnji, osim sjemena, rodova Abies Mill., Apium graveolens L., Argyranthemum spp., Aster spp., Brassica spp., Castanea Mill., Cucumis spp., Dendranthema (DC.) Des Moul., Dianthus L. i hibridi Exacum spp., Fragaria L., Gerbera Cass., Gypsophila L., sve sorte novogvinejskih hibrida Impatiens L., Lactuca spp., Larix Mill., Leucanthemum L., Lupinus L., Pelargonium l'Herit. ex Ait., Picea A. Dietr., Pinus L., Platanus L., Populus L., Prunus laurocerasus L., Prunus lusitanica L., Pseudotsuga Carr., Quercus L., Rubus L., Spinacia L., Tanacetum L., Tsuga Carr. i Verbena L. i ostalo zeljasto bilje, isključujući bilje iz porodice Poaceae (Gramineae), namijenjeno sjetvi ili sadnji, te isključujući lukovice, podanke i krtole.",
+    "source_page": 75,
+    "part": "A",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za čitavu teritoriju Bosne i Hercegovine i koje mora pratiti biljni pasoš ako se premještaju na njenu teritoriju"
+  },
+  {
+    "item": "2.2",
+    "category": "bilje",
+    "description": "Bilje iz porodice Solanaceae, isključujući ono iz tačke 1.3, namijenjeno sadnji, osim sjemena.",
+    "source_page": 75,
+    "part": "A",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za čitavu teritoriju Bosne i Hercegovine i koje mora pratiti biljni pasoš ako se premještaju na njenu teritoriju"
+  },
+  {
+    "item": "2.3",
+    "category": "bilje",
+    "description": "Bilje Araceae, Marantaceae, Musaceae, Persea spp. i Strelitziaceae, ukorijenjeno ili sa supstratom za uzgoj koji je pridodat bilju ili se nalazi na bilju.",
+    "source_page": 75,
+    "part": "A",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za čitavu teritoriju Bosne i Hercegovine i koje mora pratiti biljni pasoš ako se premještaju na njenu teritoriju"
+  },
+  {
+    "item": "2.3.1",
+    "category": "bilje_namijenjeno_sadnji",
+    "description": "Bilje Arecaceae (Palmae), namijenjeno sadnji koje ima promjer stabljike pri osnovi veći od 5 cm i pripada jednom od sljedećih rodova: Brahea Mart., Butia Becc., Chamaerops L., Jubaea Kunth, Livistona R. Br., Phoenix L., Sabal Adans., Syagrus Mart., Trachycarpus H. Wendl., Trithrinax Mart., Washingtonia Raf.",
+    "source_page": 75,
+    "part": "A",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za čitavu teritoriju Bosne i Hercegovine i koje mora pratiti biljni pasoš ako se premještaju na njenu teritoriju"
+  },
+  {
+    "item": "2.4",
+    "category": "sjeme_i_lukovice",
+    "description": "Sjeme i lukovice Allium ascalonicum L., Allium cepa L. i Allium schoenoprasum L., namijenjeni sadnji i bilje Allium porrum L., namijenjeno sadnji; te sjeme Medicago sativa L.; sjeme Helianthus annuus L., Lycopersicon lycopersicum (L.) Karsten ex Farw. i Phaseolus L.",
+    "source_page": 75,
+    "part": "A",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za čitavu teritoriju Bosne i Hercegovine i koje mora pratiti biljni pasoš ako se premještaju na njenu teritoriju"
+  },
+  {
+    "item": "3",
+    "category": "lukovice_i_podanci",
+    "description": "Lukovice i podanci namijenjeni sadnji, koje su proizveli proizvođači ovlašteni proizvoditi bilje za prodaju profesionalnim proizvođačima bilja, isključujući bilje, biljne proizvode i druge regulirane objekte koji su pripremljeni i spremni za prodaju krajnjem korisniku, ako nadležno entitetsko ministarstvo ili Odjel za poljoprivredu Brčko distrikta BiH garantira da je proizvodnja za profesionalne proizvođače jasno odvojena od proizvodnje za druge namjene: Camassia Lindl., Chionodoxa Boiss., Crocus flavus Weston 'Golden Yellow', Galanthus L., Galtonia candicans (Baker) Decne., patuljaste sorte i njihovi hibridi roda Gladiolus Tourn. ex L. (kao što su Gladiolus callianthus Marais, Gladiolus colvillei Sweet, Gladiolus nanus hort., Gladiolus ramosus hort. i Gladiolus tubergenii hort.), Hyacinthus L., Iris L., Ismene Herbert, Muscari Miller, Narcissus L., Ornithogalum L., Puschkinia Adams, Scilla L., Tigridia Juss. i Tulipa L.",
+    "source_page": 75,
+    "part": "A",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za čitavu teritoriju Bosne i Hercegovine i koje mora pratiti biljni pasoš ako se premještaju na njenu teritoriju"
+  },
+  {
+    "item": "1.1",
+    "category": "bilje",
+    "description": "Bilje Abies Mill., Larix Mill., Picea A. Dietr., Pinus L. i Pseudotsuga Carr.",
+    "source_page": 76,
+    "part": "A",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti biljni pasoš važeći za odgovarajuće područje, kada se unose u takvo područje ili se unutar njega premještaju"
+  },
+  {
+    "item": "1.2",
+    "category": "bilje_namijenjeno_sadnji",
+    "description": "Bilje namijenjeno sadnji, Populus L. i Beta vulgaris L.",
+    "source_page": 76,
+    "part": "A",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti biljni pasoš važeći za odgovarajuće područje, kada se unose u takvo područje ili se unutar njega premještaju"
+  },
+  {
+    "item": "1.3",
+    "category": "bilje",
+    "description": "Bilje, isključujući plodove i sjeme Amelanchier Med., Chaenomeles Lindl., Cotoneaster Ehrh., Crataegus L., Cydonia Mill., Eriobotrya Lindl., Eucalyptus L'Herit., Malus Mill., Mespilus L., Photinia davidiana (Dcne.) Cardot, Pyracantha Roem., Pyrus L., Sorbus L. i Vitis L.",
+    "source_page": 76,
+    "part": "A",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti biljni pasoš važeći za odgovarajuće područje, kada se unose u takvo područje ili se unutar njega premještaju"
+  },
+  {
+    "item": "1.4",
+    "category": "ziva_pelud",
+    "description": "Živa pelud za oprašivanje Amelanchier Med., Chaenomeles Lindl., Cotoneaster Ehrh., Crataegus L., Cydonia Mill., Eriobotrya Lindl., Malus Mill., Mespilus L., Photinia davidiana (Dcne.) Cardot, Pyracantha Roem., Pyrus L. i Sorbus L.",
+    "source_page": 76,
+    "part": "A",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti biljni pasoš važeći za odgovarajuće područje, kada se unose u takvo područje ili se unutar njega premještaju"
+  },
+  {
+    "item": "1.5",
+    "category": "krtole",
+    "description": "Krtole Solanum tuberosum L., namijenjene sadnji.",
+    "source_page": 76,
+    "part": "A",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti biljni pasoš važeći za odgovarajuće područje, kada se unose u takvo područje ili se unutar njega premještaju"
+  },
+  {
+    "item": "1.6",
+    "category": "bilje",
+    "description": "Bilje Beta vulgaris L., namijenjeno industrijskoj preradi.",
+    "source_page": 76,
+    "part": "A",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti biljni pasoš važeći za odgovarajuće područje, kada se unose u takvo područje ili se unutar njega premještaju"
+  },
+  {
+    "item": "1.7",
+    "category": "tlo_i_otpad",
+    "description": "Tlo i nesterilizirani otpad repe (Beta vulgaris L.).",
+    "source_page": 76,
+    "part": "A",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti biljni pasoš važeći za odgovarajuće područje, kada se unose u takvo područje ili se unutar njega premještaju"
+  },
+  {
+    "item": "1.8",
+    "category": "sjeme",
+    "description": "Sjeme Beta vulgaris L., Dolichos Jacq., Gossypium spp. i Phaseolus vulgaris L.",
+    "source_page": 76,
+    "part": "A",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti biljni pasoš važeći za odgovarajuće područje, kada se unose u takvo područje ili se unutar njega premještaju"
+  },
+  {
+    "item": "1.9",
+    "category": "plodovi",
+    "description": "Plodovi (čahure) Gossypium spp. i pamuk koji nije očišćen od sjemena, te plodovi Vitis L.",
+    "source_page": 76,
+    "part": "A",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti biljni pasoš važeći za odgovarajuće područje, kada se unose u takvo područje ili se unutar njega premještaju"
+  },
+  {
+    "item": "1.10a",
+    "category": "drvo",
+    "description": "Drvo u smislu člana 3. stav (3) Zakona, dobijeno u cijelosti ili dijelom od četinara (Coniferales), isključujući drvo bez kore, i od drveta Castanea Mill., isključujući drvo bez kore.",
+    "source_page": 76,
+    "part": "A",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti biljni pasoš važeći za odgovarajuće područje, kada se unose u takvo područje ili se unutar njega premještaju"
+  },
+  {
+    "item": "1.10b",
+    "category": "tarifne_oznake",
+    "description": "Tarifne oznake povezane s drvetom iz tačke 1.10.",
+    "source_page": 76,
+    "part": "A",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti biljni pasoš važeći za odgovarajuće područje, kada se unose u takvo područje ili se unutar njega premještaju"
+  },
+  {
+    "part": "A",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti biljni pasoš važeći za odgovarajuće područje, kada se unose u takvo područje ili se unutar njega premještaju",
+    "parent_item": "1.10b",
+    "item_type": "tariff_line",
+    "tariff_code": "4401 10 00",
+    "description": "Ogrjevno drvo u oblicama, cjepanicama, granama, snopovima pruća ili u sličnim oblicima.",
+    "source_page": 76
+  },
+  {
+    "part": "A",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti biljni pasoš važeći za odgovarajuće područje, kada se unose u takvo područje ili se unutar njega premještaju",
+    "parent_item": "1.10b",
+    "item_type": "tariff_line",
+    "tariff_code": "4401 21 00",
+    "description": "Drvo četinara, u obliku iverja ili čestica.",
+    "source_page": 76
+  },
+  {
+    "part": "A",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti biljni pasoš važeći za odgovarajuće područje, kada se unose u takvo područje ili se unutar njega premještaju",
+    "parent_item": "1.10b",
+    "item_type": "tariff_line",
+    "tariff_code": "4401 22 00",
+    "description": "Drvo u obliku iverja ili čestica, isključujući drvo četinara.",
+    "source_page": 76
+  },
+  {
+    "part": "A",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti biljni pasoš važeći za odgovarajuće područje, kada se unose u takvo područje ili se unutar njega premještaju",
+    "parent_item": "1.10b",
+    "item_type": "tariff_line",
+    "tariff_code": "iz 4401 30",
+    "description": "Drvni otpad i ostaci (isključujući piljevinu), neaglomerirani u oblice, brikete, palete ili slične oblike.",
+    "source_page": 76
+  },
+  {
+    "part": "A",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti biljni pasoš važeći za odgovarajuće područje, kada se unose u takvo područje ili se unutar njega premještaju",
+    "parent_item": "1.10b",
+    "item_type": "tariff_line",
+    "tariff_code": "iz 4403 10 00",
+    "description": "Neobrađeno ili grubo obrađeno (učetvoreno) drvo, zaštićeno bojom, kreozotom ili drugim zaštitnim sredstvima, kojem nije odstranjena kora ili bjeljika.",
+    "source_page": 76
+  },
+  {
+    "part": "A",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti biljni pasoš važeći za odgovarajuće područje, kada se unose u takvo područje ili se unutar njega premještaju",
+    "parent_item": "1.10b",
+    "item_type": "tariff_line",
+    "tariff_code": "iz 4403 20",
+    "description": "Neobrađeno ili grubo obrađeno (učetvoreno) drvo četinara, kojem nije odstranjena kora ili bjeljika.",
+    "source_page": 76
+  },
+  {
+    "part": "A",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti biljni pasoš važeći za odgovarajuće područje, kada se unose u takvo područje ili se unutar njega premještaju",
+    "parent_item": "1.10b",
+    "item_type": "tariff_line",
+    "tariff_code": "iz 4403 99",
+    "description": "Drvo, isključujući drvo četinara i tropsko drvo specificirano u poglavlju 44 Carinske tarife, te hrast (Quercus spp.) i bukvu (Fagus spp.), neobrađeno ili grubo obrađeno, kojem nije odstranjena kora ili bjeljika.",
+    "source_page": 76
+  },
+  {
+    "part": "A",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti biljni pasoš važeći za odgovarajuće područje, kada se unose u takvo područje ili se unutar njega premještaju",
+    "parent_item": "1.10b",
+    "item_type": "tariff_line",
+    "tariff_code": "iz 4404",
+    "description": "Cijepane motke: stupovi, stupići i kolci, zašiljeni ali ne uzdužno piljeni.",
+    "source_page": 76
+  },
+  {
+    "part": "A",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti biljni pasoš važeći za odgovarajuće područje, kada se unose u takvo područje ili se unutar njega premještaju",
+    "parent_item": "1.10b",
+    "item_type": "tariff_line",
+    "tariff_code": "4406",
+    "description": "Drveni željeznički ili tramvajski pragovi.",
+    "source_page": 76
+  },
+  {
+    "part": "A",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti biljni pasoš važeći za odgovarajuće područje, kada se unose u takvo područje ili se unutar njega premještaju",
+    "parent_item": "1.10b",
+    "item_type": "tariff_line",
+    "tariff_code": "iz 4407 10",
+    "description": "Drvo četinara, uzdužno obrađeno piljenjem ili glodanjem, rezanjem ili ljuštenjem, uključujući blanjano, brušeno ili spojeno na krajevima, debljine veće od 6 mm.",
+    "source_page": 76
+  },
+  {
+    "part": "A",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti biljni pasoš važeći za odgovarajuće područje, kada se unose u takvo područje ili se unutar njega premještaju",
+    "parent_item": "1.10b",
+    "item_type": "tariff_line",
+    "tariff_code": "iz 4407 99",
+    "description": "Drvo, isključujući drvo četinara i tropsko drvo specificirano u poglavlju 44 Carinske tarife, te hrast (Quercus spp.), bukvu (Fagus spp.), javor (Acer spp.), trešnju (Prunus spp.) i jasen (Fraxinus spp.), uzdužno obrađeno piljenjem ili glodanjem, rezano ili ljušteno, uključujući blanjano, brušeno ili spojeno na krajevima, debljine veće od 6 mm.",
+    "source_page": 76
+  },
+  {
+    "item": "1.11",
+    "category": "izolirana_kora",
+    "description": "Izolirana kora drveta Castanea Mill. i četinara (Coniferales).",
+    "source_page": 76,
+    "part": "A",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti biljni pasoš važeći za odgovarajuće područje, kada se unose u takvo područje ili se unutar njega premještaju"
+  },
+  {
+    "item": "2",
+    "category": "bilje_biljni_proizvodi_i_regulisani_objekti",
+    "description": "Bilje, biljni proizvodi i drugi regulirani objekti koje su proizveli proizvođači ovlašteni proizvoditi bilje za prodaju profesionalnim proizvođačima bilja, isključujući bilje, biljne proizvode i druge regulirane objekte koji su pripremljeni i spremni za prodaju krajnjem korisniku, ako nadležno entitetsko ministarstvo ili Odjel za poljoprivredu Brčko distrikta BiH garantira da je proizvodnja za profesionalne proizvođače jasno odvojena od proizvodnje za druge namjene.",
+    "source_page": 77,
+    "part": "A",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti biljni pasoš važeći za odgovarajuće područje, kada se unose u takvo područje ili se unutar njega premještaju"
+  },
+  {
+    "item": "2.1",
+    "category": "bilje_namijenjeno_sadnji",
+    "description": "Bilje Begonia L., namijenjeno sadnji, isključujući podanke i gomolje, te bilje Euphorbia pulcherrima Willd., Ficus L. i Hibiscus L., namijenjeno sadnji, osim sjemena.",
+    "source_page": 77,
+    "part": "A",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti biljni pasoš važeći za odgovarajuće područje, kada se unose u takvo područje ili se unutar njega premještaju"
+  },
+  {
+    "item": "1",
+    "category": "bilje_namijenjeno_sadnji",
+    "description": "Bilje namijenjeno sadnji, osim sjemena, ali uključujući sjeme: Brassicaceae (Cruciferae), Poaceae (Gramineae), Trifolium spp., porijeklom iz Argentine, Australije, Bolivije, Čilea, Novog Zelanda i Urugvaja; roda Triticum, Secale i X Triticosecale porijeklom iz Afganistana, Indije, Irana, Iraka, Meksika, Nepala, Pakistana, Južnoafričke Republike i SAD-a; te Capsicum spp., Helianthus annuus L., Lycopersicon lycopersicum (L.) Karsten ex Farw., Medicago sativa L., Prunus L., Rubus L., Oryza spp., Zea mais L., Allium ascalonicum L., Allium cepa L., Allium porrum L., Allium schoenoprasum L. i Phaseolus L.",
+    "source_page": 77,
+    "part": "B",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti koji ne potiču iz Bosne i Hercegovine i koji podliježu fitosanitarnom pregledu u zemlji pošiljatelja ako se unose u Bosnu i Hercegovinu"
+  },
+  {
+    "item": "2",
+    "category": "dijelovi_bilja",
+    "description": "Dijelovi bilja, isključujući plodove i sjeme: Castanea Mill., Dendranthema (DC.) Des Moul., Dianthus L., Gypsophila L., Pelargonium l'Herit. ex Ait., Phoenix spp., Populus L., Quercus L., Solidago L. i rezano cvijeće Orchidaceae; četinari (Coniferales); Acer saccharum Marsh., porijeklom iz SAD-a i Kanade; Prunus L., porijeklom iz vanevropskih zemalja; rezano cvijeće Aster spp., Eryngium L., Hypericum L., Lisianthus L., Rosa L. i Trachelium L., porijeklom iz vanevropskih zemalja; lisnato povrće Apium graveolens L. i Ocimum L.",
+    "source_page": 77,
+    "part": "B",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti koji ne potiču iz Bosne i Hercegovine i koji podliježu fitosanitarnom pregledu u zemlji pošiljatelja ako se unose u Bosnu i Hercegovinu"
+  },
+  {
+    "item": "3",
+    "category": "plodovi",
+    "description": "Plodovi: Citrus L., Fortunella Swingle, Poncirus Raf. i njihovih hibrida, Momordica L. i Solanum melongena L.; te Annona L., Cydonia Mill., Diospyros L., Malus Mill., Mangifera L., Passiflora L., Prunus L., Psidium L., Pyrus L., Ribes L., Syzygium Gaertn. i Vaccinium L., porijeklom iz vanevropskih zemalja.",
+    "source_page": 77,
+    "part": "B",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti koji ne potiču iz Bosne i Hercegovine i koji podliježu fitosanitarnom pregledu u zemlji pošiljatelja ako se unose u Bosnu i Hercegovinu"
+  },
+  {
+    "item": "4",
+    "category": "krtole",
+    "description": "Krtole Solanum tuberosum L.",
+    "source_page": 77,
+    "part": "B",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti koji ne potiču iz Bosne i Hercegovine i koji podliježu fitosanitarnom pregledu u zemlji pošiljatelja ako se unose u Bosnu i Hercegovinu"
+  },
+  {
+    "item": "5",
+    "category": "izolirana_kora",
+    "description": "Izolirana kora: četinara (Coniferales), porijeklom iz vanevropskih zemalja; Acer saccharum Marsh., Populus L. i Quercus L., isključujući Quercus suber L.; Fraxinus L., Juglans mandshurica Maxim., Ulmus davidiana Planch., Ulmus parvifolia Jacq. i Pterocarya rhoifolia Siebold et Zucc., porijeklom iz Kanade, Kine, Japana, Mongolije, Republike Koreje, Rusije, Tajvana i SAD-a.",
+    "source_page": 77,
+    "part": "B",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti koji ne potiču iz Bosne i Hercegovine i koji podliježu fitosanitarnom pregledu u zemlji pošiljatelja ako se unose u Bosnu i Hercegovinu"
+  },
+  {
+    "item": "6a",
+    "category": "drvo",
+    "description": "Drvo u smislu člana 3. stav (3) Zakona, dobijeno u cijelosti ili dijelom od sljedećih redova, rodova ili vrsta, isključujući drveni materijal za pakovanje naveden u Listi IV Dio A Odjeljak I tačka 2.2: Quercus L. porijeklom iz SAD-a, isključujući drvo koje odgovara opisu pod tarifnom oznakom 4416 00 00 ako postoji pisani dokaz da je drvo prerađeno ili proizvedeno toplinskim tretiranjem pri kojem se postiže temperatura od najmanje 176 °C u trajanju od 20 minuta; Platanus L. porijeklom iz SAD-a i Armenije; Populus L. porijeklom iz zemalja američkog kontinenta; Acer saccharum Marsh. porijeklom iz SAD-a i Kanade; četinara (Coniferales), porijeklom iz vanevropskih zemalja, Kazahstana, Rusije i Turske; Fraxinus L., Juglans mandshurica Maxim., Ulmus davidiana Planch., Ulmus parvifolia Jacq. i Pterocarya rhoifolia Siebold et Zucc., uključujući drvo koje nije zadržalo svoju prirodnu oblu površinu, porijeklom iz Kanade, Kine, Japana, Mongolije, Republike Koreje, Rusije, Tajvana i SAD-a.",
+    "source_page": 77,
+    "part": "B",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti koji ne potiču iz Bosne i Hercegovine i koji podliježu fitosanitarnom pregledu u zemlji pošiljatelja ako se unose u Bosnu i Hercegovinu"
+  },
+  {
+    "item": "6b",
+    "category": "tarifne_oznake",
+    "description": "Tarifne oznake povezane s drvetom iz tačke 6.",
+    "source_page": 78,
+    "part": "B",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti koji ne potiču iz Bosne i Hercegovine i koji podliježu fitosanitarnom pregledu u zemlji pošiljatelja ako se unose u Bosnu i Hercegovinu"
+  },
+  {
+    "part": "B",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti koji ne potiču iz Bosne i Hercegovine i koji podliježu fitosanitarnom pregledu u zemlji pošiljatelja ako se unose u Bosnu i Hercegovinu",
+    "parent_item": "6b",
+    "item_type": "tariff_line",
+    "tariff_code": "4401 10 00",
+    "description": "Ogrjevno drvo u oblicama, cjepanicama, granama, snopovima pruća ili u sličnim oblicima.",
+    "source_page": 78
+  },
+  {
+    "part": "B",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti koji ne potiču iz Bosne i Hercegovine i koji podliježu fitosanitarnom pregledu u zemlji pošiljatelja ako se unose u Bosnu i Hercegovinu",
+    "parent_item": "6b",
+    "item_type": "tariff_line",
+    "tariff_code": "4401 21 00",
+    "description": "Drvo četinara, u obliku iverja ili čestica.",
+    "source_page": 78
+  },
+  {
+    "part": "B",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti koji ne potiču iz Bosne i Hercegovine i koji podliježu fitosanitarnom pregledu u zemlji pošiljatelja ako se unose u Bosnu i Hercegovinu",
+    "parent_item": "6b",
+    "item_type": "tariff_line",
+    "tariff_code": "4401 22 00",
+    "description": "Drvo u obliku iverja ili čestica, isključujući drvo četinara.",
+    "source_page": 78
+  },
+  {
+    "part": "B",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti koji ne potiču iz Bosne i Hercegovine i koji podliježu fitosanitarnom pregledu u zemlji pošiljatelja ako se unose u Bosnu i Hercegovinu",
+    "parent_item": "6b",
+    "item_type": "tariff_line",
+    "tariff_code": "4401 30 40",
+    "description": "Piljevina, neaglomerirana u oblice, brikete, pelete ili slične oblike.",
+    "source_page": 78
+  },
+  {
+    "part": "B",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti koji ne potiču iz Bosne i Hercegovine i koji podliježu fitosanitarnom pregledu u zemlji pošiljatelja ako se unose u Bosnu i Hercegovinu",
+    "parent_item": "6b",
+    "item_type": "tariff_line",
+    "tariff_code": "4401 30 80",
+    "description": "Drugi drvni otpaci i ostaci, neaglomerisani u oblice, brikete, pelete ili slične oblike.",
+    "source_page": 78
+  },
+  {
+    "part": "B",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti koji ne potiču iz Bosne i Hercegovine i koji podliježu fitosanitarnom pregledu u zemlji pošiljatelja ako se unose u Bosnu i Hercegovinu",
+    "parent_item": "6b",
+    "item_type": "tariff_line",
+    "tariff_code": "4403 10 00",
+    "description": "Neobrađeno drvo, zaštićeno bojom, kreozotom ili drugim zaštitnim sredstvima, kojem nije odstranjena kora ili bjeljika, ili grubo obrađeno (učetvoreno) drvo.",
+    "source_page": 78
+  },
+  {
+    "part": "B",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti koji ne potiču iz Bosne i Hercegovine i koji podliježu fitosanitarnom pregledu u zemlji pošiljatelja ako se unose u Bosnu i Hercegovinu",
+    "parent_item": "6b",
+    "item_type": "tariff_line",
+    "tariff_code": "4403 20",
+    "description": "Neobrađeno drvo četinara, uključujući i okorano ili odstranjene bjeljike, ili grubo obrađeno (učetvoreno) drvo, isključujući ono zaštićeno bojom, kreozotom ili drugim zaštitnim sredstvima.",
+    "source_page": 78
+  },
+  {
+    "part": "B",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti koji ne potiču iz Bosne i Hercegovine i koji podliježu fitosanitarnom pregledu u zemlji pošiljatelja ako se unose u Bosnu i Hercegovinu",
+    "parent_item": "6b",
+    "item_type": "tariff_line",
+    "tariff_code": "4403 91",
+    "description": "Neobrađeno hrastovo drvo (Quercus spp.), uključujući ono okorano ili odstranjene bjeljike, ili grubo obrađeno (učetvoreno) drvo.",
+    "source_page": 78
+  },
+  {
+    "part": "B",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti koji ne potiču iz Bosne i Hercegovine i koji podliježu fitosanitarnom pregledu u zemlji pošiljatelja ako se unose u Bosnu i Hercegovinu",
+    "parent_item": "6b",
+    "item_type": "tariff_line",
+    "tariff_code": "4403 99",
+    "description": "Drvo, isključujući drvo četinara i tropsko drvo specificirano u poglavlju 44 Carinske tarife, te drugo tropsko drvo, hrast (Quercus spp.) i bukvu (Fagus spp.), neobrađeno, uključujući i okorano ili odstranjene bjeljike, ili grubo obrađeno (učetvoreno) drvo.",
+    "source_page": 78
+  },
+  {
+    "part": "B",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti koji ne potiču iz Bosne i Hercegovine i koji podliježu fitosanitarnom pregledu u zemlji pošiljatelja ako se unose u Bosnu i Hercegovinu",
+    "parent_item": "6b",
+    "item_type": "tariff_line",
+    "tariff_code": "4404",
+    "description": "Cijepane motke: stupovi, stupići i kolci, zašiljeni ali ne uzdužno piljeni.",
+    "source_page": 78
+  },
+  {
+    "part": "B",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti koji ne potiču iz Bosne i Hercegovine i koji podliježu fitosanitarnom pregledu u zemlji pošiljatelja ako se unose u Bosnu i Hercegovinu",
+    "parent_item": "6b",
+    "item_type": "tariff_line",
+    "tariff_code": "4406",
+    "description": "Drveni željeznički ili tramvajski pragovi.",
+    "source_page": 78
+  },
+  {
+    "part": "B",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti koji ne potiču iz Bosne i Hercegovine i koji podliježu fitosanitarnom pregledu u zemlji pošiljatelja ako se unose u Bosnu i Hercegovinu",
+    "parent_item": "6b",
+    "item_type": "tariff_line",
+    "tariff_code": "4407 10",
+    "description": "Drvo četinara, uzdužno obrađeno piljenjem ili glodanjem, rezanjem ili ljuštenjem, uključujući blanjano, brušeno ili spojeno na krajevima, debljine veće od 6 mm.",
+    "source_page": 78
+  },
+  {
+    "part": "B",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti koji ne potiču iz Bosne i Hercegovine i koji podliježu fitosanitarnom pregledu u zemlji pošiljatelja ako se unose u Bosnu i Hercegovinu",
+    "parent_item": "6b",
+    "item_type": "tariff_line",
+    "tariff_code": "4407 91",
+    "description": "Hrastovo drvo (Quercus spp.), uzdužno obrađeno piljenjem ili glodanjem, rezano ili ljušteno, uključujući blanjano, brušeno ili spojeno na krajevima, debljine veće od 6 mm.",
+    "source_page": 78
+  },
+  {
+    "part": "B",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti koji ne potiču iz Bosne i Hercegovine i koji podliježu fitosanitarnom pregledu u zemlji pošiljatelja ako se unose u Bosnu i Hercegovinu",
+    "parent_item": "6b",
+    "item_type": "tariff_line",
+    "tariff_code": "iz 4407 93",
+    "description": "Drvo Acer saccharum Marsh., uzdužno obrađeno piljenjem ili glodanjem, rezano ili ljušteno, uključujući blanjano, brušeno ili spojeno na krajevima, debljine veće od 6 mm.",
+    "source_page": 78
+  },
+  {
+    "part": "B",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti koji ne potiču iz Bosne i Hercegovine i koji podliježu fitosanitarnom pregledu u zemlji pošiljatelja ako se unose u Bosnu i Hercegovinu",
+    "parent_item": "6b",
+    "item_type": "tariff_line",
+    "tariff_code": "iz 4407 95",
+    "description": "Drvo jasena (Fraxinus spp.), uzdužno obrađeno piljenjem ili glodanjem, rezano ili ljušteno, uključujući blanjano, brušeno ili spojeno na krajevima, debljine veće od 6 mm.",
+    "source_page": 78
+  },
+  {
+    "part": "B",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti koji ne potiču iz Bosne i Hercegovine i koji podliježu fitosanitarnom pregledu u zemlji pošiljatelja ako se unose u Bosnu i Hercegovinu",
+    "parent_item": "6b",
+    "item_type": "tariff_line",
+    "tariff_code": "iz 4407 99",
+    "description": "Drvo, isključujući drvo četinara i tropsko drvo specificirano u poglavlju 44 Carinske tarife, te drugo tropsko drvo, hrast (Quercus spp.), bukvu (Fagus spp.), javor (Acer spp.), trešnju (Prunus spp.) ili jasen (Fraxinus spp.), uzdužno obrađeno piljenjem ili glodanjem, rezano ili ljušteno, uključujući blanjano, brušeno ili spojeno na krajevima, debljine veće od 6 mm.",
+    "source_page": 78
+  },
+  {
+    "part": "B",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti koji ne potiču iz Bosne i Hercegovine i koji podliježu fitosanitarnom pregledu u zemlji pošiljatelja ako se unose u Bosnu i Hercegovinu",
+    "parent_item": "6b",
+    "item_type": "tariff_line",
+    "tariff_code": "4415",
+    "description": "Sanduci, kutije, gajbe, bubnjevi i slična ambalaža za pakovanje, od drveta; bubnjevi za kablove, palete, sandučaste palete i druge ploče za utovar; okviri za palete od drveta.",
+    "source_page": 78
+  },
+  {
+    "part": "B",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti koji ne potiču iz Bosne i Hercegovine i koji podliježu fitosanitarnom pregledu u zemlji pošiljatelja ako se unose u Bosnu i Hercegovinu",
+    "parent_item": "6b",
+    "item_type": "tariff_line",
+    "tariff_code": "4416 00 00",
+    "description": "Badnjevi, bačve, kace, vjedra i drugi bačvarski proizvodi te njihovi dijelovi, od drveta, uključujući bačvarske duge.",
+    "source_page": 78
+  },
+  {
+    "part": "B",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti koji ne potiču iz Bosne i Hercegovine i koji podliježu fitosanitarnom pregledu u zemlji pošiljatelja ako se unose u Bosnu i Hercegovinu",
+    "parent_item": "6b",
+    "item_type": "tariff_line",
+    "tariff_code": "9406 00 20",
+    "description": "Montažne građevine od drveta.",
+    "source_page": 78
+  },
+  {
+    "item": "7a",
+    "category": "tlo_i_supstrat",
+    "description": "Tlo i supstrat za uzgoj, kao takav, koji se sastoji u cijelosti ili djelimično od tla ili krutih organskih supstanci kao što su dijelovi bilja, humus uključujući treset ili koru, isključujući onaj koji se u cijelosti sastoji od treseta.",
+    "source_page": 78,
+    "part": "B",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti koji ne potiču iz Bosne i Hercegovine i koji podliježu fitosanitarnom pregledu u zemlji pošiljatelja ako se unose u Bosnu i Hercegovinu"
+  },
+  {
+    "item": "7b",
+    "category": "tlo_i_supstrat_na_bilju",
+    "description": "Tlo i supstrat za uzgoj, koji su dodani bilju ili se nalaze na bilju, a koji se sastoje u cijelosti ili djelomično od materijala navedenog u tački (a) ili od kakve krute anorganske supstance namijenjene održavanju vitalnosti bilja, porijeklom iz Turske; Bjelorusije, Gruzije, Moldove, Rusije, Ukrajine; te vanevropskih zemalja, osim Alžira, Egipta, Izraela, Libije, Maroka i Tunisa.",
+    "source_page": 78,
+    "part": "B",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti koji ne potiču iz Bosne i Hercegovine i koji podliježu fitosanitarnom pregledu u zemlji pošiljatelja ako se unose u Bosnu i Hercegovinu"
+  },
+  {
+    "item": "8",
+    "category": "zrnje_zitarica",
+    "description": "Zrnje žitarica Triticum, Secale i X Triticosecale porijeklom iz Afganistana, Indije, Irana, Iraka, Meksika, Nepala, Pakistana, Južnoafričke Republike i SAD-a.",
+    "source_page": 78,
+    "part": "B",
+    "section": "I",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti koji ne potiču iz Bosne i Hercegovine i koji podliježu fitosanitarnom pregledu u zemlji pošiljatelja ako se unose u Bosnu i Hercegovinu"
+  },
+  {
+    "item": "1",
+    "category": "bilje",
+    "description": "Bilje Beta vulgaris L., namijenjeno industrijskoj preradi.",
+    "source_page": 79,
+    "part": "B",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti fitosanitarni certifikat ako se unose u ta područja"
+  },
+  {
+    "item": "2",
+    "category": "zemlja_i_otpad",
+    "description": "Zemlja i nesterilizirani otpad od repe (Beta vulgaris L.).",
+    "source_page": 79,
+    "part": "B",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti fitosanitarni certifikat ako se unose u ta područja"
+  },
+  {
+    "item": "3",
+    "category": "ziva_pelud",
+    "description": "Živa pelud za oprašivanje Amelanchier Med., Chaenomeles Lindl., Cotoneaster Ehrh., Crataegus L., Cydonia Mill., Eriobotrya Lindl., Malus Mill., Mespilus L., Photinia davidiana (Dcne.) Cardot, Pyracantha Roem., Pyrus L. i Sorbus L.",
+    "source_page": 79,
+    "part": "B",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti fitosanitarni certifikat ako se unose u ta područja"
+  },
+  {
+    "item": "4",
+    "category": "dijelovi_bilja",
+    "description": "Dijelovi bilja, isključujući plodove i sjeme Amelanchier Med., Chaenomeles Lindl., Cotoneaster Ehrh., Crataegus L., Cydonia Mill., Eriobotrya Lindl., Malus Mill., Mespilus L., Photinia davidiana (Dcne.) Cardot, Pyracantha Roem., Pyrus L. i Sorbus L.",
+    "source_page": 79,
+    "part": "B",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti fitosanitarni certifikat ako se unose u ta područja"
+  },
+  {
+    "item": "5",
+    "category": "sjeme",
+    "description": "Sjeme Dolichos Jacq., Mangifera spp., Beta vulgaris L. i Phaseolus vulgaris L.",
+    "source_page": 79,
+    "part": "B",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti fitosanitarni certifikat ako se unose u ta područja"
+  },
+  {
+    "item": "6",
+    "category": "sjeme_i_plodovi",
+    "description": "Sjeme i plodovi (tobolci) Gossypium spp. i pamuk koji nije očišćen od sjemena; te plodovi Vitis L.",
+    "source_page": 79,
+    "part": "B",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti fitosanitarni certifikat ako se unose u ta područja"
+  },
+  {
+    "item": "7a",
+    "category": "drvo",
+    "description": "Drvo u smislu člana 3. stav (3) Zakona, dobijeno u cijelosti ili djelomično od četinara (Coniferales), isključujući ono bez kore, porijeklom iz evropskih trećih zemalja; i drvo Castanea Mill., isključujući ono bez kore.",
+    "source_page": 79,
+    "part": "B",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti fitosanitarni certifikat ako se unose u ta područja"
+  },
+  {
+    "item": "7b",
+    "category": "tarifne_oznake",
+    "description": "Tarifne oznake povezane s drvetom iz tačke 7.",
+    "source_page": 79,
+    "part": "B",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti fitosanitarni certifikat ako se unose u ta područja"
+  },
+  {
+    "part": "B",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti fitosanitarni certifikat ako se unose u ta područja",
+    "parent_item": "7b",
+    "item_type": "tariff_line",
+    "tariff_code": "4401 10 00",
+    "description": "Ogrjevno drvo u oblicama, cjepanicama, granama, snopovima pruća ili u sličnim oblicima.",
+    "source_page": 79
+  },
+  {
+    "part": "B",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti fitosanitarni certifikat ako se unose u ta područja",
+    "parent_item": "7b",
+    "item_type": "tariff_line",
+    "tariff_code": "4401 21 00",
+    "description": "Drvo četinara, u obliku iverja ili čestica.",
+    "source_page": 79
+  },
+  {
+    "part": "B",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti fitosanitarni certifikat ako se unose u ta područja",
+    "parent_item": "7b",
+    "item_type": "tariff_line",
+    "tariff_code": "4401 22 00",
+    "description": "Drvo, isključujući drvo četinara, u obliku iverja ili čestica.",
+    "source_page": 79
+  },
+  {
+    "part": "B",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti fitosanitarni certifikat ako se unose u ta područja",
+    "parent_item": "7b",
+    "item_type": "tariff_line",
+    "tariff_code": "iz 4401 30",
+    "description": "Drvni otpad i ostaci (isključujući piljevinu), neaglomerirani u oblice, brikete, palete ili slične oblike.",
+    "source_page": 79
+  },
+  {
+    "part": "B",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti fitosanitarni certifikat ako se unose u ta područja",
+    "parent_item": "7b",
+    "item_type": "tariff_line",
+    "tariff_code": "4403 10 00",
+    "description": "Neobrađeno drvo, zaštićeno bojom, kreozotom ili drugim zaštitnim sredstvima, kojem nije odstranjena kora ili bjeljika, ili grubo obrađeno (učetvoreno) drvo.",
+    "source_page": 79
+  },
+  {
+    "part": "B",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti fitosanitarni certifikat ako se unose u ta područja",
+    "parent_item": "7b",
+    "item_type": "tariff_line",
+    "tariff_code": "4403 20",
+    "description": "Neobrađeno drvo četinara, isključujući ono zaštićeno bojom, kreozotom ili drugim zaštitnim sredstvima, uključujući i okorano ili odstranjene bjeljike, ili grubo obrađeno (učetvoreno) drvo.",
+    "source_page": 79
+  },
+  {
+    "part": "B",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti fitosanitarni certifikat ako se unose u ta područja",
+    "parent_item": "7b",
+    "item_type": "tariff_line",
+    "tariff_code": "4403 99",
+    "description": "Drvo, isključujući drvo četinara i tropsko drvo specificirano u poglavlju 44 Carinske tarife, u napomeni uz tarifne podbrojeve, tački 1. i drugo tropsko drvo, te hrast (Quercus spp.) i bukvu (Fagus spp.), neobrađeno, uključujući i ono kojem je odstranjena kora ili bjeljika, ili grubo obrađeno (učetvoreno) drvo, koje nije zaštićeno bojom, kreozotom ili drugim zaštitnim sredstvima.",
+    "source_page": 79
+  },
+  {
+    "part": "B",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti fitosanitarni certifikat ako se unose u ta područja",
+    "parent_item": "7b",
+    "item_type": "tariff_line",
+    "tariff_code": "4404",
+    "description": "Drvene cijepane motke: stupovi, stupići i kolci, zašiljeni ali ne uzdužno piljeni.",
+    "source_page": 79
+  },
+  {
+    "part": "B",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti fitosanitarni certifikat ako se unose u ta područja",
+    "parent_item": "7b",
+    "item_type": "tariff_line",
+    "tariff_code": "4406",
+    "description": "Drveni željeznički ili tramvajski pragovi.",
+    "source_page": 79
+  },
+  {
+    "part": "B",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti fitosanitarni certifikat ako se unose u ta područja",
+    "parent_item": "7b",
+    "item_type": "tariff_line",
+    "tariff_code": "4407 10",
+    "description": "Drvo četinara, uzdužno obrađeno piljenjem ili glodanjem, rezanjem ili ljuštenjem, uključujući blanjano, brušeno ili spojeno na krajevima, debljine veće od 6 mm.",
+    "source_page": 79
+  },
+  {
+    "part": "B",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti fitosanitarni certifikat ako se unose u ta područja",
+    "parent_item": "7b",
+    "item_type": "tariff_line",
+    "tariff_code": "4407 99",
+    "description": "Drvo, isključujući drvo četinara i tropsko drvo specificirano u poglavlju 44 Carinske tarife, u napomeni uz tarifne podbrojeve, tački 1. i drugo tropsko drvo, te hrasta (Quercus spp.) i bukve (Fagus spp.), uzdužno obrađeno piljenjem ili glodanjem, rezanjem ili ljuštenjem, uključujući blanjano, brušeno ili spojeno na krajevima, debljine veće od 6 mm.",
+    "source_page": 79
+  },
+  {
+    "part": "B",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti fitosanitarni certifikat ako se unose u ta područja",
+    "parent_item": "7b",
+    "item_type": "tariff_line",
+    "tariff_code": "4415",
+    "description": "Drveni sanduci, kutije, gajbe, bubnjevi i slična ambalaža za pakovanje, bubnjevi za kablove, palete, sandučaste palete i ostale utovarne ploče; okviri za palete.",
+    "source_page": 79
+  },
+  {
+    "part": "B",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti fitosanitarni certifikat ako se unose u ta područja",
+    "parent_item": "7b",
+    "item_type": "tariff_line",
+    "tariff_code": "9406 00 20",
+    "description": "Montažne građevine od drveta.",
+    "source_page": 79
+  },
+  {
+    "item": "8",
+    "category": "dijelovi_bilja",
+    "description": "Dijelovi bilja Eucalyptus l'Herit.",
+    "source_page": 79,
+    "part": "B",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti fitosanitarni certifikat ako se unose u ta područja"
+  },
+  {
+    "item": "9",
+    "category": "izolirana_kora",
+    "description": "Izolirana kora četinara (Coniferales), porijeklom iz trećih zemalja.",
+    "source_page": 79,
+    "part": "B",
+    "section": "II",
+    "section_title": "Bilje, biljni proizvodi i regulirani objekti kojima se mogu prenijeti štetni organizmi značajni za određena zaštićena područja i koje mora pratiti fitosanitarni certifikat ako se unose u ta područja"
+  }
+]

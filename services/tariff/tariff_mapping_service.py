@@ -347,7 +347,7 @@ class TariffMappingService:
                             logger.debug(f"  🗳️  VOTE [{supplier}]: '{vote_result.naziv_robe[:40]}' → {vote_result.tarifni_broj}")
                             return vote_result
 
-                    # Krug 2: dobavljač + verifikovana historija
+                    # Krug 2: dobavljač + verifikovana istorija
                     if supplier:
                         vote_result = self._majority_vote(
                             cursor, naziv_robe, zemlja_porijekla,

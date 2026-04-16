@@ -88,7 +88,7 @@ class ZaglavljeTemplateDialog(QDialog):
         self.template_match = template_match
         self.applied_fields = applied_fields
 
-        self.setWindowTitle("📋 Zaglavlje popunjeno iz historije")
+        self.setWindowTitle("📋 Zaglavlje popunjeno iz istorije")
         self.setMinimumSize(600, 500)
         self._build_ui()
 

@@ -126,6 +126,11 @@ class FakturaView(BaseTabView):
         # Track last import item count (for REPLACE logic)
         self.last_import_count: int = 0
 
+        # Provjera konzistentnosti pošiljaoca/uvoznika između uvoza
+        # Pamtimo ime iz prvog uvoza i poredimo pri svakom sljedećem
+        self._expected_exporter: str = ""   # Pošiljalac iz prvog uvoza
+        self._expected_importer: str = ""   # Uvoznik iz prvog uvoza
+
         # Debounce timer za validaciju i dirty signal nakon editovanja ćelije
         self._debounce_timer = QTimer(self)
         self._debounce_timer.setSingleShot(True)
@@ -1314,14 +1319,20 @@ class FakturaView(BaseTabView):
     def _on_import_xml(self):
         """Handle Import XML button click."""
         filepath, _ = QFileDialog.getOpenFileName(
-            self, "Odaberi ASYCUDA XML", "", "XML Files (*.xml);;All Files (*)"
+            self, "Odaberi XML fakturu ili ASYCUDA XML", "", "XML Files (*.xml);;All Files (*)"
         )
 
         if filepath:
             try:
+                # Univerzalni faktura XML parser (<Faktura>/<Stavke>) → preusmjeri na _start_import
+                from importers.faktura_xml_parser import detect_faktura_xml
+                if detect_faktura_xml(filepath):
+                    self._start_import(filepath)
+                    return
+
                 from importers.xml_importer import XMLImporter
 
-                # Parse XML
+                # Parse XML (ASYCUDA format)
                 importer = XMLImporter()
                 result = importer.import_file(Path(filepath))
 
@@ -1583,6 +1594,19 @@ class FakturaView(BaseTabView):
             # Enable buttons
             self._set_buttons_enabled(True)
 
+            # EUR.1 / PE2 DIALOG — prikaži korisniku i za grupni uvoz
+            has_origin = any(
+                getattr(item, 'has_origin_statement', False)
+                for item in all_items
+            )
+            if has_origin:
+                logger.info("📦 [grupni uvoz] → otvaram PE2 dialog")
+                first_invoice = Path(filepaths[0]).stem if filepaths else "Grupni uvoz"
+                self._show_pe2_dialog(first_invoice)
+            elif self._should_show_eur1_dialog(all_items):
+                logger.info("📦 [grupni uvoz] → otvaram EUR.1 dialog")
+                self._show_eur1_dialog()
+
             # Prikaži statistiku
             message = f"📦 Grupni uvoz završen!\n\n"
             message += f"✅ Uspješno: {successful_imports}/{len(filepaths)} faktura\n"
@@ -1628,11 +1652,11 @@ class FakturaView(BaseTabView):
             bruto_kg = result.bruto_kg
             neto_kg = result.neto_kg
             invoice_name_from_result = result.invoice_name
-            is_combined = (
-                result.is_combined
-            )  # Flag za kombinovane importe (Excel + PDF)
-            import_type = getattr(result, "import_type", "invoice")  # Tip importa
+            is_combined = result.is_combined
+            import_type = getattr(result, "import_type", "invoice")
             has_origin_statement = getattr(result, "has_origin_statement", False)
+            exporter_name = getattr(result.exporter, "name", "") if result.exporter else ""
+            importer_name = getattr(result.importer, "name", "") if result.importer else ""
         else:
             # Backward compatibility: result is just List[InvoiceLine]
             items = result
@@ -1642,6 +1666,8 @@ class FakturaView(BaseTabView):
             is_combined = False
             import_type = "invoice"
             has_origin_statement = False
+            exporter_name = ""
+            importer_name = ""
 
         return (
             items,
@@ -1651,6 +1677,8 @@ class FakturaView(BaseTabView):
             is_combined,
             import_type,
             has_origin_statement,
+            exporter_name,
+            importer_name,
         )
 
     def _get_invoice_name(self, invoice_name_from_result: str) -> str:
@@ -1671,6 +1699,94 @@ class FakturaView(BaseTabView):
             self.imported_excel_count += 1
         elif filepath.lower().endswith(".pdf"):
             self.imported_pdf_count += 1
+
+    @staticmethod
+    def _normalize_partner(name: str) -> str:
+        """Normalizuj naziv partnera za poređenje (mala slova, bez interpunkcije)."""
+        import re
+        name = name.lower().strip()
+        name = re.sub(r"[.\-,;:'/\\()]", " ", name)
+        name = re.sub(r"\b(doo|d\.o\.o|dd|a\.d|ad|llc|ltd|gmbh|srl)\b", "", name)
+        return re.sub(r"\s+", " ", name).strip()
+
+    def _check_partner_consistency(self, exporter_name: str, importer_name: str) -> bool:
+        """
+        Provjeri konzistentnost pošiljaoca/uvoznika sa prethodnim uvozom.
+
+        Ako je ovo prvi uvoz koji nosi podatke o partneru — zapamti ih.
+        Ako se razlikuju od zapamćenih za više od praga — upitaj korisnika.
+
+        Vraća True ako treba nastaviti sa uvozom, False ako korisnik odbija.
+        """
+        def similar(a: str, b: str) -> bool:
+            na, nb = self._normalize_partner(a), self._normalize_partner(b)
+            if not na or not nb:
+                return True  # Nema podataka — ne blokiraj
+            # Token overlap: koliko zajedničkih tokena
+            ta, tb = set(na.split()), set(nb.split())
+            if not ta or not tb:
+                return True
+            overlap = len(ta & tb) / max(len(ta), len(tb))
+            return overlap >= 0.6  # 60% zajedničkih tokena = isti partner
+
+        # Ažuriraj expected ako je prazno (prvi uvoz)
+        if exporter_name and not self._expected_exporter:
+            self._expected_exporter = exporter_name
+        if importer_name and not self._expected_importer:
+            self._expected_importer = importer_name
+
+        warnings = []
+
+        if (exporter_name and self._expected_exporter
+                and not similar(exporter_name, self._expected_exporter)):
+            warnings.append(
+                f"<b>Pošiljalac (izvoznik):</b><br>"
+                f"&nbsp;&nbsp;Očekivano: <b>{self._expected_exporter}</b><br>"
+                f"&nbsp;&nbsp;Uvezeno:&nbsp;&nbsp; <b>{exporter_name}</b>"
+            )
+
+        if (importer_name and self._expected_importer
+                and not similar(importer_name, self._expected_importer)):
+            warnings.append(
+                f"<b>Uvoznik (primalac):</b><br>"
+                f"&nbsp;&nbsp;Očekivano: <b>{self._expected_importer}</b><br>"
+                f"&nbsp;&nbsp;Uvezeno:&nbsp;&nbsp; <b>{importer_name}</b>"
+            )
+
+        if not warnings:
+            return True
+
+        from PySide6.QtWidgets import QMessageBox
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Upozorenje — Pogrešan partner?")
+        msg.setIcon(QMessageBox.Icon.Warning)
+        msg.setTextFormat(Qt.TextFormat.RichText)
+        msg.setText(
+            "<b>⚠️ Podaci o partnerima se razlikuju od prethodnog uvoza!</b><br><br>"
+            + "<br><br>".join(warnings)
+            + "<br><br>Da li želite nastaviti sa ovim uvozom?"
+        )
+        msg.setStandardButtons(
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        msg.setDefaultButton(QMessageBox.StandardButton.No)
+        msg.button(QMessageBox.StandardButton.Yes).setText("Nastavi svejedno")
+        msg.button(QMessageBox.StandardButton.No).setText("Odustani od uvoza")
+
+        if msg.exec() == QMessageBox.StandardButton.Yes:
+            # Korisnik je svjestan — ažuriraj expected na nove
+            if exporter_name:
+                self._expected_exporter = exporter_name
+            if importer_name:
+                self._expected_importer = importer_name
+            return True
+
+        return False  # Odbijen uvoz
+
+    def _reset_partner_expectations(self):
+        """Resetuj zapamćene partnere (poziva se pri brisanju deklaracije)."""
+        self._expected_exporter = ""
+        self._expected_importer = ""
 
     def _format_weight(self, weight: float) -> str:
         """
@@ -1742,13 +1858,13 @@ class FakturaView(BaseTabView):
         """
         Vrati povlasticu (Rub.36) na osnovu koda zemlje.
         
-        Poboljšana verzija koja koristi historijsko učenje ako je dostupno.
+        Poboljšana verzija koja koristi istorijsko učenje ako je dostupno.
         
         Args:
             country_code: Kod zemlje (npr. 'RS', 'DE')
             exporter_name: Ime dobavljača (opcionalno)
         """
-        # Prvo probaj historijsko učenje ako imamo exportera
+        # Prvo probaj istorijsko učenje ako imamo exportera
         if exporter_name and exporter_name.strip():
             try:
                 # Koristi HistoricalLearningServiceSafe
@@ -1999,6 +2115,8 @@ class FakturaView(BaseTabView):
                 is_combined,
                 import_type,
                 has_origin_statement,
+                exporter_name,
+                importer_name,
             ) = self._extract_import_result_data(result)
 
             # Get invoice name
@@ -2006,6 +2124,12 @@ class FakturaView(BaseTabView):
 
             # Track file type
             self._track_file_type()
+
+            # Provjeri konzistentnost pošiljaoca/uvoznika
+            if not self._check_partner_consistency(exporter_name, importer_name):
+                # Korisnik je odbio uvoz — očisti progress i izađi
+                self.progress_bar.setVisible(False)
+                return
 
             # VAŽNO: NE akumuliraj težine ovdje - preuranjeno!
             # Težine će biti akumulirane kasnije, nakon što se utvrdi da li je isti invoice
@@ -2177,7 +2301,7 @@ class FakturaView(BaseTabView):
                 # EUR.1 / PE2 DIALOG - Pitaj korisnika na osnovu toga da li faktura ima izjavu
                 logger.info(f"🔍 [dialog check] has_origin_statement={has_origin_statement}, agent_mode={self._agent_mode}, items={len(items)}")
                 if self._agent_mode:
-                    # Agent mod: bez blokirajućih dijaloga — auto-postavi povlastice
+                    # Agent mod: auto-postavi povlastice, ali EUR1 broj zahtijeva korisnika
                     logger.info(f"🤖 [dialog check] Agent mod — auto-handle povlastice")
                     result = self._auto_handle_povlastice_agent(items, has_origin_statement)
                     if result['pe2'] > 0:
@@ -2185,6 +2309,10 @@ class FakturaView(BaseTabView):
                     if result['eur1'] > 0:
                         logger.info(f"🤖 EUR1 povlastica auto-postavljena za {result['eur1']} stavki, {result['eur1_pending']} čeka EUR1 broj")
                     self._load_data_from_draft()
+                    # Ako ima stavki koje čekaju EUR1 broj → prikaži dialog
+                    if result.get('eur1_pending', 0) > 0 and self._should_show_eur1_dialog(items):
+                        logger.info(f"🤖 → EUR1 pending={result['eur1_pending']}: otvaram EUR.1 dialog")
+                        self._show_eur1_dialog()
                 elif has_origin_statement:
                     # ✅ Faktura IMA izjavu → PE2 dialog
                     logger.info(f"🔍 [dialog check] → otvaram PE2 dialog")
@@ -2240,6 +2368,10 @@ class FakturaView(BaseTabView):
                 # Dodaj info poruku o redoslijedu
                 if is_combined:
                     message += f"🔗 Redoslijed stavki održan iz PDF fakture."
+                elif import_type == "loren_excel":
+                    message += f"⚠️  LOREN EXCEL: Iznosi (cijene) dolaze iz PDF-a!\n"
+                    message += f"   Uvezite PDF fajl sa istim brojem fakture da biste dobili\n"
+                    message += f"   ispravne iznose. Trenutno su svi iznosi = 0."
                 else:
                     message += f"💡 Možete nastaviti sa uvozom dodatnih faktura.\n"
                     message += f"   Svaka faktura će biti dodana u draft održavajući svoj redoslijed."
@@ -2365,6 +2497,9 @@ class FakturaView(BaseTabView):
             # Reset last invoice name
             self.last_invoice_name = None
 
+            # Reset zapamćenih partnera
+            self._reset_partner_expectations()
+
             # Clear assembly
             self.assembly = DeclarationAssembly()
 
@@ -2421,7 +2556,7 @@ class FakturaView(BaseTabView):
         reply = QMessageBox.question(
             self,
             "Kreiraj Naimenovanja",
-            f"Kreirati naimenovanja iz {len(self.draft.invoice_lines)} faktura?\n\n"
+            f"Kreirati naimenovanja iz {len(self.draft.invoice_lines)} stavki?\n\n"
             f"Naimenovanja će biti grupisana po:\n"
             f"  • Tarifa (33)\n"
             f"  • Zemlja porijekla (34)\n"
@@ -2447,7 +2582,7 @@ class FakturaView(BaseTabView):
             QMessageBox.information(
                 self,
                 "Uspjeh!",
-                f"✅ Kreirano {count} naimenovanja iz {len(self.draft.invoice_lines)} faktura!\n\n"
+                f"✅ Kreirano {count} naimenovanja iz {len(self.draft.invoice_lines)} stavki!\n\n"
                 f"Naimenovanja su grupisana po tarifi, zemlji porijekla i povlastici.\n\n"
                 f"Možete ih pregledati i editovati u tabu 'Naimenovanja'.",
             )
@@ -2693,8 +2828,9 @@ class FakturaView(BaseTabView):
         logger.debug(f"\n⚖️  Odnos neto/bruto = {neto_bruto_ratio:.6f}")
 
         # Razdvoji stavke po scenariju
-        items_without_both = []  # Nemaju ni bruto ni neto (PDF stavke)
-        items_with_partial = []  # Imaju bruto ALI ne neto (Excel stavke)
+        items_without_both = []   # Nemaju ni bruto ni neto (PDF stavke)
+        items_with_partial = []   # Imaju bruto ALI ne neto (Excel stavke)
+        items_neto_only = []      # Imaju neto ALI ne bruto (Leburic Excel stavke)
 
         for item in items_to_update:
             has_bruto = item.bruto_kg and item.bruto_kg > 0
@@ -2704,10 +2840,13 @@ class FakturaView(BaseTabView):
                 items_without_both.append(item)
             elif has_bruto and not has_neto:
                 items_with_partial.append(item)
+            elif has_neto and not has_bruto:
+                items_neto_only.append(item)
 
         logger.debug(f"\n📋 Kategorizacija:")
         logger.debug(f" Bez obe težine (PDF): {len(items_without_both)} stavki")
-        logger.debug(f" Sa bruto, bez neto (Excel): {len(items_with_partial)} stavki")
+        logger.debug(f" Sa bruto, bez neto: {len(items_with_partial)} stavki")
+        logger.debug(f" Sa neto, bez bruto (Leburic): {len(items_neto_only)} stavki")
 
         # Distribucija za stavke BEZ obe težine (PDF stavke)
         if items_without_both:
@@ -2726,6 +2865,9 @@ class FakturaView(BaseTabView):
                             item.neto_kg = round(neto_total * proportion, 3)
                         elif item.bruto_kg:
                             item.neto_kg = round(item.bruto_kg * neto_bruto_ratio, 3)
+                        # Ako imamo neto ali ne bruto (samo neto unesen u toolbar), izračunaj bruto
+                        if item.neto_kg and item.neto_kg > 0 and (not item.bruto_kg or item.bruto_kg <= 0):
+                            item.bruto_kg = round(item.neto_kg / neto_bruto_ratio, 3)
                         logger.debug(f" [{i}] Količina={qty} → bruto={item.bruto_kg:.2f}, neto={item.neto_kg:.2f}")
 
                 # Procesuj ostatak bez debug ispisa
@@ -2739,24 +2881,46 @@ class FakturaView(BaseTabView):
                             item.neto_kg = round(neto_total * proportion, 3)
                         elif item.bruto_kg:
                             item.neto_kg = round(item.bruto_kg * neto_bruto_ratio, 3)
+                        # Ako imamo neto ali ne bruto (samo neto unesen u toolbar), izračunaj bruto
+                        if item.neto_kg and item.neto_kg > 0 and (not item.bruto_kg or item.bruto_kg <= 0):
+                            item.bruto_kg = round(item.neto_kg / neto_bruto_ratio, 3)
 
-        # Izračun neto za stavke SA bruto ALI BEZ neto (Excel stavke)
+        # Izračun neto za stavke SA bruto ALI BEZ neto
         if items_with_partial and neto_bruto_ratio > 0:
-            logger.debug(f"\n🧮 Izračunavam neto za Excel stavke (imaju bruto, nemaju neto):")
-            logger.debug(f"   Odnos neto/bruto: {neto_bruto_ratio:.6f}")
-
-            for i, item in enumerate(items_with_partial[:3]):  # Prikaži prvih 3
+            logger.debug(f"\n🧮 Izračunavam neto za stavke sa bruto, bez neto:")
+            for i, item in enumerate(items_with_partial[:3]):
                 old_neto = item.neto_kg
-                item.neto_kg = item.bruto_kg * neto_bruto_ratio
+                item.neto_kg = round(item.bruto_kg * neto_bruto_ratio, 3)
                 logger.debug(f" [{i}] bruto={item.bruto_kg:.2f} → neto={item.neto_kg:.2f} (bilo {old_neto})")
-
-            # Procesuj ostatak bez debug ispisa
             for item in items_with_partial[3:]:
-                item.neto_kg = item.bruto_kg * neto_bruto_ratio
-
+                item.neto_kg = round(item.bruto_kg * neto_bruto_ratio, 3)
             logger.debug(f" Ukupno obrađeno: {len(items_with_partial)} stavki")
 
-        updated_count = len(items_without_both) + len(items_with_partial)
+        # Izračun BRUTA za stavke SA neto ALI BEZ bruta (Leburic Excel)
+        # Distribuira ukupni bruto proporcionalno po individualnom netu
+        if items_neto_only and bruto_total > 0:
+            logger.debug(f"\n🧮 Izračunavam bruto za Leburic stavke (imaju neto, nemaju bruto):")
+            total_neto_items = sum(item.neto_kg or 0.0 for item in items_neto_only)
+            logger.debug(f"   Ukupan neto stavki: {total_neto_items:.3f} kg")
+            logger.debug(f"   Ukupan bruto za distribuciju: {bruto_total:.3f} kg")
+
+            if total_neto_items > 0:
+                for i, item in enumerate(items_neto_only[:3]):
+                    proportion = (item.neto_kg or 0.0) / total_neto_items
+                    item.bruto_kg = round(bruto_total * proportion, 3)
+                    logger.debug(f" [{i}] neto={item.neto_kg:.3f} → bruto={item.bruto_kg:.3f}")
+                for item in items_neto_only[3:]:
+                    proportion = (item.neto_kg or 0.0) / total_neto_items
+                    item.bruto_kg = round(bruto_total * proportion, 3)
+                logger.debug(f" Ukupno obrađeno: {len(items_neto_only)} stavki")
+        elif items_neto_only and bruto_total <= 0:
+            logger.warning("⚠️  Leburic stavke imaju neto ali nema ukupnog bruta u toolbar polju")
+            # Fallback: izračunaj bruto iz neta koristeći default odnos (0.95)
+            for item in items_neto_only:
+                if item.neto_kg and item.neto_kg > 0:
+                    item.bruto_kg = round(item.neto_kg / neto_bruto_ratio, 3)
+
+        updated_count = len(items_without_both) + len(items_with_partial) + len(items_neto_only)
         skipped_count = len(self.draft.invoice_lines) - updated_count
 
         logger.info(f"\n✅ ZAVRŠENO:")
@@ -2768,12 +2932,18 @@ class FakturaView(BaseTabView):
         self._load_data_from_draft()
 
         # Show success message
-        message = f"Težine proporcionalno raspoređene na {updated_count} stavki.\n\n"
-        message += f"Ukupna bruto: {bruto_total:.3f} kg\n"
-        message += f"Ukupna neto: {neto_total:.3f} kg\n"
+        message = f"Težine raspoređene na {updated_count} stavki.\n\n"
+        if bruto_total > 0:
+            message += f"Ukupna bruto: {bruto_total:.3f} kg\n"
+        if neto_total > 0:
+            message += f"Ukupna neto: {neto_total:.3f} kg\n"
+        if items_neto_only and bruto_total > 0:
+            message += f"\n✅ Bruto raspoređen proporcionalno po netu ({len(items_neto_only)} stavki)."
+        elif items_neto_only and bruto_total <= 0:
+            message += f"\n⚠️ {len(items_neto_only)} stavki ima neto ali nedostaje ukupni bruto u polju iznad."
 
         if skipped_count > 0:
-            message += f"\n⚠️ Preskočeno {skipped_count} stavki koje već imaju težine."
+            message += f"\n⚠️ Preskočeno {skipped_count} stavki koje već imaju obe težine."
 
         QMessageBox.information(self, "Težine raspoređene", message)
 

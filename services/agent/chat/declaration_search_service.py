@@ -1,5 +1,5 @@
 """
-DeclarationSearchService — pretraga historijskih XML deklaracija.
+DeclarationSearchService — pretraga istorijskih XML deklaracija.
 
 Indeksira 2500+ XML fajlova iz NOVA ASIKUDA foldera u SQLite bazu
 (gradi se jednom, obnavljuje se samo kad ima novih fajlova).
@@ -51,7 +51,7 @@ def _build_hs_code(commodity: str, precision: str) -> str:
 
 class DeclarationSearchService:
     """
-    Servis za pretragu historijskih XML deklaracija.
+    Servis za pretragu istorijskih XML deklaracija.
 
     Pri prvom pozivu gradi SQLite indeks (30-60s za 2500 fajlova).
     Svaki naredni poziv koristi keširan indeks (brz).
@@ -95,7 +95,7 @@ class DeclarationSearchService:
         return self._fetchall(sql, params)
 
     def search_by_tariff(self, tariff_code: str, limit: int = 10) -> List[Dict]:
-        """Pronalazi sve historijske stavke sa određenim tarifnim brojem."""
+        """Pronalazi sve istorijske stavke sa određenim tarifnim brojem."""
         self._ensure_index()
         clean = re.sub(r'\D', '', tariff_code)
         prefix = clean[:8] if len(clean) >= 8 else clean

@@ -3,7 +3,7 @@ Enhanced Tariff Suggestion Dialog
 
 Poboljšani dijalog za sugestije tarifnih brojeva sa:
 1. Multiple suggestions (top 3)
-2. Historijski podaci o dobavljaču
+2. Istorijski podaci o dobavljaču
 3. Kontekstualne informacije
 4. Objašnjenja za svaki prijedlog
 5. Warnings za potencijalne greške
@@ -57,7 +57,7 @@ class EnhancedTariffSuggestionDialog(QDialog):
     
     Prikazuje:
     1. Osnovne prijedloge (postojeći sistem)
-    2. Agent sugestije (historija + kontekst)
+    2. Agent sugestije (istorija + kontekst)
     3. Warnings i objašnjenja
     4. Mogućnost odabira
     """
@@ -135,10 +135,10 @@ class EnhancedTariffSuggestionDialog(QDialog):
             supplier_info.setStyleSheet("font-size: 13px; color: #34495e;")
             header_layout.addWidget(supplier_info)
         
-        # Historijski podaci
+        # Istorijski podaci
         if self.context.has_historical_data and self.context.historical_usage_count > 0:
             history_info = QLabel(
-                f"📊 <b>Historija:</b> {self.context.supplier_name} je ranije koristio "
+                f"📊 <b>Istorija:</b> {self.context.supplier_name} je ranije koristio "
                 f"tarifne brojeve {self.context.historical_usage_count} puta"
             )
             history_info.setStyleSheet("font-size: 12px; color: #7f8c8d; font-style: italic;")
@@ -594,12 +594,12 @@ def create_context_from_invoice(
     # Detektuj kategoriju proizvoda
     context.product_category = _detect_product_category(product_name)
     
-    # Provjeri historijske podatke
+    # Provjeri istorijske podatke
     if supplier_name:
         historical_service = HistoricalLearningServiceSafe()
         profiling_service = SupplierProfilingService()
         
-        # Provjeri da li supplier ima historijske podatke
+        # Provjeri da li supplier ima istorijske podatke
         profile = profiling_service.get_complete_profile(supplier_name)
         if profile:
             context.has_historical_data = True
@@ -709,7 +709,7 @@ def test_enhanced_dialog():
             'tariff_code': '82053000',
             'description': 'Ručni alati',
             'similarity': 0.78,
-            'explanation': 'Sličan proizvod u historiji',
+            'explanation': 'Sličan proizvod u istoriji',
             'needs_review': True
         }
     ]

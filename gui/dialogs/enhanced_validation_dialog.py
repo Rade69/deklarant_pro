@@ -5,7 +5,7 @@ Poboljšani dijalog za prikaz rezultata agent validacije.
 Prikazuje kompletnu analizu deklaracije sa:
 1. Zaglavlje validacija
 2. Naimenovanja analiza
-3. Historijski kontekst
+3. Istorijski kontekst
 4. Pravne provjere
 5. Kontekstualne informacije
 6. Preporuke za popravke
@@ -207,14 +207,14 @@ class EnhancedValidationDialog(QDialog):
             )
             tab_widget.addTab(naimenovanja_tab, "📦 Naimenovanja")
         
-        # Tab 3: Historijska analiza
+        # Tab 3: Istorijska analiza
         if self.report.historical_items:
             historical_tab = self._create_validation_tab(
                 self.report.historical_items,
-                "📊 Historijska Analiza",
+                "📊 Istorijska Analiza",
                 "#9b59b6"
             )
-            tab_widget.addTab(historical_tab, "📊 Historija")
+            tab_widget.addTab(historical_tab, "📊 Istorija")
         
         # Tab 4: Pravne provjere
         if self.report.legal_items:
@@ -778,10 +778,10 @@ def test_enhanced_dialog():
         historical_items=[
             ValidationItem(
                 severity=ValidationSeverity.INFO,
-                category=ValidationCategory.HISTORICAL,
-                rule="Historija",
+                category=ValidationCategory.ISTORIJA,
+                rule="Istorija",
                 field="Supplier",
-                message="MASTER TOOLS: 15 historijskih deklaracija",
+                message="MASTER TOOLS: 15 istorijskih deklaracija",
                 explanation="Supplier je ranije koristio sistem 15 puta."
             )
         ],

@@ -135,7 +135,7 @@ class SupplierProfilingService:
     def _build_profile_from_database(self, supplier_name: str) -> Optional[SupplierCompleteProfile]:
         """Izgradi profil iz baze podataka."""
         try:
-            # Prvo provjeri da li supplier postoji u historiji
+            # Prvo provjeri da li supplier postoji u istoriji
             with get_db_connection() as conn:
                 with conn.cursor() as cursor:
                     # Dobavi osnovne podatke o supplieru
@@ -207,7 +207,7 @@ class SupplierProfilingService:
             # Fallback na historical learning service
             return self.historical_service.get_preference_safe(supplier_name, country_code), 0.5, "Basic historical prediction"
         
-        # Provjeri da li imamo historiju za ovu zemlju
+        # Provjeri da li imamo istoriju za ovu zemlju
         if country_code in profile.country_profiles:
             country_profile = profile.country_profiles[country_code]
             
@@ -221,7 +221,7 @@ class SupplierProfilingService:
                 
                 return preference, confidence, explanation
         
-        # Ako nema historije za ovu zemlju, koristi hardcoded pravila
+        # Ako nema istorije za ovu zemlju, koristi hardcoded pravila
         from services.agent.learning.historical_learning_service_safe import enhance_preference_logic
         preference = enhance_preference_logic(country_code, supplier_name)
         

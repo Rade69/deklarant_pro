@@ -1,0 +1,62 @@
+{
+  "tables": [
+    {
+      "table_name": "inspection_tariff_rules",
+      "purpose": "Glavna tabela za automatizovano odlučivanje",
+      "primary_key": [
+        "inspection_type",
+        "tariff_code",
+        "marker",
+        "source_dataset"
+      ],
+      "fields": [
+        "inspection_type",
+        "tariff_code",
+        "scope",
+        "chapter",
+        "description",
+        "marker",
+        "condition_text",
+        "priority",
+        "match_strength",
+        "can_auto_decide",
+        "decision_basis",
+        "source_dataset",
+        "source_page"
+      ]
+    },
+    {
+      "table_name": "inspection_legal_context",
+      "purpose": "Pravni i objašnjavajući sloj; dopuna glavnoj odluci",
+      "primary_key": [
+        "inspection_type",
+        "legal_source",
+        "item",
+        "tariff_reference"
+      ],
+      "fields": [
+        "inspection_type",
+        "legal_source",
+        "tariff_reference",
+        "part",
+        "section",
+        "item",
+        "category",
+        "description",
+        "match_mode",
+        "source_page"
+      ]
+    },
+    {
+      "table_name": "inspection_marker_lookup",
+      "purpose": "Tumačenje specijalnih markera iz objedinjenog spiska",
+      "primary_key": [
+        "marker"
+      ],
+      "fields": [
+        "marker",
+        "meaning"
+      ]
+    }
+  ]
+}

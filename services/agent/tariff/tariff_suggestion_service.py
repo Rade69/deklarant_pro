@@ -2,7 +2,7 @@
 Tariff Suggestion Service
 
 Konsolidovani modul koji kombinuje:
-1. HybridMatchingService — nisko-nivo matching (historijsko, keyword, semantic, rules)
+1. HybridMatchingService — nisko-nivo matching (istorijsko, keyword, semantic, rules)
 2. EnhancedTariffSuggestionService — visoko-nivo orchestracija sa dialogom i kontekstom
 
 Originalni fajlovi: hybrid_matching_service.py + enhanced_tariff_suggestion_service.py
@@ -66,7 +66,7 @@ class HybridMatchingService:
     Hybrid Matching Service koji kombinira više metoda.
 
     Weight distribucija:
-    - Historijsko: 40% (šta je ovaj dobavljač ranije koristio)
+    - Istorijsko: 40% (šta je ovaj dobavljač ranije koristio)
     - Semantic: 30% (LLM embedding sličnost)
     - Keyword: 20% (tradicionalni matching)
     - Rules: 10% (carinska pravila)
@@ -253,7 +253,7 @@ class HybridMatchingService:
                                     explanation=f"Supplier {supplier} koristio sličan proizvod: {row['naziv_robe'][:50]}"
                                 ))
         except Exception as e:
-            logger.debug(f"⚠️ Error u historijskom matching-u za {supplier}: {e}")
+            logger.debug(f"⚠️ Error u istorijskom matching-u za {supplier}: {e}")
         return candidates
 
     def _get_keyword_candidates(self, product_code, naziv_robe):
@@ -358,7 +358,7 @@ class EnhancedTariffSuggestionService:
     """
     Enhanced servis za sugestije tarifnih brojeva.
 
-    Kombinuje HybridTariffAgent, historijske podatke, supplier profiling
+    Kombinuje HybridTariffAgent, istorijske podatke, supplier profiling
     i kontekstualne informacije iz fakture.
     """
 
@@ -459,7 +459,7 @@ class EnhancedTariffSuggestionService:
                             'needs_review': similarity < 0.8
                         })
         except Exception as e:
-            print(f"⚠️ Greška pri dobavljanju historijskih suggestions: {e}")
+            print(f"⚠️ Greška pri dobavljanju istorijskih suggestions: {e}")
         return suggestions
 
     def _get_hybrid_matching_suggestions(self, product_name, supplier_name, origin_country):
@@ -582,7 +582,7 @@ class EnhancedTariffSuggestionService:
         if method == 'mapping':
             return f"Fuzzy match sa postojećim mapiranjem: {explanation}"
         elif method == 'rag':
-            return f"Preuzeto iz historijskih podataka: {explanation}"
+            return f"Preuzeto iz istorijskih podataka: {explanation}"
         elif method == 'ai':
             return f"AI odluka: {explanation}"
         return explanation
@@ -593,7 +593,7 @@ class EnhancedTariffSuggestionService:
             parts.append(suggestion['explanation'])
         if context.has_historical_data and context.historical_usage_count > 0:
             parts.append(
-                f"{context.supplier_name} ima {context.historical_usage_count} historijskih deklaracija."
+                f"{context.supplier_name} ima {context.historical_usage_count} istorijskih deklaracija."
             )
         confidence = suggestion.get('confidence', suggestion.get('similarity', 0.5))
         parts.append(f"Confidence: {confidence:.0%}")

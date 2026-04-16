@@ -76,7 +76,7 @@ def _safe_float(val: Any) -> float:
 def _detect_all_origin_statements(text: str) -> list:
     """Detektuj SVE izjave o preferencijalnom poreklu u tekstu."""
     try:
-        from services.origin_statement_detector import OriginStatementDetector
+        from services.tariff.origin_statement_detector import OriginStatementDetector
         detector = OriginStatementDetector()
         return detector.detect_all_in_text(text)
     except Exception as e:

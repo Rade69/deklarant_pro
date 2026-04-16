@@ -206,6 +206,7 @@ def parse_blagic_loren_excel(filepath: str) -> ImportResult:
             neto_kg=neto_kg,
             invoice_name=invoice_name,
             currency="EUR",
+            import_type="loren_excel",
             exporter=Party(name="LOREN"),
         )
 

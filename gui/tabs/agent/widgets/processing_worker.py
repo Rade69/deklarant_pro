@@ -124,6 +124,23 @@ class ProcessingWorker(QThread):
                         if packing_path:
                             consumed_files.add(packing_path)
                             self.progress.emit(f"   📎 Packing list označen kao potrošen: {Path(packing_path).name}")
+
+                    # ⭐ FIX: Ako je import interno koristio drugi fajl (npr. Leburić Excel čita PDF),
+                    #   označi te fajlove kao "potrošene" — agent ih ne treba obrađivati ponovo.
+                    #   Ako je fajl VEĆ obrađen (npr. Excel koji je bio par za PDF), retroaktivno
+                    #   ga označi kao Skipped i očisti linije da se ne duplikata u draftu.
+                    for cp in getattr(result, 'consumed_paths', []):
+                        consumed_files.add(cp)
+                        # Retroaktivno označi file_item ako je već obrađen
+                        for prev in sorted_files:
+                            if prev.filepath == cp and prev.status == 'Completed':
+                                prev.status = 'Skipped'
+                                prev.invoice_lines = []
+                                self.progress.emit(f"   🔗 Kombinirani par — preskačem prethodni: {Path(cp).name}")
+                                self.file_completed.emit(prev)  # Ažuriraj status u tabeli
+                                break
+                        else:
+                            self.progress.emit(f"   📎 Interno korišten fajl preskočen: {Path(cp).name}")
                 elif isinstance(result, list):
                     # Fallback na listu
                     invoice_lines = result

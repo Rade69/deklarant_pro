@@ -1,0 +1,17 @@
+{
+  "source_document": "UIO BiH - Objedinjeni spisak roba koje podliježu kontroli nadležnih inspekcijskih organa (prečišćeni tekst)",
+  "extraction_rule": "Uključene su samo stavke označene sa '+²' u objedinjenom spisku, što prema legendi označava robu koja podliježe nadzoru tržne inspekcije i odnosi se samo na robu koja podliježe Odluci o kontroli kvaliteta tečnih naftnih goriva.",
+  "entries_count": 1,
+  "entries": [
+    {
+      "chapter": "27",
+      "tariff_code": "2710",
+      "tariff_label": "Kompletan tarifni broj",
+      "inspection_regime": "kontrola_kvaliteta",
+      "marker": "+²",
+      "inspection_authority": "tržna inspekcija",
+      "scope_note": "Odnosi se samo na robu koja podliježe Odluci o kontroli kvaliteta tečnih naftnih goriva.",
+      "source_page": 12
+    }
+  ]
+}

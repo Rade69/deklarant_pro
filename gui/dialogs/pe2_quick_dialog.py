@@ -55,7 +55,7 @@ class PE2QuickDialog(QDialog):
                            "background: #d4edda; padding: 10px; border-radius: 5px;")
         layout.addWidget(header)
         
-        subheader = QLabel("Štikliraj zemlje koje imaju PE2 povlasticu (izjava na fakturi).\nSve stavke iste zemlje idu pod istu šifru.")
+        subheader = QLabel("Čekiraj zemlje koje imaju izjavu o porijeklu (PE2).\nBroj fakture je opcionalan — upiši ga ako ga imaš.")
         subheader.setStyleSheet("color: #666; padding: 5px;")
         layout.addWidget(subheader)
         
@@ -93,7 +93,7 @@ class PE2QuickDialog(QDialog):
         layout.addWidget(global_group)
 
         # INFO LABEL (mora PRIJE scroll area da bi signal ne pucao)
-        self.info_label = QLabel("ℹ️ Unesi broj fakture i izaberi zemlje koje imaju izjavu")
+        self.info_label = QLabel("ℹ️ Čekiraj zemlju koja ima izjavu o porijeklu")
         self.info_label.setStyleSheet("font-weight: bold; color: #0c5460; "
                                      "background: #d1ecf1; padding: 10px; border-radius: 5px;")
         layout.addWidget(self.info_label)
@@ -113,12 +113,17 @@ class PE2QuickDialog(QDialog):
         
         # Grupiši stavke po zemlji
         countries = self._group_by_country()
-        
-        for country_code, items in sorted(countries.items()):
-            country_name = self._get_country_name(country_code)
-            group = self._create_country_group(country_code, country_name, items)
-            self.scroll_layout.addWidget(group)
-        
+
+        if countries:
+            for country_code, items in sorted(countries.items()):
+                country_name = self._get_country_name(country_code)
+                group = self._create_country_group(country_code, country_name, items)
+                self.scroll_layout.addWidget(group)
+        else:
+            # Nema zemlja_porijekla na stavkama — prikaži ručni unos
+            self._manual_country_row = self._create_manual_country_input()
+            self.scroll_layout.addWidget(self._manual_country_row)
+
         self.scroll_layout.addStretch()
         scroll.setWidget(scroll_content)
         layout.addWidget(scroll)
@@ -139,6 +144,52 @@ class PE2QuickDialog(QDialog):
         button_layout.addWidget(cancel_button)
         layout.addLayout(button_layout)
     
+    def _create_manual_country_input(self) -> QFrame:
+        """Fallback kad stavke nemaju zemlja_porijekla — ručni unos šifre zemlje."""
+        frame = QFrame()
+        frame.setStyleSheet("""
+            QFrame {
+                background: #fff3cd;
+                border: 1px solid #ffc107;
+                border-radius: 5px;
+                padding: 8px;
+            }
+        """)
+        layout = QVBoxLayout(frame)
+
+        warn = QLabel("⚠️  Stavke nemaju upisanu zemlju porijekla.\nUnesi šifru zemlje ručno (npr. TR, DE, CN):")
+        warn.setStyleSheet("color: #856404; font-weight: bold;")
+        layout.addWidget(warn)
+
+        row = QHBoxLayout()
+
+        self._manual_country_edit = QLineEdit()
+        self._manual_country_edit.setPlaceholderText("Šifra zemlje (2 slova, npr. TR)")
+        self._manual_country_edit.setMaximumWidth(120)
+        self._manual_country_edit.textChanged.connect(self._on_manual_country_changed)
+        row.addWidget(self._manual_country_edit)
+
+        pref_hint = QLabel("→ povlastica: ")
+        pref_hint.setStyleSheet("color: #555;")
+        row.addWidget(pref_hint)
+
+        self._manual_pref_label = QLabel("")
+        self._manual_pref_label.setStyleSheet("color: #155724; font-weight: bold;")
+        row.addWidget(self._manual_pref_label)
+
+        row.addStretch()
+        layout.addLayout(row)
+
+        return frame
+
+    def _on_manual_country_changed(self, text: str):
+        """Ažuriraj prikaz povlastice i OK dugme."""
+        code = text.strip().upper()
+        if hasattr(self, '_manual_pref_label'):
+            pref = self._suggest_preference(code) if code else ""
+            self._manual_pref_label.setText(pref or ("(nepoznata zemlja)" if code else ""))
+        self._update_info()
+
     def _group_by_country(self) -> Dict[str, List[InvoiceLine]]:
         """Grupiši stavke po zemlji porijekla."""
         countries = {}
@@ -253,27 +304,39 @@ class PE2QuickDialog(QDialog):
         """Ažuriraj info label sa brojem stavki za ažuriranje."""
         total = 0
         countries_count = 0
-        
-        # Proveri da li je unesen broj fakture
+
         invoice_number = self.global_invoice_number.text().strip()
 
         for country, data in self.country_inputs.items():
             if data['checkbox'].isChecked():
                 total += len(data['items'])
                 countries_count += 1
-        
-        if total > 0 and invoice_number:
-            self.info_label.setText(f"✅ {total} stavki iz {countries_count} zemlje će dobiti PE2 (Faktura: {invoice_number})")
-            self.info_label.setStyleSheet("font-weight: bold; color: #155724; "
-                                         "background: #d4edda; padding: 10px; border-radius: 5px;")
+
+        # Manualni unos (fallback kad nema zemlja_porijekla na stavkama)
+        manual_ok = False
+        if not self.country_inputs and hasattr(self, '_manual_country_edit'):
+            code = self._manual_country_edit.text().strip().upper()
+            if len(code) == 2 and code.isalpha():
+                manual_ok = True
+                total = len(self.invoice_lines)
+                countries_count = 1
+
+        if total > 0:
+            inv_info = f" (Faktura: {invoice_number})" if invoice_number else ""
+            self.info_label.setText(
+                f"✅ {total} stavki iz {countries_count} zemlje će dobiti PE2{inv_info}"
+            )
+            self.info_label.setStyleSheet(
+                "font-weight: bold; color: #155724; "
+                "background: #d4edda; padding: 10px; border-radius: 5px;"
+            )
             self.ok_button.setEnabled(True)
         else:
-            if not invoice_number:
-                self.info_label.setText("ℹ️ Unesi broj fakture prvo")
-            else:
-                self.info_label.setText("ℹ️ Izaberi zemlje koje imaju izjavu")
-            self.info_label.setStyleSheet("font-weight: bold; color: #0c5460; "
-                                         "background: #d1ecf1; padding: 10px; border-radius: 5px;")
+            self.info_label.setText("ℹ️ Čekiraj zemlju koja ima izjavu o porijeklu")
+            self.info_label.setStyleSheet(
+                "font-weight: bold; color: #0c5460; "
+                "background: #d1ecf1; padding: 10px; border-radius: 5px;"
+            )
             self.ok_button.setEnabled(False)
     
     def get_data(self) -> Dict[str, Dict]:
@@ -298,9 +361,23 @@ class PE2QuickDialog(QDialog):
             if data['checkbox'].isChecked():
                 result[country] = {
                     'code': 'PE2',
-                    'preference': data['preference'],  # EUP/CEFTAP/TRP (na osnovu zemlje)
-                    'invoice_number': invoice_number,  # Broj fakture
-                    'items': data['items'],  # SVE stavke ove zemlje
+                    'preference': data['preference'],
+                    'invoice_number': invoice_number,
+                    'items': data['items'],
+                }
+
+        # Fallback: manualni unos (kada stavke nemaju zemlja_porijekla)
+        if not result and hasattr(self, '_manual_country_edit'):
+            code = self._manual_country_edit.text().strip().upper()
+            if len(code) == 2 and code.isalpha():
+                # Postavi zemlja_porijekla na svim stavkama
+                for ln in self.invoice_lines:
+                    ln.zemlja_porijekla = code
+                result[code] = {
+                    'code': 'PE2',
+                    'preference': self._suggest_preference(code),
+                    'invoice_number': invoice_number,
+                    'items': self.invoice_lines,
                 }
 
         return result
@@ -309,15 +386,15 @@ class PE2QuickDialog(QDialog):
         """
         Predloži povlasticu (Rub.36) na osnovu zemlje.
         
-        Poboljšana verzija koja koristi historijsko učenje ako je dostupno.
+        Poboljšana verzija koja koristi istorijsko učenje ako je dostupno.
         
         Pravila:
-        1. Prvo probaj historijsko učenje (ako znamo exportera)
+        1. Prvo probaj istorijsko učenje (ako znamo exportera)
         2. Fallback na hardcoded pravila
         """
         country_upper = country_code.upper()
         
-        # Pokušaj da koristiš historijsko učenje ako znamo exportera
+        # Pokušaj da koristiš istorijsko učenje ako znamo exportera
         try:
             # Proveri da li imamo exporter name (možda je pročitan iz fakture)
             exporter_name = ""
@@ -328,7 +405,7 @@ class PE2QuickDialog(QDialog):
                 exporter_name = self.invoice_lines[0].exporter
             
             if exporter_name:
-                # Koristi sigurnu verziju historijskog učenja
+                # Koristi sigurnu verziju istorijskog učenja
                 from services.agent.historical_learning_service_safe import enhance_preference_logic
                 historical_pref = enhance_preference_logic(country_upper, exporter_name)
                 

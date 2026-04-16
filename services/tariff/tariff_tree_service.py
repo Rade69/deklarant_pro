@@ -295,3 +295,12 @@ def get_full_path(kod: str) -> List[Dict]:
         else:
             current = current[:2]
     return path
+
+
+# Klasa-omotac za kompatibilnost sa starim importima
+class TariffTreeService:
+    get_node        = staticmethod(get_node)
+    get_children    = staticmethod(get_children)
+    get_tree        = staticmethod(get_tree)
+    format_tree_html = staticmethod(format_tree_html)
+    get_full_path   = staticmethod(get_full_path)

@@ -18,6 +18,9 @@ from importers.generic_pdf_importer import parse_generic_pdf
 logger = logging.getLogger("asycuda_pro.import.smart_pdf")
 
 
+# SECTION: pdf_parse_pipeline
+# PURPOSE: 5-koračni pipeline sa fallback lancem: specijalizirani → generic → OCR
+# DOC: docs/sections/pdf_parse_pipeline.md
 def parse_smart_pdf(pdf_path: str) -> ImportResult:
     """
     Pametno parsira bilo koji PDF - automatski detektuje format i koristi
@@ -39,7 +42,11 @@ def parse_smart_pdf(pdf_path: str) -> ImportResult:
 
     # 2. PARSIRANJE PREMA FORMATU
     try:
-        if pdf_format == "invoice_improved":
+        if pdf_format == "leburic_pekabesko":
+            logger.info("   📋 Koristim Leburic/Pekabesko specijalizovanu funkciju")
+            result = _parse_leburic_pekabesko(pdf_path)
+
+        elif pdf_format == "invoice_improved":
             logger.info("   📋 Koristim Invoice-Improved specijalizovanu funkciju")
             result = _parse_invoice_improved(pdf_path)
 
@@ -131,6 +138,9 @@ def parse_smart_pdf(pdf_path: str) -> ImportResult:
     return result
 
 
+# SECTION: pdf_format_detection
+# PURPOSE: Analizira tekst PDF-a i vraća string-key formata; redoslijed provjera je bitan
+# DOC: docs/sections/pdf_format_detection.md
 def _detect_pdf_format(pdf_path: str) -> str:
     """
     Detektuje format PDF-a analizirajući tekst.
@@ -199,6 +209,10 @@ def _detect_pdf_format(pdf_path: str) -> str:
                 if "FAKTURA" in text_upper or "INVOICE" in text_upper:
                     return "sumaprom"
 
+            # LEBURIC / PEKABESKO — PDF je supplement (uz Excel), ne importuje se direktno
+            if "PEKABESKO" in text_upper:
+                return "leburic_pekabesko"
+
             # Nepoznat format - generička extraction
             return "generic"
 
@@ -239,6 +253,9 @@ def _parse_imamoglu(pdf_path: str) -> ImportResult:
     return parse_imamoglu_pdf(pdf_path)
 
 
+# SECTION: master_frigo_mapping
+# PURPOSE: Pronalazi Excel fajl sa tarifama/zemljama koji vrijedi za sve Master Frigo fakture
+# DOC: docs/sections/master_frigo_mapping.md
 def _find_master_frigo_mapping_xlsx(pdf_path: str) -> str | None:
     """
     Traži Excel fajl sa tarifama/zemljama u istom folderu kao PDF.
@@ -300,6 +317,12 @@ def _parse_proton_system(pdf_path: str) -> ImportResult:
     """Parsira Proton System DOO format (MGM fakture)."""
     from importers.medicopharm_importer import parse_medicopharm_pdf
     return parse_medicopharm_pdf(pdf_path)
+
+
+def _parse_leburic_pekabesko(pdf_path: str) -> ImportResult:
+    """Parsira Leburic/Pekabesko PDF format (skenirani OCR dokumenti)."""
+    from importers.vendors.leburic.leburic_pekabesko_pdf_parser import parse_leburic_pekabesko_pdf
+    return parse_leburic_pekabesko_pdf(pdf_path)
 
 
 # Alias za kompatibilnost
