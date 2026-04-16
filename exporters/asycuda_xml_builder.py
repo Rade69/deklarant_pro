@@ -208,7 +208,7 @@ class AsycudaXMLBuilder:
         _val(type_elem, "Declaration_gen_procedure_code", self._g("deklaracija_oznaka", "H"))
         _null(type_elem, "Type_of_transit_document")
 
-        ET.SubElement(ident, "Manifest_reference_number")
+        _null(ident, "Manifest_reference_number")
 
         reg = ET.SubElement(ident, "Registration")
         _null(reg, "Serial_number")
@@ -235,7 +235,7 @@ class AsycudaXMLBuilder:
         if exp_id:
             _val(exporter, "Exporter_code", exp_id)
         else:
-            ET.SubElement(exporter, "Exporter_code")
+            _null(exporter, "Exporter_code")
         exp_name = _fmt_party_name(
             self._g("izvoznik_naziv"),
             self._g("izvoznik_grad"),
@@ -293,18 +293,18 @@ class AsycudaXMLBuilder:
         gen_info = ET.SubElement(self.root, "General_information")
         country = ET.SubElement(gen_info, "Country")
 
-        ET.SubElement(country, "Country_first_destination")
-        ET.SubElement(country, "Trading_country")
+        _null(country, "Country_first_destination")
+        _null(country, "Trading_country")
 
         export = ET.SubElement(country, "Export")
         _val(export, "Export_country_code", self._g("drzava_izvoza_sifra"))
         _val(export, "Export_country_name", self._g("drzava_izvoza_naziv"))
-        ET.SubElement(export, "Export_country_region")
+        _null(export, "Export_country_region")
 
         destination = ET.SubElement(country, "Destination")
         _null(destination, "Destination_country_code")
         _null(destination, "Destination_country_name")
-        ET.SubElement(destination, "Destination_country_region")
+        _null(destination, "Destination_country_region")
 
         # Zemlja porijekla na nivou zaglavlja — naziv (ne šifra)
         origin_code = self._g("drzava_porijekla")
@@ -366,7 +366,7 @@ class AsycudaXMLBuilder:
         delivery = ET.SubElement(transport, "Delivery_terms")
         _val(delivery, "Code", self._g("uslovi_kod"))
         _val(delivery, "Place", self._g("uslovi_mjesto"))
-        ET.SubElement(delivery, "Situation")
+        _null(delivery, "Situation")
 
         # Izlazna carinarnica (format: "BA097098" ili "BA097098 - CR/GP Rača")
         border_office = ET.SubElement(transport, "Border_office")
@@ -406,8 +406,8 @@ class AsycudaXMLBuilder:
         bank = ET.SubElement(financial, "Bank")
         _null(bank, "Code")
         _null(bank, "Name")
-        ET.SubElement(bank, "Branch")
-        ET.SubElement(bank, "Reference")
+        _null(bank, "Branch")
+        _null(bank, "Reference")
 
         terms = ET.SubElement(financial, "Terms")
         _null(terms, "Code")
@@ -465,7 +465,7 @@ class AsycudaXMLBuilder:
         ET.SubElement(seals, "Number")
         _null(seals, "Identity")
 
-        ET.SubElement(transit, "Result_of_control")
+        _null(transit, "Result_of_control")
         ET.SubElement(transit, "Time_limit")
         _null(transit, "Officer_name")
 
@@ -649,7 +649,7 @@ class AsycudaXMLBuilder:
         if item.item_value:
             item_price.text = f"{item.item_value:.2f}"
 
-        _null(tarif, "Valuation_method_code")
+        _val(tarif, "Valuation_method_code", "1")
 
         # Value_item — formula troškova: ext_freight+int_freight+insurance+other-deduction
         # Ista logika kao _fill_item_valuation (raspodjela po alpha koeficijentu)
@@ -701,7 +701,7 @@ class AsycudaXMLBuilder:
 
         _val(prev, "Summary_declaration", prev_num)
         _null(prev, "Summary_declaration_sl")
-        ET.SubElement(prev, "Previous_document_reference")
+        _null(prev, "Previous_document_reference")
         _null(prev, "Previous_warehouse_code")
 
         _null(item_elem, "Licence_number")
