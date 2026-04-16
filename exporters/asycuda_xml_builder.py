@@ -423,12 +423,12 @@ class AsycudaXMLBuilder:
 
         amounts = ET.SubElement(financial, "Amounts")
         ET.SubElement(amounts, "Total_manual_taxes")
-        ET.SubElement(amounts, "Global_taxes")
+        _val(amounts, "Global_taxes", "0")
         ET.SubElement(amounts, "Totals_taxes")
 
         guarantee = ET.SubElement(financial, "Guarantee")
         _null(guarantee, "Name")
-        ET.SubElement(guarantee, "Amount")
+        _val(guarantee, "Amount", "0")
         ET.SubElement(guarantee, "Date")
         excluded = ET.SubElement(guarantee, "Excluded_country")
         _null(excluded, "Code")
@@ -473,7 +473,7 @@ class AsycudaXMLBuilder:
         """<Valuation> — vrijednosti na nivou zaglavlja."""
         val = ET.SubElement(self.root, "Valuation")
 
-        ET.SubElement(val, "Calculation_working_mode")
+        _val(val, "Calculation_working_mode", "0")
 
         weight = ET.SubElement(val, "Weight")
         total_gross = sum(item.gross_mass_kg or 0.0 for item in self.draft.items)
@@ -651,11 +651,27 @@ class AsycudaXMLBuilder:
 
         _null(tarif, "Valuation_method_code")
 
-        # Value_item — ostaviti prazno; ASYCUDA sama obračuna pri kontroli
-        ET.SubElement(tarif, "Value_item")
+        # Value_item — formula troškova: ext_freight+int_freight+insurance+other-deduction
+        # Ista logika kao _fill_item_valuation (raspodjela po alpha koeficijentu)
+        if total_items_value > 0:
+            _vi_alpha = item_val / total_items_value
+        else:
+            _vi_alpha = 0.0
+        _vi_ext = t1 * _vi_alpha
+        _vi_int = t4 * _vi_alpha
+        _vi_ins = t2 * _vi_alpha
+        _vi_oth = t3 * _vi_alpha
+        _vi_ded = t5 * _vi_alpha
+        vi_elem = ET.SubElement(tarif, "Value_item")
+        vi_elem.text = f"{_vi_ext:.2f}+{_vi_int:.2f}+{_vi_ins:.2f}+{_vi_oth:.2f}-{_vi_ded:.2f}"
 
-        # Attached_doc_item — uvijek null (from_rule kodovi su već u Attached_documents blokovima)
-        _null(tarif, "Attached_doc_item")
+        # Attached_doc_item — na prvoj stavci: space-separated from_rule kodovi
+        # Na ostalim stavkama: null (ASYCUDA World standard)
+        if is_first and from_rule_codes:
+            adi = ET.SubElement(tarif, "Attached_doc_item")
+            adi.text = " ".join(from_rule_codes) + " "
+        else:
+            _null(tarif, "Attached_doc_item")
 
         ai_code = ET.SubElement(tarif, "A.I._code")
         ET.SubElement(ai_code, "null")
@@ -705,7 +721,7 @@ class AsycudaXMLBuilder:
         taxation = ET.SubElement(item_elem, "Taxation")
         ET.SubElement(taxation, "Item_taxes_amount")
         ET.SubElement(taxation, "Item_taxes_guaranted_amount")
-        _null(taxation, "Item_taxes_mode_of_payment")
+        _val(taxation, "Item_taxes_mode_of_payment", "1")
         ET.SubElement(taxation, "Counter_of_normal_mode_of_payment")
         ET.SubElement(taxation, "Displayed_item_taxes_amount")
 

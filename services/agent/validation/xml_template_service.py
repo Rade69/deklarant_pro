@@ -240,13 +240,13 @@ class XmlTemplateService:
         lokacija = get(".//Transport/Location_of_goods")
 
         # ── Rb.20 Uslovi isporuke ────────────────────────────────
-        uslovi_kod = get(".//Valuation/Incoterm/Code")
-        uslovi_mjesto = get(".//Valuation/Incoterm/Place")
+        uslovi_kod = get(".//Transport/Delivery_terms/Code")
+        uslovi_mjesto = get(".//Transport/Delivery_terms/Place")
 
         # ── Rb.22 Valuta ─────────────────────────────────────────
         valuta = get(".//Valuation/Gs_Invoice/Currency_code") or "EUR"
-        vrsta_trans_1 = get(".//General_information/Transaction_nature/Nature_of_transaction_1")
-        vrsta_trans_2 = get(".//General_information/Transaction_nature/Nature_of_transaction_2")
+        vrsta_trans_1 = get(".//Financial/Financial_transaction/code1")
+        vrsta_trans_2 = get(".//Financial/Financial_transaction/code2")
 
         # ── Rb.40 (uzimamo iz prvog Item-a) ──────────────────────
         rb40_tip = get(".//Item/Previous_doc/Previous_category")
