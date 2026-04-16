@@ -1,10 +1,11 @@
 [
-  { "sifra": "10", "opis": "Prijevoz morem" },
-  { "sifra": "20", "opis": "Prijevoz željeznicom" },
-  { "sifra": "30", "opis": "Cestovni prijevoz" },
-  { "sifra": "40", "opis": "Zračni prijevoz" },
-  { "sifra": "50", "opis": "Poštanska pošiljka (aktivni način prijevoza nepoznat)" },
-  { "sifra": "70", "opis": "Prijevoz (prijenos) fiksnim prijevoznim instalacijama" },
-  { "sifra": "80", "opis": "Prijevoz unutarnjim riječnim putem" },
-  { "sifra": "90", "opis": "Nepoznata vrsta prijevoza (vlastiti pogon)" }
+  { "sifra": "10", "opis": "Prevoz morem" },
+  { "sifra": "20", "opis": "Prevoz željeznicom" },
+  { "sifra": "30", "opis": "Drumski prevoz" },
+  { "sifra": "31", "opis": "Drumski prevoz — prikolica" },
+  { "sifra": "40", "opis": "Vazdušni prevoz" },
+  { "sifra": "50", "opis": "Poštanska pošiljka (način prevoza nepoznat)" },
+  { "sifra": "70", "opis": "Prevoz fiksnim instalacijama" },
+  { "sifra": "80", "opis": "Prevoz unutrašnjim riječnim putem" },
+  { "sifra": "90", "opis": "Nepoznata vrsta prevoza (vlastiti pogon)" }
 ]

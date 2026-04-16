@@ -542,9 +542,9 @@ class ZaglavljeService:
         data['aktivno_transport'] = getattr(draft, 'aktivno_transport', '') or ''
         data['aktivno_transport_nat'] = getattr(draft, 'aktivno_transport_nat', '') or ''
 
-        # Rubrika 25, 26, 27 - Vid unutra/granica/mjesto otvarač
-        data['vid_25'] = getattr(draft, 'vid_unutra', '') or ''
-        data['vid_26'] = getattr(draft, 'vid_granica', '') or ''
+        # Rb.25 = vid na granici (vid_granica), Rb.26 = unutrašnji (vid_unutra)
+        data['vid_25'] = getattr(draft, 'vid_granica', '') or ''
+        data['vid_26'] = getattr(draft, 'vid_unutra', '') or ''
         data['vid_27'] = getattr(draft, 'mjesto_otvaraca', '') or ''
 
         # Rubrika 29 - Izlazna carinarnica
@@ -734,9 +734,11 @@ class ZaglavljeService:
         draft.aktivno_transport = safe_get('aktivno_transport')
         draft.aktivno_transport_nat = safe_get('aktivno_transport_nat')
 
-        # Rubrika 25, 26, 27 - Vid unutra/granica/mjesto otvarač
-        draft.vid_unutra = safe_get('vid_25')
-        draft.vid_granica = safe_get('vid_26')
+        # Rubrika 25 = vid na granici → vid_granica
+        # Rubrika 26 = unutrašnji prevoz → vid_unutra
+        # Rubrika 27 = mjesto razduženja → mjesto_otvaraca
+        draft.vid_granica = safe_get('vid_25')
+        draft.vid_unutra = safe_get('vid_26')
         draft.mjesto_otvaraca = safe_get('vid_27')
 
         # Rubrika 29 - Izlazna carinarnica
@@ -1537,7 +1539,7 @@ class ZaglavljeService:
             "deklarant_r3": ("14", "Grad deklaranta"),
             "transport_id": ("18", "Registracija trans. sredstva"),
             "aktivno_transport": ("21", "Registracija na granici"),
-            "vid_25": ("25", "Vid unutra"),
+            "vid_25": ("25", "Vid prevoza na granici"),
             "uslovi_kod": ("20", "Uslovi isporuke — kod"),
             "uslovi_mjesto": ("20", "Uslovi isporuke — mjesto"),
             "valuta": ("22", "Valuta"),
