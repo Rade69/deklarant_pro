@@ -647,7 +647,7 @@ class Ui_ZaglavljeTab(object):
         self.L23.setText(QCoreApplication.translate("ZaglavljeTab", u"23 Kurs", None))
         self.L24.setText(QCoreApplication.translate("ZaglavljeTab", u"24 Vrsta trans.", None))
         self.I_tr_1.setText(QCoreApplication.translate("ZaglavljeTab", u"0,00", None))
-        self.L_tr_1.setText(QCoreApplication.translate("ZaglavljeTab", u"prijevoz do granice", None))
+        self.L_tr_1.setText(QCoreApplication.translate("ZaglavljeTab", u"prevoz do granice", None))
         self.L_brutto.setText(QCoreApplication.translate("ZaglavljeTab", u"brutto", None))
         self.I_tr_2.setText(QCoreApplication.translate("ZaglavljeTab", u"0,00", None))
         self.L_tr_2.setText(QCoreApplication.translate("ZaglavljeTab", u"osiguranje", None))

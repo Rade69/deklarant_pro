@@ -533,6 +533,7 @@ class FakturaView(BaseTabView):
             | QAbstractItemView.EditKeyPressed
             | QAbstractItemView.AnyKeyPressed
         )
+        table.setTabKeyNavigation(True)
 
         # Set custom delegate for validation colors
         validation_delegate = ValidationDelegate(table)

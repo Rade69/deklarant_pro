@@ -289,11 +289,11 @@ class NaimenovanjaView(BaseTabView):
             "le_rubrika42": "item_value",
             # Rubrika 43
             "le_rubrika43": "currency",
-            # Rubrika 44 – Tarification formula + priložene isprave
-            "le_rubrika44_1": "value_item_formula",  # auto-izračun (read-only)
-            "le_rubrika44_3": "attached_document1",  # dokument porijekla (ref. br.)
-            "le_rubrika44_4": "attached_document4",  # master polje (PE1/PE2 + broj)
-            "le_rubrika44_5": "attached_document3",
+            # Rubrika 44 – P.D. kodovi + priložene isprave + formula troškova
+            "le_rubrika44_1": "pd_codes",             # P.D. šifre iz zaglavlja (from_rule, auto, read-only)
+            "le_rubrika44_3": "attached_document1",   # dokument porijekla (ref. br.)
+            "le_rubrika44_4": "attached_document4",   # master polje (PE1/PE2 + broj)
+            "le_rubrika44_5": "attached_document5",   # slobodno polje (nije auto-obračun)
             # Rubrika 45
             "le_rubrika45_sifra": "",  # Prilagođenje šifra
             "le_rubrika45_iznos": "",  # Prilagođenje iznos
@@ -1701,25 +1701,11 @@ class NaimenovanjaView(BaseTabView):
         except Exception:
             return 0.0
 
-    def _compute_item_value_formula(self, item) -> str:
-        """Rb.44 — Value_item formula: ext+int+ins+other-ded za trenutnu stavku."""
-        item_value = float(item.item_value or 0)
-        total_items_value = sum(float(it.item_value or 0) for it in self.draft.items)
-        if total_items_value <= 0 or item_value <= 0:
-            return ""
-        alpha = item_value / total_items_value
-        t1 = self._parse_cost(getattr(self.draft, "trosak_1", 0))
-        t2 = self._parse_cost(getattr(self.draft, "trosak_2", 0))
-        t3 = self._parse_cost(getattr(self.draft, "trosak_3", 0))
-        t4 = self._parse_cost(getattr(self.draft, "trosak_4", 0))
-        t5 = self._parse_cost(getattr(self.draft, "trosak_5", 0))
-        ext = t1 * alpha
-        int_fr = t4 * alpha
-        ins = t2 * alpha
-        other = t3 * alpha
-        ded = t5 * alpha
-        ded_str = f"-{ded:.2f}" if ded > 0 else f"+{ded:.2f}"
-        return f"{ext:.2f}+{int_fr:.2f}+{ins:.2f}+{other:.2f}{ded_str}"
+    def _compute_pd_codes(self) -> str:
+        """Rb.44 P.D. — šifre from_rule priloženih dokumenata iz zaglavlja (N380 DIS DV1)."""
+        header_docs = getattr(self.draft, "header_attached_documents", []) or []
+        codes = [doc.code for doc in header_docs if getattr(doc, "from_rule", False) and doc.code]
+        return " ".join(codes)
 
     def _compute_statistical_value(self, item) -> str:
         """Rb.46 — statistička vrijednost: (item_value_EUR × kurs) + ext_freight_BAM."""
@@ -1761,10 +1747,10 @@ class NaimenovanjaView(BaseTabView):
 
             if widget:
                 # Virtuelna polja — dinamički izračun, ne čitaju se iz drafta
-                if field_name == "value_item_formula":
-                    value = self._compute_item_value_formula(item)
-                elif field_name == "statistical_value":
+                if field_name == "statistical_value":
                     value = self._compute_statistical_value(item)
+                elif field_name == "pd_codes":
+                    value = self._compute_pd_codes()
                 else:
                     value = getattr(item, field_name, "")
 
@@ -1951,7 +1937,7 @@ class NaimenovanjaView(BaseTabView):
         old_suffix = item.tariff_suffix or "000"
 
         # Virtualna polja (auto-izračun) — ne čuvaju se u draftu
-        _READONLY_VIRTUAL_FIELDS = {"value_item_formula", "statistical_value"}
+        _READONLY_VIRTUAL_FIELDS = {"statistical_value", "pd_codes"}
 
         for widget_name, field_name in self.field_map.items():
             if not field_name or field_name in _READONLY_VIRTUAL_FIELDS:

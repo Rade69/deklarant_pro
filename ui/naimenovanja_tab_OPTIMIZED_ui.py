@@ -368,7 +368,8 @@ class Ui_NaimenovanjaTab(object):
         self.lbl_rubrika43_tekst.setText(QCoreApplication.translate("NaimenovanjaTab", u"V.M.", None))
         self.lbl_rubrika44.setText(QCoreApplication.translate("NaimenovanjaTab", u"44 Prilo\u017eene\n"
 "isprave", None))
-        self.le_rubrika44_1.setPlaceholderText(QCoreApplication.translate("NaimenovanjaTab", u"Tarification (auto)", None))
+        self.le_rubrika44_1.setPlaceholderText(QCoreApplication.translate("NaimenovanjaTab", u"P.D. kodovi (auto)", None))
+        self.le_rubrika44_5.setPlaceholderText(QCoreApplication.translate("NaimenovanjaTab", u"dodatna napomena", None))
         self.lbl_rubrika45.setText(QCoreApplication.translate("NaimenovanjaTab", u"45  prilago\u0111enje", None))
         self.lbl_rubrika46.setText(QCoreApplication.translate("NaimenovanjaTab", u"46  statisti\u010dka vrijednost", None))
         self.status_bar_widget.setStyleSheet(QCoreApplication.translate("NaimenovanjaTab", u"background: qlineargradient(x1:0, y1:0, x2:1, y2:0,\n"

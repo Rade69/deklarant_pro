@@ -165,7 +165,7 @@ class IspravaDelegate(QStyledItemDelegate):
         editor = QLineEdit(parent)
         editor.setPlaceholderText("npr. N380")
         font = editor.font()
-        font.setPointSize(11)
+        font.setPointSize(13)
         editor.setFont(font)
 
         completer = QCompleter(self._display_list, editor)
@@ -175,13 +175,31 @@ class IspravaDelegate(QStyledItemDelegate):
 
         popup = completer.popup()
         pfont = popup.font()
-        pfont.setPointSize(11)
+        pfont.setPointSize(15)
         popup.setFont(pfont)
-        popup.setMinimumWidth(420)
+        popup.setMinimumWidth(520)
+        popup.setStyleSheet(
+            "QListView { font-size: 15pt; }"
+            "QListView::item { padding: 6px 10px; min-height: 28px; }"
+        )
 
         completer.activated.connect(
             lambda display_text: self._on_selected(display_text, index.row(), editor)
         )
+
+        # Enter tipka — potvrdi označenu stavku, ili prvu u popupu ako nema označene
+        def _on_enter():
+            popup = completer.popup()
+            if popup.isVisible():
+                idx = popup.currentIndex()
+                if not idx.isValid():
+                    # Nema označene strelicama — uzmi prvu stavku
+                    idx = popup.model().index(0, 0)
+                if idx.isValid():
+                    completer.activated.emit(idx.data())
+                    popup.hide()
+
+        editor.returnPressed.connect(_on_enter)
         editor.setCompleter(completer)
         return editor
 
@@ -716,13 +734,13 @@ class ZaglavljeView(BaseTabView):
         return group
 
     def _create_vid_group(self) -> QWidget:
-        """Rb.25-26-27 Vid unutra / Vid granica / Mjesto otvarač — 3 polja u jednom redu."""
+        """Rb.25-26-27 Vid unutra / Vid granica / Mjesto razduženja — 3 polja u jednom redu."""
         group = QWidget()
         layout = QVBoxLayout(group)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(3)
 
-        label = QLabel("25. Vid unutra / 26. Vid granica / 27. Mjesto otvarač")
+        label = QLabel("25. Vid unutra / 26. Vid granica / 27. Mjesto razduženja")
         label.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
         layout.addWidget(label)
 
@@ -731,34 +749,28 @@ class ZaglavljeView(BaseTabView):
         row_layout.setContentsMargins(0, 0, 0, 0)
         row_layout.setSpacing(4)
 
-        # Rb.25 — QComboBox iz baze
+        # Rb.25/26 — helper: popuni combo (dropdown "30 — Cestovni prevoz", u polju samo "30")
+        def _make_vid_combo(tooltip: str) -> QComboBox:
+            cb = QComboBox()
+            cb.setEditable(True)
+            cb.lineEdit().setReadOnly(True)
+            for sifra, opis in self._vrste_prijevoza:
+                cb.addItem(f"{sifra} — {opis}", sifra)
+            # Nakon odabira — u polju prikaži samo šifru
+            cb.activated.connect(lambda idx, _cb=cb: _cb.lineEdit().setText(_cb.itemData(idx) or ""))
+            cb.setFixedWidth(160)
+            cb.setToolTip(tooltip)
+            return cb
+
         self._vrste_prijevoza = _load_vrste_prijevoza_from_db()
-        cb_25 = QComboBox()
-        cb_25.setEditable(True)
-        cb_25.lineEdit().setReadOnly(True)
-        for sifra, opis in self._vrste_prijevoza:
-            display = f"{sifra} — {opis}"
-            cb_25.addItem(display, sifra)
-            cb_25.setItemData(cb_25.count() - 1, opis, Qt.ToolTipRole)
 
-        def _on_vid_25_activated(idx, _cb=cb_25):
-            code = _cb.itemData(idx)
-            if code:
-                _cb.lineEdit().setText(code)
-
-        cb_25.activated.connect(_on_vid_25_activated)
-        cb_25.lineEdit().setText("30")
-        cb_25.setFixedWidth(100)
-        cb_25.setToolTip("Vid prevoza unutar zemlje")
+        cb_25 = _make_vid_combo("Vid prevoza unutar zemlje (Rb.25)")
         row_layout.addWidget(cb_25)
         self.field_widgets["vid_25"] = cb_25
 
-        # Rb.26 — QLineEdit
-        field_26 = QLineEdit()
-        field_26.setPlaceholderText("26")
-        field_26.setFixedWidth(100)
-        row_layout.addWidget(field_26)
-        self.field_widgets["vid_26"] = field_26
+        cb_26 = _make_vid_combo("Vid prevoza na granici — npr. 30=cestovni, 31=prikolica (Rb.26)")
+        row_layout.addWidget(cb_26)
+        self.field_widgets["vid_26"] = cb_26
 
         # Rb.27 — QLineEdit
         field_27 = QLineEdit()
@@ -1504,7 +1516,7 @@ class ZaglavljeView(BaseTabView):
         self.table.setStyleSheet(
             """
             QTableWidget {
-                font-size: 12pt;
+                font-size: 13pt;
                 color: #1e3820;
                 background-color: #dce8dc;
                 gridline-color: #c8dcc8;
@@ -1512,19 +1524,19 @@ class ZaglavljeView(BaseTabView):
             QTableWidget::item {
                 background-color: #fafcfa;
                 color: #1e3820;
-                padding: 2px 4px;
+                padding: 3px 6px;
             }
             QTableWidget::item:selected {
                 background-color: #c8dcc8;
                 color: #1e3820;
             }
             QHeaderView::section {
-                font-size: 12pt;
+                font-size: 13pt;
                 font-weight: bold;
                 color: #1e3820;
                 background-color: #dce8dc;
                 border: 1px solid #a0c4a0;
-                padding: 3px;
+                padding: 4px;
             }
             """
         )
@@ -1539,10 +1551,18 @@ class ZaglavljeView(BaseTabView):
         self.table.installEventFilter(self._col_ratio_filter)
 
         for i in range(20):
-            self.table.setRowHeight(i, 28)
+            self.table.setRowHeight(i, 32)
 
         self.table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+
+        # Tipkovnica: bilo koji znak otvara editor, Tab prelazi na sljedeću ćeliju
+        self.table.setEditTriggers(
+            QTableWidget.EditTrigger.DoubleClicked |
+            QTableWidget.EditTrigger.AnyKeyPressed |
+            QTableWidget.EditTrigger.SelectedClicked
+        )
+        self.table.setTabKeyNavigation(True)
 
         # IspravaDelegate na koloni 0
         self._isprave = _load_isprave_from_db()
@@ -1551,6 +1571,11 @@ class ZaglavljeView(BaseTabView):
                 0, IspravaDelegate(self._isprave, self.table)
             )
 
+        # Delete tipka i desni klik — brisanje reda
+        self.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.table.customContextMenuRequested.connect(self._on_docs_table_context_menu)
+        self.table.installEventFilter(self)
+
         layout.addWidget(self.table)
 
         return column
@@ -1558,6 +1583,48 @@ class ZaglavljeView(BaseTabView):
     # ============================================================
     # HELPER
     # ============================================================
+
+    def eventFilter(self, obj, event):
+        """Delete tipka na tabeli priloženih dokumenata briše sadržaj reda."""
+        from PySide6.QtCore import QEvent
+        from PySide6.QtGui import QKeyEvent, QKeySequence
+        if obj is self.table and event.type() == QEvent.Type.KeyPress:
+            if event.key() == Qt.Key.Key_Delete:
+                self._clear_selected_doc_rows()
+                return True
+        return super().eventFilter(obj, event)
+
+    def _on_docs_table_context_menu(self, pos):
+        """Desni klik na tabeli priloženih dokumenata — kontekstni meni."""
+        from PySide6.QtWidgets import QMenu
+        menu = QMenu(self)
+        act_clear = menu.addAction("Obriši red")
+        act_clear_all = menu.addAction("Obriši sve redove")
+        action = menu.exec(self.table.viewport().mapToGlobal(pos))
+        if action == act_clear:
+            self._clear_selected_doc_rows()
+        elif action == act_clear_all:
+            self._clear_all_doc_rows()
+
+    def _clear_selected_doc_rows(self):
+        """Obriši sadržaj odabranih redova u tabeli priloženih dokumenata."""
+        rows = {idx.row() for idx in self.table.selectedIndexes()}
+        for row in rows:
+            for col in range(self.table.columnCount()):
+                item = self.table.item(row, col)
+                if item:
+                    item.setText("")
+        # Vrati visinu reda
+        for row in rows:
+            self.table.setRowHeight(row, 32)
+
+    def _clear_all_doc_rows(self):
+        """Obriši sadržaj svih redova u tabeli priloženih dokumenata."""
+        for row in range(self.table.rowCount()):
+            for col in range(self.table.columnCount()):
+                item = self.table.item(row, col)
+                if item:
+                    item.setText("")
 
     def _create_hline(self) -> QFrame:
         """Horizontalna linija separator."""
@@ -1847,6 +1914,11 @@ class ZaglavljeView(BaseTabView):
                         widget.setCurrentIndex(idx)
                     elif widget.isEditable():
                         widget.setEditText(str(value) if value is not None else "")
+                # Rb.25/26 — u polju prikaži samo šifru, ne cijeli dropdown tekst
+                if key in ('vid_25', 'vid_26') and widget.isEditable():
+                    code = widget.currentData()
+                    if code:
+                        widget.lineEdit().setText(str(code))
             elif isinstance(widget, QCheckBox):
                 widget.setChecked(bool(value))
 

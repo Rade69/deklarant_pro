@@ -790,14 +790,15 @@ class ZaglavljeController:
                 for sifra, opis in tipovi:
                     tip_widget.addItem(opis, sifra)
             
-            # Load vid unutra
+            # Load vid prevoza (Rb.25/26) — dropdown "30 — Cestovni prevoz", u polju samo šifra
             vidovi = self.service.get_vid_unutra()
-            vid_widget = self.view.field_widgets.get('vid_25')
-            if vid_widget and hasattr(vid_widget, 'addItem'):
-                vid_widget.clear()
-                for sifra, opis in vidovi:
-                    vid_widget.addItem(opis, sifra)
-            
+            for field_key in ('vid_25', 'vid_26'):
+                vid_widget = self.view.field_widgets.get(field_key)
+                if vid_widget and hasattr(vid_widget, 'addItem'):
+                    vid_widget.clear()
+                    for sifra, opis in vidovi:
+                        vid_widget.addItem(f"{sifra} — {opis}", sifra)
+
             self.logger.info("Dropdowns loaded successfully")
             
         except Exception as e:
