@@ -185,6 +185,9 @@ class NaimenovanjaView(BaseTabView):
         self._setup_apply_to_all_indicators()
         self._connect_special_field_signals()
 
+        # 6.6 Postavi redosljed Tab navigacije
+        self._setup_tab_order()
+
         # 7. Load data
         self.draft.ensure_min_items(1)
         self._load_current_item()
@@ -899,7 +902,7 @@ class NaimenovanjaView(BaseTabView):
 
             self.combo_rb40_tip = QComboBox(parent1)
             self.combo_rb40_tip.setObjectName("le_rubrika40_1")
-            self.combo_rb40_tip.setEditable(False)  # Non-editable, samo selekcija
+            self.combo_rb40_tip.setEditable(True)   # Editabilno — može se kucati direktno
             self.combo_rb40_tip.addItems(["", "X", "Y", "Z"])
             # Globalni QSS ima "QComboBox { min-width: 100px }" koji overrideuje setFixedWidth.
             # Fix: widget-level stylesheet ima veći prioritet od QApplication stylesheet-a.
@@ -2404,6 +2407,65 @@ class NaimenovanjaView(BaseTabView):
             le_rubrika40_3.setPlaceholderText(
                 "🔗 Master polje - primjenjuje se na sve..."
             )
+
+    def _setup_tab_order(self) -> None:
+        """Postavi logički redosljed Tab/Shift+Tab navigacije između polja."""
+        from PySide6.QtWidgets import QWidget
+        if not hasattr(self, "ui"):
+            return
+
+        def w(name: str):
+            cached = self.widget_cache.get(name)
+            if cached is not None:
+                return cached
+            return self.ui.findChild(QWidget, name)
+
+        # Redosljed polja: od Rb.31 do Rb.44/45/46
+        order = [
+            # Rb.31 — Pakovanje i opis
+            w("le_r31_oznake_br"),
+            w("le_r31_paketa"),
+            w("le_r31_broj"),
+            w("le_r31_vrsta"),
+            w("le_r31_vrsta_naziv"),
+            w("le_r31_kontejner_1"),
+            w("le_r31_kontejner_2"),
+            w("te_r31_opis"),
+            w("te_r31_opis_2"),
+            w("le_r31_trg_naziv"),
+            # Rb.33/34/35/36/37/38/39
+            w("le_rubrika33"),
+            w("le_rubrika33_podbroj"),
+            w("le_rubrika34_zemlja"),
+            w("le_rubrika34_regija"),
+            w("le_rubrika35"),
+            w("le_rubrika36"),
+            w("le_rubrika37_1"),
+            w("le_rubrika37_2"),
+            w("le_rubrika38"),
+            w("le_rubrika39"),
+            # Rb.40 — Prethodni dokument
+            w("le_rubrika40_1"),   # X/Y/Z combo (editabilno)
+            w("le_rubrika40_2"),   # šifra dokumenta combo
+            w("le_rubrika40_3"),   # broj
+            # Rb.41/42/43
+            w("le_rubrika41"),
+            w("le_rubrika42"),
+            w("le_rubrika43"),
+            # Rb.44
+            w("le_rubrika44_3"),
+            w("le_rubrika44_4"),
+            w("le_rubrika44_5"),
+            # Rb.45/46
+            w("le_rubrika45_sifra"),
+            w("le_rubrika45_iznos"),
+            w("le_rubrika46"),
+        ]
+
+        # Filtriraj None (widget ne postoji) i postavi tab order
+        valid = [wgt for wgt in order if wgt is not None]
+        for i in range(len(valid) - 1):
+            QWidget.setTabOrder(valid[i], valid[i + 1])
 
     def _connect_special_field_signals(self) -> None:
         """
