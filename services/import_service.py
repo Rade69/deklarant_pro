@@ -25,7 +25,8 @@ logger = logging.getLogger("asycuda_pro.import")
 # DOC: docs/sections/known_vendor_formats.md
 _KNOWN_VENDOR_FORMATS = {
     "invoice_improved", "blagic_loren", "blagic_attos",
-    "imamoglu", "master_frigo", "medicopharm", "leburic_pekabesko"
+    "imamoglu", "master_frigo", "medicopharm", "leburic_pekabesko",
+    "proton_system", "sumaprom",
 }
 
 

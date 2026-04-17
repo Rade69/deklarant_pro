@@ -1601,9 +1601,14 @@ class FakturaView(BaseTabView):
                 for item in all_items
             )
             if has_origin:
-                logger.info("📦 [grupni uvoz] → otvaram PE2 dialog")
-                first_invoice = Path(filepaths[0]).stem if filepaths else "Grupni uvoz"
-                self._show_pe2_dialog(first_invoice)
+                total_value = sum(getattr(i, 'iznos', 0.0) for i in all_items)
+                if total_value > 6000:
+                    logger.info(f"📦 [grupni uvoz] → iznos={total_value:.2f}€ > 6000 → EUR1 dialog")
+                    self._show_eur1_dialog()
+                else:
+                    logger.info("📦 [grupni uvoz] → otvaram PE2 dialog")
+                    first_invoice = Path(filepaths[0]).stem if filepaths else "Grupni uvoz"
+                    self._show_pe2_dialog(first_invoice)
             elif self._should_show_eur1_dialog(all_items):
                 logger.info("📦 [grupni uvoz] → otvaram EUR.1 dialog")
                 self._show_eur1_dialog()
@@ -2315,9 +2320,16 @@ class FakturaView(BaseTabView):
                         logger.info(f"🤖 → EUR1 pending={result['eur1_pending']}: otvaram EUR.1 dialog")
                         self._show_eur1_dialog()
                 elif has_origin_statement:
-                    # ✅ Faktura IMA izjavu → PE2 dialog
-                    logger.info(f"🔍 [dialog check] → otvaram PE2 dialog")
-                    self._show_pe2_dialog(invoice_name)
+                    # ✅ Faktura IMA izjavu → PE2 ili EUR1 ovisno o vrijednosti
+                    total_value = sum(getattr(i, 'iznos', 0.0) for i in items)
+                    if total_value > 6000:
+                        # Vrijednost > 6000 EUR: dobavljačka izjava (PE2) nije validna
+                        # Potreban EUR1 obrazac
+                        logger.info(f"🔍 [dialog check] → iznos={total_value:.2f}€ > 6000 → EUR1 dialog")
+                        self._show_eur1_dialog()
+                    else:
+                        logger.info(f"🔍 [dialog check] → otvaram PE2 dialog (iznos={total_value:.2f}€)")
+                        self._show_pe2_dialog(invoice_name)
                 elif self._should_show_eur1_dialog(items):
                     # ❌ Faktura NEMA izjavu → EUR.1 dialog
                     logger.info(f"🔍 [dialog check] → otvaram EUR.1 dialog")
