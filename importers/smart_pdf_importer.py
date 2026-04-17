@@ -200,8 +200,11 @@ def _detect_pdf_format(pdf_path: str) -> str:
             if "MEDICO PHARM SERVIS" in text_upper:
                 return "medicopharm"
 
-            # PROTON SYSTEM DOO (MGM fakture — isti parser kao Medicopharm, drugačiji format)
+            # PROTON SYSTEM DOO (MGM fakture)
+            # Detektuj po nazivu firme ILI po specifičnom zaglavlje tabele
             if "PROTON SYSTEM" in text_upper:
+                return "proton_system"
+            if ("ŠIFRA ARTIKLA" in text_upper or "SIFRA ARTIKLA" in text_upper) and "NETO CENA" in text_upper:
                 return "proton_system"
 
             # ŠUMAPROM
@@ -315,8 +318,8 @@ def _parse_medicopharm(pdf_path: str) -> ImportResult:
 
 def _parse_proton_system(pdf_path: str) -> ImportResult:
     """Parsira Proton System DOO format (MGM fakture)."""
-    from importers.medicopharm_importer import parse_medicopharm_pdf
-    return parse_medicopharm_pdf(pdf_path)
+    from importers.proton_system_importer import parse_proton_system_pdf
+    return parse_proton_system_pdf(pdf_path)
 
 
 def _parse_leburic_pekabesko(pdf_path: str) -> ImportResult:

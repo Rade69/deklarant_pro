@@ -205,6 +205,10 @@ def parse_master_frigo_pdf(
     header["origin_statements"] = origin_statements
     logger.info(f"  ✅ Detekcija izjave o poreklu: {header['has_origin_statement']} ({len(origin_statements)} izjava)")
 
+    # Parsiraj plain-text "Zemlja porekla X" format (specifičan za MGM)
+    zemlja_porekla_data = _parse_zemlja_porekla_text(full_text)
+    header["zemlja_porekla_data"] = zemlja_porekla_data
+
     # Extract invoice number
     for ln in lines[:80]:
         m = _INVOICE_NO_RE.search(ln)
@@ -395,6 +399,9 @@ def parse_master_frigo_pdf(
                 if not code_completed:
                     current.description = (current.description + " " + s).strip()
 
+    # Primijeni porijeklo iz PDF teksta na stavke koje nemaju origin iz mappinga
+    _apply_origin_from_text(items, header.get("zemlja_porekla_data"))
+
     return header, items
 
 
@@ -455,6 +462,95 @@ def import_master_frigo(
     logger.info(f"Imported {len(invoice_lines)} items from Master Frigo PDF")
 
     return invoice_lines
+
+
+def _parse_zemlja_porekla_text(text: str) -> Dict[str, Any]:
+    """
+    Parsira plain-text format izjave o porijeklu specifičan za MGM fakture.
+
+    Primjer:
+      "Zemlja porekla Srbija, osim stavke broj 43-46 Zemlja porekla Srbija
+       bez pref. porekla i stavke broj 47 - Zemlja porekla Francuska bez pref. porekla."
+
+    Vraća:
+      {
+        "default_origin": "RS",
+        "ranges": [
+          {"start": 43, "end": 46, "origin": "RS", "preferential": False},
+          {"start": 47, "end": 47, "origin": "FR", "preferential": False},
+        ]
+      }
+    ili None ako format nije prepoznat.
+    """
+    _COUNTRY_MAP = {
+        "srbija": "RS", "bosna": "BA", "hrvatska": "HR", "slovenija": "SI",
+        "makedonija": "MK", "crna gora": "ME", "albanija": "AL",
+        "njemačka": "DE", "nemacka": "DE", "njemačka": "DE",
+        "francuska": "FR", "italija": "IT", "austrija": "AT",
+        "mađarska": "HU", "madjarska": "HU", "rumunija": "RO",
+        "bugarska": "BG", "grčka": "GR", "grcka": "GR",
+        "turska": "TR", "kina": "CN", "japan": "JP",
+        "usa": "US", "sad": "US",
+    }
+
+    def _map_country(name: str) -> str:
+        key = name.lower().strip()
+        return _COUNTRY_MAP.get(key, normalize_country_name(name))
+
+    # Pronađi "Zemlja porekla X" pattern — samo jedna-dvije riječi, bez novog reda
+    zp_re = re.compile(r"[Zz]emlja[ \t]+porekla[ \t]+([A-Za-zÀ-žčćšđžČĆŠĐŽ]+(?:[ \t]+[A-Za-zÀ-žčćšđžČĆŠĐŽ]+)?)", re.IGNORECASE)
+    stavka_re = re.compile(
+        r"stavk[ea]\s+broj[a]?\s+(\d+)\s*[-–]\s*(\d+)|stavk[ea]\s+broj[a]?\s+(\d+)",
+        re.IGNORECASE
+    )
+
+    matches = list(zp_re.finditer(text))
+    if not matches:
+        return None
+
+    default_origin = _map_country(matches[0].group(1).strip())
+    ranges = []
+
+    # Traži "stavke broj X-Y ... Zemlja porekla Z bez pref"
+    chunk_re = re.compile(
+        r"stavk[ea]\s+broj[a]?\s+(\d+)\s*[-–]?\s*(\d+)?\s*[-–]?\s*[Zz]emlja\s+porekla\s+(\w+)(.*?)(?=stavk[ea]\s+broj|\Z)",
+        re.IGNORECASE | re.DOTALL
+    )
+    for m in chunk_re.finditer(text):
+        start = int(m.group(1))
+        end = int(m.group(2)) if m.group(2) else start
+        country = _map_country(m.group(3).strip())
+        has_pref = "bez pref" not in m.group(0).lower()
+        ranges.append({"start": start, "end": end, "origin": country, "preferential": has_pref})
+
+    if not ranges and not default_origin:
+        return None
+
+    logger.info(f"  📍 Parsirana Zemlja porekla: default={default_origin}, ranges={ranges}")
+    return {"default_origin": default_origin, "ranges": ranges}
+
+
+def _apply_origin_from_text(items: List[ImportedLine], origin_data: Optional[Dict]) -> None:
+    """Primijeni porijeklo iz parsiranog teksta na stavke koje nemaju origin iz mappinga."""
+    if not origin_data:
+        return
+    default = origin_data.get("default_origin", "")
+    ranges = origin_data.get("ranges", [])
+
+    for item in items:
+        if item.origin:
+            continue  # Excel mapping ima prioritet
+        assigned = default
+        pref = True
+        for r in ranges:
+            if r["start"] <= item.rbr <= r["end"]:
+                assigned = r["origin"]
+                pref = r["preferential"]
+                break
+        if assigned:
+            item.origin = assigned
+            if not pref and not item.preferential:
+                item.preferential = ""
 
 
 def _detect_all_origin_statements(text: str) -> list:
