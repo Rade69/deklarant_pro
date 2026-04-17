@@ -32,6 +32,7 @@ _DATA_LINE_RE = re.compile(r"^(\d{1,3})\s+(\d{6,8})\s+(.+)$")
 _BATCH_LINE_RE = re.compile(r"^\d{6,}")
 _BRUTO_RE = re.compile(r"Bruto\s+masa:\s*([\d.,]+)\s*kg", re.IGNORECASE)
 _NETO_RE = re.compile(r"Neto\s+masa:\s*([\d.,]+)\s*kg", re.IGNORECASE)
+_INVOICE_NO_RE = re.compile(r"Faktura:\s*(\d+)", re.IGNORECASE)
 
 # Zaglavlje tabele
 _TABLE_HEADER_RE = re.compile(r"\bRbr\b.*\bIznos\b", re.IGNORECASE)
@@ -129,6 +130,12 @@ def parse_proton_system_pdf(pdf_path: str) -> ImportResult:
     if m_neto:
         neto_kg = parse_eu_number(m_neto.group(1))
 
+    # Broj fakture — samo broj, bez prefiksa "Faktura:"
+    invoice_name = ""
+    m_inv = _INVOICE_NO_RE.search(full_text)
+    if m_inv:
+        invoice_name = m_inv.group(1)
+
     # Parsiranje stavki
     in_table = False
     pending_desc: Optional[str] = None
@@ -197,6 +204,6 @@ def parse_proton_system_pdf(pdf_path: str) -> ImportResult:
         items=items,
         bruto_kg=bruto_kg,
         neto_kg=neto_kg,
-        invoice_name=pdf_path,
+        invoice_name=invoice_name,
         has_origin_statement=bool(default_zemlja),
     )
