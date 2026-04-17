@@ -315,8 +315,8 @@ def _parse_medicopharm(pdf_path: str) -> ImportResult:
 
 def _parse_proton_system(pdf_path: str) -> ImportResult:
     """Parsira Proton System DOO format (MGM fakture)."""
-    from importers.medicopharm_importer import parse_medicopharm_pdf
-    return parse_medicopharm_pdf(pdf_path)
+    from importers.proton_system_importer import parse_proton_system_pdf
+    return parse_proton_system_pdf(pdf_path)
 
 
 def _parse_leburic_pekabesko(pdf_path: str) -> ImportResult:
