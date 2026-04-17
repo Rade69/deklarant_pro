@@ -497,8 +497,8 @@ def _parse_zemlja_porekla_text(text: str) -> Dict[str, Any]:
         key = name.lower().strip()
         return _COUNTRY_MAP.get(key, normalize_country_name(name))
 
-    # Pronađi "Zemlja porekla X" pattern
-    zp_re = re.compile(r"[Zz]emlja\s+porekla\s+(\w[\w\s]*?)(?=\s*[,\.;]|\s+bez|\s+osim|\s+i\s+stavk|\Z)", re.IGNORECASE)
+    # Pronađi "Zemlja porekla X" pattern — samo jedna-dvije riječi, bez novog reda
+    zp_re = re.compile(r"[Zz]emlja[ \t]+porekla[ \t]+([A-Za-zÀ-žčćšđžČĆŠĐŽ]+(?:[ \t]+[A-Za-zÀ-žčćšđžČĆŠĐŽ]+)?)", re.IGNORECASE)
     stavka_re = re.compile(
         r"stavk[ea]\s+broj[a]?\s+(\d+)\s*[-–]\s*(\d+)|stavk[ea]\s+broj[a]?\s+(\d+)",
         re.IGNORECASE
