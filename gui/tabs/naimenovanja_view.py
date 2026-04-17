@@ -286,12 +286,12 @@ class NaimenovanjaView(BaseTabView):
             "le_rubrika40_1": "previous_document",
             "le_rubrika40_2": "previous_document2",
             "le_rubrika40_3": "previous_document3",
-            # Rubrika 41
-            "le_rubrika41": "supplementary_unit_code",
+            # Rubrika 41 — količina u dopunskim jedinicama
+            "le_rubrika41": "supplementary_unit_qty",
             # Rubrika 42
             "le_rubrika42": "item_value",
-            # Rubrika 43
-            "le_rubrika43": "currency",
+            # Rubrika 43 M.V. — šifra dopunske mjerne jedinice
+            "le_rubrika43": "supplementary_unit_code",
             # Rubrika 44 – P.D. kodovi + priložene isprave + formula troškova
             "le_rubrika44_1": "pd_codes",             # P.D. šifre iz zaglavlja (from_rule, auto, read-only)
             "le_rubrika44_3": "attached_document1",   # dokument porijekla (ref. br.)
@@ -902,7 +902,7 @@ class NaimenovanjaView(BaseTabView):
 
             self.combo_rb40_tip = QComboBox(parent1)
             self.combo_rb40_tip.setObjectName("le_rubrika40_1")
-            self.combo_rb40_tip.setEditable(True)   # Editabilno — može se kucati direktno
+            self.combo_rb40_tip.setEditable(False)
             self.combo_rb40_tip.addItems(["", "X", "Y", "Z"])
             # Globalni QSS ima "QComboBox { min-width: 100px }" koji overrideuje setFixedWidth.
             # Fix: widget-level stylesheet ima veći prioritet od QApplication stylesheet-a.
@@ -1971,6 +1971,7 @@ class NaimenovanjaView(BaseTabView):
                     "net_mass_kg",
                     "item_value",
                     "statistical_value",
+                    "supplementary_unit_qty",
                 ]:
                     try:
                         value = float(value) if value else 0.0
@@ -2445,7 +2446,7 @@ class NaimenovanjaView(BaseTabView):
             w("le_rubrika38"),
             w("le_rubrika39"),
             # Rb.40 — Prethodni dokument
-            w("le_rubrika40_1"),   # X/Y/Z combo (editabilno)
+            w("le_rubrika40_1"),   # X/Y/Z combo
             w("le_rubrika40_2"),   # šifra dokumenta combo
             w("le_rubrika40_3"),   # broj
             # Rb.41/42/43

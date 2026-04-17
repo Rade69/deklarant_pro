@@ -1196,15 +1196,9 @@ class ZaglavljeService:
                 previous_document2 = ""
                 previous_document3 = ""
                 if prev_el is not None:
-                    summary = _txt(prev_el, "Summary_declaration")
-                    if summary:
-                        previous_document = summary
-                    prev_ref = _txt(prev_el, "Previous_document_reference")
-                    if prev_ref:
-                        if not previous_document:
-                            previous_document = prev_ref
-                        else:
-                            previous_document2 = prev_ref
+                    previous_document = _txt(prev_el, "Previous_category")    # X/Y/Z
+                    previous_document2 = _txt(prev_el, "Previous_type")       # N821 itd.
+                    previous_document3 = _txt(prev_el, "Summary_declaration") # broj
                 free_text1 = _txt(item_el, "Free_text_1")
                 free_text2 = _txt(item_el, "Free_text_2")
             else:

@@ -3,7 +3,7 @@
 ################################################################################
 ## Form generated from reading UI file 'naimenovanja_tab_OPTIMIZED.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.10.2
+## Created by: Qt User Interface Compiler version 6.11.0
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -364,12 +364,11 @@ class Ui_NaimenovanjaTab(object):
         self.lbl_rubrika40.setText(QCoreApplication.translate("NaimenovanjaTab", u"40  isprava / prethodni dokument", None))
         self.lbl_rubrika41.setText(QCoreApplication.translate("NaimenovanjaTab", u"41  dopunska jedinica", None))
         self.lbl_rubrika42.setText(QCoreApplication.translate("NaimenovanjaTab", u"42  cijena robe", None))
-        self.lbl_rubrika43.setText(QCoreApplication.translate("NaimenovanjaTab", u"43  m.v.", None))
-        self.lbl_rubrika43_tekst.setText(QCoreApplication.translate("NaimenovanjaTab", u"V.M.", None))
+        self.lbl_rubrika43.setText(QCoreApplication.translate("NaimenovanjaTab", u"43", None))
+        self.lbl_rubrika43_tekst.setText(QCoreApplication.translate("NaimenovanjaTab", u"M.V.", None))
         self.lbl_rubrika44.setText(QCoreApplication.translate("NaimenovanjaTab", u"44 Prilo\u017eene\n"
 "isprave", None))
-        self.le_rubrika44_1.setPlaceholderText(QCoreApplication.translate("NaimenovanjaTab", u"P.D. kodovi (auto)", None))
-        self.le_rubrika44_5.setPlaceholderText(QCoreApplication.translate("NaimenovanjaTab", u"dodatna napomena", None))
+        self.le_rubrika44_1.setPlaceholderText(QCoreApplication.translate("NaimenovanjaTab", u"Tarification (auto)", None))
         self.lbl_rubrika45.setText(QCoreApplication.translate("NaimenovanjaTab", u"45  prilago\u0111enje", None))
         self.lbl_rubrika46.setText(QCoreApplication.translate("NaimenovanjaTab", u"46  statisti\u010dka vrijednost", None))
         self.status_bar_widget.setStyleSheet(QCoreApplication.translate("NaimenovanjaTab", u"background: qlineargradient(x1:0, y1:0, x2:1, y2:0,\n"
