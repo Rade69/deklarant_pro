@@ -200,8 +200,11 @@ def _detect_pdf_format(pdf_path: str) -> str:
             if "MEDICO PHARM SERVIS" in text_upper:
                 return "medicopharm"
 
-            # PROTON SYSTEM DOO (MGM fakture — isti parser kao Medicopharm, drugačiji format)
+            # PROTON SYSTEM DOO (MGM fakture)
+            # Detektuj po nazivu firme ILI po specifičnom zaglavlje tabele
             if "PROTON SYSTEM" in text_upper:
+                return "proton_system"
+            if ("ŠIFRA ARTIKLA" in text_upper or "SIFRA ARTIKLA" in text_upper) and "NETO CENA" in text_upper:
                 return "proton_system"
 
             # ŠUMAPROM

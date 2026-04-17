@@ -30,6 +30,8 @@ _DATA_LINE_RE = re.compile(r"^(\d{1,3})\s+(\d{6,8})\s+(.+)$")
 
 # Batch/serijski red: počinje sa 6+ cifara (broj serije/LOT)
 _BATCH_LINE_RE = re.compile(r"^\d{6,}")
+_BRUTO_RE = re.compile(r"Bruto\s+masa:\s*([\d.,]+)\s*kg", re.IGNORECASE)
+_NETO_RE = re.compile(r"Neto\s+masa:\s*([\d.,]+)\s*kg", re.IGNORECASE)
 
 # Zaglavlje tabele
 _TABLE_HEADER_RE = re.compile(r"\bRbr\b.*\bIznos\b", re.IGNORECASE)
@@ -39,7 +41,7 @@ _STOP_RE = re.compile(r"^Ukupno\b", re.IGNORECASE)
 
 # Zemlja porekla
 _ZEMLJA_RE = re.compile(
-    r"Zemlja[ \t]+porekla[ \t]+([A-Za-zÀ-žčćšđžČĆŠĐŽ]+(?:[ \t]+(?!bez|osim|sa|i\b)[A-Za-zÀ-žčćšđžČĆŠĐŽ]+)?)",
+    r"Zemlja[ \t]+porekla[ \t]+([A-Za-zÀ-žčćšđžČĆŠĐŽ]+)",
     re.IGNORECASE,
 )
 _ITEM_RANGE_RE = re.compile(r"stavk[ei]\s+broj[a]?\s+(\d+)\s*[-–]\s*(\d+)", re.IGNORECASE)
@@ -117,6 +119,16 @@ def parse_proton_system_pdf(pdf_path: str) -> ImportResult:
     # Zemlja porijekla
     default_zemlja, zemlja_overrides = _parse_zemlja_porekla(full_text)
 
+    # Težine
+    bruto_kg = 0.0
+    neto_kg = 0.0
+    m_bruto = _BRUTO_RE.search(full_text)
+    m_neto = _NETO_RE.search(full_text)
+    if m_bruto:
+        bruto_kg = parse_eu_number(m_bruto.group(1))
+    if m_neto:
+        neto_kg = parse_eu_number(m_neto.group(1))
+
     # Parsiranje stavki
     in_table = False
     pending_desc: Optional[str] = None
@@ -173,15 +185,18 @@ def parse_proton_system_pdf(pdf_path: str) -> ImportResult:
                 exporter=mgm_party,
             ))
         else:
-            # Opis artikla (redovi bez Rbr na početku)
-            pending_desc = line
+            # Opis artikla — može se prostirati na više redova
+            if pending_desc:
+                pending_desc = pending_desc + " " + line
+            else:
+                pending_desc = line
 
     logger.info(f"✅ Proton System: {len(items)} stavki, zemlja={default_zemlja}")
 
     return ImportResult(
         items=items,
-        bruto_kg=0.0,
-        neto_kg=0.0,
+        bruto_kg=bruto_kg,
+        neto_kg=neto_kg,
         invoice_name=pdf_path,
         has_origin_statement=bool(default_zemlja),
     )
