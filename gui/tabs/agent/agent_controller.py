@@ -305,6 +305,8 @@ class AgentController:
         # ⭐ Obradi SVAKU fakturu ZASEBNO sa posebnim dijalogom
         all_processed_lines = []
         processed_total = 0
+        total_bruto_kg = 0.0
+        total_neto_kg = 0.0
         for file_item in completed:
             if file_item.status != 'Completed' or not file_item.invoice_lines:
                 continue
@@ -322,23 +324,14 @@ class AgentController:
             chat.add_activity(f"📥 [{invoice_name}] Uvoz {len(lines)} stavki...")
             QApplication.processEvents()
 
+            # Akumuliraj težine za sve fakture
+            total_bruto_kg += bruto
+            total_neto_kg += neto
+
             # Refresh tabele
             fw = self.faktura_tab.view if hasattr(self.faktura_tab, 'view') else self.faktura_tab
-            if fw and hasattr(fw, 'input_bruto') and hasattr(fw, 'input_neto'):
-                fw.input_bruto.setText(f"{bruto:,.3f}")
-                fw.input_neto.setText(f"{neto:,.3f}")
-                if hasattr(fw, '_load_data_from_draft'):
-                    fw._load_data_from_draft()
-                if hasattr(fw, 'input_bruto'):
-                    try:
-                        from services.faktura.mass_calculator import MassCalculator
-                        mass_calc = MassCalculator()
-                        b = float(fw.input_bruto.text().replace(",", "") or "0")
-                        n = float(fw.input_neto.text().replace(",", "") or "0")
-                        if b > 0 or n > 0:
-                            mass_calc.calculate_masses(self.draft.invoice_lines, b, n)
-                    except Exception:
-                        pass
+            if fw and hasattr(fw, '_load_data_from_draft'):
+                fw._load_data_from_draft()
 
             # ⭐ PRIKAŽI REZIME FAKTURE
             bez_tarife = sum(1 for l in lines if not l.tarifni_broj)
@@ -399,10 +392,16 @@ class AgentController:
         self.draft.invoice_lines.extend(all_processed_lines)
         print(f"[AgentController] Draft sada ima {len(self.draft.invoice_lines)} stavki")
 
-        # Osvježi Faktura tab da prikaže sve stavke
+        # Osvježi Faktura tab i upiši akumulirane težine u toolbar
         fw = self.faktura_tab.view if hasattr(self.faktura_tab, 'view') else self.faktura_tab
-        if fw and hasattr(fw, '_load_data_from_draft'):
-            fw._load_data_from_draft()
+        if fw:
+            if hasattr(fw, '_load_data_from_draft'):
+                fw._load_data_from_draft()
+            # Resetuj i akumuliraj ukupne težine svih faktura
+            if hasattr(fw, 'weight_manager') and hasattr(fw, '_accumulate_weights'):
+                fw.weight_manager.accumulated_bruto_kg = 0.0
+                fw.weight_manager.accumulated_neto_kg = 0.0
+                fw._accumulate_weights(total_bruto_kg, total_neto_kg)
             QApplication.processEvents()
 
         # ⭐ Prebaci na Faktura tab da korisnik vidi rezultate
@@ -855,11 +854,12 @@ class AgentController:
             faktura_widget = self.faktura_tab.view
 
         if faktura_widget:
-            # Postavi težine u toolbar
+            # Postavi težine u toolbar (kroz weight_manager, ne direktni setText)
             if total_bruto > 0 or total_neto > 0:
-                if hasattr(faktura_widget, 'input_bruto') and hasattr(faktura_widget, 'input_neto'):
-                    faktura_widget.input_bruto.setText(f"{total_bruto:,.3f}")
-                    faktura_widget.input_neto.setText(f"{total_neto:,.3f}")
+                if hasattr(faktura_widget, 'weight_manager') and hasattr(faktura_widget, '_accumulate_weights'):
+                    faktura_widget.weight_manager.accumulated_bruto_kg = 0.0
+                    faktura_widget.weight_manager.accumulated_neto_kg = 0.0
+                    faktura_widget._accumulate_weights(total_bruto, total_neto)
                     chat.add_activity(f"⚖️ Težine postavljene: Bruto={total_bruto:.2f}kg, Neto={total_neto:.2f}kg")
 
             # Refresh tabele
