@@ -177,3 +177,36 @@ def parse_packing_tail(parts: list) -> Optional[dict]:
         "neto_str": neto_str,
         "bruto_str": bruto_str,
     }
+
+
+# ---------------------------------------------------------------------------
+# Normalizacija tarifnih brojeva
+# ---------------------------------------------------------------------------
+
+def normalize_tariff_number(code: str) -> str:
+    """
+    Normalizuje tarifni broj na standardnih 8 cifara.
+
+    Pravila:
+    - Ako kod sadrži '/', uzima se dio prije kose crte (npr. "21069098/9080" → "21069098")
+    - Uzimaju se samo cifre (uklanjaju se razmaci i specijalni znakovi)
+    - Skraćuje se na prvih 8 cifara (ASYCUDA standard za BiH carinsku tarifu)
+    - Prazan string ostaje prazan
+
+    Primjeri:
+        "30051000000"   → "30051000"
+        "33049900000"   → "33049900"
+        "330499000080"  → "33049900"
+        "21069098/9080" → "21069098"
+        "38249993"      → "38249993"  (već 8, ostaje)
+        ""              → ""
+    """
+    if not code:
+        return ""
+    # Ako ima '/', uzmi samo dio prije kose crte
+    if "/" in code:
+        code = code.split("/")[0]
+    # Zadrži samo cifre
+    digits = re.sub(r"\D", "", code)
+    # Skrati na 8 cifara
+    return digits[:8]

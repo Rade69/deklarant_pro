@@ -32,7 +32,7 @@ import pdfplumber
 
 from core.draft.draft import InvoiceLine, Party
 from importers.import_result import ImportResult
-from importers.invoice_line_utils import KNOWN_JM, parse_eu_number
+from importers.invoice_line_utils import KNOWN_JM, parse_eu_number, normalize_tariff_number
 from utils.country_normalizer import normalize_country_name
 
 logger = logging.getLogger("asycuda_pro.import.medicopharm")
@@ -708,7 +708,7 @@ def _to_invoice_lines(items: List[Dict]) -> List[InvoiceLine]:
             line_no=item["rbr"],
             product_code=item["code"],
             naziv_robe=item["name"],
-            tarifni_broj=item["tariff"],
+            tarifni_broj=normalize_tariff_number(item["tariff"]),
             zemlja_porijekla=item.get("zemlja", ""),
             povlastica="",
             jm=item["jm"],
