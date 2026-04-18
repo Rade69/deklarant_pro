@@ -92,12 +92,11 @@ def _clean_tariff(raw: str) -> str:
             s = "1" + s
         else:
             s = s.zfill(10)
+    elif n == 7:
+        s = s.zfill(8)
     elif n < 8 and n >= 4:
         # Možda su izgubljene vodeće nule — ne dodaj automatski
         pass
-    return s
-    elif n == 7:
-        s = s.zfill(8)
     return s
 
 
