@@ -69,7 +69,8 @@ class InvoiceLine:
 
     # EUR.1 podaci
     eur1_number: str = ""           # Broj EUR.1 obrasca
-    has_origin_statement: bool = False  # Da li PDF ima izjavu o poreklu
+    has_origin_statement: bool = False  # Da li stavka ima izjavu o poreklu (PE2/EUR1 eligible)
+    no_preference: bool = False         # Eksplicitno "bez pref. porekla" — nema povlastice
 
     # Confidence level za zemlju porijekla (HIGH/MEDIUM/LOW/CONFLICT)
     country_confidence: str = ""  # "HIGH", "MEDIUM", "LOW", "CONFLICT"

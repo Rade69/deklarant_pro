@@ -92,19 +92,20 @@ QWidget#naimenovanjaUiWidget QGroupBox {
 }
 
 QWidget#naimenovanjaUiWidget QLabel {
-    font-size: 13px;
-    color: #333;
+    font-size: 14px;
+    font-weight: bold;
+    color: #2e7d32;
 }
 
 QWidget#naimenovanjaUiWidget QLineEdit {
-    font-size: 13px;
+    font-size: 14px;
     padding: 4px;
     color: #333;
     background-color: white;
 }
 
 QWidget#naimenovanjaUiWidget QComboBox {
-    font-size: 13px;
+    font-size: 14px;
     color: #333;
 }
 

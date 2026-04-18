@@ -46,7 +46,7 @@ _ZEMLJA_RE = re.compile(
     re.IGNORECASE,
 )
 _ITEM_RANGE_RE = re.compile(r"stavk[ei]\s+broj[a]?\s+(\d+)\s*[-–]\s*(\d+)", re.IGNORECASE)
-_ITEM_SINGLE_RE = re.compile(r"stavk[ei]?\s+broj[a]?\s+(\d+)(?!\s*[-–]\s*\d)", re.IGNORECASE)
+_ITEM_SINGLE_RE = re.compile(r"stavk[ei]?\s+broj[a]?\s+(\d+)\b(?!\s*[-–]\s*\d)", re.IGNORECASE)
 
 _COUNTRY_MAP = {
     "srbija": "RS", "bosna": "BA", "hrvatska": "HR", "slovenija": "SI",
@@ -65,26 +65,51 @@ def _resolve_country(name: str) -> str:
     return iso if iso != name and len(iso) == 2 else ""
 
 
-def _parse_zemlja_porekla(full_text: str) -> Tuple[str, Dict[int, str]]:
-    matches = [(m.start(), _resolve_country(m.group(1))) for m in _ZEMLJA_RE.finditer(full_text)]
-    matches = [(pos, iso) for pos, iso in matches if iso]
-    if not matches:
-        return "", {}
+_BEZ_PREF_RE = re.compile(r"bez\s+pref\.\s*porekla", re.IGNORECASE)
 
-    default = matches[0][1]
+
+def _parse_zemlja_porekla(full_text: str) -> Tuple[str, Dict[int, str], set]:
+    """Vraća (default_zemlja, overrides, bez_pref_items) gdje bez_pref_items su rbr-ovi
+    stavki koje eksplicitno imaju 'bez pref. porekla' — nema povlastice za njih."""
+    raw = list(_ZEMLJA_RE.finditer(full_text))
+    # (start, end, iso)
+    matches = [(m.start(), m.end(), _resolve_country(m.group(1))) for m in raw]
+    matches = [(s, e, iso) for s, e, iso in matches if iso]
+    if not matches:
+        return "", {}, set()
+
+    default = matches[0][2]
     overrides: Dict[int, str] = {}
+    bez_pref_items: set = set()
 
     for i in range(1, len(matches)):
-        pos, country = matches[i]
-        segment = full_text[matches[i - 1][0]:pos]
+        pos_i, end_i, country = matches[i]
+
+        # Provjeri da li "bez pref." slijedi odmah nakon ove zemlja oznake
+        window = full_text[end_i: end_i + 80]
+        is_bez_pref = bool(_BEZ_PREF_RE.search(window))
+
+        # Stavke za ovu zemlju su u segmentu između prethodne i ove zemlja oznake
+        segment = full_text[matches[i - 1][0]: pos_i]
+        assigned: List[int] = []
         for m in _ITEM_RANGE_RE.finditer(segment):
             for rbr in range(int(m.group(1)), int(m.group(2)) + 1):
                 overrides[rbr] = country
+                assigned.append(rbr)
         for m in _ITEM_SINGLE_RE.finditer(segment):
-            overrides[int(m.group(1))] = country
+            rbr = int(m.group(1))
+            overrides[rbr] = country
+            assigned.append(rbr)
 
-    logger.info(f"   🌍 Zemlja porekla: default={default}" + (f", overrides={overrides}" if overrides else ""))
-    return default, overrides
+        if is_bez_pref:
+            bez_pref_items.update(assigned)
+
+    logger.info(
+        f"   🌍 Zemlja porekla: default={default}"
+        + (f", overrides={overrides}" if overrides else "")
+        + (f", bez_pref={sorted(bez_pref_items)}" if bez_pref_items else "")
+    )
+    return default, overrides, bez_pref_items
 
 
 def _parse_tail(tail: str):
@@ -118,7 +143,7 @@ def parse_proton_system_pdf(pdf_path: str) -> ImportResult:
     full_text = " ".join(all_lines)
 
     # Zemlja porijekla
-    default_zemlja, zemlja_overrides = _parse_zemlja_porekla(full_text)
+    default_zemlja, zemlja_overrides, bez_pref_items = _parse_zemlja_porekla(full_text)
 
     # Težine
     bruto_kg = 0.0
@@ -174,6 +199,10 @@ def parse_proton_system_pdf(pdf_path: str) -> ImportResult:
             pending_desc = None
 
             zemlja = zemlja_overrides.get(rbr, default_zemlja)
+            is_bez_pref = rbr in bez_pref_items
+            # Stavka ima preferencijalnu izjavu ako: faktura IMA default zemlja
+            # I stavka NIJE eksplicitno "bez pref. porekla"
+            item_has_origin = bool(default_zemlja) and not is_bez_pref
 
             items.append(InvoiceLine(
                 line_no=rbr,
@@ -190,6 +219,8 @@ def parse_proton_system_pdf(pdf_path: str) -> ImportResult:
                 bruto_kg=0.0,
                 neto_kg=0.0,
                 exporter=mgm_party,
+                has_origin_statement=item_has_origin,
+                no_preference=is_bez_pref,
             ))
         else:
             # Opis artikla — može se prostirati na više redova

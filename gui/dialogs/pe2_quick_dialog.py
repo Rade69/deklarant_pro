@@ -191,9 +191,11 @@ class PE2QuickDialog(QDialog):
         self._update_info()
 
     def _group_by_country(self) -> Dict[str, List[InvoiceLine]]:
-        """Grupiši stavke po zemlji porijekla."""
+        """Grupiši stavke po zemlji porijekla (isključuje stavke sa no_preference=True)."""
         countries = {}
         for item in self.invoice_lines:
+            if getattr(item, 'no_preference', False):
+                continue  # "bez pref. porekla" — preskoci, nema povlastice
             if item.zemlja_porijekla:
                 country = item.zemlja_porijekla.upper()
                 if country not in countries:
