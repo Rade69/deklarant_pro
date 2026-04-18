@@ -45,11 +45,14 @@ _INVOICE_NO_RE = re.compile(r"Faktura\s*[-–]\s*(\d+/\d+)", re.IGNORECASE)
 _DATE_RE = re.compile(r"Datum\s+fakture[^:]*:\s*(\d{1,2}\.\d{1,2}\.\d{4})", re.IGNORECASE)
 _BRUTO_RE = re.compile(r"BRUTO\s+TE[ZŽ]INA\s*:?\s*([\d\.,]+)\s*kg", re.IGNORECASE)
 
-# Header tabla stavki: prepoznaje "Rb." + "JM" ili "Rbr" + "J.M." (Proton System format)
-_ITEM_HEADER_RE = re.compile(r"\bRb\.\s*No\b|\bRb[r.]?\b.*\bJ\.?M\.?\b", re.IGNORECASE)
+# Header tabla stavki: prepoznaje "Rb." + "JM" ili "Rbr" + "J.M." ili "Rb. Šifra" (novi format)
+_ITEM_HEADER_RE = re.compile(
+    r"\bRb\.\s*No\b|\bRb[r.]?\b.*\bJ\.?M\.?\b|\bRb\.\s+[ŠS]ifra\b",
+    re.IGNORECASE
+)
 
-# Header sumarnog tabela po tarifama/zemljama
-_SUMMARY_HEADER_RE = re.compile(r"Tarifna\s+oznaka|Tariff\s+heading", re.IGNORECASE)
+# Header sumarnog tabela — SAMO srpska verzija, ne "Tariff heading" (pojavljuje se i u headeru stavki)
+_SUMMARY_HEADER_RE = re.compile(r"Tarifna\s+oznaka", re.IGNORECASE)
 
 # Total red u sumarnom tabelu
 _TOTAL_LINE_RE = re.compile(r"^Total\b", re.IGNORECASE)
@@ -58,6 +61,9 @@ _TOTAL_LINE_RE = re.compile(r"^Total\b", re.IGNORECASE)
 _NOISE_PATTERNS = [
     re.compile(r"^\s*Strana\s+\d+", re.IGNORECASE),
     re.compile(r"^\s*Page\s+\d+", re.IGNORECASE),
+    re.compile(r"^\s*JM\s*$", re.IGNORECASE),              # Standalone "JM" red između tabela headera
+    re.compile(r"^No\.\s+Code\b", re.IGNORECASE),           # "No. Code Tariff heading Item name..." (drugi red headera)
+    re.compile(r"^Tariff\s+heading\b.*Country\b", re.IGNORECASE),  # Summary sub-header
     re.compile(r"MEDICO\s+PHARM\s+SERVIS", re.IGNORECASE),
     re.compile(r"KRUŽNI\s+PUT|KRU[ZŽ]NI\s+PUT", re.IGNORECASE),
     re.compile(r"^\s*TEL\s*:", re.IGNORECASE),
@@ -537,17 +543,17 @@ def _parse_summary(lines: List[str]) -> Tuple[float, Dict[str, List[str]]]:
     tariff_country_map: Dict[str, List[str]] = {}
     neto_kg = 0.0
 
-    # Skip dvojni header (Tarifna oznaka / Tariff heading)
-    skip_headers = 2
+    # Skip samo jednu sub-header liniju ("Tariff heading Country Amount Sum Weight")
+    # Napomena: "Tarifna oznaka" linija je već preskočena u detekcijskom loopu (summary_start = i+1)
+    skip_headers = 1
 
     for ln in lines:
         s = ln.strip()
         if not s:
             continue
 
-        # Preskoči header linije sumarnog tabela
+        # Preskoči header/sub-header linije sumarnog tabela (ako se ponavljaju)
         if _SUMMARY_HEADER_RE.search(s):
-            skip_headers -= 1
             continue
 
         if skip_headers > 0:
@@ -571,10 +577,10 @@ def _parse_summary(lines: List[str]) -> Tuple[float, Dict[str, List[str]]]:
             break
 
         parts = s.split()
-        # Red sumarnog tabela: tarifa (samo cifre) + zemlja + kolicina + iznos + tezina
+        # Red sumarnog tabela: tarifa (cifre, opciono sa "/") + zemlja + kolicina + iznos + tezina
         if len(parts) < 5:
             continue
-        if not re.match(r"^\d+$", parts[0]):
+        if not re.match(r"^\d[\d/]*$", parts[0]):
             continue
 
         tariff = parts[0]
