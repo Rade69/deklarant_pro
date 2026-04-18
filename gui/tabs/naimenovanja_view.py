@@ -463,6 +463,7 @@ class NaimenovanjaView(BaseTabView):
             self.grid_x = current_geom.x()
             self.grid_width = new_width
 
+
             # Add 2px border around main grid using BlackLineWidget (like before)
             # OPCIJA B: Borders on parent widget (absolute positioning)
             parent = main_grid.parent()
@@ -580,7 +581,7 @@ class NaimenovanjaView(BaseTabView):
                     border-radius: 4px;
                     padding: 3px 6px;
                     font-weight: bold;
-                    font-size: 13px;
+                    font-size: 14px;
                     color: #1565c0;
                 }
             """
@@ -643,7 +644,7 @@ class NaimenovanjaView(BaseTabView):
                 border-radius: 6px;
                 padding: 5px 15px;
                 background-color: #ffffff;
-                font-size: 13px;
+                font-size: 14px;
                 font-weight: 500;
                 min-width: 80px;
             }
@@ -844,7 +845,7 @@ class NaimenovanjaView(BaseTabView):
                 border: 2px solid #2196f3;
                 border-radius: 4px;
                 padding: 5px;
-                font-size: 13px;
+                font-size: 14px;
                 font-weight: 600;
                 color: #1565c0;
             }
@@ -1225,7 +1226,7 @@ class NaimenovanjaView(BaseTabView):
         self.combo_items.setFixedHeight(34)
         self.combo_items.setStyleSheet("""
             QComboBox {
-                font-size: 13px;
+                font-size: 14px;
                 font-weight: 600;
                 padding: 4px 10px;
                 border: 2px solid #4A7FA5;
@@ -1345,7 +1346,7 @@ class NaimenovanjaView(BaseTabView):
                 background-color: #FF8C00;
                 color: #FFFFFF;
                 font-weight: bold;
-                font-size: 12px;
+                font-size: 14px;
                 padding: 2px 10px;
                 border-radius: 4px;
                 border: 1px solid #CC6600;
@@ -1606,7 +1607,7 @@ class NaimenovanjaView(BaseTabView):
                     border-radius: 4px;
                     padding: 3px 6px;
                     font-weight: bold;
-                    font-size: 13px;
+                    font-size: 14px;
                     color: #1565c0;
                 }
             """
@@ -1628,7 +1629,7 @@ class NaimenovanjaView(BaseTabView):
                     border-radius: 4px;
                     padding: 3px 6px;
                     font-weight: bold;
-                    font-size: 13px;
+                    font-size: 14px;
                     color: #2e7d32;
                 }
             """
@@ -1842,6 +1843,15 @@ class NaimenovanjaView(BaseTabView):
             # FORCE: postavi direktni stylesheet na main_grid_frame (QUiLoader bug workaround)
             if grid:
                 grid.setStyleSheet("QFrame#main_grid_frame { background-color: #f0f0f0; border: 1px solid #999; }")
+
+        # Rb.40: Z i N821 combosi vidljivi samo za prvo naimenovanje
+        is_first_item = (self.current_item_index == 0)
+        rb40_1 = self._get_widget("le_rubrika40_1")
+        rb40_2 = self._get_widget("le_rubrika40_2")
+        if rb40_1:
+            rb40_1.setVisible(is_first_item)
+        if rb40_2:
+            rb40_2.setVisible(is_first_item)
 
         print(f"  📦 _load_current_item END — loaded={loaded}, not_found={not_found}")
 
