@@ -248,8 +248,12 @@ def _parse_items(lines: List[str]) -> List[Dict]:
     """
     Parsira listu linija tabele stavki.
 
-    Svaki red koji počinje RBR-om i ima JM na poziciji -7 je nova stavka.
-    Ostali redovi su nastavak naziva prethodne stavke.
+    Podržava dva formata:
+    1. Regularni (jednolinijski): RBR CODE TARIFF NAME JM KOL CENA IZNOS RAB% RABAT IZN_RABAT
+    2. Split (višelinijski, Medicopharm format sa internim šiframa):
+       - Linija 1: RBR CODE NAME... (bez JM i numeričkog repa)
+       - Linija 2+: nastavak naziva / interna šifra kataloga
+       - Zadnja linija segmenta: TARIFF JM KOL CENA IZNOS RAB% IZN_RABAT
     """
     items: List[Dict] = []
     current: Optional[Dict] = None
@@ -285,6 +289,16 @@ def _parse_items(lines: List[str]) -> List[Dict]:
                 prefix = " ".join(pending_name_parts)
                 current["name"] = (prefix + " " + current["name"]).strip()
             pending_name_parts = []
+        elif current and current.get("_partial"):
+            # Split stavka — čekamo liniju s tarifom + JM + numeričkim repom
+            completion = _try_complete_split_item(s)
+            if completion:
+                current.update(completion)
+                del current["_partial"]
+            else:
+                # Nastavak naziva (interna šifra, drugi dio teksta)
+                if not _LOT_DATE_QTY_RE.match(s):
+                    current["name"] = (current["name"] + " " + s).strip()
         elif current:
             # Preskoči liniju šifra_serije + datum_roka + količina
             if _LOT_DATE_QTY_RE.match(s):
@@ -296,8 +310,15 @@ def _parse_items(lines: List[str]) -> List[Dict]:
                 # Medico Pharm: nastavak naziva iste stavke (multi-line opis)
                 current["name"] = (current["name"] + " " + s).strip()
         else:
-            # Nema tekuće stavke → buferiraj kao potencijalni naziv za sljedeću stavku
-            if not _LOT_DATE_QTY_RE.match(s):
+            # Pokušaj detektovati početak split stavke (RBR + CODE + NAME, bez JM u repu)
+            partial = _try_parse_partial_item_start(s)
+            if partial:
+                if current:
+                    items.append(current)
+                current = partial
+                pending_name_parts = []
+            elif not _LOT_DATE_QTY_RE.match(s):
+                # Nema tekuće stavke → buferiraj kao potencijalni naziv za sljedeću stavku
                 pending_name_parts.append(s)
 
     if current:
@@ -400,6 +421,96 @@ def _try_parse_item_line(line: str) -> Optional[Dict]:
             }
 
     return None
+
+
+def _try_parse_partial_item_start(line: str) -> Optional[Dict]:
+    """
+    Detektuje PRVI red split-stavke (Medicopharm format sa internim šiframa).
+
+    Format: RBR CODE NAME... (bez JM u repu, tipično završava jednim brojem 0.00)
+    Primjer: "6 1611 GW REZERVNI DEO -DRŽAČ ZA SPREJ 0.00"
+
+    Razlikuje se od regularnog reda: nema prepoznatog JM na pozicijama od desna.
+    """
+    parts = line.split()
+    if len(parts) < 3:
+        return None
+
+    try:
+        rbr = int(parts[0])
+        if rbr <= 0 or rbr > 9999:
+            return None
+    except ValueError:
+        return None
+
+    # Ako ima JM na standardnim pozicijama → to je regularni red, ne split
+    for offset in (7, 8, 6):
+        if len(parts) <= offset:
+            continue
+        if parts[-offset].rstrip(".").lower() in KNOWN_JM:
+            return None
+
+    # Mora završavati numeričkim tokenom (tipično 0.00) ali ne smije biti samo broj
+    if not _is_numeric_token(parts[-1]):
+        return None
+    if len(parts) < 4:
+        return None
+
+    code = parts[1]
+    name = " ".join(parts[2:-1])  # Naziv između code i završnog broja
+
+    return {
+        "rbr": rbr,
+        "code": code,
+        "tariff": "",
+        "name": name,
+        "jm": "",
+        "kolicina": 0.0,
+        "cijena": 0.0,
+        "iznos": 0.0,
+        "zemlja": "",
+        "_partial": True,
+    }
+
+
+def _try_complete_split_item(line: str) -> Optional[Dict]:
+    """
+    Pokušava kompletirati split-stavku pronalazeći liniju oblika:
+    TARIFF JM KOL CENA IZNOS [RAB%] [RABAT] IZN_RABAT
+
+    Primjer: "90330090 KOM 1.00 76.481 76.48 0.00 76.48"
+    Tarifa je čisto numerička (>= 4 cifre), JM mora biti u KNOWN_JM.
+    """
+    parts = line.split()
+    if len(parts) < 4:
+        return None
+
+    # Tarifa mora biti samo cifre (4+ cifre, >1000)
+    if not re.match(r"^\d{4,}$", parts[0]):
+        return None
+
+    # Drugi token mora biti JM
+    jm = parts[1].rstrip(".")
+    if jm.lower() not in KNOWN_JM:
+        return None
+
+    # Ostatak moraju biti numerički tokeni (3-6 vrijednosti)
+    tail = parts[2:]
+    if len(tail) < 3 or not all(_is_numeric_token(t) for t in tail):
+        return None
+
+    tariff = parts[0]
+    kolicina = parse_eu_number(tail[0])
+    cijena = parse_eu_number(tail[1]) if len(tail) > 1 else 0.0
+    iznos = parse_eu_number(tail[-1])  # IZN_RABAT = zadnji token
+
+    return {
+        "tariff": tariff,
+        "jm": jm.lower(),
+        "kolicina": kolicina,
+        "cijena": cijena,
+        "iznos": iznos,
+    }
 
 
 def _is_numeric_token(s: str) -> bool:
