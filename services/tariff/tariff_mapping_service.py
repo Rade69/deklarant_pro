@@ -762,8 +762,10 @@ class TariffMappingService:
             True ako je uspješno sačuvano
         """
         try:
-            # Normalizuj na 8 cifara (Commodity_code)
-            commodity = tarifni_broj.strip()[:8] if tarifni_broj else ""
+            # Commodity_code u mapping tabeli je uvijek 8-cifreni CN kod (baza za matching).
+            # "Ex" TARIC kodovi (10 cifara, zadnje 2 ≠ 00) se čuvaju kao 8-cifreni CN
+            # jer mapping služi za preporuku — finalni "ex" unos radi korisnik ručno.
+            commodity = re.sub(r"\D", "", tarifni_broj.strip())[:8] if tarifni_broj else ""
             if not commodity or not commodity.isdigit() or len(commodity) != 8:
                 logger.warning(f"⚠️  Nevalidan commodity_code: '{tarifni_broj}' — preskočeno")
                 return False

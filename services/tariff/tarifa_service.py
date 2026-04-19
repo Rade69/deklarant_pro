@@ -13,17 +13,23 @@ import sqlite3
 import re
 import os
 import logging
+from functools import lru_cache
 from typing import List, Dict, Optional
 
 logger = logging.getLogger("asycuda_pro.tarifa_service")
 
-DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'database', 'asycuda_sistem.db')
+DB_PATH = os.path.join(os.path.dirname(__file__), '..', '..', 'database', 'asycuda_sistem.db')
+
+# Jedna dijeljenja read-only konekcija — tarifa_2026 se nikad ne mijenja za vrijeme rada
+_shared_conn: sqlite3.Connection | None = None
 
 
 def _get_conn() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+    global _shared_conn
+    if _shared_conn is None:
+        _shared_conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+        _shared_conn.row_factory = sqlite3.Row
+    return _shared_conn
 
 
 def _row_to_dict(row) -> Dict:
@@ -126,7 +132,6 @@ def pretrazi(upit: str, limit: int = 10, samo_podbroj: bool = False) -> List[Dic
                         or_rows.append(r)
             rows = or_rows[:limit]
 
-        conn.close()
         return [_row_to_dict(r) for r in rows]
 
     except Exception as e:
@@ -147,13 +152,13 @@ def _pretrazi_like(upit: str, limit: int = 10, samo_podbroj: bool = False) -> Li
             WHERE naziv LIKE ? {nivo_filter}
             LIMIT ?
         """, (pattern, limit)).fetchall()
-        conn.close()
         return [_row_to_dict(r) for r in rows]
     except Exception as e:
         logger.error(f"LIKE pretraga nije uspjela: {e}")
         return []
 
 
+@lru_cache(maxsize=512)
 def trazi_po_kodu(kod: str) -> Optional[Dict]:
     """
     Pronađi tarifnu oznaku po kodu (exact ili prefix).
@@ -185,7 +190,6 @@ def trazi_po_kodu(kod: str) -> Optional[Dict]:
                 LIMIT 1
             """, (kod_clean + '%',)).fetchone()
 
-        conn.close()
         return _row_to_dict(row) if row else None
 
     except Exception as e:
@@ -211,7 +215,6 @@ def trazi_poglavlje(poglavlje: str, limit: int = 50) -> List[Dict]:
             ORDER BY kod
             LIMIT ?
         """, (poglavlje, limit)).fetchall()
-        conn.close()
         return [_row_to_dict(r) for r in rows]
     except Exception as e:
         logger.error(f"Greška pri pretrazi poglavlja {poglavlje}: {e}")
@@ -228,12 +231,12 @@ def naziv_poglavlja(poglavlje: str) -> str:
             WHERE poglavlje = ? AND nivo = 'glava' AND LENGTH(kod) = 4
             LIMIT 1
         """, (poglavlje,)).fetchone()
-        conn.close()
         return row['naziv'] if row else f"Poglavlje {poglavlje}"
     except Exception:
         return f"Poglavlje {poglavlje}"
 
 
+@lru_cache(maxsize=512)
 def validiraj_tarifni_broj(kod: str) -> Dict:
     """
     Provjeri da li tarifna oznaka postoji u tarifi i vrati detalje.

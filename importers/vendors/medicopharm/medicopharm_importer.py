@@ -113,6 +113,58 @@ _ITEM_SINGLE_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Mapiranje poznatih brendova/naziva na ISO šifru zemlje porijekla.
+# Svaki unos: (substring_koji_se_traži_u_nazivu, iso_zemlja)
+# Pretraga je case-insensitive substring match.
+# Specifičniji termini dolaze ispred općenitijih da izbjegnemo pogrešno mapiranje.
+_BRAND_COUNTRY_MAP: list = [
+    # Njemačka (DE)
+    ("GW ",           "DE"),  # Gehwol — medicinska kozmetika za stopala
+    ("BORT ",         "DE"),  # Bort Medical — ortopedski proizvodi
+    ("OHP",           "DE"),  # Ohropax — čepići za uši i srodna zaštita sluha
+
+    # Italija (IT)
+    ("SOLIDEA",       "IT"),  # Solidea — kompresivne čarape
+
+    # Austrija (AT)
+    ("DIXI",          "AT"),  # Dixi — bombone/komprimati
+    ("SUSSINA",       "AT"),  # Sussina zaslađivač
+
+    # Francuska (FR)
+    ("VITIX",         "FR"),  # Vitix — depigmentacijski preparati
+    ("ISP ",          "FR"),  # Isispharma — dermokozmetika (ISP + razmak da ne hvata ISPUCALA)
+    ("CICASTIM",      "FR"),  # Cicastim — gel za ožiljke
+    ("NP ",           "FR"),  # NP Neutrogena Professional / NP šamponi i losioni
+    ("MOLUTREX",      "FR"),  # Molutrex — lijek
+    ("DAYONIX",       "PT"),  # Dayonix — Portugal (ostaviti ispred FR)
+
+    # Portugal (PT)
+    ("DAYONIX",       "PT"),  # Dayonix — dijetetski suplementi
+
+    # Velika Britanija (GB)
+    ("FADE OUT",      "GB"),  # Fade Out — kozmetika
+    ("DEO SOLE",      "GB"),  # Deo Sole — uloške za obuću
+
+    # Sjedinjene Države (US)
+    ("CBP GRECIAN",   "US"),  # Grecian Formula — boja za kosu
+
+    # Singapur (SG)
+    ("NEUROAID",      "SG"),  # NeuroAid — neurološki suplementi
+
+    # Poljska (PL)
+    ("NEUROPROTEX",   "PL"),  # Neuroprotex — dijetetski suplementi
+
+    # Finska (FI)
+    ("ICE POWER",     "FI"),  # Ice Power — gel/sprej za sportske povrede
+
+    # Srbija (RS)
+    ("MAGNEZIJUM HLORID", "RS"),  # Magnezijum hlorid gel — srpski proizvod
+    ("ALFA BETA",     "RS"),  # Alfa Beta film za uklanjanje dlaka — srpski
+    ("AKTIVNI UGALJ", "RS"),  # Aktivni ugalj — srpski proizvod
+    ("SODA BIKARBONA","RS"),  # Soda bikarbona — Srbija
+    ("NATRIJEV BIKARBONAT", "RS"),  # Natrijev bikarbonat — Srbija
+]
+
 # Stop pri parsiranju stavki — počela je sumarni dio ili kraj
 _STOP_PREFIXES = [
     "ukupno",
@@ -208,6 +260,10 @@ def parse_medicopharm_pdf(pdf_path: str) -> ImportResult:
     if default_zemlja:
         _apply_zemlja_porekla(raw_items, default_zemlja, item_zemlja_map)
         logger.info(f"   🌍 Zemlja porekla (izjava) dodijeljena za {sum(1 for i in raw_items if i['zemlja'])} stavki")
+
+    # --- Brand heuristika (GW → DE, itd.) ---
+    _apply_brand_heuristics(raw_items)
+    logger.info(f"   🏷️  Zemlja porekla (brand) dodijeljena za {sum(1 for i in raw_items if i['zemlja'])} stavki ukupno")
 
     logger.info(f"✅ Medico Pharm: {len(raw_items)} stavki | bruto={bruto_kg}kg | neto={neto_kg}kg")
 
@@ -700,16 +756,34 @@ def _apply_zemlja_porekla(
         item["zemlja"] = item_overrides.get(rbr, default_country)
 
 
+def _apply_brand_heuristics(items: List[Dict]) -> None:
+    """
+    Dopuni zemlja porijekla na osnovu poznatih brendova/naziva u artiklu.
+    Primjenjuje se samo na stavke koje još nemaju dodijeljenu zemlju.
+    Koristi case-insensitive substring match.
+    """
+    for item in items:
+        if item.get("zemlja"):
+            continue
+        name_upper = item.get("name", "").upper()
+        for keyword, country in _BRAND_COUNTRY_MAP:
+            if keyword.upper() in name_upper:
+                item["zemlja"] = country
+                logger.debug(f"   🏷️  Brand heuristika: '{item['name'][:40]}' → {country}")
+                break
+
+
 def _to_invoice_lines(items: List[Dict]) -> List[InvoiceLine]:
     """Konvertuje interni dict lista u InvoiceLine objekte."""
     result = []
     for item in items:
+        zemlja = item.get("zemlja", "")
         line = InvoiceLine(
             line_no=item["rbr"],
             product_code=item["code"],
             naziv_robe=item["name"],
             tarifni_broj=normalize_tariff_number(item["tariff"]),
-            zemlja_porijekla=item.get("zemlja", ""),
+            zemlja_porijekla=zemlja,
             povlastica="",
             jm=item["jm"],
             kolicina=item["kolicina"],
