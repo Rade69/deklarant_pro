@@ -1223,15 +1223,23 @@ class AgentController:
 
         # 3. Pokušaj iz processing worker fajlova (filename)
         if not exporter_hint:
+            import re
             doc = self.view.get_document_panel()
+            candidates = []
             for file_item in doc.get_files():
                 stem = Path(file_item).stem if isinstance(file_item, str) else Path(file_item.filepath).stem
-                # Ukloni brojeve fakture (npr. "pekabesko-2000-00015" → "pekabesko")
-                import re
-                clean = re.sub(r'[-_\s]*[\d\-]+$', '', stem).strip()
-                if clean:
-                    exporter_hint = clean
-                    break
+                # Preskoči scanner timestamp nazive (DOC + cifre, čisto cifre, kratki)
+                if re.match(r'^DOC\d+', stem, re.IGNORECASE):
+                    continue
+                if re.match(r'^[\d\-_]+$', stem):
+                    continue
+                # Ukloni broj fakture s kraja (npr. "pekabesko-2000-00015" → "pekabesko")
+                clean = re.sub(r'[-_\s]*[\d/\\-]+$', '', stem).strip()
+                if len(clean) >= 3:
+                    candidates.append(clean)
+            if candidates:
+                # Preferiraj duži/opisniji naziv
+                exporter_hint = max(candidates, key=len)
 
         if not exporter_hint:
             chat.add_activity("⚠️ Nije moguće odrediti pošiljaoca — preskačem template pretragu")
