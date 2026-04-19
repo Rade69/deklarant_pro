@@ -137,3 +137,59 @@ def ocr_pdf_to_text(filepath: str, dpi: int = 300) -> List[str]:
 
     logger.info(f"✅ OCR završen: {len(pages_text)} stranica, ukupno {sum(len(t) for t in pages_text)} karaktera")
     return pages_text
+
+
+def _remove_table_lines(img):
+    """
+    Uklanja horizontalne i vertikalne linije tabele iz slike koristeći OpenCV morfološke operacije.
+    Vraća PIL Image pogodnu za OCR.
+    Fallback: vraća originalnu grayscale sliku ako OpenCV nije dostupan.
+    """
+    try:
+        import cv2
+        import numpy as np
+
+        gray = img.convert("L")
+        arr = np.array(gray)
+
+        thresh = cv2.threshold(arr, 150, 255, cv2.THRESH_BINARY_INV)[1]
+        h_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (80, 1))
+        h_lines = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, h_kernel, iterations=2)
+        v_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 80))
+        v_lines = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, v_kernel, iterations=2)
+        lines_mask = cv2.add(h_lines, v_lines)
+        cleaned = cv2.subtract(thresh, lines_mask)
+        result = cv2.bitwise_not(cleaned)
+
+        from PIL import Image as PILImage
+        return PILImage.fromarray(result)
+
+    except ImportError:
+        logger.debug("opencv nije dostupan — koristi se standardni preprocessing")
+        return _preprocess_image(img)
+
+
+def ocr_pdf_to_text_no_lines(filepath: str, dpi: int = 300) -> List[str]:
+    """
+    OCR sa uklanjanjem linija tabele (za fakture sa tabličnim formatom).
+    Koristi OpenCV morfološke operacije za brisanje linija prije OCR-a.
+    """
+    import pytesseract
+    from pdf2image import convert_from_path
+
+    logger.info(f"🔍 OCR (no-lines): {filepath} @ {dpi} DPI")
+    images = convert_from_path(filepath, dpi=dpi)
+    pages_text: List[str] = []
+    tess_config = "--psm 6 --oem 3"
+
+    for page_num, img in enumerate(images, 1):
+        processed = _remove_table_lines(img)
+        try:
+            text = pytesseract.image_to_string(processed, lang="eng+bos", config=tess_config)
+        except pytesseract.TesseractError:
+            text = pytesseract.image_to_string(processed, lang="eng", config=tess_config)
+        pages_text.append(text)
+        logger.debug(f"  Stranica {page_num}: {len(text)} karaktera")
+
+    logger.info(f"✅ OCR (no-lines) završen: {len(pages_text)} stranica")
+    return pages_text

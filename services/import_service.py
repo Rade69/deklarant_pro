@@ -333,42 +333,42 @@ class ImportService:
             logger.debug(f"   current_is_sumaprom_pdf={current_is_sumaprom_pdf}")
 
             # CASE 1B: ŠUMAPROM Excel → PDF
+            # Napomena: preskačemo _similar_invoice_number jer skener generiše
+            # timestamp kao naziv PDF-a (DOC041122-...) koji ne liči na naziv XLS-a
             if last_is_sumaprom_excel and current_is_sumaprom_pdf:
-                if _similar_invoice_number(current_basename, last_basename):
-                    logger.info("   ✅ CASE 1B: ŠUMAPROM Excel+PDF par - kombinujem")
-                    combined_items, stats = combine_sumaprom_excel_and_pdf(
-                        self.last_import_path, str(filepath)
-                    )
-                    self.clear_memory()
-                    return ImportResult(
-                        items=combined_items,
-                        bruto_kg=stats.get("bruto_kg", 0.0),
-                        neto_kg=stats.get("neto_kg", 0.0),
-                        invoice_name=filepath.stem,
-                        currency=stats.get("currency", "EUR"),
-                        is_combined=True,
-                        import_type="sumaprom_excel",
-                        warnings=stats.get("warnings", []),
-                    )
+                logger.info("   ✅ CASE 1B: ŠUMAPROM Excel+PDF par - kombinujem")
+                combined_items, stats = combine_sumaprom_excel_and_pdf(
+                    self.last_import_path, str(filepath)
+                )
+                self.clear_memory()
+                return ImportResult(
+                    items=combined_items,
+                    bruto_kg=stats.get("bruto_kg", 0.0),
+                    neto_kg=stats.get("neto_kg", 0.0),
+                    invoice_name=filepath.stem,
+                    currency=stats.get("currency", "EUR"),
+                    is_combined=True,
+                    import_type="sumaprom_excel",
+                    warnings=stats.get("warnings", []),
+                )
 
             # CASE 2B: ŠUMAPROM PDF → Excel
             elif last_is_sumaprom_pdf and current_is_sumaprom_excel:
-                if _similar_invoice_number(current_basename, last_basename):
-                    logger.info("   ✅ CASE 2B: ŠUMAPROM PDF+Excel par - kombinujem")
-                    combined_items, stats = combine_sumaprom_excel_and_pdf(
-                        str(filepath), self.last_import_path
-                    )
-                    self.clear_memory()
-                    return ImportResult(
-                        items=combined_items,
-                        bruto_kg=stats.get("bruto_kg", 0.0),
-                        neto_kg=stats.get("neto_kg", 0.0),
-                        invoice_name=filepath.stem,
-                        currency=stats.get("currency", "EUR"),
-                        is_combined=True,
-                        import_type="sumaprom_excel",
-                        warnings=stats.get("warnings", []),
-                    )
+                logger.info("   ✅ CASE 2B: ŠUMAPROM PDF+Excel par - kombinujem")
+                combined_items, stats = combine_sumaprom_excel_and_pdf(
+                    str(filepath), self.last_import_path
+                )
+                self.clear_memory()
+                return ImportResult(
+                    items=combined_items,
+                    bruto_kg=stats.get("bruto_kg", 0.0),
+                    neto_kg=stats.get("neto_kg", 0.0),
+                    invoice_name=filepath.stem,
+                    currency=stats.get("currency", "EUR"),
+                    is_combined=True,
+                    import_type="sumaprom_excel",
+                    warnings=stats.get("warnings", []),
+                )
 
         except ImportError:
             # ŠUMAPROM PDF parser još nije kreiran - ovo je očekivano
