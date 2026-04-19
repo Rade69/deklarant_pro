@@ -1497,10 +1497,17 @@ class NaimenovanjaView(BaseTabView):
             from PySide6.QtGui import QIntValidator
             le_broj.setValidator(QIntValidator(0, 9999999, le_broj))
 
-        # Special: Connect tariff code field to auto-populate descriptions
+        # Rubrika 33: odspoji od batch-save timera (ne smije okidati dijalog pri kucanju)
         le_tariff = self._get_widget("le_rubrika33")
         if le_tariff:
+            try:
+                le_tariff.textChanged.disconnect(self._on_field_changed)
+            except RuntimeError:
+                pass
+            # Lookup opisa dok korisnik kuca (bez dijaloga)
             le_tariff.textChanged.connect(self._on_tariff_changed)
+            # Sačuvaj + ponudi ažuriranje baze znanja samo na Enter
+            le_tariff.returnPressed.connect(self._on_tariff_enter)
 
     def _on_tariff_changed(self, text: str) -> None:
         """Debounced tariff lookup - query nakon 400ms pauze u kucanju"""
@@ -1527,6 +1534,98 @@ class NaimenovanjaView(BaseTabView):
         # Resetuj timer - ako korisnik kuca jos jedan karakter, countdown pocinje iznova
         self.tariff_timer.stop()
         self.tariff_timer.start(400)
+
+    def _on_tariff_enter(self) -> None:
+        """
+        Korisnik je pritisnuo Enter u polju Rb.33.
+        Sačuvaj tarifni broj i ponudi ažuriranje baze znanja.
+        """
+        if self.is_loading:
+            return
+
+        le_tariff = self._get_widget("le_rubrika33")
+        new_tariff = (le_tariff.text().strip() if le_tariff else "")
+        if not new_tariff:
+            return
+
+        # Sačuvaj u draft (bez dijaloga)
+        old_item = self.draft.items[self.current_item_index] if self.draft.items else None
+        old_tariff = old_item.tariff_code if old_item else ""
+
+        self._save_current_item()
+
+        # Ponudi ažuriranje baze znanja samo ako je tarifa stvarno promijenjena
+        if old_tariff and old_tariff != new_tariff:
+            self._ask_update_knowledge_base(old_tariff, new_tariff)
+        elif not old_tariff and new_tariff:
+            self._ask_update_knowledge_base("", new_tariff)
+
+    def _ask_update_knowledge_base(self, old_tariff: str, new_tariff: str) -> None:
+        """Pitaj korisnika da li želi ažurirati bazu znanja za ovaj proizvod."""
+        item = self.draft.items[self.current_item_index] if self.draft.items else None
+        if not item:
+            return
+
+        invoice_line = None
+        line_idx = item.ordinal_no - 1
+        if hasattr(self.draft, 'invoice_lines') and self.draft.invoice_lines:
+            if 0 <= line_idx < len(self.draft.invoice_lines):
+                invoice_line = self.draft.invoice_lines[line_idx]
+
+        naziv_robe = (
+            invoice_line.naziv_robe if invoice_line
+            else (item.goods_description or item.goods_trade_name or "")
+        )
+
+        msg = (
+            f"Tarifni broj promijenjen: <b>{old_tariff or '—'}</b> → <b>{new_tariff}</b><br><br>"
+            f"Proizvod: <b>{naziv_robe[:80]}</b><br><br>"
+            f"Ažurirati bazu znanja?<br>"
+            f"<small>(Pri sljedećem uvozu ovaj artikal će automatski dobiti tarifu <b>{new_tariff}</b>)</small>"
+        )
+
+        reply = QMessageBox.question(
+            self,
+            "Ažuriranje baze znanja",
+            msg,
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.Yes,
+        )
+
+        if reply == QMessageBox.Yes:
+            try:
+                from services.tariff_mapping_service import TariffMappingService
+                kb_svc = TariffMappingService()
+                product_code = invoice_line.product_code if invoice_line else ""
+                zemlja = invoice_line.zemlja_porijekla if invoice_line else (item.origin_country_code or "")
+                new_suffix = item.tariff_suffix or "000"
+
+                # Obriši stare pogrešne zapise ako postoji old_tariff
+                if old_tariff and naziv_robe:
+                    from database.db import get_db_connection
+                    with get_db_connection() as conn:
+                        with conn.cursor() as cursor:
+                            cursor.execute("""
+                                DELETE FROM catalogs.product_tariff_mapping
+                                WHERE (naziv_robe ILIKE %s OR product_code = %s)
+                                  AND commodity_code = %s
+                            """, (f"%{naziv_robe}%", product_code or "__NONE__", old_tariff))
+
+                if naziv_robe and new_tariff:
+                    kb_svc.save_mapping(
+                        product_code=product_code or "",
+                        naziv_robe=naziv_robe,
+                        tarifni_broj=new_tariff,
+                        zemlja_porijekla=zemlja or "",
+                        povlastica="",
+                        precision_1=new_suffix,
+                    )
+                import logging
+                logging.getLogger(__name__).info(
+                    f"✅ KB ažuriran: '{naziv_robe[:40]}' → {new_tariff}"
+                )
+            except Exception as e:
+                QMessageBox.warning(self, "Greška", f"Nije moguće ažurirati bazu znanja:\n{e}")
 
     def _perform_tariff_lookup(self) -> None:
         """Izvrsi tariff lookup sa cache-om (poziva se nakon 400ms pauze).
@@ -2115,30 +2214,8 @@ class NaimenovanjaView(BaseTabView):
         except Exception as e:
             log.warning(f"⚠️ Tariff KB sync failed for '{naziv_robe[:40]}': {e}")
 
-        # ── 4. Obavijest korisniku ────────────────────────────────────────
-        if invoice_line and old_tariff:
-            from PySide6.QtWidgets import QMessageBox
-            QMessageBox.information(
-                self,
-                "Tarifni broj ažuriran",
-                f"✅ Tarifni broj promijenjen:\n"
-                f"  <b>{old_tariff}</b> → <b>{new_tariff}</b>"
-                f"{('/' + new_suffix if new_suffix != '000' else '')}\n\n"
-                f"📦 Proizvod: {naziv_robe[:80]}\n\n"
-                f"📋 Ažurirano u:\n"
-                f"  • Faktura linija (InvoiceLine)\n"
-                f"  • Baza znanja (product_tariff_mapping)"
-            )
-        elif old_tariff:
-            from PySide6.QtWidgets import QMessageBox
-            QMessageBox.information(
-                self,
-                "Tarifni broj ažuriran",
-                f"✅ Tarifni broj promijenjen:\n"
-                f"  <b>{old_tariff}</b> → <b>{new_tariff}</b>"
-                f"{('/' + new_suffix if new_suffix != '000' else '')}\n\n"
-                f"📋 Sačuvano u bazu znanja."
-            )
+        # Obavijest se prikazuje samo iz _ask_update_knowledge_base (na Enter)
+        pass
 
     def _update_all_ui(self) -> None:
         """Update all UI elements"""
