@@ -1584,7 +1584,7 @@ class NaimenovanjaView(BaseTabView):
 
         msg = (
             f"Tarifni broj: <b>{new_tariff}</b><br><br>"
-            f"Proizvod: <b>{opis_robe[:100]}</b><br><br>"
+            f"Proizvod: <b>{naziv_robe}</b><br><br>"
             f"Ažurirati bazu znanja?<br>"
             f"<small>(Pri sljedećem uvozu ovaj artikal će automatski dobiti tarifu <b>{new_tariff}</b>)</small>"
         )
