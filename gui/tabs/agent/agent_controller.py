@@ -27,6 +27,7 @@ class AgentController:
         self._worker = None
         self._current_mode = "Analiza"
         self._pending_action = None  # PendingAction koji čeka potvrdu
+        self._pending_import_files = []  # Keširani fajlovi za Analiza mod
 
         # ── Workflow / Session / Budget ──
         from .workflow_state import WorkflowStateManager, WorkflowState
@@ -121,6 +122,9 @@ class AgentController:
 
         chat.message_sent.connect(self._on_chat_message)
         header.status_changed.connect(self._on_status_changed)
+
+        # Reset dugme u chat header-u
+        chat.connect_reset(self.reset_agent)
 
         # Proposal card signali
         chat.proposal_confirmed.connect(self._on_proposal_confirmed)
@@ -293,6 +297,11 @@ class AgentController:
             chat.add_agent_message("❌ Nema uspješno procesiranih fajlova.")
             return
 
+        # ── ANALIZA MOD: agent analizira bez uvoza u draft ────────────────────
+        if self._current_mode == "Analiza":
+            self._analiza_pipeline(completed, chat)
+            return
+
         # ⭐ KLJUČNO: Prikupi samo stavke iz kombinovanih ILI samostalnih fajlova
         combined_files = []
         single_files = []
@@ -418,17 +427,169 @@ class AgentController:
 
         # ⭐ KONAČNI REZIME SVIH FAKTURA
         total_bez = sum(1 for l in self.draft.invoice_lines if not l.tarifni_broj)
-        chat.add_agent_message(
-            f"✅ <b>Sve fakture uvezene!</b><br>"
-            f"Ukupno stavki: <b>{processed_total}</b><br>"
-            f"Bez tarifnog: <b>{total_bez}</b><br><br>"
-            f"💡 <b>Šta dalje?</b><br>"
-            f"  • Reci <i>'popuni tarifne'</i> za prijedloge<br>"
-            f"  • Pregledaj tablicu i ručno dopuni<br>"
-            f"  • Kad si spreman, reci <i>'kreiraj naimenovanja'</i>"
-        )
+
+        if self._current_mode == "Puna automatizacija":
+            chat.add_agent_message(
+                f"✅ <b>Sve fakture uvezene!</b><br>"
+                f"Ukupno stavki: <b>{processed_total}</b> | Bez tarifnog: <b>{total_bez}</b><br>"
+                f"🤖 Pokrećem automatski pipeline..."
+            )
+            from .workflow_state import WorkflowState
+            self.workflow.transition(WorkflowState.COMPLETED)
+            self._puna_auto_pipeline(fw, chat, all_processed_lines)
+        else:
+            chat.add_agent_message(
+                f"✅ <b>Sve fakture uvezene!</b><br>"
+                f"Ukupno stavki: <b>{processed_total}</b><br>"
+                f"Bez tarifnog: <b>{total_bez}</b><br><br>"
+                f"💡 <b>Šta dalje?</b><br>"
+                f"  • Reci <i>'popuni tarifne'</i> za prijedloge<br>"
+                f"  • Pregledaj tablicu i ručno dopuni<br>"
+                f"  • Kad si spreman, reci <i>'kreiraj naimenovanja'</i>"
+            )
+            from .workflow_state import WorkflowState
+            self.workflow.transition(WorkflowState.COMPLETED)
+
+    def _analiza_pipeline(self, completed: list, chat):
+        """
+        Analiza mod: parsira fajlove, provjerava bazu znanja, prikazuje izvještaj.
+        Ne uvozi u draft. Na kraju nudi akcione dugmiće za uvoz.
+        """
+        from services.agent.invoice_analysis_service import InvoiceAnalysisService
         from .workflow_state import WorkflowState
+
+        svc = InvoiceAnalysisService()
+        self._pending_import_files = completed
+
+        chat.add_activity(f"🔍 Analiza {len(completed)} faktura...")
+
+        for file_item in completed:
+            lines = file_item.invoice_lines or []
+            if not lines:
+                continue
+
+            invoice_name = file_item.invoice_number or Path(file_item.filepath).stem
+            chat.add_activity(f"📋 Analiziram: {invoice_name} ({len(lines)} stavki)")
+            QApplication.processEvents()
+
+            try:
+                result = svc.analyse(
+                    lines=lines,
+                    bruto_kg=file_item.bruto_kg,
+                    neto_kg=file_item.neto_kg,
+                    invoice_name=invoice_name,
+                    has_origin_statement=file_item.has_origin_statement,
+                    currency="EUR",
+                )
+                report_html = svc.format_report(result)
+                chat.add_agent_message(report_html)
+            except Exception as e:
+                chat.add_activity(f"⚠️ Greška pri analizi {invoice_name}: {e}")
+
         self.workflow.transition(WorkflowState.COMPLETED)
+
+        chat.show_action_buttons([
+            ("📥 Uvezi u deklaraciju", self._analiza_uvezi_action),
+            ("🤖 Automatski uvoz",     self._analiza_auto_action),
+        ])
+
+    def _analiza_uvezi_action(self):
+        """Uvozi keširane fajlove iz Analiza moda kao 'Uvezi u deklaraciju'."""
+        if not self._pending_import_files:
+            self.view.get_chat_panel().add_agent_message("⚠️ Nema keširanih fajlova za uvoz.")
+            return
+        self._current_mode = "Uvezi u deklaraciju"
+        chat = self.view.get_chat_panel()
+        chat.add_activity("📥 Pokretam uvoz iz analize...")
+        self._on_all_completed(self._pending_import_files)
+        self._pending_import_files = []
+
+    def _analiza_auto_action(self):
+        """Automatski uvoz keširanih fajlova iz Analiza moda."""
+        if not self._pending_import_files:
+            self.view.get_chat_panel().add_agent_message("⚠️ Nema keširanih fajlova za uvoz.")
+            return
+        self._current_mode = "Puna automatizacija"
+        chat = self.view.get_chat_panel()
+        chat.add_activity("🤖 Pokretam automatski uvoz iz analize...")
+        self._on_all_completed(self._pending_import_files)
+        self._pending_import_files = []
+
+    def _puna_auto_pipeline(self, fw, chat, all_lines: list):
+        """
+        Automatski slijed koraka za 'Puna automatizacija' mod.
+        Poziva se nakon uvoza svih faktura.
+
+        Redoslijed:
+          1. Izračunaj mase
+          2. Auto-popuni tarifne
+          3. Validacija
+          4. Kreiraj naimenovanja
+          5. Primijeni XML template za zaglavlje
+        """
+        QApplication.processEvents()
+
+        # 1. Izračunaj mase
+        chat.add_activity("⚖️ [Auto] Izračunavam mase...")
+        try:
+            if fw and hasattr(fw, '_on_calculate_masses'):
+                fw._on_calculate_masses(auto=True)
+                chat.add_activity("✅ Mase izračunate")
+        except Exception as e:
+            chat.add_activity(f"⚠️ Greška pri izračunu masa: {e}")
+        QApplication.processEvents()
+
+        # 2. Auto-popuni tarifne (preskači ako su sve tarife već popunjene)
+        bez_tarife = sum(1 for l in self.draft.invoice_lines if not getattr(l, 'tarifni_broj', None))
+        if bez_tarife > 0:
+            chat.add_activity(f"🤖 [Auto] Popunjavam tarifne brojeve ({bez_tarife} stavki bez tarife)...")
+            try:
+                if fw and hasattr(fw, '_on_auto_fill'):
+                    fw._on_auto_fill(auto=True)
+                    chat.add_activity("✅ Auto-popuni završen")
+            except Exception as e:
+                chat.add_activity(f"⚠️ Greška pri auto-popuni: {e}")
+            QApplication.processEvents()
+        else:
+            chat.add_activity("✅ [Auto] Sve stavke imaju tarifni broj — preskačem Auto-popuni")
+
+        # 3. Validacija (nema dijaloga, samo osvježava status)
+        chat.add_activity("🔍 [Auto] Validacija stavki...")
+        try:
+            if fw and hasattr(fw, '_on_validate_all'):
+                fw._on_validate_all()
+                chat.add_activity("✅ Validacija završena")
+        except Exception as e:
+            chat.add_activity(f"⚠️ Greška pri validaciji: {e}")
+        QApplication.processEvents()
+
+        # 4. Kreiraj naimenovanja
+        chat.add_activity("📋 [Auto] Kreiram naimenovanja...")
+        try:
+            if fw and hasattr(fw, '_on_create_naimenovanja'):
+                fw._on_create_naimenovanja(auto=True)
+                chat.add_activity("✅ Naimenovanja kreirana")
+        except Exception as e:
+            chat.add_activity(f"⚠️ Greška pri kreiranju naimenovanja: {e}")
+        QApplication.processEvents()
+
+        # 5. XML template za zaglavlje (tiho — bez dijaloga)
+        chat.add_activity("📂 [Auto] Tražim XML template za zaglavlje...")
+        zaglavlje_status = "⚠️ Zaglavlje nije popunjeno — popuni ručno"
+        try:
+            zaglavlje_status = self._primjeni_xml_template(all_lines, chat, silent=True)
+        except Exception as e:
+            chat.add_activity(f"⚠️ Greška pri primjeni XML templatea: {e}")
+
+        bez_tarife = sum(1 for l in self.draft.invoice_lines if not l.tarifni_broj)
+        n_naim = len(getattr(self.draft, 'items', []))
+        chat.add_agent_message(
+            f"🎉 <b>Puna automatizacija završena!</b><br>"
+            f"Stavki: {len(self.draft.invoice_lines)} | Bez tarifnog: <b>{bez_tarife}</b><br>"
+            f"Naimenovanja: <b>{n_naim}</b><br>"
+            f"Zaglavlje: {zaglavlje_status}<br><br>"
+            f"💡 Provjeri naimenovanja i zaglavlje, zatim izvezi XML."
+        )
 
     def _get_preference_by_country(self, country_code: str, exporter_name: str = "") -> str:
         """
@@ -1028,7 +1189,7 @@ class AgentController:
         else:
             chat.add_activity("⚠️ Parent window nije pronađen")
 
-    def _primjeni_xml_template(self, all_lines: list, chat):
+    def _primjeni_xml_template(self, all_lines: list, chat, silent: bool = False):
         """
         Korak za Puna automatizacija:
         Pronađi stari XML sa istim pošiljaocem i primijeni whitelist polja na draft zaglavlje.
@@ -1039,7 +1200,7 @@ class AgentController:
         3. Naziva fajla (npr. "pekabesko-123.xlsx")
         """
         if not self.draft:
-            return
+            return "⚠️ Draft nije inicijalizovan"
 
         chat.add_activity("🔍 Tražim XML template za zaglavlje...")
 
@@ -1074,7 +1235,7 @@ class AgentController:
 
         if not exporter_hint:
             chat.add_activity("⚠️ Nije moguće odrediti pošiljaoca — preskačem template pretragu")
-            return
+            return "⚠️ Pošiljalac nepoznat — popuni zaglavlje ručno"
 
         # Consignee JIB iz rubrike 8 (jedinstven identifikator uvoznika)
         consignee_jib = getattr(self.draft, 'primalac_id', '') or ''
@@ -1129,43 +1290,53 @@ class AgentController:
                 chat.add_activity(f"⚠️ Greška pri pretrazi XML templatea: {e}")
 
         if not match:
-            chat.add_activity("ℹ️ Nije nađen odgovarajući XML template — popuni zaglavlje ručno")
-            return
+            chat.add_activity(f"ℹ️ Nema XML templatea za '{exporter_hint}' — popuni zaglavlje ručno")
+            return f"ℹ️ Nema prethodnog XML-a za '{exporter_hint}'"
 
         # ── Primijeni template na draft ──────────────────────────
         applied = svc.apply_to_draft(self.draft, match.fields)
 
         if not applied:
             chat.add_activity("ℹ️ Sva zaglavlje polja već popunjena — template nije primijenjen")
-            return
+            return "ℹ️ Zaglavlje već popunjeno"
 
         chat.add_activity(f"✅ Primijenjeno {len(applied)} zaglavlje polja iz templatea")
 
-        # ── Pokušaj osvježiti Zaglavlje tab ─────────────────────
+        # ── Osvježi Zaglavlje tab ────────────────────────────────
         if self.zaglavlje_tab:
             try:
-                if hasattr(self.zaglavlje_tab, 'reload_data'):
+                if hasattr(self.zaglavlje_tab, 'load_from_draft'):
+                    self.zaglavlje_tab.load_from_draft(self.draft)
+                elif hasattr(self.zaglavlje_tab, 'reload_data'):
                     self.zaglavlje_tab.reload_data()
-                elif hasattr(self.zaglavlje_tab, 'load_from_draft'):
-                    self.zaglavlje_tab.load_from_draft()
                 elif hasattr(self.zaglavlje_tab, 'refresh'):
                     self.zaglavlje_tab.refresh()
                 chat.add_activity("✅ Zaglavlje tab osvježen")
             except Exception as e:
                 chat.add_activity(f"⚠️ Greška pri osvježavanju Zaglavlje taba: {e}")
 
-        # ── Prikaži dijalog sa rezimeom ──────────────────────────
+        if silent:
+            # Puna automatizacija — primijeni bez dijaloga
+            chat.add_activity(
+                f"✅ Zaglavlje popunjeno iz: <b>{match.filename}</b> "
+                f"(pošiljalac: {match.exporter_name})"
+            )
+            return f"✅ Popunjeno iz {match.filename}"
+
+        # ── Prikaži dijalog sa rezimeom (interaktivni modovi) ───
         try:
             from gui.dialogs.zaglavlje_template_dialog import ZaglavljeTemplateDialog
             dialog = ZaglavljeTemplateDialog(match, applied, parent=self.view)
             result = dialog.exec()
             if result != 1:
-                # Korisnik odbacio — resetuj primjenjena polja
                 for field_name in applied:
                     try:
                         setattr(self.draft, field_name, "")
                     except Exception:
                         pass
+                # Resetuj i u Zaglavlje tabu
+                if self.zaglavlje_tab and hasattr(self.zaglavlje_tab, 'load_from_draft'):
+                    self.zaglavlje_tab.load_from_draft(self.draft)
                 chat.add_activity("ℹ️ Template odbačen — zaglavlje polja resetovana")
             else:
                 chat.add_activity("✅ Template prihvaćen — popuni preostala polja u Zaglavlje tabu")
@@ -1213,6 +1384,31 @@ class AgentController:
         self.view.get_header().update_sesija(0)
         self.workflow.reset()
         self.budget.reset()
+
+    def reset_agent(self):
+        """
+        Reset chat dijaloga agenta: sakrij akcione dugmiće, obriši chat poruke,
+        očisti keš analize i workflow stanje. Fajlovi ostaju netaknuti.
+        """
+        chat = self.view.get_chat_panel()
+
+        # Sakrij akcione dugmiće
+        chat.hide_action_buttons()
+
+        # Obriši keširane fajlove iz Analiza moda
+        self._pending_import_files = []
+        self._pending_action = None
+
+        # Obriši chat poruke (agent_view i activity_view)
+        chat.agent_view.clear()
+        chat.activity_view.clear()
+
+        # Reset workflow
+        self.workflow.reset()
+
+        # Prikaži welcome poruku
+        chat._add_welcome_message()
+        chat.add_activity("🔄 Chat resetovan — spreman za novi razgovor")
 
     def _on_file_selected(self, file_item):
         """Handle klik na fajl u tabeli."""
