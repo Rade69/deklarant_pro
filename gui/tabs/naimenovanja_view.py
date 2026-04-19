@@ -1506,9 +1506,9 @@ class NaimenovanjaView(BaseTabView):
                 pass
             # Lookup opisa dok korisnik kuca (bez dijaloga)
             le_tariff.textChanged.connect(self._on_tariff_changed)
-            # Enter — koristimo eventFilter jer returnPressed može biti
-            # interceptovan od strane parent forme (QUiLoader)
+            # Enter — eventFilter hvata Key_Return/Key_Enter direktno na widgetu
             le_tariff.installEventFilter(self)
+            logger.debug(f"✅ eventFilter instaliran na le_rubrika33: {le_tariff.objectName()}")
 
     def _on_tariff_changed(self, text: str) -> None:
         """Debounced tariff lookup - query nakon 400ms pauze u kucanju"""
@@ -3241,12 +3241,16 @@ class NaimenovanjaView(BaseTabView):
     def eventFilter(self, obj, event):
         """Intercept Enter na le_rubrika33 — okida _on_tariff_enter."""
         from PySide6.QtCore import QEvent
-        if event.type() == QEvent.KeyPress:
-            le_tariff = self._get_widget("le_rubrika33")
-            if obj is le_tariff:
-                if event.key() in (Qt.Key_Return, Qt.Key_Enter):
+        if event.type() == QEvent.Type.KeyPress:
+            try:
+                obj_name = obj.objectName()
+            except RuntimeError:
+                return super().eventFilter(obj, event)
+            if obj_name == "le_rubrika33":
+                logger.debug(f"🔑 eventFilter key={event.key()} na le_rubrika33")
+                if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
                     self._on_tariff_enter()
-                    return True  # progutaj event, ne propagiraj dalje
+                    return True
         return super().eventFilter(obj, event)
 
     def keyPressEvent(self, event):
