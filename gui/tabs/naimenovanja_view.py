@@ -1549,19 +1549,13 @@ class NaimenovanjaView(BaseTabView):
         if not new_tariff:
             return
 
-        # Sačuvaj u draft (bez dijaloga)
-        old_item = self.draft.items[self.current_item_index] if self.draft.items else None
-        old_tariff = old_item.tariff_code if old_item else ""
-
         self._save_current_item()
+        # Uvijek ponudi KB update kad korisnik potvrdi Enter —
+        # old_tariff može već biti jednak new_tariff zbog batch save, ali
+        # korisnik svjesno pritiskuje Enter da potvrdi ovu tarifu
+        self._ask_update_knowledge_base(new_tariff)
 
-        # Ponudi ažuriranje baze znanja samo ako je tarifa stvarno promijenjena
-        if old_tariff and old_tariff != new_tariff:
-            self._ask_update_knowledge_base(old_tariff, new_tariff)
-        elif not old_tariff and new_tariff:
-            self._ask_update_knowledge_base("", new_tariff)
-
-    def _ask_update_knowledge_base(self, old_tariff: str, new_tariff: str) -> None:
+    def _ask_update_knowledge_base(self, new_tariff: str) -> None:
         """Pitaj korisnika da li želi ažurirati bazu znanja za ovaj proizvod."""
         item = self.draft.items[self.current_item_index] if self.draft.items else None
         if not item:
@@ -1579,7 +1573,7 @@ class NaimenovanjaView(BaseTabView):
         )
 
         msg = (
-            f"Tarifni broj promijenjen: <b>{old_tariff or '—'}</b> → <b>{new_tariff}</b><br><br>"
+            f"Tarifni broj: <b>{new_tariff}</b><br><br>"
             f"Proizvod: <b>{naziv_robe[:80]}</b><br><br>"
             f"Ažurirati bazu znanja?<br>"
             f"<small>(Pri sljedećem uvozu ovaj artikal će automatski dobiti tarifu <b>{new_tariff}</b>)</small>"
@@ -1601,16 +1595,16 @@ class NaimenovanjaView(BaseTabView):
                 zemlja = invoice_line.zemlja_porijekla if invoice_line else (item.origin_country_code or "")
                 new_suffix = item.tariff_suffix or "000"
 
-                # Obriši stare pogrešne zapise ako postoji old_tariff
-                if old_tariff and naziv_robe:
+                # Obriši sve stare zapise za ovaj naziv/product_code sa drugom tarifom
+                if naziv_robe:
                     from database.db import get_db_connection
                     with get_db_connection() as conn:
                         with conn.cursor() as cursor:
                             cursor.execute("""
                                 DELETE FROM catalogs.product_tariff_mapping
                                 WHERE (naziv_robe ILIKE %s OR product_code = %s)
-                                  AND commodity_code = %s
-                            """, (f"%{naziv_robe}%", product_code or "__NONE__", old_tariff))
+                                  AND commodity_code != %s
+                            """, (f"%{naziv_robe}%", product_code or "__NONE__", new_tariff))
 
                 if naziv_robe and new_tariff:
                     kb_svc.save_mapping(
@@ -3247,7 +3241,6 @@ class NaimenovanjaView(BaseTabView):
             except RuntimeError:
                 return super().eventFilter(obj, event)
             if obj_name == "le_rubrika33":
-                logger.debug(f"🔑 eventFilter key={event.key()} na le_rubrika33")
                 if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
                     self._on_tariff_enter()
                     return True
