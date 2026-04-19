@@ -1506,8 +1506,9 @@ class NaimenovanjaView(BaseTabView):
                 pass
             # Lookup opisa dok korisnik kuca (bez dijaloga)
             le_tariff.textChanged.connect(self._on_tariff_changed)
-            # Sačuvaj + ponudi ažuriranje baze znanja samo na Enter
-            le_tariff.returnPressed.connect(self._on_tariff_enter)
+            # Enter — koristimo eventFilter jer returnPressed može biti
+            # interceptovan od strane parent forme (QUiLoader)
+            le_tariff.installEventFilter(self)
 
     def _on_tariff_changed(self, text: str) -> None:
         """Debounced tariff lookup - query nakon 400ms pauze u kucanju"""
@@ -3236,6 +3237,17 @@ class NaimenovanjaView(BaseTabView):
         self.repaint()
         print(f"  ✅ reload_data END")
         logger.info(f"  ✅ Naimenovanja Tab reloaded: {len(self.draft.items)} items")
+
+    def eventFilter(self, obj, event):
+        """Intercept Enter na le_rubrika33 — okida _on_tariff_enter."""
+        from PySide6.QtCore import QEvent
+        if event.type() == QEvent.KeyPress:
+            le_tariff = self._get_widget("le_rubrika33")
+            if obj is le_tariff:
+                if event.key() in (Qt.Key_Return, Qt.Key_Enter):
+                    self._on_tariff_enter()
+                    return True  # progutaj event, ne propagiraj dalje
+        return super().eventFilter(obj, event)
 
     def keyPressEvent(self, event):
         """Keyboard shortcuts"""
