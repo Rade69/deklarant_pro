@@ -1567,24 +1567,20 @@ class NaimenovanjaView(BaseTabView):
             if 0 <= line_idx < len(self.draft.invoice_lines):
                 invoice_line = self.draft.invoice_lines[line_idx]
 
-        # Opis iz Rb.31 — čitaj direktno iz widgeta (ono što korisnik vidi)
-        opis_w2 = self._get_widget("te_r31_opis_2")
-        opis_w1 = self._get_widget("te_r31_opis")
-        opis_robe = ""
-        if opis_w2:
-            opis_robe = opis_w2.text().strip()
-        if not opis_robe and opis_w1:
-            opis_robe = opis_w1.text().strip()
-        if not opis_robe:
-            opis_robe = (
+        # Trgovački naziv — čitaj direktno iz te_r31_trg_naziv (ono što korisnik vidi)
+        naziv_robe = ""
+        trg_w = self._get_widget("le_r31_trg_naziv")
+        if trg_w:
+            try:
+                naziv_robe = trg_w.toPlainText().strip()  # QTextEdit
+            except AttributeError:
+                naziv_robe = trg_w.text().strip()          # QLineEdit fallback
+        if not naziv_robe:
+            naziv_robe = (
                 invoice_line.naziv_robe if invoice_line
                 else (item.goods_description or item.goods_trade_name or "")
             )
-
-        naziv_robe = (
-            invoice_line.naziv_robe if invoice_line
-            else (item.goods_description or item.goods_trade_name or "")
-        )
+        naziv_robe = naziv_robe.split("\n")[0][:100]  # samo prvi red, max 100 znakova
 
         msg = (
             f"Tarifni broj: <b>{new_tariff}</b><br><br>"
