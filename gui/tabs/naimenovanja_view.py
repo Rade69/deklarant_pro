@@ -1079,88 +1079,101 @@ class NaimenovanjaView(BaseTabView):
             le3.raise_()
             le3.show()
 
-    def _load_tariff_description_from_db(self, tariff_code: str) -> str:
+    def _load_tariff_description_from_db(self, tariff_code: str, nivo: str = "podbroj") -> str:
         """
-        Load tariff description from PostgreSQL database only.
-        Also tries prefix matching if exact match not found.
-        Returns empty string if not found.
+        Učitaj opis tarife iz PostgreSQL catalogs.zvanicna_tarifa.
+
+        nivo='podbroj' → te_r31_opis  (tačan opis podbroja, 10 cifara)
+        nivo='glava'   → te_r31_opis_2 (heading opis, 4 cifre)
+
+        Strategija:
+          1. Tačan match po tarifni_kod + nivo
+          2. Prefix fallback (kraći kod, isti nivo) ako tačan match ne postoji
         """
-        if not tariff_code or len(tariff_code.strip()) == 0:
+        if not tariff_code or not tariff_code.strip():
             return ""
 
-        # Helper function to generate fallback codes (from longest to shortest)
-        def generate_fallback_codes(code):
-            codes = []
-            digits = "".join(filter(str.isdigit, str(code)))
-
-            # Add the original code
-            if digits:
-                codes.append(digits)
-
-            # Generate prefixes (from longest to shortest)
-            for i in range(len(digits), 5, -1):  # Minimum 6 digits
-                prefix = digits[:i]
-                if prefix not in codes:
-                    codes.append(prefix)
-
-            return codes
-
-        # Only use PostgreSQL - no SQLite fallback
         if not HAS_POSTGRESQL:
-            logger.warning(f"  ⚠️  PostgreSQL not available for tariff lookup")
+            logger.warning("⚠️ PostgreSQL nije dostupan za lookup tarife")
             return ""
 
-        # Use connection pool or get_db_connection
+        digits = "".join(filter(str.isdigit, str(tariff_code)))
+        if not digits:
+            return ""
+
+        # Za glava lookup uvijek koristimo prvih 4 cifre
+        if nivo == "glava":
+            lookup_code = digits[:4]
+        else:
+            lookup_code = digits
+
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cursor:
-                    # Try exact match first
-                    cursor.execute(
-                        """
-                        SELECT tarifni_kod, opis
-                        FROM catalogs.zvanicna_tarifa
-                        WHERE tarifni_kod = %s
-                        LIMIT 1
-                    """,
-                        (tariff_code.strip(),),
-                    )
 
-                    result = cursor.fetchone()
+                    if nivo == "podbroj":
+                        # Kandidati za tačan match:
+                        # 8-cifreni BiH kod → dodaj '00' za 10-cifreni PG zapis
+                        candidates = [lookup_code]
+                        if len(lookup_code) == 8:
+                            candidates.append(lookup_code + "00")
+                        elif len(lookup_code) < 10:
+                            candidates.append(lookup_code.ljust(10, "0"))
 
-                    # Ako nema tačnog match-a, pokušaj prefix pretragu
-                    if not result:
-                        fallback_codes = generate_fallback_codes(tariff_code)
-                        for code in fallback_codes:
-                            is_short = len(code) <= 4  # 4-cifreni prefiks = heading lookup
-                            order = "tarifni_kod ASC" if is_short else "tarifni_kod ASC"
+                        result = None
+                        for candidate in candidates:
                             cursor.execute(
-                                f"""
+                                """
                                 SELECT tarifni_kod, opis
                                 FROM catalogs.zvanicna_tarifa
-                                WHERE tarifni_kod LIKE %s || '%%'
-                                ORDER BY {order}
+                                WHERE tarifni_kod = %s AND nivo = 'podbroj'
                                 LIMIT 1
                                 """,
-                                (code,),
+                                (candidate,),
                             )
-
                             result = cursor.fetchone()
                             if result:
                                 break
 
-                    if result:
-                        raw_description = result["opis"] or ""
-                        cleaned_description = self._clean_tariff_description(raw_description)
-                        logger.info(f" ✅ Tariff lookup (PostgreSQL): {result['tarifni_kod']} -> {raw_description[:50]}...")
-                        if raw_description != cleaned_description:
-                            logger.debug(f"     🧹 Cleaned description: {cleaned_description[:50]}...")
-                        return cleaned_description
+                        # LIKE prefix fallback
+                        if not result:
+                            cursor.execute(
+                                """
+                                SELECT tarifni_kod, opis
+                                FROM catalogs.zvanicna_tarifa
+                                WHERE tarifni_kod LIKE %s || '%%'
+                                  AND nivo = 'podbroj'
+                                ORDER BY tarifni_kod ASC
+                                LIMIT 1
+                                """,
+                                (lookup_code[:8],),
+                            )
+                            result = cursor.fetchone()
+
                     else:
-                        logger.warning(f"  ⚠️  No tariff description found for code: {tariff_code}")
+                        # glava ili podglava — tačan match po 4-cifrenom kodu
+                        cursor.execute(
+                            """
+                            SELECT tarifni_kod, opis
+                            FROM catalogs.zvanicna_tarifa
+                            WHERE tarifni_kod = %s AND nivo = %s
+                            LIMIT 1
+                            """,
+                            (lookup_code, nivo),
+                        )
+                        result = cursor.fetchone()
+
+                    if result:
+                        raw = result["opis"] or ""
+                        cleaned = self._clean_tariff_description(raw)
+                        logger.info(f"✅ Tariff [{nivo}] {result['tarifni_kod']} → {cleaned[:50]}")
+                        return cleaned
+                    else:
+                        logger.warning(f"⚠️ Nema opisa tarife [{nivo}] za: {tariff_code}")
                         return ""
 
         except Exception as e:
-            logger.warning(f"  ⚠️  PostgreSQL error loading tariff description: {e}")
+            logger.warning(f"⚠️ PostgreSQL greška pri lookup-u tarife: {e}")
             return ""
 
     def _extract_short_code(self, tariff_code: str) -> str:
@@ -1534,21 +1547,20 @@ class NaimenovanjaView(BaseTabView):
         # 6-cifreni subheading (srednji nivo, ako postoji dovoljno cifara)
         subheading_code = digits[:6] if len(digits) >= 6 else ""
 
-        def _get_cached_or_lookup(code: str) -> str:
-            if not code:
-                return ""
-            if code in self.tariff_cache:
-                return self.tariff_cache[code]
-            desc = self._load_tariff_description_from_db(code)
+        def _get_cached_or_lookup(code: str, nivo: str) -> str:
+            cache_key = f"{nivo}:{code}"
+            if cache_key in self.tariff_cache:
+                return self.tariff_cache[cache_key]
+            desc = self._load_tariff_description_from_db(code, nivo=nivo)
             if desc:
-                self.tariff_cache[code] = desc
+                self.tariff_cache[cache_key] = desc
             return desc
 
-        # Tačan opis (8-10 cifara, sa fallback na 6+)
-        full_description = _get_cached_or_lookup(digits) if digits else ""
+        # Tačan opis podbroja (10 cifara, sa fallback na kraće)
+        full_description = _get_cached_or_lookup(digits, "podbroj") if digits else ""
 
-        # Heading opis (4 cifre)
-        heading_description = _get_cached_or_lookup(heading_code) if heading_code else ""
+        # Heading opis (4 cifre, nivo='glava')
+        heading_description = _get_cached_or_lookup(heading_code, "glava") if heading_code else ""
 
         # Uvijek ažuriraj polja (čisti stare opise ako nema match-a)
         self._populate_tariff_description(full_description, heading_description)
@@ -1911,21 +1923,21 @@ class NaimenovanjaView(BaseTabView):
         # KRITIČNO: Ako postoji tariff_code, pozovi lookup za opis tarife
         if item.tariff_code:
             logger.debug(f"  🔍 Tariff code found in model: {item.tariff_code}")
-            # Pozovi lookup za tačan opis (8-10 cifara)
-            full_description = self._load_tariff_description_from_db(item.tariff_code)
+            # Tačan opis podbroja (10 cifara)
+            full_description = self._load_tariff_description_from_db(item.tariff_code, nivo="podbroj")
 
-            # Takođe pretraži viši nivo (4-6 cifara)
+            # Heading opis (4 cifre, nivo='glava')
             short_code = self._extract_short_code(item.tariff_code)
             short_description = ""
             if short_code and short_code != item.tariff_code:
-                short_description = self._load_tariff_description_from_db(short_code)
+                short_description = self._load_tariff_description_from_db(short_code, nivo="glava")
                 if short_description:
-                    self.tariff_cache[short_code] = short_description
+                    self.tariff_cache[f"glava:{short_code}"] = short_description
 
             if full_description or short_description:
-                # Sacuvaj tačan opis u cache za buduce upotrebe
+                # Sacuvaj tačan opis u cache za buduće upotrebe
                 if full_description:
-                    self.tariff_cache[item.tariff_code] = full_description
+                    self.tariff_cache[f"podbroj:{item.tariff_code}"] = full_description
                 self._populate_tariff_description(
                     full_description or "", short_description or ""
                 )
