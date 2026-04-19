@@ -15,6 +15,7 @@ Date: February 2026
 """
 
 import os
+import re
 import sys
 import warnings
 from typing import Optional, Callable, List, Dict, Any
@@ -1187,12 +1188,13 @@ class NaimenovanjaView(BaseTabView):
 
         import re
 
+        # Ukloni "ex NNNN NN NN NN" i sve iza toga (podtarifni izuzetak)
+        cleaned = re.sub(r"\s*\bex\s+\d[\d\s]*.*$", "", description, flags=re.IGNORECASE)
         # Ukloni KM/kg stope: npr. "10+3,5KM/kg", "0+1,5KM/kg", "10+3KM/kg"
-        # Ključna ispravka: (?:[,.]\d+)? pokriva i decimalni zarez (10+1,5KM/kg)
         cleaned = re.sub(
             r"\s+\d+(?:[+/]\d+(?:[,.]\d+)?)*[A-Z/%][A-Za-z/kg%]*.*$",
             "",
-            description,
+            cleaned,
         )
         # Ukloni sufiks sa 4+ prostorima odvojena broja (npr. "kd 0 0 0 0 5 5 5")
         cleaned = re.sub(r"(?:\s+\w{1,3})?(?:\s+\d+){4,}[\s,]*$", "", cleaned)
@@ -1992,6 +1994,15 @@ class NaimenovanjaView(BaseTabView):
                         value = int(value) if value else 0
                     except ValueError:
                         value = 0
+                elif field_name == "tariff_code" and value:
+                    # Normalizuj "ex" unose: "ex 8511 80 00 10" → "8511800010"
+                    # 10 cifara s posljednjim 2 = "00" → skrati na 8; ≠ "00" → čuvaj 10
+                    _d = re.sub(r"\D", "", value)
+                    if len(_d) > 10:
+                        _d = _d[:10]
+                    if len(_d) == 10 and _d[8:] == "00":
+                        _d = _d[:8]
+                    value = _d
 
                 setattr(item, field_name, value)
 
