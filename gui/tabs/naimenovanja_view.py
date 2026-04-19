@@ -1567,6 +1567,20 @@ class NaimenovanjaView(BaseTabView):
             if 0 <= line_idx < len(self.draft.invoice_lines):
                 invoice_line = self.draft.invoice_lines[line_idx]
 
+        # Opis iz Rb.31 — čitaj direktno iz widgeta (ono što korisnik vidi)
+        opis_w2 = self._get_widget("te_r31_opis_2")
+        opis_w1 = self._get_widget("te_r31_opis")
+        opis_robe = ""
+        if opis_w2:
+            opis_robe = opis_w2.text().strip()
+        if not opis_robe and opis_w1:
+            opis_robe = opis_w1.text().strip()
+        if not opis_robe:
+            opis_robe = (
+                invoice_line.naziv_robe if invoice_line
+                else (item.goods_description or item.goods_trade_name or "")
+            )
+
         naziv_robe = (
             invoice_line.naziv_robe if invoice_line
             else (item.goods_description or item.goods_trade_name or "")
@@ -1574,7 +1588,7 @@ class NaimenovanjaView(BaseTabView):
 
         msg = (
             f"Tarifni broj: <b>{new_tariff}</b><br><br>"
-            f"Proizvod: <b>{naziv_robe[:80]}</b><br><br>"
+            f"Proizvod: <b>{opis_robe[:100]}</b><br><br>"
             f"Ažurirati bazu znanja?<br>"
             f"<small>(Pri sljedećem uvozu ovaj artikal će automatski dobiti tarifu <b>{new_tariff}</b>)</small>"
         )
