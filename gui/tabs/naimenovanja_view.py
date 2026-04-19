@@ -1112,8 +1112,7 @@ class NaimenovanjaView(BaseTabView):
                 with conn.cursor() as cursor:
 
                     if nivo == "podbroj":
-                        # Kandidati za tačan match:
-                        # 8-cifreni BiH kod → dodaj '00' za 10-cifreni PG zapis
+                        # Tačan match: 8-cifreni BiH kod + '00' = 10-cifreni PG zapis
                         candidates = [lookup_code]
                         if len(lookup_code) == 8:
                             candidates.append(lookup_code + "00")
@@ -1135,20 +1134,25 @@ class NaimenovanjaView(BaseTabView):
                             if result:
                                 break
 
-                        # LIKE prefix fallback
+                        # Progressivni prefix fallback: 8→7→6 cifara
+                        # npr. 56074900 → LIKE '56074900%' (nema) → LIKE '5607490%' (nema)
+                        #                → LIKE '560749%' (nađe 5607491100 ✓)
                         if not result:
-                            cursor.execute(
-                                """
-                                SELECT tarifni_kod, opis
-                                FROM catalogs.zvanicna_tarifa
-                                WHERE tarifni_kod LIKE %s || '%%'
-                                  AND nivo = 'podbroj'
-                                ORDER BY tarifni_kod ASC
-                                LIMIT 1
-                                """,
-                                (lookup_code[:8],),
-                            )
-                            result = cursor.fetchone()
+                            for prefix_len in range(min(8, len(lookup_code)), 5, -1):
+                                cursor.execute(
+                                    """
+                                    SELECT tarifni_kod, opis
+                                    FROM catalogs.zvanicna_tarifa
+                                    WHERE tarifni_kod LIKE %s || '%%'
+                                      AND nivo = 'podbroj'
+                                    ORDER BY tarifni_kod ASC
+                                    LIMIT 1
+                                    """,
+                                    (lookup_code[:prefix_len],),
+                                )
+                                result = cursor.fetchone()
+                                if result:
+                                    break
 
                     else:
                         # glava ili podglava — tačan match po 4-cifrenom kodu
@@ -1564,9 +1568,6 @@ class NaimenovanjaView(BaseTabView):
 
         # Uvijek ažuriraj polja (čisti stare opise ako nema match-a)
         self._populate_tariff_description(full_description, heading_description)
-
-        if full_description:
-            self.tariff_cache[digits] = full_description
 
         # Provjeri inspekcijsku kontrolu za uneseni tarifni broj
         self._check_and_show_tariff_warning(tariff_code)
