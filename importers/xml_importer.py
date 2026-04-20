@@ -248,6 +248,30 @@ class XMLImporter:
                     'Description',
                     'Commodity/Description'
                 ], default="")
+                
+                # Product code - koristi prvi dio Commercial_Description ili generiši iz broja stavke
+                product_code = self._get_text(item_elem, [
+                    'Goods_description/Commercial_Description',
+                    'Goods_description/Description_of_goods'
+                ], default="")
+                if product_code:
+                    # Uzmi prvi dio opisa (do zareza, tačke-zareza ili novog reda)
+                    # Prvo zamijeni novi red sa zarezom i stripuj whitespace
+                    cleaned = product_code.replace('\n', ' ').replace('\r', ' ').strip()
+                    # Zatim uzmi prvi dio do bilo kojeg od ovih separatora
+                    for sep in [';', ',', '.', '-']:
+                        if sep in cleaned:
+                            product_code = cleaned.split(sep)[0].strip()
+                            break
+                    else:
+                        # Ako nema separatora, uzmi prvu riječ
+                        parts = cleaned.split()
+                        product_code = parts[0].strip() if parts else cleaned.strip()
+                    
+                    # Ograniči na 50 karaktera
+                    product_code = product_code[:50]
+                else:
+                    product_code = f"ITEM_{item_number}"
 
                 # Tariff code - ASYCUDA putanja
                 tariff_code = self._get_text(item_elem, [
@@ -286,8 +310,9 @@ class XMLImporter:
                     'NetNetWeightMeasure'
                 ])
 
-                # Količina
+                # Količina - uzmi iz Number_of_packages (komadi)
                 quantity = self._get_float(item_elem, [
+                    'Packages/Number_of_packages',
                     'Supplementary_unit/Suppplementary_unit_quantity',
                     'Supplementary_quantity',
                     'TariffQuantity',
@@ -314,6 +339,7 @@ class XMLImporter:
                 # Create InvoiceLine
                 invoice_line = InvoiceLine(
                     line_no=int(item_number) if item_number.isdigit() else idx,
+                    product_code=product_code,
                     naziv_robe=goods_desc,
                     tarifni_broj=tariff_code,
                     zemlja_porijekla=country_code,
@@ -508,6 +534,31 @@ class XMLImporter:
                     'CommercialDescription'
                 ], default="")
                 
+                # Product code - koristi prvi dio opisa ili generiši iz broja stavke
+                product_code = self._get_text(item_elem, [
+                    'CommercialDescription',
+                    'GoodsDescription',
+                    'Description'
+                ], default="")
+                if product_code:
+                    # Uzmi prvi dio opisa (do zareza, tačke-zareza ili novog reda)
+                    # Prvo zamijeni novi red sa zarezom i stripuj whitespace
+                    cleaned = product_code.replace('\n', ' ').replace('\r', ' ').strip()
+                    # Zatim uzmi prvi dio do bilo kojeg od ovih separatora
+                    for sep in [';', ',', '.', '-']:
+                        if sep in cleaned:
+                            product_code = cleaned.split(sep)[0].strip()
+                            break
+                    else:
+                        # Ako nema separatora, uzmi prvu riječ
+                        parts = cleaned.split()
+                        product_code = parts[0].strip() if parts else cleaned.strip()
+                    
+                    # Ograniči na 50 karaktera
+                    product_code = product_code[:50]
+                else:
+                    product_code = f"ITEM_{item_number}"
+                
                 # Tarifni broj
                 tariff_code = self._get_text(item_elem, [
                     'CommodityCode',
@@ -556,6 +607,7 @@ class XMLImporter:
                 # Kreiraj InvoiceLine
                 invoice_line = InvoiceLine(
                     line_no=int(item_number) if item_number.isdigit() else idx,
+                    product_code=product_code,
                     naziv_robe=description,
                     tarifni_broj=tariff_code,
                     zemlja_porijekla=origin_country,
