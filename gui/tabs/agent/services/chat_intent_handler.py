@@ -171,7 +171,6 @@ class ChatIntentHandler:
 
 
 def _handle_message(ctrl, message: str) -> None:
-    from .chat_worker_bridge import start_llm_chat  # lazy import
     from gui.tabs.agent.widgets.chat_worker import ChatWorker
 
     chat = ctrl.view.get_chat_panel()
