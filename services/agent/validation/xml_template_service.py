@@ -58,8 +58,8 @@ TEMPLATE_FIELDS = [
     "vrsta_trans_1", "vrsta_trans_2", "kurs",
     # Rb.40 - Tip i šifra (BEZ broja)
     "rb40_tip", "rb40_skracenica",
-    # Rb.48/49 - Plaćanje i skladište
-    "odgodjeno_placanje", "identifikacija_skladista",
+    # Rb.49 - Skladište (Rb.48 odgodjeno_placanje se ne prepisuje — šifra se mijenja svake godine)
+    "identifikacija_skladista",
 ]
 
 
