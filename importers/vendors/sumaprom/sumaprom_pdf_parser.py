@@ -86,6 +86,26 @@ def parse_sumaprom_pdf(pdf_path: str) -> ImportResult:
     items  = _parse_items(text)
 
     logger.info(f"  Parsed {len(items)} stavki | bruto={header['bruto_kg']} kg | faktura={header['invoice_name']}")
+    logger.info(f"  Izvoznik: {header['exporter_name']} | Uvoznik: {header['importer_name']}")
+
+    from core.draft.draft import Party
+    exporter = Party(
+        name=header['exporter_name'],
+        city=header['exporter_city'],
+        country=header['exporter_country'],
+    ) if header['exporter_name'] else None
+
+    importer = Party(
+        name=header['importer_name'],
+        city=header['importer_city'],
+        country=header['importer_country'],
+    ) if header['importer_name'] else None
+
+    for item in items:
+        if exporter:
+            item.exporter = exporter
+        if importer:
+            item.importer = importer
 
     return ImportResult(
         items=items,
@@ -93,13 +113,20 @@ def parse_sumaprom_pdf(pdf_path: str) -> ImportResult:
         neto_kg=header['neto_kg'],
         invoice_name=header['invoice_name'] or Path(pdf_path).stem,
         currency="EUR",
+        exporter=exporter,
+        importer=importer,
     )
 
 
 # ── Header ekstrakcija ────────────────────────────────────────────────────────
 
 def _extract_header(text: str) -> Dict[str, Any]:
-    h = {'invoice_name': '', 'invoice_date': '', 'bruto_kg': 0.0, 'neto_kg': 0.0}
+    h = {
+        'invoice_name': '', 'invoice_date': '',
+        'bruto_kg': 0.0, 'neto_kg': 0.0,
+        'exporter_name': '', 'exporter_city': '', 'exporter_country': '',
+        'importer_name': '', 'importer_city': '', 'importer_country': '',
+    }
 
     m = re.search(r'(?:Invoice\s*No|FAKTURA\s*BR)[.\s|]*(\d+\s*/\s*\d+)', text, re.IGNORECASE)
     if m:
@@ -122,6 +149,56 @@ def _extract_header(text: str) -> Dict[str, Any]:
             h['neto_kg'] = float(m.group(1).replace(',', '.'))
         except ValueError:
             pass
+
+    # ── Izvoznik (exporter) — pojavljuje se na vrhu fakture prije BUYER/KUPAC ──
+    # OCR vidi: "TECHNOGREEN d.o.o.\n... Beograd - Surčin, SRBIJA\n..."
+    # Uzimamo sve redove PRIJE prve pojave BUYER/KUPAC kao blok izvoznika
+    buyer_pos = re.search(r'\b(?:BUYER|KUPAC)\b', text, re.IGNORECASE)
+    header_block = text[:buyer_pos.start()] if buyer_pos else text[:400]
+
+    lines = [l.strip() for l in header_block.splitlines() if l.strip()]
+    # Filtriraj OCR šum (kratki tokeni, samo interpunkcija, www/email/tel)
+    company_lines = [
+        l for l in lines
+        if len(l) > 4
+        and not re.match(r'^[\W\d]+$', l)
+        and not re.search(r'www\.|e-mail|Tel\.|fax|^\s*[=\-]+\s*$|\+\d{3}', l, re.IGNORECASE)
+        and not re.match(r'^Page\s+\d', l, re.IGNORECASE)
+    ]
+    if company_lines:
+        h['exporter_name'] = company_lines[0]
+        # Grad i zemlja — red koji sadrži poznate indikatore
+        for line in company_lines[1:]:
+            if re.search(r'SRBIJA|HRVATSKA|SLOVENIJA|NJEMA|GERMAN|ITALY|ITALIA|'
+                         r'BOSN|AUSTRIA|FRANCE|CHINA|KINA|TURSKA|TURKEY', line, re.IGNORECASE):
+                # Ukloni OCR šum s početka (=, |, cifre, razmaci)
+                clean = re.sub(r'^[\s=|>~\-\d]+', '', line).strip()
+                h['exporter_city'] = clean
+                break
+
+    # ── Uvoznik (importer/buyer) — iza BUYER/KUPAC labele ───────────────────
+    _BUYER_KW = re.compile(r'^\s*[\|\-\s]*(?:BUYER|KUPAC|IMPORTER|UVOZNIK|CONSIGNEE)\s*[\|\-\s]*$', re.IGNORECASE)
+    if buyer_pos:
+        after_buyer = text[buyer_pos.end():]
+        buyer_lines = [l.strip() for l in after_buyer.splitlines() if l.strip()]
+        # Prva smislena linija (nije BUYER/KUPAC keyword)
+        for line in buyer_lines:
+            if _BUYER_KW.match(line):
+                continue
+            if len(line) > 4 and not re.match(r'^[\W\d]+$', line):
+                h['importer_name'] = line
+                break
+        # Grad/adresa uvoznika
+        started = False
+        for line in buyer_lines:
+            if _BUYER_KW.match(line):
+                continue
+            if line == h['importer_name']:
+                started = True
+                continue
+            if started and len(line) > 3:
+                h['importer_city'] = line
+                break
 
     return h
 

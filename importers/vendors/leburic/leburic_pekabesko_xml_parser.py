@@ -102,17 +102,29 @@ def parse_leburic_pekabesko_xml(filepath: str) -> ImportResult:
     # ── Zaglavlje ──────────────────────────────────────────────────
     zaglavlje = root.find("Zaglavlje")
     invoice_number = ""
-    exporter_name = ""
+    exporter_name  = ""
+    exporter_jib   = ""
+    importer_name  = ""
+    importer_jib   = ""
 
     if zaglavlje is not None:
         invoice_number = (
             _txt(zaglavlje.find("NalogBroj"))
             or _txt(zaglavlje.find("BrojFakture"))
         )
-        # Prodavac (Exporter)
+        # Prodavac (Exporter — strani dobavljač)
         prodavac = zaglavlje.find("Prodavac")
         if prodavac is not None:
             exporter_name = _txt(prodavac.find("Naziv"))
+            exporter_jib  = _txt(prodavac.find("PoreskiBroj")) or _txt(prodavac.find("JIB"))
+
+        # Kupac (Importer — domaća BiH firma)
+        kupac = zaglavlje.find("Kupac")
+        importer_name = ""
+        importer_jib  = ""
+        if kupac is not None:
+            importer_name = _txt(kupac.find("Naziv"))
+            importer_jib  = _txt(kupac.find("JIB")) or _txt(kupac.find("PoreskiBroj")) or _txt(kupac.find("MatBroj"))
 
     # ── Sumarno ────────────────────────────────────────────────────
     sumarno = root.find("Sumarno")
@@ -181,11 +193,17 @@ def parse_leburic_pekabesko_xml(filepath: str) -> ImportResult:
             )
             invoice_lines.append(line)
 
-    exporter = Party(name=exporter_name) if exporter_name else None
+    exporter = Party(name=exporter_name, vat_or_id=exporter_jib) if exporter_name else None
+    importer = Party(name=importer_name, vat_or_id=importer_jib) if importer_name else None
+
+    for line in invoice_lines:
+        line.exporter = exporter
+        line.importer = importer
 
     logger.info(
         f"  ✅ Parsed {len(invoice_lines)} stavki, "
-        f"bruto={bruto_kg:.3f}kg, neto={neto_kg:.3f}kg, exporter={exporter_name!r}"
+        f"bruto={bruto_kg:.3f}kg, neto={neto_kg:.3f}kg, "
+        f"exporter={exporter_name!r}, importer={importer_name!r}"
     )
 
     return ImportResult(
@@ -196,6 +214,7 @@ def parse_leburic_pekabesko_xml(filepath: str) -> ImportResult:
         currency="EUR",
         import_type="leburic_pekabesko",
         exporter=exporter,
+        importer=importer,
     )
 
 

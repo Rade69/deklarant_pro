@@ -20,7 +20,7 @@ from pathlib import Path
 
 import openpyxl
 
-from core.draft.draft import InvoiceLine
+from core.draft.draft import InvoiceLine, Party
 from importers.import_result import ImportResult
 
 logger = logging.getLogger("asycuda_pro.import.imamoglu_excel")
@@ -237,13 +237,21 @@ def parse_imamoglu_packing_list(filepath: str) -> ImportResult:
         logger.info(f"IMAMOGLU Packing List: {len(items)} stavki, "
                     f"bruto={bruto_total:.2f} kg, neto={neto_total:.2f} kg")
 
+        _exp = Party(name="IMAMOGLU")
+        _imp = Party(name="IMAMOGLU D.O.O. SARAJEVO")  # domaća BiH firma
+        for item in items:
+            item.exporter = _exp
+            item.importer = _imp
+
         return ImportResult(
             items=items,
             bruto_kg=bruto_total,
             neto_kg=neto_total,
             invoice_name=invoice_name,
             currency="EUR",
-            import_type="imamoglu_packing_list"
+            import_type="imamoglu_packing_list",
+            exporter=_exp,
+            importer=_imp,
         )
     finally:
         wb.close()
@@ -354,13 +362,21 @@ def parse_imamoglu_mal_tanimlari(filepath: str) -> ImportResult:
         invoice_name = Path(filepath).stem
         logger.info(f"IMAMOGLU Mal Tanımları: {len(items)} stavki")
 
+        _exp = Party(name="IMAMOGLU")
+        _imp = Party(name="IMAMOGLU D.O.O. SARAJEVO")
+        for item in items:
+            item.exporter = _exp
+            item.importer = _imp
+
         return ImportResult(
             items=items,
             bruto_kg=0.0,
             neto_kg=0.0,
             invoice_name=invoice_name,
             currency="EUR",
-            import_type="imamoglu_mal_tanimlari"
+            import_type="imamoglu_mal_tanimlari",
+            exporter=_exp,
+            importer=_imp,
         )
     finally:
         wb.release_resources()

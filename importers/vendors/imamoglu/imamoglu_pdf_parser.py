@@ -254,6 +254,12 @@ def parse_imamoglu_pdf(pdf_path: str) -> ImportResult:
     # Pokušaj detektovati naziv exportera iz teksta
     exporter_name = _detect_exporter(full_text, fallback="IMAMOGLU")
 
+    _imp = Party(name="IMAMOGLU D.O.O. SARAJEVO")
+    _exp = Party(name=exporter_name)
+    for item in items:
+        item.exporter = _exp
+        item.importer = _imp
+
     return ImportResult(
         items=items,
         bruto_kg=gross_kg,
@@ -262,7 +268,8 @@ def parse_imamoglu_pdf(pdf_path: str) -> ImportResult:
         currency="EUR",
         has_origin_statement=has_origin_statement,
         origin_statements=origin_statements,
-        exporter=Party(name=exporter_name),
+        exporter=_exp,
+        importer=_imp,
     )
 
 

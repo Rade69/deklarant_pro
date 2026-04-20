@@ -240,6 +240,7 @@ def parse_medicopharm_pdf(pdf_path: str) -> ImportResult:
             items=[], bruto_kg=0.0, neto_kg=0.0,
             invoice_name=invoice_name, currency="EUR",
             exporter=Party(name="MEDICO PHARM SERVIS"),
+            importer=Party(name="MEDICOPHARM D.O.O."),
         )
 
     # --- Stavke ---
@@ -276,6 +277,7 @@ def parse_medicopharm_pdf(pdf_path: str) -> ImportResult:
         has_origin_statement=has_origin_statement,
         origin_statements=origin_statements,
         exporter=Party(name="MEDICO PHARM SERVIS"),
+        importer=Party(name="MEDICOPHARM D.O.O."),  # domaća BiH firma
     )
 
 
@@ -773,6 +775,10 @@ def _apply_brand_heuristics(items: List[Dict]) -> None:
                 break
 
 
+_MEDICO_EXPORTER = Party(name="MEDICO PHARM SERVIS")
+_MEDICO_IMPORTER = Party(name="MEDICOPHARM D.O.O.")
+
+
 def _to_invoice_lines(items: List[Dict]) -> List[InvoiceLine]:
     """Konvertuje interni dict lista u InvoiceLine objekte."""
     result = []
@@ -792,6 +798,8 @@ def _to_invoice_lines(items: List[Dict]) -> List[InvoiceLine]:
             valuta="EUR",
             bruto_kg=0.0,
             neto_kg=0.0,
+            exporter=_MEDICO_EXPORTER,
+            importer=_MEDICO_IMPORTER,
         )
         result.append(line)
     return result

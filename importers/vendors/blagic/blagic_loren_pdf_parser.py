@@ -177,6 +177,12 @@ def parse_blagic_loren_pdf(pdf_path: str) -> ImportResult:
     # Pokušaj detektovati naziv exportera iz teksta
     exporter_name = _detect_exporter(full_text, fallback="LOREN")
 
+    _imp = Party(name="BLAGIĆ D.O.O.")
+    _exp = Party(name=exporter_name)
+    for item in items:
+        item.exporter = _exp
+        item.importer = _imp
+
     return ImportResult(
         items=items,
         bruto_kg=bruto_kg,
@@ -186,7 +192,8 @@ def parse_blagic_loren_pdf(pdf_path: str) -> ImportResult:
         import_type='loren_pdf',
         has_origin_statement=has_origin_statement,
         origin_statements=origin_statements,
-        exporter=Party(name=exporter_name),
+        exporter=_exp,
+        importer=_imp,
     )
 
 

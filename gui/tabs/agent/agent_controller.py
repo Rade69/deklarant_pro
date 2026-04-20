@@ -1204,95 +1204,166 @@ class AgentController:
 
         chat.add_activity("🔍 Tražim XML template za zaglavlje...")
 
-        # ── Izvuci hint za pošiljaoca ────────────────────────────
-        exporter_hint = ""
+        import re as _re
 
-        # 1. Pokušaj iz InvoiceLine.exporter.name
+        # ── Tip deklaracije iz drafta (IM/EX) ───────────────────
+        draft_decl_type = (getattr(self.draft, 'deklaracija_tip', '') or '').upper().strip()
+        is_import = draft_decl_type.startswith("IM") or not draft_decl_type
+
+        # ── JIB i naziv uvoznika (Rb.8) iz drafta ili iz invoice linija ─
+        consignee_jib = getattr(self.draft, 'primalac_id', '') or ''
+        consignee_name = getattr(self.draft, 'primalac_naziv', '') or ''
+
+        # Izvor 3: InvoiceLine.importer.name (uvoznik iz fakture — pouzdano za IM)
+        if not consignee_name:
+            for line in all_lines:
+                name = getattr(getattr(line, 'importer', None), 'name', None)
+                if name and name.strip():
+                    consignee_name = name.strip()
+                    break
+
+        # ── Hint za stranog dobavljača (Rb.2 u IM deklaraciji) ──
+        # Izvor 1: InvoiceLine.exporter.name (direktno iz fakture)
+        exporter_hint = ""
+        hint_from_invoice = False
         for line in all_lines:
             name = getattr(getattr(line, 'exporter', None), 'name', None)
             if name and name.strip():
                 exporter_hint = name.strip()
+                hint_from_invoice = True
                 break
 
-        # 2. Ako nema, pokušaj iz invoice_lines zemlja + import_type
-        if not exporter_hint:
-            for line in all_lines:
-                if getattr(line, 'naziv_robe', None):
-                    # Pokušaj iz naziva fakture ako je dostupan
-                    break
-
-        # 3. Pokušaj iz processing worker fajlova (filename)
-        if not exporter_hint:
-            import re
-            doc = self.view.get_document_panel()
-            candidates = []
-            for file_item in doc.get_files():
-                stem = Path(file_item).stem if isinstance(file_item, str) else Path(file_item.filepath).stem
-                # Preskoči scanner timestamp nazive (DOC + cifre, čisto cifre, kratki)
-                if re.match(r'^DOC\d+', stem, re.IGNORECASE):
-                    continue
-                if re.match(r'^[\d\-_]+$', stem):
-                    continue
-                # Ukloni broj fakture s kraja (npr. "pekabesko-2000-00015" → "pekabesko")
-                clean = re.sub(r'[-_\s]*[\d/\\-]+$', '', stem).strip()
-                if len(clean) >= 3:
-                    candidates.append(clean)
-            if candidates:
-                # Preferiraj duži/opisniji naziv
-                exporter_hint = max(candidates, key=len)
+        # Izvor 2: naziv fajla (može biti i domaća firma)
+        filename_hint = ""
+        doc = self.view.get_document_panel()
+        candidates = []
+        for file_item in doc.get_files():
+            stem = Path(file_item).stem if isinstance(file_item, str) else Path(file_item.filepath).stem
+            if _re.match(r'^DOC\d+', stem, _re.IGNORECASE):
+                continue
+            if _re.match(r'^[\d\-_]+$', stem):
+                continue
+            clean = _re.sub(r'[-_\s]*[\d/\\-]+$', '', stem).strip()
+            if len(clean) >= 3:
+                candidates.append(clean)
+        if candidates:
+            filename_hint = max(candidates, key=len)
 
         if not exporter_hint:
-            chat.add_activity("⚠️ Nije moguće odrediti pošiljaoca — preskačem template pretragu")
-            return "⚠️ Pošiljalac nepoznat — popuni zaglavlje ručno"
-
-        # Consignee JIB iz rubrike 8 (jedinstven identifikator uvoznika)
-        consignee_jib = getattr(self.draft, 'primalac_id', '') or ''
-        consignee_name = getattr(self.draft, 'primalac_naziv', '') or ''
+            exporter_hint = filename_hint
 
         chat.add_activity(
-            f"🔍 Tražim template za: '{exporter_hint}'"
-            + (f" + uvoznik JIB {consignee_jib}" if consignee_jib else "")
+            f"🔍 Tražim template — strani dobavljač: '{exporter_hint}'"
+            + (f", uvoznik JIB: {consignee_jib}" if consignee_jib else "")
+            + (f" (tip: {draft_decl_type})" if draft_decl_type else "")
         )
 
-        # ── Pretraga: 1. exporter_xml_index (DB, JIB lookup) ────
         from services.agent.xml_template_service import XmlTemplateService, TemplateMatch
         svc = XmlTemplateService()
         match = None
 
-        try:
-            from services.agent.exporter_xml_indexer import find_xml_for_pair
-            db_result = find_xml_for_pair(
-                exporter_hint,
-                consignee_jib=consignee_jib,
-                consignee_hint=consignee_name,
-            )
-            if db_result and Path(db_result['xml_filepath']).exists():
-                xml_path = Path(db_result['xml_filepath'])
-                exporter_from_xml, fields = svc._parse_xml(xml_path)
-                match_type = db_result.get('match_type', 'db')
-                score = 1.0 if 'jib' in match_type else 0.85 if 'name' in match_type else 0.70
-                match = TemplateMatch(
-                    filepath=str(xml_path),
-                    filename=xml_path.name,
-                    exporter_name=db_result.get('exporter_original') or exporter_from_xml,
-                    match_score=score,
-                    fields=fields,
-                )
+        def _build_match(db_result, svc=svc):
+            """Parsira XML iz DB rezultata i provjeri tip deklaracije."""
+            xml_path = Path(db_result['xml_filepath'])
+            if not xml_path.exists():
+                return None
+            exporter_from_xml, fields = svc._parse_xml(xml_path)
+            xml_decl_type = (fields.get("deklaracija_tip") or "").upper().strip()
+            # Provjeri tip: IM vs EX
+            if draft_decl_type and xml_decl_type and not xml_decl_type.startswith(draft_decl_type):
                 chat.add_activity(
-                    f"✅ Nađen u bazi: '{xml_path.name}' "
-                    f"(match: {match_type}, uvoznik: {db_result.get('consignee_original', '—')})"
+                    f"⚠️ '{xml_path.name}' je tip {xml_decl_type}, "
+                    f"a deklaracija je {draft_decl_type} — preskačem"
                 )
-        except Exception as e:
-            chat.add_activity(f"⚠️ DB lookup greška: {e} — probam lokalne fajlove")
+                return None
+            match_type = db_result.get('match_type', 'db')
+            score = (1.0 if 'jib' in match_type
+                     else 0.90 if 'name' in match_type
+                     else 0.75)
+            chat.add_activity(
+                f"✅ Nađen u bazi: '{xml_path.name}' "
+                f"(tip: {xml_decl_type or '?'}, match: {match_type}, "
+                f"uvoznik: {db_result.get('consignee_original', '—')})"
+            )
+            return TemplateMatch(
+                filepath=str(xml_path),
+                filename=xml_path.name,
+                exporter_name=db_result.get('exporter_original') or exporter_from_xml,
+                match_score=score,
+                fields=fields,
+                declaration_type=xml_decl_type,
+            )
+
+        # ── Pretraga: 1a. Po PARU izvoznik+uvoznik (najtačnije) ─────
+        # Ako parser izvukao izvoznika iz fakture: par-pretraga je primarna
+        # jer consignee-only može da pogodi krivog dobavljača (npr. Leburić ima 135 XMLa)
+        if not match and exporter_hint and hint_from_invoice:
+            try:
+                from services.agent.exporter_xml_indexer import find_xml_for_pair
+                db_result = find_xml_for_pair(
+                    exporter_hint,
+                    consignee_jib=consignee_jib,
+                    consignee_hint=consignee_name,
+                )
+                if db_result:
+                    match = _build_match(db_result)
+                    if match:
+                        chat.add_activity(
+                            f"✅ Template nađen po paru: {db_result.get('exporter_original')} → {db_result.get('consignee_original')}"
+                        )
+            except Exception as e:
+                chat.add_activity(f"⚠️ Pair DB lookup greška: {e}")
+
+        # ── Pretraga: 1b. Za IM — po JIB/imenu uvoznika (consignee) ─
+        # Fallback kad nema izvoznika iz fakture
+        if not match and is_import and (consignee_jib or consignee_name):
+            try:
+                from services.agent.exporter_xml_indexer import find_xml_by_consignee
+                db_result = find_xml_by_consignee(
+                    consignee_jib=consignee_jib,
+                    consignee_hint=consignee_name,
+                )
+                if db_result:
+                    match = _build_match(db_result)
+                    if match:
+                        chat.add_activity("✅ Template nađen po uvozniku (consignee)")
+            except Exception as e:
+                chat.add_activity(f"⚠️ Consignee lookup greška: {e}")
+
+        # ── Pretraga: 1c. Filename hint ──────────────────────────
+        # Za IM deklaracije: filename je obično domaća firma (consignee) →
+        #   traži po consignee_hint (ako JIB lookup već nije uspio)
+        # Za EX deklaracije: filename je obično strani kupac ili domaći izvoznik →
+        #   traži po exporter
+        if not match and filename_hint and not hint_from_invoice:
+            try:
+                if is_import:
+                    from services.agent.exporter_xml_indexer import find_xml_by_consignee
+                    db_result = find_xml_by_consignee(
+                        consignee_jib="",  # JIB već probao u 1a
+                        consignee_hint=filename_hint,
+                    )
+                else:
+                    from services.agent.exporter_xml_indexer import find_xml_for_pair
+                    db_result = find_xml_for_pair(
+                        filename_hint,
+                        consignee_jib=consignee_jib,
+                        consignee_hint=consignee_name,
+                    )
+                if db_result:
+                    match = _build_match(db_result)
+            except Exception as e:
+                chat.add_activity(f"⚠️ Filename DB lookup greška: {e}")
 
         # ── Pretraga: 2. Fallback — lokalni XML fajlovi ──────────
         if not match:
             try:
-                match = svc.find_template(exporter_hint)
+                match = svc.find_template(exporter_hint, declaration_type=draft_decl_type)
                 if match:
                     chat.add_activity(
                         f"✅ Nađen lokalno: '{match.filename}' "
-                        f"(pošiljalac: '{match.exporter_name}', poklapanje: {int(match.match_score * 100)}%)"
+                        f"(pošiljalac: '{match.exporter_name}', "
+                        f"tip: {match.declaration_type}, poklapanje: {int(match.match_score * 100)}%)"
                     )
             except Exception as e:
                 chat.add_activity(f"⚠️ Greška pri pretrazi XML templatea: {e}")
@@ -1309,6 +1380,13 @@ class AgentController:
             return "ℹ️ Zaglavlje već popunjeno"
 
         chat.add_activity(f"✅ Primijenjeno {len(applied)} zaglavlje polja iz templatea")
+
+        # ── Provjera aktuelnog kursa od CBBH (za non-EUR valute) ─
+        try:
+            from services.agent.cbbh_exchange_service import update_draft_kurs
+            update_draft_kurs(self.draft, chat=chat)
+        except Exception as e:
+            chat.add_activity(f"⚠️ CBBH kurs provjera neuspješna: {e}")
 
         # ── Osvježi Zaglavlje tab ────────────────────────────────
         if self.zaglavlje_tab:

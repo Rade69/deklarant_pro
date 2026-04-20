@@ -1155,17 +1155,33 @@ class NaimenovanjaView(BaseTabView):
                                     break
 
                     else:
-                        # glava ili podglava — tačan match po 4-cifrenom kodu
+                        # Tražimo heading opis: prvo 4-cifreni 'glava', pa 6-cifreni 'podglava'
+                        # Neke glave (npr. 1601) ne postoje na glava nivou nego samo kao podglava
                         cursor.execute(
                             """
                             SELECT tarifni_kod, opis
                             FROM catalogs.zvanicna_tarifa
-                            WHERE tarifni_kod = %s AND nivo = %s
+                            WHERE tarifni_kod = %s AND nivo = 'glava'
                             LIMIT 1
                             """,
-                            (lookup_code, nivo),
+                            (lookup_code,),
                         )
                         result = cursor.fetchone()
+
+                        if not result:
+                            # Fallback: 6-cifreni podglava (npr. '160100' za '16010091')
+                            digits_for_sub = "".join(filter(str.isdigit, str(tariff_code)))
+                            subheading_code = digits_for_sub[:6] if len(digits_for_sub) >= 6 else digits_for_sub
+                            cursor.execute(
+                                """
+                                SELECT tarifni_kod, opis
+                                FROM catalogs.zvanicna_tarifa
+                                WHERE tarifni_kod = %s AND nivo = 'podglava'
+                                LIMIT 1
+                                """,
+                                (subheading_code,),
+                            )
+                            result = cursor.fetchone()
 
                     if result:
                         raw = result["opis"] or ""

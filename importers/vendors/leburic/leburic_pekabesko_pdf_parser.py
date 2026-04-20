@@ -290,9 +290,14 @@ def parse_leburic_pekabesko_pdf(pdf_path: str) -> ImportResult:
 
     logger.info(f"  Header: faktura={invoice_number!r}, datum={invoice_date!r}")
 
-    # ── 2. FOOTER: bruto, neto, zemlja ──────────────────────────────
-    # Skupi cijeli tekst za footer regex (sve stranice)
+    # ── 1b. PARTIES: izvoznik (exporter) i uvoznik (importer) ───────
+    # Koristimo cijeli tekst (sve stranice, sve stranice)
     full_text = " ".join(w["text"] for w in all_words)
+    exporter, importer = _extract_parties(full_text)
+    logger.info(f"  Izvoznik: {exporter.name if exporter else '—'} | "
+                f"Uvoznik: {importer.name if importer else '—'}")
+
+    # ── 2. FOOTER: bruto, neto, zemlja ──────────────────────────────
 
     m = _BRUTO_RE.search(full_text)
     if m:
@@ -463,6 +468,10 @@ def parse_leburic_pekabesko_pdf(pdf_path: str) -> ImportResult:
             bruto_kg=0.0,         # ukupni bruto je u ImportResult
             neto_kg=neto_item,
         )
+        if exporter:
+            line.exporter = exporter
+        if importer:
+            line.importer = importer
         invoice_lines.append(line)
 
     logger.info(
@@ -477,8 +486,48 @@ def parse_leburic_pekabesko_pdf(pdf_path: str) -> ImportResult:
         invoice_name=invoice_number,
         currency="EUR",
         import_type="leburic_pekabesko",
-        exporter=Party(name="PEKABESKO AD"),
+        exporter=exporter,
+        importer=importer,
     )
+
+
+# ──────────────────────────────────────────────────────────────────
+# Ekstrakcija izvoznika i uvoznika iz OCR teksta
+# ──────────────────────────────────────────────────────────────────
+
+def _extract_parties(full_text: str) -> tuple[Optional[Party], Optional[Party]]:
+    """
+    Izvlači izvoznika (exporter, Rb.2) i uvoznika (importer, Rb.8) iz OCR teksta.
+
+    Strategija:
+    - Izvoznik: www.COMPANY.com.mk domain je čitljiv čak i kad je ime firme OCR šum
+    - Uvoznik: 'LEBURIC KOMERC' se pojavljuje direktno kao tekst kupca
+    """
+    exporter = None
+    importer = None
+
+    # Izvoznik: iz www domaina (www.pekabesko.com.mk → PEKABESKO)
+    m = re.search(r'www\.([a-zA-Z]{4,})\.[a-zA-Z]', full_text, re.IGNORECASE)
+    if m:
+        domain_name = m.group(1).upper()
+        exporter = Party(name=domain_name)
+        logger.debug(f"  Izvoznik iz domaina: {domain_name}")
+    else:
+        # Fallback: hardcoded za Pekabesko fakturu
+        exporter = Party(name="PEKABESKO AD")
+        logger.debug("  Izvoznik: fallback PEKABESKO AD")
+
+    # Uvoznik: LEBURIC KOMERC d.o.o — jasno čitljiv u OCR
+    m = re.search(r'(LEBURIC\s+KOMERC(?:\s+d\.o\.o)?)', full_text, re.IGNORECASE)
+    if m:
+        imp_name = re.sub(r'\s+', ' ', m.group(1)).strip().upper()
+        importer = Party(name=imp_name)
+        logger.debug(f"  Uvoznik iz teksta: {imp_name}")
+    else:
+        importer = Party(name="LEBURIC KOMERC D.O.O.")
+        logger.debug("  Uvoznik: fallback LEBURIC KOMERC D.O.O.")
+
+    return exporter, importer
 
 
 # ──────────────────────────────────────────────────────────────────

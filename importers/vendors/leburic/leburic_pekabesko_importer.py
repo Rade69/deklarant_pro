@@ -328,6 +328,12 @@ def parse_leburic_pekabesko_excel(filepath: str) -> ImportResult:
         f"neto_sum={neto_kg_ukupno:.3f}kg, bruto={bruto_kg:.3f}kg"
     )
 
+    _exporter = Party(name="PEKABESKO")
+    _importer = Party(name="LEBURIĆ KOMERC D.O.O.")  # XLS nema header, uvoznik je uvijek isti
+    for line in invoice_lines:
+        line.exporter = _exporter
+        line.importer = _importer
+
     return ImportResult(
         items=invoice_lines,
         bruto_kg=bruto_kg,
@@ -335,6 +341,7 @@ def parse_leburic_pekabesko_excel(filepath: str) -> ImportResult:
         invoice_name=invoice_name,
         currency="EUR",
         import_type="leburic_pekabesko",
-        exporter=Party(name="PEKABESKO"),
+        exporter=_exporter,
+        importer=_importer,
         consumed_paths=consumed_pdf,
     )

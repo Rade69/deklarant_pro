@@ -54,8 +54,8 @@ TEMPLATE_FIELDS = [
     "drzava_odredista_naziv", "drzava_odredista_sifra",
     # Rb.20 - Uslovi isporuke
     "uslovi_kod", "uslovi_mjesto",
-    # Rb.22 - Valuta tip transakcije (ne iznos/kurs)
-    "vrsta_trans_1", "vrsta_trans_2",
+    # Rb.22/23 - Valuta, kurs i tip transakcije
+    "vrsta_trans_1", "vrsta_trans_2", "kurs",
     # Rb.40 - Tip i šifra (BEZ broja)
     "rb40_tip", "rb40_skracenica",
     # Rb.48/49 - Plaćanje i skladište
@@ -68,9 +68,10 @@ class TemplateMatch:
     """Rezultat pretrage - nađeni XML template."""
     filepath: str
     filename: str
-    exporter_name: str   # Ime pošiljaoca iz XML-a
-    match_score: float   # 0.0 - 1.0
-    fields: dict         # Izvučena whitelist polja
+    exporter_name: str      # Ime pošiljaoca iz XML-a
+    match_score: float      # 0.0 - 1.0
+    fields: dict            # Izvučena whitelist polja
+    declaration_type: str = ""  # "IM" ili "EX" (iz XML-a)
 
 
 class XmlTemplateService:
@@ -80,39 +81,61 @@ class XmlTemplateService:
     """
 
     def __init__(self, xml_dir: str = None):
+        # __file__ je services/agent/validation/xml_template_service.py
+        # 4x parent → project root
+        _root = Path(__file__).parent.parent.parent.parent
         if xml_dir is None:
-            # Default: data/xml_deklaracije/ relativno od projekta
-            base = Path(__file__).parent.parent.parent
-            xml_dir = str(base / "data" / "xml_deklaracije")
+            xml_dir = str(_root / "data" / "xml_deklaracije")
         self.xml_dir = Path(xml_dir)
+        # Istorijske XML deklaracije iz NOVA ASIKUDA foldera
+        _extra = _root / "docs" / "NOVA ASIKUDA"
+        self.extra_xml_dirs = [_extra] if _extra.exists() else []
 
-    def find_template(self, exporter_hint: str) -> Optional[TemplateMatch]:
+    def find_template(self, exporter_hint: str,
+                      declaration_type: str = "") -> Optional[TemplateMatch]:
         """
         Pronađi najpodesniji XML template za datog pošiljaoca.
 
         Args:
             exporter_hint: Ime pošiljaoca ili dobavljača (iz fakture, naziva fajla, itd.)
+            declaration_type: "IM" ili "EX" — filtriraj samo odgovarajući tip.
+                              Ako je prazno, ne filtrira po tipu.
 
         Returns:
             TemplateMatch sa najboljim poklapanjem, ili None
         """
-        if not exporter_hint or not self.xml_dir.exists():
+        if not exporter_hint:
             return None
 
         hint_norm = self._normalize(exporter_hint)
-        logger.info(f"[XmlTemplate] Tražim template za: '{exporter_hint}'")
+        decl_type_upper = (declaration_type or "").upper().strip()
+        logger.info(
+            f"[XmlTemplate] Tražim template za: '{exporter_hint}'"
+            + (f" (tip: {decl_type_upper})" if decl_type_upper else "")
+        )
 
         best: Optional[TemplateMatch] = None
         best_score = 0.0
 
-        xml_files = list(self.xml_dir.glob("*.xml"))
-        logger.info(f"[XmlTemplate] Skeniram {len(xml_files)} XML fajlova...")
+        # Prikupi XML fajlove iz svih direktorija
+        all_dirs = ([self.xml_dir] if self.xml_dir.exists() else []) + self.extra_xml_dirs
+        xml_files = []
+        for d in all_dirs:
+            xml_files.extend(d.glob("*.xml"))
+        logger.info(f"[XmlTemplate] Skeniram {len(xml_files)} XML fajlova iz {len(all_dirs)} direktorija...")
 
         for xml_path in xml_files:
             try:
                 exporter_name, fields = self._parse_xml(xml_path)
                 if not exporter_name:
                     continue
+
+                # Filtriranje po tipu deklaracije (IM/EX)
+                if decl_type_upper:
+                    xml_decl_type = (fields.get("deklaracija_tip") or "").upper().strip()
+                    # "IM4" startswith "IM", "EX1" startswith "EX"
+                    if xml_decl_type and not xml_decl_type.startswith(decl_type_upper):
+                        continue
 
                 score = self._similarity(hint_norm, self._normalize(exporter_name))
 
@@ -124,6 +147,7 @@ class XmlTemplateService:
                         exporter_name=exporter_name,
                         match_score=score,
                         fields=fields,
+                        declaration_type=fields.get("deklaracija_tip", ""),
                     )
             except Exception as e:
                 logger.debug(f"[XmlTemplate] Greška pri parsiranju {xml_path.name}: {e}")
@@ -132,7 +156,7 @@ class XmlTemplateService:
         if best and best_score >= 0.5:
             logger.info(
                 f"[XmlTemplate] Nađen template: '{best.filename}' "
-                f"(pošiljalac: '{best.exporter_name}', score: {best_score:.0%})"
+                f"(pošiljalac: '{best.exporter_name}', tip: {best.declaration_type}, score: {best_score:.0%})"
             )
             return best
         else:
@@ -146,6 +170,9 @@ class XmlTemplateService:
         Returns:
             Lista naziva polja koja su popunjena
         """
+        # Polja koja imaju "praznu" defaultnu vrijednost (ne preskakovati samo zato što != None)
+        NUMERIC_DEFAULTS = {"kurs": (0.0, 1.0)}  # kurs=1.0 je default, prepiši ako template ima pravi
+
         applied = []
         for field_name in TEMPLATE_FIELDS:
             value = fields.get(field_name)
@@ -153,7 +180,12 @@ class XmlTemplateService:
                 continue
             # Ne prepisuj polja koja su već popunjena
             current = getattr(draft, field_name, None)
-            if current:
+            if field_name in NUMERIC_DEFAULTS:
+                # Za numerička polja: prepiši samo ako je current defaultna vrijednost
+                defaults = NUMERIC_DEFAULTS[field_name]
+                if current not in defaults and current:
+                    continue
+            elif current:
                 continue
             try:
                 setattr(draft, field_name, value)
@@ -243,8 +275,13 @@ class XmlTemplateService:
         uslovi_kod = get(".//Transport/Delivery_terms/Code")
         uslovi_mjesto = get(".//Transport/Delivery_terms/Place")
 
-        # ── Rb.22 Valuta ─────────────────────────────────────────
+        # ── Rb.22/23 Valuta i kurs ───────────────────────────────
         valuta = get(".//Valuation/Gs_Invoice/Currency_code") or "EUR"
+        kurs_raw = get(".//Valuation/Gs_Invoice/Currency_rate")
+        try:
+            kurs = float(kurs_raw) if kurs_raw else 0.0
+        except ValueError:
+            kurs = 0.0
         vrsta_trans_1 = get(".//Financial/Financial_transaction/code1")
         vrsta_trans_2 = get(".//Financial/Financial_transaction/code2")
 
@@ -307,8 +344,9 @@ class XmlTemplateService:
             # Rb.20
             "uslovi_kod":             uslovi_kod,
             "uslovi_mjesto":          uslovi_mjesto,
-            # Rb.22
+            # Rb.22/23
             "valuta":                 valuta,
+            "kurs":                   kurs if kurs > 0 else None,
             "vrsta_trans_1":          vrsta_trans_1,
             "vrsta_trans_2":          vrsta_trans_2,
             # Rb.40
