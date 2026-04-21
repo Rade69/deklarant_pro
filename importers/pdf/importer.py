@@ -12,7 +12,6 @@ Automatski bira strategiju:
 
 import os
 import logging
-import PyPDF2
 import pdfplumber
 from typing import List, Optional, Union
 
@@ -314,9 +313,8 @@ class PDFImporter:
 
         # Provjera validnosti PDF-a
         try:
-            with open(filepath, "rb") as f:
-                reader = PyPDF2.PdfReader(f)
-                if len(reader.pages) == 0:
+            with pdfplumber.open(filepath) as pdf:
+                if len(pdf.pages) == 0:
                     raise ValueError("PDF nema nijednu stranicu")
         except Exception as e:
             raise ValueError(f"Nevažeći PDF dokument: {e}")
