@@ -1685,8 +1685,8 @@ class ZaglavljeService:
         _paritet = str(view_data.get("uslovi_kod", "")).strip().upper()
         _voz_obavezna = _paritet not in _INCOTERMS_VOZ_UKLJUCENA
 
-        OBAVEZNE_SIFRE = ["OST", "PZT", "N380", "DIS", "DV1"]
-        MORAJU_SE_PROMIJENITI = {"OST", "PZT", "N380", "DV1"}  # DIS isključen
+        OBAVEZNE_SIFRE = ["PZT", "N380", "DIS", "DV1"]
+        MORAJU_SE_PROMIJENITI = {"PZT", "N380", "DV1"}  # DIS isključen; OST nije obavezan
         if _voz_obavezna:
             OBAVEZNE_SIFRE.insert(0, "VOZ")
             MORAJU_SE_PROMIJENITI.add("VOZ")
