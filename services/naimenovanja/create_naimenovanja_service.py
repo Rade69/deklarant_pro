@@ -233,6 +233,7 @@ class CreateNaimenovanjaService:
             package_marks='X',  # Podrazumevano: "X" (Oznake i broj)
             # Procedura (podrazumevano 4000 = definitivni uvoz)
             procedure_code='4000',
+            procedure_prev_code='000',
             # Povlastica (povlastica → preference_code)
             preference_code=pov,
             # Rb.44 – dokument porijekla (PE1=EUR.1, PE2=izjava na fakturi)
@@ -293,6 +294,7 @@ class CreateNaimenovanjaService:
             currency=first_line.valuta or 'EUR',
             package_code='PK',  # Podrazumevano
             procedure_code='4000',  # Podrazumevano
+            procedure_prev_code='000',
             preference_code=first_line.povlastica or '',  # Povlastica (EUP/CEFTAP/TRP)
             # Agregirani podaci
             goods_description=goods_description,

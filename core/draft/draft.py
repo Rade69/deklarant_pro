@@ -231,7 +231,7 @@ class NaimenovanjeDraft:
 
     # Rub.37 – procedura (opciono)
     procedure_code: str = ""
-    procedure_prev_code: str = ""
+    procedure_prev_code: str = "000"
 
     # Rub.39 – kvota (opciono)
     quota_code: str = ""
@@ -477,6 +477,7 @@ class DeclarationDraft:
                 NaimenovanjeDraft(
                     item_id=str(_uuid.uuid4()),
                     ordinal_no=len(self.items) + 1,
+                    procedure_prev_code="000",
                 )
             )
 
@@ -485,6 +486,7 @@ class DeclarationDraft:
         new_item = NaimenovanjeDraft(
             item_id=str(_uuid.uuid4()),
             ordinal_no=len(self.items) + 1,
+            procedure_prev_code="000",
         )
         self.items.append(new_item)
         self.mark_dirty()
