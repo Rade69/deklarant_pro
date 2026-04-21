@@ -234,9 +234,9 @@ class ChatWorker(QThread):
             )
             ctx.append(
                 f"  {'Rb.':<5} {'Tarifni br.':<12} {'Opis robe (u deklaraciji)':<40} "
-                f"{'Zvanični opis tarife':<40} {'Z.':<4} {'Povl.':<7} {'Bruto':>8} {'Neto':>8} {'Iznos':>9} {'Fakt.lin.':>9}"
+                f"{'Zvanični opis tarife':<40} {'Z.':<4} {'Povl.':<7} {'Bruto':>8} {'Neto':>8} {'Fakt.lin.':>9}"
             )
-            ctx.append("  " + "-" * 145)
+            ctx.append("  " + "-" * 135)
             for item in naim_items:
                 rb    = getattr(item, 'ordinal_no', '?')
                 tarif = getattr(item, 'tariff_code', '') or '⚠️NEMA'
@@ -245,16 +245,14 @@ class ChatWorker(QThread):
                 pov   = getattr(item, 'preference_code', '') or '-'
                 bruto = getattr(item, 'gross_mass_kg', 0) or 0
                 neto  = getattr(item, 'net_mass_kg', 0) or 0
-                iznos = getattr(item, 'item_value', 0) or 0
                 zv_opis = naim_pg_desc.get(tarif, '')[:39] if tarif != '⚠️NEMA' else '(nema tarife)'
-                # Broj fakturnih linija grupisanih u ovo naimensovanje
                 n_lines = sum(
                     1 for l in lines
                     if getattr(l, 'assigned_naimenovanje_ordinal', 0) == rb
                 )
                 ctx.append(
                     f"  {rb:<5} {tarif:<12} {opis:<40} {zv_opis:<40} "
-                    f"{zemlja:<4} {pov:<7} {bruto:>8.2f} {neto:>8.2f} {iznos:>9.2f} {n_lines:>9}"
+                    f"{zemlja:<4} {pov:<7} {bruto:>8.2f} {neto:>8.2f} {n_lines:>9}"
                 )
 
             # ⭐ DETALJNE RUBRIKE — KOMPAKTNI FORMAT (štedi ~60% tokena)
@@ -270,11 +268,9 @@ class ChatWorker(QThread):
                 proc = getattr(item, 'procedure_code', '') or '-'
                 bruto = getattr(item, 'gross_mass_kg', 0) or 0
                 neto = getattr(item, 'net_mass_kg', 0) or 0
-                iznos = getattr(item, 'item_value', 0) or 0
-                # Jedna linija po naimenovanju
                 ctx.append(
                     f"  Rb.{rb}: {tarif} | {opis} | Z:{zemlja} P:{pov} PR:{proc} | "
-                    f"B:{bruto:.1f}kg N:{neto:.1f}kg V:{iznos:.0f}"
+                    f"B:{bruto:.1f}kg N:{neto:.1f}kg"
                 )
 
         if bez_zemlje_list:
@@ -323,11 +319,10 @@ class ChatWorker(QThread):
                         pov = getattr(item, 'preference_code', '') or '-'
                         bruto = getattr(item, 'gross_mass_kg', 0) or 0
                         neto = getattr(item, 'net_mass_kg', 0) or 0
-                        iznos = getattr(item, 'item_value', 0) or 0
                         zv_opis = naim_pg_desc.get(tarif, '(nije nađen u tarifi)')
 
                         ctx.append(f"  Rb.{i}: tarifa={tarif} | opis='{opis}' | zemlja={zemlja} | povl={pov}")
-                        ctx.append(f"         bruto={bruto:.3f}kg | neto={neto:.3f}kg | iznos={iznos:.2f}")
+                        ctx.append(f"         bruto={bruto:.3f}kg | neto={neto:.3f}kg")
                         ctx.append(f"         Zvanični opis tarife {tarif}: {zv_opis}")
 
                         # Pronađi fakturne linije koje su grupisane u ovo naimenovanje
@@ -934,7 +929,7 @@ class ChatWorker(QThread):
             "Odgovaraš na srpskom jeziku (latinica), konkretno i korisno.\n\n"
             "POJMOVI KOJE MORAŠ RAZUMJETI:\n"
             "- FAKTURNE LINIJE (invoice_lines): Pojedinačni redovi iz uvozne fakture — svaki red je jedan proizvod.\n"
-            "  Polja: naziv_robe, tarifni_broj, zemlja_porijekla, povlastica, kolicina, jm, iznos, bruto_kg, neto_kg.\n\n"
+            "  Polja: naziv_robe, tarifni_broj, zemlja_porijekla, povlastica, kolicina, jm, bruto_kg, neto_kg.\n\n"
             "- NAIMENOVANJA (items): Grupisane stavke CARINSKE DEKLARACIJE.\n"
             "  PRAVILO GRUPIRANJA: Fakturne linije se grupišu po kombinaciji:\n"
             "    (tarifni_broj + zemlja_porijekla + povlastica + eur1_number)\n"
@@ -942,7 +937,7 @@ class ChatWorker(QThread):
             "  Ako se razlikuje ijedan od ta 4 ključa → RAZLIČITA naimenovanja.\n"
             "  Primjer: 5 linija mandarina (sve tarifa=08052190, TR, TRP) → 1 naimenovanje\n"
             "           3 linije jabuka (08081000, RS, CEFTAP) + 5 mandarina → 2 naimenovanja\n"
-            "  Masa i iznos se SABIRAJU od svih linija u grupi.\n"
+            "  Masa se SABIRA od svih linija u grupi.\n"
             "  Opis = prvih 3 naziva robe spojeni sa '; '\n"
             "  Svako naimenovanje ima redni broj (Rb.). Rb.1 = prvo, Rb.10 = deseto.\n\n"
             "- ZAŠTO JE VIŠE NAIMENOVANJA nego što korisnik očekuje:\n"
