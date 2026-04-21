@@ -89,21 +89,34 @@ def normalize_exporter_name(name: str) -> str:
     # Uppercase i strip
     name = name.upper().strip()
     
-    # Ukloni prefikse koji se ponavljaju
+    # Ukloni sufikse i prefikse pravnih oblika (sa ili bez zareza)
+    suffixes_to_remove = [
+        r',?\s*D\.\s*O\.\s*O\.?\s*$',   # , D.O.O. ili D.O.O
+        r',?\s*D\s*O\s*O\.?\s*$',        # , DOO ili DOO.
+        r',?\s*DOO\.?\s*$',
+        r',?\s*LTD\.?\s*$',
+        r',?\s*LLC\.?\s*$',
+        r',?\s*A\.?\s*D\.?\s*$',
+        r',?\s*J\.?\s*S\.?\s*C\.?\s*$',
+        r',?\s*GMBH\.?\s*$',
+        r',?\s*S\.?\s*R\.?\s*O\.?\s*$',
+    ]
     prefixes_to_remove = [
         r'^TRGOVINSKA\s+DRUŠTVA?\s*',
         r'^PREDMUZEĆE\s+',
         r'^DRUŠTVO\s+SA\s+OGRANIČENOM\s+ODGOVORNOŠĆU\s*',
-        r'^DOO\s*',
-        r'^D\.\s*O\.\s*O\.?\s*',
-        r'^D\s*O\s*O\s*',
-        r'^\s*(DOO|LTD|LLC|AD|AD\s*$|A\s*D)\s*$',
-        r'\s+(DOO|LTD|LLC|AD)\s*$',
+        r'^DOO\s+',
+        r'^D\.\s*O\.\s*O\.?\s+',
     ]
-    
+
+    for pattern in suffixes_to_remove:
+        name = re.sub(pattern, '', name, flags=re.IGNORECASE).strip()
     for pattern in prefixes_to_remove:
-        name = re.sub(pattern, '', name, flags=re.IGNORECASE)
-    
+        name = re.sub(pattern, '', name, flags=re.IGNORECASE).strip()
+
+    # Ukloni višestruke zareze/tačke na kraju
+    name = re.sub(r'[,.\s]+$', '', name).strip()
+
     # Ukloni brojeve na kraju (JMBG, PIB, etc.)
     name = re.sub(r'\s+\d{6,}.*$', '', name)
     
@@ -509,6 +522,103 @@ def find_xml_for_pair(exporter_hint: str, consignee_jib: str = "", consignee_hin
 
     except Exception as e:
         logger.error(f"Greška pri lookupu: {e}")
+    finally:
+        conn.close()
+
+    return None
+
+
+def find_xml_by_consignee(consignee_jib: str = "", consignee_hint: str = "") -> Optional[Dict]:
+    """
+    Pronađi XML po consignee-u (uvozniku/primaocu) — za uvozne deklaracije (IM).
+
+    Lookup prioritet:
+    1. Tačan match po consignee_jib
+    2. Tačan match po consignee_normalized
+    3. Fuzzy match po consignee_normalized
+
+    Returns:
+        Dict sa xml_filepath i meta-podacima, ili None
+    """
+    jib = (consignee_jib or "").strip()
+    cons_norm = normalize_exporter_name(consignee_hint) if consignee_hint else ""
+
+    if not jib and not cons_norm:
+        return None
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            # 1. Tačan match po JIB-u
+            if jib:
+                cursor.execute("""
+                    SELECT exporter_original, consignee_original, consignee_jib,
+                           xml_filepath, declaration_date, use_count
+                    FROM catalogs.exporter_xml_index
+                    WHERE consignee_jib = %s
+                    ORDER BY use_count DESC, declaration_date DESC
+                    LIMIT 1
+                """, (jib,))
+                row = cursor.fetchone()
+                if row:
+                    return {
+                        'xml_filepath': row[3],
+                        'exporter_original': row[0],
+                        'consignee_original': row[1],
+                        'consignee_jib': row[2],
+                        'declaration_date': row[4],
+                        'match_type': 'consignee_jib'
+                    }
+
+            # 2. Tačan match po imenu
+            if cons_norm:
+                cursor.execute("""
+                    SELECT exporter_original, consignee_original, consignee_jib,
+                           xml_filepath, declaration_date, use_count
+                    FROM catalogs.exporter_xml_index
+                    WHERE consignee_normalized = %s
+                    ORDER BY use_count DESC, declaration_date DESC
+                    LIMIT 1
+                """, (cons_norm,))
+                row = cursor.fetchone()
+                if row:
+                    return {
+                        'xml_filepath': row[3],
+                        'exporter_original': row[0],
+                        'consignee_original': row[1],
+                        'consignee_jib': row[2],
+                        'declaration_date': row[4],
+                        'match_type': 'consignee_name'
+                    }
+
+            # 3. Fuzzy match po consignee imenu
+            if cons_norm:
+                cursor.execute("""
+                    SELECT consignee_normalized, exporter_original, consignee_original,
+                           consignee_jib, xml_filepath, declaration_date, use_count
+                    FROM catalogs.exporter_xml_index
+                    ORDER BY use_count DESC, declaration_date DESC
+                    LIMIT 300
+                """)
+                rows = cursor.fetchall()
+                best_match = None
+                best_score = 0.0
+                for row in rows:
+                    score = _similarity_score(cons_norm, row[0])
+                    if score > best_score and score >= 0.65:
+                        best_score = score
+                        best_match = row
+                if best_match:
+                    return {
+                        'xml_filepath': best_match[4],
+                        'exporter_original': best_match[1],
+                        'consignee_original': best_match[2],
+                        'consignee_jib': best_match[3],
+                        'declaration_date': best_match[5],
+                        'match_type': f'consignee_fuzzy ({best_score:.0%})'
+                    }
+    except Exception as e:
+        logger.error(f"Greška pri consignee lookupu: {e}")
     finally:
         conn.close()
 

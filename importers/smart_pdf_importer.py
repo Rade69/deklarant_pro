@@ -243,11 +243,9 @@ def _parse_blagic_attos(pdf_path: str) -> ImportResult:
 
 
 def _parse_sumaprom(pdf_path: str) -> ImportResult:
-    """Parsira ŠUMAPROM format (PDF)."""
-    # TODO: Kreirati sumaprom_pdf_parser.py kada bude potreban
-    # Za sada koristi generic parser kao fallback
-    logger.warning("⚠️  ŠUMAPROM PDF parser još nije implementiran - koristi se generic parser")
-    return parse_generic_pdf(pdf_path)
+    """Parsira ŠUMAPROM format (PDF) — tekstualni ili skenirani (OCR)."""
+    from importers.sumaprom_pdf_parser import parse_sumaprom_pdf
+    return parse_sumaprom_pdf(pdf_path)
 
 
 def _parse_imamoglu(pdf_path: str) -> ImportResult:

@@ -32,7 +32,7 @@ import pdfplumber
 
 from core.draft.draft import InvoiceLine, Party
 from importers.import_result import ImportResult
-from importers.invoice_line_utils import KNOWN_JM, parse_eu_number
+from importers.invoice_line_utils import KNOWN_JM, parse_eu_number, normalize_tariff_number
 from utils.country_normalizer import normalize_country_name
 
 logger = logging.getLogger("asycuda_pro.import.medicopharm")
@@ -45,11 +45,14 @@ _INVOICE_NO_RE = re.compile(r"Faktura\s*[-–]\s*(\d+/\d+)", re.IGNORECASE)
 _DATE_RE = re.compile(r"Datum\s+fakture[^:]*:\s*(\d{1,2}\.\d{1,2}\.\d{4})", re.IGNORECASE)
 _BRUTO_RE = re.compile(r"BRUTO\s+TE[ZŽ]INA\s*:?\s*([\d\.,]+)\s*kg", re.IGNORECASE)
 
-# Header tabla stavki: prepoznaje "Rb." + "JM" ili "Rbr" + "J.M." (Proton System format)
-_ITEM_HEADER_RE = re.compile(r"\bRb\.\s*No\b|\bRb[r.]?\b.*\bJ\.?M\.?\b", re.IGNORECASE)
+# Header tabla stavki: prepoznaje "Rb." + "JM" ili "Rbr" + "J.M." ili "Rb. Šifra" (novi format)
+_ITEM_HEADER_RE = re.compile(
+    r"\bRb\.\s*No\b|\bRb[r.]?\b.*\bJ\.?M\.?\b|\bRb\.\s+[ŠS]ifra\b",
+    re.IGNORECASE
+)
 
-# Header sumarnog tabela po tarifama/zemljama
-_SUMMARY_HEADER_RE = re.compile(r"Tarifna\s+oznaka|Tariff\s+heading", re.IGNORECASE)
+# Header sumarnog tabela — SAMO srpska verzija, ne "Tariff heading" (pojavljuje se i u headeru stavki)
+_SUMMARY_HEADER_RE = re.compile(r"Tarifna\s+oznaka", re.IGNORECASE)
 
 # Total red u sumarnom tabelu
 _TOTAL_LINE_RE = re.compile(r"^Total\b", re.IGNORECASE)
@@ -58,6 +61,9 @@ _TOTAL_LINE_RE = re.compile(r"^Total\b", re.IGNORECASE)
 _NOISE_PATTERNS = [
     re.compile(r"^\s*Strana\s+\d+", re.IGNORECASE),
     re.compile(r"^\s*Page\s+\d+", re.IGNORECASE),
+    re.compile(r"^\s*JM\s*$", re.IGNORECASE),              # Standalone "JM" red između tabela headera
+    re.compile(r"^No\.\s+Code\b", re.IGNORECASE),           # "No. Code Tariff heading Item name..." (drugi red headera)
+    re.compile(r"^Tariff\s+heading\b.*Country\b", re.IGNORECASE),  # Summary sub-header
     re.compile(r"MEDICO\s+PHARM\s+SERVIS", re.IGNORECASE),
     re.compile(r"KRUŽNI\s+PUT|KRU[ZŽ]NI\s+PUT", re.IGNORECASE),
     re.compile(r"^\s*TEL\s*:", re.IGNORECASE),
@@ -106,6 +112,58 @@ _ITEM_SINGLE_RE = re.compile(
     r"stavk[ei]?\s+broj[a]?\s+(\d+)(?!\s*[-–]\s*\d)",
     re.IGNORECASE,
 )
+
+# Mapiranje poznatih brendova/naziva na ISO šifru zemlje porijekla.
+# Svaki unos: (substring_koji_se_traži_u_nazivu, iso_zemlja)
+# Pretraga je case-insensitive substring match.
+# Specifičniji termini dolaze ispred općenitijih da izbjegnemo pogrešno mapiranje.
+_BRAND_COUNTRY_MAP: list = [
+    # Njemačka (DE)
+    ("GW ",           "DE"),  # Gehwol — medicinska kozmetika za stopala
+    ("BORT ",         "DE"),  # Bort Medical — ortopedski proizvodi
+    ("OHP",           "DE"),  # Ohropax — čepići za uši i srodna zaštita sluha
+
+    # Italija (IT)
+    ("SOLIDEA",       "IT"),  # Solidea — kompresivne čarape
+
+    # Austrija (AT)
+    ("DIXI",          "AT"),  # Dixi — bombone/komprimati
+    ("SUSSINA",       "AT"),  # Sussina zaslađivač
+
+    # Francuska (FR)
+    ("VITIX",         "FR"),  # Vitix — depigmentacijski preparati
+    ("ISP ",          "FR"),  # Isispharma — dermokozmetika (ISP + razmak da ne hvata ISPUCALA)
+    ("CICASTIM",      "FR"),  # Cicastim — gel za ožiljke
+    ("NP ",           "FR"),  # NP Neutrogena Professional / NP šamponi i losioni
+    ("MOLUTREX",      "FR"),  # Molutrex — lijek
+    ("DAYONIX",       "PT"),  # Dayonix — Portugal (ostaviti ispred FR)
+
+    # Portugal (PT)
+    ("DAYONIX",       "PT"),  # Dayonix — dijetetski suplementi
+
+    # Velika Britanija (GB)
+    ("FADE OUT",      "GB"),  # Fade Out — kozmetika
+    ("DEO SOLE",      "GB"),  # Deo Sole — uloške za obuću
+
+    # Sjedinjene Države (US)
+    ("CBP GRECIAN",   "US"),  # Grecian Formula — boja za kosu
+
+    # Singapur (SG)
+    ("NEUROAID",      "SG"),  # NeuroAid — neurološki suplementi
+
+    # Poljska (PL)
+    ("NEUROPROTEX",   "PL"),  # Neuroprotex — dijetetski suplementi
+
+    # Finska (FI)
+    ("ICE POWER",     "FI"),  # Ice Power — gel/sprej za sportske povrede
+
+    # Srbija (RS)
+    ("MAGNEZIJUM HLORID", "RS"),  # Magnezijum hlorid gel — srpski proizvod
+    ("ALFA BETA",     "RS"),  # Alfa Beta film za uklanjanje dlaka — srpski
+    ("AKTIVNI UGALJ", "RS"),  # Aktivni ugalj — srpski proizvod
+    ("SODA BIKARBONA","RS"),  # Soda bikarbona — Srbija
+    ("NATRIJEV BIKARBONAT", "RS"),  # Natrijev bikarbonat — Srbija
+]
 
 # Stop pri parsiranju stavki — počela je sumarni dio ili kraj
 _STOP_PREFIXES = [
@@ -182,6 +240,7 @@ def parse_medicopharm_pdf(pdf_path: str) -> ImportResult:
             items=[], bruto_kg=0.0, neto_kg=0.0,
             invoice_name=invoice_name, currency="EUR",
             exporter=Party(name="MEDICO PHARM SERVIS"),
+            importer=Party(name="MEDICOPHARM D.O.O."),
         )
 
     # --- Stavke ---
@@ -203,6 +262,10 @@ def parse_medicopharm_pdf(pdf_path: str) -> ImportResult:
         _apply_zemlja_porekla(raw_items, default_zemlja, item_zemlja_map)
         logger.info(f"   🌍 Zemlja porekla (izjava) dodijeljena za {sum(1 for i in raw_items if i['zemlja'])} stavki")
 
+    # --- Brand heuristika (GW → DE, itd.) ---
+    _apply_brand_heuristics(raw_items)
+    logger.info(f"   🏷️  Zemlja porekla (brand) dodijeljena za {sum(1 for i in raw_items if i['zemlja'])} stavki ukupno")
+
     logger.info(f"✅ Medico Pharm: {len(raw_items)} stavki | bruto={bruto_kg}kg | neto={neto_kg}kg")
 
     return ImportResult(
@@ -214,6 +277,7 @@ def parse_medicopharm_pdf(pdf_path: str) -> ImportResult:
         has_origin_statement=has_origin_statement,
         origin_statements=origin_statements,
         exporter=Party(name="MEDICO PHARM SERVIS"),
+        importer=Party(name="MEDICOPHARM D.O.O."),  # domaća BiH firma
     )
 
 
@@ -248,8 +312,12 @@ def _parse_items(lines: List[str]) -> List[Dict]:
     """
     Parsira listu linija tabele stavki.
 
-    Svaki red koji počinje RBR-om i ima JM na poziciji -7 je nova stavka.
-    Ostali redovi su nastavak naziva prethodne stavke.
+    Podržava dva formata:
+    1. Regularni (jednolinijski): RBR CODE TARIFF NAME JM KOL CENA IZNOS RAB% RABAT IZN_RABAT
+    2. Split (višelinijski, Medicopharm format sa internim šiframa):
+       - Linija 1: RBR CODE NAME... (bez JM i numeričkog repa)
+       - Linija 2+: nastavak naziva / interna šifra kataloga
+       - Zadnja linija segmenta: TARIFF JM KOL CENA IZNOS RAB% IZN_RABAT
     """
     items: List[Dict] = []
     current: Optional[Dict] = None
@@ -285,6 +353,16 @@ def _parse_items(lines: List[str]) -> List[Dict]:
                 prefix = " ".join(pending_name_parts)
                 current["name"] = (prefix + " " + current["name"]).strip()
             pending_name_parts = []
+        elif current and current.get("_partial"):
+            # Split stavka — čekamo liniju s tarifom + JM + numeričkim repom
+            completion = _try_complete_split_item(s)
+            if completion:
+                current.update(completion)
+                del current["_partial"]
+            else:
+                # Nastavak naziva (interna šifra, drugi dio teksta)
+                if not _LOT_DATE_QTY_RE.match(s):
+                    current["name"] = (current["name"] + " " + s).strip()
         elif current:
             # Preskoči liniju šifra_serije + datum_roka + količina
             if _LOT_DATE_QTY_RE.match(s):
@@ -296,8 +374,15 @@ def _parse_items(lines: List[str]) -> List[Dict]:
                 # Medico Pharm: nastavak naziva iste stavke (multi-line opis)
                 current["name"] = (current["name"] + " " + s).strip()
         else:
-            # Nema tekuće stavke → buferiraj kao potencijalni naziv za sljedeću stavku
-            if not _LOT_DATE_QTY_RE.match(s):
+            # Pokušaj detektovati početak split stavke (RBR + CODE + NAME, bez JM u repu)
+            partial = _try_parse_partial_item_start(s)
+            if partial:
+                if current:
+                    items.append(current)
+                current = partial
+                pending_name_parts = []
+            elif not _LOT_DATE_QTY_RE.match(s):
+                # Nema tekuće stavke → buferiraj kao potencijalni naziv za sljedeću stavku
                 pending_name_parts.append(s)
 
     if current:
@@ -402,6 +487,96 @@ def _try_parse_item_line(line: str) -> Optional[Dict]:
     return None
 
 
+def _try_parse_partial_item_start(line: str) -> Optional[Dict]:
+    """
+    Detektuje PRVI red split-stavke (Medicopharm format sa internim šiframa).
+
+    Format: RBR CODE NAME... (bez JM u repu, tipično završava jednim brojem 0.00)
+    Primjer: "6 1611 GW REZERVNI DEO -DRŽAČ ZA SPREJ 0.00"
+
+    Razlikuje se od regularnog reda: nema prepoznatog JM na pozicijama od desna.
+    """
+    parts = line.split()
+    if len(parts) < 3:
+        return None
+
+    try:
+        rbr = int(parts[0])
+        if rbr <= 0 or rbr > 9999:
+            return None
+    except ValueError:
+        return None
+
+    # Ako ima JM na standardnim pozicijama → to je regularni red, ne split
+    for offset in (7, 8, 6):
+        if len(parts) <= offset:
+            continue
+        if parts[-offset].rstrip(".").lower() in KNOWN_JM:
+            return None
+
+    # Mora završavati numeričkim tokenom (tipično 0.00) ali ne smije biti samo broj
+    if not _is_numeric_token(parts[-1]):
+        return None
+    if len(parts) < 4:
+        return None
+
+    code = parts[1]
+    name = " ".join(parts[2:-1])  # Naziv između code i završnog broja
+
+    return {
+        "rbr": rbr,
+        "code": code,
+        "tariff": "",
+        "name": name,
+        "jm": "",
+        "kolicina": 0.0,
+        "cijena": 0.0,
+        "iznos": 0.0,
+        "zemlja": "",
+        "_partial": True,
+    }
+
+
+def _try_complete_split_item(line: str) -> Optional[Dict]:
+    """
+    Pokušava kompletirati split-stavku pronalazeći liniju oblika:
+    TARIFF JM KOL CENA IZNOS [RAB%] [RABAT] IZN_RABAT
+
+    Primjer: "90330090 KOM 1.00 76.481 76.48 0.00 76.48"
+    Tarifa je čisto numerička (>= 4 cifre), JM mora biti u KNOWN_JM.
+    """
+    parts = line.split()
+    if len(parts) < 4:
+        return None
+
+    # Tarifa mora biti samo cifre (4+ cifre, >1000)
+    if not re.match(r"^\d{4,}$", parts[0]):
+        return None
+
+    # Drugi token mora biti JM
+    jm = parts[1].rstrip(".")
+    if jm.lower() not in KNOWN_JM:
+        return None
+
+    # Ostatak moraju biti numerički tokeni (3-6 vrijednosti)
+    tail = parts[2:]
+    if len(tail) < 3 or not all(_is_numeric_token(t) for t in tail):
+        return None
+
+    tariff = parts[0]
+    kolicina = parse_eu_number(tail[0])
+    cijena = parse_eu_number(tail[1]) if len(tail) > 1 else 0.0
+    iznos = parse_eu_number(tail[-1])  # IZN_RABAT = zadnji token
+
+    return {
+        "tariff": tariff,
+        "jm": jm.lower(),
+        "kolicina": kolicina,
+        "cijena": cijena,
+        "iznos": iznos,
+    }
+
+
 def _is_numeric_token(s: str) -> bool:
     """Provjeri da li je token numeričke vrijednosti (može imati tačku/zarez)."""
     clean = s.replace(",", "").replace(".", "")
@@ -426,17 +601,17 @@ def _parse_summary(lines: List[str]) -> Tuple[float, Dict[str, List[str]]]:
     tariff_country_map: Dict[str, List[str]] = {}
     neto_kg = 0.0
 
-    # Skip dvojni header (Tarifna oznaka / Tariff heading)
-    skip_headers = 2
+    # Skip samo jednu sub-header liniju ("Tariff heading Country Amount Sum Weight")
+    # Napomena: "Tarifna oznaka" linija je već preskočena u detekcijskom loopu (summary_start = i+1)
+    skip_headers = 1
 
     for ln in lines:
         s = ln.strip()
         if not s:
             continue
 
-        # Preskoči header linije sumarnog tabela
+        # Preskoči header/sub-header linije sumarnog tabela (ako se ponavljaju)
         if _SUMMARY_HEADER_RE.search(s):
-            skip_headers -= 1
             continue
 
         if skip_headers > 0:
@@ -460,10 +635,10 @@ def _parse_summary(lines: List[str]) -> Tuple[float, Dict[str, List[str]]]:
             break
 
         parts = s.split()
-        # Red sumarnog tabela: tarifa (samo cifre) + zemlja + kolicina + iznos + tezina
+        # Red sumarnog tabela: tarifa (cifre, opciono sa "/") + zemlja + kolicina + iznos + tezina
         if len(parts) < 5:
             continue
-        if not re.match(r"^\d+$", parts[0]):
+        if not re.match(r"^\d[\d/]*$", parts[0]):
             continue
 
         tariff = parts[0]
@@ -583,16 +758,38 @@ def _apply_zemlja_porekla(
         item["zemlja"] = item_overrides.get(rbr, default_country)
 
 
+def _apply_brand_heuristics(items: List[Dict]) -> None:
+    """
+    Dopuni zemlja porijekla na osnovu poznatih brendova/naziva u artiklu.
+    Primjenjuje se samo na stavke koje još nemaju dodijeljenu zemlju.
+    Koristi case-insensitive substring match.
+    """
+    for item in items:
+        if item.get("zemlja"):
+            continue
+        name_upper = item.get("name", "").upper()
+        for keyword, country in _BRAND_COUNTRY_MAP:
+            if keyword.upper() in name_upper:
+                item["zemlja"] = country
+                logger.debug(f"   🏷️  Brand heuristika: '{item['name'][:40]}' → {country}")
+                break
+
+
+_MEDICO_EXPORTER = Party(name="MEDICO PHARM SERVIS")
+_MEDICO_IMPORTER = Party(name="MEDICOPHARM D.O.O.")
+
+
 def _to_invoice_lines(items: List[Dict]) -> List[InvoiceLine]:
     """Konvertuje interni dict lista u InvoiceLine objekte."""
     result = []
     for item in items:
+        zemlja = item.get("zemlja", "")
         line = InvoiceLine(
             line_no=item["rbr"],
             product_code=item["code"],
             naziv_robe=item["name"],
-            tarifni_broj=item["tariff"],
-            zemlja_porijekla=item.get("zemlja", ""),
+            tarifni_broj=normalize_tariff_number(item["tariff"]),
+            zemlja_porijekla=zemlja,
             povlastica="",
             jm=item["jm"],
             kolicina=item["kolicina"],
@@ -601,6 +798,8 @@ def _to_invoice_lines(items: List[Dict]) -> List[InvoiceLine]:
             valuta="EUR",
             bruto_kg=0.0,
             neto_kg=0.0,
+            exporter=_MEDICO_EXPORTER,
+            importer=_MEDICO_IMPORTER,
         )
         result.append(line)
     return result

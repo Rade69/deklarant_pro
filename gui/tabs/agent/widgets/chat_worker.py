@@ -14,6 +14,68 @@ def _parse_groq_error(exc) -> str:
     return parse_llm_error(exc)
 
 
+# ── Prompt injection zaštita ─────────────────────────────────────────────────
+
+_MAX_MESSAGE_LEN = 2000  # Carinska pitanja nikad ne trebaju više od ovoga
+
+# Parovi (pattern, opis) — samo kombinacije koje su nedvosmisleno injection.
+# "zanemari stavku/red/naimenovanje" su legitimne naredbe — ne blokiramo ih.
+_INJECTION_PATTERNS = [
+    # Zanemari + sistemski kontekst (ne stavku/red)
+    (r'zanemari\s+.{0,40}(instrukcij|sistem[a-z]*\s+prompt|prethodni\s+kontekst|gore\s+napisano|pravil[a-z]*)',
+     "pokušaj poništavanja sistemskih instrukcija"),
+    # Ignore previous instructions
+    (r'ignore\s+.{0,30}(previous|all\s+prior|above|system)\s*(instructions|prompt|context|rules)',
+     "ignore instructions attempt"),
+    # Forget everything / all instructions
+    (r'forget\s+(everything|all\s+previous|all\s+instructions|above)',
+     "forget instructions attempt"),
+    # System role injection na početku poruke
+    (r'^\s*(system\s*:|<\s*system\s*>|\[system\]|\[inst\])',
+     "system role injection"),
+    # "Ti si sada slobodan/neograničen/drugačiji AI"
+    (r'ti\s+si\s+sada\s+.{0,30}(slobodan|bez\s+ograničen|drugačij|nov[i]?\s+ai|drukčij)',
+     "uloga injection (sr)"),
+    (r'you\s+are\s+now\s+.{0,30}(free|uncensored|different|new\s+ai|without\s+restrict)',
+     "role injection (en)"),
+    # Izvlačenje system prompta
+    (r'(ispisi|pokaži|prikaži|napiši|reproduce|print|reveal|output|show)\s+.{0,30}'
+     r'(system\s*prompt|cijeli\s+kontekst|sve\s+instrukcij|gornji\s+tekst|initial\s+prompt)',
+     "pokušaj izvlačenja system prompta"),
+    # Jailbreak ključne riječi
+    (r'\b(jailbreak|do\s+anything\s+now|\bDAN\b|developer\s+mode\s+enabled)',
+     "jailbreak keyword"),
+    # Ponavljanje specijalnih znakova (obično dio injection payloada)
+    (r'[<>\[\]{}]{6,}',
+     "sumnjivi specijalni znakovi"),
+]
+_INJECTION_RE = [
+    (re.compile(pat, re.IGNORECASE | re.DOTALL), opis)
+    for pat, opis in _INJECTION_PATTERNS
+]
+
+
+def check_injection(message: str) -> str | None:
+    """
+    Provjeri da li poruka izgleda kao prompt injection napad.
+
+    Returns:
+        None  — poruka je uredna
+        str   — opis problema (ne šalji LLM-u, prikaži korisniku)
+    """
+    if len(message) > _MAX_MESSAGE_LEN:
+        return f"Poruka je predugačka ({len(message)} znakova). Maksimum je {_MAX_MESSAGE_LEN}."
+
+    for pattern, opis in _INJECTION_RE:
+        if pattern.search(message):
+            print(f"[SecurityFilter] Blokirana poruka — {opis}: {message[:80]!r}")
+            return (
+                "⚠️ Poruka je blokirana iz sigurnosnih razloga.\n"
+                "Ako imaš legitimno pitanje o carinjenju, molim te preformuliši ga."
+            )
+    return None
+
+
 class ChatWorker(QThread):
     """Poziva Groq API u pozadini da ne blokira UI."""
 
@@ -31,6 +93,16 @@ class ChatWorker(QThread):
 
     def run(self):
         try:
+            from services.agent.llm_audit_log import (
+                check_budget, estimate_tokens_messages, estimate_tokens, log_call
+            )
+
+            blocked = check_injection(self.message)
+            if blocked:
+                log_call(provider="none", tokens_in=0, tokens_out=0, blocked=True)
+                self.error_occurred.emit(blocked)
+                return
+
             from .llm_provider import LLMProvider, parse_llm_error
 
             provider = LLMProvider()
@@ -50,7 +122,14 @@ class ChatWorker(QThread):
 
             messages = self._build_messages(context, chat_history)
 
-            # === STREAMING — Groq primarni, Gemini fallback ===
+            # Provjera token budžeta prije poziva
+            tokens_in = estimate_tokens_messages(messages)
+            budget_err = check_budget(tokens_in)
+            if budget_err:
+                self.error_occurred.emit(budget_err)
+                return
+
+            # === STREAMING — DeepSeek primarni, Groq/Gemini fallback ===
             self.stream_started.emit()
             full_text = ""
             for token in provider.stream_chat(messages, max_tokens=1500):
@@ -60,6 +139,13 @@ class ChatWorker(QThread):
             text = full_text.strip()
             if self.memory_service:
                 self.memory_service.add_assistant_message(text)
+
+            # Audit log — bez sadržaja, samo metapodaci
+            log_call(
+                provider=provider.active_provider(),
+                tokens_in=tokens_in,
+                tokens_out=estimate_tokens(text),
+            )
 
             self.response_ready.emit(text)
 
@@ -234,9 +320,9 @@ class ChatWorker(QThread):
             )
             ctx.append(
                 f"  {'Rb.':<5} {'Tarifni br.':<12} {'Opis robe (u deklaraciji)':<40} "
-                f"{'Zvanični opis tarife':<40} {'Z.':<4} {'Povl.':<7} {'Bruto':>8} {'Neto':>8} {'Iznos':>9} {'Fakt.lin.':>9}"
+                f"{'Zvanični opis tarife':<40} {'Z.':<4} {'Povl.':<7} {'Bruto':>8} {'Neto':>8} {'Fakt.lin.':>9}"
             )
-            ctx.append("  " + "-" * 145)
+            ctx.append("  " + "-" * 135)
             for item in naim_items:
                 rb    = getattr(item, 'ordinal_no', '?')
                 tarif = getattr(item, 'tariff_code', '') or '⚠️NEMA'
@@ -245,16 +331,14 @@ class ChatWorker(QThread):
                 pov   = getattr(item, 'preference_code', '') or '-'
                 bruto = getattr(item, 'gross_mass_kg', 0) or 0
                 neto  = getattr(item, 'net_mass_kg', 0) or 0
-                iznos = getattr(item, 'item_value', 0) or 0
                 zv_opis = naim_pg_desc.get(tarif, '')[:39] if tarif != '⚠️NEMA' else '(nema tarife)'
-                # Broj fakturnih linija grupisanih u ovo naimensovanje
                 n_lines = sum(
                     1 for l in lines
                     if getattr(l, 'assigned_naimenovanje_ordinal', 0) == rb
                 )
                 ctx.append(
                     f"  {rb:<5} {tarif:<12} {opis:<40} {zv_opis:<40} "
-                    f"{zemlja:<4} {pov:<7} {bruto:>8.2f} {neto:>8.2f} {iznos:>9.2f} {n_lines:>9}"
+                    f"{zemlja:<4} {pov:<7} {bruto:>8.2f} {neto:>8.2f} {n_lines:>9}"
                 )
 
             # ⭐ DETALJNE RUBRIKE — KOMPAKTNI FORMAT (štedi ~60% tokena)
@@ -270,11 +354,9 @@ class ChatWorker(QThread):
                 proc = getattr(item, 'procedure_code', '') or '-'
                 bruto = getattr(item, 'gross_mass_kg', 0) or 0
                 neto = getattr(item, 'net_mass_kg', 0) or 0
-                iznos = getattr(item, 'item_value', 0) or 0
-                # Jedna linija po naimenovanju
                 ctx.append(
                     f"  Rb.{rb}: {tarif} | {opis} | Z:{zemlja} P:{pov} PR:{proc} | "
-                    f"B:{bruto:.1f}kg N:{neto:.1f}kg V:{iznos:.0f}"
+                    f"B:{bruto:.1f}kg N:{neto:.1f}kg"
                 )
 
         if bez_zemlje_list:
@@ -323,11 +405,10 @@ class ChatWorker(QThread):
                         pov = getattr(item, 'preference_code', '') or '-'
                         bruto = getattr(item, 'gross_mass_kg', 0) or 0
                         neto = getattr(item, 'net_mass_kg', 0) or 0
-                        iznos = getattr(item, 'item_value', 0) or 0
                         zv_opis = naim_pg_desc.get(tarif, '(nije nađen u tarifi)')
 
                         ctx.append(f"  Rb.{i}: tarifa={tarif} | opis='{opis}' | zemlja={zemlja} | povl={pov}")
-                        ctx.append(f"         bruto={bruto:.3f}kg | neto={neto:.3f}kg | iznos={iznos:.2f}")
+                        ctx.append(f"         bruto={bruto:.3f}kg | neto={neto:.3f}kg")
                         ctx.append(f"         Zvanični opis tarife {tarif}: {zv_opis}")
 
                         # Pronađi fakturne linije koje su grupisane u ovo naimenovanje
@@ -489,7 +570,9 @@ class ChatWorker(QThread):
     def _build_session_zone(self, lines: list) -> list:
         """
         Zone B — pošiljalac/uvoznik + XML predložak.
-        Uvijek se uključuje ako postoje podaci.
+
+        JIB se nikad ne šalje LLM-u — koristi se samo lokalno za XML lookup.
+        Ako je SEND_SENSITIVE_DATA=false (default), imena partnera se maskiraju.
         """
         result = []
         exporter_name = ""
@@ -509,6 +592,7 @@ class ChatWorker(QThread):
             if not consignee_jib:
                 consignee_jib = getattr(self.draft, 'izvoznik_id', '') or ''
 
+        # XML lookup — lokalna operacija, koristi puna imena i JIB
         if exporter_name:
             try:
                 from services.agent.exporter_xml_indexer import find_xml_for_pair
@@ -522,25 +606,40 @@ class ChatWorker(QThread):
                     fname = os.path.basename(match['xml_filepath'])
                     xml_lookup_info = (
                         f"Pronađen XML predložak: {fname} "
-                        f"(match: {match['match_type']}, "
-                        f"consignee: {match.get('consignee_original', '—')})"
+                        f"(match: {match['match_type']})"
+                        # consignee_original se namjerno izostavlja iz LLM konteksta
                     )
             except Exception:
                 pass
 
-        if exporter_name or consignee_name or consignee_jib:
-            result.append("=== POŠILJALAC / UVOZNIK ===")
+        if not (exporter_name or consignee_name or consignee_jib):
+            return result
+
+        # Provjeri da li je dozvoljeno slanje osjetljivih podataka eksternom LLM-u
+        import os
+        send_sensitive = os.getenv("SEND_SENSITIVE_DATA", "false").strip().lower() == "true"
+
+        result.append("=== POŠILJALAC / UVOZNIK ===")
+
+        if send_sensitive:
             if exporter_name:
                 result.append(f"Pošiljalac (iz fakture): {exporter_name}")
             if consignee_name:
-                result.append(f"Uvoznik (rubrika 8): {consignee_name}" +
-                               (f" (JIB: {consignee_jib})" if consignee_jib else ""))
+                # JIB se nikad ne šalje — nije potreban LLM-u
+                result.append(f"Uvoznik (rubrika 8): {consignee_name}")
             elif consignee_jib:
-                result.append(f"Uvoznik JIB (rubrika 8): {consignee_jib}")
-            if xml_lookup_info:
-                result.append(f"XML predložak: {xml_lookup_info}")
-            elif exporter_name:
-                result.append("XML predložak: nije pronađen u bazi")
+                result.append("Uvoznik (rubrika 8): [postoji, ime nije dostupno]")
+        else:
+            # Maskiranje — LLM zna da partneri postoje, ali ne zna ko su
+            if exporter_name:
+                result.append("Pošiljalac (iz fakture): [ime skriveno — SEND_SENSITIVE_DATA=false]")
+            if consignee_name or consignee_jib:
+                result.append("Uvoznik (rubrika 8): [ime skriveno — SEND_SENSITIVE_DATA=false]")
+
+        if xml_lookup_info:
+            result.append(f"XML predložak: {xml_lookup_info}")
+        elif exporter_name:
+            result.append("XML predložak: nije pronađen u bazi")
 
         return result
 
@@ -916,7 +1015,7 @@ class ChatWorker(QThread):
             "Odgovaraš na srpskom jeziku (latinica), konkretno i korisno.\n\n"
             "POJMOVI KOJE MORAŠ RAZUMJETI:\n"
             "- FAKTURNE LINIJE (invoice_lines): Pojedinačni redovi iz uvozne fakture — svaki red je jedan proizvod.\n"
-            "  Polja: naziv_robe, tarifni_broj, zemlja_porijekla, povlastica, kolicina, jm, iznos, bruto_kg, neto_kg.\n\n"
+            "  Polja: naziv_robe, tarifni_broj, zemlja_porijekla, povlastica, kolicina, jm, bruto_kg, neto_kg.\n\n"
             "- NAIMENOVANJA (items): Grupisane stavke CARINSKE DEKLARACIJE.\n"
             "  PRAVILO GRUPIRANJA: Fakturne linije se grupišu po kombinaciji:\n"
             "    (tarifni_broj + zemlja_porijekla + povlastica + eur1_number)\n"
@@ -924,7 +1023,7 @@ class ChatWorker(QThread):
             "  Ako se razlikuje ijedan od ta 4 ključa → RAZLIČITA naimenovanja.\n"
             "  Primjer: 5 linija mandarina (sve tarifa=08052190, TR, TRP) → 1 naimenovanje\n"
             "           3 linije jabuka (08081000, RS, CEFTAP) + 5 mandarina → 2 naimenovanja\n"
-            "  Masa i iznos se SABIRAJU od svih linija u grupi.\n"
+            "  Masa se SABIRA od svih linija u grupi.\n"
             "  Opis = prvih 3 naziva robe spojeni sa '; '\n"
             "  Svako naimenovanje ima redni broj (Rb.). Rb.1 = prvo, Rb.10 = deseto.\n\n"
             "- ZAŠTO JE VIŠE NAIMENOVANJA nego što korisnik očekuje:\n"

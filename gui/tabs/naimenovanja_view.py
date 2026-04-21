@@ -15,6 +15,7 @@ Date: February 2026
 """
 
 import os
+import re
 import sys
 import warnings
 from typing import Optional, Callable, List, Dict, Any
@@ -1078,88 +1079,121 @@ class NaimenovanjaView(BaseTabView):
             le3.raise_()
             le3.show()
 
-    def _load_tariff_description_from_db(self, tariff_code: str) -> str:
+    def _load_tariff_description_from_db(self, tariff_code: str, nivo: str = "podbroj") -> str:
         """
-        Load tariff description from PostgreSQL database only.
-        Also tries prefix matching if exact match not found.
-        Returns empty string if not found.
+        Učitaj opis tarife iz PostgreSQL catalogs.zvanicna_tarifa.
+
+        nivo='podbroj' → te_r31_opis  (tačan opis podbroja, 10 cifara)
+        nivo='glava'   → te_r31_opis_2 (heading opis, 4 cifre)
+
+        Strategija:
+          1. Tačan match po tarifni_kod + nivo
+          2. Prefix fallback (kraći kod, isti nivo) ako tačan match ne postoji
         """
-        if not tariff_code or len(tariff_code.strip()) == 0:
+        if not tariff_code or not tariff_code.strip():
             return ""
 
-        # Helper function to generate fallback codes (from longest to shortest)
-        def generate_fallback_codes(code):
-            codes = []
-            digits = "".join(filter(str.isdigit, str(code)))
-
-            # Add the original code
-            if digits:
-                codes.append(digits)
-
-            # Generate prefixes (from longest to shortest)
-            for i in range(len(digits), 5, -1):  # Minimum 6 digits
-                prefix = digits[:i]
-                if prefix not in codes:
-                    codes.append(prefix)
-
-            return codes
-
-        # Only use PostgreSQL - no SQLite fallback
         if not HAS_POSTGRESQL:
-            logger.warning(f"  ⚠️  PostgreSQL not available for tariff lookup")
+            logger.warning("⚠️ PostgreSQL nije dostupan za lookup tarife")
             return ""
 
-        # Use connection pool or get_db_connection
+        digits = "".join(filter(str.isdigit, str(tariff_code)))
+        if not digits:
+            return ""
+
+        # Za glava lookup uvijek koristimo prvih 4 cifre
+        if nivo == "glava":
+            lookup_code = digits[:4]
+        else:
+            lookup_code = digits
+
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cursor:
-                    # Try exact match first
-                    cursor.execute(
-                        """
-                        SELECT tarifni_kod, opis
-                        FROM catalogs.zvanicna_tarifa
-                        WHERE tarifni_kod = %s
-                        LIMIT 1
-                    """,
-                        (tariff_code.strip(),),
-                    )
 
-                    result = cursor.fetchone()
+                    if nivo == "podbroj":
+                        # Tačan match: 8-cifreni BiH kod + '00' = 10-cifreni PG zapis
+                        candidates = [lookup_code]
+                        if len(lookup_code) == 8:
+                            candidates.append(lookup_code + "00")
+                        elif len(lookup_code) < 10:
+                            candidates.append(lookup_code.ljust(10, "0"))
 
-                    # Ako nema tačnog match-a, pokušaj prefix pretragu
-                    if not result:
-                        fallback_codes = generate_fallback_codes(tariff_code)
-                        for code in fallback_codes:
-                            is_short = len(code) <= 4  # 4-cifreni prefiks = heading lookup
-                            order = "tarifni_kod ASC" if is_short else "tarifni_kod ASC"
+                        result = None
+                        for candidate in candidates:
                             cursor.execute(
-                                f"""
+                                """
                                 SELECT tarifni_kod, opis
                                 FROM catalogs.zvanicna_tarifa
-                                WHERE tarifni_kod LIKE %s || '%%'
-                                ORDER BY {order}
+                                WHERE tarifni_kod = %s AND nivo = 'podbroj'
                                 LIMIT 1
                                 """,
-                                (code,),
+                                (candidate,),
                             )
-
                             result = cursor.fetchone()
                             if result:
                                 break
 
-                    if result:
-                        raw_description = result["opis"] or ""
-                        cleaned_description = self._clean_tariff_description(raw_description)
-                        logger.info(f" ✅ Tariff lookup (PostgreSQL): {result['tarifni_kod']} -> {raw_description[:50]}...")
-                        if raw_description != cleaned_description:
-                            logger.debug(f"     🧹 Cleaned description: {cleaned_description[:50]}...")
-                        return cleaned_description
+                        # Progressivni prefix fallback: 8→7→6 cifara
+                        # npr. 56074900 → LIKE '56074900%' (nema) → LIKE '5607490%' (nema)
+                        #                → LIKE '560749%' (nađe 5607491100 ✓)
+                        if not result:
+                            for prefix_len in range(min(8, len(lookup_code)), 5, -1):
+                                cursor.execute(
+                                    """
+                                    SELECT tarifni_kod, opis
+                                    FROM catalogs.zvanicna_tarifa
+                                    WHERE tarifni_kod LIKE %s || '%%'
+                                      AND nivo = 'podbroj'
+                                    ORDER BY tarifni_kod ASC
+                                    LIMIT 1
+                                    """,
+                                    (lookup_code[:prefix_len],),
+                                )
+                                result = cursor.fetchone()
+                                if result:
+                                    break
+
                     else:
-                        logger.warning(f"  ⚠️  No tariff description found for code: {tariff_code}")
+                        # Tražimo heading opis: prvo 4-cifreni 'glava', pa 6-cifreni 'podglava'
+                        # Neke glave (npr. 1601) ne postoje na glava nivou nego samo kao podglava
+                        cursor.execute(
+                            """
+                            SELECT tarifni_kod, opis
+                            FROM catalogs.zvanicna_tarifa
+                            WHERE tarifni_kod = %s AND nivo = 'glava'
+                            LIMIT 1
+                            """,
+                            (lookup_code,),
+                        )
+                        result = cursor.fetchone()
+
+                        if not result:
+                            # Fallback: 6-cifreni podglava (npr. '160100' za '16010091')
+                            digits_for_sub = "".join(filter(str.isdigit, str(tariff_code)))
+                            subheading_code = digits_for_sub[:6] if len(digits_for_sub) >= 6 else digits_for_sub
+                            cursor.execute(
+                                """
+                                SELECT tarifni_kod, opis
+                                FROM catalogs.zvanicna_tarifa
+                                WHERE tarifni_kod = %s AND nivo = 'podglava'
+                                LIMIT 1
+                                """,
+                                (subheading_code,),
+                            )
+                            result = cursor.fetchone()
+
+                    if result:
+                        raw = result["opis"] or ""
+                        cleaned = self._clean_tariff_description(raw)
+                        logger.info(f"✅ Tariff [{nivo}] {result['tarifni_kod']} → {cleaned[:50]}")
+                        return cleaned
+                    else:
+                        logger.warning(f"⚠️ Nema opisa tarife [{nivo}] za: {tariff_code}")
                         return ""
 
         except Exception as e:
-            logger.warning(f"  ⚠️  PostgreSQL error loading tariff description: {e}")
+            logger.warning(f"⚠️ PostgreSQL greška pri lookup-u tarife: {e}")
             return ""
 
     def _extract_short_code(self, tariff_code: str) -> str:
@@ -1187,12 +1221,13 @@ class NaimenovanjaView(BaseTabView):
 
         import re
 
+        # Ukloni "ex NNNN NN NN NN" i sve iza toga (podtarifni izuzetak)
+        cleaned = re.sub(r"\s*\bex\s+\d[\d\s]*.*$", "", description, flags=re.IGNORECASE)
         # Ukloni KM/kg stope: npr. "10+3,5KM/kg", "0+1,5KM/kg", "10+3KM/kg"
-        # Ključna ispravka: (?:[,.]\d+)? pokriva i decimalni zarez (10+1,5KM/kg)
         cleaned = re.sub(
             r"\s+\d+(?:[+/]\d+(?:[,.]\d+)?)*[A-Z/%][A-Za-z/kg%]*.*$",
             "",
-            description,
+            cleaned,
         )
         # Ukloni sufiks sa 4+ prostorima odvojena broja (npr. "kd 0 0 0 0 5 5 5")
         cleaned = re.sub(r"(?:\s+\w{1,3})?(?:\s+\d+){4,}[\s,]*$", "", cleaned)
@@ -1478,10 +1513,18 @@ class NaimenovanjaView(BaseTabView):
             from PySide6.QtGui import QIntValidator
             le_broj.setValidator(QIntValidator(0, 9999999, le_broj))
 
-        # Special: Connect tariff code field to auto-populate descriptions
+        # Rubrika 33: odspoji od batch-save timera (ne smije okidati dijalog pri kucanju)
         le_tariff = self._get_widget("le_rubrika33")
         if le_tariff:
+            try:
+                le_tariff.textChanged.disconnect(self._on_field_changed)
+            except RuntimeError:
+                pass
+            # Lookup opisa dok korisnik kuca (bez dijaloga)
             le_tariff.textChanged.connect(self._on_tariff_changed)
+            # Enter — eventFilter hvata Key_Return/Key_Enter direktno na widgetu
+            le_tariff.installEventFilter(self)
+            logger.debug(f"✅ eventFilter instaliran na le_rubrika33: {le_tariff.objectName()}")
 
     def _on_tariff_changed(self, text: str) -> None:
         """Debounced tariff lookup - query nakon 400ms pauze u kucanju"""
@@ -1509,6 +1552,102 @@ class NaimenovanjaView(BaseTabView):
         self.tariff_timer.stop()
         self.tariff_timer.start(400)
 
+    def _on_tariff_enter(self) -> None:
+        """
+        Korisnik je pritisnuo Enter u polju Rb.33.
+        Sačuvaj tarifni broj i ponudi ažuriranje baze znanja.
+        """
+        if self.is_loading:
+            return
+
+        le_tariff = self._get_widget("le_rubrika33")
+        new_tariff = (le_tariff.text().strip() if le_tariff else "")
+        if not new_tariff:
+            return
+
+        self._save_current_item()
+        # Uvijek ponudi KB update kad korisnik potvrdi Enter —
+        # old_tariff može već biti jednak new_tariff zbog batch save, ali
+        # korisnik svjesno pritiskuje Enter da potvrdi ovu tarifu
+        self._ask_update_knowledge_base(new_tariff)
+
+    def _ask_update_knowledge_base(self, new_tariff: str) -> None:
+        """Pitaj korisnika da li želi ažurirati bazu znanja za ovaj proizvod."""
+        item = self.draft.items[self.current_item_index] if self.draft.items else None
+        if not item:
+            return
+
+        invoice_line = None
+        line_idx = item.ordinal_no - 1
+        if hasattr(self.draft, 'invoice_lines') and self.draft.invoice_lines:
+            if 0 <= line_idx < len(self.draft.invoice_lines):
+                invoice_line = self.draft.invoice_lines[line_idx]
+
+        # Trgovački naziv — čitaj direktno iz te_r31_trg_naziv (ono što korisnik vidi)
+        naziv_robe = ""
+        trg_w = self._get_widget("le_r31_trg_naziv")
+        if trg_w:
+            try:
+                naziv_robe = trg_w.toPlainText().strip()  # QTextEdit
+            except AttributeError:
+                naziv_robe = trg_w.text().strip()          # QLineEdit fallback
+        if not naziv_robe:
+            naziv_robe = (
+                invoice_line.naziv_robe if invoice_line
+                else (item.goods_description or item.goods_trade_name or "")
+            )
+        naziv_robe = naziv_robe.split("\n")[0][:100]  # samo prvi red, max 100 znakova
+
+        msg = (
+            f"Tarifni broj: <b>{new_tariff}</b><br><br>"
+            f"Proizvod: <b>{naziv_robe}</b><br><br>"
+            f"Ažurirati bazu znanja?<br>"
+            f"<small>(Pri sljedećem uvozu ovaj artikal će automatski dobiti tarifu <b>{new_tariff}</b>)</small>"
+        )
+
+        reply = QMessageBox.question(
+            self,
+            "Ažuriranje baze znanja",
+            msg,
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.Yes,
+        )
+
+        if reply == QMessageBox.Yes:
+            try:
+                from services.tariff_mapping_service import TariffMappingService
+                kb_svc = TariffMappingService()
+                product_code = invoice_line.product_code if invoice_line else ""
+                zemlja = invoice_line.zemlja_porijekla if invoice_line else (item.origin_country_code or "")
+                new_suffix = item.tariff_suffix or "000"
+
+                # Obriši sve stare zapise za ovaj naziv/product_code sa drugom tarifom
+                if naziv_robe:
+                    from database.db import get_db_connection
+                    with get_db_connection() as conn:
+                        with conn.cursor() as cursor:
+                            cursor.execute("""
+                                DELETE FROM catalogs.product_tariff_mapping
+                                WHERE (naziv_robe ILIKE %s OR product_code = %s)
+                                  AND commodity_code != %s
+                            """, (f"%{naziv_robe}%", product_code or "__NONE__", new_tariff))
+
+                if naziv_robe and new_tariff:
+                    kb_svc.save_mapping(
+                        product_code=product_code or "",
+                        naziv_robe=naziv_robe,
+                        tarifni_broj=new_tariff,
+                        zemlja_porijekla=zemlja or "",
+                        povlastica="",
+                        precision_1=new_suffix,
+                    )
+                import logging
+                logging.getLogger(__name__).info(
+                    f"✅ KB ažuriran: '{naziv_robe[:40]}' → {new_tariff}"
+                )
+            except Exception as e:
+                QMessageBox.warning(self, "Greška", f"Nije moguće ažurirati bazu znanja:\n{e}")
+
     def _perform_tariff_lookup(self) -> None:
         """Izvrsi tariff lookup sa cache-om (poziva se nakon 400ms pauze).
 
@@ -1532,27 +1671,23 @@ class NaimenovanjaView(BaseTabView):
         # 6-cifreni subheading (srednji nivo, ako postoji dovoljno cifara)
         subheading_code = digits[:6] if len(digits) >= 6 else ""
 
-        def _get_cached_or_lookup(code: str) -> str:
-            if not code:
-                return ""
-            if code in self.tariff_cache:
-                return self.tariff_cache[code]
-            desc = self._load_tariff_description_from_db(code)
+        def _get_cached_or_lookup(code: str, nivo: str) -> str:
+            cache_key = f"{nivo}:{code}"
+            if cache_key in self.tariff_cache:
+                return self.tariff_cache[cache_key]
+            desc = self._load_tariff_description_from_db(code, nivo=nivo)
             if desc:
-                self.tariff_cache[code] = desc
+                self.tariff_cache[cache_key] = desc
             return desc
 
-        # Tačan opis (8-10 cifara, sa fallback na 6+)
-        full_description = _get_cached_or_lookup(digits) if digits else ""
+        # Tačan opis podbroja (10 cifara, sa fallback na kraće)
+        full_description = _get_cached_or_lookup(digits, "podbroj") if digits else ""
 
-        # Heading opis (4 cifre)
-        heading_description = _get_cached_or_lookup(heading_code) if heading_code else ""
+        # Heading opis (4 cifre, nivo='glava')
+        heading_description = _get_cached_or_lookup(heading_code, "glava") if heading_code else ""
 
         # Uvijek ažuriraj polja (čisti stare opise ako nema match-a)
         self._populate_tariff_description(full_description, heading_description)
-
-        if full_description:
-            self.tariff_cache[digits] = full_description
 
         # Provjeri inspekcijsku kontrolu za uneseni tarifni broj
         self._check_and_show_tariff_warning(tariff_code)
@@ -1909,21 +2044,21 @@ class NaimenovanjaView(BaseTabView):
         # KRITIČNO: Ako postoji tariff_code, pozovi lookup za opis tarife
         if item.tariff_code:
             logger.debug(f"  🔍 Tariff code found in model: {item.tariff_code}")
-            # Pozovi lookup za tačan opis (8-10 cifara)
-            full_description = self._load_tariff_description_from_db(item.tariff_code)
+            # Tačan opis podbroja (10 cifara)
+            full_description = self._load_tariff_description_from_db(item.tariff_code, nivo="podbroj")
 
-            # Takođe pretraži viši nivo (4-6 cifara)
+            # Heading opis (4 cifre, nivo='glava')
             short_code = self._extract_short_code(item.tariff_code)
             short_description = ""
             if short_code and short_code != item.tariff_code:
-                short_description = self._load_tariff_description_from_db(short_code)
+                short_description = self._load_tariff_description_from_db(short_code, nivo="glava")
                 if short_description:
-                    self.tariff_cache[short_code] = short_description
+                    self.tariff_cache[f"glava:{short_code}"] = short_description
 
             if full_description or short_description:
-                # Sacuvaj tačan opis u cache za buduce upotrebe
+                # Sacuvaj tačan opis u cache za buduće upotrebe
                 if full_description:
-                    self.tariff_cache[item.tariff_code] = full_description
+                    self.tariff_cache[f"podbroj:{item.tariff_code}"] = full_description
                 self._populate_tariff_description(
                     full_description or "", short_description or ""
                 )
@@ -1992,6 +2127,15 @@ class NaimenovanjaView(BaseTabView):
                         value = int(value) if value else 0
                     except ValueError:
                         value = 0
+                elif field_name == "tariff_code" and value:
+                    # Normalizuj "ex" unose: "ex 8511 80 00 10" → "8511800010"
+                    # 10 cifara s posljednjim 2 = "00" → skrati na 8; ≠ "00" → čuvaj 10
+                    _d = re.sub(r"\D", "", value)
+                    if len(_d) > 10:
+                        _d = _d[:10]
+                    if len(_d) == 10 and _d[8:] == "00":
+                        _d = _d[:8]
+                    value = _d
 
                 setattr(item, field_name, value)
 
@@ -2091,30 +2235,8 @@ class NaimenovanjaView(BaseTabView):
         except Exception as e:
             log.warning(f"⚠️ Tariff KB sync failed for '{naziv_robe[:40]}': {e}")
 
-        # ── 4. Obavijest korisniku ────────────────────────────────────────
-        if invoice_line and old_tariff:
-            from PySide6.QtWidgets import QMessageBox
-            QMessageBox.information(
-                self,
-                "Tarifni broj ažuriran",
-                f"✅ Tarifni broj promijenjen:\n"
-                f"  <b>{old_tariff}</b> → <b>{new_tariff}</b>"
-                f"{('/' + new_suffix if new_suffix != '000' else '')}\n\n"
-                f"📦 Proizvod: {naziv_robe[:80]}\n\n"
-                f"📋 Ažurirano u:\n"
-                f"  • Faktura linija (InvoiceLine)\n"
-                f"  • Baza znanja (product_tariff_mapping)"
-            )
-        elif old_tariff:
-            from PySide6.QtWidgets import QMessageBox
-            QMessageBox.information(
-                self,
-                "Tarifni broj ažuriran",
-                f"✅ Tarifni broj promijenjen:\n"
-                f"  <b>{old_tariff}</b> → <b>{new_tariff}</b>"
-                f"{('/' + new_suffix if new_suffix != '000' else '')}\n\n"
-                f"📋 Sačuvano u bazu znanja."
-            )
+        # Obavijest se prikazuje samo iz _ask_update_knowledge_base (na Enter)
+        pass
 
     def _update_all_ui(self) -> None:
         """Update all UI elements"""
@@ -3135,6 +3257,20 @@ class NaimenovanjaView(BaseTabView):
         self.repaint()
         print(f"  ✅ reload_data END")
         logger.info(f"  ✅ Naimenovanja Tab reloaded: {len(self.draft.items)} items")
+
+    def eventFilter(self, obj, event):
+        """Intercept Enter na le_rubrika33 — okida _on_tariff_enter."""
+        from PySide6.QtCore import QEvent
+        if event.type() == QEvent.Type.KeyPress:
+            try:
+                obj_name = obj.objectName()
+            except RuntimeError:
+                return super().eventFilter(obj, event)
+            if obj_name == "le_rubrika33":
+                if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                    self._on_tariff_enter()
+                    return True
+        return super().eventFilter(obj, event)
 
     def keyPressEvent(self, event):
         """Keyboard shortcuts"""

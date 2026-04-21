@@ -436,7 +436,7 @@ def convert_to_invoice_lines(
 
 def import_master_frigo(
     pdf_path: str, mapping_xlsx_path: Optional[str] = None
-) -> List[InvoiceLine]:
+) -> ImportResult:
     """
     Import Master Frigo fakture.
 
@@ -445,23 +445,35 @@ def import_master_frigo(
         mapping_xlsx_path: Opciono - Excel mapping za tarife/porijeklo
 
     Returns:
-        List[InvoiceLine]
+        ImportResult
     """
+    from importers.import_result import ImportResult
     logger.info(f"Importing Master Frigo PDF: {pdf_path}")
 
-    # Load mapping if provided
     mapping = _read_mapping_xlsx(mapping_xlsx_path) if mapping_xlsx_path else {}
-
-    # Parse PDF
     header, imported_items = parse_master_frigo_pdf(pdf_path, mapping=mapping)
 
-    # Convert to InvoiceLine
     currency = header.get("currency", "EUR")
     invoice_lines = convert_to_invoice_lines(imported_items, currency=currency)
 
+    _exp = Party(name="MASTER FRIGO")
+    _imp = Party(name="MASTER FRIGO D.O.O. BANJA LUKA")  # domaća BiH firma
+    for line in invoice_lines:
+        line.exporter = _exp
+        line.importer = _imp
+
     logger.info(f"Imported {len(invoice_lines)} items from Master Frigo PDF")
 
-    return invoice_lines
+    return ImportResult(
+        items=invoice_lines,
+        bruto_kg=header.get("gross_kg", 0.0),
+        neto_kg=header.get("net_kg", 0.0),
+        invoice_name=Path(pdf_path).stem,
+        currency=currency,
+        import_type="master_frigo",
+        exporter=_exp,
+        importer=_imp,
+    )
 
 
 def _parse_zemlja_porekla_text(text: str) -> Dict[str, Any]:

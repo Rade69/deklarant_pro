@@ -1015,12 +1015,12 @@ class FakturaView(BaseTabView):
         # Apply to zemlja_porijekla column (col 8)
         cell_item = self.table.item(row, 8)
         if cell_item:
-            # Set background color for confidence
             cell_item.setData(ValidationDelegate.ValidationColorRole, color_hex)
-            # Add icon to text if there's a value
             if item.zemlja_porijekla:
-                cell_item.setText(f"{icon} {item.zemlja_porijekla}")
-            # Set combined tooltip
+                # Čisti kod u UserRole (čita se pri sync), emoji samo u displayu
+                from PySide6.QtCore import Qt as _Qt
+                cell_item.setData(_Qt.UserRole, item.zemlja_porijekla)
+                cell_item.setText(f"{icon} {item.zemlja_porijekla}" if icon else item.zemlja_porijekla)
             if tooltip_parts:
                 existing_tooltip = cell_item.toolTip()
                 if existing_tooltip:
@@ -1055,8 +1055,10 @@ class FakturaView(BaseTabView):
                 invoice_item.bruto_kg = self._parse_number(value) if value else 0.0
             elif col == 7:  # Neto kg
                 invoice_item.neto_kg = self._parse_number(value) if value else 0.0
-            elif col == 8:  # Zemlja
-                invoice_item.zemlja_porijekla = value
+            elif col == 8:  # Zemlja — čisti kod iz UserRole, ne tekst sa emojiem
+                from PySide6.QtCore import Qt as _Qt
+                user_val = item.data(_Qt.UserRole)
+                invoice_item.zemlja_porijekla = str(user_val).strip() if user_val else value
             elif col == 9:  # Povlastica
                 invoice_item.povlastica = value
             elif col == 10:  # Valuta
@@ -1129,7 +1131,15 @@ class FakturaView(BaseTabView):
     def _get_cell_value(self, row: int, col: int) -> str:
         """Safely get cell value from table (HELPER METHOD - reduces code duplication)."""
         cell_item = self.table.item(row, col)
-        return cell_item.text().strip() if cell_item else ""
+        if not cell_item:
+            return ""
+        # Kolona 8 (zemlja_porijekla): čisti kod čuvan u UserRole da emoji ne uđe u podatak
+        if col == 8:
+            from PySide6.QtCore import Qt as _Qt
+            user_val = cell_item.data(_Qt.UserRole)
+            if user_val is not None:
+                return str(user_val).strip()
+        return cell_item.text().strip()
 
     def _sync_table_to_draft(self):
         """Sync all table data back to draft (OPTIMIZED with helper method)."""
@@ -2528,28 +2538,30 @@ class FakturaView(BaseTabView):
 
             self.data_changed.emit()
 
-    def _on_create_naimenovanja(self):
-        """Handle Create Naimenovanja button click."""
+    def _on_create_naimenovanja(self, auto=False):
+        """Handle Create Naimenovanja button click.
+
+        Args:
+            auto: Ako True, preskoči sve dijaloge (za punu automatizaciju).
+        """
         from services.create_naimenovanja_service import CreateNaimenovanjaService
 
-        # 🔍 Debug: log start of naimenovanja creation
         logger.debug(f"\n{'='*80}")
-        logger.debug(f"🔍 [_on_create_naimenovanja] START - kreiranje naimenovanja")
+        logger.debug(f"🔍 [_on_create_naimenovanja] START (auto={auto})")
         logger.debug(f"🔍 [_on_create_naimenovanja] Broj invoice_lines: {len(self.draft.invoice_lines)}")
-        logger.debug(f"🔍 [_on_create_naimenovanja] Broj postojećih items: {len(self.draft.items)}")
 
-        # Check if there are invoice lines
         if not self.draft.invoice_lines:
-            QMessageBox.warning(
-                self,
-                "Nema faktura",
-                "Molimo prvo uvezite fakture (PDF/Excel/XML) prije kreiranja naimenovanja.",
-            )
+            if not auto:
+                QMessageBox.warning(
+                    self,
+                    "Nema faktura",
+                    "Molimo prvo uvezite fakture (PDF/Excel/XML) prije kreiranja naimenovanja.",
+                )
             return
 
-        # Upozori ako ima stavki bez tarifnog broja — grupiranje neće biti tačno
+        # Upozori ako ima stavki bez tarifnog broja (samo u interaktivnom modu)
         bez_tarife = [l for l in self.draft.invoice_lines if not getattr(l, 'tarifni_broj', None)]
-        if bez_tarife:
+        if bez_tarife and not auto:
             odgovor = QMessageBox.warning(
                 self,
                 "Upozorenje — nedostaje tarifni broj",
@@ -2565,22 +2577,22 @@ class FakturaView(BaseTabView):
             if odgovor == QMessageBox.No:
                 return
 
-        # Confirm action
-        reply = QMessageBox.question(
-            self,
-            "Kreiraj Naimenovanja",
-            f"Kreirati naimenovanja iz {len(self.draft.invoice_lines)} stavki?\n\n"
-            f"Naimenovanja će biti grupisana po:\n"
-            f"  • Tarifa (33)\n"
-            f"  • Zemlja porijekla (34)\n"
-            f"  • Povlastica (36)\n\n"
-            f"Postojeća naimenovanja će biti obrisana!",
-            QMessageBox.Yes | QMessageBox.No,
-        )
-
-        if reply == QMessageBox.No:
-            logger.debug(f"🔍 [_on_create_naimenovanja] Korisnik odustao")
-            return
+        # Potvrda (samo u interaktivnom modu)
+        if not auto:
+            reply = QMessageBox.question(
+                self,
+                "Kreiraj Naimenovanja",
+                f"Kreirati naimenovanja iz {len(self.draft.invoice_lines)} stavki?\n\n"
+                f"Naimenovanja će biti grupisana po:\n"
+                f"  • Tarifa (33)\n"
+                f"  • Zemlja porijekla (34)\n"
+                f"  • Povlastica (36)\n\n"
+                f"Postojeća naimenovanja će biti obrisana!",
+                QMessageBox.Yes | QMessageBox.No,
+            )
+            if reply == QMessageBox.No:
+                logger.debug(f"🔍 [_on_create_naimenovanja] Korisnik odustao")
+                return
 
         try:
             # Create service
@@ -2591,14 +2603,15 @@ class FakturaView(BaseTabView):
             count = service.create_smart_group()
             logger.info(f"✅ [_on_create_naimenovanja] Kreirano {count} naimenovanja")
 
-            # Show success message
-            QMessageBox.information(
-                self,
-                "Uspjeh!",
-                f"✅ Kreirano {count} naimenovanja iz {len(self.draft.invoice_lines)} stavki!\n\n"
-                f"Naimenovanja su grupisana po tarifi, zemlji porijekla i povlastici.\n\n"
-                f"Možete ih pregledati i editovati u tabu 'Naimenovanja'.",
-            )
+            # Show success message (samo u interaktivnom modu)
+            if not auto:
+                QMessageBox.information(
+                    self,
+                    "Uspjeh!",
+                    f"✅ Kreirano {count} naimenovanja iz {len(self.draft.invoice_lines)} stavki!\n\n"
+                    f"Naimenovanja su grupisana po tarifi, zemlji porijekla i povlastici.\n\n"
+                    f"Možete ih pregledati i editovati u tabu 'Naimenovanja'.",
+                )
 
             # Mark as dirty
             if self.on_dirty:
@@ -2763,7 +2776,7 @@ class FakturaView(BaseTabView):
         self.input_bruto.setText(bruto_text)
         self.input_neto.setText(neto_text)
 
-    def _on_calculate_masses(self):
+    def _on_calculate_masses(self, auto=False):
         """Handle Calculate Masses button click - proporcionalno raspodjeli težine."""
         logger.debug("\n" + "=" * 80)
         logger.debug("⚖️  IZRAČUNAJ MASE - START")
@@ -2780,11 +2793,12 @@ class FakturaView(BaseTabView):
 
             if not bruto_total_text and not neto_total_text:
                 logger.error("   ❌ OBA polja prazna - prikazujem warning")
-                QMessageBox.warning(
-                    self,
-                    "Nedostaju težine",
-                    "Unesite ukupnu bruto i/ili neto težinu sa fakture.",
-                )
+                if not auto:
+                    QMessageBox.warning(
+                        self,
+                        "Nedostaju težine",
+                        "Unesite ukupnu bruto i/ili neto težinu sa fakture.",
+                    )
                 return
 
             # Remove thousands separators (comma) before parsing
@@ -2801,18 +2815,20 @@ class FakturaView(BaseTabView):
             logger.debug(f"   neto_total = {neto_total:.2f} kg")
 
             if bruto_total <= 0 and neto_total <= 0:
-                QMessageBox.warning(
-                    self, "Neispravne težine", "Težine moraju biti veće od nule."
-                )
+                if not auto:
+                    QMessageBox.warning(
+                        self, "Neispravne težine", "Težine moraju biti veće od nule."
+                    )
                 return
 
         except ValueError as e:
             logger.error(f"❌ ValueError: {e}")
-            QMessageBox.critical(
-                self,
-                "Greška",
-                "Neispravna vrijednost težine. Koristite brojeve (npr. 1234.56).",
-            )
+            if not auto:
+                QMessageBox.critical(
+                    self,
+                    "Greška",
+                    "Neispravna vrijednost težine. Koristite brojeve (npr. 1234.56).",
+                )
             return
 
         logger.debug(f"\n🔍 Ukupno stavki u draft-u: {len(self.draft.invoice_lines)}")
@@ -2829,11 +2845,12 @@ class FakturaView(BaseTabView):
 
         if not items_to_update:
             logger.error("   ❌ Nema stavki za update - sve imaju obe težine")
-            QMessageBox.information(
-                self,
-                "Sve težine popunjene",
-                "Sve stavke već imaju upisane obe težine (bruto i neto). Nema šta da se računa.",
-            )
+            if not auto:
+                QMessageBox.information(
+                    self,
+                    "Sve težine popunjene",
+                    "Sve stavke već imaju upisane obe težine (bruto i neto). Nema šta da se računa.",
+                )
             return
 
         # Izračunaj odnos neto/bruto iz toolbar polja (default 0.95 ako neto nije poznat)
@@ -2958,7 +2975,8 @@ class FakturaView(BaseTabView):
         if skipped_count > 0:
             message += f"\n⚠️ Preskočeno {skipped_count} stavki koje već imaju obe težine."
 
-        QMessageBox.information(self, "Težine raspoređene", message)
+        if not auto:
+            QMessageBox.information(self, "Težine raspoređene", message)
 
         # Mark as dirty
         if self.on_dirty:
@@ -2966,19 +2984,28 @@ class FakturaView(BaseTabView):
 
         self.data_changed.emit()
 
-    def _on_auto_fill(self):
+    def _on_auto_fill(self, auto=False):
         """
         Auto-popuni tarifne brojeve iz baze znanja.
 
-        Koristi TariffMappingService za automatsko mapiranje proizvoda na tarifne brojeve.
+        Args:
+            auto: Ako True, preskoči dijaloge i preskači ako su sve tarife popunjene.
         """
         if not self.draft.invoice_lines:
-            QMessageBox.information(
-                self,
-                "Auto-popuni",
-                "Nema stavki za popunjavanje.\n\nPrvo učitajte fakturu.",
+            if not auto:
+                QMessageBox.information(
+                    self,
+                    "Auto-popuni",
+                    "Nema stavki za popunjavanje.\n\nPrvo učitajte fakturu.",
             )
             return
+
+        # U auto modu preskači ako su sve tarife već popunjene
+        if auto:
+            bez_tarife = [l for l in self.draft.invoice_lines if not getattr(l, 'tarifni_broj', None)]
+            if not bez_tarife:
+                logger.info("✅ [Auto-popuni] Sve stavke imaju tarifni broj — preskačem")
+                return
 
         # Prvo popuni osnovna polja (valuta, jm, iznos)
         basic_filled_count = self.auto_fill_service.fill_basic_fields(
@@ -2992,19 +3019,22 @@ class FakturaView(BaseTabView):
                 MappingResult,
             )
 
-            # Kreiraj progress dialog
-            progress = QProgressDialog(
-                "Auto-popunjavanje tarifnih brojeva...",
-                "Otkaži",
-                0,
-                len(self.draft.invoice_lines),
-                self,
-            )
-            progress.setWindowTitle("Auto-popuni tarifne")
-            progress.setWindowModality(Qt.WindowModal)
-            progress.setMinimumDuration(500)
-            progress.setValue(0)
-            QCoreApplication.processEvents()
+            # Kreiraj progress dialog (samo u interaktivnom modu)
+            if not auto:
+                progress = QProgressDialog(
+                    "Auto-popunjavanje tarifnih brojeva...",
+                    "Otkaži",
+                    0,
+                    len(self.draft.invoice_lines),
+                    self,
+                )
+                progress.setWindowTitle("Auto-popuni tarifne")
+                progress.setWindowModality(Qt.WindowModal)
+                progress.setMinimumDuration(500)
+                progress.setValue(0)
+                QCoreApplication.processEvents()
+            else:
+                progress = None
 
             service = TariffMappingService()
 
@@ -3036,7 +3066,8 @@ class FakturaView(BaseTabView):
             result.skipped_items = len(skipped_details)
             result.skipped_details = skipped_details
 
-            progress.setValue(len(self.draft.invoice_lines))
+            if progress is not None:
+                progress.setValue(len(self.draft.invoice_lines))
 
             # Reload table to show changes
             self._load_data_from_draft()
@@ -3050,8 +3081,9 @@ class FakturaView(BaseTabView):
                 if self.on_dirty:
                     self.on_dirty()
 
-            # Show detailed result dialog
-            self._show_tariff_mapping_result(result, basic_filled_count)
+            # Show detailed result dialog (samo u interaktivnom modu)
+            if not auto:
+                self._show_tariff_mapping_result(result, basic_filled_count)
 
         except Exception as e:
             self.error_handler.handle_auto_fill_error(e)

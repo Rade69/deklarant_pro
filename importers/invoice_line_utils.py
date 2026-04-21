@@ -177,3 +177,46 @@ def parse_packing_tail(parts: list) -> Optional[dict]:
         "neto_str": neto_str,
         "bruto_str": bruto_str,
     }
+
+
+# ---------------------------------------------------------------------------
+# Normalizacija tarifnih brojeva
+# ---------------------------------------------------------------------------
+
+def normalize_tariff_number(code: str) -> str:
+    """
+    Normalizuje tarifni broj na 8 ili 10 cifara (ASYCUDA/TARIC standard).
+
+    Pravila:
+    - Ako kod sadrži '/', uzima se dio prije kose crte (npr. "21069098/9080" → "21069098")
+    - Uklanjaju se svi ne-numerički znakovi (razmaci, slova poput "ex", tačke)
+    - 10 cifara s posljednjim 2 = "00" → skraćuje se na 8 (ekvivalentno CN kodu)
+    - 10 cifara s posljednjim 2 ≠ "00" → čuva se kao 10 ("ex" TARIC, zahtijeva dokumentaciju)
+    - > 10 cifara → skraćuje se na 10
+    - < 8 cifara → ostaje kakvo jeste (djelimičan unos)
+
+    Primjeri:
+        "30051000000"      → "30051000"   (>10, skraćeno na 10, zadnje 00 → 8)
+        "21069098/9080"    → "21069098"   (uzet dio prije /)
+        "38249993"         → "38249993"   (već 8, ostaje)
+        "ex 8511 80 00 10" → "8511800010" (ex tarifa, čuva se kao 10 cifara)
+        "8511800000"       → "85118000"   (zadnje 00, ekvivalentno CN kodu)
+        ""                 → ""
+    """
+    if not code:
+        return ""
+    # Ako ima '/', uzmi samo dio prije kose crte
+    if "/" in code:
+        code = code.split("/")[0]
+    # Zadrži samo cifre (uklanja "ex", razmake, tačke itd.)
+    digits = re.sub(r"\D", "", code)
+    if not digits:
+        return ""
+    # Ograniči na max 10 cifara (TARIC standard)
+    if len(digits) > 10:
+        digits = digits[:10]
+    # 10-cifreni kod: ako su zadnje 2 cifre "00" → CN kod (8 cifara)
+    # Ako su ≠ "00" → "ex" TARIC subdivizija, čuvati kao 10
+    if len(digits) == 10 and digits[8:] == "00":
+        return digits[:8]
+    return digits

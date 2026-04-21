@@ -200,6 +200,12 @@ def parse_blagic_loren_excel(filepath: str) -> ImportResult:
             logger.info(f"Using calculated neto from Excel: {neto_kg} kg")
 
         # Return ImportResult with weights from PDF (if available)
+        _exp = Party(name="LOREN")
+        _imp = Party(name="BLAGIĆ D.O.O.")  # domaća BiH firma
+        for item in items:
+            item.exporter = _exp
+            item.importer = _imp
+
         return ImportResult(
             items=items,
             bruto_kg=bruto_kg,
@@ -207,7 +213,8 @@ def parse_blagic_loren_excel(filepath: str) -> ImportResult:
             invoice_name=invoice_name,
             currency="EUR",
             import_type="loren_excel",
-            exporter=Party(name="LOREN"),
+            exporter=_exp,
+            importer=_imp,
         )
 
     except Exception as e:

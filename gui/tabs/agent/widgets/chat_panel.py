@@ -107,6 +107,21 @@ class ChatPanel(QWidget):
         self._proposal_layout.setSpacing(0)
         layout.addWidget(self._proposal_area)
 
+        # ── Action buttons area (akcioni dugmići nakon analize) ───────────────
+        self._action_area = QWidget()
+        self._action_area.setVisible(False)
+        self._action_area.setAttribute(Qt.WA_StyledBackground, True)
+        self._action_area.setStyleSheet(f"""
+            QWidget {{
+                background-color: {COLOR_SAGE_BG};
+                border-top: 1px solid {COLOR_SAGE_PALE};
+            }}
+        """)
+        self._action_layout = QHBoxLayout(self._action_area)
+        self._action_layout.setContentsMargins(12, 8, 12, 8)
+        self._action_layout.setSpacing(8)
+        layout.addWidget(self._action_area)
+
         # ── Input area ────────────────────────────────────────────────────────
         layout.addWidget(self._create_input_area())
 
@@ -178,7 +193,31 @@ class ChatPanel(QWidget):
         """)
         layout.addWidget(dot)
 
+        # Reset dugme
+        self._reset_btn = QPushButton(qta.icon('fa5s.redo-alt', color=COLOR_TEXT_MUTED), " Reset")
+        self._reset_btn.setFixedHeight(30)
+        self._reset_btn.setToolTip("Resetuj agenta — obriši fajlove i akcije, kreni ispočetka")
+        self._reset_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {COLOR_SECONDARY};
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 4px 10px;
+                font-size: 12px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background-color: #5a4e8a;
+            }}
+        """)
+        layout.addWidget(self._reset_btn)
+
         return header
+
+    def connect_reset(self, callback):
+        """Poveži Reset dugme sa callback-om iz controller-a."""
+        self._reset_btn.clicked.connect(callback)
 
     def _create_memory_status_bar(self) -> QWidget:
         """ENHANCED: Status bar za prikaz memorije."""
@@ -614,6 +653,73 @@ class ChatPanel(QWidget):
         self.hide_proposal_card()
         self.add_agent_message("❌ Prijedlog odbačen.")
         self.proposal_rejected.emit()
+
+    def show_action_buttons(self, actions: list):
+        """
+        Prikaži akcione dugmiće iznad input polja.
+        actions = [(label, callback), ...]
+        Dugmići nestaju čim korisnik klikne bilo koji.
+        """
+        self.hide_action_buttons()
+
+        label = QLabel("Šta dalje?")
+        label.setStyleSheet(f"color: {COLOR_TEXT_MUTED}; font-size: 12px; background: transparent;")
+        self._action_layout.addWidget(label)
+
+        for btn_label, callback in actions:
+            btn = QPushButton(btn_label)
+            btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {COLOR_SECONDARY};
+                    color: white;
+                    border: none;
+                    border-radius: 8px;
+                    padding: 8px 16px;
+                    font-size: 13px;
+                    font-weight: bold;
+                }}
+                QPushButton:hover {{
+                    background-color: #5a4e8a;
+                }}
+            """)
+            def make_handler(cb):
+                def handler():
+                    self.hide_action_buttons()
+                    cb()
+                return handler
+            btn.clicked.connect(make_handler(callback))
+            self._action_layout.addWidget(btn)
+
+        # Dugme za odustajanje
+        cancel_btn = QPushButton("✕ Odustani")
+        cancel_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {COLOR_SECONDARY};
+                color: white;
+                border: none;
+                border-radius: 8px;
+                padding: 8px 16px;
+                font-size: 13px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background-color: #5a4e8a;
+            }}
+        """)
+        cancel_btn.clicked.connect(self.hide_action_buttons)
+        self._action_layout.addWidget(cancel_btn)
+        self._action_layout.addStretch()
+
+        self._action_area.setVisible(True)
+        self.tabs.setCurrentIndex(0)
+
+    def hide_action_buttons(self):
+        """Sakrij i očisti akcione dugmiće."""
+        while self._action_layout.count():
+            item = self._action_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        self._action_area.setVisible(False)
 
     def get_tabs(self) -> QTabWidget:
         return self.tabs

@@ -2,22 +2,21 @@
 
 """
 ŠUMAPROM PDF Parser
-Parser za ŠUMAPROM PDF fakture (skenirane ili tekstualne).
+Parser za skenirane ŠUMAPROM PDF fakture (Technogreen dobavljač).
 
-Format:
-- Header: ŠUMAPROM COMMERCE, D.O.O., broj fakture, datum
-- Stavke: tabela sa kolonama (R.br., Šifra, Opis, JM, Količina, Cena, Iznos, Zemlja)
-- Footer: Ukupan iznos, bruto težina, broj paketa
+Format fakture (OCR):
+  [rb] product_code naziv_robe [jm_noise] [kolicina] cijena_jed iznos ZEMLJA/NAZIV
 
-Podržava:
-- Tekstualne PDF-ove (pdfplumber)
-- Skenirane PDF-ove (OCR sa Tesseract)
+Pouzdani ankeri za parsiranje:
+  - Zemlja uvijek na kraju: XX/NAZIV (npr. DE/NEMACKA, SER/SRBIJA)
+  - Iznos i cijena su zadnji brojevi prije zemlje
+  - product_code je prvi token (može imati crtice, tačke)
 """
 
 import logging
 import re
-from typing import List, Dict, Any, Optional
 from pathlib import Path
+from typing import List, Dict, Any, Tuple, Optional
 
 import pdfplumber
 
@@ -27,631 +26,358 @@ from utils.country_normalizer import normalize_country_name
 
 logger = logging.getLogger("asycuda_pro.import.sumaprom_pdf")
 
+# Tokeni koje OCR generiše za JM/kolicinu — treba ih preskočiti
+_JM_NOISE = re.compile(
+    r'\b(?:Net|Nrt|Nr|Ne|Nev|Nes|Ned|Nesh|Nev|Lush|doaed|kom|set|hom|'
+    r'met|Mot|Set|Sot|Sot\/set|Set\/set|set\/set|BBT|WILL|LON|CPT|EURO|AIP|ALP|'
+    r'PLATT|PLAST|WAL|TILL|ZAMA|ERGO|DUPLA)\b',
+    re.IGNORECASE,
+)
+
+# Zemlja pattern: XX/ ili XX / (2-3 velika slova + kosa crta)
+_COUNTRY_RE = re.compile(r'\b([A-Z]{2,3})\s*/\s*[A-Z]{2,}', re.IGNORECASE)
+
+# Broj sa zarezom ili tačkom
+_NUMBER_RE = re.compile(r'^\d+(?:[,\.]\d+)?$')
+
 
 def detect_sumaprom_pdf(filepath: str) -> bool:
-    """
-    Detektuje da li je PDF ŠUMAPROM format.
-
-    Kriteriji:
-    - Sadrži "ŠUMAPROM" ili "SUMAPROM"
-    - Sadrži "FAKTURA" ili "INVOICE"
-    - Radi i za skenirane PDF-ove (koristi OCR ako treba)
-
-    Args:
-        filepath: Putanja do PDF fajla
-
-    Returns:
-        True ako je ŠUMAPROM PDF
-    """
+    """Detektuje ŠUMAPROM PDF — radi i za skenirane PDFove (OCR)."""
     try:
-        # STEP 1: Try text extraction first (fast)
         with pdfplumber.open(filepath) as pdf:
-            if not pdf.pages:
-                return False
+            text = "".join(p.extract_text() or "" for p in pdf.pages[:2])
 
-            text = ""
-            for page in pdf.pages[:2]:
-                page_text = page.extract_text() or ""
-                text += page_text
-
-            text_upper = text.upper()
-
-            # Check for ŠUMAPROM signature
-            has_sumaprom = "ŠUMAPROM" in text or "SUMAPROM" in text_upper
-            
-            # Check for invoice format
-            has_invoice = "FAKTURA" in text_upper or "INVOICE" in text_upper
-
-            if has_sumaprom and has_invoice:
-                logger.debug(f"✅ ŠUMAPROM PDF detected (text): {filepath}")
-                return True
-
-        # STEP 2: If no text, try OCR (for scanned PDFs)
         if len(text.strip()) < 50:
-            logger.debug(f"  ℹ️  No text found - trying OCR for: {filepath}")
-            try:
-                from importers.pdf.ocr_utils import ocr_pdf_to_text
-                
-                pages_text = ocr_pdf_to_text(filepath, dpi=300)
-                ocr_text = "\n".join(pages_text[:2])  # First 2 pages
-                ocr_text_upper = ocr_text.upper()
-                
-                has_sumaprom_ocr = "SUMAPROM" in ocr_text_upper or "ŠUMAPROM" in ocr_text
-                has_invoice_ocr = "FAKTURA" in ocr_text_upper or "INVOICE" in ocr_text_upper
-                
-                if has_sumaprom_ocr and has_invoice_ocr:
-                    logger.debug(f"✅ ŠUMAPROM PDF detected (OCR): {filepath}")
-                    return True
-                    
-            except ImportError:
-                logger.debug("  ℹ️  OCR not available for detection")
-            except Exception as e:
-                logger.debug(f"  ℹ️  OCR detection failed: {e}")
+            # Skenirani — probaj OCR na prvoj stranici
+            from importers.pdf.ocr_utils import ocr_pdf_to_text_no_lines
+            pages = ocr_pdf_to_text_no_lines(filepath, dpi=300)
+            text = pages[0] if pages else ""
 
-        return False
+        t = text.upper()
+        return ("SUMAPROM" in t or "ŠUMAPROM" in t) and ("FAKTURA" in t or "INVOICE" in t)
 
     except Exception as e:
-        logger.warning(f"Error detecting ŠUMAPROM PDF: {e}")
+        logger.debug(f"detect_sumaprom_pdf error: {e}")
         return False
 
 
 def parse_sumaprom_pdf(pdf_path: str) -> ImportResult:
-    """
-    Parse ŠUMAPROM PDF fakturu.
-
-    Napomena: Za ŠUMAPROM fakture, PDF se koristi SAMO za:
-    - Ekstrakciju header informacija (broj fakture, težine, datumi)
-    - Stavke se uzimaju iz Excela (kombinovanjem)
-
-    Workflow:
-    1. Pokušaj tekstualno parsiranje (pdfplumber)
-    2. Ako nema teksta → koristi OCR
-    3. Ekstrahuj SAMO header (težine, broj fakture)
-    4. Vrati ImportResult (prazan items ili samo header)
-
-    Args:
-        pdf_path: Putanja do PDF fajla
-
-    Returns:
-        ImportResult sa header informacijama (items su prazni ako je skenirani PDF)
-    """
-    logger.info(f"ŠUMAPROM PDF parsing started: {pdf_path}")
-    logger.info(f"  Napomena: PDF se koristi za ekstrakciju težina, stavke iz Excela")
+    """Parsira ŠUMAPROM PDF fakturu (tekstualni ili skenirani)."""
+    logger.info(f"ŠUMAPROM PDF parser: {Path(pdf_path).name}")
 
     try:
-        # STEP 1: Try text extraction
         with pdfplumber.open(pdf_path) as pdf:
-            full_text = ""
-            
-            for page in pdf.pages:
-                page_text = page.extract_text() or ""
-                full_text += page_text
+            text = "".join(p.extract_text() or "" for p in pdf.pages)
 
-            # Check if we got meaningful text
-            if len(full_text.strip()) > 100:
-                logger.info(f"  ✅ Textual PDF detected: {len(full_text)} chars")
-                return _parse_textual_pdf(pdf_path, full_text, [])
-            else:
-                logger.info(f"  ℹ️  Skenirani PDF ({len(full_text.strip())} chars) - prelazim na OCR")
-                return _parse_ocr_pdf(pdf_path)
+        if len(text.strip()) > 100:
+            logger.info("  Tekstualni PDF")
+        else:
+            logger.info("  Skenirani PDF — koristim OCR sa uklanjanjem linija")
+            from importers.pdf.ocr_utils import ocr_pdf_to_text_no_lines
+            pages = ocr_pdf_to_text_no_lines(pdf_path, dpi=300)
+            text = "\n".join(pages)
 
     except Exception as e:
-        logger.error(f"PDF parsing failed: {e}", exc_info=True)
-        # Return empty result instead of raising
-        return ImportResult(items=[], bruto_kg=0.0, neto_kg=0.0, invoice_name=Path(pdf_path).stem, currency="EUR")
+        logger.error(f"  Greška pri čitanju PDF-a: {e}")
+        return ImportResult(items=[], bruto_kg=0.0, neto_kg=0.0,
+                            invoice_name=Path(pdf_path).stem, currency="EUR")
 
+    header = _extract_header(text)
+    items  = _parse_items(text)
 
-def _parse_textual_pdf(
-    pdf_path: str,
-    full_text: str,
-    tables: List
-) -> ImportResult:
-    """
-    Parse textual ŠUMAPROM PDF.
+    logger.info(f"  Parsed {len(items)} stavki | bruto={header['bruto_kg']} kg | faktura={header['invoice_name']}")
+    logger.info(f"  Izvoznik: {header['exporter_name']} | Uvoznik: {header['importer_name']}")
 
-    Args:
-        pdf_path: Putanja do PDF
-        full_text: Extracted text
-        tables: Extracted tables
+    from core.draft.draft import Party
+    exporter = Party(
+        name=header['exporter_name'],
+        city=header['exporter_city'],
+        country=header['exporter_country'],
+    ) if header['exporter_name'] else None
 
-    Returns:
-        ImportResult sa stavkama
-    """
-    logger.info(f"  Parsing textual PDF...")
+    importer = Party(
+        name=header['importer_name'],
+        city=header['importer_city'],
+        country=header['importer_country'],
+    ) if header['importer_name'] else None
 
-    items: List[InvoiceLine] = []
-    header_info: Dict[str, Any] = {}
-
-    # STEP 1: Extract header info from text
-    header_info = _extract_header_from_text(full_text)
-
-    # STEP 2: Parse tables
-    if tables:
-        items = _parse_tables(tables)
-
-    # STEP 3: If no items from tables, try text parsing
-    if not items:
-        items = _parse_items_from_text(full_text)
-
-    # STEP 4: Calculate totals
-    total_amount = sum(item.iznos for item in items) if items else 0.0
-
-    logger.info(f"  Parsed {len(items)} items, total={total_amount:.2f} EUR")
+    for item in items:
+        if exporter:
+            item.exporter = exporter
+        if importer:
+            item.importer = importer
 
     return ImportResult(
         items=items,
-        bruto_kg=header_info.get('bruto_kg', 0.0),
-        neto_kg=header_info.get('neto_kg', 0.0),
-        invoice_name=header_info.get('invoice_name', Path(pdf_path).stem),
+        bruto_kg=header['bruto_kg'],
+        neto_kg=header['neto_kg'],
+        invoice_name=header['invoice_name'] or Path(pdf_path).stem,
         currency="EUR",
+        exporter=exporter,
+        importer=importer,
     )
 
 
-def _parse_ocr_pdf(pdf_path: str) -> ImportResult:
-    """
-    Parse skenirani ŠUMAPROM PDF koristeći OCR.
+# ── Header ekstrakcija ────────────────────────────────────────────────────────
 
-    Napomena: Za skenirane PDF-ove, ekstrahujemo SAMO header informacije:
-    - Bruto težina
-    - Neto težina
-    - Broj fakture
-    - Datum
-    
-    Stavke se uzimaju iz Excela prilikom kombinovanja.
-
-    Args:
-        pdf_path: Putanja do PDF fajla
-
-    Returns:
-        ImportResult sa header informacijama (items prazni)
-    """
-    logger.info(f"  Starting OCR for header extraction...")
-
-    try:
-        # Import OCR utilities
-        from importers.pdf.ocr_utils import ocr_pdf_to_text
-        
-        # STEP 1: OCR ekstrakcija
-        logger.info(f"  Converting PDF to images and running OCR...")
-        pages_text = ocr_pdf_to_text(pdf_path, dpi=300)
-        full_ocr_text = "\n".join(pages_text)
-        
-        logger.info(f"  ✅ OCR completed: {len(pages_text)} pages, {len(full_ocr_text)} chars")
-        
-        # STEP 2: Extract ONLY header info (weights, invoice number)
-        header_info = _extract_header_from_text(full_ocr_text)
-        
-        logger.info(f"  Extracted header: bruto={header_info.get('bruto_kg', 0.0)} kg, neto={header_info.get('neto_kg', 0.0)} kg")
-        
-        # Return ImportResult with header info but NO items
-        # Items will come from Excel when combined
-        return ImportResult(
-            items=[],  # Prazno - stavke dolaze iz Excela
-            bruto_kg=header_info.get('bruto_kg', 0.0),
-            neto_kg=header_info.get('neto_kg', 0.0),
-            invoice_name=header_info.get('invoice_name', Path(pdf_path).stem),
-            currency="EUR",
-        )
-
-    except ImportError as e:
-        logger.warning(f"⚠️  OCR biblioteke nisu instalirane: {e}")
-        logger.warning("   Instaliraj: pip install pytesseract pdf2image")
-        logger.warning("   Tesseract: sudo apt-get install tesseract-ocr tesseract-ocr-bos tesseract-ocr-srp poppler-utils")
-        return ImportResult(items=[], bruto_kg=0.0, neto_kg=0.0, invoice_name=Path(pdf_path).stem, currency="EUR")
-
-    except Exception as e:
-        logger.error(f"OCR parsing failed: {e}", exc_info=True)
-        return ImportResult(items=[], bruto_kg=0.0, neto_kg=0.0, invoice_name=Path(pdf_path).stem, currency="EUR")
-
-
-def _extract_header_from_text(text: str) -> Dict[str, Any]:
-    """
-    Extract header information from PDF text.
-
-    Args:
-        text: PDF text
-
-    Returns:
-        Dict sa: invoice_number, invoice_date, bruto_kg, neto_kg, num_packages
-    """
-    header_info = {
-        'invoice_number': '',
-        'invoice_date': '',
-        'bruto_kg': 0.0,
-        'neto_kg': 0.0,
-        'num_packages': 0,
-        'invoice_name': '',
+def _extract_header(text: str) -> Dict[str, Any]:
+    h = {
+        'invoice_name': '', 'invoice_date': '',
+        'bruto_kg': 0.0, 'neto_kg': 0.0,
+        'exporter_name': '', 'exporter_city': '', 'exporter_country': '',
+        'importer_name': '', 'importer_city': '', 'importer_country': '',
     }
 
-    # Invoice number: "059/2022" or "Broj: 059/2022" or "FAKTURA BR. 059/ 2022"
-    invoice_match = re.search(r'(?:Invoice|FAKTURA|Broj)[:\s]*(\d+\s*/\s*\d+)', text, re.IGNORECASE)
-    if invoice_match:
-        invoice_num = invoice_match.group(1).replace(' ', '')
-        header_info['invoice_number'] = invoice_num
-        header_info['invoice_name'] = invoice_num
+    m = re.search(r'(?:Invoice\s*No|FAKTURA\s*BR)[.\s|]*(\d+\s*/\s*\d+)', text, re.IGNORECASE)
+    if m:
+        h['invoice_name'] = m.group(1).replace(' ', '')
 
-    # Date: "04.11.2022." or "04.11.2022"
-    date_match = re.search(r'(\d{1,2}\.\d{1,2}\.\d{4})', text)
-    if date_match:
-        header_info['invoice_date'] = date_match.group(1)
+    m = re.search(r'(\d{1,2}\.\d{1,2}\.\d{4})', text)
+    if m:
+        h['invoice_date'] = m.group(1)
 
-    # Gross weight: "266,00 KG" or "266.00 kg" or "Gross weight: 266,00"
-    # Try multiple patterns
-    gross_patterns = [
-        r'(?:Gross|BRUTO|Bruto|GROSS)[:\s]*([\d,\.]+)\s*KG',
-        r'([\d,\.]+)\s*KG',
-        r'BRUTO\s*[:=]?\s*([\d,\.]+)',
+    m = re.search(r'(?:BRUTO\s*TEZINA|Gross\s*weight)[:\s|]*([\d,\.]+)\s*KG', text, re.IGNORECASE)
+    if m:
+        try:
+            h['bruto_kg'] = float(m.group(1).replace(',', '.'))
+        except ValueError:
+            pass
+
+    m = re.search(r'(?:NETO|Net\s*weight)[:\s]*([\d,\.]+)\s*KG', text, re.IGNORECASE)
+    if m:
+        try:
+            h['neto_kg'] = float(m.group(1).replace(',', '.'))
+        except ValueError:
+            pass
+
+    # ── Izvoznik (exporter) — pojavljuje se na vrhu fakture prije BUYER/KUPAC ──
+    # OCR vidi: "TECHNOGREEN d.o.o.\n... Beograd - Surčin, SRBIJA\n..."
+    # Uzimamo sve redove PRIJE prve pojave BUYER/KUPAC kao blok izvoznika
+    buyer_pos = re.search(r'\b(?:BUYER|KUPAC)\b', text, re.IGNORECASE)
+    header_block = text[:buyer_pos.start()] if buyer_pos else text[:400]
+
+    lines = [l.strip() for l in header_block.splitlines() if l.strip()]
+    # Filtriraj OCR šum (kratki tokeni, samo interpunkcija, www/email/tel)
+    company_lines = [
+        l for l in lines
+        if len(l) > 4
+        and not re.match(r'^[\W\d]+$', l)
+        and not re.search(r'www\.|e-mail|Tel\.|fax|^\s*[=\-]+\s*$|\+\d{3}', l, re.IGNORECASE)
+        and not re.match(r'^Page\s+\d', l, re.IGNORECASE)
     ]
-    
-    for pattern in gross_patterns:
-        gross_match = re.search(pattern, text, re.IGNORECASE)
-        if gross_match:
-            weight_str = gross_match.group(1).replace(',', '.')
-            try:
-                header_info['bruto_kg'] = float(weight_str)
+    if company_lines:
+        h['exporter_name'] = company_lines[0]
+        # Grad i zemlja — red koji sadrži poznate indikatore
+        for line in company_lines[1:]:
+            if re.search(r'SRBIJA|HRVATSKA|SLOVENIJA|NJEMA|GERMAN|ITALY|ITALIA|'
+                         r'BOSN|AUSTRIA|FRANCE|CHINA|KINA|TURSKA|TURKEY', line, re.IGNORECASE):
+                # Ukloni OCR šum s početka (=, |, cifre, razmaci)
+                clean = re.sub(r'^[\s=|>~\-\d]+', '', line).strip()
+                h['exporter_city'] = clean
                 break
-            except ValueError:
-                pass
 
-    # Net weight: "Neto" or "Net"
-    net_patterns = [
-        r'(?:Neto|Net)[:\s]*([\d,\.]+)\s*KG',
-        r'NETO\s*[:=]?\s*([\d,\.]+)',
-    ]
-    
-    for pattern in net_patterns:
-        net_match = re.search(pattern, text, re.IGNORECASE)
-        if net_match:
-            weight_str = net_match.group(1).replace(',', '.')
-            try:
-                header_info['neto_kg'] = float(weight_str)
-                break
-            except ValueError:
-                pass
-
-    # Number of packages: "15 KOLETA" or "Box No.: 15"
-    pkg_match = re.search(r'(\d+)\s*(?:KOLETA|Box|Pak)', text, re.IGNORECASE)
-    if pkg_match:
-        header_info['num_packages'] = int(pkg_match.group(1))
-
-    return header_info
-
-
-def _parse_tables(tables: List) -> List[InvoiceLine]:
-    """
-    Parse items from extracted tables.
-
-    Args:
-        tables: List of tables from pdfplumber
-
-    Returns:
-        List of InvoiceLine
-    """
-    items = []
-
-    for table in tables:
-        if not table or len(table) < 2:
-            continue
-
-        # Try to find header row
-        header_idx = _find_table_header(table)
-        if header_idx < 0:
-            continue
-
-        # Parse data rows
-        for row_idx in range(header_idx + 1, len(table)):
-            row = table[row_idx]
-            if not row or len(row) < 5:
+    # ── Uvoznik (importer/buyer) — iza BUYER/KUPAC labele ───────────────────
+    _BUYER_KW = re.compile(r'^\s*[\|\-\s]*(?:BUYER|KUPAC|IMPORTER|UVOZNIK|CONSIGNEE)\s*[\|\-\s]*$', re.IGNORECASE)
+    if buyer_pos:
+        after_buyer = text[buyer_pos.end():]
+        buyer_lines = [l.strip() for l in after_buyer.splitlines() if l.strip()]
+        # Prva smislena linija (nije BUYER/KUPAC keyword)
+        for line in buyer_lines:
+            if _BUYER_KW.match(line):
                 continue
-
-            # Skip total/summary rows
-            row_text = ' '.join(str(cell) for cell in row if cell)
-            if 'TOTAL' in row_text.upper() or 'UKUPNO' in row_text.upper():
+            if len(line) > 4 and not re.match(r'^[\W\d]+$', line):
+                h['importer_name'] = line
+                break
+        # Grad/adresa uvoznika
+        started = False
+        for line in buyer_lines:
+            if _BUYER_KW.match(line):
+                continue
+            if line == h['importer_name']:
+                started = True
+                continue
+            if started and len(line) > 3:
+                h['importer_city'] = line
                 break
 
-            item = _parse_table_row(row, row_idx - header_idx)
-            if item:
-                items.append(item)
-
-    return items
+    return h
 
 
-def _find_table_header(table: List) -> int:
+# ── Parsiranje stavki ─────────────────────────────────────────────────────────
+
+# Redovi koje treba preskočiti
+_SKIP_RE = re.compile(
+    r'(?:BUYER|KUPAC|SUMAPROM|TECHNOGREEN|forest|garden|equipment|'
+    r'www\.|e-mail|Tel\.|fax|BEOGRAD|Beograd|BIJELJINA|Dvorovi|'
+    r'Karad|Puskinova|Page\s+\d|FAKTURA\s+BR|Invoice\s+No|'
+    r'UKUPNO|TOTAL|OSLOBOD|PRICE\s+TERM|VALUTA|DELIVERY|PARITET|'
+    r'BANK|BANCA|SWIFT|ACC\s+NO|IBAN|Gross\s+weight|BRUTO\s+TEZINA|'
+    r'Box\s+No|KOLETA|Reg\.br|Mati|Sifra\s+del|upisani|Total\s+Invoice|'
+    r'eightthous|slovima|osamhilj|ISSUED|Ljubig|Mat\.br|Due\s+date|'
+    r'Invoice\s+date|Comments|NAPOMENE|Number\s+of)',
+    re.IGNORECASE,
+)
+
+
+def _parse_number(s: str) -> float:
+    """Parsira broj sa zarezom ili tačkom."""
+    try:
+        return float(s.replace(',', '.'))
+    except ValueError:
+        return 0.0
+
+
+def _normalize_country(raw: str) -> str:
+    """XX/NAZIV → dvoslovni ISO kod."""
+    m = re.match(r'^([A-Z]{2,3})', raw.strip().upper())
+    if not m:
+        return normalize_country_name(raw)
+    code = m.group(1)
+    mapping = {'SER': 'RS', 'SLO': 'SI', 'BRA': 'BR', 'ITA': 'IT',
+               'IND': 'IN', 'CHN': 'CN', 'IRE': 'IE', 'IRN': 'IR'}
+    return mapping.get(code, code[:2] if len(code) == 3 else code)
+
+
+def _clean_token(tok: str) -> str:
+    """Ukloni OCR šum iz tokena (|, ", ', ~, _)."""
+    return re.sub(r'[|"\'~_`]', '', tok).strip()
+
+
+def _parse_line(line: str, line_no: int) -> Optional[InvoiceLine]:
     """
-    Find header row in table.
+    Parsira jednu liniju Šumaprom fakture (OCR).
 
-    Args:
-        table: Table rows
-
-    Returns:
-        Index of header row, or -1 if not found
+    Strategija:
+    1. Nađi zemlju (XX/NAZIV) na kraju — pouzdani anker
+    2. Ukloni | znakove (ostaci tabela linija), očisti OCR šum
+    3. Skupi sve brojeve zdesna, preskačući jednoznačni OCR šum
+    4. Zadnja 2 broja = cijena_jed, iznos
+    5. Ukloni JM noise i kolicinu
+    6. Rb? product_code naziv_robe
     """
-    for idx, row in enumerate(table):
-        if not row:
-            continue
-
-        row_text = ' '.join(str(cell) for cell in row if cell).upper()
-
-        # Look for header keywords
-        if any(kw in row_text for kw in ['POS.', 'R.BR.', 'DESCRIPTION', 'ITEM', 'CODE', 'KOLIČINA']):
-            return idx
-
-    return -1
-
-
-def _parse_table_row(row: List, line_no: int) -> Optional[InvoiceLine]:
-    """
-    Parse one table row into InvoiceLine.
-
-    Expected columns (flexible):
-    - R.br. | Šifra | Opis | JM | Količina | Cena | Iznos | Zemlja
-
-    Args:
-        row: Table row cells
-        line_no: Line number
-
-    Returns:
-        InvoiceLine or None
-    """
-    # Clean row values
-    clean_row = [str(cell).strip() if cell else '' for cell in row]
-
-    # Try to extract fields (flexible column positions)
-    naziv_robe = ''
-    product_code = ''
-    kolicina = 0.0
-    cijena_jed = 0.0
-    iznos = 0.0
-    zemlja_porijekla = ''
-    jm = 'kom'
-
-    # Look for numeric patterns
-    numbers = []
-    for cell in clean_row:
-        num_match = re.search(r'([\d,\.]+)', cell)
-        if num_match:
-            try:
-                num = float(num_match.group(1).replace(',', '.'))
-                numbers.append(num)
-            except ValueError:
-                pass
-
-    # Heuristic: find quantity, price, amount from numbers
-    if len(numbers) >= 3:
-        # Usually: quantity, price, amount
-        kolicina = numbers[-3] if len(numbers) >= 3 else 0.0
-        cijena_jed = numbers[-2] if len(numbers) >= 2 else 0.0
-        iznos = numbers[-1]
-
-    # Find description (longest text cell)
-    text_cells = [cell for cell in clean_row if cell and not re.match(r'^[\d,\.]+$', cell)]
-    if text_cells:
-        naziv_robe = max(text_cells, key=len)
-
-    # Find product code (short alphanumeric)
-    for cell in clean_row:
-        if re.match(r'^[A-Z0-9\-]{3,15}$', cell, re.IGNORECASE):
-            product_code = cell
-            break
-
-    # Find country
-    for cell in clean_row:
-        cell_upper = cell.upper()
-        if any(country in cell_upper for country in ['DE ', 'RS ', 'IT ', 'CN ', 'SI ', 'SK ', 'BR ', 'TW ', 'IN ']):
-            zemlja_porijekla = cell
-            break
-
-    # Skip if no description
-    if not naziv_robe or len(naziv_robe) < 3:
+    line = line.strip()
+    if len(line) < 15:
+        return None
+    if _SKIP_RE.search(line):
         return None
 
-    # Normalize country
-    zemlja_iso = ''
-    if zemlja_porijekla:
-        iso_match = re.match(r'^([A-Z]{2,3})\s*/', zemlja_porijekla)
-        if iso_match:
-            zemlja_iso = iso_match.group(1)
-            if zemlja_iso == "SER":
-                zemlja_iso = "RS"
-            elif zemlja_iso == "SLO":
-                zemlja_iso = "SI"
+    # 1. Nađi zemlju na kraju
+    country_m = _COUNTRY_RE.search(line)
+    if not country_m:
+        return None
+
+    zemlja = _normalize_country(country_m.group(0))
+    # Ukloni | znakove (OCR ostatak tabela linija) i višestruke razmake
+    before_country = re.sub(r'\|', ' ', line[:country_m.start()])
+    before_country = re.sub(r'\s+', ' ', before_country).strip()
+
+    # 2. Tokenizuj i očisti
+    tokens = [t for t in before_country.split() if _clean_token(t)]
+    if not tokens:
+        return None
+
+    # 3. Skupi do 4 broja zdesna, preskačući jednoznačne šum-tokene
+    numbers: List[Tuple[int, float]] = []
+    skipped = 0
+    for i in range(len(tokens) - 1, -1, -1):
+        tok = _clean_token(tokens[i])
+        if not tok:
+            continue
+        if _NUMBER_RE.match(tok):
+            numbers.insert(0, (i, _parse_number(tok)))
+            skipped = 0
+            if len(numbers) == 4:
+                break
         else:
-            zemlja_iso = normalize_country_name(zemlja_porijekla)
+            skipped += 1
+            if skipped > 2:  # prestani kad preskočiš 2+ ne-broja
+                break
+
+    # Odaberi cijena_jed i iznos od zadnja 2 u listi
+    cijena_jed = 0.0
+    iznos      = 0.0
+    cut_idx    = len(tokens)
+
+    if len(numbers) >= 2:
+        cut_idx    = numbers[-2][0]
+        cijena_jed = numbers[-2][1]
+        iznos      = numbers[-1][1]
+    elif len(numbers) == 1:
+        cut_idx = numbers[-1][0]
+        iznos   = numbers[-1][1]
+
+    left_tokens = [_clean_token(t) for t in tokens[:cut_idx]]
+    left_tokens = [t for t in left_tokens if t]  # ukloni prazne nakon clean
+
+    # 4. Ukloni JM noise s desna
+    while left_tokens and _JM_NOISE.fullmatch(left_tokens[-1]):
+        left_tokens.pop()
+
+    # 5. Ukloni kolicinu (cijeli broj na desnom kraju)
+    kolicina = 0.0
+    if left_tokens:
+        last = left_tokens[-1]
+        if re.match(r'^\d+$', last):
+            kolicina = float(last)
+            left_tokens.pop()
+
+    # Ukloni JM noise ponovo
+    while left_tokens and _JM_NOISE.fullmatch(left_tokens[-1]):
+        left_tokens.pop()
+
+    # Ukloni jednoznačne OCR šum tokene s kraja (-, ., ,, =)
+    while left_tokens and re.match(r'^[-.,=]+$', left_tokens[-1]):
+        left_tokens.pop()
+
+    if not left_tokens:
+        return None
+
+    # 6. Rb. broj na početku? (1-3 cifre, ili garbled karakter + cifre)
+    first = left_tokens[0]
+    if re.match(r'^[^\w]*\d{1,3}$', first) and len(left_tokens) > 1:
+        left_tokens.pop(0)
+
+    if not left_tokens:
+        return None
+
+    # Očisti product_code od vodećih OCR znakova
+    product_code = re.sub(r'^["\'\s]+', '', left_tokens[0])
+    if not product_code:
+        product_code = left_tokens[0]
+
+    naziv_robe = ' '.join(left_tokens[1:]) if len(left_tokens) > 1 else product_code
+
+    # Osnovna provjera kvalitete
+    if len(naziv_robe) < 3:
+        return None
+    if re.match(r'^[\d\s,\.]+$', naziv_robe):
+        return None
 
     return InvoiceLine(
         line_no=line_no,
         naziv_robe=naziv_robe,
         product_code=product_code,
         tarifni_broj='',
-        zemlja_porijekla=zemlja_iso,
+        zemlja_porijekla=zemlja,
         kolicina=kolicina,
         cijena_jed=cijena_jed,
         iznos=iznos,
         valuta="EUR",
         bruto_kg=0.0,
         neto_kg=0.0,
-        jm=jm,
+        jm='kom',
     )
 
 
-def _parse_ocr_tables(pdf_path: str, pages_text: List[str]) -> List[InvoiceLine]:
-    """
-    Advanced parsing for OCR text - try to find table patterns.
-
-    Args:
-        pdf_path: Putanja do PDF
-        pages_text: List of OCR text per page
-
-    Returns:
-        List of InvoiceLine
-    """
-    logger.info(f"  Advanced OCR table parsing...")
-    
-    # Try to parse using line-by-line pattern matching
+def _parse_items(text: str) -> List[InvoiceLine]:
+    """Parsira sve stavke iz OCR teksta."""
     items = []
-    
-    for page_idx, page_text in enumerate(pages_text):
-        lines = page_text.split('\n')
-        
-        for line in lines:
-            line = line.strip()
-            if not line or len(line) < 20:
-                continue
-            
-            # Try to match item pattern
-            # Pattern: Number Code Description Qty Price Amount Country
-            match = re.search(
-                r'(\d+)\s+'  # R.br.
-                r'([A-Z0-9\-]+)\s+'  # Code
-                r'(.+?)\s+'  # Description (greedy)
-                r'(\d+[,\.\d]*)\s+'  # Qty
-                r'([\d,\.]+)\s+'  # Price
-                r'([\d,\.]+)\s*'  # Amount
-                r'([A-Z]{2,3}/[A-Z\s]+)?',  # Country (optional)
-                line
-            )
-            
-            if match:
-                try:
-                    line_no = int(match.group(1))
-                    product_code = match.group(2).strip()
-                    naziv_robe = match.group(3).strip()
-                    kolicina = float(match.group(4).replace(',', '.'))
-                    cijena_jed = float(match.group(5).replace(',', '.'))
-                    iznos = float(match.group(6).replace(',', '.'))
-                    country_raw = match.group(7).strip() if match.group(7) else ''
-                    
-                    # Normalize country
-                    zemlja_iso = ''
-                    if country_raw:
-                        iso_match = re.match(r'^([A-Z]{2,3})/', country_raw)
-                        if iso_match:
-                            zemlja_iso = iso_match.group(1)
-                            # Normalize to 2-letter ISO codes
-                            if zemlja_iso == "SER":
-                                zemlja_iso = "RS"
-                            elif zemlja_iso == "SLO":
-                                zemlja_iso = "SI"
-                            elif zemlja_iso == "BRA":
-                                zemlja_iso = "BR"  # Brazil → BR
-                        else:
-                            zemlja_iso = normalize_country_name(country_raw)
-                    
-                    items.append(InvoiceLine(
-                        line_no=line_no,
-                        naziv_robe=naziv_robe,
-                        product_code=product_code,
-                        tarifni_broj='',
-                        zemlja_porijekla=zemlja_iso,
-                        kolicina=kolicina,
-                        cijena_jed=cijena_jed,
-                        iznos=iznos,
-                        valuta="EUR",
-                        bruto_kg=0.0,
-                        neto_kg=0.0,
-                        jm="kom",
-                    ))
-                except (ValueError, IndexError) as e:
-                    logger.debug(f"Failed to parse line: {e}")
-                    continue
-    
-    logger.info(f"  Advanced parsing found {len(items)} items")
-    return items
+    line_counter = 1
 
-
-def _parse_items_from_text(text: str) -> List[InvoiceLine]:
-    """
-    Parse items directly from text (fallback if tables fail).
-
-    Args:
-        text: PDF text
-
-    Returns:
-        List of InvoiceLine
-    """
-    items = []
-
-    # Pattern for item rows
-    # Example: "1 001-401 STARTNO UŽE 4,0mmX50M Nr/kom 5 8,8 44 DE/NEMAČKA"
-    item_pattern = re.compile(
-        r'^(\d+)\s+'  # R.br.
-        r'([A-Z0-9\-]+)\s+'  # Šifra
-        r'(.+?)\s+'  # Opis
-        r'(\d+[,\.\d]*)\s+'  # Količina
-        r'([\d,\.]+)\s+'  # Cena
-        r'([\d,\.]+)\s+'  # Iznos
-        r'([A-Z]{2,3}/[A-Z\s]+)?',  # Zemlja (optional)
-        re.MULTILINE
-    )
-
-    for match in item_pattern.finditer(text):
-        try:
-            line_no = int(match.group(1))
-            product_code = match.group(2).strip()
-            naziv_robe = match.group(3).strip()
-            kolicina = float(match.group(4).replace(',', '.'))
-            cijena_jed = float(match.group(5).replace(',', '.'))
-            iznos = float(match.group(6).replace(',', '.'))
-            zemlja_raw = match.group(7).strip() if match.group(7) else ''
-
-            # Normalize country
-            zemlja_iso = ''
-            if zemlja_raw:
-                iso_match = re.match(r'^([A-Z]{2,3})/', zemlja_raw)
-                if iso_match:
-                    zemlja_iso = iso_match.group(1)
-                    if zemlja_iso == "SER":
-                        zemlja_iso = "RS"
-                    elif zemlja_iso == "SLO":
-                        zemlja_iso = "SI"
-                else:
-                    zemlja_iso = normalize_country_name(zemlja_raw)
-
-            items.append(InvoiceLine(
-                line_no=line_no,
-                naziv_robe=naziv_robe,
-                product_code=product_code,
-                tarifni_broj='',
-                zemlja_porijekla=zemlja_iso,
-                kolicina=kolicina,
-                cijena_jed=cijena_jed,
-                iznos=iznos,
-                valuta="EUR",
-                bruto_kg=0.0,
-                neto_kg=0.0,
-                jm="kom",
-            ))
-        except (ValueError, IndexError) as e:
-            logger.debug(f"Failed to parse item: {e}")
-            continue
+    for raw_line in text.splitlines():
+        item = _parse_line(raw_line, line_counter)
+        if item:
+            items.append(item)
+            line_counter += 1
 
     return items
-
-
-if __name__ == "__main__":
-    import sys
-
-    if len(sys.argv) > 1:
-        test_file = sys.argv[1]
-        logger.info(f"Testing ŠUMAPROM PDF parser with: {test_file}")
-
-        # Test detection
-        is_sumaprom = detect_sumaprom_pdf(test_file)
-        logger.info(f"Detection: {is_sumaprom}")
-
-        if is_sumaprom:
-            # Test parsing
-            result = parse_sumaprom_pdf(test_file)
-            logger.info(f"\n✅ Parsed: {len(result.items)} items")
-            logger.info(f"Invoice: {result.invoice_name}")
-            logger.info(f"Total: {sum(item.iznos for item in result.items):.2f} EUR")
-            logger.info(f"Bruto: {result.bruto_kg} kg")
-            logger.info(f"Neto: {result.neto_kg} kg")
-
-            logger.info(f"\nFirst 3 items:")
-            for i, item in enumerate(result.items[:3], 1):
-                logger.info(f"  {i}. {item.product_code} - {item.naziv_robe[:50]}")
-                logger.info(f"     Qty: {item.kolicina}, Price: {item.cijena_jed}, Amount: {item.iznos}")
-                logger.info(f"     Country: {item.zemlja_porijekla}")
-    else:
-        logger.info("Usage: python sumaprom_pdf_parser.py <pdf_file>")

@@ -233,34 +233,29 @@ def _extract_header_info(sheet: xlrd.sheet.Sheet) -> Dict[str, any]:
             if date_match and not header_info['invoice_date']:
                 header_info['invoice_date'] = date_match.group(1)
 
-    # ENHANCED: Extract EXPORTER (SUMAPROM is the exporter/seller)
-    # Look for seller/exporter info in first 15 rows
-    for row_idx in range(min(15, sheet.nrows)):
-        row_text = " ".join([str(c[1]) for c in all_rows_text[row_idx]])
-        
-        # Common patterns for seller/exporter
-        if "SUMAPROM" in row_text.upper() or "ŠUMAPROM" in row_text:
-            # Extract lines from this row
-            lines = row_text.split('\n')
-            for line in lines:
-                # Look for company name (usually contains D.O.O., D.O.O, LTD, etc.)
-                if 'D.O.O' in line.upper() or 'LTD' in line.upper() or 'INC' in line.upper():
-                    header_info['exporter_name'] = line.strip()
+    # EKSPORTATOR (strani prodavac/dobavljac) — trazimo po labelama SELLER/EKSPORTATOR
+    # Napomena: SUMAPROM je KUPAC (consignee/uvoznik), NE eksportator!
+    seller_keywords = ['SELLER', 'EKSPORTATOR', 'EXPORTER', 'PRODAVAC', 'SUPPLIER', 'DOBAVLJAC', 'FROM:']
+    for row_idx in range(min(20, sheet.nrows)):
+        for col_idx, cell_str in all_rows_text[row_idx]:
+            if any(kw in cell_str.upper() for kw in seller_keywords):
+                # Sljedeci red ili sljedeca kolona sadrzi ime prodavca
+                if row_idx + 1 < sheet.nrows:
+                    for check_col in range(sheet.ncols):
+                        seller_cell = sheet.cell_value(row_idx + 1, check_col)
+                        if seller_cell:
+                            seller_str = str(seller_cell).strip()
+                            if any(kw in seller_str.upper() for kw in seller_keywords):
+                                continue
+                            if len(seller_str) > 3 and 'SUMAPROM' not in seller_str.upper():
+                                header_info['exporter_name'] = seller_str
+                                break
+                if header_info['exporter_name']:
                     break
-                # Or just use first non-empty line with SUMAPROM
-                elif 'SUMAPROM' in line.upper() and not header_info['exporter_name']:
-                    header_info['exporter_name'] = line.strip()
-                    break
-            
-            # Try to find address in same row (usually next column or nearby)
-            for col_idx, cell_str in all_rows_text[row_idx]:
-                if cell_str and ('STR.' in cell_str.upper() or 'ST.' in cell_str.upper() or 
-                   'UL.' in cell_str.upper() or 'AVE' in cell_str.upper()):
-                    header_info['exporter_address'] = cell_str
-                    break
+        if header_info['exporter_name']:
             break
 
-    # ENHANCED: Extract IMPORTER (buyer - our company)
+    # ENHANCED: Extract IMPORTER (buyer - nasa firma / consignee)
     # Look for buyer info - usually contains "BUYER", "KUPAC", or company name
     for row_idx in range(min(25, sheet.nrows)):
         for col_idx in range(sheet.ncols):

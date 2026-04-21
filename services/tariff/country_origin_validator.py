@@ -49,29 +49,38 @@ _EU_MEMBER_STATES: frozenset[str] = frozenset({
 # Povlastica kodovi koji su isključivo za robu EU porijekla
 _EU_ONLY_PREFERENCES: frozenset[str] = frozenset({"EUP"})
 
+# CEFTA potpisnice (osim BA — to je uvoznik)
+_CEFTA_MEMBER_STATES: frozenset[str] = frozenset({
+    "RS", "MK", "AL", "ME", "MD", "XK",
+})
+
 
 def derive_preference(zemlja: str) -> str:
     """
     Izvedi povlasticu na osnovu zemlje porijekla.
 
     Pravila:
-    - Ako je zemlja članica EU → EUP
-    - Inače → prazno
+    - EU članica → EUP
+    - CEFTA potpisnica → CEFTAP
+    - Ostalo → ""
 
     Args:
         zemlja: ISO 3166-1 alpha-2 kod zemlje
 
     Returns:
-        Kod povlastice (npr. "EUP") ili prazan string
+        Kod povlastice ("EUP", "CEFTAP") ili prazan string
     """
     if not zemlja:
         return ""
-    
+
     zemlja_upper = zemlja.strip().upper()
-    
+
     if zemlja_upper in _EU_MEMBER_STATES:
         return "EUP"
-    
+
+    if zemlja_upper in _CEFTA_MEMBER_STATES:
+        return "CEFTAP"
+
     return ""
 
 

@@ -562,6 +562,10 @@ def parse_blagic_attos_with_auto_combine(invoice_pdf_path: str) -> ImportResult:
                 jm=p_item.get("jm", ""),
             )
             items.append(item)
+        _imp = Party(name="BLAGIĆ D.O.O.")
+        for item in items:
+            item.exporter = Party(name="ATTOS")
+            item.importer = _imp
         return ImportResult(
             items=items,
             bruto_kg=sum(i.bruto_kg for i in items),
@@ -569,6 +573,7 @@ def parse_blagic_attos_with_auto_combine(invoice_pdf_path: str) -> ImportResult:
             invoice_name=Path(invoice_pdf_path).stem,
             currency="EUR",
             exporter=Party(name="ATTOS"),
+            importer=_imp,
         )
 
     # Normalan tok: parsiraj kao fakturu
@@ -615,6 +620,11 @@ def parse_blagic_attos_with_auto_combine(invoice_pdf_path: str) -> ImportResult:
             )
             combined_items.append(item)
 
+    _imp = Party(name="BLAGIĆ D.O.O.")
+    for item in combined_items:
+        item.exporter = Party(name="ATTOS")
+        item.importer = _imp
+
     # Return ImportResult
     return ImportResult(
         items=combined_items,
@@ -625,6 +635,7 @@ def parse_blagic_attos_with_auto_combine(invoice_pdf_path: str) -> ImportResult:
         has_origin_statement=has_origin_statement,
         origin_statements=header.get("origin_statements", []),
         exporter=Party(name="ATTOS"),
+        importer=_imp,
     )
 
 
