@@ -1,75 +1,197 @@
 """
 LLM Audit Log + Session Token Budget
 
-Loguje svaki LLM poziv u SQLite (bez osjetljivog sadržaja).
+Loguje svaki LLM poziv bez osjetljivog sadržaja.
 Prati potrošnju tokena i blokira kad se pređe SESSION_TOKEN_BUDGET.
 
-Tabela: llm_calls
-  id, timestamp, provider, approx_tokens_in, approx_tokens_out, blocked
+Storage:
+  Primarno:  PostgreSQL — public.llm_audit (centralno za sve klijente)
+  Fallback:  SQLite     — database/llm_audit.db (kad server nije dostupan)
 
-Baza: database/llm_audit.db (uz ostale SQLite baze projekta)
+Tabela llm_audit:
+  id, timestamp, client_name, provider,
+  approx_tokens_in, approx_tokens_out, blocked
 """
 
-import sqlite3
 import os
+import sqlite3
 from datetime import datetime
 from pathlib import Path
 
-_DB_PATH = Path(__file__).parent.parent.parent / "database" / "llm_audit.db"
+_SQLITE_PATH = Path(__file__).parent.parent.parent / "database" / "llm_audit.db"
 
-# In-memory brojač tokena za trenutnu sesiju (resetuje se pri pokretanju app)
 _session_tokens: int = 0
 
 
+# ── Helpers ──────────────────────────────────────────────────────────────────
+
+def _client_name() -> str:
+    return os.getenv("CLIENT_NAME", "klijent1")
+
+
 def _get_budget() -> int:
-    """Čita SESSION_TOKEN_BUDGET iz env (default 50000)."""
     try:
         return int(os.getenv("SESSION_TOKEN_BUDGET", "50000"))
     except ValueError:
         return 50_000
 
 
-def _conn() -> sqlite3.Connection:
-    conn = sqlite3.connect(_DB_PATH)
+# ── PostgreSQL ────────────────────────────────────────────────────────────────
+
+_PG_TABLE_CREATED = False
+
+
+def _ensure_pg_table(conn) -> None:
+    global _PG_TABLE_CREATED
+    if _PG_TABLE_CREATED:
+        return
+    with conn.cursor() as cur:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS public.llm_audit (
+                id                SERIAL PRIMARY KEY,
+                timestamp         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                client_name       TEXT        NOT NULL,
+                provider          TEXT        NOT NULL,
+                approx_tokens_in  INTEGER     NOT NULL,
+                approx_tokens_out INTEGER     NOT NULL,
+                blocked           BOOLEAN     NOT NULL DEFAULT FALSE
+            )
+        """)
+    conn.commit()
+    _PG_TABLE_CREATED = True
+
+
+def _pg_log(provider: str, tokens_in: int, tokens_out: int, blocked: bool) -> bool:
+    """Upiši u PostgreSQL. Vraća True ako uspije."""
+    try:
+        from database.db import get_db_connection
+        with get_db_connection() as conn:
+            _ensure_pg_table(conn)
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO public.llm_audit
+                        (client_name, provider, approx_tokens_in, approx_tokens_out, blocked)
+                    VALUES (%s, %s, %s, %s, %s)
+                    """,
+                    (_client_name(), provider, tokens_in, tokens_out, blocked),
+                )
+        return True
+    except Exception as e:
+        print(f"[AuditLog] PG greška, prelazim na SQLite: {e}")
+        return False
+
+
+def _pg_today_stats() -> dict | None:
+    """Statistika za danas iz PostgreSQL (svi klijenti)."""
+    try:
+        from database.db import get_db_connection
+        today = datetime.now().strftime("%Y-%m-%d")
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT
+                        COUNT(*)                                    AS calls_today,
+                        COALESCE(SUM(approx_tokens_in
+                                   + approx_tokens_out), 0)        AS tokens_today,
+                        COUNT(*) FILTER (WHERE blocked)            AS blocked_today,
+                        client_name,
+                        COUNT(*) FILTER (WHERE client_name = %s)   AS my_calls
+                    FROM public.llm_audit
+                    WHERE timestamp::date = %s
+                    GROUP BY GROUPING SETS ((), (client_name))
+                    ORDER BY client_name NULLS FIRST
+                    """,
+                    (_client_name(), today),
+                )
+                rows = cur.fetchall()
+        if not rows:
+            return {"calls_today": 0, "tokens_today": 0, "blocked_today": 0, "by_client": {}}
+        total = dict(rows[0])
+        by_client = {r["client_name"]: r["calls_today"] for r in rows[1:] if r["client_name"]}
+        return {
+            "calls_today":   total.get("calls_today", 0),
+            "tokens_today":  total.get("tokens_today", 0),
+            "blocked_today": total.get("blocked_today", 0),
+            "by_client":     by_client,
+        }
+    except Exception:
+        return None
+
+
+# ── SQLite fallback ───────────────────────────────────────────────────────────
+
+def _sqlite_conn() -> sqlite3.Connection:
+    conn = sqlite3.connect(_SQLITE_PATH)
     conn.execute("""
-        CREATE TABLE IF NOT EXISTS llm_calls (
-            id               INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp        TEXT    NOT NULL,
-            provider         TEXT    NOT NULL,
-            approx_tokens_in INTEGER NOT NULL,
+        CREATE TABLE IF NOT EXISTS llm_audit (
+            id                INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp         TEXT    NOT NULL,
+            client_name       TEXT    NOT NULL,
+            provider          TEXT    NOT NULL,
+            approx_tokens_in  INTEGER NOT NULL,
             approx_tokens_out INTEGER NOT NULL,
-            blocked          INTEGER NOT NULL DEFAULT 0
+            blocked           INTEGER NOT NULL DEFAULT 0
         )
     """)
     conn.commit()
     return conn
 
 
+def _sqlite_log(provider: str, tokens_in: int, tokens_out: int, blocked: bool) -> None:
+    try:
+        with _sqlite_conn() as conn:
+            conn.execute(
+                "INSERT INTO llm_audit "
+                "(timestamp, client_name, provider, approx_tokens_in, approx_tokens_out, blocked) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    datetime.now().isoformat(timespec="seconds"),
+                    _client_name(),
+                    provider,
+                    tokens_in,
+                    tokens_out,
+                    int(blocked),
+                ),
+            )
+    except Exception as e:
+        print(f"[AuditLog] SQLite greška: {e}")
+
+
+def _sqlite_today_stats() -> dict:
+    today = datetime.now().strftime("%Y-%m-%d")
+    try:
+        conn = _sqlite_conn()
+        row = conn.execute(
+            "SELECT COUNT(*), SUM(approx_tokens_in + approx_tokens_out), SUM(blocked) "
+            "FROM llm_audit WHERE timestamp LIKE ?",
+            (f"{today}%",),
+        ).fetchone()
+        conn.close()
+        return {
+            "calls_today":   row[0] or 0,
+            "tokens_today":  row[1] or 0,
+            "blocked_today": row[2] or 0,
+            "by_client":     {},
+        }
+    except Exception:
+        return {"calls_today": 0, "tokens_today": 0, "blocked_today": 0, "by_client": {}}
+
+
+# ── Javni API ─────────────────────────────────────────────────────────────────
+
 def estimate_tokens(text: str) -> int:
-    """Grubo: 1 token ≈ 4 karaktera."""
     return max(1, len(text) // 4)
 
 
 def estimate_tokens_messages(messages: list) -> int:
-    """Procjena tokena za listu messages dicts."""
-    total = 0
-    for m in messages:
-        total += estimate_tokens(m.get("content", ""))
-    return total
+    return sum(estimate_tokens(m.get("content", "")) for m in messages)
 
 
 def check_budget(tokens_needed: int) -> str | None:
-    """
-    Provjeri da li sesija ima dovoljno tokena.
-
-    Returns:
-        None  — OK, može se nastaviti
-        str   — poruka o prekoračenju (prikaži korisniku)
-    """
     global _session_tokens
     budget = _get_budget()
-    used_pct = (_session_tokens / budget * 100) if budget > 0 else 0
-
     if _session_tokens + tokens_needed > budget:
         return (
             f"⛔ Sesijski limit tokena je dostignut "
@@ -77,12 +199,11 @@ def check_budget(tokens_needed: int) -> str | None:
             "Ponovo pokreni aplikaciju da resetuješ limit, "
             "ili povećaj SESSION_TOKEN_BUDGET u .env fajlu."
         )
-
+    used_pct = _session_tokens / budget * 100 if budget else 0
     if used_pct >= 80:
-        remaining = budget - _session_tokens
         print(
-            f"[TokenBudget] ⚠️ Upozorenje: {used_pct:.0f}% sesijskog budžeta potrošeno "
-            f"({_session_tokens:,}/{budget:,}). Preostalo: ~{remaining:,} tokena."
+            f"[TokenBudget] ⚠️ {used_pct:.0f}% sesijskog budžeta potrošeno "
+            f"({_session_tokens:,}/{budget:,})."
         )
     return None
 
@@ -93,35 +214,15 @@ def log_call(
     tokens_out: int,
     blocked: bool = False,
 ) -> None:
-    """
-    Logiraj LLM poziv — bez sadržaja, samo metapodaci.
-    Ažurira in-memory session brojač.
-    """
     global _session_tokens
-
     if not blocked:
         _session_tokens += tokens_in + tokens_out
 
-    try:
-        with _conn() as conn:
-            conn.execute(
-                "INSERT INTO llm_calls "
-                "(timestamp, provider, approx_tokens_in, approx_tokens_out, blocked) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (
-                    datetime.now().isoformat(timespec="seconds"),
-                    provider,
-                    tokens_in,
-                    tokens_out,
-                    int(blocked),
-                ),
-            )
-    except Exception as e:
-        print(f"[AuditLog] Greška pri upisu: {e}")
+    if not _pg_log(provider, tokens_in, tokens_out, blocked):
+        _sqlite_log(provider, tokens_in, tokens_out, blocked)
 
 
 def get_session_stats() -> dict:
-    """Statistika trenutne sesije (iz in-memory brojača)."""
     budget = _get_budget()
     return {
         "session_tokens_used": _session_tokens,
@@ -131,20 +232,7 @@ def get_session_stats() -> dict:
 
 
 def get_today_stats() -> dict:
-    """Statistika iz baze za danas."""
-    today = datetime.now().strftime("%Y-%m-%d")
-    try:
-        with _conn() as conn:
-            row = conn.execute(
-                "SELECT COUNT(*), SUM(approx_tokens_in + approx_tokens_out), "
-                "       SUM(blocked) "
-                "FROM llm_calls WHERE timestamp LIKE ?",
-                (f"{today}%",),
-            ).fetchone()
-        return {
-            "calls_today":   row[0] or 0,
-            "tokens_today":  row[1] or 0,
-            "blocked_today": row[2] or 0,
-        }
-    except Exception:
-        return {"calls_today": 0, "tokens_today": 0, "blocked_today": 0}
+    stats = _pg_today_stats()
+    if stats is not None:
+        return stats
+    return _sqlite_today_stats()
