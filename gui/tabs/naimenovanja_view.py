@@ -278,7 +278,7 @@ class NaimenovanjaView(BaseTabView):
             "le_rubrika36": "preference_code",
             # Rubrika 37
             "le_rubrika37_1": "procedure_code",
-            "le_rubrika37_2": "",  # Procedure code 2 (custom)
+            "le_rubrika37_2": "procedure_prev_code",  # Procedure code 2 (custom)
             # Rubrika 38
             "le_rubrika38": "net_mass_kg",
             # Rubrika 39

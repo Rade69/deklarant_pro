@@ -1206,7 +1206,7 @@ class ZaglavljeService:
                 tariff_suffix = ""
                 preference_code = ""
                 procedure_code = ""
-                procedure_prev_code = ""
+                procedure_prev_code = "000"
                 item_value_str = ""
                 quota_code = ""
                 supp_unit_code = ""

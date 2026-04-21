@@ -86,6 +86,7 @@ def group_invoice_lines(
             net_mass_kg=net,
             source_invoice_refs=[str(ln.line_no or 0) for ln in lines],
             attached_document4=doc44,
+            procedure_prev_code="000",
         )
         items.append(it)
 
