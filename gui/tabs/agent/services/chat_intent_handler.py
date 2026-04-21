@@ -171,9 +171,15 @@ class ChatIntentHandler:
 
 
 def _handle_message(ctrl, message: str) -> None:
-    from gui.tabs.agent.widgets.chat_worker import ChatWorker
+    from gui.tabs.agent.widgets.chat_worker import ChatWorker, check_injection
 
     chat = ctrl.view.get_chat_panel()
+
+    blocked = check_injection(message)
+    if blocked:
+        chat.add_agent_message(blocked)
+        return
+
     msg = message.lower().strip()
 
     # --- POTVRDA pending akcije ---

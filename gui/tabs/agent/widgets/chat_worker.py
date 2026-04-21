@@ -14,6 +14,68 @@ def _parse_groq_error(exc) -> str:
     return parse_llm_error(exc)
 
 
+# ── Prompt injection zaštita ─────────────────────────────────────────────────
+
+_MAX_MESSAGE_LEN = 2000  # Carinska pitanja nikad ne trebaju više od ovoga
+
+# Parovi (pattern, opis) — samo kombinacije koje su nedvosmisleno injection.
+# "zanemari stavku/red/naimenovanje" su legitimne naredbe — ne blokiramo ih.
+_INJECTION_PATTERNS = [
+    # Zanemari + sistemski kontekst (ne stavku/red)
+    (r'zanemari\s+.{0,40}(instrukcij|sistem[a-z]*\s+prompt|prethodni\s+kontekst|gore\s+napisano|pravil[a-z]*)',
+     "pokušaj poništavanja sistemskih instrukcija"),
+    # Ignore previous instructions
+    (r'ignore\s+.{0,30}(previous|all\s+prior|above|system)\s*(instructions|prompt|context|rules)',
+     "ignore instructions attempt"),
+    # Forget everything / all instructions
+    (r'forget\s+(everything|all\s+previous|all\s+instructions|above)',
+     "forget instructions attempt"),
+    # System role injection na početku poruke
+    (r'^\s*(system\s*:|<\s*system\s*>|\[system\]|\[inst\])',
+     "system role injection"),
+    # "Ti si sada slobodan/neograničen/drugačiji AI"
+    (r'ti\s+si\s+sada\s+.{0,30}(slobodan|bez\s+ograničen|drugačij|nov[i]?\s+ai|drukčij)',
+     "uloga injection (sr)"),
+    (r'you\s+are\s+now\s+.{0,30}(free|uncensored|different|new\s+ai|without\s+restrict)',
+     "role injection (en)"),
+    # Izvlačenje system prompta
+    (r'(ispisi|pokaži|prikaži|napiši|reproduce|print|reveal|output|show)\s+.{0,30}'
+     r'(system\s*prompt|cijeli\s+kontekst|sve\s+instrukcij|gornji\s+tekst|initial\s+prompt)',
+     "pokušaj izvlačenja system prompta"),
+    # Jailbreak ključne riječi
+    (r'\b(jailbreak|do\s+anything\s+now|\bDAN\b|developer\s+mode\s+enabled)',
+     "jailbreak keyword"),
+    # Ponavljanje specijalnih znakova (obično dio injection payloada)
+    (r'[<>\[\]{}]{6,}',
+     "sumnjivi specijalni znakovi"),
+]
+_INJECTION_RE = [
+    (re.compile(pat, re.IGNORECASE | re.DOTALL), opis)
+    for pat, opis in _INJECTION_PATTERNS
+]
+
+
+def check_injection(message: str) -> str | None:
+    """
+    Provjeri da li poruka izgleda kao prompt injection napad.
+
+    Returns:
+        None  — poruka je uredna
+        str   — opis problema (ne šalji LLM-u, prikaži korisniku)
+    """
+    if len(message) > _MAX_MESSAGE_LEN:
+        return f"Poruka je predugačka ({len(message)} znakova). Maksimum je {_MAX_MESSAGE_LEN}."
+
+    for pattern, opis in _INJECTION_RE:
+        if pattern.search(message):
+            print(f"[SecurityFilter] Blokirana poruka — {opis}: {message[:80]!r}")
+            return (
+                "⚠️ Poruka je blokirana iz sigurnosnih razloga.\n"
+                "Ako imaš legitimno pitanje o carinjenju, molim te preformuliši ga."
+            )
+    return None
+
+
 class ChatWorker(QThread):
     """Poziva Groq API u pozadini da ne blokira UI."""
 
@@ -31,6 +93,11 @@ class ChatWorker(QThread):
 
     def run(self):
         try:
+            blocked = check_injection(self.message)
+            if blocked:
+                self.error_occurred.emit(blocked)
+                return
+
             from .llm_provider import LLMProvider, parse_llm_error
 
             provider = LLMProvider()
