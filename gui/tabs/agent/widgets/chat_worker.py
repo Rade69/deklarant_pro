@@ -489,7 +489,9 @@ class ChatWorker(QThread):
     def _build_session_zone(self, lines: list) -> list:
         """
         Zone B — pošiljalac/uvoznik + XML predložak.
-        Uvijek se uključuje ako postoje podaci.
+
+        JIB se nikad ne šalje LLM-u — koristi se samo lokalno za XML lookup.
+        Ako je SEND_SENSITIVE_DATA=false (default), imena partnera se maskiraju.
         """
         result = []
         exporter_name = ""
@@ -509,6 +511,7 @@ class ChatWorker(QThread):
             if not consignee_jib:
                 consignee_jib = getattr(self.draft, 'izvoznik_id', '') or ''
 
+        # XML lookup — lokalna operacija, koristi puna imena i JIB
         if exporter_name:
             try:
                 from services.agent.exporter_xml_indexer import find_xml_for_pair
@@ -522,25 +525,40 @@ class ChatWorker(QThread):
                     fname = os.path.basename(match['xml_filepath'])
                     xml_lookup_info = (
                         f"Pronađen XML predložak: {fname} "
-                        f"(match: {match['match_type']}, "
-                        f"consignee: {match.get('consignee_original', '—')})"
+                        f"(match: {match['match_type']})"
+                        # consignee_original se namjerno izostavlja iz LLM konteksta
                     )
             except Exception:
                 pass
 
-        if exporter_name or consignee_name or consignee_jib:
-            result.append("=== POŠILJALAC / UVOZNIK ===")
+        if not (exporter_name or consignee_name or consignee_jib):
+            return result
+
+        # Provjeri da li je dozvoljeno slanje osjetljivih podataka eksternom LLM-u
+        import os
+        send_sensitive = os.getenv("SEND_SENSITIVE_DATA", "false").strip().lower() == "true"
+
+        result.append("=== POŠILJALAC / UVOZNIK ===")
+
+        if send_sensitive:
             if exporter_name:
                 result.append(f"Pošiljalac (iz fakture): {exporter_name}")
             if consignee_name:
-                result.append(f"Uvoznik (rubrika 8): {consignee_name}" +
-                               (f" (JIB: {consignee_jib})" if consignee_jib else ""))
+                # JIB se nikad ne šalje — nije potreban LLM-u
+                result.append(f"Uvoznik (rubrika 8): {consignee_name}")
             elif consignee_jib:
-                result.append(f"Uvoznik JIB (rubrika 8): {consignee_jib}")
-            if xml_lookup_info:
-                result.append(f"XML predložak: {xml_lookup_info}")
-            elif exporter_name:
-                result.append("XML predložak: nije pronađen u bazi")
+                result.append("Uvoznik (rubrika 8): [postoji, ime nije dostupno]")
+        else:
+            # Maskiranje — LLM zna da partneri postoje, ali ne zna ko su
+            if exporter_name:
+                result.append("Pošiljalac (iz fakture): [ime skriveno — SEND_SENSITIVE_DATA=false]")
+            if consignee_name or consignee_jib:
+                result.append("Uvoznik (rubrika 8): [ime skriveno — SEND_SENSITIVE_DATA=false]")
+
+        if xml_lookup_info:
+            result.append(f"XML predložak: {xml_lookup_info}")
+        elif exporter_name:
+            result.append("XML predložak: nije pronađen u bazi")
 
         return result
 
