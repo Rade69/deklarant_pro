@@ -93,8 +93,13 @@ class ChatWorker(QThread):
 
     def run(self):
         try:
+            from services.agent.llm_audit_log import (
+                check_budget, estimate_tokens_messages, estimate_tokens, log_call
+            )
+
             blocked = check_injection(self.message)
             if blocked:
+                log_call(provider="none", tokens_in=0, tokens_out=0, blocked=True)
                 self.error_occurred.emit(blocked)
                 return
 
@@ -117,7 +122,14 @@ class ChatWorker(QThread):
 
             messages = self._build_messages(context, chat_history)
 
-            # === STREAMING — Groq primarni, Gemini fallback ===
+            # Provjera token budžeta prije poziva
+            tokens_in = estimate_tokens_messages(messages)
+            budget_err = check_budget(tokens_in)
+            if budget_err:
+                self.error_occurred.emit(budget_err)
+                return
+
+            # === STREAMING — DeepSeek primarni, Groq/Gemini fallback ===
             self.stream_started.emit()
             full_text = ""
             for token in provider.stream_chat(messages, max_tokens=1500):
@@ -127,6 +139,13 @@ class ChatWorker(QThread):
             text = full_text.strip()
             if self.memory_service:
                 self.memory_service.add_assistant_message(text)
+
+            # Audit log — bez sadržaja, samo metapodaci
+            log_call(
+                provider=provider.active_provider(),
+                tokens_in=tokens_in,
+                tokens_out=estimate_tokens(text),
+            )
 
             self.response_ready.emit(text)
 
