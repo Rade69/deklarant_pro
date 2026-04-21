@@ -1706,8 +1706,8 @@ class ZaglavljeService:
 
         view_map = _docs_to_map(view_attached)
 
-        # A) Provjera prisutnosti — svaka obavezna šifra mora biti u tabeli sa referencom
-        nedostaju = [s for s in OBAVEZNE_SIFRE if not view_map.get(s)]
+        # A) Provjera prisutnosti — svaka obavezna šifra mora biti u tabeli
+        nedostaju = [s for s in OBAVEZNE_SIFRE if s not in view_map]
         if nedostaju:
             errors.append({
                 "rule": "attached_docs_missing",
@@ -1720,30 +1720,31 @@ class ZaglavljeService:
             })
             self.logger.warning(f"Export blocked: nedostaju isprave: {nedostaju}")
 
-        # B) Provjera promjene — šifre koje se uvijek mijenjaju ne smiju imati staru referencu
-        if import_attached_docs:
-            import_map = _docs_to_map(import_attached_docs)
-            self.logger.debug(f"Docs check — import: {import_map}, view: {view_map}")
-
-            neazurirani = []
-            for sifra in MORAJU_SE_PROMIJENITI:
-                import_ref = import_map.get(sifra, "")
-                view_ref = view_map.get(sifra, "")
-                if import_ref and view_ref == import_ref:
-                    neazurirani.append(f"{sifra} ({import_ref})")
-
-            if neazurirani:
-                errors.append({
-                    "rule": "attached_docs_unchanged",
-                    "field": "Priloženi dokumenti",
-                    "message": (
-                        "Priloženi dokumenti — Sljedeće reference nisu ažurirane od zadnjeg uvoza: "
-                        f"{', '.join(neazurirani)}. "
-                        "Unesite ispravne reference za ovaj uvoz, pa ponovite export."
-                    ),
-                })
-                self.logger.warning(f"Export blocked: neažurirani dokumenti: {neazurirani}")
-                self.logger.warning("Export blocked: attached docs unchanged from import")
+        # B) Provjera popunjenosti — sve obavezne reference moraju biti popunjene (osim DIS)
+        # Provjeravamo samo šifre koje postoje u view_map (koje su dodane u tabelu)
+        nepune = []
+        for sifra in OBAVEZNE_SIFRE:
+            if sifra == "DIS":
+                # DIS može biti prazna ili popunjena
+                continue
+            if sifra not in view_map:
+                # Šifra ne postoji u tabeli - već je obuhvaćena greškom "nedostaju"
+                continue
+            ref = view_map.get(sifra, "")
+            if not ref or ref.strip() == "":
+                nepune.append(sifra)
+        
+        if nepune:
+            errors.append({
+                "rule": "attached_docs_empty",
+                "field": "Priloženi dokumenti",
+                "message": (
+                    "Priloženi dokumenti — Sljedeće reference nisu popunjene: "
+                    f"{', '.join(nepune)}. "
+                    "Unesite reference za ove isprave prije exporta."
+                ),
+            })
+            self.logger.warning(f"Export blocked: prazne reference: {nepune}")
 
         # ── Rezultat ───────────────────────────────────────────────────────
         valid = len(errors) == 0

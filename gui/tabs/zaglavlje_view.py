@@ -1927,7 +1927,12 @@ class ZaglavljeView(BaseTabView):
         return list(self._import_attached_docs)
 
     def _populate_attached_table(self, attached_docs: list):
-        """Popuni tabelu priloženih dokumenata."""
+        """Popuni tabelu priloženih dokumenata.
+        
+        Nakon uvoza XML-a:
+        - Sve reference su prazne (osim DIS šifre)
+        - DIS šifra zadržava referencu iz XML-a
+        """
         if not self.table:
             return
         if not attached_docs:
@@ -1955,7 +1960,14 @@ class ZaglavljeView(BaseTabView):
             self.table.setItem(idx, 1, name_item)
 
             # Kolona 2 — Referenca
-            ref_item = QTableWidgetItem(number)
+            # PRAVILO: Sve reference su prazne osim za DIS šifru
+            if code == "DIS":
+                # DIS zadržava referencu iz XML-a
+                ref_item = QTableWidgetItem(number)
+            else:
+                # Ostale šifre - prazna referenca
+                ref_item = QTableWidgetItem("")
+            
             self.table.setItem(idx, 2, ref_item)
 
     def clear_data(self):
