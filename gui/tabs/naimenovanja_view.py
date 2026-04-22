@@ -3170,7 +3170,7 @@ class NaimenovanjaView(BaseTabView):
         Pravila:
         - Rb.33: tarifni broj mora biti popunjen
         - Rb.34: zemlja porijekla mora biti popunjena
-        - Rb.40: tip + šifra + broj moraju biti popunjeni (header nivo)
+        - Rb.40: opcionalna (nije obavezna za export)
         - Količina i vrijednost moraju biti > 0
         - Ako Rb.34 + Rb.36 popunjeni → Rb.44 mora biti popunjen
         """
@@ -3186,12 +3186,7 @@ class NaimenovanjaView(BaseTabView):
             if not (item.origin_country_code or '').strip():
                 item_errors.append("nema zemlje porijekla")
 
-            # Rb.40: previous_document (tip X/Y/Z), previous_document2 (šifra), previous_document3 (broj)
-            rb40_tip = (item.previous_document or '').strip()
-            rb40_skr = (item.previous_document2 or '').strip()
-            rb40_broj = (item.previous_document3 or '').strip()
-            if not (rb40_tip and rb40_skr and rb40_broj):
-                item_errors.append("nema Rb.40")
+            # Rb.40 nije obavezna — korisnik popunjava po potrebi
 
             if not (item.package_qty or 0) > 0:
                 item_errors.append("nema količine")
