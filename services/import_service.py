@@ -209,6 +209,14 @@ class ImportService:
                     self.last_import_type = "sumaprom_excel"
                     self.logger.info("💡 ŠUMAPROM Excel sačuvan - čeka ŠUMAPROM PDF sa istim brojem")
                     return
+
+                from importers.vendors.medicopharm.medicopharm_importer import detect_medicopharm_excel, parse_medicopharm_excel
+                if detect_medicopharm_excel(str(filepath)):
+                    self.logger.info("📊 Medicopharm Excel — direktan import")
+                    result = parse_medicopharm_excel(str(filepath))
+                    self.last_import_result = result
+                    self.last_import_type = "medicopharm_excel"
+                    return
             except Exception:
                 pass
             self.last_import_type = "excel"

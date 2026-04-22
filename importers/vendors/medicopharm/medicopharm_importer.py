@@ -856,3 +856,93 @@ def _detect_all_origin_statements(text: str) -> List:
     except Exception as e:
         logger.warning(f"  ⚠️  Greška tokom detekcije izjava: {e}")
         return []
+
+
+# ---------------------------------------------------------------------------
+# Excel parser (format: Rb | Šifra | Tarifna oznaka | Naziv | JM | Kol | Cena | Iznos)
+# ---------------------------------------------------------------------------
+
+def detect_medicopharm_excel(path: str) -> bool:
+    """Vrati True ako je Excel fajl Medicopharm format."""
+    try:
+        import openpyxl
+        wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+        ws = wb.active
+        for row in ws.iter_rows(min_row=1, max_row=15, values_only=True):
+            for cell in row:
+                if cell and "MEDICO PHARM SERVIS" in str(cell).upper():
+                    return True
+        return False
+    except Exception:
+        return False
+
+
+def parse_medicopharm_excel(path: str) -> ImportResult:
+    """Parsira Medicopharm Excel fakturu (format sa Rb/Šifra/Tarifna oznaka/Naziv/JM/Količina/Cena/Iznos)."""
+    logger.info(f"📊 Medico Pharm Excel parser: {Path(path).name}")
+    try:
+        import openpyxl
+        wb = openpyxl.load_workbook(path, data_only=True)
+        ws = wb.active
+
+        # Nađi red sa zaglavljem (Rb, Šifra, Tarifna oznaka...)
+        header_row = None
+        for i, row in enumerate(ws.iter_rows(min_row=1, max_row=20, values_only=True), start=1):
+            row_str = " ".join(str(c) for c in row if c)
+            if "Tarifna oznaka" in row_str and "Naziv" in row_str:
+                header_row = i
+                break
+
+        if not header_row:
+            logger.warning("⚠️  Medicopharm Excel: nije pronađen header red")
+            return ImportResult(items=[], bruto_kg=0.0, neto_kg=0.0)
+
+        items = []
+        for row in ws.iter_rows(min_row=header_row + 1, values_only=True):
+            if not row or row[0] is None:
+                continue
+            try:
+                rb = int(row[0])
+            except (TypeError, ValueError):
+                continue
+
+            sifra   = str(row[1]).strip() if row[1] is not None else ""
+            tariff  = str(row[2]).strip() if row[2] is not None else ""
+            naziv   = str(row[3]).strip() if row[3] is not None else ""
+            jm      = str(row[4]).strip() if row[4] is not None else "KOM"
+            try:
+                kolicina = float(row[5]) if row[5] is not None else 0.0
+            except (TypeError, ValueError):
+                kolicina = 0.0
+            try:
+                cijena = float(row[6]) if row[6] is not None else 0.0
+            except (TypeError, ValueError):
+                cijena = 0.0
+            try:
+                iznos = float(row[7]) if row[7] is not None else round(kolicina * cijena, 2)
+            except (TypeError, ValueError):
+                iznos = round(kolicina * cijena, 2)
+
+            items.append(InvoiceLine(
+                line_no=rb,
+                product_code=sifra,
+                naziv_robe=naziv,
+                tarifni_broj=normalize_tariff_number(tariff),
+                zemlja_porijekla="",
+                jm=jm,
+                kolicina=kolicina,
+                cijena_jed=cijena,
+                iznos=iznos,
+                valuta="EUR",
+                bruto_kg=0.0,
+                neto_kg=0.0,
+                exporter=_MEDICO_EXPORTER,
+                importer=_MEDICO_IMPORTER,
+            ))
+
+        logger.info(f"✅ Medico Pharm Excel: {len(items)} stavki")
+        return ImportResult(items=items, bruto_kg=0.0, neto_kg=0.0)
+
+    except Exception as e:
+        logger.error(f"❌ Medicopharm Excel greška: {e}", exc_info=True)
+        return ImportResult(items=[], bruto_kg=0.0, neto_kg=0.0)
