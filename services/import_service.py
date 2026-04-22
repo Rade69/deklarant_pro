@@ -405,6 +405,7 @@ class ImportService:
                     prev = self.last_import_result
                     invoice_items = prev.items if isinstance(prev, ImportResult) else prev
                     combined = combine_invoice_and_packing(invoice_items, packing_items)
+                    consumed_invoice_path = self.last_import_path  # zapamti prije clear
                     self.clear_memory()
                     return ImportResult(
                         items=combined,
@@ -415,6 +416,7 @@ class ImportService:
                         is_combined=True,
                         has_origin_statement=getattr(prev, "has_origin_statement", False),
                         origin_statements=getattr(prev, "origin_statements", []),
+                        consumed_paths=[consumed_invoice_path] if consumed_invoice_path else [],
                     )
 
             # CASE 4: Packing List pa Invoice
@@ -436,6 +438,7 @@ class ImportService:
                     )
                     bruto = invoice_result.bruto_kg if isinstance(invoice_result, ImportResult) else 0.0
                     neto = invoice_result.neto_kg if isinstance(invoice_result, ImportResult) else 0.0
+                    consumed_packing_path = self.last_import_path  # zapamti prije clear
                     self.clear_memory()
                     return ImportResult(
                         items=combined,
@@ -446,6 +449,7 @@ class ImportService:
                         is_combined=True,
                         has_origin_statement=getattr(invoice_result, "has_origin_statement", False),
                         origin_statements=getattr(invoice_result, "origin_statements", []),
+                        consumed_paths=[consumed_packing_path] if consumed_packing_path else [],
                     )
 
         except Exception as e:
