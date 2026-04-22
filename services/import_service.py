@@ -337,8 +337,9 @@ class ImportService:
             # timestamp kao naziv PDF-a (DOC041122-...) koji ne liči na naziv XLS-a
             if last_is_sumaprom_excel and current_is_sumaprom_pdf:
                 logger.info("   ✅ CASE 1B: ŠUMAPROM Excel+PDF par - kombinujem")
+                _excel_path = self.last_import_path
                 combined_items, stats = combine_sumaprom_excel_and_pdf(
-                    self.last_import_path, str(filepath)
+                    _excel_path, str(filepath)
                 )
                 self.clear_memory()
                 return ImportResult(
@@ -350,13 +351,15 @@ class ImportService:
                     is_combined=True,
                     import_type="sumaprom_excel",
                     warnings=stats.get("warnings", []),
+                    consumed_paths=[_excel_path],  # Excel je potrošen
                 )
 
             # CASE 2B: ŠUMAPROM PDF → Excel
             elif last_is_sumaprom_pdf and current_is_sumaprom_excel:
                 logger.info("   ✅ CASE 2B: ŠUMAPROM PDF+Excel par - kombinujem")
+                _pdf_path = self.last_import_path
                 combined_items, stats = combine_sumaprom_excel_and_pdf(
-                    str(filepath), self.last_import_path
+                    str(filepath), _pdf_path
                 )
                 self.clear_memory()
                 return ImportResult(
@@ -368,6 +371,7 @@ class ImportService:
                     is_combined=True,
                     import_type="sumaprom_excel",
                     warnings=stats.get("warnings", []),
+                    consumed_paths=[_pdf_path],  # PDF je potrošen
                 )
 
         except ImportError:
