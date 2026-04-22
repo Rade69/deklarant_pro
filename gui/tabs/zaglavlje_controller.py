@@ -474,13 +474,19 @@ class ZaglavljeController:
                 if broj_fakture:
                     # Prepisati ref_br u data da se koristi umjesto starog iz XML-a
                     data['ref_br'] = broj_fakture
-                    
-                    # Ako postoji N380 u attached_documents, prepisati mu broj
-                    if 'attached_documents' in data and data['attached_documents']:
-                        for doc in data['attached_documents']:
-                            if doc.get('code') == 'N380':
-                                doc['number'] = broj_fakture
-                                break
+
+                    # Dodaj/ažuriraj N380 u attached_documents sa aktuelnim brojem fakture
+                    docs = data.setdefault('attached_documents', [])
+                    n380 = next((d for d in docs if d.get('code') == 'N380'), None)
+                    if n380:
+                        n380['number'] = broj_fakture
+                    else:
+                        docs.append({
+                            'code': 'N380',
+                            'name': 'Faktura',
+                            'number': broj_fakture,
+                            'from_rule': True,
+                        })
 
             # Populate view with data
             self.view.set_data(data)
