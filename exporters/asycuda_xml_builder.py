@@ -687,9 +687,11 @@ class AsycudaXMLBuilder:
         _val(goods, "Commercial_Description", item.goods_trade_name or "")
 
         # Previous_doc — Rub.40 (category/type/broj)
+        # Za proceduru 4000 (direktni uvoz), defaulti su Z / N821 ako nisu eksplicitno postavljeni
         prev = ET.SubElement(item_elem, "Previous_doc")
-        prev_cat = item.previous_document or ""
-        prev_type = item.previous_document2 or ""
+        is_standard_import = (item.procedure_code or "").startswith("4")
+        prev_cat = item.previous_document or ("Z" if is_standard_import else "")
+        prev_type = item.previous_document2 or ("N821" if is_standard_import else "")
         prev_num = item.previous_document3 or ""
 
         if prev_cat:
