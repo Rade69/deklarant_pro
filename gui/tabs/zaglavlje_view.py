@@ -2028,9 +2028,9 @@ class ZaglavljeView(BaseTabView):
             self.table.setItem(idx, 1, name_item)
 
             # Kolona 2 — Referenca
-            # PRAVILO: Sve reference su prazne osim za DIS šifru
-            if code == "DIS":
-                # DIS zadržava referencu iz XML-a
+            # PRAVILO: Sve reference su prazne osim za DIS i N380 šifru
+            if code in ("DIS", "N380"):
+                # DIS i N380 zadržavaju referencu iz XML-a
                 ref_item = QTableWidgetItem(number)
             else:
                 # Ostale šifre - prazna referenca

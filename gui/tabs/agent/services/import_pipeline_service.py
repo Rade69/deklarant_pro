@@ -546,13 +546,17 @@ def _uvezi_u_deklaraciju(ctrl, invoice_lines: list, chat,
         if hasattr(faktura_widget, '_load_data_from_draft'):
             faktura_widget._load_data_from_draft()
 
-    # 3. Broj fakture za dijalog
+    # 3. Broj fakture za dijalog i za N380 u zaglavlju
     invoice_number = ""
     if completed:
         for f in completed:
             if f.status == 'Completed' and (f.invoice_number or f.filepath):
                 invoice_number = f.invoice_number or Path(f.filepath).stem
                 break
+    
+    # Sačuvaj broj fakture u draft.ref_br (za N380 u zaglavlju)
+    if invoice_number:
+        ctrl.draft.ref_br = invoice_number
 
     # 4. PE2/EUR.1 dijalog
     if has_origin_statement:

@@ -336,6 +336,10 @@ class AgentController:
             # Privremeno uvezi u draft za dijalog
             self.draft.invoice_lines.clear()
             self.draft.invoice_lines.extend(lines)
+            
+            # Sačuvaj broj fakture u draft.ref_br (za N380 u zaglavlju)
+            if invoice_name and not getattr(self.draft, 'ref_br', None):
+                self.draft.ref_br = invoice_name
 
             chat.add_activity(f"📥 [{invoice_name}] Uvoz {len(lines)} stavki...")
             QApplication.processEvents()

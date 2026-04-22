@@ -665,6 +665,33 @@ class ZaglavljeService:
                     'from_rule': True,  # Svaki upisani dokument je fizički priložen
                 })
 
+        # Automatski dodaj N380 (faktura) ako postoji broj fakture u draft-u
+        # Prioritet: invoice_lines[].raw.invoice_number > draft.ref_br
+        broj_fakture = ''
+        
+        # 1. Pokušaj iz invoice_lines[].raw (gdje parsers čuvaju broj fakture)
+        invoice_lines = getattr(draft, 'invoice_lines', None) or []
+        for line in invoice_lines:
+            raw = getattr(line, 'raw', None) or {}
+            bf = raw.get('invoice_number', '') or ''
+            if bf:
+                broj_fakture = bf
+                break
+        
+        # 2. Fallback na draft.ref_br
+        if not broj_fakture:
+            broj_fakture = getattr(draft, 'ref_br', '') or ''
+        
+        if broj_fakture:
+            has_n380 = any(d.get('code') == 'N380' for d in data['attached_documents'])
+            if not has_n380:
+                data['attached_documents'].append({
+                    'code': 'N380',
+                    'name': 'Faktura',
+                    'number': broj_fakture,
+                    'from_rule': True,
+                })
+
         self._log_operation(f"Učitavanje iz Draft-a: {getattr(draft, 'broj_deklaracije', 'N/A')}")
 
         return data
@@ -1104,6 +1131,22 @@ class ZaglavljeService:
                         'name': name,
                         'number': ref,
                         'from_rule': from_rule,
+                    })
+
+        # ── Automatski dodaj N380 (faktura) ako postoji ref_br ────────────────
+        ref_br = data.get('ref_br', '')
+        if ref_br:
+            # Provjeri da li već postoji N380 dokument
+            has_n380 = any(d.get('code') == 'N380' for d in data['attached_documents'])
+            if not has_n380:
+                doc_key = ('N380', ref_br)
+                if doc_key not in seen_docs:
+                    seen_docs.add(doc_key)
+                    data['attached_documents'].append({
+                        'code': 'N380',
+                        'name': 'Faktura',
+                        'number': ref_br,
+                        'from_rule': True,
                     })
 
         return data

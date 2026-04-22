@@ -460,6 +460,27 @@ class ZaglavljeController:
                         (getattr(l, 'valuta', '') for l in invoice_lines if getattr(l, 'valuta', '')),
                         ''
                     )
+                
+                # Broj fakture — uvijek iz fakture, ne iz XML-a
+                # Parsers čuvaju broj fakture u line.raw['invoice_number']
+                broj_fakture = ''
+                for line in invoice_lines:
+                    raw = getattr(line, 'raw', None) or {}
+                    bf = raw.get('invoice_number', '') or ''
+                    if bf:
+                        broj_fakture = bf
+                        break
+                
+                if broj_fakture:
+                    # Prepisati ref_br u data da se koristi umjesto starog iz XML-a
+                    data['ref_br'] = broj_fakture
+                    
+                    # Ako postoji N380 u attached_documents, prepisati mu broj
+                    if 'attached_documents' in data and data['attached_documents']:
+                        for doc in data['attached_documents']:
+                            if doc.get('code') == 'N380':
+                                doc['number'] = broj_fakture
+                                break
 
             # Populate view with data
             self.view.set_data(data)
