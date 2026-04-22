@@ -1,0 +1,99 @@
+{
+  "polje_1_1": {
+    "sifre": [
+      {
+        "sifra": "EX",
+        "oznaka_vrste_postupka_mrn": "A",
+        "opis": "Izvoz",
+        "sifre_polja_37": [
+          {"sifra": "1000", "opis": "Izvoz robe bez prethodnog postupka"},
+          {"sifra": "1021", "opis": "Izvoz privremeno izvezene robe na vanjsku obradu"},
+          {"sifra": "1023", "opis": "Izvoz privremeno izvezene robe koja se ne vraća"}
+        ]
+      },
+      {
+        "sifra": "EX",
+        "oznaka_vrste_postupka_mrn": "C",
+        "opis": "Ponovni izvoz",
+        "sifre_polja_37": [
+          {"sifra": "3151", "opis": "Ponovni izvoz robe nakon postupka unutarnje obrade"},
+          {"sifra": "3153", "opis": "Ponovni izvoz robe nakon postupka privremenog uvoza"}
+        ]
+      },
+      {
+        "sifra": "EX",
+        "oznaka_vrste_postupka_mrn": "E",
+        "opis": "Vanjska obrada (privremeni izvoz u okviru vanjske obrade)",
+        "sifre_polja_37": [
+          {"sifra": "2100", "opis": "Privremeni izvoz robe po postupku vanjske obrade"},
+          {"sifra": "2141", "opis": "Privremeni izvoz robe po postupku vanjske obrade nakon unutarnje obrade"}
+        ]
+      },
+      {
+        "sifra": "IM",
+        "oznaka_vrste_postupka_mrn": "H",
+        "opis": "Puštanje robe u slobodan promet i ponovni uvoz",
+        "sifre_polja_37": [
+          {"sifra": "4000", "opis": "Puštanje u slobodan promet robe koja ne podliježe oslobađanju"},
+          {"sifra": "4200", "opis": "Puštanje u slobodan promet robe koja podliježe oslobađanju"}
+        ]
+      },
+      {
+        "sifra": "IM",
+        "oznaka_vrste_postupka_mrn": "I",
+        "opis": "Stavljanje robe u carinski postupak s ekonomskim dejstvom (odgođeno plaćanje)",
+        "sifre_polja_37": [
+          {"sifra": "5100", "opis": "Postupak unutarnje obrade (sistem odgođenog plaćanja)"},
+          {"sifra": "5300", "opis": "Postupak privremenog uvoza"}
+        ]
+      },
+      {
+        "sifra": "IM",
+        "oznaka_vrste_postupka_mrn": "J",
+        "opis": "Stavljanje robe u carinsko skladište tipa A, B, C i F; ili tipa E (privremeni uvoz)",
+        "sifre_polja_37": [
+          {"sifra": "7100", "opis": "Postupak carinskog skladištenja"}
+        ]
+      },
+      {
+        "sifra": "IM",
+        "oznaka_vrste_postupka_mrn": "K",
+        "opis": "Stavljanje robe u carinsko skladište tipa D; ili tipa E (privremeni uvoz)",
+        "sifre_polja_37": []
+      }
+    ]
+  },
+  "polje_1_2": {
+    "napomena": "Šifre postupka (Rb.1 combo 2): H/I/J/K za IM, A/C/E za EX",
+    "sifre": [
+      {
+        "sifra": "H",
+        "opis": "Normalni uvoz (IM4 — puštanje u slobodan promet)"
+      },
+      {
+        "sifra": "I",
+        "opis": "Aktivno oplemenjivanje (IM51)"
+      },
+      {
+        "sifra": "J",
+        "opis": "Carinsko skladište (IM71)"
+      },
+      {
+        "sifra": "K",
+        "opis": "Krajnja upotreba (IM44)"
+      },
+      {
+        "sifra": "A",
+        "opis": "Normalni izvoz (EX1)"
+      },
+      {
+        "sifra": "C",
+        "opis": "Reeksport (EX31)"
+      },
+      {
+        "sifra": "E",
+        "opis": "Definitivan izvoz (EX11)"
+      }
+    ]
+  }
+}
