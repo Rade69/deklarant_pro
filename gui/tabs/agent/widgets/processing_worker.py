@@ -95,6 +95,10 @@ class ProcessingWorker(QThread):
                     file_item.neto_kg = result.neto_kg
                     file_item.has_origin_statement = result.has_origin_statement
                     file_item.origin_statements = result.origin_statements
+                    file_item.is_authorized_exporter = any(
+                        getattr(s, 'tip_izjave', '') == 'ovlaseni_izvoznik'
+                        for s in (result.origin_statements or [])
+                    )
                     file_item.is_combined = result.is_combined  # ⭐ KLJUČNO za duplikat detekciju
                     file_item.invoice_lines = invoice_lines
                     file_item.status = 'Completed'

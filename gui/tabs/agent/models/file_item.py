@@ -36,6 +36,7 @@ class FileItem:
     bruto_kg: float = 0.0  # Ukupna bruto težina sa fakture
     neto_kg: float = 0.0  # Ukupna neto težina sa fakture
     has_origin_statement: bool = False  # Da li faktura ima izjavu o poreklu
+    is_authorized_exporter: bool = False  # True = izjava ovlaštenog izvoznika (PE3)
     origin_statements: Optional[List] = None  # Lista izjava o poreklu
     is_combined: bool = False  # Da li je import_service kombinovao Excel+PDF
 

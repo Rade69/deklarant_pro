@@ -26,36 +26,50 @@ from core.draft.draft import InvoiceLine
 
 class PE2QuickDialog(QDialog):
     """
-    Dijalog za unos PE2 podataka (izjava o poreklu na fakturi).
-    
-    Pravila:
-    - Jedna šifra dokumenta po zemlji (PE2)
-    - Broj izjave (npr. broj fakture) može biti isti za sve zemlje
-    - Automatska povlastica na osnovu zemlje
+    Dijalog za unos PE2 ili PE3 podataka (izjava o poreklu na fakturi).
+
+    doc_code='PE2' — standardna izjava na fakturi (vrijednost ≤ 6.000 EUR)
+    doc_code='PE3' — izjava ovlaštenog izvoznika (bez ograničenja vrijednosti)
     """
-    
-    def __init__(self, invoice_lines: List[InvoiceLine], parent=None, invoice_number: str = ""):
+
+    def __init__(self, invoice_lines: List[InvoiceLine], parent=None,
+                 invoice_number: str = "", doc_code: str = "PE2"):
         super().__init__(parent)
         self.invoice_lines = invoice_lines
         self.country_inputs = {}
         self._prefill_invoice_number = invoice_number
+        self._doc_code = doc_code  # 'PE2' ili 'PE3'
         self.setup_ui()
-        
+
     def setup_ui(self):
         """Postavi UI elemente dialoga."""
-        self.setWindowTitle("📋 PE2 Obrazac (Izjava o poreklu)")
+        is_pe3 = self._doc_code == 'PE3'
+        self.setWindowTitle(
+            "📋 PE3 Obrazac (Izjava ovlaštenog izvoznika)"
+            if is_pe3 else
+            "📋 PE2 Obrazac (Izjava o poreklu)"
+        )
         self.setMinimumWidth(650)
         self.setMinimumHeight(500)
-        
+
         layout = QVBoxLayout(self)
-        
-        # HEADER - Objašnjenje
-        header = QLabel("✅ Faktura SADRŽI izjavu o preferencijalnom poreklu.")
+
+        # HEADER
+        if is_pe3:
+            header_txt = "✅ Faktura SADRŽI izjavu OVLAŠTENOG IZVOZNIKA (PE3)."
+            sub_txt = ("Čekiraj zemlje koje imaju izjavu ovlaštenog izvoznika (PE3).\n"
+                       "Broj ovlaštenja / fakture je opcionalan.")
+        else:
+            header_txt = "✅ Faktura SADRŽI izjavu o preferencijalnom poreklu."
+            sub_txt = ("Čekiraj zemlje koje imaju izjavu o porijeklu (PE2).\n"
+                       "Broj fakture je opcionalan — upiši ga ako ga imaš.")
+
+        header = QLabel(header_txt)
         header.setStyleSheet("font-size: 14px; font-weight: bold; color: #155724; "
-                           "background: #d4edda; padding: 10px; border-radius: 5px;")
+                             "background: #d4edda; padding: 10px; border-radius: 5px;")
         layout.addWidget(header)
-        
-        subheader = QLabel("Čekiraj zemlje koje imaju izjavu o porijeklu (PE2).\nBroj fakture je opcionalan — upiši ga ako ga imaš.")
+
+        subheader = QLabel(sub_txt)
         subheader.setStyleSheet("color: #666; padding: 5px;")
         layout.addWidget(subheader)
         
@@ -254,15 +268,15 @@ class PE2QuickDialog(QDialog):
         
         layout.addSpacing(20)
         
-        # Šifra (PE2 - read-only)
+        # Šifra (PE2 ili PE3 - read-only)
         code_label = QLabel("Šifra:")
         code_label.setStyleSheet("font-weight: bold;")
         layout.addWidget(code_label)
-        
+
         code_combo = QComboBox()
-        code_combo.addItem("PE2", "PE2")
+        code_combo.addItem(self._doc_code, self._doc_code)
         code_combo.setMaximumWidth(80)
-        code_combo.setEnabled(False)  # PE2 je fiksno za izjave
+        code_combo.setEnabled(False)
         layout.addWidget(code_combo)
         
         layout.addSpacing(20)
@@ -362,7 +376,7 @@ class PE2QuickDialog(QDialog):
         for country, data in self.country_inputs.items():
             if data['checkbox'].isChecked():
                 result[country] = {
-                    'code': 'PE2',
+                    'code': self._doc_code,
                     'preference': data['preference'],
                     'invoice_number': invoice_number,
                     'items': data['items'],
@@ -372,11 +386,10 @@ class PE2QuickDialog(QDialog):
         if not result and hasattr(self, '_manual_country_edit'):
             code = self._manual_country_edit.text().strip().upper()
             if len(code) == 2 and code.isalpha():
-                # Postavi zemlja_porijekla na svim stavkama
                 for ln in self.invoice_lines:
                     ln.zemlja_porijekla = code
                 result[code] = {
-                    'code': 'PE2',
+                    'code': self._doc_code,
                     'preference': self._suggest_preference(code),
                     'invoice_number': invoice_number,
                     'items': self.invoice_lines,
@@ -458,12 +471,12 @@ class PE2QuickDialog(QDialog):
         updated_count = 0
         
         for country, data in pe2_data.items():
+            doc_code = data.get('code', 'PE2')
             for item in data['items']:
-                # Povlastica (Rub.36) - na osnovu zemlje
                 item.povlastica = data['preference']  # EUP/CEFTAP/TRP
-                # Broj fakture (Rub.44) - čuvamo u eur1_number
-                item.eur1_number = data['invoice_number']  # npr. 3940/2025
-                item.has_origin_statement = True  # IMA izjavu
+                item.eur1_number = data['invoice_number']
+                item.has_origin_statement = True
+                item.is_authorized_exporter = (doc_code == 'PE3')
                 updated_count += 1
         
         return updated_count

@@ -207,7 +207,9 @@ class CreateNaimenovanjaService:
         doc44 = ""
         if pov:
             if has_stmt:
-                doc44 = f"PE2 {eur1}".strip() if eur1 else "PE2"
+                is_auth = getattr(line, 'is_authorized_exporter', False)
+                pe_code = "PE3" if is_auth else "PE2"
+                doc44 = f"{pe_code} {eur1}".strip() if eur1 else pe_code
             else:
                 doc44 = f"PE1 {eur1}".strip() if eur1 else "PE1"
 

@@ -361,47 +361,45 @@ class AgentController:
                 f"Bruto: {bruto:,.1f}kg | Neto: {neto:,.1f}kg"
             )
 
-            # ⭐ DIJALOG ZA OVU FAKTURU
-            if has_os:
-                chat.add_activity(f"📄 [{invoice_name}] Ima izjavu — otvaram PE2 dijalog...")
+            # ⭐ DIJALOG ZA OVU FAKTURU (PE2 / PE3 / EUR.1)
+            is_auth = file_item.is_authorized_exporter
+            from gui.tabs.agent.services.import_pipeline_service import _origin_dialog_type
+            dialog_tip = _origin_dialog_type(lines, has_os, is_auth)
+
+            if dialog_tip in ('pe2', 'pe3'):
+                doc_code = 'PE3' if dialog_tip == 'pe3' else 'PE2'
+                chat.add_activity(f"📄 [{invoice_name}] {doc_code} dijalog...")
                 try:
                     from gui.dialogs.pe2_quick_dialog import PE2QuickDialog
-                    dialog = PE2QuickDialog(self.draft.invoice_lines, self.view, invoice_number=invoice_name)
+                    dialog = PE2QuickDialog(self.draft.invoice_lines, self.view,
+                                           invoice_number=invoice_name, doc_code=doc_code)
                     result_dlg = dialog.exec()
                     if result_dlg == 1:
                         pe2_data = dialog.get_data()
                         if pe2_data:
                             PE2QuickDialog.apply_pe2_data(self.draft.invoice_lines, pe2_data)
-                            chat.add_activity(f"✅ [{invoice_name}] PE2 primijenjen")
+                            chat.add_activity(f"✅ [{invoice_name}] {doc_code} primijenjen")
                     else:
-                        chat.add_activity(f"ℹ️ [{invoice_name}] PE2 preskočen")
+                        chat.add_activity(f"ℹ️ [{invoice_name}] {doc_code} preskočen")
                 except Exception as e:
-                    chat.add_activity(f"⚠️ [{invoice_name}] PE2 greška: {e}")
-            else:
-                # Prikaži EUR.1 dijalog za sve stavke koje imaju zemlju porijekla,
-                # bez PE2 izjave i bez EUR.1 broja — bez obzira na to da li je
-                # povlastica postavljena (Leburić ima povlastica="" → falsy, ali
-                # i dalje treba EUR.1 dijalog)
-                eur1_pending = [l for l in lines
-                                if getattr(l, 'zemlja_porijekla', None)
-                                and not getattr(l, 'has_origin_statement', False)
-                                and not getattr(l, 'eur1_number', None)]
-                if eur1_pending:
-                    chat.add_activity(f"📋 [{invoice_name}] {len(eur1_pending)} stavki → EUR.1 dijalog...")
-                    try:
-                        from gui.dialogs.eur1_quick_dialog import Eur1QuickDialog
-                        dialog = Eur1QuickDialog(self.draft.invoice_lines, self.view, invoice_number=invoice_name)
-                        result_dlg = dialog.exec()
-                        if result_dlg == 1:
-                            eur1_data = dialog.get_data()
-                            if eur1_data:
-                                Eur1QuickDialog.apply_eur1_data(self.draft.invoice_lines, eur1_data)
-                                self._apply_eur1_to_naimenovanja(eur1_data, chat)
-                                chat.add_activity(f"✅ [{invoice_name}] EUR.1 primijenjen")
-                        else:
-                            chat.add_activity(f"ℹ️ [{invoice_name}] EUR.1 preskočen")
-                    except Exception as e:
-                        chat.add_activity(f"⚠️ [{invoice_name}] EUR.1 greška: {e}")
+                    chat.add_activity(f"⚠️ [{invoice_name}] {doc_code} greška: {e}")
+
+            elif dialog_tip == 'eur1':
+                chat.add_activity(f"📋 [{invoice_name}] EUR.1 dijalog...")
+                try:
+                    from gui.dialogs.eur1_quick_dialog import Eur1QuickDialog
+                    dialog = Eur1QuickDialog(self.draft.invoice_lines, self.view, invoice_number=invoice_name)
+                    result_dlg = dialog.exec()
+                    if result_dlg == 1:
+                        eur1_data = dialog.get_data()
+                        if eur1_data:
+                            Eur1QuickDialog.apply_eur1_data(self.draft.invoice_lines, eur1_data)
+                            self._apply_eur1_to_naimenovanja(eur1_data, chat)
+                            chat.add_activity(f"✅ [{invoice_name}] EUR.1 primijenjen")
+                    else:
+                        chat.add_activity(f"ℹ️ [{invoice_name}] EUR.1 preskočen")
+                except Exception as e:
+                    chat.add_activity(f"⚠️ [{invoice_name}] EUR.1 greška: {e}")
 
             # Sačuvaj procesirane linije (sa mogućim izmjenama iz dijaloga)
             all_processed_lines.extend(self.draft.invoice_lines)
@@ -494,9 +492,12 @@ class AgentController:
 
     def _uvezi_u_deklaraciju(self, invoice_lines: list, chat,
                               total_bruto: float = 0.0, total_neto: float = 0.0,
-                              has_origin_statement: bool = False, completed: list = None):
+                              has_origin_statement: bool = False,
+                              is_authorized_exporter: bool = False,
+                              completed: list = None):
         self.import_pipeline_svc.uvezi_u_deklaraciju(
-            invoice_lines, chat, total_bruto, total_neto, has_origin_statement, completed
+            invoice_lines, chat, total_bruto, total_neto,
+            has_origin_statement, is_authorized_exporter, completed
         )
 
     def _otvori_faktura_tab_nakon_uvoza(self, chat):
