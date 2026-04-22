@@ -48,6 +48,16 @@ _SU_NAMES = {
 # Tarifna poglavlja (1-24) koja u BiH ASYCUDA uvijek zahtijevaju KGM+KGD
 _CHAPTERS_KGM = set(range(1, 25))
 
+# Mapiranje Rb.37 (Extended_customs_procedure) → Declaration_gen_procedure_code
+_PROC_TO_GEN = {
+    "4000": "H", "4200": "H",
+    "5100": "I", "5300": "I",
+    "7100": "J",
+    "1000": "A", "1021": "A", "1023": "A",
+    "3151": "C", "3153": "C",
+    "2100": "E", "2141": "E",
+}
+
 
 def _null(parent: ET.Element, tag: str) -> ET.Element:
     """Kreira <tag><null/></tag> element."""
@@ -220,8 +230,12 @@ class AsycudaXMLBuilder:
 
         type_elem = ET.SubElement(ident, "Type")
         _val(type_elem, "Type_of_declaration", self._g("deklaracija_tip", "IM"))
-        _val(type_elem, "Type_of_Declaration_X", self._g("deklaracija_a", "A"))
-        _val(type_elem, "Declaration_gen_procedure_code", self._g("deklaracija_oznaka", "H"))
+        # deklaracija_oznaka = A/Z/B (Type_of_Declaration_X: A=potpuna, Z=pojednostavljena)
+        _val(type_elem, "Type_of_Declaration_X", self._g("deklaracija_oznaka", "A"))
+        # Declaration_gen_procedure_code izvodi se iz Rb.37 prvog naimenovanja
+        first_proc = self.draft.items[0].procedure_code if self.draft.items else ""
+        gen_proc = _PROC_TO_GEN.get(first_proc, "H")
+        _val(type_elem, "Declaration_gen_procedure_code", gen_proc)
         _null(type_elem, "Type_of_transit_document")
 
         _null(ident, "Manifest_reference_number")

@@ -987,8 +987,9 @@ class ZaglavljeService:
             type_el = _find(ident, "Type")
             if type_el is not None:
                 data['deklaracija_1'] = _txt(type_el, "Type_of_declaration")
-                data['deklaracija_a'] = _txt(type_el, "Type_of_Declaration_X")
-                data['deklaracija_oznaka'] = _txt(type_el, "Declaration_gen_procedure_code")
+                # deklaracija_oznaka = Type_of_Declaration_X (A/Z/B)
+                data['deklaracija_oznaka'] = _txt(type_el, "Type_of_Declaration_X")
+                # Declaration_gen_procedure_code (H/I/J/K) se ne čuva — izvodi se iz Rb.37
 
         # ── Rb. 1: Ured odredišta (unutar Identification) ────────────────────
         office_el = _find(ident, "Office_segment") if ident is not None else None
@@ -1725,25 +1726,22 @@ class ZaglavljeService:
 
         # ── 3. Konzistentnost povezanih polja ──────────────────────────────
 
-        # 3a. EX/IM konzistentnost — deklaracija_1 i deklaracija_oznaka
+        # 3a. deklaracija_1 mora biti IM ili EX
         dek_sifra = str(view_data.get("deklaracija_1", "")).strip()
         dek_oznaka = str(view_data.get("deklaracija_oznaka", "")).strip()
-        if dek_sifra and dek_oznaka:
-            valid_combos = {
-                "IM": {"H", "I", "J", "K"},
-                "EX": {"A", "C", "E"},
-            }
-            allowed = valid_combos.get(dek_sifra, set())
-            if allowed and dek_oznaka not in allowed:
-                errors.append({
-                    "rule": "1",
-                    "field": "Deklaracija",
-                    "message": (
-                        f"Rb.1 — Neispravna kombinacija: šifra='{dek_sifra}', "
-                        f"oznaka='{dek_oznaka}'. Dozvoljene oznake za {dek_sifra}: "
-                        f"{', '.join(sorted(allowed))}."
-                    ),
-                })
+        if dek_sifra and dek_sifra not in {"IM", "EX"}:
+            errors.append({
+                "rule": "1",
+                "field": "Deklaracija",
+                "message": f"Rb.1 — Neispravna vrijednost tipa deklaracije: '{dek_sifra}'. Mora biti IM ili EX.",
+            })
+        # deklaracija_oznaka mora biti A, Z ili B (tip potpunosti deklaracije)
+        if dek_oznaka and dek_oznaka not in {"A", "Z", "B"}:
+            errors.append({
+                "rule": "1",
+                "field": "Deklaracija",
+                "message": f"Rb.1 — Neispravna oznaka deklaracije: '{dek_oznaka}'. Dozvoljeno: A (potpuna), Z (pojednostavljena), B (periodična).",
+            })
 
         # 3b. Kontejner — ako je čekiran, mora imati broj
         kontejner = view_data.get("kontejner", False)

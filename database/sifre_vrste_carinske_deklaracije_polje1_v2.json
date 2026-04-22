@@ -64,35 +64,19 @@
     ]
   },
   "polje_1_2": {
-    "napomena": "Šifre postupka (Rb.1 combo 2): H/I/J/K za IM, A/C/E za EX",
+    "napomena": "Tip potpunosti deklaracije (Type_of_Declaration_X) — isti za IM i EX",
     "sifre": [
       {
-        "sifra": "H",
-        "opis": "Normalni uvoz (IM4 — puštanje u slobodan promet)"
-      },
-      {
-        "sifra": "I",
-        "opis": "Aktivno oplemenjivanje (IM51)"
-      },
-      {
-        "sifra": "J",
-        "opis": "Carinsko skladište (IM71)"
-      },
-      {
-        "sifra": "K",
-        "opis": "Krajnja upotreba (IM44)"
-      },
-      {
         "sifra": "A",
-        "opis": "Normalni izvoz (EX1)"
+        "opis": "Potpuna deklaracija (A)"
       },
       {
-        "sifra": "C",
-        "opis": "Reeksport (EX31)"
+        "sifra": "Z",
+        "opis": "Pojednostavljena deklaracija (Z)"
       },
       {
-        "sifra": "E",
-        "opis": "Definitivan izvoz (EX11)"
+        "sifra": "B",
+        "opis": "Periodična deklaracija (B)"
       }
     ]
   }

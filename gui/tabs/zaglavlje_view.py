@@ -1022,32 +1022,23 @@ class ZaglavljeView(BaseTabView):
         return group
 
     def _populate_oznaka_combo(self, sifra: str):
-        """Popuni combo za oznaku postupka (H/I/J/K za IM; A/C/E za EX)."""
+        """Popuni combo za tip potpunosti deklaracije (A/Z/B), isti za IM i EX."""
         cb = self.field_widgets.get("deklaracija_oznaka")
         if not cb:
             return
-
-        im_kodovi = {"H", "I", "J", "K"}
-        ex_kodovi = {"A", "C", "E"}
 
         cb.blockSignals(True)
         cb.clear()
 
         tipovi = _load_tipovi_deklaracija_from_db()
-        sifra_upper = sifra.upper()
         for sifra_tipa, opis in tipovi:
-            if sifra_upper == "IM" and sifra_tipa not in im_kodovi:
-                continue
-            if sifra_upper == "EX" and sifra_tipa not in ex_kodovi:
-                continue
             cb.addItem(f"{sifra_tipa} — {opis}", sifra_tipa)
 
-        # Default: H za IM, A za EX
-        default = "H" if sifra_upper == "IM" else ("A" if sifra_upper == "EX" else "")
-        idx = cb.findData(default)
+        # Default: uvijek A (potpuna deklaracija)
+        idx = cb.findData("A")
         if idx >= 0:
             cb.setCurrentIndex(idx)
-            cb.lineEdit().setText(default)
+            cb.lineEdit().setText("A")
         elif cb.count() > 0:
             cb.setCurrentIndex(0)
             cb.lineEdit().setText(cb.itemData(0) or "")
