@@ -59,6 +59,18 @@ _PROC_TO_GEN = {
 }
 
 
+def _clean_tariff_desc(text: str) -> str:
+    """Ukloni fusnote (¹)(3) i normalizuj en-dash → ASCII crtica."""
+    import re
+    if not text:
+        return text
+    # Ukloni fusnote oblika (¹), (³), (1), (23)...
+    cleaned = re.sub(r"\s*\([¹²³⁴⁵⁶⁷⁸⁹⁰\d]+\)", "", text)
+    # en-dash i em-dash → ASCII crtica
+    cleaned = cleaned.replace("–", "-").replace("—", "-").replace("‒", "-")
+    return cleaned.strip()
+
+
 def _null(parent: ET.Element, tag: str) -> ET.Element:
     """Kreira <tag><null/></tag> element."""
     elem = ET.SubElement(parent, tag)
@@ -729,8 +741,18 @@ class AsycudaXMLBuilder:
         goods = ET.SubElement(item_elem, "Goods_description")
         _val(goods, "Country_of_origin_code", item.origin_country_code or "")
         _null(goods, "Country_of_origin_region")
-        _val(goods, "Description_of_goods", item.goods_description or ".")
-        _val(goods, "Commercial_Description", item.goods_trade_name or "")
+        # Description_of_goods = precizni tarifni opis podbroja (npr. "- - ostalo")
+        desc_of_goods = _clean_tariff_desc(item.tariff_description1) or item.goods_description or "."
+        _val(goods, "Description_of_goods", desc_of_goods)
+
+        # Commercial_Description = heading opis + komercijalni nazivi iz fakture
+        comm_parts = []
+        if item.tariff_description2:
+            comm_parts.append(item.tariff_description2)
+        if item.goods_trade_name:
+            comm_parts.append(item.goods_trade_name)
+        commercial_desc = "\n".join(comm_parts) if comm_parts else (item.goods_description or "")
+        _val(goods, "Commercial_Description", commercial_desc)
 
         # Previous_doc — Rub.40 (category/type/broj)
         # Exportuje se SAMO ono što korisnik unese — bez automatskih defaulta
