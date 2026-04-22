@@ -134,6 +134,20 @@ class ImportService:
                     self.logger.info("💡 Packing lista sačuvana - čeka Invoice sa istim brojem")
                     return packing_result
 
+            # 2b. Za Excel: provjeri specijalizovane formate PRIJE registry-a
+            if ext in (".xlsx", ".xls", ".xlsm"):
+                try:
+                    from importers.vendors.medicopharm.medicopharm_importer import detect_medicopharm_excel, parse_medicopharm_excel
+                    if detect_medicopharm_excel(str(filepath)):
+                        self.logger.info("📊 Medicopharm Excel — direktan import")
+                        med_result = parse_medicopharm_excel(str(filepath))
+                        self.last_import_result = med_result
+                        self.last_import_path = str(filepath)
+                        self.last_import_type = "medicopharm_excel"
+                        return med_result
+                except Exception as e:
+                    self.logger.warning(f"⚠️ Medicopharm Excel detekcija greška: {e}")
+
             # 3. Delegiraj registry-u za parsiranje
             result = self.registry.import_file(filepath, progress_callback=progress_callback)
 
@@ -210,13 +224,6 @@ class ImportService:
                     self.logger.info("💡 ŠUMAPROM Excel sačuvan - čeka ŠUMAPROM PDF sa istim brojem")
                     return
 
-                from importers.vendors.medicopharm.medicopharm_importer import detect_medicopharm_excel, parse_medicopharm_excel
-                if detect_medicopharm_excel(str(filepath)):
-                    self.logger.info("📊 Medicopharm Excel — direktan import")
-                    result = parse_medicopharm_excel(str(filepath))
-                    self.last_import_result = result
-                    self.last_import_type = "medicopharm_excel"
-                    return
             except Exception:
                 pass
             self.last_import_type = "excel"
