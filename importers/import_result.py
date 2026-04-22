@@ -35,12 +35,21 @@ class ImportResult:
     currency: str = "EUR"
     is_combined: bool = False  # Flag za kombinovane importe (Excel + PDF)
     import_type: str = "invoice"  # Tip importa (loren_pdf, loren_excel, loren_combined, invoice)
-    has_origin_statement: bool = False  # Da li faktura sadrži izjavu o poreklu (PE2)
-    origin_statements: Optional[List] = None  # Lista OriginStatementMatch objekata (za višestruke izjave)
+    has_origin_statement: bool = False  # Da li faktura sadrži izjavu o poreklu
+    is_authorized_exporter: bool = False  # True = izjava ovlaštenog izvoznika (PE3)
+    origin_statements: Optional[List] = None  # Lista OriginStatementMatch objekata
     warnings: List[str] = field(default_factory=list)  # Upozorenja koja treba prikazati korisniku
     exporter: Optional[Party] = None  # Izvoznik/pošiljalac iz fakture
     importer: Optional[Party] = None  # Uvoznik/primalac iz fakture
     consumed_paths: List[str] = field(default_factory=list)  # Putanje fajlova koje je ovaj import interno koristio (ne obrađivati ponovo)
+
+    def __post_init__(self):
+        # Ako nije eksplicitno postavljeno, izračunaj iz origin_statements
+        if not self.is_authorized_exporter and self.origin_statements:
+            self.is_authorized_exporter = any(
+                getattr(s, 'tip_izjave', '') == 'ovlaseni_izvoznik'
+                for s in self.origin_statements
+            )
 
     def __len__(self) -> int:
         """Return number of items (for len() support)."""

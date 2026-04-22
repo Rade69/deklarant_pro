@@ -1522,6 +1522,7 @@ class FakturaView(BaseTabView):
         failed_imports = []
         excel_count = 0
         pdf_count = 0
+        any_authorized_exporter = False
 
         import_service = ImportService()
 
@@ -1546,6 +1547,8 @@ class FakturaView(BaseTabView):
                     items = result.items
                     bruto_kg = result.bruto_kg or 0.0
                     neto_kg = result.neto_kg or 0.0
+                    if getattr(result, 'is_authorized_exporter', False):
+                        any_authorized_exporter = True
                 else:
                     # Backward compatibility
                     items = result
@@ -1605,22 +1608,24 @@ class FakturaView(BaseTabView):
             # Enable buttons
             self._set_buttons_enabled(True)
 
-            # EUR.1 / PE2 DIALOG — prikaži korisniku i za grupni uvoz
-            has_origin = any(
-                getattr(item, 'has_origin_statement', False)
-                for item in all_items
-            )
+            # EUR.1 / PE2 / PE3 DIALOG — prikaži korisniku i za grupni uvoz
+            has_origin = any(getattr(item, 'has_origin_statement', False) for item in all_items)
             if has_origin:
-                total_value = sum(getattr(i, 'iznos', 0.0) for i in all_items)
-                if total_value > 6000:
-                    logger.info(f"📦 [grupni uvoz] → iznos={total_value:.2f}€ > 6000 → EUR1 dialog")
-                    self._show_eur1_dialog()
+                from gui.tabs.agent.services.import_pipeline_service import _origin_dialog_type
+                first_invoice = Path(filepaths[0]).stem if filepaths else "Grupni uvoz"
+                dialog_tip = _origin_dialog_type(all_items, has_origin, any_authorized_exporter)
+                if dialog_tip == 'pe3':
+                    logger.info("📦 [grupni uvoz] → ovlašteni izvoznik → PE3 dialog")
+                    self._show_pe2_dialog(first_invoice, doc_code='PE3')
+                elif dialog_tip == 'pe2':
+                    logger.info("📦 [grupni uvoz] → PE2 dialog")
+                    self._show_pe2_dialog(first_invoice, doc_code='PE2')
                 else:
-                    logger.info("📦 [grupni uvoz] → otvaram PE2 dialog")
-                    first_invoice = Path(filepaths[0]).stem if filepaths else "Grupni uvoz"
-                    self._show_pe2_dialog(first_invoice)
+                    val = sum(getattr(i, 'iznos', 0.0) for i in all_items)
+                    logger.info(f"📦 [grupni uvoz] → iznos={val:.2f}€ > 6000 → EUR.1 dialog")
+                    self._show_eur1_dialog()
             elif self._should_show_eur1_dialog(all_items):
-                logger.info("📦 [grupni uvoz] → otvaram EUR.1 dialog")
+                logger.info("📦 [grupni uvoz] → EUR.1 dialog")
                 self._show_eur1_dialog()
 
             # Prikaži statistiku
@@ -1671,6 +1676,7 @@ class FakturaView(BaseTabView):
             is_combined = result.is_combined
             import_type = getattr(result, "import_type", "invoice")
             has_origin_statement = getattr(result, "has_origin_statement", False)
+            is_authorized_exporter = getattr(result, "is_authorized_exporter", False)
             exporter_name = getattr(result.exporter, "name", "") if result.exporter else ""
             importer_name = getattr(result.importer, "name", "") if result.importer else ""
         else:
@@ -1682,6 +1688,7 @@ class FakturaView(BaseTabView):
             is_combined = False
             import_type = "invoice"
             has_origin_statement = False
+            is_authorized_exporter = False
             exporter_name = ""
             importer_name = ""
 
@@ -1693,6 +1700,7 @@ class FakturaView(BaseTabView):
             is_combined,
             import_type,
             has_origin_statement,
+            is_authorized_exporter,
             exporter_name,
             importer_name,
         )
@@ -2073,40 +2081,37 @@ class FakturaView(BaseTabView):
                 if self.on_dirty:
                     self.on_dirty()
     
-    def _show_pe2_dialog(self, invoice_number: str = ""):
-        """Prikaži PE2 quick dialog (za fakture SA izjavom)."""
-        logger.debug(f"📋 [_show_pe2_dialog] Otvaranje PE2 dialoga...")
-        dialog = PE2QuickDialog(self.draft.invoice_lines, self, invoice_number=invoice_number)
-        
+    def _show_pe2_dialog(self, invoice_number: str = "", doc_code: str = "PE2"):
+        """Prikaži PE2 ili PE3 quick dialog (za fakture SA izjavom)."""
+        logger.debug(f"📋 [_show_pe2_dialog] Otvaranje {doc_code} dialoga...")
+        dialog = PE2QuickDialog(self.draft.invoice_lines, self,
+                                invoice_number=invoice_number, doc_code=doc_code)
+
         result = dialog.exec()
         logger.debug(f"📋 [_show_pe2_dialog] Dialog zatvoren, result={result}")
-        
-        # PySide6: exec() vraća int (1=Accepted, 0=Rejected)
-        if result == 1:  # QDialog.Accepted
-            logger.debug(f"📋 [_show_pe2_dialog] Korisnik kliknuo Primijeni")
+
+        if result == 1:
             pe2_data = dialog.get_data()
             logger.debug(f"📋 [_show_pe2_dialog] pe2_data={pe2_data}")
-            
+
             if pe2_data:
-                # Primeni PE2 podatke (automatski postavlja PE2)
                 updated_count = PE2QuickDialog.apply_pe2_data(
                     self.draft.invoice_lines, pe2_data
                 )
-                
-                # Reload table to show changes
+
                 self._load_data_from_draft()
-                
-                # Obavesti korisnika
+
                 countries = ", ".join(pe2_data.keys())
                 QMessageBox.information(
                     self,
-                    "PE2 primenjen",
+                    f"{doc_code} primijenjen",
                     f"✅ Ažurirano {updated_count} stavki iz {len(pe2_data)} zemlje:\n"
                     f"   {countries}\n\n"
-                    f"Za sve stavke je postavljena šifra PE2 (izjava o poreklu na fakturi)."
+                    + ("Za sve stavke je postavljena šifra PE3 (ovlašteni izvoznik)."
+                       if doc_code == 'PE3' else
+                       "Za sve stavke je postavljena šifra PE2 (izjava o poreklu na fakturi).")
                 )
-                
-                # Mark dirty
+
                 self.data_changed.emit()
                 if self.on_dirty:
                     self.on_dirty()
@@ -2131,6 +2136,7 @@ class FakturaView(BaseTabView):
                 is_combined,
                 import_type,
                 has_origin_statement,
+                is_authorized_exporter,
                 exporter_name,
                 importer_name,
             ) = self._extract_import_result_data(result)
@@ -2330,16 +2336,18 @@ class FakturaView(BaseTabView):
                         logger.info(f"🤖 → EUR1 pending={result['eur1_pending']}: otvaram EUR.1 dialog")
                         self._show_eur1_dialog()
                 elif has_origin_statement:
-                    # ✅ Faktura IMA izjavu → PE2 ili EUR1 ovisno o vrijednosti
-                    total_value = sum(getattr(i, 'iznos', 0.0) for i in items)
-                    if total_value > 6000:
-                        # Vrijednost > 6000 EUR: dobavljačka izjava (PE2) nije validna
-                        # Potreban EUR1 obrazac
-                        logger.info(f"🔍 [dialog check] → iznos={total_value:.2f}€ > 6000 → EUR1 dialog")
-                        self._show_eur1_dialog()
+                    from gui.tabs.agent.services.import_pipeline_service import _origin_dialog_type
+                    dialog_tip = _origin_dialog_type(items, has_origin_statement, is_authorized_exporter)
+                    if dialog_tip == 'pe3':
+                        logger.info("🔍 [dialog check] → ovlašteni izvoznik → PE3 dialog")
+                        self._show_pe2_dialog(invoice_name, doc_code='PE3')
+                    elif dialog_tip == 'pe2':
+                        logger.info(f"🔍 [dialog check] → PE2 dialog")
+                        self._show_pe2_dialog(invoice_name, doc_code='PE2')
                     else:
-                        logger.info(f"🔍 [dialog check] → otvaram PE2 dialog (iznos={total_value:.2f}€)")
-                        self._show_pe2_dialog(invoice_name)
+                        val = sum(getattr(i, 'iznos', 0.0) for i in items)
+                        logger.info(f"🔍 [dialog check] → iznos={val:.2f}€ > 6000 → EUR.1 dialog")
+                        self._show_eur1_dialog()
                 elif self._should_show_eur1_dialog(items):
                     # ❌ Faktura NEMA izjavu → EUR.1 dialog
                     logger.info(f"🔍 [dialog check] → otvaram EUR.1 dialog")
