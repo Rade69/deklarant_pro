@@ -1022,25 +1022,36 @@ class ZaglavljeView(BaseTabView):
         return group
 
     def _populate_oznaka_combo(self, sifra: str):
-        """Popuni combo za TIP deklaracije (A, Z, B) - polje 1/2."""
+        """Popuni combo za oznaku postupka (H/I/J/K za IM; A/C/E za EX)."""
         cb = self.field_widgets.get("deklaracija_oznaka")
         if not cb:
             return
-        
+
+        im_kodovi = {"H", "I", "J", "K"}
+        ex_kodovi = {"A", "C", "E"}
+
         cb.blockSignals(True)
         cb.clear()
-        
-        # Učitaj tipove deklaracija iz baze (A, Z, B)
+
         tipovi = _load_tipovi_deklaracija_from_db()
+        sifra_upper = sifra.upper()
         for sifra_tipa, opis in tipovi:
-            display = f"{sifra_tipa} — {opis}"
-            cb.addItem(display, sifra_tipa)
-        
-        # Default na "A" (potpuna deklaracija)
-        if cb.count() > 0:
+            if sifra_upper == "IM" and sifra_tipa not in im_kodovi:
+                continue
+            if sifra_upper == "EX" and sifra_tipa not in ex_kodovi:
+                continue
+            cb.addItem(f"{sifra_tipa} — {opis}", sifra_tipa)
+
+        # Default: H za IM, A za EX
+        default = "H" if sifra_upper == "IM" else ("A" if sifra_upper == "EX" else "")
+        idx = cb.findData(default)
+        if idx >= 0:
+            cb.setCurrentIndex(idx)
+            cb.lineEdit().setText(default)
+        elif cb.count() > 0:
             cb.setCurrentIndex(0)
             cb.lineEdit().setText(cb.itemData(0) or "")
-        
+
         cb.blockSignals(False)
 
     def _create_obrasci_group(self) -> QWidget:
@@ -1982,8 +1993,18 @@ class ZaglavljeView(BaseTabView):
                         widget.setCurrentIndex(idx)
                     elif widget.isEditable():
                         widget.setEditText(str(value) if value is not None else "")
+                # Rb.1 combo 1 — prikaži samo šifru (IM/EX) i popuni combo 2
+                if key == 'deklaracija_1' and widget.isEditable():
+                    widget.lineEdit().setText(str(value) if value is not None else "")
+                    self._populate_oznaka_combo(str(value) if value is not None else "")
+                # Rb.1 combo 2 — prikaži samo oznaku (A/Z/B) u lineedit-u
+                elif key == 'deklaracija_oznaka' and widget.isEditable():
+                    oznaka_idx = widget.findData(value)
+                    if oznaka_idx >= 0:
+                        widget.setCurrentIndex(oznaka_idx)
+                    widget.lineEdit().setText(str(value) if value is not None else "")
                 # Rb.25/26 — u polju prikaži samo šifru, ne cijeli dropdown tekst
-                if key in ('vid_25', 'vid_26') and widget.isEditable():
+                elif key in ('vid_25', 'vid_26') and widget.isEditable():
                     code = widget.currentData()
                     if code:
                         widget.lineEdit().setText(str(code))

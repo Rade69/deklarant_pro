@@ -990,6 +990,16 @@ class ZaglavljeService:
                 data['deklaracija_a'] = _txt(type_el, "Type_of_Declaration_X")
                 data['deklaracija_oznaka'] = _txt(type_el, "Declaration_gen_procedure_code")
 
+        # ── Rb. 1: Ured odredišta (unutar Identification) ────────────────────
+        office_el = _find(ident, "Office_segment") if ident is not None else None
+        if office_el is not None:
+            office_code = _txt(office_el, "Customs_clearance_office_code")
+            office_name = _txt(office_el, "Customs_Clearance_office_name")
+            if office_code:
+                data['ured_odredista_sifra'] = office_code
+            if office_name:
+                data['ured_odredista_naziv'] = office_name
+
         # ── Rb. 2: Izvoznik i Rb. 8: Primalac ────────────────────────────────
         traders = _find(root, "Traders")
         if traders is not None:

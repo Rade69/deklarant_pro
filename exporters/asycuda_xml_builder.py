@@ -32,6 +32,22 @@ _PREF_TO_DOC_NAME = {
     "TRPD": "Dokaz o turskom preferencijalnom porijeklu robe",
 }
 
+# Nazivi dopunskih jedinica mjere (Rb.41)
+_SU_NAMES = {
+    "KGM": "Kilogram za statistiku",
+    "KGD": "Kilogram za obračun",
+    "KSD": "Komad za statistiku",
+    "KDD": "Komad za obračun",
+    "LTR": "Litar",
+    "MTR": "Metar",
+    "MTK": "Kvadratni metar",
+    "MTQ": "Kubni metar",
+    "TNE": "Tona",
+}
+
+# Tarifna poglavlja (1-24) koja u BiH ASYCUDA uvijek zahtijevaju KGM+KGD
+_CHAPTERS_KGM = set(range(1, 25))
+
 
 def _null(parent: ET.Element, tag: str) -> ET.Element:
     """Kreira <tag><null/></tag> element."""
@@ -641,12 +657,28 @@ class AsycudaXMLBuilder:
         quota_item = ET.SubElement(quota, "QuotaItem")
         _null(quota_item, "ItmNbr")
 
-        # 3x Supplementary_unit (prazno)
-        for _ in range(3):
-            su = ET.SubElement(tarif, "Supplementary_unit")
-            _null(su, "Suppplementary_unit_code")
-            _null(su, "Suppplementary_unit_name")
-            ET.SubElement(su, "Suppplementary_unit_quantity")
+        # Rb.41 — Dopunske jedinice mjere
+        su_code = (item.supplementary_unit_code or "").strip().upper()
+        su_qty  = item.supplementary_unit_qty or 0.0
+        su_pairs = []  # lista (code, qty) za popunjavanje
+
+        if su_code and su_qty:
+            su_pairs.append((su_code, su_qty))
+            if su_code == "KGM":
+                su_pairs.append(("KGD", su_qty))
+
+        # Uvijek 3 bloka — popunjavaj koliko ima, ostatak prazno
+        for i in range(3):
+            su_el = ET.SubElement(tarif, "Supplementary_unit")
+            if i < len(su_pairs):
+                code, qty = su_pairs[i]
+                _val(su_el, "Suppplementary_unit_code", code)
+                _val(su_el, "Suppplementary_unit_name", _SU_NAMES.get(code, code))
+                ET.SubElement(su_el, "Suppplementary_unit_quantity").text = f"{qty:.2f}"
+            else:
+                _null(su_el, "Suppplementary_unit_code")
+                _null(su_el, "Suppplementary_unit_name")
+                ET.SubElement(su_el, "Suppplementary_unit_quantity")
 
         item_price = ET.SubElement(tarif, "Item_price")
         if item.item_value:

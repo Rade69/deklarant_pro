@@ -1566,10 +1566,46 @@ class NaimenovanjaView(BaseTabView):
             return
 
         self._save_current_item()
+        self._auto_populate_supplementary_unit(new_tariff)
         # Uvijek ponudi KB update kad korisnik potvrdi Enter —
         # old_tariff može već biti jednak new_tariff zbog batch save, ali
         # korisnik svjesno pritiskuje Enter da potvrdi ovu tarifu
         self._ask_update_knowledge_base(new_tariff)
+
+    def _auto_populate_supplementary_unit(self, tariff_code: str) -> None:
+        """Auto-popuni Rb.41 (KGM + neto kg) ako tarifa to zahtjeva i polje je prazno."""
+        if not tariff_code or len(tariff_code) < 2:
+            return
+        # Poglavlja 01-24 (prehrambeni/poljoprivredni) uvijek zahtijevaju KGM u BiH ASYCUDA
+        try:
+            chapter = int(tariff_code[:2])
+        except ValueError:
+            return
+        if chapter not in range(1, 25):
+            return
+
+        # Provjeri da li su polja već popunjena
+        le_code = self._get_widget("le_rubrika43")
+        le_qty  = self._get_widget("le_rubrika41")
+        if not le_code or not le_qty:
+            return
+        if le_code.text().strip():
+            return  # korisnik je već unio
+
+        # Uzmi neto masu iz Rb.38
+        le_neto = self._get_widget("le_rubrika38")
+        neto_kg = 0.0
+        if le_neto:
+            try:
+                neto_kg = float(le_neto.text().replace(",", ".").strip())
+            except (ValueError, AttributeError):
+                pass
+        if neto_kg <= 0:
+            return
+
+        le_code.setText("KGM")
+        le_qty.setText(f"{neto_kg:.2f}")
+        self._save_current_item()
 
     def _ask_update_knowledge_base(self, new_tariff: str) -> None:
         """Pitaj korisnika da li želi ažurirati bazu znanja za ovaj proizvod."""
@@ -2064,6 +2100,10 @@ class NaimenovanjaView(BaseTabView):
                 )
             else:
                 logger.warning(f"  ⚠️  No tariff description found for code: {item.tariff_code}")
+        # Auto-popuni Rb.41 ako tarifa zahtjeva i polje je prazno
+        if item.tariff_code and not (item.supplementary_unit_code or "").strip():
+            self._auto_populate_supplementary_unit(item.tariff_code)
+
         # Auto-popuni trgovački naziv sa svim stavkama iz fakture
         if hasattr(self, "te_trg_naziv"):
             trading_names = self._format_trading_names()
