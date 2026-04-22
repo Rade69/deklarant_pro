@@ -782,13 +782,9 @@ class ZaglavljeController:
                     for oznaka, opis in items:
                         vrsta_widget.addItem(f"{sifra} - {opis}", sifra)
             
-            # Load tipovi deklaracija
-            tipovi = self.service.get_tipovi_deklaracija()
-            tip_widget = self.view.field_widgets.get('deklaracija_oznaka')
-            if tip_widget and hasattr(tip_widget, 'addItem'):
-                tip_widget.clear()
-                for sifra, opis in tipovi:
-                    tip_widget.addItem(opis, sifra)
+            # Load tipovi deklaracija - VIEW sada sam popunjava deklaracija_oznaka sa tipovima (A, Z, B)
+            # Controller više ne treba da popunjava ovaj dropdown
+            pass
             
             # Load vid prevoza (Rb.25/26) — dropdown "30 — Cestovni prevoz", u polju samo šifra
             vidovi = self.service.get_vid_unutra()

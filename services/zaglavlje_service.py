@@ -505,6 +505,23 @@ class ZaglavljeService:
         data['deklaracija_1'] = getattr(draft, 'deklaracija_tip', '') or ''
         data['deklaracija_a'] = getattr(draft, 'deklaracija_a', '') or ''
         data['deklaracija_oznaka'] = getattr(draft, 'deklaracija_oznaka', '') or ''
+        
+        # Ured odredišta - razdvajamo string na šifru i naziv
+        ured_full = getattr(draft, 'ured_odredista', '') or ''
+        if ured_full:
+            # Pokušaj razdvojiti po razmacima
+            parts = ured_full.split()
+            if len(parts) >= 2:
+                # Prvi dio je šifra, ostalo je naziv
+                data['ured_odredista_sifra'] = parts[0]
+                data['ured_odredista_naziv'] = ' '.join(parts[1:])
+            else:
+                # Samo šifra ili samo naziv
+                data['ured_odredista_sifra'] = ured_full
+                data['ured_odredista_naziv'] = ''
+        else:
+            data['ured_odredista_sifra'] = ''
+            data['ured_odredista_naziv'] = ''
 
         # Rubrika 2 - Izvoznik
         data['izvoznik_id'] = getattr(draft, 'izvoznik_id', '') or ''
@@ -697,6 +714,22 @@ class ZaglavljeService:
         draft.deklaracija_tip = safe_get('deklaracija_1')
         draft.deklaracija_a = safe_get('deklaracija_a')
         draft.deklaracija_oznaka = safe_get('deklaracija_oznaka')
+        
+        # Ured odredišta - spajamo šifru i naziv u jedan string za backward compatibility
+        ured_sifra = safe_get('ured_odredista_sifra', '').strip()
+        ured_naziv = safe_get('ured_odredista_naziv', '').strip()
+        
+        if ured_sifra and ured_naziv:
+            # Oba polja popunjena: "BA097012  CI Bijeljina"
+            draft.ured_odredista = f"{ured_sifra}  {ured_naziv}"
+        elif ured_sifra:
+            # Samo šifra: "BA097012" (XML builder će tražiti naziv u bazi)
+            draft.ured_odredista = ured_sifra
+        elif ured_naziv:
+            # Samo naziv: tretiraj kao puni string
+            draft.ured_odredista = ured_naziv
+        else:
+            draft.ured_odredista = ""
 
         # Rubrika 2 - Izvoznik
         draft.izvoznik_id = safe_get('izvoznik_id')

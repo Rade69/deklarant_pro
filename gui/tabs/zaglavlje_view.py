@@ -105,9 +105,12 @@ def _load_vrste_prijevoza_from_db() -> list:
     return result
 
 
-def _load_ured_odredista_from_db() -> str:
-    """Učitaj carinsku ispostavu. Trenutno hardkodirano na BA097012 (Bijeljina).
-    Kad firma ima više poslovnica — proširiti u QComboBox."""
+def _load_ured_odredista_from_db() -> tuple[str, str]:
+    """Učitaj default carinsku ispostavu (BA097012 - Bijeljina).
+    
+    Returns:
+        Tuple (sifra, cleaned_naziv) npr. ("BA097012", "CI Bijeljina")
+    """
     try:
         with get_db_connection() as conn:
             with conn.cursor() as cur:
@@ -125,10 +128,10 @@ def _load_ured_odredista_from_db() -> str:
                         clean = "CR " + naziv.split("Carinski referat ")[-1]
                     else:
                         clean = naziv
-                    return f"{row['sifra']}  {clean}"
+                    return (row['sifra'], clean)
     except Exception as e:
         sys.stderr.write(f"⚠️ [ZaglavljeView] ured_odredista DB greška: {e}\n")
-    return ""
+    return ("", "")
 
 
 def _load_isprave_from_db() -> dict:
@@ -834,7 +837,7 @@ class ZaglavljeView(BaseTabView):
         column.setFrameShape(QFrame.Shape.Box)
         column.setFrameShadow(QFrame.Shadow.Plain)
         column.setLineWidth(2)
-        column.setFixedWidth(540)
+        column.setFixedWidth(580)
         column.setObjectName("middle_column")
         column.setAttribute(Qt.WA_StyledBackground, True)
         column.setStyleSheet("QFrame#middle_column { background-color: #f5f9f5; }" + """
@@ -912,7 +915,7 @@ class ZaglavljeView(BaseTabView):
     def _create_deklaracija_group(self) -> QWidget:
         """Rb.1 Deklaracija — dva combo iz baze + ured odredišta (read-only)."""
         self._vrste_dek_map = _load_vrste_deklaracija_from_db()
-        ured = _load_ured_odredista_from_db()
+        ured_sifra, ured_naziv = _load_ured_odredista_from_db()
 
         group = QWidget()
         layout = QVBoxLayout(group)
@@ -925,43 +928,45 @@ class ZaglavljeView(BaseTabView):
 
         row = QWidget()
         row_layout = QHBoxLayout(row)
-        row_layout.setContentsMargins(0, 0, 0, 0)
-        row_layout.setSpacing(6)
+        row_layout.setContentsMargins(10, 0, 10, 0)
+        row_layout.setSpacing(10)
 
-        # Combo 1: Vrsta — samo IM i EX (polje_1_1); A/B/Z su polje_1_2, posebno polje
+        # Combo 1: Vrsta deklaracije (IM/EX) — usko polje, širok dropdown
         cb_sifra = QComboBox()
+        cb_sifra.setEditable(True)
+        cb_sifra.lineEdit().setReadOnly(True)
+        cb_sifra.setFixedWidth(120)
+        cb_sifra.view().setMinimumWidth(500)
+
         for sifra in sorted(self._vrste_dek_map.keys()):
-            oznake = self._vrste_dek_map[sifra]
-            # Prikaži samo sifre koje imaju oznaku (IM, EX); A/B/Z imaju praznu oznaku
-            if any(oznaka for oznaka, _ in oznake):
-                cb_sifra.addItem(sifra, sifra)
+            for oznaka, opis in self._vrste_dek_map[sifra]:
+                if oznaka:
+                    cb_sifra.addItem(f"{sifra}-{oznaka}: {opis}", sifra)
 
         def _on_sifra_activated(idx, _cb=cb_sifra):
             sifra = _cb.itemData(idx)
             if sifra:
                 self.deklaracija_sifra_changed.emit(sifra)
-                # Popuni drugi combo sa odgovarajućim oznakama (H/A/I/J/K)
+                _cb.lineEdit().setText(sifra)
                 self._populate_oznaka_combo(sifra)
 
         cb_sifra.activated.connect(_on_sifra_activated)
-        cb_sifra.setFixedWidth(100)
         cb_sifra.setToolTip("Vrsta deklaracije: IM (uvoz) ili EX (izvoz)")
         row_layout.addWidget(cb_sifra)
         self.field_widgets["deklaracija_1"] = cb_sifra
 
-        # Combo 2: Oznaka — polje usko (samo šifra), dropdown širok (pun opis)
+        # Combo 2: Oznaka (A/Z/B)
         cb_oznaka = QComboBox()
         cb_oznaka.setEditable(True)
         cb_oznaka.lineEdit().setReadOnly(True)
-        cb_oznaka.setFixedWidth(60)
-        cb_oznaka.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        cb_oznaka.setFixedWidth(75)
         cb_oznaka.view().setMinimumWidth(500)
 
         def _on_oznaka_activated(idx, _cb=cb_oznaka):
             _cb.lineEdit().setText(_cb.itemData(idx) or "")
 
         cb_oznaka.activated.connect(_on_oznaka_activated)
-        cb_oznaka.setToolTip("Oznaka postupka: H/A (zavisi od vrste deklaracije)")
+        cb_oznaka.setToolTip("Tip deklaracije: A (potpuna), Z (pojednostavljena), B (periodična)")
         row_layout.addWidget(cb_oznaka)
         self.field_widgets["deklaracija_oznaka"] = cb_oznaka
 
@@ -969,48 +974,73 @@ class ZaglavljeView(BaseTabView):
         if cb_sifra.count() > 0:
             first_sifra = cb_sifra.itemData(0)
             if first_sifra:
+                cb_sifra.lineEdit().setText(first_sifra)
                 self._populate_oznaka_combo(first_sifra)
 
-        # Separator
-        sep = QLabel("|")
-        sep.setStyleSheet("color: #aaa; margin: 0 6px;")
-        row_layout.addWidget(sep)
+        sep1 = QLabel("|")
+        sep1.setStyleSheet("color: #aaa; font-weight: bold; padding: 0 8px;")
+        row_layout.addWidget(sep1)
 
-        # Ured odredišta — read-only QLineEdit (firmi ima samo jednu registrovanu ispostavu)
-        ured_le = QLineEdit(ured or "")
-        ured_le.setReadOnly(True)
-        ured_le.setStyleSheet(
-            "font-size: 13px; font-weight: bold; color: #333; padding: 3px 8px;"
-            "background: #f0f0f0; border: 1px solid #ccc; border-radius: 3px;"
+        # Šifra carinske ispostave
+        ured_sifra_cb = QComboBox()
+        ured_sifra_cb.setEditable(True)
+        ured_sifra_cb.setFixedWidth(115)
+        ured_sifra_cb.view().setMinimumWidth(200)
+        if ured_sifra:
+            ured_sifra_cb.addItem(ured_sifra)
+            ured_sifra_cb.setCurrentText(ured_sifra)
+        ured_sifra_cb.setToolTip(
+            "Šifra carinske ispostave (default: BA097012).\n"
+            "Možeš upisati drugu šifru ili odabrati iz padajućeg menija."
         )
-        ured_le.setToolTip("Ured odredišta (carinska ispostava)")
-        row_layout.addWidget(ured_le)
-        self.field_widgets["ured_odredista"] = ured_le
+        row_layout.addWidget(ured_sifra_cb)
+        self.field_widgets["ured_odredista_sifra"] = ured_sifra_cb
+
+        sep2 = QLabel("|")
+        sep2.setStyleSheet("color: #aaa; padding: 0 6px;")
+        row_layout.addWidget(sep2)
+
+        # Naziv carinske ispostave
+        ured_naziv_cb = QComboBox()
+        ured_naziv_cb.setEditable(True)
+        ured_naziv_cb.setFixedWidth(175)
+        ured_naziv_cb.view().setMinimumWidth(300)
+        if ured_naziv:
+            ured_naziv_cb.addItem(ured_naziv)
+            ured_naziv_cb.setCurrentText(ured_naziv)
+        ured_naziv_cb.setToolTip(
+            "Naziv carinske ispostave (default: CI Bijeljina).\n"
+            "Možeš upisati drugi naziv ili odabrati iz padajućeg menija."
+        )
+        row_layout.addWidget(ured_naziv_cb)
+        self.field_widgets["ured_odredista_naziv"] = ured_naziv_cb
 
         row_layout.addStretch()
+
         layout.addWidget(row)
 
         return group
 
     def _populate_oznaka_combo(self, sifra: str):
-        """Popuni combo za oznaku postupka prema odabranoj šifri (EX/IM)."""
+        """Popuni combo za TIP deklaracije (A, Z, B) - polje 1/2."""
         cb = self.field_widgets.get("deklaracija_oznaka")
         if not cb:
             return
+        
         cb.blockSignals(True)
         cb.clear()
-        for oznaka, opis in self._vrste_dek_map.get(sifra, []):
-            if oznaka:
-                display = f"{oznaka} — {opis[:50]}" if opis else oznaka
-                cb.addItem(display, oznaka)
-            else:
-                # Sifra bez oznake (A, B, Z) — prikaži sam opis
-                cb.addItem(opis[:60] if opis else sifra, "")
-
+        
+        # Učitaj tipove deklaracija iz baze (A, Z, B)
+        tipovi = _load_tipovi_deklaracija_from_db()
+        for sifra_tipa, opis in tipovi:
+            display = f"{sifra_tipa} — {opis}"
+            cb.addItem(display, sifra_tipa)
+        
+        # Default na "A" (potpuna deklaracija)
         if cb.count() > 0:
             cb.setCurrentIndex(0)
             cb.lineEdit().setText(cb.itemData(0) or "")
-
+        
         cb.blockSignals(False)
 
     def _create_obrasci_group(self) -> QWidget:
@@ -1065,7 +1095,7 @@ class ZaglavljeView(BaseTabView):
         group = QWidget()
         layout = QHBoxLayout(group)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(8)
+        layout.setSpacing(20)
 
         # 5. Naim.
         col5 = QWidget()
@@ -1076,7 +1106,7 @@ class ZaglavljeView(BaseTabView):
         lbl5.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
         col5_l.addWidget(lbl5)
         field5 = QLineEdit()
-        field5.setFixedWidth(60)
+        field5.setFixedWidth(80)
         col5_l.addWidget(field5)
         self.field_widgets["stavke"] = field5
         layout.addWidget(col5)
@@ -1090,12 +1120,12 @@ class ZaglavljeView(BaseTabView):
         lbl6.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
         col6_l.addWidget(lbl6)
         field6 = QLineEdit()
-        field6.setFixedWidth(90)
+        field6.setFixedWidth(110)
         col6_l.addWidget(field6)
         self.field_widgets["uk_paketa"] = field6
         layout.addWidget(col6)
 
-        # 7. Ref.br
+        # 7. Ref.br — godina (auto) + broj (editabilno)
         col7 = QWidget()
         col7_l = QVBoxLayout(col7)
         col7_l.setContentsMargins(0, 0, 0, 0)
@@ -1103,8 +1133,27 @@ class ZaglavljeView(BaseTabView):
         lbl7 = QLabel("7. Ref.br")
         lbl7.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
         col7_l.addWidget(lbl7)
+
+        ref_row = QWidget()
+        ref_row_l = QHBoxLayout(ref_row)
+        ref_row_l.setContentsMargins(0, 0, 0, 0)
+        ref_row_l.setSpacing(6)
+
+        from datetime import date
+        field7_godina = QLineEdit(str(date.today().year))
+        field7_godina.setFixedWidth(65)
+        field7_godina.setReadOnly(True)
+        field7_godina.setStyleSheet("color: #666; background: #f5f5f5;")
+        field7_godina.setToolTip("Godina (automatski)")
+        ref_row_l.addWidget(field7_godina)
+        self.field_widgets["ref_br_godina"] = field7_godina
+
         field7 = QLineEdit()
-        col7_l.addWidget(field7)
+        field7.setFixedWidth(140)
+        field7.setToolTip("Referentni broj deklaracije")
+        ref_row_l.addWidget(field7)
+
+        col7_l.addWidget(ref_row)
         self.field_widgets["ref_br"] = field7
         layout.addWidget(col7)
 
@@ -1842,6 +1891,25 @@ class ZaglavljeView(BaseTabView):
             }
             """
         )
+
+    # ============================================================
+    # HELPER METHODS
+    # ============================================================
+
+    def _add_carinska_ispostava_autocomplete(self, line_edit: QLineEdit, is_sifra: bool = True):
+        """Dodaj auto-complete za carinske ispostave (placeholder za buduću implementaciju).
+        
+        Args:
+            line_edit: QLineEdit widget
+            is_sifra: True za šifre, False za nazive
+        """
+        # OVO JE PLACEHOLDER ZA BUDUĆU IMPLEMENTACIJU
+        # Kad bude potrebno, implementiraj:
+        # 1. Učitaj sve carinske ispostave iz baze
+        # 2. Ekstraktuj šifre ili nazive
+        # 3. Kreiraj QCompleter
+        # 4. Poveži sa line_edit
+        pass
 
     # ============================================================
     # DATA METHODS

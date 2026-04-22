@@ -255,7 +255,7 @@ class AsycudaXMLBuilder:
 
         # Financial (prazno)
         financial = ET.SubElement(traders, "Financial")
-        ET.SubElement(financial, "Financial_code")
+        _null(financial, "Financial_code")
         _null(financial, "Financial_name")
 
     def _add_representative(self) -> None:
@@ -539,6 +539,23 @@ class AsycudaXMLBuilder:
         """Dodaje <Item> za svako naimenovanje."""
         header_docs = list(getattr(self.draft, "header_attached_documents", []) or [])
 
+        # Skupi dokumente o porijeklu sa svih stavki i dodaj na prvu stavku.
+        # ASYCUDA World standard: svi Attached_documents idu samo na prvu stavku.
+        seen_origin_keys: set[tuple] = set()
+        for item in self.draft.items:
+            pref_doc_code = _PREF_TO_DOC_CODE.get(item.preference_code or "", "")
+            if pref_doc_code:
+                origin_ref = item.attached_document1 or ""
+                key = (pref_doc_code, origin_ref)
+                if key not in seen_origin_keys:
+                    seen_origin_keys.add(key)
+                    header_docs.append(AttachedDocument(
+                        code=pref_doc_code,
+                        name=_PREF_TO_DOC_NAME.get(pref_doc_code, ""),
+                        number=origin_ref,
+                        from_rule=True,
+                    ))
+
         for idx, item in enumerate(self.draft.items):
             is_first = idx == 0
             self._add_single_item(item, header_docs if is_first else [], is_first)
@@ -571,26 +588,12 @@ class AsycudaXMLBuilder:
             if doc.from_rule:
                 from_rule_codes.append(doc.code)
 
-        # 2. Dokument o porijeklu (FTAP/EUPT/...) baziran na preference_code i attached_document1
-        pref_doc_code = _PREF_TO_DOC_CODE.get(item.preference_code or "", "")
-        pref_doc_name = _PREF_TO_DOC_NAME.get(pref_doc_code, "")
-        origin_ref = item.attached_document1 or ""
-
-        if not pref_doc_code and item.attached_documents:
-            # Koristimo strukturirane dokumente ako postoje
+        # 2. Strukturirani dokumenti stavke (bez pref_doc — ti su prebačeni na prvu stavku)
+        if item.attached_documents:
             for doc in item.attached_documents:
                 self._add_attached_doc(item_elem, doc)
                 if doc.from_rule:
                     from_rule_codes.append(doc.code)
-        elif pref_doc_code:
-            doc = AttachedDocument(
-                code=pref_doc_code,
-                name=pref_doc_name,
-                number=origin_ref,
-                from_rule=True,
-            )
-            self._add_attached_doc(item_elem, doc)
-            from_rule_codes.append(pref_doc_code)
 
         # Packages
         packages = ET.SubElement(item_elem, "Packages")
