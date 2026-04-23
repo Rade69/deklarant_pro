@@ -259,10 +259,8 @@ class NaimenovanjaView(BaseTabView):
             "le_r31_broj": "package_qty",  # ISPRAVLJENO: Broj (količina)
             "le_r31_vrsta": "package_code",  # ISPRAVLJENO: Vrsta (šifra - PK, CT...)
             "le_r31_vrsta_naziv": "package_name",  # Naziv pakovanja (auto-popunjava se)
-            "le_r31_kontejner_1": "container_number1",
-            "le_r31_kontejner_2": "container_number2",
-            "te_r31_opis": "tariff_description2",  # Opis robe (4-6 cifara - viši nivo)
-            "te_r31_opis_2": "tariff_description1",  # Opis robe 2 (8-10 cifara - tačan broj)
+            "te_r31_opis": "tariff_description1",  # Opis robe (8-10 cifara - tačan podbroj)
+            "te_r31_opis_2": "tariff_description2",  # Opis robe 2 (4-6 cifara - viši nivo, heading)
             "le_r31_trg_naziv": "goods_trade_name",  # Trgovački naziv (automatski popunjava opis robe)
             # Rubrika 32
             "le_rubrika32": "ordinal_no",
@@ -1083,8 +1081,8 @@ class NaimenovanjaView(BaseTabView):
         """
         Učitaj opis tarife iz PostgreSQL catalogs.zvanicna_tarifa.
 
-        nivo='podbroj' → te_r31_opis  (tačan opis podbroja, 10 cifara)
-        nivo='glava'   → te_r31_opis_2 (heading opis, 4 cifre)
+        nivo='podbroj' → te_r31_opis  (tačan opis podbroja, 8-10 cifara)
+        nivo='glava'   → te_r31_opis_2 (heading opis, 4-6 cifara)
 
         Strategija:
           1. Tačan match po tarifni_kod + nivo
@@ -1688,8 +1686,8 @@ class NaimenovanjaView(BaseTabView):
         """Izvrsi tariff lookup sa cache-om (poziva se nakon 400ms pauze).
 
         Popunjava dva nivoa opisa:
-          - te_r31_opis   → 4-cifreni heading (npr. "8471")
-          - te_r31_opis_2 → 6-8 cifreni podbroj (precizni opis, npr. "847130")
+          - te_r31_opis   → 6-8 cifreni podbroj (precizni opis, npr. "847130")
+          - te_r31_opis_2 → 4-cifreni heading (npr. "8471")
         Uvijek poziva _populate_tariff_description kako bi se polja očistila
         kada novi tarifni broj nije pronađen.
         """
@@ -1762,36 +1760,12 @@ class NaimenovanjaView(BaseTabView):
         self, description_full: str, description_short: str = ""
     ) -> None:
         """Popuni tariff description polja - sada popunjava trgovački naziv"""
-        # Popuni polje za tačan opis (8-10 cifara)
-        te_opis_2 = self._get_widget("te_r31_opis_2")
-        if te_opis_2:
-            # KRITIČNO: setReadOnly(False) prije setText() jer Qt ne ažurira prikaz za readOnly polja
-            te_opis_2.setReadOnly(False)
-            te_opis_2.setText(description_full)
-            te_opis_2.setReadOnly(True)
-            # Dodaj stil za auto-popunjena polja
-            te_opis_2.setStyleSheet(
-                """
-                QLineEdit {
-                    background-color: #e3f2fd;
-                    border: 2px solid #2196f3;
-                    border-radius: 4px;
-                    padding: 3px 6px;
-                    font-weight: bold;
-                    font-size: 14px;
-                    color: #1565c0;
-                }
-            """
-            )
-
-        # Popuni polje za viši nivo opisa (4-6 cifara)
+        # Popuni polje za tačan opis podbroja (8-10 cifara) — te_r31_opis (gornje)
         te_opis = self._get_widget("te_r31_opis")
         if te_opis:
-            # KRITIČNO: setReadOnly(False) prije setText() jer Qt ne ažurira prikaz za readOnly polja
             te_opis.setReadOnly(False)
-            te_opis.setText(description_short)
+            te_opis.setText(description_full)
             te_opis.setReadOnly(True)
-            # Dodaj stil za auto-popunjena polja
             te_opis.setStyleSheet(
                 """
                 QLineEdit {
@@ -1802,6 +1776,26 @@ class NaimenovanjaView(BaseTabView):
                     font-weight: bold;
                     font-size: 14px;
                     color: #2e7d32;
+                }
+            """
+            )
+
+        # Popuni polje za heading opis (4-6 cifara) — te_r31_opis_2 (donje, plavo)
+        te_opis_2 = self._get_widget("te_r31_opis_2")
+        if te_opis_2:
+            te_opis_2.setReadOnly(False)
+            te_opis_2.setText(description_short)
+            te_opis_2.setReadOnly(True)
+            te_opis_2.setStyleSheet(
+                """
+                QLineEdit {
+                    background-color: #e3f2fd;
+                    border: 2px solid #2196f3;
+                    border-radius: 4px;
+                    padding: 3px 6px;
+                    font-weight: bold;
+                    font-size: 14px;
+                    color: #1565c0;
                 }
             """
             )
@@ -2627,8 +2621,6 @@ class NaimenovanjaView(BaseTabView):
             w("le_r31_broj"),
             w("le_r31_vrsta"),
             w("le_r31_vrsta_naziv"),
-            w("le_r31_kontejner_1"),
-            w("le_r31_kontejner_2"),
             w("te_r31_opis"),
             w("te_r31_opis_2"),
             w("le_r31_trg_naziv"),

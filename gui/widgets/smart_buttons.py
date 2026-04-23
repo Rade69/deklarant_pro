@@ -125,18 +125,18 @@ class PackingFillerButton(StyledButton):
         """Fill R41 from R31 packing info"""
         try:
             # Read R31 - number of packages
-            broj_paketa = self.parent_tab.ui.le_r31_kontejner_1.text().strip()
+            broj_paketa = self.parent_tab.ui.le_r31_broj.text().strip()
 
             # Read R31 - package type
-            vrsta_paketa = self.parent_tab.ui.le_r31_kontejner_2.text().strip()
+            vrsta_paketa = self.parent_tab.ui.le_r31_vrsta_naziv.text().strip()
 
             if not broj_paketa or not vrsta_paketa:
                 QMessageBox.warning(
                     self.parent_tab,
                     "⚠️ Upozorenje",
                     "Morate prvo popuniti:\n"
-                    "- Broj paketa (R31)\n"
-                    "- Vrsta paketa (R31)"
+                    "- Broj paketa (le_r31_broj)\n"
+                    "- Vrsta paketa (le_r31_vrsta_naziv)"
                 )
                 return
 
@@ -173,8 +173,8 @@ class PackingFillerButton(StyledButton):
                 "❌ Greška",
                 f"Potrebna polja nisu pronađena u UI-ju.\n\n"
                 f"Provjerite da postoje:\n"
-                f"- le_r31_kontejner_1\n"
-                f"- le_r31_kontejner_2\n"
+                f"- le_r31_broj\n"
+                f"- le_r31_vrsta_naziv\n"
                 f"- te_rubrika41\n\n"
                 f"Greška: {str(e)}"
             )

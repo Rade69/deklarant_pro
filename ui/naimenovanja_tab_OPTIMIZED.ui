@@ -158,44 +158,11 @@ pakata</string>
             <string>background-color: #e3f2fd; border: 2px solid #2196f3; color: #1565c0; font-weight: bold;</string>
           </property>
         </widget>
-        <widget class="QLabel" name="lbl_r31_kontejner">
-          <property name="geometry">
-            <rect>
-              <x>85</x>
-              <y>98</y>
-              <width>48</width>
-              <height>12</height>
-            </rect>
-          </property>
-          <property name="text">
-            <string>Kontejner</string>
-          </property>
-        </widget>
-        <widget class="QLineEdit" name="le_r31_kontejner_1">
-          <property name="geometry">
-            <rect>
-              <x>144</x>
-              <y>95</y>
-              <width>171</width>
-              <height>22</height>
-            </rect>
-          </property>
-        </widget>
-        <widget class="QLineEdit" name="le_r31_kontejner_2">
-          <property name="geometry">
-            <rect>
-              <x>320</x>
-              <y>95</y>
-              <width>225</width>
-              <height>22</height>
-            </rect>
-          </property>
-        </widget>
         <widget class="QLineEdit" name="te_r31_opis">
           <property name="geometry">
             <rect>
               <x>85</x>
-              <y>125</y>
+              <y>98</y>
               <width>460</width>
               <height>22</height>
             </rect>
@@ -205,7 +172,7 @@ pakata</string>
           <property name="geometry">
             <rect>
               <x>85</x>
-              <y>150</y>
+              <y>125</y>
               <width>460</width>
               <height>22</height>
             </rect>
@@ -215,7 +182,7 @@ pakata</string>
           <property name="geometry">
             <rect>
               <x>85</x>
-              <y>200</y>
+              <y>150</y>
               <width>460</width>
               <height>71</height>
             </rect>

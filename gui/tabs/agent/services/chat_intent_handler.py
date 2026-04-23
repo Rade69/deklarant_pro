@@ -839,7 +839,6 @@ def _pregledaj_naimenovanja(ctrl, indeksi=None) -> None:
             f"&nbsp;&nbsp;Trgovački naziv: {(pregled.goods_trade_name or '—')[:50]}<br>"
             f"&nbsp;&nbsp;Oznake i br.: {oznake[:50]}<br>"
             f"&nbsp;&nbsp;Pakovanje: {pak_kod} × {pak_kol}<br>"
-            f"&nbsp;&nbsp;Kontejneri: {(pregled.container_number1 or '—')} / {(pregled.container_number2 or '—')}<br>"
             f"<b>Rb.33 — Tarifni broj:</b> <code>{tarif}</code><br>"
             f"<b>Rb.34 — Zemlja porijekla:</b> {zemlja}<br>"
             f"<b>Rb.36 — Povlastica:</b> {pov}<br>"
