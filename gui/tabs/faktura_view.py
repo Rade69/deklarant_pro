@@ -61,7 +61,8 @@ from services.import_worker import ImportWorker
 from services.validation_service import FakturaItemValidator, ValidationLevel
 from services.declaration_assembly import DeclarationAssembly
 from services.export_service import ExportService
-# from exporters.pdf_invoice_exporter import export_invoice_to_pdf  # PRIVREMENO: comment zbog PIL konflikta
+from exporters.pdf_invoice_exporter import export_invoice_to_pdf
+from exporters.pdf_faktura_pregled import export_faktura_pregled
 from gui.delegates import ValidationDelegate
 from gui.dialogs import AddItemDialog
 from importers.import_result import ImportResult
@@ -360,12 +361,21 @@ class FakturaView(BaseTabView):
 
             self.btn_export_pdf = self._create_button(
                 "PDF",
-                "Export u PDF",
+                "Export u PDF — grupisanje po naimenovanjima",
                 object_name="btnPDF",
                 compact=True,
                 icon_name="fa5s.file-pdf",
             )
             self.btn_export_pdf.clicked.connect(self._on_export_pdf)
+
+            self.btn_pregled_faktura = self._create_button(
+                "Pregled",
+                "Pregled faktura — grupisanje po fakturi za carinika",
+                object_name="btnPregledFaktura",
+                compact=True,
+                icon_name="fa5s.eye",
+            )
+            self.btn_pregled_faktura.clicked.connect(self._on_export_pregled_faktura)
             layout.addWidget(self.btn_export_pdf)
 
             self.btn_create_naimenovanja = self._create_button(
@@ -3207,7 +3217,7 @@ class FakturaView(BaseTabView):
         )
 
         if filepath:
-            success = ExportService.export_to_excel(self.draft.invoice_lines, filepath)
+            success = ExportService.export_to_excel(self.draft.invoice_lines, filepath, self.draft)
 
             if success:
                 QMessageBox.information(
@@ -3278,6 +3288,53 @@ class FakturaView(BaseTabView):
                     self,
                     "Greška",
                     "Export u PDF nije uspio.\n\nProvjerite console za detalje greške.",
+                )
+
+    def _on_export_pregled_faktura(self):
+        """Export pregled faktura u PDF — grupisanje po fakturi za carinika."""
+        if not self.draft.invoice_lines:
+            QMessageBox.information(
+                self, "Pregled faktura", "Nema stavki za export.\n\nPrvo učitajte fakturu."
+            )
+            return
+
+        if not self.draft.items:
+            QMessageBox.warning(
+                self,
+                "Naimenovanja nisu kreirana",
+                "PDF pregled zahtijeva kreirana naimenovanja.\n\n"
+                "Prvo kreirajte naimenovanja pa pokušajte ponovo.",
+            )
+            return
+
+        filepath, _ = QFileDialog.getSaveFileName(
+            self,
+            "Sačuvaj pregled faktura kao PDF",
+            f"Pregled_Faktura_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+            "PDF Files (*.pdf)",
+        )
+
+        if filepath:
+            success = export_faktura_pregled(self.draft, filepath)
+
+            if success:
+                # Izbroj koliko faktura ima
+                broj_faktura = len(set(
+                    l.invoice_number for l in self.draft.invoice_lines if l.invoice_number
+                ))
+                QMessageBox.information(
+                    self,
+                    "Export uspješan",
+                    f"✅ Pregled faktura exportovan u PDF!\n\n"
+                    f"Fajl: {Path(filepath).name}\n"
+                    f"Faktura: {broj_faktura}\n"
+                    f"Stavki: {len(self.draft.invoice_lines)}",
+                )
+            else:
+                QMessageBox.critical(
+                    self,
+                    "Greška",
+                    "Export pregleda faktura nije uspio.\n\nProvjerite console za detalje greške.",
                 )
 
     def _on_load_mappings_from_xml(self):

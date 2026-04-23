@@ -1818,12 +1818,13 @@ class NaimenovanjaView(BaseTabView):
     def _format_trading_names(self, max_chars: int = 550) -> str:
         """
         Formatuj sve nazive proizvoda iz fakture koji pripadaju trenutnom naimenovanju.
+        Na dnu dodaje spisak faktura i rednih brojeva stavki koje ulaze u naimenovanje.
 
         Args:
             max_chars: Maksimalan broj karaktera (default 550 za polje 460x200px)
 
         Returns:
-            Comma-separated nazivi proizvoda, skraćeno sa "..." ako predugo
+            Nazivi proizvoda + na dnu "Faktura: broj (rb. x, y)" informacija
         """
         if len(self.draft.items) == 0:
             logger.warning("  ⚠️ _format_trading_names: Nema naimenovanja u draft.items")
@@ -1843,25 +1844,49 @@ class NaimenovanjaView(BaseTabView):
         if not assigned_lines:
             return ""
 
-        # Extract product names
+        # --- 1. Nazivi proizvoda ---
         product_names = [line.naziv_robe for line in assigned_lines if line.naziv_robe]
+        nazivi_dio = ", ".join(product_names) if product_names else ""
 
-        if not product_names:
-            return ""
+        # --- 2. Faktura info na dnu ---
+        # Grupiši stavke po broju fakture
+        from collections import OrderedDict
+        fakture: dict = OrderedDict()
+        for line in assigned_lines:
+            inv = line.invoice_number or "?"
+            if inv not in fakture:
+                fakture[inv] = []
+            fakture[inv].append(str(line.line_no))
 
-        # Format comma-separated
-        result = ", ".join(product_names)
-        logger.debug(f"  📝 Ukupna dužina prije skraćivanja: {len(result)} karaktera")
+        fakture_dio_parts = []
+        for inv, rb_list in fakture.items():
+            fakture_dio_parts.append(f"{inv} (rb. {', '.join(rb_list)})")
 
-        # Truncate if too long
+        fakture_dio = "Faktura: " + ", ".join(fakture_dio_parts)
+
+        # --- 3. Kombinuj ---
+        if nazivi_dio:
+            result = nazivi_dio + "\n\n" + fakture_dio
+        else:
+            result = fakture_dio
+
+        logger.debug(f"  📝 Ukupna dužina: {len(result)} karaktera")
+
+        # Truncate if too long (cijeli tekst, ne samo nazive)
         if len(result) > max_chars:
-            # Find last complete item that fits
-            truncated = result[: max_chars - 3]  # Leave room for "..."
-            # Find last comma to avoid cutting in the middle of a name
-            last_comma = truncated.rfind(", ")
-            if last_comma > 0:
-                truncated = truncated[:last_comma]
-            result = truncated + "..."
+            # Prvo pokušaj skratiti nazive, ostavi fakture dio netaknut
+            fakture_len = len(fakture_dio) + 2  # +2 za "\n\n"
+            nazivi_max = max_chars - fakture_len - 3  # -3 za "..."
+            if nazivi_max > 20 and product_names:
+                # Skrati nazive
+                truncated_nazivi = nazivi_dio[:nazivi_max]
+                last_comma = truncated_nazivi.rfind(", ")
+                if last_comma > 0:
+                    truncated_nazivi = truncated_nazivi[:last_comma]
+                result = truncated_nazivi + "...\n\n" + fakture_dio
+            else:
+                # Skrati cijeli tekst
+                result = result[:max_chars - 3] + "..."
 
         return result
 

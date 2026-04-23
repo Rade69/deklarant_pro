@@ -236,11 +236,11 @@ class PDFInvoiceExporter:
         table_data = [[
             'RB',
             'Faktura',
-            'Šifra',
+            'Stavka',
+            'Naim.',
             'Naziv robe',
             'Količina',
             'JM',
-            'Cijena',
             'Vrijednost',
             'Valuta',
             'Tarifa',
@@ -258,11 +258,11 @@ class PDFInvoiceExporter:
             table_data.append([
                 str(idx),
                 line.invoice_number or '',  # Broj fakture
-                line.product_code or '',
+                str(line.line_no) if line.line_no > 0 else str(idx),  # Redni broj stavke iz fakture
+                str(line.assigned_naimenovanje_ordinal) if line.assigned_naimenovanje_ordinal > 0 else '—',
                 naziv_paragraph,  # Paragraph umjesto običnog stringa - omogućava word wrap
                 f"{line.kolicina:.2f}",
                 line.jm or '',
-                f"{line.cijena_jed:.2f}",
                 f"{line.iznos:.2f}",
                 line.valuta or 'EUR',
                 line.tarifni_broj or '',
@@ -274,20 +274,20 @@ class PDFInvoiceExporter:
 
         # Kreiraj tabelu
         table = Table(table_data, colWidths=[
-            1*cm,   # RB
-            2.5*cm, # Faktura (broj fakture - šire za duge brojeve)
-            2*cm,   # Šifra
-            5.5*cm, # Naziv robe (malo uže, uštedjeli smo na Fakturi)
-            1.5*cm, # Količina
-            1*cm,   # JM
-            1.5*cm, # Cijena
-            1.8*cm, # Vrijednost
-            1.2*cm, # Valuta
-            2*cm,   # Tarifa
-            1.2*cm, # Zemlja
-            1.5*cm, # Povlastica
-            1.5*cm, # Bruto kg
-            1.5*cm  # Neto kg
+            0.8*cm,  # RB
+            3.8*cm,  # Faktura
+            1.0*cm,  # Stavka (rb. stavke iz fakture)
+            1.1*cm,  # Naimen.
+            4.5*cm,  # Naziv robe
+            1.5*cm,  # Količina
+            1.0*cm,  # JM
+            1.8*cm,  # Vrijednost
+            1.2*cm,  # Valuta
+            2.0*cm,  # Tarifa
+            1.2*cm,  # Zemlja
+            1.5*cm,  # Povlastica
+            1.5*cm,  # Bruto kg
+            1.5*cm   # Neto kg
         ])
 
         # Stilizuj tabelu
