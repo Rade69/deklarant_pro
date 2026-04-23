@@ -59,6 +59,7 @@ class InvoiceLine:
     """Sirova stavka iz fakture (XLSX/PDF) – normalizovana."""
 
     line_no: int = 0
+    invoice_number: str = ""  # Broj fakture (npr. FA-14, FA-15)
 
     naziv_robe: str = ""
     product_code: str = ""  # Kod proizvoda iz fakture (za matching)

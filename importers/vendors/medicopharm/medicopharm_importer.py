@@ -215,8 +215,8 @@ def parse_medicopharm_pdf(pdf_path: str) -> ImportResult:
         if not invoice_name:
             m = _INVOICE_NO_RE.search(ln)
             if m:
-                # "213/26" → "213_26" (za sigurne putanje)
-                invoice_name = m.group(1).replace("/", "_")
+                invoice_name = m.group(1)
+                # Sačuvaj originalni broj sa "/"
 
         if not bruto_kg:
             m = _BRUTO_RE.search(ln)

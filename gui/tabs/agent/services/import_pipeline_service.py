@@ -541,6 +541,17 @@ def _uvezi_u_deklaraciju(ctrl, invoice_lines: list, chat,
         return
 
     # 1. Uvezi podatke u draft
+    # Postavi invoice_number na svaku stavku
+    invoice_name = ""
+    if completed:
+        for f in completed:
+            if f.status == 'Completed' and (f.invoice_number or f.filepath):
+                invoice_name = f.invoice_number or Path(f.filepath).stem
+                break
+    for line in invoice_lines:
+        if invoice_name and not line.invoice_number:
+            line.invoice_number = invoice_name
+    
     chat.add_activity(f"📥 Uvoz {len(invoice_lines)} stavki...")
     ctrl.draft.invoice_lines.clear()
     ctrl.draft.invoice_lines.extend(invoice_lines)

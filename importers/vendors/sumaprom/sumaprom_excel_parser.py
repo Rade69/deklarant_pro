@@ -144,11 +144,9 @@ def parse_sumaprom_excel(filepath: str) -> ImportResult:
             f"ukupno={total_amount} EUR"
         )
 
-        # STEP 3: Extract invoice name from filename
-        invoice_name = Path(filepath).stem
-        # Remove common suffixes
-        invoice_name = re.sub(r'\s*[-_]\s*SUMAPROM.*$', '', invoice_name, flags=re.IGNORECASE)
-        invoice_name = re.sub(r'\s*[-_]\s*SUMAPROM.*$', '', invoice_name, flags=re.IGNORECASE)
+        # STEP 3: Extract invoice name
+        # Prioritet: header_info['invoice_number'] > filename
+        invoice_name = header_info.get('invoice_number', '') or Path(filepath).stem
 
         # ENHANCED: Return ImportResult sa exporter/importer
         return ImportResult(
@@ -218,15 +216,22 @@ def _extract_header_info(sheet: xlrd.sheet.Sheet) -> Dict[str, any]:
 
             # Look for invoice number pattern: "Invoice No." or "FAKTURA BR."
             if "INVOICE NO." in cell_value.upper() or "FAKTURA BR." in cell_value.upper():
-                # Next cell should contain the number
-                if col_idx + 1 < sheet.ncols:
-                    invoice_num = str(sheet.cell_value(row_idx, col_idx + 1)).strip()
-                    # Extract just the number part (e.g., "059/" from "Invoice No. / FAKTURA BR. 059/")
-                    match = re.search(r'(\d+/\d+|\d+/\s*)', invoice_num)
+                # Sakupljaj sledece kolone dok ne naidjes na ne-broj
+                parts = []
+                for next_col in range(col_idx + 1, min(col_idx + 5, sheet.ncols)):
+                    next_val = sheet.cell_value(row_idx, next_col)
+                    if next_val:
+                        parts.append(str(next_val).strip())
+                full = ''.join(parts)
+                # Izvuci broj oblika 059/2022
+                match = re.search(r'(\d+\s*/\s*\d+)', full)
+                if match:
+                    header_info['invoice_number'] = match.group(1).replace(' ', '')
+                else:
+                    # Fallback: samo prvi broj
+                    match = re.search(r'(\d+)[^\d]*$', full)
                     if match:
-                        header_info['invoice_number'] = match.group(1).strip()
-                    else:
-                        header_info['invoice_number'] = invoice_num
+                        header_info['invoice_number'] = match.group(1)
 
             # Look for date pattern (dd.mm.yyyy)
             date_match = re.search(r'(\d{1,2}\.\d{1,2}\.\d{4})', cell_value)

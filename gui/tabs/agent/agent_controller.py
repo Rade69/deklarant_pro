@@ -333,6 +333,10 @@ class AgentController:
             bruto = file_item.bruto_kg
             neto = file_item.neto_kg
 
+            # Postavi invoice_number za svaku stavku
+            for line in lines:
+                line.invoice_number = invoice_name
+
             # Privremeno uvezi u draft za dijalog
             self.draft.invoice_lines.clear()
             self.draft.invoice_lines.extend(lines)

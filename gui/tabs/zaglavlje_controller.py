@@ -462,14 +462,24 @@ class ZaglavljeController:
                     )
                 
                 # Broj fakture — uvijek iz fakture, ne iz XML-a
-                # Parsers čuvaju broj fakture u line.raw['invoice_number']
+                # Prioritet: line.invoice_number > line.raw['invoice_number'] > draft.ref_br
                 broj_fakture = ''
                 for line in invoice_lines:
-                    raw = getattr(line, 'raw', None) or {}
-                    bf = raw.get('invoice_number', '') or ''
+                    bf = getattr(line, 'invoice_number', '') or ''
                     if bf:
                         broj_fakture = bf
                         break
+                
+                if not broj_fakture:
+                    for line in invoice_lines:
+                        raw = getattr(line, 'raw', None) or {}
+                        bf = raw.get('invoice_number', '') or ''
+                        if bf:
+                            broj_fakture = bf
+                            break
+                
+                if not broj_fakture:
+                    broj_fakture = getattr(draft, 'ref_br', '') or ''
                 
                 if broj_fakture:
                     # Prepisati ref_br u data da se koristi umjesto starog iz XML-a

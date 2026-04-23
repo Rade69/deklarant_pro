@@ -453,12 +453,13 @@ class FakturaView(BaseTabView):
     def _create_table(self) -> QTableWidget:
         """Create the main items table."""
         table = QTableWidget()
-        table.setColumnCount(11)
+        table.setColumnCount(12)
 
         # Set headers
         headers = [
             "Red.br.",
-            "Naimenov",
+            "Faktura",
+            "Naimenovanja",
             "Naziv robe",
             "Tarifni broj",
             "Količina",
@@ -474,21 +475,26 @@ class FakturaView(BaseTabView):
         # Set column widths - optimized for 1536px window (80% Full HD)
         header = table.horizontalHeader()
         table.setColumnWidth(0, 60)  # Red.br. (povećano)
-        table.setColumnWidth(1, 95)  # Naimenov
-        table.setColumnWidth(2, 430)  # Naziv robe (glavna kolona - povećano)
-        table.setColumnWidth(3, 140)  # Tarifni broj (povećano - 10 cifara)
-        table.setColumnWidth(4, 100)  # Količina
-        table.setColumnWidth(5, 110)  # Cijena
-        table.setColumnWidth(6, 120)  # Bruto (kg)
-        table.setColumnWidth(7, 120)  # Neto (kg)
-        table.setColumnWidth(8, 80)  # Zemlja
-        table.setColumnWidth(9, 100)  # Povlastica
-        table.setColumnWidth(10, 65)  # Valuta (3 slova: EUR/USD/BAM)
+        table.setColumnWidth(1, 250)  # Faktura (250px za najduže brojeve faktura)
+        table.setColumnWidth(2, 125)  # Naimenovanja (125px za savršenu čitljivost)
+        table.setColumnWidth(3, 430)  # Naziv robe (glavna kolona - povećano, takođe rastegljiva)
+        table.setColumnWidth(4, 140)  # Tarifni broj (povećano - 10 cifara)
+        table.setColumnWidth(5, 100)  # Količina
+        table.setColumnWidth(6, 110)  # Cijena
+        table.setColumnWidth(7, 120)  # Bruto (kg)
+        table.setColumnWidth(8, 120)  # Neto (kg)
+        table.setColumnWidth(9, 80)  # Zemlja
+        table.setColumnWidth(10, 100)  # Povlastica
+        table.setColumnWidth(11, 65)  # Valuta (3 slova: EUR/USD/BAM)
 
         # ZAKUCAJ širinu tabele - ne dozvoli automatsku optimizaciju
         header.setSectionResizeMode(QHeaderView.Fixed)
-        # "Naziv robe" se rasteže da popuni ostatak prostora (glavna kolona)
-        header.setSectionResizeMode(2, QHeaderView.Stretch)
+        # "Faktura" (kolona 1) - Interactive sa početnom širinom od 200px za duge brojeve
+        header.setSectionResizeMode(1, QHeaderView.Interactive)
+        # "Naziv robe" (kolona 3) se rasteže da popuni ostatak prostora
+        header.setSectionResizeMode(3, QHeaderView.Stretch)
+        # Omogući rastezanje zadnje sekcije
+        header.setStretchLastSection(False)
 
         # Table settings
         table.setAlternatingRowColors(
@@ -788,6 +794,9 @@ class FakturaView(BaseTabView):
         """FAST bulk insert - no validation, no color (called from _load_data_from_draft)."""
         # Set data WITHOUT validation - much faster for bulk load
         self._set_table_item(row_number, 0, str(row_number + 1), align=Qt.AlignCenter)
+        
+        # Faktura - prikaži broj fakture
+        self._set_table_item(row_number, 1, item.invoice_number or "", align=Qt.AlignCenter)
 
         # Naimenovanje - show ordinal number if assigned
         naimenovanje_text = (
@@ -795,7 +804,7 @@ class FakturaView(BaseTabView):
             if item.assigned_naimenovanje_ordinal > 0
             else ""
         )
-        self._set_table_item(row_number, 1, naimenovanje_text, align=Qt.AlignCenter)
+        self._set_table_item(row_number, 2, naimenovanje_text, align=Qt.AlignCenter)
 
         # Naziv robe - ukloni product_code sa početka ako postoji
         naziv_display = item.naziv_robe or ""
@@ -807,27 +816,27 @@ class FakturaView(BaseTabView):
             if match:
                 naziv_display = match.group(2)
 
-        self._set_table_item(row_number, 2, naziv_display)
+        self._set_table_item(row_number, 3, naziv_display)
         self._set_table_item(
-            row_number, 3, item.tarifni_broj or "", align=Qt.AlignCenter
+            row_number, 4, item.tarifni_broj or "", align=Qt.AlignCenter
         )
         self._set_table_item(
-            row_number, 4, self._format_number(item.kolicina), align=Qt.AlignRight
+            row_number, 5, self._format_number(item.kolicina), align=Qt.AlignRight
         )
         self._set_table_item(
-            row_number, 5, self._format_number(item.iznos), align=Qt.AlignRight
+            row_number, 6, self._format_number(item.iznos), align=Qt.AlignRight
         )
         self._set_table_item(
-            row_number, 6, self._format_number(item.bruto_kg), align=Qt.AlignRight
+            row_number, 7, self._format_number(item.bruto_kg), align=Qt.AlignRight
         )
         self._set_table_item(
-            row_number, 7, self._format_number(item.neto_kg), align=Qt.AlignRight
+            row_number, 8, self._format_number(item.neto_kg), align=Qt.AlignRight
         )
         self._set_table_item(
-            row_number, 8, item.zemlja_porijekla or "", align=Qt.AlignCenter
+            row_number, 9, item.zemlja_porijekla or "", align=Qt.AlignCenter
         )
-        self._set_table_item(row_number, 9, item.povlastica or "", align=Qt.AlignCenter)
-        self._set_table_item(row_number, 10, item.valuta or "", align=Qt.AlignCenter)
+        self._set_table_item(row_number, 10, item.povlastica or "", align=Qt.AlignCenter)
+        self._set_table_item(row_number, 11, item.valuta or "", align=Qt.AlignCenter)
 
     def _add_item_to_table(self, row_number: int, item: InvoiceLine):
         """Add a single item to the table (with validation for single adds)."""
@@ -836,13 +845,15 @@ class FakturaView(BaseTabView):
 
         # Set data
         self._set_table_item(row, 0, str(row_number + 1), align=Qt.AlignCenter)
+        # Faktura - prikaži broj fakture
+        self._set_table_item(row, 1, item.invoice_number or "", align=Qt.AlignCenter)
         # Naimenovanje - show ordinal number if assigned
         naimenovanje_text = (
             str(item.assigned_naimenovanje_ordinal)
             if item.assigned_naimenovanje_ordinal > 0
             else ""
         )
-        self._set_table_item(row, 1, naimenovanje_text, align=Qt.AlignCenter)
+        self._set_table_item(row, 2, naimenovanje_text, align=Qt.AlignCenter)
 
         # Naziv robe - ukloni product_code sa početka ako postoji
         # VAŽNO: Ne mijenjamo original item.naziv_robe, samo display verziju
@@ -860,24 +871,24 @@ class FakturaView(BaseTabView):
                 # Našli smo šifru na početku - ukloni je
                 naziv_display = match.group(2)  # Samo naziv bez šifre
 
-        self._set_table_item(row, 2, naziv_display)
+        self._set_table_item(row, 3, naziv_display)
 
-        self._set_table_item(row, 3, item.tarifni_broj or "", align=Qt.AlignCenter)
+        self._set_table_item(row, 4, item.tarifni_broj or "", align=Qt.AlignCenter)
         self._set_table_item(
-            row, 4, self._format_number(item.kolicina), align=Qt.AlignRight
+            row, 5, self._format_number(item.kolicina), align=Qt.AlignRight
         )
         self._set_table_item(
-            row, 5, self._format_number(item.iznos), align=Qt.AlignRight
+            row, 6, self._format_number(item.iznos), align=Qt.AlignRight
         )  # UKUPAN IZNOS, ne cijena po komadu!
         self._set_table_item(
-            row, 6, self._format_number(item.bruto_kg), align=Qt.AlignRight
+            row, 7, self._format_number(item.bruto_kg), align=Qt.AlignRight
         )
         self._set_table_item(
-            row, 7, self._format_number(item.neto_kg), align=Qt.AlignRight
+            row, 8, self._format_number(item.neto_kg), align=Qt.AlignRight
         )
-        self._set_table_item(row, 8, item.zemlja_porijekla or "", align=Qt.AlignCenter)
-        self._set_table_item(row, 9, item.povlastica or "", align=Qt.AlignCenter)
-        self._set_table_item(row, 10, item.valuta or "", align=Qt.AlignCenter)
+        self._set_table_item(row, 9, item.zemlja_porijekla or "", align=Qt.AlignCenter)
+        self._set_table_item(row, 10, item.povlastica or "", align=Qt.AlignCenter)
+        self._set_table_item(row, 11, item.valuta or "", align=Qt.AlignCenter)
 
         # Validate and set row color
         self._validate_and_color_row(row, item)
@@ -1012,8 +1023,8 @@ class FakturaView(BaseTabView):
             tooltip_parts.append(f"🚨 Konflikt porekla: {item.country_conflict_details or 'PDF i baza imaju različite vrednosti'}")
             tooltip_parts.append("ℹ️ Korišćena je vrednost iz PDF-a")
         
-        # Apply to zemlja_porijekla column (col 8)
-        cell_item = self.table.item(row, 8)
+        # Apply to zemlja_porijekla column (col 9) - pomjereno zbog dodate kolone Faktura
+        cell_item = self.table.item(row, 9)
         if cell_item:
             cell_item.setData(ValidationDelegate.ValidationColorRole, color_hex)
             if item.zemlja_porijekla:
@@ -1042,26 +1053,28 @@ class FakturaView(BaseTabView):
 
         # Update corresponding field based on column
         try:
-            if col == 2:  # Naziv robe
+            if col == 1:  # Faktura (nova kolona)
+                invoice_item.invoice_number = value
+            elif col == 3:  # Naziv robe (pomjereno za +1 zbog nove kolone)
                 invoice_item.naziv_robe = value
-            elif col == 3:  # Tarifni broj
+            elif col == 4:  # Tarifni broj (pomjereno za +1)
                 invoice_item.tarifni_broj = value
-            elif col == 4:  # Količina
+            elif col == 5:  # Količina (pomjereno za +1)
                 invoice_item.kolicina = self._parse_number(value) if value else 0.0
-            elif col == 5:  # IZNOS (ukupan iznos, NE cijena po komadu!)
+            elif col == 6:  # IZNOS (ukupan iznos, NE cijena po komadu!) (pomjereno za +1)
                 invoice_item.iznos = self._parse_number(value) if value else 0.0
                 # VAŽNO: Ne mijenjamo cijena_jed - to je cijena po komadu koja dolazi iz fakture
-            elif col == 6:  # Bruto kg
+            elif col == 7:  # Bruto kg (pomjereno za +1)
                 invoice_item.bruto_kg = self._parse_number(value) if value else 0.0
-            elif col == 7:  # Neto kg
+            elif col == 8:  # Neto kg (pomjereno za +1)
                 invoice_item.neto_kg = self._parse_number(value) if value else 0.0
-            elif col == 8:  # Zemlja — čisti kod iz UserRole, ne tekst sa emojiem
+            elif col == 9:  # Zemlja — čisti kod iz UserRole, ne tekst sa emojiem (pomjereno za +1)
                 from PySide6.QtCore import Qt as _Qt
                 user_val = item.data(_Qt.UserRole)
                 invoice_item.zemlja_porijekla = str(user_val).strip() if user_val else value
-            elif col == 9:  # Povlastica
+            elif col == 10:  # Povlastica (pomjereno za +1)
                 invoice_item.povlastica = value
-            elif col == 10:  # Valuta
+            elif col == 11:  # Valuta (pomjereno za +1)
                 invoice_item.valuta = value
         except Exception as e:
             # Log error but don't crash
@@ -1133,8 +1146,9 @@ class FakturaView(BaseTabView):
         cell_item = self.table.item(row, col)
         if not cell_item:
             return ""
-        # Kolona 8 (zemlja_porijekla): čisti kod čuvan u UserRole da emoji ne uđe u podatak
-        if col == 8:
+        # Kolona 9 (zemlja_porijekla): čisti kod čuvan u UserRole da emoji ne uđe u podatak
+        # Pomjereno za +1 zbog dodate kolone Faktura
+        if col == 9:
             from PySide6.QtCore import Qt as _Qt
             user_val = cell_item.data(_Qt.UserRole)
             if user_val is not None:
@@ -1152,24 +1166,25 @@ class FakturaView(BaseTabView):
             invoice_item = self.draft.invoice_lines[row]
 
             # Read all cells and update invoice_item (using helper method)
-            invoice_item.naziv_robe = self._get_cell_value(row, 2)
-            invoice_item.tarifni_broj = self._get_cell_value(row, 3)
-            invoice_item.kolicina = self._parse_number(self._get_cell_value(row, 4))
+            invoice_item.invoice_number = self._get_cell_value(row, 1)  # Nova kolona
+            invoice_item.naziv_robe = self._get_cell_value(row, 3)      # Pomjereno za +1
+            invoice_item.tarifni_broj = self._get_cell_value(row, 4)    # Pomjereno za +1
+            invoice_item.kolicina = self._parse_number(self._get_cell_value(row, 5))  # Pomjereno za +1
 
-            # VAŽNO: Kolona 5 je "Ukupan iznos", ne cijena_jed!
+            # VAŽNO: Kolona 6 je "Ukupan iznos", ne cijena_jed! (pomjereno za +1)
             # Direktno čuvaj iznos, pa izračunaj cijena_jed ako ima količine
-            ukupan_iznos = self._parse_number(self._get_cell_value(row, 5))
+            ukupan_iznos = self._parse_number(self._get_cell_value(row, 6))
             invoice_item.iznos = ukupan_iznos
             if invoice_item.kolicina and invoice_item.kolicina > 0:
                 invoice_item.cijena_jed = ukupan_iznos / invoice_item.kolicina
             else:
                 invoice_item.cijena_jed = 0.0
 
-            invoice_item.bruto_kg = self._parse_number(self._get_cell_value(row, 6))
-            invoice_item.neto_kg = self._parse_number(self._get_cell_value(row, 7))
-            invoice_item.zemlja_porijekla = self._get_cell_value(row, 8)
-            invoice_item.povlastica = self._get_cell_value(row, 9)
-            invoice_item.valuta = self._get_cell_value(row, 10)
+            invoice_item.bruto_kg = self._parse_number(self._get_cell_value(row, 7))  # Pomjereno za +1
+            invoice_item.neto_kg = self._parse_number(self._get_cell_value(row, 8))   # Pomjereno za +1
+            invoice_item.zemlja_porijekla = self._get_cell_value(row, 9)              # Pomjereno za +1
+            invoice_item.povlastica = self._get_cell_value(row, 10)                   # Pomjereno za +1
+            invoice_item.valuta = self._get_cell_value(row, 11)                       # Pomjereno za +1
 
     def _update_status_bar(self):
         """Update status bar with current statistics."""
@@ -2166,6 +2181,10 @@ class FakturaView(BaseTabView):
             if using_assembly:
                 # Assembly sistem je aktivan - matchuj sa master listom
                 # (Ovo se dešava SAMO ako je korisnik eksplicitno učitao Master Listu preko menija)
+                # Postavi invoice_number za svaku stavku
+                for item in items:
+                    item.invoice_number = invoice_name
+                
                 matched, unmatched, unmatched_names = self.assembly.add_invoice(
                     items, invoice_name
                 )
@@ -2273,6 +2292,10 @@ class FakturaView(BaseTabView):
 
                 if is_combined and previous_count > 0 and is_same_invoice:
                     # REPLACE posljednji import (isti par, već kombіnovano u import_service)
+                    # Postavi invoice_number za nove stavke
+                    for item in items:
+                        item.invoice_number = invoice_name
+                    
                     keep_count = previous_count - self.last_import_count
                     self.draft.invoice_lines = (
                         self.draft.invoice_lines[:keep_count] + items
@@ -2282,6 +2305,10 @@ class FakturaView(BaseTabView):
                     )
                 else:
                     # EXTEND - dodaj na kraj (novi import ili nekombіnovani)
+                    # Postavi invoice_number za svaku stavku
+                    for item in items:
+                        item.invoice_number = invoice_name
+                    
                     self.draft.invoice_lines.extend(items)
                     if is_combined:
                         logger.info(

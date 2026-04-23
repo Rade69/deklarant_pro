@@ -235,6 +235,7 @@ class PDFInvoiceExporter:
         # Header
         table_data = [[
             'RB',
+            'Faktura',
             'Šifra',
             'Naziv robe',
             'Količina',
@@ -256,6 +257,7 @@ class PDFInvoiceExporter:
 
             table_data.append([
                 str(idx),
+                line.invoice_number or '',  # Broj fakture
                 line.product_code or '',
                 naziv_paragraph,  # Paragraph umjesto običnog stringa - omogućava word wrap
                 f"{line.kolicina:.2f}",
@@ -273,8 +275,9 @@ class PDFInvoiceExporter:
         # Kreiraj tabelu
         table = Table(table_data, colWidths=[
             1*cm,   # RB
+            2.5*cm, # Faktura (broj fakture - šire za duge brojeve)
             2*cm,   # Šifra
-            6*cm,   # Naziv robe
+            5.5*cm, # Naziv robe (malo uže, uštedjeli smo na Fakturi)
             1.5*cm, # Količina
             1*cm,   # JM
             1.5*cm, # Cijena

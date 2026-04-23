@@ -385,7 +385,8 @@ class Eur1QuickDialog(QDialog):
                 item.povlastica = data['preference']  # EUP/CEFTAP/TRP (na osnovu zemlje)
                 item.has_origin_statement = False  # Nema izjavu, ima EUR.1
                 if invoice_number:
-                    # Sačuvaj broj fakture za referencu
+                    # Sačuvaj broj fakture za referencu (novo i staro polje)
+                    item.invoice_number = invoice_number
                     if hasattr(item, 'raw'):
                         item.raw['invoice_number'] = invoice_number
                 updated_count += 1

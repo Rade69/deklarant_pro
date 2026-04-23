@@ -666,19 +666,27 @@ class ZaglavljeService:
                 })
 
         # Automatski dodaj N380 (faktura) ako postoji broj fakture u draft-u
-        # Prioritet: invoice_lines[].raw.invoice_number > draft.ref_br
+        # Prioritet: invoice_lines[].invoice_number > invoice_lines[].raw.invoice_number > draft.ref_br
         broj_fakture = ''
         
-        # 1. Pokušaj iz invoice_lines[].raw (gdje parsers čuvaju broj fakture)
+        # 1. Pokušaj iz invoice_lines[].invoice_number (novo polje)
         invoice_lines = getattr(draft, 'invoice_lines', None) or []
         for line in invoice_lines:
-            raw = getattr(line, 'raw', None) or {}
-            bf = raw.get('invoice_number', '') or ''
+            bf = getattr(line, 'invoice_number', '') or ''
             if bf:
                 broj_fakture = bf
                 break
         
-        # 2. Fallback na draft.ref_br
+        # 2. Fallback na invoice_lines[].raw['invoice_number'] (staro polje)
+        if not broj_fakture:
+            for line in invoice_lines:
+                raw = getattr(line, 'raw', None) or {}
+                bf = raw.get('invoice_number', '') or ''
+                if bf:
+                    broj_fakture = bf
+                    break
+        
+        # 3. Fallback na draft.ref_br
         if not broj_fakture:
             broj_fakture = getattr(draft, 'ref_br', '') or ''
         
