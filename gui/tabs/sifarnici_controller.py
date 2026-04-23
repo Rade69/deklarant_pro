@@ -79,7 +79,7 @@ class SifarniciController:
             "hierarchical": True,
         },
         "Carinski postupci": {
-            "columns": ["Šifra", "Naziv"],
+            "columns": ["Šifra", "Carinski postupci", "Vrsta", "Oznaka"],
             "table": "catalogs.carinski_postupci",
             "service_method": "load_carinski_postupci_data",
             "add_method": "add_carinski_postupak",

@@ -16,6 +16,39 @@ from PySide6.QtWidgets import QApplication
 
 logger = logging.getLogger("asycuda_pro.agent.import_pipeline")
 
+EUR1_THRESHOLD = 6000.0  # EUR — iznad ovog iznosa standardna izjava ne važi
+
+
+def _origin_dialog_type(lines: list, has_origin_statement: bool,
+                        is_authorized_exporter: bool) -> str:
+    """
+    Odredi koji dijalog prikazati za porijeklo robe.
+
+    Vraća:
+      'pe3'  — izjava ovlaštenog izvoznika (PE3, bez ograničenja vrijednosti)
+      'pe2'  — standardna izjava na fakturi, vrijednost ≤ 6.000 EUR (PE2)
+      'eur1' — EUR.1 obrazac potreban (PE1):
+               • standardna izjava + vrijednost > 6.000 EUR, ILI
+               • nema izjave ali stavke imaju zemlja_porijekla
+      'none' — nema ništa za rješavati
+    """
+    if has_origin_statement:
+        if is_authorized_exporter:
+            return 'pe3'
+        # Standardna izjava — provjeri ukupnu vrijednost robe s porijeklom
+        val = sum(l.iznos or 0 for l in lines if getattr(l, 'zemlja_porijekla', None))
+        if val == 0:
+            val = sum(l.iznos or 0 for l in lines)
+        return 'pe2' if val <= EUR1_THRESHOLD else 'eur1'
+    # Nema izjave — EUR.1 potreban ako stavke imaju zemlja_porijekla
+    has_pending = any(
+        getattr(l, 'zemlja_porijekla', None)
+        and not getattr(l, 'has_origin_statement', False)
+        and not getattr(l, 'eur1_number', None)
+        for l in lines
+    )
+    return 'eur1' if has_pending else 'none'
+
 
 class ImportPipelineService:
     """Upravljanje pipeline modovima i pomoćnim koracima uvoza."""
@@ -59,9 +92,11 @@ class ImportPipelineService:
     def uvezi_u_deklaraciju(self, invoice_lines: list, chat,
                              total_bruto: float = 0.0, total_neto: float = 0.0,
                              has_origin_statement: bool = False,
+                             is_authorized_exporter: bool = False,
                              completed: list = None) -> None:
         _uvezi_u_deklaraciju(self._ctrl, invoice_lines, chat,
-                             total_bruto, total_neto, has_origin_statement, completed)
+                             total_bruto, total_neto, has_origin_statement,
+                             is_authorized_exporter, completed)
 
     def otvori_faktura_tab_nakon_uvoza(self, chat) -> None:
         _otvori_faktura_tab_nakon_uvoza(self._ctrl, chat)
@@ -486,6 +521,7 @@ def _generisi_izvjestaj(ctrl, chat) -> bool:
 def _uvezi_u_deklaraciju(ctrl, invoice_lines: list, chat,
                           total_bruto: float = 0.0, total_neto: float = 0.0,
                           has_origin_statement: bool = False,
+                          is_authorized_exporter: bool = False,
                           completed: list = None) -> None:
     print(f"[ImportPipeline] _uvezi_u_deklaraciju: {len(invoice_lines)} stavki")
 
@@ -505,6 +541,17 @@ def _uvezi_u_deklaraciju(ctrl, invoice_lines: list, chat,
         return
 
     # 1. Uvezi podatke u draft
+    # Postavi invoice_number na svaku stavku
+    invoice_name = ""
+    if completed:
+        for f in completed:
+            if f.status == 'Completed' and (f.invoice_number or f.filepath):
+                invoice_name = f.invoice_number or Path(f.filepath).stem
+                break
+    for line in invoice_lines:
+        if invoice_name and not line.invoice_number:
+            line.invoice_number = invoice_name
+    
     chat.add_activity(f"📥 Uvoz {len(invoice_lines)} stavki...")
     ctrl.draft.invoice_lines.clear()
     ctrl.draft.invoice_lines.extend(invoice_lines)
@@ -546,70 +593,78 @@ def _uvezi_u_deklaraciju(ctrl, invoice_lines: list, chat,
         if hasattr(faktura_widget, '_load_data_from_draft'):
             faktura_widget._load_data_from_draft()
 
-    # 3. Broj fakture za dijalog
+    # 3. Broj fakture za dijalog i za N380 u zaglavlju
     invoice_number = ""
     if completed:
         for f in completed:
             if f.status == 'Completed' and (f.invoice_number or f.filepath):
                 invoice_number = f.invoice_number or Path(f.filepath).stem
                 break
+    
+    # Sačuvaj broj fakture u draft.ref_br (za N380 u zaglavlju)
+    if invoice_number:
+        ctrl.draft.ref_br = invoice_number
 
-    # 4. PE2/EUR.1 dijalog
-    if has_origin_statement:
-        chat.add_activity("📄 Faktura IMA izjavu o poreklu — otvaram PE2 dijalog...")
+    # 4. Dijalog za porijeklo (PE2 / PE3 / EUR.1)
+    dialog_tip = _origin_dialog_type(ctrl.draft.invoice_lines, has_origin_statement,
+                                     is_authorized_exporter)
+
+    if dialog_tip in ('pe2', 'pe3'):
+        doc_code = 'PE3' if dialog_tip == 'pe3' else 'PE2'
+        lbl = "PE3 (ovlašteni izvoznik)" if dialog_tip == 'pe3' else "PE2 (izjava na fakturi)"
+        chat.add_activity(f"📄 Faktura ima izjavu o porijeklu — otvaram {lbl} dijalog...")
         chat.add_agent_message(
-            f"📄 <b>Faktura ima izjavu o preferencijalnom porijeklu.</b><br>"
-            f"Otvoriću PE2 dijalog da potvrdiš ili izmijeniš podatke.<br><br>"
-            f"⚠️ <b>Ništa se ne upisuje automatski — ti odlučuješ.</b>"
+            f"📄 <b>Faktura ima izjavu o preferencijalnom porijeklu ({doc_code}).</b><br>"
+            + (f"Ovlašteni izvoznik — EUR.1 nije potreban.<br>" if dialog_tip == 'pe3' else
+               f"Vrijednost je ispod 6.000 EUR — EUR.1 nije potreban.<br>")
+            + f"<br>⚠️ <b>Ništa se ne upisuje automatski — ti odlučuješ.</b>"
         )
         try:
             from gui.dialogs.pe2_quick_dialog import PE2QuickDialog
-            dialog = PE2QuickDialog(ctrl.draft.invoice_lines, ctrl.view, invoice_number=invoice_number)
+            dialog = PE2QuickDialog(ctrl.draft.invoice_lines, ctrl.view,
+                                    invoice_number=invoice_number, doc_code=doc_code)
             result_dlg = dialog.exec()
             if result_dlg == 1:
                 pe2_data = dialog.get_data()
                 if pe2_data:
                     updated_count = PE2QuickDialog.apply_pe2_data(ctrl.draft.invoice_lines, pe2_data)
-                    chat.add_activity(f"✅ PE2 primijenjen na {updated_count} stavki")
+                    chat.add_activity(f"✅ {doc_code} primijenjen na {updated_count} stavki")
                     if faktura_widget and hasattr(faktura_widget, '_load_data_from_draft'):
                         faktura_widget._load_data_from_draft()
             else:
-                chat.add_activity("ℹ️ PE2 dijalog preskočen — uredi ručno u Faktura tabu")
+                chat.add_activity(f"ℹ️ {doc_code} dijalog preskočen — uredi ručno u Faktura tabu")
         except Exception as e:
-            chat.add_activity(f"⚠️ PE2 dijalog greška: {e}")
+            chat.add_activity(f"⚠️ {doc_code} dijalog greška: {e}")
+
+    elif dialog_tip == 'eur1':
+        razlog = ("Standardna izjava na fakturi, ali vrijednost prelazi 6.000 EUR"
+                  if has_origin_statement else "Faktura nema izjavu o porijeklu")
+        chat.add_activity(f"📋 EUR.1 obrazac potreban — otvaram dijalog...")
+        chat.add_agent_message(
+            f"⚠️ <b>Potreban EUR.1 obrazac.</b><br>"
+            f"{razlog}.<br><br>"
+            f"📄 <b>Unesi EUR.1 broj za svaku zemlju.</b><br>"
+            f"Ako nemaš EUR.1, ostavi prazno i uredi kasnije ručno."
+        )
+        try:
+            from gui.dialogs.eur1_quick_dialog import Eur1QuickDialog
+            dialog = Eur1QuickDialog(ctrl.draft.invoice_lines, ctrl.view, invoice_number=invoice_number)
+            result_dlg = dialog.exec()
+            if result_dlg == 1:
+                eur1_data = dialog.get_data()
+                if eur1_data:
+                    updated_count = Eur1QuickDialog.apply_eur1_data(ctrl.draft.invoice_lines, eur1_data)
+                    chat.add_activity(f"✅ EUR.1 primijenjen na {updated_count} stavki")
+                    _apply_eur1_to_naimenovanja(ctrl, eur1_data, chat)
+                    if faktura_widget and hasattr(faktura_widget, '_load_data_from_draft'):
+                        faktura_widget._load_data_from_draft()
+            else:
+                chat.add_activity("ℹ️ EUR.1 dijalog preskočen — unesi broj ručno u Faktura tabu")
+        except Exception as e:
+            chat.add_activity(f"⚠️ EUR.1 dijalog greška: {e}")
+
     else:
-        eur1_pending_lines = [
-            line for line in ctrl.draft.invoice_lines
-            if getattr(line, 'povlastica', None)
-            and not getattr(line, 'has_origin_statement', False)
-            and not getattr(line, 'eur1_number', None)
-        ]
-        if eur1_pending_lines:
-            chat.add_activity(f"📋 {len(eur1_pending_lines)} stavki treba EUR.1 broj — otvaram dijalog...")
-            chat.add_agent_message(
-                f"⚠️ <b>Faktura NEMA izjavu o porijeklu.</b><br>"
-                f"Pronašao sam <b>{len(eur1_pending_lines)}</b> stavki koje mogu koristiti EUR.1 obrazac.<br><br>"
-                f"📄 <b>Unesi EUR.1 broj za svaku zemlju.</b><br>"
-                f"Ako nemaš EUR.1, ostavi prazno i uredi kasnije ručno."
-            )
-            try:
-                from gui.dialogs.eur1_quick_dialog import Eur1QuickDialog
-                dialog = Eur1QuickDialog(ctrl.draft.invoice_lines, ctrl.view, invoice_number=invoice_number)
-                result_dlg = dialog.exec()
-                if result_dlg == 1:
-                    eur1_data = dialog.get_data()
-                    if eur1_data:
-                        updated_count = Eur1QuickDialog.apply_eur1_data(ctrl.draft.invoice_lines, eur1_data)
-                        chat.add_activity(f"✅ EUR.1 primijenjen na {updated_count} stavki")
-                        _apply_eur1_to_naimenovanja(ctrl, eur1_data, chat)
-                        if faktura_widget and hasattr(faktura_widget, '_load_data_from_draft'):
-                            faktura_widget._load_data_from_draft()
-                else:
-                    chat.add_activity("ℹ️ EUR.1 dijalog preskočen — unesi broj ručno u Faktura tabu")
-            except Exception as e:
-                chat.add_activity(f"⚠️ EUR.1 dijalog greška: {e}")
-        else:
-            chat.add_activity("ℹ️ Nema stavki koje zahtijevaju EUR.1 — nastavi ručno uređivanje")
+        chat.add_activity("ℹ️ Nema stavki koje zahtijevaju EUR.1 — nastavi ručno uređivanje")
 
     # 5. Rezime
     bez_tarife = sum(1 for l in ctrl.draft.invoice_lines if not l.tarifni_broj)

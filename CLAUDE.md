@@ -89,6 +89,10 @@ query: "arhitektura tabovi refactor status"
 - **Auto-detekcija formata**: svaki importer ima detect_* funkciju
 - **Kombinovanje**: Excel + PDF za Blagić (matching po product_code)
 - **Rezultat**: uvijek vraća ImportResult sa items, bruto_kg, neto_kg
+- **OBAVEZNO — `consumed_paths`**: Svaki kombinirani importer koji interno koristi drugi fajl
+  (Excel+PDF par, Invoice+PackingList) MORA postaviti `consumed_paths=[putanja_potrošenog_fajla]`
+  u `ImportResult`. Bez toga agent procesira oba fajla zasebno → duplikati stavki u deklaraciji.
+  Primjer: CASE 1/2 (Blagić), CASE 1B/2B (Šumaprom), CASE 3/4 (Invoice+PackingList), Leburic.
 
 ### 6. Auto-popunjavanje tarifnih brojeva
 - **TariffMappingService**: baza znanja za mapiranje product_code/naziv_robe → tarifni_broj

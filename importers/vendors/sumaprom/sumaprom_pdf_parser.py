@@ -54,7 +54,13 @@ def detect_sumaprom_pdf(filepath: str) -> bool:
             text = pages[0] if pages else ""
 
         t = text.upper()
-        return ("SUMAPROM" in t or "ŠUMAPROM" in t) and ("FAKTURA" in t or "INVOICE" in t)
+        # Detektuj ŠUMAPROM po: nazivu firme, ili po karakteristikama (R.br., Item Code, itd)
+        if ("SUMAPROM" in t or "ŠUMAPROM" in t) and ("FAKTURA" in t or "INVOICE" in t):
+            return True
+        # Ako nema SUMAPROM ali format fakture odgovara (TECHNOGREEN + faktura)
+        if "TECHNOGREEN" in t and ("FAKTURA" in t or "INVOICE" in t):
+            return True
+        return False
 
     except Exception as e:
         logger.debug(f"detect_sumaprom_pdf error: {e}")

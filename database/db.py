@@ -45,6 +45,9 @@ def get_connection():
     """
     Dohvata konekciju iz pool-a.
     
+    VAŽNO: Konekcija se MORA vratiti u pool pozivom pool.putconn(conn).
+    Preporučuje se korištenje get_db_connection() context manager-a umjesto ove funkcije.
+    
     Returns:
         psycopg2.connection: DB konekcija
     """
@@ -159,7 +162,7 @@ def get_tarifa_opis(tarifni_kod: str):
         LIMIT 1
     """
 
-    with get_connection() as conn:
+    with get_db_connection() as conn:
         with conn.cursor() as cur:
             for kod in fallback_codes:
                 cur.execute(sql, (kod,))
@@ -186,7 +189,7 @@ def search_tarife_by_text(query: str, limit: int = 20):
         LIMIT %s
     """
 
-    with get_connection() as conn:
+    with get_db_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(sql, (f"%{q}%", limit))
             return cur.fetchall()
@@ -213,7 +216,7 @@ def get_nazivi_robe_za_tarifu(tarifni_kod: str, limit: int = 10):
         LIMIT %s
     """
 
-    with get_connection() as conn:
+    with get_db_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(sql, (kod, limit))
             rows = cur.fetchall()
@@ -236,7 +239,7 @@ def search_nazivi_robe(query: str, limit: int = 20):
         LIMIT %s
     """
 
-    with get_connection() as conn:
+    with get_db_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(sql, (f"%{q}%", limit))
             return cur.fetchall()
@@ -262,7 +265,7 @@ def get_partner_by_jib(jib: str):
         LIMIT 1
     """
 
-    with get_connection() as conn:
+    with get_db_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(sql, (j,))
             return cur.fetchone()
@@ -292,7 +295,7 @@ def search_partnere(query: str, limit: int = 20):
         """
         params = (f"%{q}%", limit)
 
-    with get_connection() as conn:
+    with get_db_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(sql, params)
             return cur.fetchall()
@@ -323,7 +326,7 @@ def get_trader_by_code(code: str, trader_type: str | None = None):
         """
         params = (c,)
 
-    with get_connection() as conn:
+    with get_db_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(sql, params)
             return cur.fetchone()
@@ -374,7 +377,7 @@ def search_traders(query: str, trader_type: str | None = None, limit: int = 20):
             """
             params = (f"%{q}%", limit)
 
-    with get_connection() as conn:
+    with get_db_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(sql, params)
             return cur.fetchall()
@@ -409,7 +412,7 @@ def get_izvoznik_by_jib(jib: str):
         LIMIT 1
     """
 
-    with get_connection() as conn:
+    with get_db_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(sql, (j,))
             return cur.fetchone()
@@ -430,7 +433,7 @@ def get_uvoznik_by_jib(jib: str):
         LIMIT 1
     """
 
-    with get_connection() as conn:
+    with get_db_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(sql, (j,))
             return cur.fetchone()
@@ -438,29 +441,28 @@ def get_uvoznik_by_jib(jib: str):
 
 def search_izvoznike(query: str, limit: int = 20):
     """
-    Pretraga izvoznika po nazivu.
+    Pretraga izvoznika po nazivu ili JIB-u.
     """
     q = (query or "").strip()
     if not q:
-        # Ako je query prazan, učitaj sve izvoznike
         sql = """
-            SELECT jib, naziv, adresa, grad, postanski_broj, drzava
+            SELECT jib, naziv, adresa, grad, drzava
             FROM catalogs.izvoznici
-            ORDER BY naziv
+            ORDER BY naziv NULLS LAST
             LIMIT %s
         """
         params = (limit,)
     else:
         sql = """
-            SELECT jib, naziv, adresa, grad, postanski_broj, drzava
+            SELECT jib, naziv, adresa, grad, drzava
             FROM catalogs.izvoznici
-            WHERE naziv ILIKE %s
-            ORDER BY naziv
+            WHERE naziv ILIKE %s OR jib ILIKE %s
+            ORDER BY naziv NULLS LAST
             LIMIT %s
         """
-        params = (f"%{q}%", limit)
+        params = (f"%{q}%", f"%{q}%", limit)
 
-    with get_connection() as conn:
+    with get_db_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(sql, params)
             return cur.fetchall()
@@ -468,15 +470,14 @@ def search_izvoznike(query: str, limit: int = 20):
 
 def search_uvoznike(query: str, limit: int = 20):
     """
-    Pretraga uvoznika po nazivu.
+    Pretraga uvoznika po nazivu ili JIB-u.
     """
     q = (query or "").strip()
     if not q:
-        # Ako je query prazan, učitaj sve uvoznike
         sql = """
             SELECT jib, naziv, adresa, grad, postanski_broj, drzava
             FROM catalogs.uvoznici
-            ORDER BY naziv
+            ORDER BY naziv NULLS LAST
             LIMIT %s
         """
         params = (limit,)
@@ -484,13 +485,13 @@ def search_uvoznike(query: str, limit: int = 20):
         sql = """
             SELECT jib, naziv, adresa, grad, postanski_broj, drzava
             FROM catalogs.uvoznici
-            WHERE naziv ILIKE %s
-            ORDER BY naziv
+            WHERE naziv ILIKE %s OR jib ILIKE %s
+            ORDER BY naziv NULLS LAST
             LIMIT %s
         """
-        params = (f"%{q}%", limit)
+        params = (f"%{q}%", f"%{q}%", limit)
 
-    with get_connection() as conn:
+    with get_db_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(sql, params)
             return cur.fetchall()

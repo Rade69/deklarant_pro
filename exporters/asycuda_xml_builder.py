@@ -32,6 +32,44 @@ _PREF_TO_DOC_NAME = {
     "TRPD": "Dokaz o turskom preferencijalnom porijeklu robe",
 }
 
+# Nazivi dopunskih jedinica mjere (Rb.41)
+_SU_NAMES = {
+    "KGM": "Kilogram za statistiku",
+    "KGD": "Kilogram za obračun",
+    "KSD": "Komad za statistiku",
+    "KDD": "Komad za obračun",
+    "LTR": "Litar",
+    "MTR": "Metar",
+    "MTK": "Kvadratni metar",
+    "MTQ": "Kubni metar",
+    "TNE": "Tona",
+}
+
+# Tarifna poglavlja (1-24) koja u BiH ASYCUDA uvijek zahtijevaju KGM+KGD
+_CHAPTERS_KGM = set(range(1, 25))
+
+# Mapiranje Rb.37 (Extended_customs_procedure) → Declaration_gen_procedure_code
+_PROC_TO_GEN = {
+    "4000": "H", "4200": "H",
+    "5100": "I", "5300": "I",
+    "7100": "J",
+    "1000": "A", "1021": "A", "1023": "A",
+    "3151": "C", "3153": "C",
+    "2100": "E", "2141": "E",
+}
+
+
+def _clean_tariff_desc(text: str) -> str:
+    """Ukloni fusnote (¹)(3) i normalizuj en-dash → ASCII crtica."""
+    import re
+    if not text:
+        return text
+    # Ukloni fusnote oblika (¹), (³), (1), (23)...
+    cleaned = re.sub(r"\s*\([¹²³⁴⁵⁶⁷⁸⁹⁰\d]+\)", "", text)
+    # en-dash i em-dash → ASCII crtica
+    cleaned = cleaned.replace("–", "-").replace("—", "-").replace("‒", "-")
+    return cleaned.strip()
+
 
 def _null(parent: ET.Element, tag: str) -> ET.Element:
     """Kreira <tag><null/></tag> element."""
@@ -204,8 +242,12 @@ class AsycudaXMLBuilder:
 
         type_elem = ET.SubElement(ident, "Type")
         _val(type_elem, "Type_of_declaration", self._g("deklaracija_tip", "IM"))
-        _val(type_elem, "Type_of_Declaration_X", self._g("deklaracija_a", "A"))
-        _val(type_elem, "Declaration_gen_procedure_code", self._g("deklaracija_oznaka", "H"))
+        # deklaracija_oznaka = A/Z/B (Type_of_Declaration_X: A=potpuna, Z=pojednostavljena)
+        _val(type_elem, "Type_of_Declaration_X", self._g("deklaracija_oznaka", "A"))
+        # Declaration_gen_procedure_code izvodi se iz Rb.37 prvog naimenovanja
+        first_proc = self.draft.items[0].procedure_code if self.draft.items else ""
+        gen_proc = _PROC_TO_GEN.get(first_proc, "H")
+        _val(type_elem, "Declaration_gen_procedure_code", gen_proc)
         _null(type_elem, "Type_of_transit_document")
 
         _null(ident, "Manifest_reference_number")
@@ -255,7 +297,7 @@ class AsycudaXMLBuilder:
 
         # Financial (prazno)
         financial = ET.SubElement(traders, "Financial")
-        ET.SubElement(financial, "Financial_code")
+        _null(financial, "Financial_code")
         _null(financial, "Financial_name")
 
     def _add_representative(self) -> None:
@@ -539,6 +581,23 @@ class AsycudaXMLBuilder:
         """Dodaje <Item> za svako naimenovanje."""
         header_docs = list(getattr(self.draft, "header_attached_documents", []) or [])
 
+        # Skupi dokumente o porijeklu sa svih stavki i dodaj na prvu stavku.
+        # ASYCUDA World standard: svi Attached_documents idu samo na prvu stavku.
+        seen_origin_keys: set[tuple] = set()
+        for item in self.draft.items:
+            pref_doc_code = _PREF_TO_DOC_CODE.get(item.preference_code or "", "")
+            if pref_doc_code:
+                origin_ref = item.attached_document1 or ""
+                key = (pref_doc_code, origin_ref)
+                if key not in seen_origin_keys:
+                    seen_origin_keys.add(key)
+                    header_docs.append(AttachedDocument(
+                        code=pref_doc_code,
+                        name=_PREF_TO_DOC_NAME.get(pref_doc_code, ""),
+                        number=origin_ref,
+                        from_rule=True,
+                    ))
+
         for idx, item in enumerate(self.draft.items):
             is_first = idx == 0
             self._add_single_item(item, header_docs if is_first else [], is_first)
@@ -571,26 +630,12 @@ class AsycudaXMLBuilder:
             if doc.from_rule:
                 from_rule_codes.append(doc.code)
 
-        # 2. Dokument o porijeklu (FTAP/EUPT/...) baziran na preference_code i attached_document1
-        pref_doc_code = _PREF_TO_DOC_CODE.get(item.preference_code or "", "")
-        pref_doc_name = _PREF_TO_DOC_NAME.get(pref_doc_code, "")
-        origin_ref = item.attached_document1 or ""
-
-        if not pref_doc_code and item.attached_documents:
-            # Koristimo strukturirane dokumente ako postoje
+        # 2. Strukturirani dokumenti stavke (bez pref_doc — ti su prebačeni na prvu stavku)
+        if item.attached_documents:
             for doc in item.attached_documents:
                 self._add_attached_doc(item_elem, doc)
                 if doc.from_rule:
                     from_rule_codes.append(doc.code)
-        elif pref_doc_code:
-            doc = AttachedDocument(
-                code=pref_doc_code,
-                name=pref_doc_name,
-                number=origin_ref,
-                from_rule=True,
-            )
-            self._add_attached_doc(item_elem, doc)
-            from_rule_codes.append(pref_doc_code)
 
         # Packages
         packages = ET.SubElement(item_elem, "Packages")
@@ -638,12 +683,28 @@ class AsycudaXMLBuilder:
         quota_item = ET.SubElement(quota, "QuotaItem")
         _null(quota_item, "ItmNbr")
 
-        # 3x Supplementary_unit (prazno)
-        for _ in range(3):
-            su = ET.SubElement(tarif, "Supplementary_unit")
-            _null(su, "Suppplementary_unit_code")
-            _null(su, "Suppplementary_unit_name")
-            ET.SubElement(su, "Suppplementary_unit_quantity")
+        # Rb.41 — Dopunske jedinice mjere
+        su_code = (item.supplementary_unit_code or "").strip().upper()
+        su_qty  = item.supplementary_unit_qty or 0.0
+        su_pairs = []  # lista (code, qty) za popunjavanje
+
+        if su_code and su_qty:
+            su_pairs.append((su_code, su_qty))
+            if su_code == "KGM":
+                su_pairs.append(("KGD", su_qty))
+
+        # Uvijek 3 bloka — popunjavaj koliko ima, ostatak prazno
+        for i in range(3):
+            su_el = ET.SubElement(tarif, "Supplementary_unit")
+            if i < len(su_pairs):
+                code, qty = su_pairs[i]
+                _val(su_el, "Suppplementary_unit_code", code)
+                _val(su_el, "Suppplementary_unit_name", _SU_NAMES.get(code, code))
+                ET.SubElement(su_el, "Suppplementary_unit_quantity").text = f"{qty:.2f}"
+            else:
+                _null(su_el, "Suppplementary_unit_code")
+                _null(su_el, "Suppplementary_unit_name")
+                ET.SubElement(su_el, "Suppplementary_unit_quantity")
 
         item_price = ET.SubElement(tarif, "Item_price")
         if item.item_value:
@@ -680,10 +741,21 @@ class AsycudaXMLBuilder:
         goods = ET.SubElement(item_elem, "Goods_description")
         _val(goods, "Country_of_origin_code", item.origin_country_code or "")
         _null(goods, "Country_of_origin_region")
-        _val(goods, "Description_of_goods", item.goods_description or ".")
-        _val(goods, "Commercial_Description", item.goods_trade_name or "")
+        # Description_of_goods = precizni tarifni opis podbroja (npr. "- - ostalo")
+        desc_of_goods = _clean_tariff_desc(item.tariff_description1) or item.goods_description or "."
+        _val(goods, "Description_of_goods", desc_of_goods)
+
+        # Commercial_Description = heading opis + komercijalni nazivi iz fakture
+        comm_parts = []
+        if item.tariff_description2:
+            comm_parts.append(item.tariff_description2)
+        if item.goods_trade_name:
+            comm_parts.append(item.goods_trade_name)
+        commercial_desc = "\n".join(comm_parts) if comm_parts else (item.goods_description or "")
+        _val(goods, "Commercial_Description", commercial_desc)
 
         # Previous_doc — Rub.40 (category/type/broj)
+        # Exportuje se SAMO ono što korisnik unese — bez automatskih defaulta
         prev = ET.SubElement(item_elem, "Previous_doc")
         prev_cat = item.previous_document or ""
         prev_type = item.previous_document2 or ""

@@ -61,7 +61,8 @@ from services.import_worker import ImportWorker
 from services.validation_service import FakturaItemValidator, ValidationLevel
 from services.declaration_assembly import DeclarationAssembly
 from services.export_service import ExportService
-# from exporters.pdf_invoice_exporter import export_invoice_to_pdf  # PRIVREMENO: comment zbog PIL konflikta
+from exporters.pdf_invoice_exporter import export_invoice_to_pdf
+from exporters.pdf_faktura_pregled import export_faktura_pregled
 from gui.delegates import ValidationDelegate
 from gui.dialogs import AddItemDialog
 from importers.import_result import ImportResult
@@ -360,12 +361,22 @@ class FakturaView(BaseTabView):
 
             self.btn_export_pdf = self._create_button(
                 "PDF",
-                "Export u PDF",
+                "Export u PDF — grupisanje po naimenovanjima",
                 object_name="btnPDF",
                 compact=True,
                 icon_name="fa5s.file-pdf",
             )
             self.btn_export_pdf.clicked.connect(self._on_export_pdf)
+
+            # docs/sections/export-pdf-excel.md — dugme Pregled faktura
+            self.btn_pregled_faktura = self._create_button(
+                "Pregled",
+                "Pregled faktura — grupisanje po fakturi za carinika",
+                object_name="btnPregledFaktura",
+                compact=True,
+                icon_name="fa5s.eye",
+            )
+            self.btn_pregled_faktura.clicked.connect(self._on_export_pregled_faktura)
             layout.addWidget(self.btn_export_pdf)
 
             self.btn_create_naimenovanja = self._create_button(
@@ -453,12 +464,13 @@ class FakturaView(BaseTabView):
     def _create_table(self) -> QTableWidget:
         """Create the main items table."""
         table = QTableWidget()
-        table.setColumnCount(11)
+        table.setColumnCount(12)
 
         # Set headers
         headers = [
             "Red.br.",
-            "Naimenov",
+            "Faktura",
+            "Naimenovanja",
             "Naziv robe",
             "Tarifni broj",
             "Količina",
@@ -474,21 +486,26 @@ class FakturaView(BaseTabView):
         # Set column widths - optimized for 1536px window (80% Full HD)
         header = table.horizontalHeader()
         table.setColumnWidth(0, 60)  # Red.br. (povećano)
-        table.setColumnWidth(1, 95)  # Naimenov
-        table.setColumnWidth(2, 430)  # Naziv robe (glavna kolona - povećano)
-        table.setColumnWidth(3, 140)  # Tarifni broj (povećano - 10 cifara)
-        table.setColumnWidth(4, 100)  # Količina
-        table.setColumnWidth(5, 110)  # Cijena
-        table.setColumnWidth(6, 120)  # Bruto (kg)
-        table.setColumnWidth(7, 120)  # Neto (kg)
-        table.setColumnWidth(8, 80)  # Zemlja
-        table.setColumnWidth(9, 100)  # Povlastica
-        table.setColumnWidth(10, 65)  # Valuta (3 slova: EUR/USD/BAM)
+        table.setColumnWidth(1, 250)  # Faktura (250px za najduže brojeve faktura)
+        table.setColumnWidth(2, 125)  # Naimenovanja (125px za savršenu čitljivost)
+        table.setColumnWidth(3, 430)  # Naziv robe (glavna kolona - povećano, takođe rastegljiva)
+        table.setColumnWidth(4, 140)  # Tarifni broj (povećano - 10 cifara)
+        table.setColumnWidth(5, 100)  # Količina
+        table.setColumnWidth(6, 110)  # Cijena
+        table.setColumnWidth(7, 120)  # Bruto (kg)
+        table.setColumnWidth(8, 120)  # Neto (kg)
+        table.setColumnWidth(9, 80)  # Zemlja
+        table.setColumnWidth(10, 100)  # Povlastica
+        table.setColumnWidth(11, 65)  # Valuta (3 slova: EUR/USD/BAM)
 
         # ZAKUCAJ širinu tabele - ne dozvoli automatsku optimizaciju
         header.setSectionResizeMode(QHeaderView.Fixed)
-        # "Naziv robe" se rasteže da popuni ostatak prostora (glavna kolona)
-        header.setSectionResizeMode(2, QHeaderView.Stretch)
+        # "Faktura" (kolona 1) - Interactive sa početnom širinom od 200px za duge brojeve
+        header.setSectionResizeMode(1, QHeaderView.Interactive)
+        # "Naziv robe" (kolona 3) se rasteže da popuni ostatak prostora
+        header.setSectionResizeMode(3, QHeaderView.Stretch)
+        # Omogući rastezanje zadnje sekcije
+        header.setStretchLastSection(False)
 
         # Table settings
         table.setAlternatingRowColors(
@@ -788,6 +805,9 @@ class FakturaView(BaseTabView):
         """FAST bulk insert - no validation, no color (called from _load_data_from_draft)."""
         # Set data WITHOUT validation - much faster for bulk load
         self._set_table_item(row_number, 0, str(row_number + 1), align=Qt.AlignCenter)
+        
+        # Faktura - prikaži broj fakture
+        self._set_table_item(row_number, 1, item.invoice_number or "", align=Qt.AlignCenter)
 
         # Naimenovanje - show ordinal number if assigned
         naimenovanje_text = (
@@ -795,7 +815,7 @@ class FakturaView(BaseTabView):
             if item.assigned_naimenovanje_ordinal > 0
             else ""
         )
-        self._set_table_item(row_number, 1, naimenovanje_text, align=Qt.AlignCenter)
+        self._set_table_item(row_number, 2, naimenovanje_text, align=Qt.AlignCenter)
 
         # Naziv robe - ukloni product_code sa početka ako postoji
         naziv_display = item.naziv_robe or ""
@@ -807,27 +827,27 @@ class FakturaView(BaseTabView):
             if match:
                 naziv_display = match.group(2)
 
-        self._set_table_item(row_number, 2, naziv_display)
+        self._set_table_item(row_number, 3, naziv_display)
         self._set_table_item(
-            row_number, 3, item.tarifni_broj or "", align=Qt.AlignCenter
+            row_number, 4, item.tarifni_broj or "", align=Qt.AlignCenter
         )
         self._set_table_item(
-            row_number, 4, self._format_number(item.kolicina), align=Qt.AlignRight
+            row_number, 5, self._format_number(item.kolicina), align=Qt.AlignRight
         )
         self._set_table_item(
-            row_number, 5, self._format_number(item.iznos), align=Qt.AlignRight
+            row_number, 6, self._format_number(item.iznos), align=Qt.AlignRight
         )
         self._set_table_item(
-            row_number, 6, self._format_number(item.bruto_kg), align=Qt.AlignRight
+            row_number, 7, self._format_number(item.bruto_kg), align=Qt.AlignRight
         )
         self._set_table_item(
-            row_number, 7, self._format_number(item.neto_kg), align=Qt.AlignRight
+            row_number, 8, self._format_number(item.neto_kg), align=Qt.AlignRight
         )
         self._set_table_item(
-            row_number, 8, item.zemlja_porijekla or "", align=Qt.AlignCenter
+            row_number, 9, item.zemlja_porijekla or "", align=Qt.AlignCenter
         )
-        self._set_table_item(row_number, 9, item.povlastica or "", align=Qt.AlignCenter)
-        self._set_table_item(row_number, 10, item.valuta or "", align=Qt.AlignCenter)
+        self._set_table_item(row_number, 10, item.povlastica or "", align=Qt.AlignCenter)
+        self._set_table_item(row_number, 11, item.valuta or "", align=Qt.AlignCenter)
 
     def _add_item_to_table(self, row_number: int, item: InvoiceLine):
         """Add a single item to the table (with validation for single adds)."""
@@ -836,13 +856,15 @@ class FakturaView(BaseTabView):
 
         # Set data
         self._set_table_item(row, 0, str(row_number + 1), align=Qt.AlignCenter)
+        # Faktura - prikaži broj fakture
+        self._set_table_item(row, 1, item.invoice_number or "", align=Qt.AlignCenter)
         # Naimenovanje - show ordinal number if assigned
         naimenovanje_text = (
             str(item.assigned_naimenovanje_ordinal)
             if item.assigned_naimenovanje_ordinal > 0
             else ""
         )
-        self._set_table_item(row, 1, naimenovanje_text, align=Qt.AlignCenter)
+        self._set_table_item(row, 2, naimenovanje_text, align=Qt.AlignCenter)
 
         # Naziv robe - ukloni product_code sa početka ako postoji
         # VAŽNO: Ne mijenjamo original item.naziv_robe, samo display verziju
@@ -860,24 +882,24 @@ class FakturaView(BaseTabView):
                 # Našli smo šifru na početku - ukloni je
                 naziv_display = match.group(2)  # Samo naziv bez šifre
 
-        self._set_table_item(row, 2, naziv_display)
+        self._set_table_item(row, 3, naziv_display)
 
-        self._set_table_item(row, 3, item.tarifni_broj or "", align=Qt.AlignCenter)
+        self._set_table_item(row, 4, item.tarifni_broj or "", align=Qt.AlignCenter)
         self._set_table_item(
-            row, 4, self._format_number(item.kolicina), align=Qt.AlignRight
+            row, 5, self._format_number(item.kolicina), align=Qt.AlignRight
         )
         self._set_table_item(
-            row, 5, self._format_number(item.iznos), align=Qt.AlignRight
+            row, 6, self._format_number(item.iznos), align=Qt.AlignRight
         )  # UKUPAN IZNOS, ne cijena po komadu!
         self._set_table_item(
-            row, 6, self._format_number(item.bruto_kg), align=Qt.AlignRight
+            row, 7, self._format_number(item.bruto_kg), align=Qt.AlignRight
         )
         self._set_table_item(
-            row, 7, self._format_number(item.neto_kg), align=Qt.AlignRight
+            row, 8, self._format_number(item.neto_kg), align=Qt.AlignRight
         )
-        self._set_table_item(row, 8, item.zemlja_porijekla or "", align=Qt.AlignCenter)
-        self._set_table_item(row, 9, item.povlastica or "", align=Qt.AlignCenter)
-        self._set_table_item(row, 10, item.valuta or "", align=Qt.AlignCenter)
+        self._set_table_item(row, 9, item.zemlja_porijekla or "", align=Qt.AlignCenter)
+        self._set_table_item(row, 10, item.povlastica or "", align=Qt.AlignCenter)
+        self._set_table_item(row, 11, item.valuta or "", align=Qt.AlignCenter)
 
         # Validate and set row color
         self._validate_and_color_row(row, item)
@@ -1012,8 +1034,8 @@ class FakturaView(BaseTabView):
             tooltip_parts.append(f"🚨 Konflikt porekla: {item.country_conflict_details or 'PDF i baza imaju različite vrednosti'}")
             tooltip_parts.append("ℹ️ Korišćena je vrednost iz PDF-a")
         
-        # Apply to zemlja_porijekla column (col 8)
-        cell_item = self.table.item(row, 8)
+        # Apply to zemlja_porijekla column (col 9) - pomjereno zbog dodate kolone Faktura
+        cell_item = self.table.item(row, 9)
         if cell_item:
             cell_item.setData(ValidationDelegate.ValidationColorRole, color_hex)
             if item.zemlja_porijekla:
@@ -1042,26 +1064,28 @@ class FakturaView(BaseTabView):
 
         # Update corresponding field based on column
         try:
-            if col == 2:  # Naziv robe
+            if col == 1:  # Faktura (nova kolona)
+                invoice_item.invoice_number = value
+            elif col == 3:  # Naziv robe (pomjereno za +1 zbog nove kolone)
                 invoice_item.naziv_robe = value
-            elif col == 3:  # Tarifni broj
+            elif col == 4:  # Tarifni broj (pomjereno za +1)
                 invoice_item.tarifni_broj = value
-            elif col == 4:  # Količina
+            elif col == 5:  # Količina (pomjereno za +1)
                 invoice_item.kolicina = self._parse_number(value) if value else 0.0
-            elif col == 5:  # IZNOS (ukupan iznos, NE cijena po komadu!)
+            elif col == 6:  # IZNOS (ukupan iznos, NE cijena po komadu!) (pomjereno za +1)
                 invoice_item.iznos = self._parse_number(value) if value else 0.0
                 # VAŽNO: Ne mijenjamo cijena_jed - to je cijena po komadu koja dolazi iz fakture
-            elif col == 6:  # Bruto kg
+            elif col == 7:  # Bruto kg (pomjereno za +1)
                 invoice_item.bruto_kg = self._parse_number(value) if value else 0.0
-            elif col == 7:  # Neto kg
+            elif col == 8:  # Neto kg (pomjereno za +1)
                 invoice_item.neto_kg = self._parse_number(value) if value else 0.0
-            elif col == 8:  # Zemlja — čisti kod iz UserRole, ne tekst sa emojiem
+            elif col == 9:  # Zemlja — čisti kod iz UserRole, ne tekst sa emojiem (pomjereno za +1)
                 from PySide6.QtCore import Qt as _Qt
                 user_val = item.data(_Qt.UserRole)
                 invoice_item.zemlja_porijekla = str(user_val).strip() if user_val else value
-            elif col == 9:  # Povlastica
+            elif col == 10:  # Povlastica (pomjereno za +1)
                 invoice_item.povlastica = value
-            elif col == 10:  # Valuta
+            elif col == 11:  # Valuta (pomjereno za +1)
                 invoice_item.valuta = value
         except Exception as e:
             # Log error but don't crash
@@ -1133,8 +1157,9 @@ class FakturaView(BaseTabView):
         cell_item = self.table.item(row, col)
         if not cell_item:
             return ""
-        # Kolona 8 (zemlja_porijekla): čisti kod čuvan u UserRole da emoji ne uđe u podatak
-        if col == 8:
+        # Kolona 9 (zemlja_porijekla): čisti kod čuvan u UserRole da emoji ne uđe u podatak
+        # Pomjereno za +1 zbog dodate kolone Faktura
+        if col == 9:
             from PySide6.QtCore import Qt as _Qt
             user_val = cell_item.data(_Qt.UserRole)
             if user_val is not None:
@@ -1152,24 +1177,25 @@ class FakturaView(BaseTabView):
             invoice_item = self.draft.invoice_lines[row]
 
             # Read all cells and update invoice_item (using helper method)
-            invoice_item.naziv_robe = self._get_cell_value(row, 2)
-            invoice_item.tarifni_broj = self._get_cell_value(row, 3)
-            invoice_item.kolicina = self._parse_number(self._get_cell_value(row, 4))
+            invoice_item.invoice_number = self._get_cell_value(row, 1)  # Nova kolona
+            invoice_item.naziv_robe = self._get_cell_value(row, 3)      # Pomjereno za +1
+            invoice_item.tarifni_broj = self._get_cell_value(row, 4)    # Pomjereno za +1
+            invoice_item.kolicina = self._parse_number(self._get_cell_value(row, 5))  # Pomjereno za +1
 
-            # VAŽNO: Kolona 5 je "Ukupan iznos", ne cijena_jed!
+            # VAŽNO: Kolona 6 je "Ukupan iznos", ne cijena_jed! (pomjereno za +1)
             # Direktno čuvaj iznos, pa izračunaj cijena_jed ako ima količine
-            ukupan_iznos = self._parse_number(self._get_cell_value(row, 5))
+            ukupan_iznos = self._parse_number(self._get_cell_value(row, 6))
             invoice_item.iznos = ukupan_iznos
             if invoice_item.kolicina and invoice_item.kolicina > 0:
                 invoice_item.cijena_jed = ukupan_iznos / invoice_item.kolicina
             else:
                 invoice_item.cijena_jed = 0.0
 
-            invoice_item.bruto_kg = self._parse_number(self._get_cell_value(row, 6))
-            invoice_item.neto_kg = self._parse_number(self._get_cell_value(row, 7))
-            invoice_item.zemlja_porijekla = self._get_cell_value(row, 8)
-            invoice_item.povlastica = self._get_cell_value(row, 9)
-            invoice_item.valuta = self._get_cell_value(row, 10)
+            invoice_item.bruto_kg = self._parse_number(self._get_cell_value(row, 7))  # Pomjereno za +1
+            invoice_item.neto_kg = self._parse_number(self._get_cell_value(row, 8))   # Pomjereno za +1
+            invoice_item.zemlja_porijekla = self._get_cell_value(row, 9)              # Pomjereno za +1
+            invoice_item.povlastica = self._get_cell_value(row, 10)                   # Pomjereno za +1
+            invoice_item.valuta = self._get_cell_value(row, 11)                       # Pomjereno za +1
 
     def _update_status_bar(self):
         """Update status bar with current statistics."""
@@ -1522,6 +1548,7 @@ class FakturaView(BaseTabView):
         failed_imports = []
         excel_count = 0
         pdf_count = 0
+        any_authorized_exporter = False
 
         import_service = ImportService()
 
@@ -1546,6 +1573,8 @@ class FakturaView(BaseTabView):
                     items = result.items
                     bruto_kg = result.bruto_kg or 0.0
                     neto_kg = result.neto_kg or 0.0
+                    if getattr(result, 'is_authorized_exporter', False):
+                        any_authorized_exporter = True
                 else:
                     # Backward compatibility
                     items = result
@@ -1605,22 +1634,24 @@ class FakturaView(BaseTabView):
             # Enable buttons
             self._set_buttons_enabled(True)
 
-            # EUR.1 / PE2 DIALOG — prikaži korisniku i za grupni uvoz
-            has_origin = any(
-                getattr(item, 'has_origin_statement', False)
-                for item in all_items
-            )
+            # EUR.1 / PE2 / PE3 DIALOG — prikaži korisniku i za grupni uvoz
+            has_origin = any(getattr(item, 'has_origin_statement', False) for item in all_items)
             if has_origin:
-                total_value = sum(getattr(i, 'iznos', 0.0) for i in all_items)
-                if total_value > 6000:
-                    logger.info(f"📦 [grupni uvoz] → iznos={total_value:.2f}€ > 6000 → EUR1 dialog")
-                    self._show_eur1_dialog()
+                from gui.tabs.agent.services.import_pipeline_service import _origin_dialog_type
+                first_invoice = Path(filepaths[0]).stem if filepaths else "Grupni uvoz"
+                dialog_tip = _origin_dialog_type(all_items, has_origin, any_authorized_exporter)
+                if dialog_tip == 'pe3':
+                    logger.info("📦 [grupni uvoz] → ovlašteni izvoznik → PE3 dialog")
+                    self._show_pe2_dialog(first_invoice, doc_code='PE3')
+                elif dialog_tip == 'pe2':
+                    logger.info("📦 [grupni uvoz] → PE2 dialog")
+                    self._show_pe2_dialog(first_invoice, doc_code='PE2')
                 else:
-                    logger.info("📦 [grupni uvoz] → otvaram PE2 dialog")
-                    first_invoice = Path(filepaths[0]).stem if filepaths else "Grupni uvoz"
-                    self._show_pe2_dialog(first_invoice)
+                    val = sum(getattr(i, 'iznos', 0.0) for i in all_items)
+                    logger.info(f"📦 [grupni uvoz] → iznos={val:.2f}€ > 6000 → EUR.1 dialog")
+                    self._show_eur1_dialog()
             elif self._should_show_eur1_dialog(all_items):
-                logger.info("📦 [grupni uvoz] → otvaram EUR.1 dialog")
+                logger.info("📦 [grupni uvoz] → EUR.1 dialog")
                 self._show_eur1_dialog()
 
             # Prikaži statistiku
@@ -1671,6 +1702,7 @@ class FakturaView(BaseTabView):
             is_combined = result.is_combined
             import_type = getattr(result, "import_type", "invoice")
             has_origin_statement = getattr(result, "has_origin_statement", False)
+            is_authorized_exporter = getattr(result, "is_authorized_exporter", False)
             exporter_name = getattr(result.exporter, "name", "") if result.exporter else ""
             importer_name = getattr(result.importer, "name", "") if result.importer else ""
         else:
@@ -1682,6 +1714,7 @@ class FakturaView(BaseTabView):
             is_combined = False
             import_type = "invoice"
             has_origin_statement = False
+            is_authorized_exporter = False
             exporter_name = ""
             importer_name = ""
 
@@ -1693,6 +1726,7 @@ class FakturaView(BaseTabView):
             is_combined,
             import_type,
             has_origin_statement,
+            is_authorized_exporter,
             exporter_name,
             importer_name,
         )
@@ -2073,40 +2107,37 @@ class FakturaView(BaseTabView):
                 if self.on_dirty:
                     self.on_dirty()
     
-    def _show_pe2_dialog(self, invoice_number: str = ""):
-        """Prikaži PE2 quick dialog (za fakture SA izjavom)."""
-        logger.debug(f"📋 [_show_pe2_dialog] Otvaranje PE2 dialoga...")
-        dialog = PE2QuickDialog(self.draft.invoice_lines, self, invoice_number=invoice_number)
-        
+    def _show_pe2_dialog(self, invoice_number: str = "", doc_code: str = "PE2"):
+        """Prikaži PE2 ili PE3 quick dialog (za fakture SA izjavom)."""
+        logger.debug(f"📋 [_show_pe2_dialog] Otvaranje {doc_code} dialoga...")
+        dialog = PE2QuickDialog(self.draft.invoice_lines, self,
+                                invoice_number=invoice_number, doc_code=doc_code)
+
         result = dialog.exec()
         logger.debug(f"📋 [_show_pe2_dialog] Dialog zatvoren, result={result}")
-        
-        # PySide6: exec() vraća int (1=Accepted, 0=Rejected)
-        if result == 1:  # QDialog.Accepted
-            logger.debug(f"📋 [_show_pe2_dialog] Korisnik kliknuo Primijeni")
+
+        if result == 1:
             pe2_data = dialog.get_data()
             logger.debug(f"📋 [_show_pe2_dialog] pe2_data={pe2_data}")
-            
+
             if pe2_data:
-                # Primeni PE2 podatke (automatski postavlja PE2)
                 updated_count = PE2QuickDialog.apply_pe2_data(
                     self.draft.invoice_lines, pe2_data
                 )
-                
-                # Reload table to show changes
+
                 self._load_data_from_draft()
-                
-                # Obavesti korisnika
+
                 countries = ", ".join(pe2_data.keys())
                 QMessageBox.information(
                     self,
-                    "PE2 primenjen",
+                    f"{doc_code} primijenjen",
                     f"✅ Ažurirano {updated_count} stavki iz {len(pe2_data)} zemlje:\n"
                     f"   {countries}\n\n"
-                    f"Za sve stavke je postavljena šifra PE2 (izjava o poreklu na fakturi)."
+                    + ("Za sve stavke je postavljena šifra PE3 (ovlašteni izvoznik)."
+                       if doc_code == 'PE3' else
+                       "Za sve stavke je postavljena šifra PE2 (izjava o poreklu na fakturi).")
                 )
-                
-                # Mark dirty
+
                 self.data_changed.emit()
                 if self.on_dirty:
                     self.on_dirty()
@@ -2131,6 +2162,7 @@ class FakturaView(BaseTabView):
                 is_combined,
                 import_type,
                 has_origin_statement,
+                is_authorized_exporter,
                 exporter_name,
                 importer_name,
             ) = self._extract_import_result_data(result)
@@ -2160,6 +2192,10 @@ class FakturaView(BaseTabView):
             if using_assembly:
                 # Assembly sistem je aktivan - matchuj sa master listom
                 # (Ovo se dešava SAMO ako je korisnik eksplicitno učitao Master Listu preko menija)
+                # Postavi invoice_number za svaku stavku
+                for item in items:
+                    item.invoice_number = invoice_name
+                
                 matched, unmatched, unmatched_names = self.assembly.add_invoice(
                     items, invoice_name
                 )
@@ -2267,6 +2303,10 @@ class FakturaView(BaseTabView):
 
                 if is_combined and previous_count > 0 and is_same_invoice:
                     # REPLACE posljednji import (isti par, već kombіnovano u import_service)
+                    # Postavi invoice_number za nove stavke
+                    for item in items:
+                        item.invoice_number = invoice_name
+                    
                     keep_count = previous_count - self.last_import_count
                     self.draft.invoice_lines = (
                         self.draft.invoice_lines[:keep_count] + items
@@ -2276,6 +2316,10 @@ class FakturaView(BaseTabView):
                     )
                 else:
                     # EXTEND - dodaj na kraj (novi import ili nekombіnovani)
+                    # Postavi invoice_number za svaku stavku
+                    for item in items:
+                        item.invoice_number = invoice_name
+                    
                     self.draft.invoice_lines.extend(items)
                     if is_combined:
                         logger.info(
@@ -2330,16 +2374,18 @@ class FakturaView(BaseTabView):
                         logger.info(f"🤖 → EUR1 pending={result['eur1_pending']}: otvaram EUR.1 dialog")
                         self._show_eur1_dialog()
                 elif has_origin_statement:
-                    # ✅ Faktura IMA izjavu → PE2 ili EUR1 ovisno o vrijednosti
-                    total_value = sum(getattr(i, 'iznos', 0.0) for i in items)
-                    if total_value > 6000:
-                        # Vrijednost > 6000 EUR: dobavljačka izjava (PE2) nije validna
-                        # Potreban EUR1 obrazac
-                        logger.info(f"🔍 [dialog check] → iznos={total_value:.2f}€ > 6000 → EUR1 dialog")
-                        self._show_eur1_dialog()
+                    from gui.tabs.agent.services.import_pipeline_service import _origin_dialog_type
+                    dialog_tip = _origin_dialog_type(items, has_origin_statement, is_authorized_exporter)
+                    if dialog_tip == 'pe3':
+                        logger.info("🔍 [dialog check] → ovlašteni izvoznik → PE3 dialog")
+                        self._show_pe2_dialog(invoice_name, doc_code='PE3')
+                    elif dialog_tip == 'pe2':
+                        logger.info(f"🔍 [dialog check] → PE2 dialog")
+                        self._show_pe2_dialog(invoice_name, doc_code='PE2')
                     else:
-                        logger.info(f"🔍 [dialog check] → otvaram PE2 dialog (iznos={total_value:.2f}€)")
-                        self._show_pe2_dialog(invoice_name)
+                        val = sum(getattr(i, 'iznos', 0.0) for i in items)
+                        logger.info(f"🔍 [dialog check] → iznos={val:.2f}€ > 6000 → EUR.1 dialog")
+                        self._show_eur1_dialog()
                 elif self._should_show_eur1_dialog(items):
                     # ❌ Faktura NEMA izjavu → EUR.1 dialog
                     logger.info(f"🔍 [dialog check] → otvaram EUR.1 dialog")
@@ -3154,6 +3200,7 @@ class FakturaView(BaseTabView):
         self.btn_delete.setEnabled(has_selection)
 
     def _on_export_excel(self):
+        # docs/sections/export-pdf-excel.md — Excel izvoz, grupisanje po naimenovanjima
         """Export fakturnih stavki u Excel."""
         if not self.draft.invoice_lines:
             QMessageBox.information(
@@ -3172,7 +3219,7 @@ class FakturaView(BaseTabView):
         )
 
         if filepath:
-            success = ExportService.export_to_excel(self.draft.invoice_lines, filepath)
+            success = ExportService.export_to_excel(self.draft.invoice_lines, filepath, self.draft)
 
             if success:
                 QMessageBox.information(
@@ -3243,6 +3290,53 @@ class FakturaView(BaseTabView):
                     self,
                     "Greška",
                     "Export u PDF nije uspio.\n\nProvjerite console za detalje greške.",
+                )
+
+    def _on_export_pregled_faktura(self):
+        """Export pregled faktura u PDF — grupisanje po fakturi za carinika."""
+        if not self.draft.invoice_lines:
+            QMessageBox.information(
+                self, "Pregled faktura", "Nema stavki za export.\n\nPrvo učitajte fakturu."
+            )
+            return
+
+        if not self.draft.items:
+            QMessageBox.warning(
+                self,
+                "Naimenovanja nisu kreirana",
+                "PDF pregled zahtijeva kreirana naimenovanja.\n\n"
+                "Prvo kreirajte naimenovanja pa pokušajte ponovo.",
+            )
+            return
+
+        filepath, _ = QFileDialog.getSaveFileName(
+            self,
+            "Sačuvaj pregled faktura kao PDF",
+            f"Pregled_Faktura_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+            "PDF Files (*.pdf)",
+        )
+
+        if filepath:
+            success = export_faktura_pregled(self.draft, filepath)
+
+            if success:
+                # Izbroj koliko faktura ima
+                broj_faktura = len(set(
+                    l.invoice_number for l in self.draft.invoice_lines if l.invoice_number
+                ))
+                QMessageBox.information(
+                    self,
+                    "Export uspješan",
+                    f"✅ Pregled faktura exportovan u PDF!\n\n"
+                    f"Fajl: {Path(filepath).name}\n"
+                    f"Faktura: {broj_faktura}\n"
+                    f"Stavki: {len(self.draft.invoice_lines)}",
+                )
+            else:
+                QMessageBox.critical(
+                    self,
+                    "Greška",
+                    "Export pregleda faktura nije uspio.\n\nProvjerite console za detalje greške.",
                 )
 
     def _on_load_mappings_from_xml(self):

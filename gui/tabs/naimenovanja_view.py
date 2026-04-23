@@ -259,10 +259,8 @@ class NaimenovanjaView(BaseTabView):
             "le_r31_broj": "package_qty",  # ISPRAVLJENO: Broj (količina)
             "le_r31_vrsta": "package_code",  # ISPRAVLJENO: Vrsta (šifra - PK, CT...)
             "le_r31_vrsta_naziv": "package_name",  # Naziv pakovanja (auto-popunjava se)
-            "le_r31_kontejner_1": "container_number1",
-            "le_r31_kontejner_2": "container_number2",
-            "te_r31_opis": "tariff_description2",  # Opis robe (4-6 cifara - viši nivo)
-            "te_r31_opis_2": "tariff_description1",  # Opis robe 2 (8-10 cifara - tačan broj)
+            "te_r31_opis": "tariff_description1",  # Opis robe (8-10 cifara - tačan podbroj)
+            "te_r31_opis_2": "tariff_description2",  # Opis robe 2 (4-6 cifara - viši nivo, heading)
             "le_r31_trg_naziv": "goods_trade_name",  # Trgovački naziv (automatski popunjava opis robe)
             # Rubrika 32
             "le_rubrika32": "ordinal_no",
@@ -1083,8 +1081,8 @@ class NaimenovanjaView(BaseTabView):
         """
         Učitaj opis tarife iz PostgreSQL catalogs.zvanicna_tarifa.
 
-        nivo='podbroj' → te_r31_opis  (tačan opis podbroja, 10 cifara)
-        nivo='glava'   → te_r31_opis_2 (heading opis, 4 cifre)
+        nivo='podbroj' → te_r31_opis  (tačan opis podbroja, 8-10 cifara)
+        nivo='glava'   → te_r31_opis_2 (heading opis, 4-6 cifara)
 
         Strategija:
           1. Tačan match po tarifni_kod + nivo
@@ -1566,10 +1564,46 @@ class NaimenovanjaView(BaseTabView):
             return
 
         self._save_current_item()
+        self._auto_populate_supplementary_unit(new_tariff)
         # Uvijek ponudi KB update kad korisnik potvrdi Enter —
         # old_tariff može već biti jednak new_tariff zbog batch save, ali
         # korisnik svjesno pritiskuje Enter da potvrdi ovu tarifu
         self._ask_update_knowledge_base(new_tariff)
+
+    def _auto_populate_supplementary_unit(self, tariff_code: str) -> None:
+        """Auto-popuni Rb.41 (KGM + neto kg) ako tarifa to zahtjeva i polje je prazno."""
+        if not tariff_code or len(tariff_code) < 2:
+            return
+        # Poglavlja 01-24 (prehrambeni/poljoprivredni) uvijek zahtijevaju KGM u BiH ASYCUDA
+        try:
+            chapter = int(tariff_code[:2])
+        except ValueError:
+            return
+        if chapter not in range(1, 25):
+            return
+
+        # Provjeri da li su polja već popunjena
+        le_code = self._get_widget("le_rubrika43")
+        le_qty  = self._get_widget("le_rubrika41")
+        if not le_code or not le_qty:
+            return
+        if le_code.text().strip():
+            return  # korisnik je već unio
+
+        # Uzmi neto masu iz Rb.38
+        le_neto = self._get_widget("le_rubrika38")
+        neto_kg = 0.0
+        if le_neto:
+            try:
+                neto_kg = float(le_neto.text().replace(",", ".").strip())
+            except (ValueError, AttributeError):
+                pass
+        if neto_kg <= 0:
+            return
+
+        le_code.setText("KGM")
+        le_qty.setText(f"{neto_kg:.2f}")
+        self._save_current_item()
 
     def _ask_update_knowledge_base(self, new_tariff: str) -> None:
         """Pitaj korisnika da li želi ažurirati bazu znanja za ovaj proizvod."""
@@ -1652,8 +1686,8 @@ class NaimenovanjaView(BaseTabView):
         """Izvrsi tariff lookup sa cache-om (poziva se nakon 400ms pauze).
 
         Popunjava dva nivoa opisa:
-          - te_r31_opis   → 4-cifreni heading (npr. "8471")
-          - te_r31_opis_2 → 6-8 cifreni podbroj (precizni opis, npr. "847130")
+          - te_r31_opis   → 6-8 cifreni podbroj (precizni opis, npr. "847130")
+          - te_r31_opis_2 → 4-cifreni heading (npr. "8471")
         Uvijek poziva _populate_tariff_description kako bi se polja očistila
         kada novi tarifni broj nije pronađen.
         """
@@ -1726,36 +1760,12 @@ class NaimenovanjaView(BaseTabView):
         self, description_full: str, description_short: str = ""
     ) -> None:
         """Popuni tariff description polja - sada popunjava trgovački naziv"""
-        # Popuni polje za tačan opis (8-10 cifara)
-        te_opis_2 = self._get_widget("te_r31_opis_2")
-        if te_opis_2:
-            # KRITIČNO: setReadOnly(False) prije setText() jer Qt ne ažurira prikaz za readOnly polja
-            te_opis_2.setReadOnly(False)
-            te_opis_2.setText(description_full)
-            te_opis_2.setReadOnly(True)
-            # Dodaj stil za auto-popunjena polja
-            te_opis_2.setStyleSheet(
-                """
-                QLineEdit {
-                    background-color: #e3f2fd;
-                    border: 2px solid #2196f3;
-                    border-radius: 4px;
-                    padding: 3px 6px;
-                    font-weight: bold;
-                    font-size: 14px;
-                    color: #1565c0;
-                }
-            """
-            )
-
-        # Popuni polje za viši nivo opisa (4-6 cifara)
+        # Popuni polje za tačan opis podbroja (8-10 cifara) — te_r31_opis (gornje)
         te_opis = self._get_widget("te_r31_opis")
         if te_opis:
-            # KRITIČNO: setReadOnly(False) prije setText() jer Qt ne ažurira prikaz za readOnly polja
             te_opis.setReadOnly(False)
-            te_opis.setText(description_short)
+            te_opis.setText(description_full)
             te_opis.setReadOnly(True)
-            # Dodaj stil za auto-popunjena polja
             te_opis.setStyleSheet(
                 """
                 QLineEdit {
@@ -1770,6 +1780,26 @@ class NaimenovanjaView(BaseTabView):
             """
             )
 
+        # Popuni polje za heading opis (4-6 cifara) — te_r31_opis_2 (donje, plavo)
+        te_opis_2 = self._get_widget("te_r31_opis_2")
+        if te_opis_2:
+            te_opis_2.setReadOnly(False)
+            te_opis_2.setText(description_short)
+            te_opis_2.setReadOnly(True)
+            te_opis_2.setStyleSheet(
+                """
+                QLineEdit {
+                    background-color: #e3f2fd;
+                    border: 2px solid #2196f3;
+                    border-radius: 4px;
+                    padding: 3px 6px;
+                    font-weight: bold;
+                    font-size: 14px;
+                    color: #1565c0;
+                }
+            """
+            )
+
         # Novo: Popuni trgovački naziv sa svim stavkama koje pripadaju naimenovanju
         if hasattr(self, "te_trg_naziv"):
             self.te_trg_naziv.clear()  # Obriši postojeći sadržaj
@@ -1780,14 +1810,16 @@ class NaimenovanjaView(BaseTabView):
             )  # QTextEdit koristi setPlainText
 
     def _format_trading_names(self, max_chars: int = 550) -> str:
+        # docs/sections/export-pdf-excel.md — dodaje footer sa Faktura: info
         """
         Formatuj sve nazive proizvoda iz fakture koji pripadaju trenutnom naimenovanju.
+        Na dnu dodaje spisak faktura i rednih brojeva stavki koje ulaze u naimenovanje.
 
         Args:
             max_chars: Maksimalan broj karaktera (default 550 za polje 460x200px)
 
         Returns:
-            Comma-separated nazivi proizvoda, skraćeno sa "..." ako predugo
+            Nazivi proizvoda + na dnu "Faktura: broj (rb. x, y)" informacija
         """
         if len(self.draft.items) == 0:
             logger.warning("  ⚠️ _format_trading_names: Nema naimenovanja u draft.items")
@@ -1807,25 +1839,49 @@ class NaimenovanjaView(BaseTabView):
         if not assigned_lines:
             return ""
 
-        # Extract product names
+        # --- 1. Nazivi proizvoda ---
         product_names = [line.naziv_robe for line in assigned_lines if line.naziv_robe]
+        nazivi_dio = ", ".join(product_names) if product_names else ""
 
-        if not product_names:
-            return ""
+        # --- 2. Faktura info na dnu ---
+        # Grupiši stavke po broju fakture
+        from collections import OrderedDict
+        fakture: dict = OrderedDict()
+        for line in assigned_lines:
+            inv = line.invoice_number or "?"
+            if inv not in fakture:
+                fakture[inv] = []
+            fakture[inv].append(str(line.line_no))
 
-        # Format comma-separated
-        result = ", ".join(product_names)
-        logger.debug(f"  📝 Ukupna dužina prije skraćivanja: {len(result)} karaktera")
+        fakture_dio_parts = []
+        for inv, rb_list in fakture.items():
+            fakture_dio_parts.append(f"{inv} (rb. {', '.join(rb_list)})")
 
-        # Truncate if too long
+        fakture_dio = "Faktura: " + ", ".join(fakture_dio_parts)
+
+        # --- 3. Kombinuj ---
+        if nazivi_dio:
+            result = nazivi_dio + "\n\n" + fakture_dio
+        else:
+            result = fakture_dio
+
+        logger.debug(f"  📝 Ukupna dužina: {len(result)} karaktera")
+
+        # Truncate if too long (cijeli tekst, ne samo nazive)
         if len(result) > max_chars:
-            # Find last complete item that fits
-            truncated = result[: max_chars - 3]  # Leave room for "..."
-            # Find last comma to avoid cutting in the middle of a name
-            last_comma = truncated.rfind(", ")
-            if last_comma > 0:
-                truncated = truncated[:last_comma]
-            result = truncated + "..."
+            # Prvo pokušaj skratiti nazive, ostavi fakture dio netaknut
+            fakture_len = len(fakture_dio) + 2  # +2 za "\n\n"
+            nazivi_max = max_chars - fakture_len - 3  # -3 za "..."
+            if nazivi_max > 20 and product_names:
+                # Skrati nazive
+                truncated_nazivi = nazivi_dio[:nazivi_max]
+                last_comma = truncated_nazivi.rfind(", ")
+                if last_comma > 0:
+                    truncated_nazivi = truncated_nazivi[:last_comma]
+                result = truncated_nazivi + "...\n\n" + fakture_dio
+            else:
+                # Skrati cijeli tekst
+                result = result[:max_chars - 3] + "..."
 
         return result
 
@@ -2064,6 +2120,10 @@ class NaimenovanjaView(BaseTabView):
                 )
             else:
                 logger.warning(f"  ⚠️  No tariff description found for code: {item.tariff_code}")
+        # Auto-popuni Rb.41 ako tarifa zahtjeva i polje je prazno
+        if item.tariff_code and not (item.supplementary_unit_code or "").strip():
+            self._auto_populate_supplementary_unit(item.tariff_code)
+
         # Auto-popuni trgovački naziv sa svim stavkama iz fakture
         if hasattr(self, "te_trg_naziv"):
             trading_names = self._format_trading_names()
@@ -2561,8 +2621,6 @@ class NaimenovanjaView(BaseTabView):
             w("le_r31_broj"),
             w("le_r31_vrsta"),
             w("le_r31_vrsta_naziv"),
-            w("le_r31_kontejner_1"),
-            w("le_r31_kontejner_2"),
             w("te_r31_opis"),
             w("te_r31_opis_2"),
             w("le_r31_trg_naziv"),
@@ -3170,7 +3228,7 @@ class NaimenovanjaView(BaseTabView):
         Pravila:
         - Rb.33: tarifni broj mora biti popunjen
         - Rb.34: zemlja porijekla mora biti popunjena
-        - Rb.40: tip + šifra + broj moraju biti popunjeni (header nivo)
+        - Rb.40: opcionalna (nije obavezna za export)
         - Količina i vrijednost moraju biti > 0
         - Ako Rb.34 + Rb.36 popunjeni → Rb.44 mora biti popunjen
         """
@@ -3186,12 +3244,7 @@ class NaimenovanjaView(BaseTabView):
             if not (item.origin_country_code or '').strip():
                 item_errors.append("nema zemlje porijekla")
 
-            # Rb.40: previous_document (tip X/Y/Z), previous_document2 (šifra), previous_document3 (broj)
-            rb40_tip = (item.previous_document or '').strip()
-            rb40_skr = (item.previous_document2 or '').strip()
-            rb40_broj = (item.previous_document3 or '').strip()
-            if not (rb40_tip and rb40_skr and rb40_broj):
-                item_errors.append("nema Rb.40")
+            # Rb.40 nije obavezna — korisnik popunjava po potrebi
 
             if not (item.package_qty or 0) > 0:
                 item_errors.append("nema količine")

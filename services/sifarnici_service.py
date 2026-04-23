@@ -563,7 +563,7 @@ class SifarniciService:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
                     cur.execute("""
-                        SELECT sifra, opis
+                        SELECT sifra, opis, vrsta, oznaka
                         FROM catalogs.carinski_postupci
                         ORDER BY sifra
                     """)

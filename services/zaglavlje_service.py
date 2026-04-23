@@ -505,6 +505,23 @@ class ZaglavljeService:
         data['deklaracija_1'] = getattr(draft, 'deklaracija_tip', '') or ''
         data['deklaracija_a'] = getattr(draft, 'deklaracija_a', '') or ''
         data['deklaracija_oznaka'] = getattr(draft, 'deklaracija_oznaka', '') or ''
+        
+        # Ured odredišta - razdvajamo string na šifru i naziv
+        ured_full = getattr(draft, 'ured_odredista', '') or ''
+        if ured_full:
+            # Pokušaj razdvojiti po razmacima
+            parts = ured_full.split()
+            if len(parts) >= 2:
+                # Prvi dio je šifra, ostalo je naziv
+                data['ured_odredista_sifra'] = parts[0]
+                data['ured_odredista_naziv'] = ' '.join(parts[1:])
+            else:
+                # Samo šifra ili samo naziv
+                data['ured_odredista_sifra'] = ured_full
+                data['ured_odredista_naziv'] = ''
+        else:
+            data['ured_odredista_sifra'] = ''
+            data['ured_odredista_naziv'] = ''
 
         # Rubrika 2 - Izvoznik
         data['izvoznik_id'] = getattr(draft, 'izvoznik_id', '') or ''
@@ -648,6 +665,41 @@ class ZaglavljeService:
                     'from_rule': True,  # Svaki upisani dokument je fizički priložen
                 })
 
+        # Automatski dodaj N380 (faktura) ako postoji broj fakture u draft-u
+        # Prioritet: invoice_lines[].invoice_number > invoice_lines[].raw.invoice_number > draft.ref_br
+        broj_fakture = ''
+        
+        # 1. Pokušaj iz invoice_lines[].invoice_number (novo polje)
+        invoice_lines = getattr(draft, 'invoice_lines', None) or []
+        for line in invoice_lines:
+            bf = getattr(line, 'invoice_number', '') or ''
+            if bf:
+                broj_fakture = bf
+                break
+        
+        # 2. Fallback na invoice_lines[].raw['invoice_number'] (staro polje)
+        if not broj_fakture:
+            for line in invoice_lines:
+                raw = getattr(line, 'raw', None) or {}
+                bf = raw.get('invoice_number', '') or ''
+                if bf:
+                    broj_fakture = bf
+                    break
+        
+        # 3. Fallback na draft.ref_br
+        if not broj_fakture:
+            broj_fakture = getattr(draft, 'ref_br', '') or ''
+        
+        if broj_fakture:
+            has_n380 = any(d.get('code') == 'N380' for d in data['attached_documents'])
+            if not has_n380:
+                data['attached_documents'].append({
+                    'code': 'N380',
+                    'name': 'Faktura',
+                    'number': broj_fakture,
+                    'from_rule': True,
+                })
+
         self._log_operation(f"Učitavanje iz Draft-a: {getattr(draft, 'broj_deklaracije', 'N/A')}")
 
         return data
@@ -697,6 +749,22 @@ class ZaglavljeService:
         draft.deklaracija_tip = safe_get('deklaracija_1')
         draft.deklaracija_a = safe_get('deklaracija_a')
         draft.deklaracija_oznaka = safe_get('deklaracija_oznaka')
+        
+        # Ured odredišta - spajamo šifru i naziv u jedan string za backward compatibility
+        ured_sifra = safe_get('ured_odredista_sifra', '').strip()
+        ured_naziv = safe_get('ured_odredista_naziv', '').strip()
+        
+        if ured_sifra and ured_naziv:
+            # Oba polja popunjena: "BA097012  CI Bijeljina"
+            draft.ured_odredista = f"{ured_sifra}  {ured_naziv}"
+        elif ured_sifra:
+            # Samo šifra: "BA097012" (XML builder će tražiti naziv u bazi)
+            draft.ured_odredista = ured_sifra
+        elif ured_naziv:
+            # Samo naziv: tretiraj kao puni string
+            draft.ured_odredista = ured_naziv
+        else:
+            draft.ured_odredista = ""
 
         # Rubrika 2 - Izvoznik
         draft.izvoznik_id = safe_get('izvoznik_id')
@@ -927,8 +995,19 @@ class ZaglavljeService:
             type_el = _find(ident, "Type")
             if type_el is not None:
                 data['deklaracija_1'] = _txt(type_el, "Type_of_declaration")
-                data['deklaracija_a'] = _txt(type_el, "Type_of_Declaration_X")
-                data['deklaracija_oznaka'] = _txt(type_el, "Declaration_gen_procedure_code")
+                # deklaracija_oznaka = Type_of_Declaration_X (A/Z/B)
+                data['deklaracija_oznaka'] = _txt(type_el, "Type_of_Declaration_X")
+                # Declaration_gen_procedure_code (H/I/J/K) se ne čuva — izvodi se iz Rb.37
+
+        # ── Rb. 1: Ured odredišta (unutar Identification) ────────────────────
+        office_el = _find(ident, "Office_segment") if ident is not None else None
+        if office_el is not None:
+            office_code = _txt(office_el, "Customs_clearance_office_code")
+            office_name = _txt(office_el, "Customs_Clearance_office_name")
+            if office_code:
+                data['ured_odredista_sifra'] = office_code
+            if office_name:
+                data['ured_odredista_naziv'] = office_name
 
         # ── Rb. 2: Izvoznik i Rb. 8: Primalac ────────────────────────────────
         traders = _find(root, "Traders")
@@ -1071,6 +1150,22 @@ class ZaglavljeService:
                         'name': name,
                         'number': ref,
                         'from_rule': from_rule,
+                    })
+
+        # ── Automatski dodaj N380 (faktura) ako postoji ref_br ────────────────
+        ref_br = data.get('ref_br', '')
+        if ref_br:
+            # Provjeri da li već postoji N380 dokument
+            has_n380 = any(d.get('code') == 'N380' for d in data['attached_documents'])
+            if not has_n380:
+                doc_key = ('N380', ref_br)
+                if doc_key not in seen_docs:
+                    seen_docs.add(doc_key)
+                    data['attached_documents'].append({
+                        'code': 'N380',
+                        'name': 'Faktura',
+                        'number': ref_br,
+                        'from_rule': True,
                     })
 
         return data
@@ -1639,25 +1734,22 @@ class ZaglavljeService:
 
         # ── 3. Konzistentnost povezanih polja ──────────────────────────────
 
-        # 3a. EX/IM konzistentnost — deklaracija_1 i deklaracija_oznaka
+        # 3a. deklaracija_1 mora biti IM ili EX
         dek_sifra = str(view_data.get("deklaracija_1", "")).strip()
         dek_oznaka = str(view_data.get("deklaracija_oznaka", "")).strip()
-        if dek_sifra and dek_oznaka:
-            valid_combos = {
-                "IM": {"H", "I", "J", "K"},
-                "EX": {"A", "C", "E"},
-            }
-            allowed = valid_combos.get(dek_sifra, set())
-            if allowed and dek_oznaka not in allowed:
-                errors.append({
-                    "rule": "1",
-                    "field": "Deklaracija",
-                    "message": (
-                        f"Rb.1 — Neispravna kombinacija: šifra='{dek_sifra}', "
-                        f"oznaka='{dek_oznaka}'. Dozvoljene oznake za {dek_sifra}: "
-                        f"{', '.join(sorted(allowed))}."
-                    ),
-                })
+        if dek_sifra and dek_sifra not in {"IM", "EX"}:
+            errors.append({
+                "rule": "1",
+                "field": "Deklaracija",
+                "message": f"Rb.1 — Neispravna vrijednost tipa deklaracije: '{dek_sifra}'. Mora biti IM ili EX.",
+            })
+        # deklaracija_oznaka mora biti A, Z ili B (tip potpunosti deklaracije)
+        if dek_oznaka and dek_oznaka not in {"A", "Z", "B"}:
+            errors.append({
+                "rule": "1",
+                "field": "Deklaracija",
+                "message": f"Rb.1 — Neispravna oznaka deklaracije: '{dek_oznaka}'. Dozvoljeno: A (potpuna), Z (pojednostavljena), B (periodična).",
+            })
 
         # 3b. Kontejner — ako je čekiran, mora imati broj
         kontejner = view_data.get("kontejner", False)

@@ -55,12 +55,12 @@ def get_db_connection():
         return psycopg2.connect(host=host, port=port, database=dbname, user=user, password=password)
 
 
-# Putanja do XML foldera
-XML_FOLDER = Path(__file__).parent.parent.parent / "docs" / "NOVA ASIKUDA"
+# Putanja do XML foldera (4 nivoa gore: learning/agent/services/asycuda_pro)
+XML_FOLDER = Path(__file__).parent.parent.parent.parent / "docs" / "NOVA ASIKUDA"
 
-# Godišnji filter (opciono)
+# Godišnji filter — gornja granica je tekuća + 1 da pokrije nove deklaracije
 YEAR_FROM = 2020
-YEAR_TO = 2025
+YEAR_TO = datetime.now().year + 1
 
 
 @dataclass
@@ -127,32 +127,33 @@ def normalize_exporter_name(name: str) -> str:
 
 
 def parse_declaration_date(xml_path: Path) -> Optional[datetime]:
-    """Izvuče datum deklaracije iz XML-a."""
+    """Izvuče datum deklaracije iz XML-a (ASYCUDA World format)."""
     try:
         tree = ET.parse(str(xml_path))
         root = tree.getroot()
-        
-        # Rb.1 - Datum registracije
-        date_elem = root.find(".//Declaration/Registration_date")
-        if date_elem is not None and date_elem.text:
-            for fmt in ["%Y-%m-%d", "%d.%m.%Y", "%d/%m/%Y", "%Y%m%d"]:
+
+        # ASYCUDA XML: Identification/Assessment/Date ili Registration/Date
+        # Format: "4/16/26" (M/D/YY) ili "4/16/2026" (M/D/YYYY)
+        xpaths = [
+            ".//Identification/Assessment/Date",
+            ".//Identification/Registration/Date",
+        ]
+        formats = ["%m/%d/%y", "%m/%d/%Y", "%Y-%m-%d", "%d.%m.%Y", "%d/%m/%Y", "%Y%m%d"]
+
+        for xpath in xpaths:
+            date_elem = root.find(xpath)
+            if date_elem is None or not (date_elem.text or "").strip():
+                continue
+            raw = date_elem.text.strip()
+            for fmt in formats:
                 try:
-                    return datetime.strptime(date_elem.text.strip(), fmt)
+                    return datetime.strptime(raw, fmt)
                 except ValueError:
                     continue
-        
-        # Alternativno - iz Attachments/Supporting_documents/Date
-        date_elem = root.find(".//Attachments/Supporting_documents/Date")
-        if date_elem is not None and date_elem.text:
-            for fmt in ["%Y-%m-%d", "%d.%m.%Y", "%d/%m/%Y", "%Y%m%d"]:
-                try:
-                    return datetime.strptime(date_elem.text.strip(), fmt)
-                except ValueError:
-                    continue
-                    
+
     except Exception as e:
         logger.debug(f"Nije moguće izvući datum iz {xml_path.name}: {e}")
-    
+
     return None
 
 

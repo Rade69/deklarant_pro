@@ -323,6 +323,19 @@ def run():
             count += 1
         conn.commit()
         print(f"✅ Vrste deklaracija: {count}")
+        
+        # Tipovi deklaracija
+        count = 0
+        for stavka in data.get('polje_1_2', {}).get('sifre', []):
+            sifra = stavka['sifra']
+            opis = stavka.get('opis', '')
+            cur.execute("""
+                INSERT INTO catalogs.tipovi_deklaracija (sifra, opis)
+                VALUES (%s, %s) ON CONFLICT (sifra) DO UPDATE SET opis=EXCLUDED.opis
+            """, (sifra, opis))
+            count += 1
+        conn.commit()
+        print(f"✅ Tipovi deklaracija: {count}")
 
         # Regionalni centri i carinske ispostave
         data = load('organizacija.json')

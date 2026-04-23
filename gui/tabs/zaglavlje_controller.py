@@ -460,6 +460,43 @@ class ZaglavljeController:
                         (getattr(l, 'valuta', '') for l in invoice_lines if getattr(l, 'valuta', '')),
                         ''
                     )
+                
+                # Broj fakture — uvijek iz fakture, ne iz XML-a
+                # Prioritet: line.invoice_number > line.raw['invoice_number'] > draft.ref_br
+                broj_fakture = ''
+                for line in invoice_lines:
+                    bf = getattr(line, 'invoice_number', '') or ''
+                    if bf:
+                        broj_fakture = bf
+                        break
+                
+                if not broj_fakture:
+                    for line in invoice_lines:
+                        raw = getattr(line, 'raw', None) or {}
+                        bf = raw.get('invoice_number', '') or ''
+                        if bf:
+                            broj_fakture = bf
+                            break
+                
+                if not broj_fakture:
+                    broj_fakture = getattr(draft, 'ref_br', '') or ''
+                
+                if broj_fakture:
+                    # Prepisati ref_br u data da se koristi umjesto starog iz XML-a
+                    data['ref_br'] = broj_fakture
+
+                    # Dodaj/ažuriraj N380 u attached_documents sa aktuelnim brojem fakture
+                    docs = data.setdefault('attached_documents', [])
+                    n380 = next((d for d in docs if d.get('code') == 'N380'), None)
+                    if n380:
+                        n380['number'] = broj_fakture
+                    else:
+                        docs.append({
+                            'code': 'N380',
+                            'name': 'Faktura',
+                            'number': broj_fakture,
+                            'from_rule': True,
+                        })
 
             # Populate view with data
             self.view.set_data(data)
@@ -782,13 +819,9 @@ class ZaglavljeController:
                     for oznaka, opis in items:
                         vrsta_widget.addItem(f"{sifra} - {opis}", sifra)
             
-            # Load tipovi deklaracija
-            tipovi = self.service.get_tipovi_deklaracija()
-            tip_widget = self.view.field_widgets.get('deklaracija_oznaka')
-            if tip_widget and hasattr(tip_widget, 'addItem'):
-                tip_widget.clear()
-                for sifra, opis in tipovi:
-                    tip_widget.addItem(opis, sifra)
+            # Load tipovi deklaracija - VIEW sada sam popunjava deklaracija_oznaka sa tipovima (A, Z, B)
+            # Controller više ne treba da popunjava ovaj dropdown
+            pass
             
             # Load vid prevoza (Rb.25/26) — dropdown "30 — Cestovni prevoz", u polju samo šifra
             vidovi = self.service.get_vid_unutra()

@@ -204,8 +204,6 @@ class NaimenovanjaController:
             'package_code': '',
             'package_name': '',
             'package_qty': 0,
-            'container_number1': '',
-            'container_number2': '',
             'goods_description': '',
         }
         
@@ -469,8 +467,6 @@ class NaimenovanjaController:
                     "package_code": item.package_code,
                     "package_name": item.package_name,
                     "package_qty": item.package_qty,
-                    "container_number1": item.container_number1,
-                    "container_number2": item.container_number2,
                     "goods_description": item.goods_description,
                     "tariff_description1": item.tariff_description1,
                     "tariff_description2": item.tariff_description2,

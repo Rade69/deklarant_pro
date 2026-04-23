@@ -59,6 +59,7 @@ class InvoiceLine:
     """Sirova stavka iz fakture (XLSX/PDF) – normalizovana."""
 
     line_no: int = 0
+    invoice_number: str = ""  # Broj fakture (npr. FA-14, FA-15)
 
     naziv_robe: str = ""
     product_code: str = ""  # Kod proizvoda iz fakture (za matching)
@@ -68,8 +69,9 @@ class InvoiceLine:
     povlastica: str = ""  # prazno = nije navedeno / nema
 
     # EUR.1 podaci
-    eur1_number: str = ""           # Broj EUR.1 obrasca
-    has_origin_statement: bool = False  # Da li stavka ima izjavu o poreklu (PE2/EUR1 eligible)
+    eur1_number: str = ""           # Broj EUR.1 obrasca ili fakture (PE2)
+    has_origin_statement: bool = False  # Da li stavka ima izjavu o poreklu na fakturi
+    is_authorized_exporter: bool = False  # True = izjava ovlaštenog izvoznika (PE3)
     no_preference: bool = False         # Eksplicitno "bez pref. porekla" — nema povlastice
 
     # Confidence level za zemlju porijekla (HIGH/MEDIUM/LOW/CONFLICT)

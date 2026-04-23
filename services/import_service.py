@@ -134,6 +134,20 @@ class ImportService:
                     self.logger.info("💡 Packing lista sačuvana - čeka Invoice sa istim brojem")
                     return packing_result
 
+            # 2b. Za Excel: provjeri specijalizovane formate PRIJE registry-a
+            if ext in (".xlsx", ".xls", ".xlsm"):
+                try:
+                    from importers.vendors.medicopharm.medicopharm_importer import detect_medicopharm_excel, parse_medicopharm_excel
+                    if detect_medicopharm_excel(str(filepath)):
+                        self.logger.info("📊 Medicopharm Excel — direktan import")
+                        med_result = parse_medicopharm_excel(str(filepath))
+                        self.last_import_result = med_result
+                        self.last_import_path = str(filepath)
+                        self.last_import_type = "medicopharm_excel"
+                        return med_result
+                except Exception as e:
+                    self.logger.warning(f"⚠️ Medicopharm Excel detekcija greška: {e}")
+
             # 3. Delegiraj registry-u za parsiranje
             result = self.registry.import_file(filepath, progress_callback=progress_callback)
 
@@ -209,6 +223,7 @@ class ImportService:
                     self.last_import_type = "sumaprom_excel"
                     self.logger.info("💡 ŠUMAPROM Excel sačuvan - čeka ŠUMAPROM PDF sa istim brojem")
                     return
+
             except Exception:
                 pass
             self.last_import_type = "excel"
@@ -337,8 +352,9 @@ class ImportService:
             # timestamp kao naziv PDF-a (DOC041122-...) koji ne liči na naziv XLS-a
             if last_is_sumaprom_excel and current_is_sumaprom_pdf:
                 logger.info("   ✅ CASE 1B: ŠUMAPROM Excel+PDF par - kombinujem")
+                _excel_path = self.last_import_path
                 combined_items, stats = combine_sumaprom_excel_and_pdf(
-                    self.last_import_path, str(filepath)
+                    _excel_path, str(filepath)
                 )
                 self.clear_memory()
                 return ImportResult(
@@ -350,13 +366,15 @@ class ImportService:
                     is_combined=True,
                     import_type="sumaprom_excel",
                     warnings=stats.get("warnings", []),
+                    consumed_paths=[_excel_path],  # Excel je potrošen
                 )
 
             # CASE 2B: ŠUMAPROM PDF → Excel
             elif last_is_sumaprom_pdf and current_is_sumaprom_excel:
                 logger.info("   ✅ CASE 2B: ŠUMAPROM PDF+Excel par - kombinujem")
+                _pdf_path = self.last_import_path
                 combined_items, stats = combine_sumaprom_excel_and_pdf(
-                    str(filepath), self.last_import_path
+                    str(filepath), _pdf_path
                 )
                 self.clear_memory()
                 return ImportResult(
@@ -368,6 +386,7 @@ class ImportService:
                     is_combined=True,
                     import_type="sumaprom_excel",
                     warnings=stats.get("warnings", []),
+                    consumed_paths=[_pdf_path],  # PDF je potrošen
                 )
 
         except ImportError:
@@ -405,6 +424,7 @@ class ImportService:
                     prev = self.last_import_result
                     invoice_items = prev.items if isinstance(prev, ImportResult) else prev
                     combined = combine_invoice_and_packing(invoice_items, packing_items)
+                    consumed_invoice_path = self.last_import_path  # zapamti prije clear
                     self.clear_memory()
                     return ImportResult(
                         items=combined,
@@ -415,6 +435,7 @@ class ImportService:
                         is_combined=True,
                         has_origin_statement=getattr(prev, "has_origin_statement", False),
                         origin_statements=getattr(prev, "origin_statements", []),
+                        consumed_paths=[consumed_invoice_path] if consumed_invoice_path else [],
                     )
 
             # CASE 4: Packing List pa Invoice
@@ -436,6 +457,7 @@ class ImportService:
                     )
                     bruto = invoice_result.bruto_kg if isinstance(invoice_result, ImportResult) else 0.0
                     neto = invoice_result.neto_kg if isinstance(invoice_result, ImportResult) else 0.0
+                    consumed_packing_path = self.last_import_path  # zapamti prije clear
                     self.clear_memory()
                     return ImportResult(
                         items=combined,
@@ -446,6 +468,7 @@ class ImportService:
                         is_combined=True,
                         has_origin_statement=getattr(invoice_result, "has_origin_statement", False),
                         origin_statements=getattr(invoice_result, "origin_statements", []),
+                        consumed_paths=[consumed_packing_path] if consumed_packing_path else [],
                     )
 
         except Exception as e:
