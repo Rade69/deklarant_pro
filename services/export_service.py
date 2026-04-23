@@ -22,6 +22,7 @@ class ExportService:
 
     @staticmethod
     def export_to_excel(items: List[InvoiceLine], filepath: str, draft: Optional[DeclarationDraft] = None) -> bool:
+        # docs/sections/export-pdf-excel.md — potpuno prepravljen export_to_excel
         """
         Export stavki u Excel (.xlsx) fajl.
         Grupisano po naimenovanjima kao PDF izvoz.

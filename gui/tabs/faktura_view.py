@@ -368,6 +368,7 @@ class FakturaView(BaseTabView):
             )
             self.btn_export_pdf.clicked.connect(self._on_export_pdf)
 
+            # docs/sections/export-pdf-excel.md — dugme Pregled faktura
             self.btn_pregled_faktura = self._create_button(
                 "Pregled",
                 "Pregled faktura — grupisanje po fakturi za carinika",
@@ -3199,6 +3200,7 @@ class FakturaView(BaseTabView):
         self.btn_delete.setEnabled(has_selection)
 
     def _on_export_excel(self):
+        # docs/sections/export-pdf-excel.md — Excel izvoz, grupisanje po naimenovanjima
         """Export fakturnih stavki u Excel."""
         if not self.draft.invoice_lines:
             QMessageBox.information(

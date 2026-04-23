@@ -1816,6 +1816,7 @@ class NaimenovanjaView(BaseTabView):
             )  # QTextEdit koristi setPlainText
 
     def _format_trading_names(self, max_chars: int = 550) -> str:
+        # docs/sections/export-pdf-excel.md — dodaje footer sa Faktura: info
         """
         Formatuj sve nazive proizvoda iz fakture koji pripadaju trenutnom naimenovanju.
         Na dnu dodaje spisak faktura i rednih brojeva stavki koje ulaze u naimenovanje.

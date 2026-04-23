@@ -233,6 +233,7 @@ class PDFInvoiceExporter:
             Table objekat
         """
         # Header
+        # docs/sections/export-pdf-excel.md — izbacena Sifra/Cijena, dodate Stavka/Naim.
         table_data = [[
             'RB',
             'Faktura',

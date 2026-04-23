@@ -4,6 +4,8 @@ Kreira PDF dokument koji cariniku omogućava brzu provjeru:
   - koje stavke iz koje fakture idu u koje naimenovanje
   - sa težinama, količinama i iznosima
 
+docs/sections/export-pdf-excel.md — detaljna dokumentacija
+
 Author: Radovan + Claude
 Date: April 2026
 """
