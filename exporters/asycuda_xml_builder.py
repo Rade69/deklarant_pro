@@ -741,17 +741,26 @@ class AsycudaXMLBuilder:
         goods = ET.SubElement(item_elem, "Goods_description")
         _val(goods, "Country_of_origin_code", item.origin_country_code or "")
         _null(goods, "Country_of_origin_region")
-        # Description_of_goods = precizni tarifni opis podbroja (npr. "- - ostalo")
-        desc_of_goods = _clean_tariff_desc(item.tariff_description1) or item.goods_description or "."
+
+        # Description_of_goods = VIDLJIVO u ASYCUDA Rb.31
+        # Primarno: goods_trade_name (komercijalni naziv iz le_r31_trg_naziv)
+        # Fallback: tariff_description1 → goods_description
+        desc_of_goods = (
+            item.goods_trade_name
+            or _clean_tariff_desc(item.tariff_description1)
+            or item.goods_description
+            or "."
+        )
         _val(goods, "Description_of_goods", desc_of_goods)
 
-        # Commercial_Description = heading opis + komercijalni nazivi iz fakture
+        # Commercial_Description = tarifni opisi (heading + podbroj) za referencu
+        # ASYCUDA ovo polje ne prikazuje u Rb.31 — koristi se samo za pretragu
         comm_parts = []
         if item.tariff_description2:
             comm_parts.append(item.tariff_description2)
-        if item.goods_trade_name:
-            comm_parts.append(item.goods_trade_name)
-        commercial_desc = "\n".join(comm_parts) if comm_parts else (item.goods_description or "")
+        if item.tariff_description1:
+            comm_parts.append(_clean_tariff_desc(item.tariff_description1))
+        commercial_desc = "\n".join(p for p in comm_parts if p) or item.goods_trade_name or item.goods_description or ""
         _val(goods, "Commercial_Description", commercial_desc)
 
         # Previous_doc — Rub.40 (category/type/broj)
