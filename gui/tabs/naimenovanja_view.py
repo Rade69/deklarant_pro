@@ -1760,12 +1760,11 @@ class NaimenovanjaView(BaseTabView):
         self, description_full: str, description_short: str = ""
     ) -> None:
         """Popuni tariff description polja - sada popunjava trgovački naziv"""
-        # Popuni polje za tačan opis podbroja (8-10 cifara) — te_r31_opis (gornje)
+        # Popuni polje za tačan opis podbroja (8-10 cifara) — te_r31_opis (gornje, editabilno)
         te_opis = self._get_widget("te_r31_opis")
         if te_opis:
             te_opis.setReadOnly(False)
             te_opis.setText(description_full)
-            te_opis.setReadOnly(True)
             te_opis.setStyleSheet(
                 """
                 QLineEdit {
@@ -1780,12 +1779,11 @@ class NaimenovanjaView(BaseTabView):
             """
             )
 
-        # Popuni polje za heading opis (4-6 cifara) — te_r31_opis_2 (donje, plavo)
+        # Popuni polje za heading opis (4-6 cifara) — te_r31_opis_2 (donje, plavo, editabilno)
         te_opis_2 = self._get_widget("te_r31_opis_2")
         if te_opis_2:
             te_opis_2.setReadOnly(False)
             te_opis_2.setText(description_short)
-            te_opis_2.setReadOnly(True)
             te_opis_2.setStyleSheet(
                 """
                 QLineEdit {
@@ -2772,7 +2770,26 @@ class NaimenovanjaView(BaseTabView):
                 if i != self.current_item_index:
                     item.previous_document3 = text
 
-        # 3. Azuriraj summary i validaciju
+        # 3. Azuriraj OST (ostali prateći dokument) u header_attached_documents
+        #    da bi se prikazao u zaglavlju u tabeli priloženih dokumenata
+        if text:
+            header_docs = getattr(self.draft, "header_attached_documents", None)
+            if header_docs is not None:
+                ost = next((d for d in header_docs if d.code == "OST"), None)
+                if ost:
+                    ost.number = text
+                else:
+                    from core.draft.draft import AttachedDocument
+                    header_docs.append(AttachedDocument(
+                        code="OST",
+                        name="Ostali prateći dokumenti",
+                        number=text,
+                        from_rule=False,
+                    ))
+                # Obavijesti zaglavlje da se podaci promijenili
+                self.draft.mark_dirty()
+
+        # 4. Azuriraj summary i validaciju
         self._update_summary()
         self._update_status_bar()
 

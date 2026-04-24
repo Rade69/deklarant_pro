@@ -498,6 +498,24 @@ class ZaglavljeController:
                             'from_rule': True,
                         })
 
+                # OST (ostali prateći dokument) iz draft.header_attached_documents
+                # — korisnik ga unese na naimenovanjima u le_rubrika40_3
+                header_docs = getattr(draft, "header_attached_documents", None) if draft else None
+                if header_docs:
+                    docs = data.setdefault('attached_documents', [])
+                    for hd in header_docs:
+                        if hd.code == "OST" and hd.number:
+                            ost = next((d for d in docs if d.get('code') == 'OST'), None)
+                            if ost:
+                                ost['number'] = hd.number
+                            else:
+                                docs.append({
+                                    'code': 'OST',
+                                    'name': 'Ostali prateći dokumenti',
+                                    'number': hd.number,
+                                    'from_rule': False,
+                                })
+
             # Populate view with data
             self.view.set_data(data)
 
