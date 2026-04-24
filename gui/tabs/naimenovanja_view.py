@@ -259,8 +259,8 @@ class NaimenovanjaView(BaseTabView):
             "le_r31_broj": "package_qty",  # ISPRAVLJENO: Broj (količina)
             "le_r31_vrsta": "package_code",  # ISPRAVLJENO: Vrsta (šifra - PK, CT...)
             "le_r31_vrsta_naziv": "package_name",  # Naziv pakovanja (auto-popunjava se)
-            "te_r31_opis": "tariff_description2",    # Heading opis (4-6 cifara) — prikazuje se u GUI
-            "te_r31_opis_2": "tariff_description1",  # Opis podbroja (8 cifara) — samo referenca
+            "te_r31_opis": "tariff_description1",    # Opis podbroja (8 cifara) — referenca
+            "te_r31_opis_2": "tariff_description2",  # Heading opis (4-6 cifara) — referenca
             "le_r31_trg_naziv": "goods_trade_name",  # Trgovački naziv (automatski popunjava opis robe)
             # Rubrika 32
             "le_rubrika32": "ordinal_no",
@@ -1806,8 +1806,20 @@ class NaimenovanjaView(BaseTabView):
         # Heading opis (4 cifre, nivo='glava')
         heading_description = _get_cached_or_lookup(heading_code, "glava") if heading_code else ""
 
-        # te_r31_opis → heading (4-6 cifara); te_r31_opis_2 → podbroj (8 cifara)
-        self._populate_tariff_description(heading_description, full_description)
+        self._populate_tariff_description(full_description, heading_description)
+
+        # tariff_description2 (heading) ide u le_r31_trg_naziv ako je prazno
+        if heading_description:
+            trg = self._get_widget("le_r31_trg_naziv")
+            trg_empty = not (trg and (trg.toPlainText() if hasattr(trg, 'toPlainText') else trg.text()).strip())
+            if trg_empty and hasattr(self, "te_trg_naziv"):
+                trg_empty = not self.te_trg_naziv.toPlainText().strip()
+            if trg_empty:
+                if hasattr(self, "te_trg_naziv"):
+                    self.te_trg_naziv.setPlainText(heading_description)
+                item = self.draft.items[self.current_item_index] if self.draft.items else None
+                if item:
+                    item.goods_trade_name = heading_description
 
         # Provjeri inspekcijsku kontrolu za uneseni tarifni broj
         self._check_and_show_tariff_warning(tariff_code)
@@ -2242,12 +2254,13 @@ class NaimenovanjaView(BaseTabView):
                     short_description = self._load_tariff_description_from_db(short_code, nivo="glava")
 
             if full_description or short_description:
-                # te_r31_opis → tariff_description2 (heading, 4-6 cifara)
-                # te_r31_opis_2 → tariff_description1 (podbroj, 8 cifara)
-                self._populate_tariff_description(short_description or "", full_description or "")
+                self._populate_tariff_description(full_description or "", short_description or "")
                 # Sačuvaj u draft da ne mora svaki put raditi lookup
                 item.tariff_description1 = full_description or ""
                 item.tariff_description2 = short_description or ""
+                # tariff_description2 (heading) ide u le_r31_trg_naziv ako je prazno
+                if short_description and not (item.goods_trade_name or "").strip():
+                    item.goods_trade_name = short_description
             else:
                 logger.warning(f"  ⚠️  No tariff description found for code: {item.tariff_code}")
         # Auto-popuni Rb.41 ako tarifa zahtjeva i polje je prazno
@@ -2255,13 +2268,13 @@ class NaimenovanjaView(BaseTabView):
             self._auto_populate_supplementary_unit(item.tariff_code)
 
         # Auto-popuni trgovački naziv sa svim stavkama iz fakture
+        # (ima prioritet nad tariff_description2 ako postoje faktura linije)
         if hasattr(self, "te_trg_naziv"):
             trading_names = self._format_trading_names()
-            self.te_trg_naziv.setPlainText(
-                trading_names
-            )  # QTextEdit koristi setPlainText
             if trading_names:
-                pass
+                self.te_trg_naziv.setPlainText(trading_names)
+            elif item.goods_trade_name:
+                self.te_trg_naziv.setPlainText(item.goods_trade_name)
 
     def _save_current_item(self) -> None:
         """Save form data to current item in draft"""
