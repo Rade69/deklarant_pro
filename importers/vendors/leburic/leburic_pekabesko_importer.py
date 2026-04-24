@@ -49,6 +49,14 @@ _NETO_RE = re.compile(
 _POREKLO_RE = re.compile(
     r"poreklo\s*:?\s*([A-Z]{2})", re.IGNORECASE
 )
+# Broj fakture iz PDF headera — Pekabesko komercijalni broj (ne Leburić nalog)
+# Nalog br ima prioritet jer je čišći od OCR-a nego FAKTURA linija
+_NALOG_RE = re.compile(
+    r"nalog\s+br[\s:.]*([0-9][0-9\-\./ ]{4,})", re.IGNORECASE
+)
+_FAKTURA_RE = re.compile(
+    r"faktura[:\s]+([0-9][0-9\-\./ ]{4,})", re.IGNORECASE
+)
 
 
 def detect_leburic_pekabesko_excel(filepath: str) -> bool:
@@ -166,14 +174,13 @@ def _find_pdf_for_excel(excel_path: str) -> Optional[str]:
     return None
 
 
-def _extract_from_pdf(pdf_path: str) -> tuple[float, float, str]:
+def _extract_from_pdf(pdf_path: str) -> tuple[float, float, str, str]:
     """
-    Pokušaj izvući bruto, neto i zemlju porijekla iz PDF headera.
-
-    OCR kvalitet je slab, ali Btol/Nto/Poreklo linije su uglavnom čitljive.
+    Izvuci bruto, neto, zemlju porijekla i broj fakture iz PDF headera.
 
     Returns:
-        (bruto_kg, neto_kg, zemlja_iso)
+        (bruto_kg, neto_kg, zemlja_iso, invoice_number)
+        invoice_number je Pekabesko komercijalni broj (ne Leburić nalog iz Excela)
     """
     try:
         import pdfplumber
@@ -185,6 +192,7 @@ def _extract_from_pdf(pdf_path: str) -> tuple[float, float, str]:
         bruto_kg = 0.0
         neto_kg = 0.0
         zemlja = ""
+        invoice_number = ""
 
         m = _BRUTO_RE.search(text)
         if m:
@@ -202,20 +210,28 @@ def _extract_from_pdf(pdf_path: str) -> tuple[float, float, str]:
             except ValueError:
                 pass
 
-        # Zemlja porijekla: traži samo jasno "MK" (OCR često kvari u "lrlK", "I\\4K", itd.)
-        # Pekabesko je makedonski dobavljač; samo prihvatamo eksplicitan "MK".
+        # Zemlja porijekla: traži samo jasno "MK"
         if re.search(r"poreklo\s*:?\s*MK\b", text, re.IGNORECASE):
             zemlja = "MK"
 
+        # Broj fakture: Nalog br ima prioritet (čišći OCR), pa FAKTURA linija
+        m = _NALOG_RE.search(text)
+        if m:
+            invoice_number = m.group(1).strip().rstrip(".").strip()
+        else:
+            m = _FAKTURA_RE.search(text)
+            if m:
+                invoice_number = m.group(1).strip().rstrip(".").strip()
+
         logger.info(
             f"  📄 PDF ekstrakcija: bruto={bruto_kg:.2f}kg, "
-            f"neto={neto_kg:.2f}kg, zemlja={zemlja}"
+            f"neto={neto_kg:.2f}kg, zemlja={zemlja}, faktura={invoice_number!r}"
         )
-        return bruto_kg, neto_kg, zemlja
+        return bruto_kg, neto_kg, zemlja, invoice_number
 
     except Exception as e:
         logger.warning(f"  ⚠️ Greška pri PDF ekstrakciji: {e}")
-        return 0.0, 0.0, ""
+        return 0.0, 0.0, "", ""
 
 
 def parse_leburic_pekabesko_excel(filepath: str) -> ImportResult:
@@ -258,19 +274,23 @@ def parse_leburic_pekabesko_excel(filepath: str) -> ImportResult:
     col_price     = col("price per unit")
     col_total     = col("total in eur")
 
-    # --- Pokušaj naći PDF i izvući bruto/zemlja ---
+    # --- Pokušaj naći PDF i izvući bruto/zemlja/invoice_number ---
     bruto_kg = 0.0
     neto_kg_ukupno = 0.0
     zemlja_default = "MK"  # Pekabesko je uvijek iz Makedonije
     consumed_pdf: list[str] = []
+    # Pekabesko komercijalni invoice broj (iz PDF headera) — koristi se umjesto Excel nalog broja
+    invoice_name_from_pdf = ""
 
     pdf_path = _find_pdf_for_excel(filepath)
     if pdf_path:
-        bruto_pdf, neto_pdf, zemlja_pdf = _extract_from_pdf(pdf_path)
+        bruto_pdf, neto_pdf, zemlja_pdf, inv_pdf = _extract_from_pdf(pdf_path)
         if bruto_pdf > 0:
             bruto_kg = bruto_pdf
         if zemlja_pdf:
             zemlja_default = zemlja_pdf
+        if inv_pdf:
+            invoice_name_from_pdf = inv_pdf
         consumed_pdf = [pdf_path]  # PDF je iskorišten — agent ne treba da ga obrađuje ponovo
 
     # --- Čitaj stavke ---
@@ -282,11 +302,12 @@ def parse_leburic_pekabesko_excel(filepath: str) -> ImportResult:
         if not item_val:
             continue
 
-        # Invoice broj (samo iz prvog reda)
+        # Leburić nalog broj iz Excel Invoice kolone — čuvamo za log ali NE za N380
+        # Stvarni broj fakture (Pekabesko komercijalni) dolazi iz PDF headera
         if not invoice_name and col_invoice:
             inv_raw = str(ws.cell(row, col_invoice).value or "").strip()
             if inv_raw:
-                invoice_name = inv_raw
+                invoice_name = inv_raw  # privremeno, može biti overrideovan PDF brojem
 
         product_code = str(item_val).strip()
         naziv = str(ws.cell(row, col_desc).value or "").strip().replace("_x000D_", "").strip() if col_desc else ""
@@ -323,9 +344,13 @@ def parse_leburic_pekabesko_excel(filepath: str) -> ImportResult:
 
     wb.close()
 
+    # Koristi Pekabesko komercijalni broj iz PDF-a — to je broj koji ide u N380
+    # Leburić nalog broj iz Excel Invoice kolone (26-Ф15-...) je interni i ne ide u deklaraciju
+    final_invoice_name = invoice_name_from_pdf or invoice_name
     logger.info(
         f"  ✅ Parsed {len(invoice_lines)} stavki, "
-        f"neto_sum={neto_kg_ukupno:.3f}kg, bruto={bruto_kg:.3f}kg"
+        f"neto_sum={neto_kg_ukupno:.3f}kg, bruto={bruto_kg:.3f}kg, "
+        f"faktura={final_invoice_name!r} (Excel nalog: {invoice_name!r})"
     )
 
     _exporter = Party(name="PEKABESKO")
@@ -338,7 +363,7 @@ def parse_leburic_pekabesko_excel(filepath: str) -> ImportResult:
         items=invoice_lines,
         bruto_kg=bruto_kg,
         neto_kg=neto_kg_ukupno,
-        invoice_name=invoice_name,
+        invoice_name=final_invoice_name,
         currency="EUR",
         import_type="leburic_pekabesko",
         exporter=_exporter,

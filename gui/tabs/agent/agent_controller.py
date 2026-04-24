@@ -328,22 +328,34 @@ class AgentController:
                 continue
 
             lines = file_item.invoice_lines
-            invoice_name = file_item.invoice_number or Path(file_item.filepath).stem
+            # Stem fajla koristimo SAMO za prikaz — ne smije ići u invoice_number na stavkama
+            # jer PDF parser može failati na ćirilici i stem bi bio pogrešan broj
+            explicit_invoice_number = file_item.invoice_number  # prazno ako parser nije uspio
+            invoice_name = explicit_invoice_number or Path(file_item.filepath).stem
             has_os = file_item.has_origin_statement
             bruto = file_item.bruto_kg
             neto = file_item.neto_kg
 
-            # Postavi invoice_number za svaku stavku
-            for line in lines:
-                line.invoice_number = invoice_name
+            # Postavi invoice_number SAMO ako je parser eksplicitno izvukao broj
+            # (ne koristimo stem — stem nije broj fakture, samo naziv fajla)
+            if explicit_invoice_number:
+                for line in lines:
+                    if not line.invoice_number:
+                        line.invoice_number = explicit_invoice_number
 
             # Privremeno uvezi u draft za dijalog
             self.draft.invoice_lines.clear()
             self.draft.invoice_lines.extend(lines)
-            
+
             # Sačuvaj broj fakture u draft.ref_br (za N380 u zaglavlju)
-            if invoice_name and not getattr(self.draft, 'ref_br', None):
-                self.draft.ref_br = invoice_name
+            # Skupljamo SVE brojeve — spajamo sa | ako ih je više
+            # Koristimo SAMO eksplicitno parsirani broj, ne stem fajla
+            if explicit_invoice_number:
+                existing = getattr(self.draft, 'ref_br', '') or ''
+                if not existing:
+                    self.draft.ref_br = explicit_invoice_number
+                elif explicit_invoice_number not in existing:
+                    self.draft.ref_br = f"{existing} | {explicit_invoice_number}"
 
             chat.add_activity(f"📥 [{invoice_name}] Uvoz {len(lines)} stavki...")
             QApplication.processEvents()
