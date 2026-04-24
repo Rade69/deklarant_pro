@@ -481,8 +481,6 @@ class ZaglavljeController:
                             brojevi_faktura.append(bf)
                 
                 if brojevi_faktura:
-                    # Prvi broj ide u ref_br
-                    data['ref_br'] = brojevi_faktura[0]
                     # Svi brojevi spojeni sa | idu u N380 referencu
                     svi_brojevi = ' | '.join(brojevi_faktura)
 
@@ -498,10 +496,6 @@ class ZaglavljeController:
                             'number': svi_brojevi,
                             'from_rule': True,
                         })
-                else:
-                    broj_fakture = getattr(draft, 'ref_br', '') or ''
-                    if broj_fakture:
-                        data['ref_br'] = broj_fakture
 
                 # OST (ostali prateći dokument) iz draft.header_attached_documents
                 # — korisnik ga unese na naimenovanjima u le_rubrika40_3
