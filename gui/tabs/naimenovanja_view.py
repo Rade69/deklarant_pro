@@ -48,7 +48,7 @@ from PySide6.QtGui import QColor, QIcon, QPainter, QTextOption
 from services.naimenovanja.tariff_service import TariffService
 from services.naimenovanja.constants import NaimenovanjaConstants
 from services.tariff_mapping_service import TariffMapping, validate_preference
-from services.tariff_controls_service import check_tariff_controls
+from services.tariff_controls_service import check_tariff_controls, get_required_docs
 from gui.tabs.base_view import BaseTabView
 from gui.dialogs.inspection_dialog import InspectionDialog
 
@@ -1077,6 +1077,36 @@ class NaimenovanjaView(BaseTabView):
             le3.raise_()
             le3.show()
 
+    def _load_tariff_descriptions_sqlite(self, tariff_code: str) -> tuple[str, str]:
+        """
+        Učitaj opise tarife iz SQLite (uvijek dostupan, bez PostgreSQL).
+
+        Returns:
+            (full_description, short_description)
+            full_description  → opis podbroja (8 cifara) → ide u te_r31_opis
+            short_description → opis glave (4 cifre)    → ide u te_r31_opis_2
+        """
+        if not tariff_code:
+            return "", ""
+        try:
+            from services.tariff.tarifa_service import trazi_po_kodu
+            digits = "".join(filter(str.isdigit, str(tariff_code)))
+            code8 = digits[:8]
+
+            # Opis podbroja (8 cifara → lookup koji interno probava 10 cifara)
+            result8 = trazi_po_kodu(code8)
+            full = self._clean_tariff_description(result8['naziv']) if result8 else ""
+
+            # Opis glave (4 cifre)
+            code4 = digits[:4]
+            result4 = trazi_po_kodu(code4) if code4 != code8 else None
+            short = self._clean_tariff_description(result4['naziv']) if result4 else ""
+
+            return full, short
+        except Exception as e:
+            logger.debug(f"SQLite tariff lookup greška: {e}")
+            return "", ""
+
     def _load_tariff_description_from_db(self, tariff_code: str, nivo: str = "podbroj") -> str:
         """
         Učitaj opis tarife iz PostgreSQL catalogs.zvanicna_tarifa.
@@ -1768,6 +1798,49 @@ class NaimenovanjaView(BaseTabView):
         # Provjeri inspekcijsku kontrolu za uneseni tarifni broj
         self._check_and_show_tariff_warning(tariff_code)
 
+        # Automatski dodaj potrebne priložene dokumente u header_attached_documents
+        self._add_tariff_control_docs(tariff_code)
+
+    def _add_tariff_control_docs(self, tariff_code: str) -> None:
+        """Automatski dodaj priložene dokumente u header_attached_documents
+        na osnovu tarifnog broja (inspekcijske kontrole)."""
+        if not tariff_code or len(tariff_code.strip()) < 2:
+            return
+
+        # Pronađi potrebne dokumente
+        try:
+            docs = get_required_docs(tariff_code)
+        except Exception as e:
+            logger.warning(f"Greška pri dohvatanju dokumenta za {tariff_code}: {e}")
+            return
+
+        if not docs:
+            return
+
+        # Dodaj u header_attached_documents
+        header_docs = getattr(self.draft, "header_attached_documents", None)
+        if header_docs is None:
+            return
+
+        added = False
+        for doc in docs:
+            code = doc["code"]
+            # Provjeri da li već postoji
+            exists = any(d.code == code for d in header_docs)
+            if not exists:
+                from core.draft.draft import AttachedDocument
+                header_docs.append(AttachedDocument(
+                    code=code,
+                    name=doc["name"],
+                    number="",  # prazno — korisnik treba da unese broj
+                    from_rule=False,  # fizički priloženo
+                ))
+                added = True
+                logger.info(f"  📄 Automatski dodat dokument {code} ({doc['name']}) za tarifu {tariff_code}")
+
+        if added:
+            self.draft.mark_dirty()
+
     def _check_and_show_tariff_warning(self, tariff_code: str) -> None:
         """Provjeri da li tarifni broj podlijeze inspekcijskoj kontroli i pokazi upozorenje."""
         if not hasattr(self, "lbl_tariff_warning"):
@@ -2086,6 +2159,10 @@ class NaimenovanjaView(BaseTabView):
 
         print(f"  📦 _load_current_item END — loaded={loaded}, not_found={not_found}")
 
+        # Automatski dodaj priložene dokumente na osnovu tarifnog broja
+        if item and item.tariff_code:
+            self._add_tariff_control_docs(item.tariff_code)
+
         # DEBUG: provjeri vidljivost prvih 5 widgeta
         if loaded > 0 and self.current_item_index == 0:
             for wname in ["le_rubrika33", "le_rubrika34_zemlja", "le_rubrika35", "le_rubrika36", "te_r31_opis"]:
@@ -2140,24 +2217,21 @@ class NaimenovanjaView(BaseTabView):
         # KRITIČNO: Ako postoji tariff_code, pozovi lookup za opis tarife
         if item.tariff_code:
             logger.debug(f"  🔍 Tariff code found in model: {item.tariff_code}")
-            # Tačan opis podbroja (10 cifara)
-            full_description = self._load_tariff_description_from_db(item.tariff_code, nivo="podbroj")
+            # Primarno: SQLite (uvijek dostupan); fallback: PostgreSQL
+            full_description, short_description = self._load_tariff_descriptions_sqlite(item.tariff_code)
 
-            # Heading opis (4 cifre, nivo='glava')
-            short_code = self._extract_short_code(item.tariff_code)
-            short_description = ""
-            if short_code and short_code != item.tariff_code:
-                short_description = self._load_tariff_description_from_db(short_code, nivo="glava")
-                if short_description:
-                    self.tariff_cache[f"glava:{short_code}"] = short_description
+            # Fallback na PostgreSQL ako SQLite nije vratio ništa
+            if not full_description and not short_description:
+                full_description = self._load_tariff_description_from_db(item.tariff_code, nivo="podbroj")
+                short_code = self._extract_short_code(item.tariff_code)
+                if short_code and short_code != item.tariff_code:
+                    short_description = self._load_tariff_description_from_db(short_code, nivo="glava")
 
             if full_description or short_description:
-                # Sacuvaj tačan opis u cache za buduće upotrebe
-                if full_description:
-                    self.tariff_cache[f"podbroj:{item.tariff_code}"] = full_description
-                self._populate_tariff_description(
-                    full_description or "", short_description or ""
-                )
+                self._populate_tariff_description(full_description or "", short_description or "")
+                # Sačuvaj u draft da ne mora svaki put raditi lookup
+                item.tariff_description1 = full_description or ""
+                item.tariff_description2 = short_description or ""
             else:
                 logger.warning(f"  ⚠️  No tariff description found for code: {item.tariff_code}")
         # Auto-popuni Rb.41 ako tarifa zahtjeva i polje je prazno

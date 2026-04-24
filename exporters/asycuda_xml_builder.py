@@ -656,7 +656,9 @@ class AsycudaXMLBuilder:
         _null(tarif, "Tarification_data")
 
         hscode = ET.SubElement(tarif, "HScode")
-        _val(hscode, "Commodity_code", item.tariff_code or "")
+        # ASYCUDA prihvata tačno 8 cifara — skrati ako je 10-cifreni zapis
+        _code8 = (item.tariff_code or "")[:8]
+        _val(hscode, "Commodity_code", _code8)
         _val(hscode, "Precision_1", item.tariff_suffix or "000")
         _null(hscode, "Precision_2")
         _null(hscode, "Precision_3")
