@@ -2751,7 +2751,10 @@ class NaimenovanjaView(BaseTabView):
         self._update_summary()
 
     def _on_rubrika40_3_finished(self) -> None:
-        """Primijeni referencu dokumenta (rubrika40_3) na sve iteme."""
+        """Primijeni referencu dokumenta (rubrika40_3) na sve iteme.
+        
+        Automatski dodaje OST u header_attached_documents — vidi docs/sections/ost-rb40.md
+        """
         if self.is_loading:
             return
 
