@@ -651,10 +651,6 @@ def _uvezi_u_deklaraciju(ctrl, invoice_lines: list, chat,
                 if f.invoice_number not in brojevi_faktura:
                     brojevi_faktura.append(f.invoice_number)
 
-    # Sačuvaj sve brojeve fakture u draft.ref_br (za N380 u zaglavlju)
-    if brojevi_faktura:
-        ctrl.draft.ref_br = ' | '.join(brojevi_faktura)
-
     # 4. Dijalog za porijeklo (PE2 / PE3 / EUR.1)
     dialog_tip = _origin_dialog_type(ctrl.draft.invoice_lines, has_origin_statement,
                                      is_authorized_exporter)

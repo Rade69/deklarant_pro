@@ -347,16 +347,6 @@ class AgentController:
             self.draft.invoice_lines.clear()
             self.draft.invoice_lines.extend(lines)
 
-            # Sačuvaj broj fakture u draft.ref_br (za N380 u zaglavlju)
-            # Skupljamo SVE brojeve — spajamo sa | ako ih je više
-            # Koristimo SAMO eksplicitno parsirani broj, ne stem fajla
-            if explicit_invoice_number:
-                existing = getattr(self.draft, 'ref_br', '') or ''
-                if not existing:
-                    self.draft.ref_br = explicit_invoice_number
-                elif explicit_invoice_number not in existing:
-                    self.draft.ref_br = f"{existing} | {explicit_invoice_number}"
-
             chat.add_activity(f"📥 [{invoice_name}] Uvoz {len(lines)} stavki...")
             QApplication.processEvents()
 
