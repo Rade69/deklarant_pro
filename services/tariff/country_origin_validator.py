@@ -76,17 +76,17 @@ def derive_preference(zemlja: str) -> str:
     zemlja_upper = zemlja.strip().upper()
 
     if zemlja_upper in _EU_MEMBER_STATES:
-        return "EUP"
+        return "EUPR"
 
     if zemlja_upper in _CEFTA_MEMBER_STATES:
-        return "CEFTAP"
+        return "CEFTAR"
 
     if zemlja_upper in {"CH", "LI"}:
-        return "EFTA1"  # Švajcarska i Lihtenštajn
+        return "EFTA1R"  # Švajcarska i Lihtenštajn
     if zemlja_upper == "IS":
-        return "EFTA2"  # Island
+        return "EFTA2R"  # Island
     if zemlja_upper == "NO":
-        return "EFTA3"  # Norveška
+        return "EFTA3R"  # Norveška
 
     return ""
 

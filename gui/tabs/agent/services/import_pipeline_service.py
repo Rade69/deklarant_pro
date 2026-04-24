@@ -250,19 +250,19 @@ def _get_preference_by_country(ctrl, country_code: str, exporter_name: str = "")
     cefta_countries = {'RS', 'BA', 'ME', 'MK', 'AL', 'XK', 'MD'}
     c = (country_code or '').upper()
     if c in eu_countries:
-        return 'EUP'
+        return 'EUPR'
     if c in cefta_countries:
-        return 'CEFTAP'
+        return 'CEFTAR'
     if c == 'TR':
-        return 'TRP'
+        return 'TRPR'
     if c == 'IR':
         return 'IRP'
     if c in {'CH', 'LI'}:
-        return 'EFTA1'
+        return 'EFTA1R'
     if c == 'IS':
-        return 'EFTA2'
+        return 'EFTA2R'
     if c == 'NO':
-        return 'EFTA3'
+        return 'EFTA3R'
     return ''
 
 
