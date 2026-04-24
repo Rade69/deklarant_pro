@@ -331,6 +331,52 @@ def _apply_eur1_to_naimenovanja(ctrl, eur1_data: dict, chat) -> None:
     if updated:
         chat.add_activity(f"📋 Rb.44 ažuriran na {updated} naimenovanja ({doc44})")
 
+        # Sinhronizuj PE1/PE2/PE3 u header_attached_documents
+        # Vidi docs/sections/pe-rub44-4.md
+        _sync_pe_docs_to_header(ctrl)
+
+
+def _sync_pe_docs_to_header(ctrl) -> None:
+    """Sinhronizuj PE1/PE2/PE3 iz attached_document4 u header_attached_documents."""
+    header_docs = getattr(ctrl.draft, "header_attached_documents", None)
+    if header_docs is None:
+        return
+
+    pe_entries: list[tuple[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for item in ctrl.draft.items:
+        doc4 = (getattr(item, 'attached_document4', '') or '').strip()
+        if not doc4:
+            continue
+        parts = doc4.split(' ', 1)
+        sifra = parts[0].strip()
+        broj = parts[1].strip() if len(parts) > 1 else ''
+        if sifra in ("PE1", "PE2", "PE3"):
+            key = (sifra, broj)
+            if key not in seen:
+                seen.add(key)
+                pe_entries.append(key)
+
+    header_docs[:] = [d for d in header_docs if d.code not in ("PE1", "PE2", "PE3")]
+
+    if pe_entries:
+        from core.draft.draft import AttachedDocument
+        naziv_map = {
+            "PE1": "EUR.1 obrazac",
+            "PE2": "Izjava na fakturi",
+            "PE3": "Izjava ovlaštenog izvoznika",
+        }
+        for sifra, broj in pe_entries:
+            naziv = naziv_map.get(sifra, f"Dokument {sifra}")
+            header_docs.append(AttachedDocument(
+                code=sifra,
+                name=naziv,
+                number=broj,
+                from_rule=sifra == "PE1",
+            ))
+
+        ctrl.draft.mark_dirty()
+
 
 def _izracunaj_tezine_interno(ctrl, invoice_lines: list, chat) -> int:
     bruto_total = 0.0
@@ -541,12 +587,13 @@ def _uvezi_u_deklaraciju(ctrl, invoice_lines: list, chat,
         return
 
     # 1. Uvezi podatke u draft
-    # Postavi invoice_number na svaku stavku
+    # Postavi invoice_number na svaku stavku — SAMO iz eksplicitno parsiranog broja
+    # Ne koristimo stem fajla jer može biti pogrešan (npr. PDF parser failuje na ćirilici)
     invoice_name = ""
     if completed:
         for f in completed:
-            if f.status == 'Completed' and (f.invoice_number or f.filepath):
-                invoice_name = f.invoice_number or Path(f.filepath).stem
+            if f.status == 'Completed' and f.invoice_number:
+                invoice_name = f.invoice_number
                 break
     for line in invoice_lines:
         if invoice_name and not line.invoice_number:
@@ -594,16 +641,17 @@ def _uvezi_u_deklaraciju(ctrl, invoice_lines: list, chat,
             faktura_widget._load_data_from_draft()
 
     # 3. Broj fakture za dijalog i za N380 u zaglavlju
-    invoice_number = ""
+    # Skupljamo SVE eksplicitno parsirane brojeve (bez stem fallbacka)
+    brojevi_faktura = []
     if completed:
         for f in completed:
-            if f.status == 'Completed' and (f.invoice_number or f.filepath):
-                invoice_number = f.invoice_number or Path(f.filepath).stem
-                break
-    
-    # Sačuvaj broj fakture u draft.ref_br (za N380 u zaglavlju)
-    if invoice_number:
-        ctrl.draft.ref_br = invoice_number
+            if f.status == 'Completed' and f.invoice_number:
+                if f.invoice_number not in brojevi_faktura:
+                    brojevi_faktura.append(f.invoice_number)
+
+    # Sačuvaj sve brojeve fakture u draft.ref_br (za N380 u zaglavlju)
+    if brojevi_faktura:
+        ctrl.draft.ref_br = ' | '.join(brojevi_faktura)
 
     # 4. Dijalog za porijeklo (PE2 / PE3 / EUR.1)
     dialog_tip = _origin_dialog_type(ctrl.draft.invoice_lines, has_origin_statement,
