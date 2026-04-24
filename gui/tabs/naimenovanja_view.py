@@ -259,8 +259,8 @@ class NaimenovanjaView(BaseTabView):
             "le_r31_broj": "package_qty",  # ISPRAVLJENO: Broj (količina)
             "le_r31_vrsta": "package_code",  # ISPRAVLJENO: Vrsta (šifra - PK, CT...)
             "le_r31_vrsta_naziv": "package_name",  # Naziv pakovanja (auto-popunjava se)
-            "te_r31_opis": "tariff_description1",  # Opis robe (8-10 cifara - tačan podbroj)
-            "te_r31_opis_2": "tariff_description2",  # Opis robe 2 (4-6 cifara - viši nivo, heading)
+            "te_r31_opis": "tariff_description2",    # Heading opis (4-6 cifara) — prikazuje se u GUI
+            "te_r31_opis_2": "tariff_description1",  # Opis podbroja (8 cifara) — samo referenca
             "le_r31_trg_naziv": "goods_trade_name",  # Trgovački naziv (automatski popunjava opis robe)
             # Rubrika 32
             "le_rubrika32": "ordinal_no",
@@ -1806,8 +1806,8 @@ class NaimenovanjaView(BaseTabView):
         # Heading opis (4 cifre, nivo='glava')
         heading_description = _get_cached_or_lookup(heading_code, "glava") if heading_code else ""
 
-        # Uvijek ažuriraj polja (čisti stare opise ako nema match-a)
-        self._populate_tariff_description(full_description, heading_description)
+        # te_r31_opis → heading (4-6 cifara); te_r31_opis_2 → podbroj (8 cifara)
+        self._populate_tariff_description(heading_description, full_description)
 
         # Provjeri inspekcijsku kontrolu za uneseni tarifni broj
         self._check_and_show_tariff_warning(tariff_code)
@@ -2242,7 +2242,9 @@ class NaimenovanjaView(BaseTabView):
                     short_description = self._load_tariff_description_from_db(short_code, nivo="glava")
 
             if full_description or short_description:
-                self._populate_tariff_description(full_description or "", short_description or "")
+                # te_r31_opis → tariff_description2 (heading, 4-6 cifara)
+                # te_r31_opis_2 → tariff_description1 (podbroj, 8 cifara)
+                self._populate_tariff_description(short_description or "", full_description or "")
                 # Sačuvaj u draft da ne mora svaki put raditi lookup
                 item.tariff_description1 = full_description or ""
                 item.tariff_description2 = short_description or ""

@@ -753,12 +753,8 @@ class AsycudaXMLBuilder:
             desc_of_goods = desc_of_goods[:_DESC_MAX - 3] + "..."
         _val(goods, "Description_of_goods", desc_of_goods)
 
-        # Commercial_Description — tariff_description1 se ne koristi
-        comm_parts = []
-        if item.tariff_description2:
-            comm_parts.append(item.tariff_description2)
-        commercial_desc = "\n".join(p for p in comm_parts if p) or ""
-        _val(goods, "Commercial_Description", commercial_desc)
+        # Commercial_Description — tariff_description1/2 su interni GUI podaci, ne idu u XML
+        _val(goods, "Commercial_Description", "")
 
         # Previous_doc — Rub.40 (category/type/broj)
         # Exportuje se SAMO ono što korisnik unese — bez automatskih defaulta
