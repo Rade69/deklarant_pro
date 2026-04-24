@@ -449,9 +449,11 @@ class PE2QuickDialog(QDialog):
             return 'TRP'
         elif country_upper == 'IR':
             return 'IRP'
+        elif country_upper in {'CH', 'NO', 'IS', 'LI'}:
+            return 'EFTA2'
         else:
             return ''
-    
+
     @staticmethod
     def apply_pe2_data(invoice_lines: List[InvoiceLine], pe2_data: Dict[str, Dict]) -> int:
         """

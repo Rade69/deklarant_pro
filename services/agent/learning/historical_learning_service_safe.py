@@ -684,6 +684,8 @@ class HistoricalLearningServiceSafe:
             return 'TRP'
         elif country_upper == 'IR':
             return 'IRP'
+        elif country_upper in {'CH', 'NO', 'IS', 'LI'}:
+            return 'EFTA1'
         return ''
 
 
