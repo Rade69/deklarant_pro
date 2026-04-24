@@ -2010,8 +2010,8 @@ class ZaglavljeView(BaseTabView):
         """Popuni tabelu priloženih dokumenata.
         
         Nakon uvoza XML-a:
-        - Sve reference su prazne (osim DIS šifre)
-        - DIS šifra zadržava referencu iz XML-a
+        - Sve reference su prazne (osim DIS, N380 i OST šifre)
+        - DIS, N380 i OST zadržavaju referencu — vidi docs/sections/ost-rb40.md
         """
         if not self.table:
             return

@@ -439,6 +439,9 @@ class ZaglavljeController:
         """
         Handle import XML event.
         
+        Učitava OST iz draft.header_attached_documents (unos iz Rb.40.3)
+        i dodaje ga u attached_documents — vidi docs/sections/ost-rb40.md
+        
         Args:
             filename: Putanja do XML fajla
         """

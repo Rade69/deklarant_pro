@@ -38,6 +38,25 @@ U `naimenovanja_view.py`, u `_populate_tariff_description`:
 | `gui/tabs/zaglavlje_controller.py` | Dodat OST u `data['attached_documents']` prilikom importa XML-a |
 | `gui/tabs/zaglavlje_view.py` | Dodat `"OST"` u listu šifri koje zadržavaju referencu |
 
+## Medjuzavisnosti
+
+### Unutar aplikacije
+- `naimenovanja_view.py:_on_rubrika40_3_finished` → dodaje OST u `draft.header_attached_documents`
+- `draft.mark_dirty()` → `MainWindow._on_draft_data_changed` → `zaglavlje_tab.load_from_draft()`
+- `zaglavlje_service.py:load_from_draft()` → čita `draft.header_attached_documents` i dodaje u `data['attached_documents']`
+- `zaglavlje_controller.py:_on_import_xml` → prenosi OST iz draft-a u `data['attached_documents']` prilikom uvoza XML-a
+- `zaglavlje_view.py:_populate_attached_table` → prikazuje OST u tabeli (zadržava referencu)
+
+### Reference u kodu
+- `gui/tabs/naimenovanja_view.py:2753` — `_on_rubrika40_3_finished`
+- `gui/tabs/zaglavlje_controller.py:438` — `_on_import_xml` (OST logika ~linija 510)
+- `gui/tabs/zaglavlje_view.py:2009` — `_populate_attached_table` (šifre koje zadržavaju referencu ~linija 2043)
+- `services/zaglavlje_service.py:657` — `load_from_draft` (čitanje `header_attached_documents`)
+- `core/draft/draft.py:440` — `header_attached_documents` polje
+- `core/draft/draft.py:460` — `_notify_data_change` mehanizam
+- `gui/main_window.py:85` — registracija data_change callback-a
+- `gui/main_window.py:143` — `_on_draft_data_changed` (osvježava zaglavlje)
+
 ## Tok podataka
 ```
 Korisnik unese broj u le_rubrika40_3
