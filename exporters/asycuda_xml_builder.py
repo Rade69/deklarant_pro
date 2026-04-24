@@ -745,27 +745,19 @@ class AsycudaXMLBuilder:
         _null(goods, "Country_of_origin_region")
 
         # Description_of_goods = VIDLJIVO u ASYCUDA Rb.31 — limit 280 karaktera
-        # Primarno: goods_trade_name (komercijalni naziv iz le_r31_trg_naziv)
-        # Fallback: tariff_description1 → goods_description
+        # Samo goods_trade_name (ono što korisnik unese/vidi u le_r31_trg_naziv)
+        # tariff_description1 je interni GUI prikaz — ne ide u XML
         _DESC_MAX = 280
-        desc_of_goods = (
-            item.goods_trade_name
-            or _clean_tariff_desc(item.tariff_description1)
-            or item.goods_description
-            or "."
-        )
+        desc_of_goods = (item.goods_trade_name or item.goods_description or ".")
         if len(desc_of_goods) > _DESC_MAX:
             desc_of_goods = desc_of_goods[:_DESC_MAX - 3] + "..."
         _val(goods, "Description_of_goods", desc_of_goods)
 
-        # Commercial_Description = tarifni opisi (heading + podbroj) za referencu
-        # ASYCUDA ovo polje ne prikazuje u Rb.31 — koristi se samo za pretragu
+        # Commercial_Description — tariff_description1 se ne koristi
         comm_parts = []
         if item.tariff_description2:
             comm_parts.append(item.tariff_description2)
-        if item.tariff_description1:
-            comm_parts.append(_clean_tariff_desc(item.tariff_description1))
-        commercial_desc = "\n".join(p for p in comm_parts if p) or item.goods_trade_name or item.goods_description or ""
+        commercial_desc = "\n".join(p for p in comm_parts if p) or ""
         _val(goods, "Commercial_Description", commercial_desc)
 
         # Previous_doc — Rub.40 (category/type/broj)
