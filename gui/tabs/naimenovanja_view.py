@@ -1625,17 +1625,15 @@ class NaimenovanjaView(BaseTabView):
                     pass
             if neto_kg > 0:
                 le_qty.setText(f"{neto_kg:.2f}")
-        # Za NAR — pokušaj iz količine stavke (Rb.41 ostaje za korisnika ako nema)
+        # Za NAR — uzmi broj iz le_r31_broj (Rb.31 — broj komada)
         elif unit_code == "NAR":
-            le_kolicina = self._get_widget("le_rubrika41")
-            # Pokušaj iz draft-a
-            item = self.draft.items[self.current_item_index] if self.draft.items else None
-            if item and hasattr(item, 'quantity') and item.quantity:
+            le_broj = self._get_widget("le_r31_broj")
+            if le_broj:
                 try:
-                    qty = float(str(item.quantity).replace(",", "."))
+                    qty = float(le_broj.text().replace(",", ".").strip())
                     if qty > 0:
                         le_qty.setText(f"{qty:.0f}")
-                except (ValueError, TypeError):
+                except (ValueError, AttributeError):
                     pass
 
         self._save_current_item()
