@@ -279,14 +279,18 @@ def _parse_master_frigo(pdf_path: str) -> ImportResult:
     from importers.master_frigo_importer import (
         parse_master_frigo_pdf, convert_to_invoice_lines, _read_mapping_xlsx
     )
+    from core.draft.draft import Party
 
     # Auto-detektuj Excel mapping u istom folderu
     mapping = {}
     xlsx_path = _find_master_frigo_mapping_xlsx(pdf_path)
+    consumed: list[str] = []
     if xlsx_path:
         try:
             mapping = _read_mapping_xlsx(xlsx_path)
             logger.info(f"  ✅ Master Frigo mapping učitan: {len(mapping)} šifara")
+            # Označiti mapping xlsx kao potrošen — agent ne smije da ga uvozi zasebno
+            consumed = [xlsx_path]
         except Exception as e:
             logger.warning(f"  ⚠️ Greška pri učitavanju Master Frigo mapping-a: {e}")
 
@@ -297,6 +301,13 @@ def _parse_master_frigo(pdf_path: str) -> ImportResult:
     neto_kg = header.get("net_kg", 0.0)
     invoice_name = header.get("invoice_no", "")
 
+    # Postavi exporter i importer na svaku stavku (convert_to_invoice_lines samo exporter)
+    _exp = Party(name="MASTER FRIGO")
+    _imp = Party(name="MASTER FRIGO D.O.O. BANJA LUKA")
+    for line in invoice_lines:
+        line.exporter = _exp
+        line.importer = _imp
+
     return ImportResult(
         items=invoice_lines,
         bruto_kg=bruto_kg,
@@ -305,6 +316,9 @@ def _parse_master_frigo(pdf_path: str) -> ImportResult:
         currency=currency,
         has_origin_statement=header.get("has_origin_statement", False),
         origin_statements=header.get("origin_statements", []),
+        exporter=_exp,
+        importer=_imp,
+        consumed_paths=consumed,
     )
 
 
