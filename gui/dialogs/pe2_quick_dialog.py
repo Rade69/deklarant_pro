@@ -449,8 +449,12 @@ class PE2QuickDialog(QDialog):
             return 'TRP'
         elif country_upper == 'IR':
             return 'IRP'
-        elif country_upper in {'CH', 'NO', 'IS', 'LI'}:
+        elif country_upper in {'CH', 'LI'}:
+            return 'EFTA1'
+        elif country_upper == 'IS':
             return 'EFTA2'
+        elif country_upper == 'NO':
+            return 'EFTA3'
         else:
             return ''
 

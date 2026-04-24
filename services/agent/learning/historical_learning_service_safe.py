@@ -158,12 +158,18 @@ class HistoricalLearningServiceSafe:
         official_preferences = {
             "CEFTAT": "CEFTA",
             "CEFTAP": "CEFTA",
-            "EFTA1": "EFTA",
-            "EFTA2": "EFTA",
-            "EFTA3": "EFTA",
-            "EUP": "EUP",
-            "IRP": "IRP",
-            "TRP": "TRP",
+            "CEFTAR": "CEFTA",
+            "EFTA1":  "EFTA1",   # Švajcarska+Lihtenštajn — čuvamo specifičnost
+            "EFTA1R": "EFTA1",
+            "EFTA2":  "EFTA2",   # Island
+            "EFTA2R": "EFTA2",
+            "EFTA3":  "EFTA3",   # Norveška
+            "EFTA3R": "EFTA3",
+            "EUP":    "EUP",
+            "EUPR":   "EUP",
+            "IRP":    "IRP",
+            "TRP":    "TRP",
+            "TRPR":   "TRP",
         }
         return official_preferences.get(pref_code, pref_code)
 
@@ -180,10 +186,12 @@ class HistoricalLearningServiceSafe:
         normalized_code = normalized_code.strip().upper()
         preference_mapping = {
             "CEFTA": "CEFTAP",
-            "EFTA": "EFTA1",
-            "EUP": "EUP",
-            "IRP": "IRP",
-            "TRP": "TRP",
+            "EFTA1": "EFTA1",   # Švajcarska+Lihtenštajn — vraćamo kao-jeste
+            "EFTA2": "EFTA2",   # Island
+            "EFTA3": "EFTA3",   # Norveška
+            "EUP":   "EUP",
+            "IRP":   "IRP",
+            "TRP":   "TRP",
         }
         return preference_mapping.get(normalized_code, normalized_code)
 
@@ -684,8 +692,12 @@ class HistoricalLearningServiceSafe:
             return 'TRP'
         elif country_upper == 'IR':
             return 'IRP'
-        elif country_upper in {'CH', 'NO', 'IS', 'LI'}:
+        elif country_upper in {'CH', 'LI'}:
             return 'EFTA1'
+        elif country_upper == 'IS':
+            return 'EFTA2'
+        elif country_upper == 'NO':
+            return 'EFTA3'
         return ''
 
 
