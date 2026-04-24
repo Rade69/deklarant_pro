@@ -1570,19 +1570,36 @@ class NaimenovanjaView(BaseTabView):
         # korisnik svjesno pritiskuje Enter da potvrdi ovu tarifu
         self._ask_update_knowledge_base(new_tariff)
 
+    # Mapiranje šifara iz carinske tarife → ASYCUDA kodovi za dopunsku JM
+    _DOPUNSKA_JM_MAP = {
+        'kd':   'NAR',   # komad
+        'kom':  'NAR',
+        'nar':  'NAR',
+        'par':  'NAR',
+        'l':    'LTR',   # litar
+        'lit':  'LTR',
+        'ltr':  'LTR',
+        'm2':   'MTK',   # kvadratni metar
+        'm²':   'MTK',
+        'mtk':  'MTK',
+        'm3':   'MTQ',   # kubni metar
+        'm³':   'MTQ',
+        'mtq':  'MTQ',
+        'm':    'MTR',   # metar
+        'mtr':  'MTR',
+        'g':    'GRM',   # gram
+        'grm':  'GRM',
+        'kg':   'KGM',
+        'kgm':  'KGM',
+        'ce':   'CE',    # container
+        'ct':   'CT',
+    }
+
     def _auto_populate_supplementary_unit(self, tariff_code: str) -> None:
-        """Auto-popuni Rb.41 (KGM + neto kg) ako tarifa to zahtjeva i polje je prazno."""
+        """Auto-popuni Rb.41/43 ako tarifa propisuje dopunsku JM."""
         if not tariff_code or len(tariff_code) < 2:
             return
-        # Poglavlja 01-24 (prehrambeni/poljoprivredni) uvijek zahtijevaju KGM u BiH ASYCUDA
-        try:
-            chapter = int(tariff_code[:2])
-        except ValueError:
-            return
-        if chapter not in range(1, 25):
-            return
 
-        # Provjeri da li su polja već popunjena
         le_code = self._get_widget("le_rubrika43")
         le_qty  = self._get_widget("le_rubrika41")
         if not le_code or not le_qty:
@@ -1590,20 +1607,47 @@ class NaimenovanjaView(BaseTabView):
         if le_code.text().strip():
             return  # korisnik je već unio
 
-        # Uzmi neto masu iz Rb.38
-        le_neto = self._get_widget("le_rubrika38")
-        neto_kg = 0.0
-        if le_neto:
-            try:
-                neto_kg = float(le_neto.text().replace(",", ".").strip())
-            except (ValueError, AttributeError):
-                pass
-        if neto_kg <= 0:
+        # Lookup dopunske JM iz tarife
+        unit_code = self._resolve_supplementary_unit(tariff_code)
+        if not unit_code:
             return
 
-        le_code.setText("KGM")
-        le_qty.setText(f"{neto_kg:.2f}")
+        le_code.setText(unit_code)
+
+        # Za KGM — auto-popuni neto masu iz Rb.38
+        if unit_code == "KGM":
+            le_neto = self._get_widget("le_rubrika38")
+            neto_kg = 0.0
+            if le_neto:
+                try:
+                    neto_kg = float(le_neto.text().replace(",", ".").strip())
+                except (ValueError, AttributeError):
+                    pass
+            if neto_kg > 0:
+                le_qty.setText(f"{neto_kg:.2f}")
+        # Za NAR — pokušaj iz količine stavke (Rb.41 ostaje za korisnika ako nema)
+        elif unit_code == "NAR":
+            le_kolicina = self._get_widget("le_rubrika41")
+            # Pokušaj iz draft-a
+            item = self.draft.items[self.current_item_index] if self.draft.items else None
+            if item and hasattr(item, 'quantity') and item.quantity:
+                try:
+                    qty = float(str(item.quantity).replace(",", "."))
+                    if qty > 0:
+                        le_qty.setText(f"{qty:.0f}")
+                except (ValueError, TypeError):
+                    pass
+
         self._save_current_item()
+
+    def _resolve_supplementary_unit(self, tariff_code: str) -> str:
+        """Vrati ASYCUDA kod dopunske JM za tarifni broj, ili '' ako ne postoji."""
+        try:
+            from services.naimenovanja.create_naimenovanja_service import get_supplementary_unit
+            return get_supplementary_unit(tariff_code)
+        except Exception:
+            pass
+        return ""
 
     def _ask_update_knowledge_base(self, new_tariff: str) -> None:
         """Pitaj korisnika da li želi ažurirati bazu znanja za ovaj proizvod."""
@@ -2661,7 +2705,9 @@ class NaimenovanjaView(BaseTabView):
         Connect special field signals for "apply to all" functionality.
         These fields apply their value to ALL items in the draft.
         """
+        logger.debug(f"🔍 DIAG SPECIAL: _connect_special_field_signals pozvan, hasattr(ui)={hasattr(self, 'ui')}")
         if not hasattr(self, "ui"):
+            logger.debug(f"🔍 DIAG SPECIAL: nema ui, return")
             return
 
         # Find the special fields using cached access
@@ -2669,6 +2715,8 @@ class NaimenovanjaView(BaseTabView):
         le_rubrika40_2 = self._get_widget("le_rubrika40_2")
         le_rubrika40_3 = self._get_widget("le_rubrika40_3")
         le_rubrika44_4 = self._get_widget("le_rubrika44_4")
+        logger.debug(f"🔍 DIAG SPECIAL: le_rubrika40_3={le_rubrika40_3}, le_rubrika44_4={le_rubrika44_4}")
+        logger.debug(f"🔍 DIAG SPECIAL: ui postoji? {hasattr(self, 'ui')}")
 
         if le_rubrika40_2 and isinstance(le_rubrika40_2, QComboBox):
             # Disconnect default handler first
@@ -2815,14 +2863,20 @@ class NaimenovanjaView(BaseTabView):
         
         Automatski dodaje OST u header_attached_documents — vidi docs/sections/ost-rb40.md
         """
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.debug(f"🔍 DIAG: _on_rubrika40_3_finished POZVAN, is_loading={self.is_loading}")
+
         if self.is_loading:
             return
 
         le_rubrika40_3 = self._get_widget("le_rubrika40_3")
         if not le_rubrika40_3:
+            logger.debug(f"🔍 DIAG: le_rubrika40_3 widget nije pronađen!")
             return
 
         text = le_rubrika40_3.text().strip()
+        logger.debug(f"🔍 DIAG: text='{text}', draft.header_attached_documents postoji? {hasattr(self.draft, 'header_attached_documents')}")
 
         # 1. Sacuvaj trenutni item
         self._save_current_item()
@@ -2837,10 +2891,13 @@ class NaimenovanjaView(BaseTabView):
         #    da bi se prikazao u zaglavlju u tabeli priloženih dokumenata
         if text:
             header_docs = getattr(self.draft, "header_attached_documents", None)
+            logger.debug(f"🔍 DIAG: header_docs={header_docs}")
             if header_docs is not None:
                 ost = next((d for d in header_docs if d.code == "OST"), None)
+                logger.debug(f"🔍 DIAG: postojeci OST={ost}")
                 if ost:
                     ost.number = text
+                    logger.debug(f"🔍 DIAG: OST azuriran: number={text}")
                 else:
                     from core.draft.draft import AttachedDocument
                     header_docs.append(AttachedDocument(
@@ -2849,8 +2906,14 @@ class NaimenovanjaView(BaseTabView):
                         number=text,
                         from_rule=False,
                     ))
+                    logger.debug(f"🔍 DIAG: OST DODAT: code=OST, number={text}")
                 # Obavijesti zaglavlje da se podaci promijenili
+                logger.debug(f"🔍 DIAG: pozivam draft.mark_dirty()")
                 self.draft.mark_dirty()
+            else:
+                logger.debug(f"🔍 DIAG: header_docs je None!")
+        else:
+            logger.debug(f"🔍 DIAG: text je prazan, preskacem OST")
 
         # 4. Azuriraj summary i validaciju
         self._update_summary()
