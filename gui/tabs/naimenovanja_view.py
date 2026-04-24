@@ -856,6 +856,7 @@ class NaimenovanjaView(BaseTabView):
         self._trg_naziv_min_h = geometry.height()  # originalna visina iz .ui (71px)
         self._trg_naziv_max_h = parent.height() - geometry.y() - 10  # do dna parent-a minus margina
         self.te_trg_naziv.document().contentsChanged.connect(self._adjust_trg_naziv_height)
+        self.te_trg_naziv.textChanged.connect(self._check_trg_naziv_limit)
 
         # Podigni widget na vrh (z-order)
         self.te_trg_naziv.setVisible(True)
@@ -867,6 +868,19 @@ class NaimenovanjaView(BaseTabView):
         old_widget.deleteLater()
 
         logger.info(f" ✅ Zamijenjen le_r31_trg_naziv: QLineEdit → QTextEdit (auto-expand, multi-line)")
+
+    _TRG_NAZIV_MAX = 280  # ASYCUDA Rb.31 limit za Description_of_goods
+
+    def _check_trg_naziv_limit(self) -> None:
+        """Upozori vizuelno kad tekst pređe ASYCUDA limit od 280 karaktera."""
+        if not hasattr(self, "te_trg_naziv"):
+            return
+        text = self.te_trg_naziv.toPlainText()
+        over = len(text) > self._TRG_NAZIV_MAX
+        self.te_trg_naziv.setStyleSheet(
+            "QTextEdit { background: #fff3cd; border: 2px solid #e65100; }"
+            if over else ""
+        )
 
     def _adjust_trg_naziv_height(self) -> None:
         """Prilagodi visinu te_trg_naziv prema sadržaju (auto-expand do dna group_31)."""
@@ -1922,14 +1936,14 @@ class NaimenovanjaView(BaseTabView):
                 trading_names
             )  # QTextEdit koristi setPlainText
 
-    def _format_trading_names(self, max_chars: int = 550) -> str:
+    def _format_trading_names(self, max_chars: int = 280) -> str:
         # docs/sections/export-pdf-excel.md — dodaje footer sa Faktura: info
         """
         Formatuj sve nazive proizvoda iz fakture koji pripadaju trenutnom naimenovanju.
         Na dnu dodaje spisak faktura i rednih brojeva stavki koje ulaze u naimenovanje.
 
         Args:
-            max_chars: Maksimalan broj karaktera (default 550 za polje 460x200px)
+            max_chars: Maksimalan broj karaktera — ASYCUDA Rb.31 limit je 280
 
         Returns:
             Nazivi proizvoda + na dnu "Faktura: broj (rb. x, y)" informacija

@@ -744,15 +744,18 @@ class AsycudaXMLBuilder:
         _val(goods, "Country_of_origin_code", item.origin_country_code or "")
         _null(goods, "Country_of_origin_region")
 
-        # Description_of_goods = VIDLJIVO u ASYCUDA Rb.31
+        # Description_of_goods = VIDLJIVO u ASYCUDA Rb.31 — limit 280 karaktera
         # Primarno: goods_trade_name (komercijalni naziv iz le_r31_trg_naziv)
         # Fallback: tariff_description1 → goods_description
+        _DESC_MAX = 280
         desc_of_goods = (
             item.goods_trade_name
             or _clean_tariff_desc(item.tariff_description1)
             or item.goods_description
             or "."
         )
+        if len(desc_of_goods) > _DESC_MAX:
+            desc_of_goods = desc_of_goods[:_DESC_MAX - 3] + "..."
         _val(goods, "Description_of_goods", desc_of_goods)
 
         # Commercial_Description = tarifni opisi (heading + podbroj) za referencu
