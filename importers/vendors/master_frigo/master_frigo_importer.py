@@ -115,7 +115,7 @@ def _normalize_preferential(raw: str) -> str:
         return ""
     u = s.upper()
     if u in {"DA", "YES", "Y", "1", "TRUE", "T"}:
-        return "P"
+        return ""  # "DA" je interni flag — specifičan EFTA kod dodaje dijalog/auto-handle
     if u in {"NE", "NO", "N", "0", "FALSE", "F"}:
         return ""
     return s

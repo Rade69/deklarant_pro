@@ -81,6 +81,9 @@ def derive_preference(zemlja: str) -> str:
     if zemlja_upper in _CEFTA_MEMBER_STATES:
         return "CEFTAP"
 
+    if zemlja_upper in {"CH", "NO", "IS", "LI"}:
+        return "EFTA2"  # Izjava o porijeklu na fakturi (PEM konvencija)
+
     return ""
 
 
