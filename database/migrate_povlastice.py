@@ -11,36 +11,34 @@ import psycopg2.extras
 from database.db import POSTGRES_CONFIG
 
 
+# Šifrarnik 12 — Polje 36: Povlastice BiH (zvanični ASYCUDA kodovi)
 POVLASTICE = [
-    # CEFTA povlastice
-    ('CEFTAP', 'CEFTA povlastica - Sporazum o slobodnoj trgovini sa zemljama CEFTA', 'CEFTA'),
-    
-    # EU povlastice
-    ('EUP', 'EU povlastica - Preferencijalno poreklo iz Evropske unije', 'EU'),
-    ('EUR1', 'EUR.1 obrazac - Potvrda o preferencijalnom poreklu', 'EURO_MED'),
-    ('EURMED', 'EUR-MED obrazac - Pan-Euro-Med kumulacija', 'EURO_MED'),
-    
+    # CEFTA
+    ('CEFTAP', 'CEFTA 2006', 'CEFTA'),
+    ('CEFTAR', 'CEFTA 2006 - Revidirana PEM pravila', 'CEFTA'),
+
+    # EFTA — Švajcarska i Lihtenštajn (CH, LI)
+    ('EFTA1',  'Švajcarska i Lihtenštajn', 'EFTA'),
+    ('EFTA1R', 'Švajcarska i Lihtenštajn - Revidirana PEM pravila', 'EFTA'),
+
+    # EFTA — Island (IS)
+    ('EFTA2',  'Island', 'EFTA'),
+    ('EFTA2R', 'Island - Revidirana PEM pravila', 'EFTA'),
+
+    # EFTA — Norveška (NO)
+    ('EFTA3',  'Norveška', 'EFTA'),
+    ('EFTA3R', 'Norveška - Revidirana PEM pravila', 'EFTA'),
+
+    # EU
+    ('EUP',  'EU porijeklo', 'EU'),
+    ('EUPR', 'EU porijeklo - Revidirana PEM pravila', 'EU'),
+
     # Turska
-    ('TRP', 'Turska povlastica - Poseban sporazum sa Turskom', 'TURSKA'),
-    
-    # Generalizovani sistem povlastica (GSP)
-    ('AGL', 'Opšti sistem povlastica - A zemlje (Generalized System of Preferences)', 'GSP'),
-    ('AGL+', 'Opšti sistem povlastica - A+ zemlje (GSP+)', 'GSP'),
-    
-    # Posebne povlastice
-    ('PE1', 'Posebna povlastica 1', 'POSEBNO'),
-    ('PE2', 'Posebna povlastica 2', 'POSEBNO'),
-    ('PE3', 'Posebna povlastica 3', 'POSEBNO'),
-    ('PE4', 'Posebna povlastica 4', 'POSEBNO'),
-    ('PE5', 'Posebna povlastica 5', 'POSEBNO'),
-    
-    # Ostale povlastice
-    ('FORMA', 'Forma A - GSP certifikat za zemlje u razvoju', 'GSP'),
-    ('SPG', 'Sistem generalizovanih povlastica', 'GSP'),
-    
-    # Bez povlastice
-    ('NISP', 'Nema internacionalnog sporazuma o povlasticama', 'NONE'),
-    ('-', 'Bez povlastice', 'NONE'),
+    ('TRP',  'Turska', 'TURSKA'),
+    ('TRPR', 'Turska - Revidirana PEM pravila', 'TURSKA'),
+
+    # Iran
+    ('IRP', 'Iran', 'IRAN'),
 ]
 
 

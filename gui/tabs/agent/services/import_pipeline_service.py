@@ -257,8 +257,12 @@ def _get_preference_by_country(ctrl, country_code: str, exporter_name: str = "")
         return 'TRP'
     if c == 'IR':
         return 'IRP'
-    if c in {'CH', 'NO', 'IS', 'LI'}:
+    if c in {'CH', 'LI'}:
         return 'EFTA1'
+    if c == 'IS':
+        return 'EFTA2'
+    if c == 'NO':
+        return 'EFTA3'
     return ''
 
 
