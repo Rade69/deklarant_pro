@@ -442,19 +442,19 @@ class PE2QuickDialog(QDialog):
         cefta_countries = {'RS', 'BA', 'ME', 'MK', 'AL', 'XK', 'MD'}
         
         if country_upper in eu_countries:
-            return 'EUP'
+            return 'EUPR'
         elif country_upper in cefta_countries:
-            return 'CEFTAP'
+            return 'CEFTAR'
         elif country_upper == 'TR':
-            return 'TRP'
+            return 'TRPR'
         elif country_upper == 'IR':
             return 'IRP'
         elif country_upper in {'CH', 'LI'}:
-            return 'EFTA1'
+            return 'EFTA1R'
         elif country_upper == 'IS':
-            return 'EFTA2'
+            return 'EFTA2R'
         elif country_upper == 'NO':
-            return 'EFTA3'
+            return 'EFTA3R'
         else:
             return ''
 
