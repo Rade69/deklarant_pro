@@ -521,7 +521,7 @@ class AsycudaXMLBuilder:
         total_gross = sum(item.gross_mass_kg or 0.0 for item in self.draft.items)
         gross_w = ET.SubElement(weight, "Gross_weight")
         if total_gross:
-            gross_w.text = f"{total_gross:.0f}"
+            gross_w.text = f"{total_gross:.3f}"
 
         t1 = _parse_cost(self._g("trosak_1"))
         t2 = _parse_cost(self._g("trosak_2"))
@@ -571,7 +571,7 @@ class AsycudaXMLBuilder:
         total_net = sum(item.net_mass_kg or 0.0 for item in self.draft.items)
         tw = ET.SubElement(total, "Total_weight")
         if total_net:
-            tw.text = f"{total_net:.0f}"
+            tw.text = f"{total_net:.3f}"
 
     # ─────────────────────────────────────────────────────────────
     # Item sekcije
@@ -821,10 +821,10 @@ class AsycudaXMLBuilder:
         wi = ET.SubElement(val_item, "Weight_itm")
         gw = ET.SubElement(wi, "Gross_weight_itm")
         if item.gross_mass_kg:
-            gw.text = f"{item.gross_mass_kg:.0f}"
+            gw.text = f"{item.gross_mass_kg:.3f}"
         nw = ET.SubElement(wi, "Net_weight_itm")
         if item.net_mass_kg:
-            nw.text = f"{item.net_mass_kg:.0f}"
+            nw.text = f"{item.net_mass_kg:.3f}"
 
         self._fill_item_valuation(val_item, item, total_items_value, t1, t2, t3, t4, t5)
 
