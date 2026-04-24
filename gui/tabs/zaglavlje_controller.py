@@ -465,41 +465,43 @@ class ZaglavljeController:
                     )
                 
                 # Broj fakture — uvijek iz fakture, ne iz XML-a
+                # Skupljamo SVE brojeve faktura (može ih biti više u tabeli faktura)
                 # Prioritet: line.invoice_number > line.raw['invoice_number'] > draft.ref_br
-                broj_fakture = ''
+                brojevi_faktura = []
                 for line in invoice_lines:
                     bf = getattr(line, 'invoice_number', '') or ''
-                    if bf:
-                        broj_fakture = bf
-                        break
+                    if bf and bf not in brojevi_faktura:
+                        brojevi_faktura.append(bf)
                 
-                if not broj_fakture:
+                if not brojevi_faktura:
                     for line in invoice_lines:
                         raw = getattr(line, 'raw', None) or {}
                         bf = raw.get('invoice_number', '') or ''
-                        if bf:
-                            broj_fakture = bf
-                            break
+                        if bf and bf not in brojevi_faktura:
+                            brojevi_faktura.append(bf)
                 
-                if not broj_fakture:
-                    broj_fakture = getattr(draft, 'ref_br', '') or ''
-                
-                if broj_fakture:
-                    # Prepisati ref_br u data da se koristi umjesto starog iz XML-a
-                    data['ref_br'] = broj_fakture
+                if brojevi_faktura:
+                    # Prvi broj ide u ref_br
+                    data['ref_br'] = brojevi_faktura[0]
+                    # Svi brojevi spojeni sa | idu u N380 referencu
+                    svi_brojevi = ' | '.join(brojevi_faktura)
 
-                    # Dodaj/ažuriraj N380 u attached_documents sa aktuelnim brojem fakture
+                    # Dodaj/ažuriraj N380 u attached_documents sa svim brojevima faktura
                     docs = data.setdefault('attached_documents', [])
                     n380 = next((d for d in docs if d.get('code') == 'N380'), None)
                     if n380:
-                        n380['number'] = broj_fakture
+                        n380['number'] = svi_brojevi
                     else:
                         docs.append({
                             'code': 'N380',
                             'name': 'Faktura',
-                            'number': broj_fakture,
+                            'number': svi_brojevi,
                             'from_rule': True,
                         })
+                else:
+                    broj_fakture = getattr(draft, 'ref_br', '') or ''
+                    if broj_fakture:
+                        data['ref_br'] = broj_fakture
 
                 # OST (ostali prateći dokument) iz draft.header_attached_documents
                 # — korisnik ga unese na naimenovanjima u le_rubrika40_3
@@ -517,6 +519,18 @@ class ZaglavljeController:
                                     'name': 'Ostali prateći dokumenti',
                                     'number': hd.number,
                                     'from_rule': False,
+                                })
+                        # PE1/PE2/PE3 iz draft.header_attached_documents
+                        # — dolaze iz attached_document4 na naimenovanjima
+                        # Vidi docs/sections/pe-rub44-4.md
+                        if hd.code in ("PE1", "PE2", "PE3") and hd.number:
+                            pe = next((d for d in docs if d.get('code') == hd.code and d.get('number') == hd.number), None)
+                            if not pe:
+                                docs.append({
+                                    'code': hd.code,
+                                    'name': hd.name,
+                                    'number': hd.number,
+                                    'from_rule': hd.from_rule,
                                 })
 
             # Populate view with data

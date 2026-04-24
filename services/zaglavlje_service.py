@@ -665,38 +665,38 @@ class ZaglavljeService:
                     'from_rule': True,  # Svaki upisani dokument je fizički priložen
                 })
 
-        # Automatski dodaj N380 (faktura) ako postoji broj fakture u draft-u
-        # Prioritet: invoice_lines[].invoice_number > invoice_lines[].raw.invoice_number > draft.ref_br
-        broj_fakture = ''
+        # Automatski dodaj N380 (faktura) ako postoje brojevi faktura u draft-u
+        # Skupljamo SVE brojeve (može ih biti više u tabeli faktura)
+        invoice_lines = getattr(draft, 'invoice_lines', None) or []
+        brojevi = []
         
         # 1. Pokušaj iz invoice_lines[].invoice_number (novo polje)
-        invoice_lines = getattr(draft, 'invoice_lines', None) or []
         for line in invoice_lines:
             bf = getattr(line, 'invoice_number', '') or ''
-            if bf:
-                broj_fakture = bf
-                break
+            if bf and bf not in brojevi:
+                brojevi.append(bf)
         
         # 2. Fallback na invoice_lines[].raw['invoice_number'] (staro polje)
-        if not broj_fakture:
+        if not brojevi:
             for line in invoice_lines:
                 raw = getattr(line, 'raw', None) or {}
                 bf = raw.get('invoice_number', '') or ''
-                if bf:
-                    broj_fakture = bf
-                    break
+                if bf and bf not in brojevi:
+                    brojevi.append(bf)
         
         # 3. Fallback na draft.ref_br
-        if not broj_fakture:
-            broj_fakture = getattr(draft, 'ref_br', '') or ''
+        if not brojevi:
+            ref = getattr(draft, 'ref_br', '') or ''
+            if ref:
+                brojevi.append(ref)
         
-        if broj_fakture:
+        if brojevi:
             has_n380 = any(d.get('code') == 'N380' for d in data['attached_documents'])
             if not has_n380:
                 data['attached_documents'].append({
                     'code': 'N380',
                     'name': 'Faktura',
-                    'number': broj_fakture,
+                    'number': ' | '.join(brojevi),
                     'from_rule': True,
                 })
 

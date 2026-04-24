@@ -2728,7 +2728,12 @@ class NaimenovanjaView(BaseTabView):
         self._update_status_bar()
 
     def _on_rubrika44_4_finished(self) -> None:
-        """Primijeni rubrika44_4 na sve iteme NAKON zavrsetka uredivanja (Enter/blur)"""
+        """Primijeni rubrika44_4 na sve iteme NAKON zavrsetka uredivanja (Enter/blur).
+
+        Automatski dodaje PE1/PE2/PE3 u header_attached_documents
+        radi prikaza u tabeli priloženih dokumenata u zaglavlju.
+        Vidi docs/sections/pe-rub44-4.md
+        """
         if self.is_loading:
             return
 
@@ -2747,8 +2752,63 @@ class NaimenovanjaView(BaseTabView):
                 if i != self.current_item_index:
                     item.attached_document4 = text
 
-        # 3. Azuriraj summary
+        # 3. Sinhronizuj PE šifre iz rub.44.4 u header_attached_documents
+        self._sync_pe_docs_to_header()
+
+        # 4. Azuriraj summary
         self._update_summary()
+
+    def _sync_pe_docs_to_header(self) -> None:
+        """Sinhronizuj PE1/PE2/PE3 dokumente iz naimenovanja u header_attached_documents.
+
+        Čita attached_document4 sa svih naimenovanja, parsira format "ŠIFRA broj",
+        i dodaje AttachedDocument(code=ŠIFRA, number=broj) u draft.header_attached_documents.
+        Stari PE unosi se uklanjaju i zamjenjuju aktuelnim.
+        """
+        header_docs = getattr(self.draft, "header_attached_documents", None)
+        if header_docs is None:
+            return
+
+        # 1. Sakupi sve jedinstvene (sifra, broj) parove iz svih naimenovanja
+        pe_entries: list[tuple[str, str]] = []
+        seen: set[tuple[str, str]] = set()
+        for item in self.draft.items:
+            doc4 = (getattr(item, 'attached_document4', '') or '').strip()
+            if not doc4:
+                continue
+            # Format: "ŠIFRA broj" (npr. "PE1 12345", "PE2 INV-001")
+            parts = doc4.split(' ', 1)
+            sifra = parts[0].strip()
+            broj = parts[1].strip() if len(parts) > 1 else ''
+            if sifra in ("PE1", "PE2", "PE3"):
+                key = (sifra, broj)
+                if key not in seen:
+                    seen.add(key)
+                    pe_entries.append(key)
+
+        # 2. Ukloni postojeće PE1/PE2/PE3 unose iz header_attached_documents
+        header_docs[:] = [d for d in header_docs if d.code not in ("PE1", "PE2", "PE3")]
+
+        # 3. Dodaj nove unose
+        if pe_entries:
+            from core.draft.draft import AttachedDocument
+            for sifra, broj in pe_entries:
+                # Mapiraj šifru u naziv dokumenta
+                naziv_map = {
+                    "PE1": "EUR.1 obrazac",
+                    "PE2": "Izjava na fakturi",
+                    "PE3": "Izjava ovlaštenog izvoznika",
+                }
+                naziv = naziv_map.get(sifra, f"Dokument {sifra}")
+                header_docs.append(AttachedDocument(
+                    code=sifra,
+                    name=naziv,
+                    number=broj,
+                    from_rule=sifra == "PE1",  # EUR.1 je fizički priložen
+                ))
+
+            # Obavijesti zaglavlje da se podaci promijenili
+            self.draft.mark_dirty()
 
     def _on_rubrika40_3_finished(self) -> None:
         """Primijeni referencu dokumenta (rubrika40_3) na sve iteme.

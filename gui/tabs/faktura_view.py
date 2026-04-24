@@ -2665,6 +2665,10 @@ class FakturaView(BaseTabView):
 
             self.data_changed.emit()
 
+            # Sinhronizuj PE1/PE2/PE3 iz attached_document4 u header_attached_documents
+            # Vidi docs/sections/pe-rub44-4.md
+            self._sync_pe_docs_to_header()
+
             # Auto-učenje: sačuvaj mappinge u bazu znanja
             try:
                 from services.tariff_mapping_service import TariffMappingService
@@ -3430,6 +3434,56 @@ class FakturaView(BaseTabView):
     def set_data(self, data: Dict[str, Any]) -> None:
         """Postavlja podatke u view (BaseTabView interface)."""
         pass
+
+    def _sync_pe_docs_to_header(self) -> None:
+        """Sinhronizuj PE1/PE2/PE3 iz attached_document4 u header_attached_documents.
+
+        Ovo je ista logika kao u naimenovanja_view.py._sync_pe_docs_to_header,
+        samo pozvana nakon kreiranja naimenovanja.
+        """
+        header_docs = getattr(self.draft, "header_attached_documents", None)
+        if header_docs is None:
+            return
+
+        # 1. Sakupi sve jedinstvene (sifra, broj) parove iz svih naimenovanja
+        pe_entries: list[tuple[str, str]] = []
+        seen: set[tuple[str, str]] = set()
+        for item in self.draft.items:
+            doc4 = (getattr(item, 'attached_document4', '') or '').strip()
+            if not doc4:
+                continue
+            parts = doc4.split(' ', 1)
+            sifra = parts[0].strip()
+            broj = parts[1].strip() if len(parts) > 1 else ''
+            if sifra in ("PE1", "PE2", "PE3"):
+                key = (sifra, broj)
+                if key not in seen:
+                    seen.add(key)
+                    pe_entries.append(key)
+
+        # 2. Ukloni postojeće PE1/PE2/PE3 unose iz header_attached_documents
+        header_docs[:] = [d for d in header_docs if d.code not in ("PE1", "PE2", "PE3")]
+
+        # 3. Dodaj nove unose
+        if pe_entries:
+            from core.draft.draft import AttachedDocument
+            naziv_map = {
+                "PE1": "EUR.1 obrazac",
+                "PE2": "Izjava na fakturi",
+                "PE3": "Izjava ovlaštenog izvoznika",
+            }
+            for sifra, broj in pe_entries:
+                naziv = naziv_map.get(sifra, f"Dokument {sifra}")
+                header_docs.append(AttachedDocument(
+                    code=sifra,
+                    name=naziv,
+                    number=broj,
+                    from_rule=sifra == "PE1",
+                ))
+
+            # Obavijesti da su se podaci promijenili
+            if self.on_dirty:
+                self.on_dirty()
 
     def clear_form(self) -> None:
         """Čisti formu (BaseTabView interface) - uklanja sve stavke iz tabele."""
