@@ -274,6 +274,7 @@ def _find_master_frigo_mapping_xlsx(pdf_path: str) -> str | None:
     return None
 
 
+# DOC: docs/sections/master_frigo_mapping.md — consumed_paths + importer fix
 def _parse_master_frigo(pdf_path: str) -> ImportResult:
     """Parsira Master Frigo format koristeći specijalizovani parser."""
     from importers.master_frigo_importer import (
