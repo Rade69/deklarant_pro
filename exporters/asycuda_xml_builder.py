@@ -1206,6 +1206,5 @@ def export_to_xml(draft: DeclarationDraft, output_path: str) -> bool:
         return True
 
     except Exception as e:
-        logger.error(f"Greska pri exportu XML: {e}", exc_info=True)
         logger.error("Greska pri exportu XML: %s", e, exc_info=True)
         return False
