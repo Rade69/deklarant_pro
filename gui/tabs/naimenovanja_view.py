@@ -872,15 +872,8 @@ class NaimenovanjaView(BaseTabView):
     _TRG_NAZIV_MAX = 280  # ASYCUDA Rb.31 limit za Description_of_goods
 
     def _check_trg_naziv_limit(self) -> None:
-        """Upozori vizuelno kad tekst pređe ASYCUDA limit od 280 karaktera."""
-        if not hasattr(self, "te_trg_naziv"):
-            return
-        text = self.te_trg_naziv.toPlainText()
-        over = len(text) > self._TRG_NAZIV_MAX
-        self.te_trg_naziv.setStyleSheet(
-            "QTextEdit { background: #fff3cd; border: 2px solid #e65100; }"
-            if over else ""
-        )
+        """Rezervisano — limit od 280 karaktera primjenjuje se samo pri bildovanju XML-a."""
+        pass
 
     def _adjust_trg_naziv_height(self) -> None:
         """Prilagodi visinu te_trg_naziv prema sadržaju (auto-expand do dna group_31)."""

@@ -87,6 +87,7 @@ class ZaglavljeController:
         self.view.search_company_requested.connect(self._on_search_company)
         self.view.add_company_requested.connect(self._on_add_company)
         self.view.deklaracija_sifra_changed.connect(self._on_dekl_sifra_changed)
+        self.view.valuta_changed.connect(self._on_valuta_changed)
     
     # ============================================================
     # EVENT HANDLERS
@@ -527,8 +528,8 @@ class ZaglavljeController:
                                     'from_rule': hd.from_rule,
                                 })
 
-            # Populate view with data
-            self.view.set_data(data)
+            # Populate view with data — _from_import=True briše stale ref-ove pri XML uvozu
+            self.view.set_data(data, _from_import=True)
 
             # Odmah snimi u draft da bi ostali tabovi (Naimenovanja) imali ažurne trosak/kurs
             if self._save_draft_fn:
@@ -777,6 +778,31 @@ class ZaglavljeController:
         except Exception as e:
             self.logger.error(f"Populate oznaka combo failed: {e}", exc_info=True)
     
+    def _on_valuta_changed(self, valuta: str):
+        """
+        Auto-popuni Rb.23 (kurs) na osnovu valute u Rb.22.
+
+        EUR → fiksni kurs 1.95583 (BiH nominalni kurs)
+        USD/ostalo → dohvati srednji kurs od CBBH API-ja
+        Prazno → ne radi ništa
+        """
+        if not valuta:
+            return
+        try:
+            from services.agent.cbbh_exchange_service import get_cbbh_rate
+            rate = get_cbbh_rate(valuta)
+            if rate is None:
+                self.logger.warning(f"[Rb.23] Nije moguće dohvatiti kurs za {valuta}")
+                return
+            kurs_widget = self.view.field_widgets.get("kurs")
+            if kurs_widget is None:
+                return
+            formatted = f"{rate:.5f}".rstrip("0").rstrip(".")
+            kurs_widget.setText(formatted)
+            self.logger.info(f"[Rb.23] Kurs za {valuta} = {formatted}")
+        except Exception as e:
+            self.logger.error(f"[Rb.23] Greška pri dohvatanju kursa: {e}", exc_info=True)
+
     def _on_dekl_sifra_changed(self, sifra: str):
         """
         Event handler za promjenu šifre deklaracije (EX/IM).

@@ -142,6 +142,12 @@ class MainWindow(QMainWindow):
 
     def _on_draft_data_changed(self) -> None:
         """Poziva se kada se draft podaci promene - ažurira sve tabove koji treba da se osveže."""
+        # Sačuvaj trenutni UI u draft PRIJE reload-a da ne izgubimo unsaved edite
+        if hasattr(self.zaglavlje_tab, 'save_to_draft'):
+            try:
+                self.zaglavlje_tab.save_to_draft()
+            except Exception:
+                pass
         # Ažuriraj zaglavlje tab da odrazi promene u draft-u
         self.zaglavlje_tab.load_from_draft(self.draft)
 
