@@ -749,6 +749,8 @@ class AsycudaXMLBuilder:
         # tariff_description1 je interni GUI prikaz — ne ide u XML
         _DESC_MAX = 280
         desc_of_goods = (item.goods_trade_name or item.goods_description or ".")
+        # ASYCUDA World odbija višeredni tekst — newline → razmak
+        desc_of_goods = " ".join(desc_of_goods.splitlines()).strip()
         if len(desc_of_goods) > _DESC_MAX:
             desc_of_goods = desc_of_goods[:_DESC_MAX - 3] + "..."
         _val(goods, "Description_of_goods", desc_of_goods)
