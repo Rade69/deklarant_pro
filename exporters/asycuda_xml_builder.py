@@ -862,7 +862,7 @@ class AsycudaXMLBuilder:
         _val(goods, "Country_of_origin_code", item.origin_country_code or "")
         _null(goods, "Country_of_origin_region")
 
-        # Description_of_goods = kratki zvanični tarifni heading (ASYCUDA standard)
+        # Description_of_goods = VIDLJIVO u ASYCUDA Rb.31 — limit 280 karaktera
         _DESC_MAX = 280
         desc_of_goods = self._build_description_of_goods(item, _DESC_MAX)
         _val(goods, "Description_of_goods", desc_of_goods)
@@ -943,20 +943,11 @@ class AsycudaXMLBuilder:
 
     @staticmethod
     def _normalize_tariff_text(text: str) -> str:
-        """Zamijeni tarifne hijerarhijske separatore (en-dash, minus-sign) sa obicom crticom.
-
-        Tarifna baza koristi U+2013 (–) i U+2212 (−) kao indentatore.
-        ASYCUDA World očekuje običnu crticu-minus (U+002D).
-        Bez ove normalizacije XML sadrži â artefakte.
-        """
+        """Zamijeni tarifne hijerarhijske separatore (en-dash, minus-sign) sa obicom crticom."""
         return normalize_tariff_text(text)
 
     def _tariff_heading(self, item: "NaimenovanjeDraft") -> str:
-        """Vraća kratki zvanični tarifni heading za ovo naimenovanje.
-
-        Kada je specifičan opis generički ("ostali/ostale"), probava skratiti
-        na 4-cifreni heading koji je uvijek bogatiji.
-        """
+        """Vraća kratki zvanični tarifni heading za ovo naimenovanje."""
         heading = (
             (getattr(item, "tariff_description2", "") or "").strip()
             or (getattr(item, "tariff_description1", "") or "").strip()
@@ -982,20 +973,15 @@ class AsycudaXMLBuilder:
                         if not is_generic_tariff_text(candidate):
                             heading = candidate
                             break
-                        last_generic = candidate  # shorter = broader; last = 4-digit
+                        last_generic = candidate
                 else:
-                    # Svi DB kandidati su generički — koristi 4-cifreni heading
                     heading = last_generic
             except Exception as e:
                 logger.debug(f"Fallback tariff heading neuspješan za {tariff_code}: {e}")
         return self._normalize_tariff_text(heading)
 
     def _build_description_of_goods(self, item: "NaimenovanjeDraft", max_chars: int = 280) -> str:
-        """Gradi Description_of_goods: kratki zvanični tarifni heading (ASYCUDA standard).
-
-        ASYCUDA World prikazuje ovaj field kao interni tarifni naziv;
-        Commercial_Description nosi komercijalni opis koji se prikazuje u Rub.31.
-        """
+        """Gradi Description_of_goods iz drafa: heading + nazivi proizvoda + faktura info."""
         return build_asycuda_rub31(
             item=item,
             invoice_lines=getattr(self.draft, "invoice_lines", None) or [],
@@ -1004,13 +990,7 @@ class AsycudaXMLBuilder:
         ).description_of_goods
 
     def _build_commercial_description(self, item: "NaimenovanjeDraft", max_chars: int = 280) -> str:
-        """Gradi Commercial_Description za Rub.31 u ASYCUDA World formatu.
-
-        ASYCUDA World ima fiksni 3-linijski widget od ~55 karaktera po liniji.
-        Sadržaj s više od 3 linije ili linijama >55 karaktera ASYCUDA odbaci pri kliku na polje.
-
-        Tarifni opis ide u Description_of_goods, a ovdje idu komercijalni nazivi i faktura.
-        """
+        """Gradi Commercial_Description za Rub.31 u ASYCUDA World formatu."""
         return build_asycuda_rub31(
             item=item,
             invoice_lines=getattr(self.draft, "invoice_lines", None) or [],
