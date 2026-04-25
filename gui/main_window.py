@@ -142,12 +142,30 @@ class MainWindow(QMainWindow):
 
     def _on_draft_data_changed(self) -> None:
         """Poziva se kada se draft podaci promene - ažurira sve tabove koji treba da se osveže."""
-        # Sačuvaj trenutni UI u draft PRIJE reload-a da ne izgubimo unsaved edite
-        if hasattr(self.zaglavlje_tab, 'save_to_draft'):
-            try:
-                self.zaglavlje_tab.save_to_draft()
-            except Exception:
-                pass
+        # Sačuvaj samo ref-ove iz UI tabele u draft (ne zamjenjuje listu — čuva programatski dodane doc-ove)
+        # Puni save_to_draft() bi OBRISAO novododane VET/SAN/FIT doc-ove koji još nisu vidljivi u UI.
+        try:
+            if hasattr(self.zaglavlje_tab, 'view'):
+                table_data = self.zaglavlje_tab.view.get_data().get('attached_documents', [])
+                ui_by_code = {d['code']: d for d in table_data if d.get('code')}
+                header_docs = getattr(self.draft, 'header_attached_documents', None) or []
+                # 1. Ažuriraj ref-ove za unose koji već postoje u draftu
+                for doc in header_docs:
+                    if doc.code in ui_by_code:
+                        doc.number = ui_by_code[doc.code].get('number', doc.number)
+                # 2. Dodaj unose koje je korisnik ručno kreirao u UI (nisu još u draftu)
+                existing_codes = {d.code for d in header_docs}
+                from core.draft.draft import AttachedDocument
+                for code, d in ui_by_code.items():
+                    if code not in existing_codes:
+                        header_docs.append(AttachedDocument(
+                            code=code,
+                            name=d.get('name', ''),
+                            number=d.get('number', ''),
+                            from_rule=d.get('from_rule', False),
+                        ))
+        except Exception:
+            pass
         # Ažuriraj zaglavlje tab da odrazi promene u draft-u
         self.zaglavlje_tab.load_from_draft(self.draft)
 
