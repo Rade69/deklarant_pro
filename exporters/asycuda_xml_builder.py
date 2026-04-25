@@ -837,6 +837,18 @@ class AsycudaXMLBuilder:
 
         tariff_heading = (getattr(item, "tariff_description2", "") or "").strip()
 
+        # Fallback: ako tariff_description2 nije učitan u draft, traži u SQLite
+        if not tariff_heading:
+            tariff_code = (getattr(item, "tariff_code", "") or "").strip()
+            if len(tariff_code) >= 4:
+                try:
+                    from services.tariff.tarifa_service import trazi_po_kodu
+                    row = trazi_po_kodu(tariff_code[:4])
+                    if row:
+                        tariff_heading = (row.get("naziv") or "").strip()
+                except Exception:
+                    pass
+
         if assigned:
             # Nazivi proizvoda
             product_names = [l.naziv_robe for l in assigned if getattr(l, "naziv_robe", "")]
