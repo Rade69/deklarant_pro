@@ -1993,20 +1993,20 @@ class NaimenovanjaView(BaseTabView):
 
         fakture_dio = "Faktura: " + ", ".join(fakture_dio_parts)
 
-        # --- 4. Kombinuj: tariff_heading \n\n nazivi \n\n faktura ---
+        # --- 4. Kombinuj: tariff_heading, nazivi, faktura ---
         parts = []
         if tariff_heading:
             parts.append(tariff_heading)
         if nazivi_dio:
             parts.append(nazivi_dio)
         parts.append(fakture_dio)
-        result = "\n\n".join(parts)
+        result = ", ".join(parts)
 
         logger.debug(f"  📝 Ukupna dužina: {len(result)} karaktera")
 
         # Truncate if too long — čuva faktura dio, skraćuje nazive
         if len(result) > max_chars:
-            fakture_len = len(fakture_dio) + 2  # +2 za "\n\n"
+            fakture_len = len(fakture_dio) + 2  # +2 za ", "
             heading_len = (len(tariff_heading) + 2) if tariff_heading else 0
             nazivi_max = max_chars - fakture_len - heading_len - 3  # -3 za "..."
             if nazivi_max > 20 and product_names:
@@ -2019,7 +2019,7 @@ class NaimenovanjaView(BaseTabView):
                     mid_parts.append(tariff_heading)
                 mid_parts.append(truncated_nazivi + "...")
                 mid_parts.append(fakture_dio)
-                result = "\n\n".join(mid_parts)
+                result = ", ".join(mid_parts)
             else:
                 result = result[:max_chars - 3] + "..."
 
