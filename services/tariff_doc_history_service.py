@@ -26,8 +26,11 @@ logger = logging.getLogger(__name__)
 # ne predlažemo ih jer ih drugi mehanizmi već dodaju.
 # Uključuje i stari format ekvivalente (FAK=N380, CMR=N730, ZUT=PZT, OSI=osiguranje).
 _UNIVERSAL_CODES = {
-    "N380", "DIS", "DV1", "PZT", "VOZ", "OST", "N730", "DUIM",  # novi format
-    "FAK", "CMR", "ZUT", "OSI", "ZNP", "OST0",                   # stari format
+    "N380", "DIS", "DV1", "PZT", "VOZ", "OST", "N730", "DUIM",          # novi format — uvijek prisutni
+    "FAK", "CMR", "ZUT", "OSI", "ZNP", "OST0",                           # stari format — uvijek prisutni
+    "FTAP", "FTA", "FTAT", "FTAТ", "EUP", "EUPT", "TRP", "EFTA", "T1",  # dokazi o porijeklu — stari format
+    # PE1/PE2/PE3 se dodaju iz Rb.44.4 — ne predlažu se iz historije
+    "PE1", "PE2", "PE3",
 }
 
 # Mapiranje starih šifra → novih (novi format ASYCUDA World)
