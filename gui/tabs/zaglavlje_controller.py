@@ -498,35 +498,29 @@ class ZaglavljeController:
                             'from_rule': True,
                         })
 
-                # OST (ostali prateći dokument) iz draft.header_attached_documents
-                # — korisnik ga unese na naimenovanjima u le_rubrika40_3
+                # Merge SVIH dokumenata iz draft.header_attached_documents u XML import data.
+                # Aplikacija (tariff_controls, tariff_doc_history, PE, OST) dodaje dokumente
+                # u draft prije XML uvoza — ti se ne smiju izgubiti pri uvozu.
                 header_docs = getattr(draft, "header_attached_documents", None) if draft else None
                 if header_docs:
                     docs = data.setdefault('attached_documents', [])
+                    xml_codes = {d.get('code') for d in docs if d.get('code')}
                     for hd in header_docs:
-                        if hd.code == "OST" and hd.number:
-                            ost = next((d for d in docs if d.get('code') == 'OST'), None)
-                            if ost:
-                                ost['number'] = hd.number
-                            else:
-                                docs.append({
-                                    'code': 'OST',
-                                    'name': 'Ostali prateći dokumenti',
-                                    'number': hd.number,
-                                    'from_rule': False,
-                                })
-                        # PE1/PE2/PE3 iz draft.header_attached_documents
-                        # — dolaze iz attached_document4 na naimenovanjima
-                        # Vidi docs/sections/pe-rub44-4.md
-                        if hd.code in ("PE1", "PE2", "PE3") and hd.number:
-                            pe = next((d for d in docs if d.get('code') == hd.code and d.get('number') == hd.number), None)
-                            if not pe:
-                                docs.append({
-                                    'code': hd.code,
-                                    'name': hd.name,
-                                    'number': hd.number,
-                                    'from_rule': hd.from_rule,
-                                })
+                        if not hd.code:
+                            continue
+                        existing = next((d for d in docs if d.get('code') == hd.code), None)
+                        if existing:
+                            # Kod već postoji u XML podacima — sačuvaj ref iz drafa ako XML nema ref
+                            if hd.number and not existing.get('number'):
+                                existing['number'] = hd.number
+                        else:
+                            # Kod nije u XML — dodaj ga (aplikacija ga je unijela automatski)
+                            docs.append({
+                                'code': hd.code,
+                                'name': hd.name,
+                                'number': hd.number,
+                                'from_rule': hd.from_rule,
+                            })
 
             # Populate view with data — _from_import=True briše stale ref-ove pri XML uvozu
             self.view.set_data(data, _from_import=True)
