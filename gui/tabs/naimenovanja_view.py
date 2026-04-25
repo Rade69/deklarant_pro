@@ -1993,36 +1993,43 @@ class NaimenovanjaView(BaseTabView):
 
         fakture_dio = "Faktura: " + ", ".join(fakture_dio_parts)
 
-        # --- 4. Kombinuj: tariff_heading, nazivi, faktura ---
-        parts = []
+        # --- 4. Kombinuj: prioritet nazivi > faktura > heading ---
+        # Fiksni dio: nazivi + faktura (uvijek se prikazuju puni)
+        core_parts = [p for p in [nazivi_dio, fakture_dio] if p]
+        core = ", ".join(core_parts)
+
         if tariff_heading:
-            parts.append(tariff_heading)
-        if nazivi_dio:
-            parts.append(nazivi_dio)
-        parts.append(fakture_dio)
+            # Koliko prostora ostaje za heading (+ ", " separator)
+            heading_budget = max_chars - len(core) - 2  # -2 za ", "
+            if heading_budget >= len(tariff_heading):
+                final_heading = tariff_heading
+            elif heading_budget > 6:
+                # Skrati heading, pokušaj na granici riječi
+                cut = tariff_heading[:heading_budget - 3]
+                last_space = cut.rfind(" ")
+                final_heading = (cut[:last_space] if last_space > 0 else cut) + "..."
+            else:
+                final_heading = ""  # nema mjesta ni za skraćeni heading
+            parts = [p for p in [final_heading, nazivi_dio, fakture_dio] if p]
+        else:
+            parts = core_parts
+
         result = ", ".join(parts)
 
-        logger.debug(f"  📝 Ukupna dužina: {len(result)} karaktera")
-
-        # Truncate if too long — čuva faktura dio, skraćuje nazive
+        # Ako čak i bez headinga core > max_chars, skrati nazive
         if len(result) > max_chars:
-            fakture_len = len(fakture_dio) + 2  # +2 za ", "
-            heading_len = (len(tariff_heading) + 2) if tariff_heading else 0
-            nazivi_max = max_chars - fakture_len - heading_len - 3  # -3 za "..."
+            fakture_len = len(fakture_dio) + 2
+            nazivi_max = max_chars - fakture_len - 3
             if nazivi_max > 20 and product_names:
                 truncated_nazivi = nazivi_dio[:nazivi_max]
                 last_comma = truncated_nazivi.rfind(", ")
                 if last_comma > 0:
                     truncated_nazivi = truncated_nazivi[:last_comma]
-                mid_parts = []
-                if tariff_heading:
-                    mid_parts.append(tariff_heading)
-                mid_parts.append(truncated_nazivi + "...")
-                mid_parts.append(fakture_dio)
-                result = ", ".join(mid_parts)
+                result = ", ".join([truncated_nazivi + "...", fakture_dio])
             else:
                 result = result[:max_chars - 3] + "..."
 
+        logger.debug(f"  📝 Ukupna dužina: {len(result)} karaktera")
         return result
 
     # ═══════════════════════════════════════════════════════════
