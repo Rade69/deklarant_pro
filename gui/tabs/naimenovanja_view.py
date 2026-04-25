@@ -1971,12 +1971,14 @@ class NaimenovanjaView(BaseTabView):
         if not assigned_lines:
             return ""
 
-        # --- 1. Nazivi proizvoda ---
+        # --- 1. Opis 4-cifrene glave (tariff_description2) ---
+        tariff_heading = (current_item.tariff_description2 or "").strip()
+
+        # --- 2. Nazivi proizvoda ---
         product_names = [line.naziv_robe for line in assigned_lines if line.naziv_robe]
         nazivi_dio = ", ".join(product_names) if product_names else ""
 
-        # --- 2. Faktura info na dnu ---
-        # Grupiši stavke po broju fakture
+        # --- 3. Faktura info na dnu ---
         from collections import OrderedDict
         fakture: dict = OrderedDict()
         for line in assigned_lines:
@@ -1991,28 +1993,34 @@ class NaimenovanjaView(BaseTabView):
 
         fakture_dio = "Faktura: " + ", ".join(fakture_dio_parts)
 
-        # --- 3. Kombinuj ---
+        # --- 4. Kombinuj: tariff_heading \n\n nazivi \n\n faktura ---
+        parts = []
+        if tariff_heading:
+            parts.append(tariff_heading)
         if nazivi_dio:
-            result = nazivi_dio + "\n\n" + fakture_dio
-        else:
-            result = fakture_dio
+            parts.append(nazivi_dio)
+        parts.append(fakture_dio)
+        result = "\n\n".join(parts)
 
         logger.debug(f"  📝 Ukupna dužina: {len(result)} karaktera")
 
-        # Truncate if too long (cijeli tekst, ne samo nazive)
+        # Truncate if too long — čuva faktura dio, skraćuje nazive
         if len(result) > max_chars:
-            # Prvo pokušaj skratiti nazive, ostavi fakture dio netaknut
             fakture_len = len(fakture_dio) + 2  # +2 za "\n\n"
-            nazivi_max = max_chars - fakture_len - 3  # -3 za "..."
+            heading_len = (len(tariff_heading) + 2) if tariff_heading else 0
+            nazivi_max = max_chars - fakture_len - heading_len - 3  # -3 za "..."
             if nazivi_max > 20 and product_names:
-                # Skrati nazive
                 truncated_nazivi = nazivi_dio[:nazivi_max]
                 last_comma = truncated_nazivi.rfind(", ")
                 if last_comma > 0:
                     truncated_nazivi = truncated_nazivi[:last_comma]
-                result = truncated_nazivi + "...\n\n" + fakture_dio
+                mid_parts = []
+                if tariff_heading:
+                    mid_parts.append(tariff_heading)
+                mid_parts.append(truncated_nazivi + "...")
+                mid_parts.append(fakture_dio)
+                result = "\n\n".join(mid_parts)
             else:
-                # Skrati cijeli tekst
                 result = result[:max_chars - 3] + "..."
 
         return result
