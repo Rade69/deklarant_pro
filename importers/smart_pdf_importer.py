@@ -212,6 +212,15 @@ def _detect_pdf_format(pdf_path: str) -> str:
                 if "FAKTURA" in text_upper or "INVOICE" in text_upper:
                     return "sumaprom"
 
+            # Skenirani PDF (bez teksta) — probaj OCR za Šumaprom detekciju
+            if len(text.strip()) < 50:
+                try:
+                    from importers.sumaprom_pdf_parser import detect_sumaprom_pdf
+                    if detect_sumaprom_pdf(pdf_path):
+                        return "sumaprom"
+                except Exception:
+                    pass
+
             # LEBURIC / PEKABESKO — PDF je supplement (uz Excel), ne importuje se direktno
             if "PEKABESKO" in text_upper:
                 return "leburic_pekabesko"
