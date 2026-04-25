@@ -965,6 +965,21 @@ def export_to_xml(draft: DeclarationDraft, output_path: str) -> bool:
 
         file_size = Path(output_path).stat().st_size
         print(f"XML exportovan: {output_path} ({file_size:,} bytes, {len(draft.items)} stavki)")
+
+        # Auto-učenje: zabilježi korištene dokumente po tarifnom broju
+        try:
+            from services.tariff_doc_history_service import get_tariff_doc_history_service
+            svc = get_tariff_doc_history_service()
+            header_docs = list(getattr(draft, "header_attached_documents", []) or [])
+            doc_codes = [d.code for d in header_docs if d.code]
+            if doc_codes:
+                for item in (draft.items or []):
+                    tariff = getattr(item, "tariff_code", "") or ""
+                    if tariff:
+                        svc.record_usage(tariff, doc_codes)
+        except Exception:
+            pass  # auto-učenje nije kritično
+
         return True
 
     except Exception as e:
