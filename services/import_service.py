@@ -361,12 +361,12 @@ class ImportService:
                     items=combined_items,
                     bruto_kg=stats.get("bruto_kg", 0.0),
                     neto_kg=stats.get("neto_kg", 0.0),
-                    invoice_name=filepath.stem,
+                    invoice_name=stats.get("invoice_name") or filepath.stem,
                     currency=stats.get("currency", "EUR"),
                     is_combined=True,
                     import_type="sumaprom_excel",
                     warnings=stats.get("warnings", []),
-                    consumed_paths=[_excel_path],  # Excel je potrošen
+                    consumed_paths=[_excel_path],
                 )
 
             # CASE 2B: ŠUMAPROM PDF → Excel
@@ -381,12 +381,12 @@ class ImportService:
                     items=combined_items,
                     bruto_kg=stats.get("bruto_kg", 0.0),
                     neto_kg=stats.get("neto_kg", 0.0),
-                    invoice_name=filepath.stem,
+                    invoice_name=stats.get("invoice_name") or filepath.stem,
                     currency=stats.get("currency", "EUR"),
                     is_combined=True,
                     import_type="sumaprom_excel",
                     warnings=stats.get("warnings", []),
-                    consumed_paths=[_pdf_path],  # PDF je potrošen
+                    consumed_paths=[_pdf_path],
                 )
 
         except ImportError:
