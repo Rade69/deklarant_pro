@@ -44,6 +44,24 @@ except Exception as _import_err:
     raise
 
 
+def _check_ocr_availability():
+    """Proveri da li je OCR (pytesseract) dostupan. Samo log upozorenje."""
+    try:
+        import pytesseract
+        pytesseract.get_tesseract_version()
+        logging.getLogger("deklarant_pro").info("✅ OCR (Tesseract) dostupan")
+    except ImportError:
+        logging.getLogger("deklarant_pro").warning(
+            "⚠️ OCR nije dostupan — pytesseract nije instaliran. "
+            "Skenirani PDF-ovi neće biti parsirani. "
+            "Instaliraj sa: uv sync --extra ocr"
+        )
+    except Exception as e:
+        logging.getLogger("deklarant_pro").warning(
+            f"⚠️ OCR nije dostupan — Tesseract greška: {e}"
+        )
+
+
 def main():
     import time
     _t0 = time.perf_counter()
@@ -62,6 +80,9 @@ def main():
     palette.setColor(QPalette.Inactive, QPalette.Highlight, QColor("#DBEAFE"))
     palette.setColor(QPalette.Inactive, QPalette.HighlightedText, QColor("#1E3A8A"))
     app.setPalette(palette)
+
+    # OCR provera — opciona zavisnost, samo upozorenje ako nedostaje
+    _check_ocr_availability()
 
     try:
         window = MainWindow()

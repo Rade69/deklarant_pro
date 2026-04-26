@@ -47,20 +47,54 @@ class PDFFakturaPregled:
     """
 
     def __init__(self):
+        self.font_regular = 'Helvetica'
+        self.font_bold = 'Helvetica-Bold'
+        self.font_italic = 'Helvetica-Oblique'
+        self.font_bold_italic = 'Helvetica-BoldOblique'
         self._register_fonts()
         self.styles = getSampleStyleSheet()
         self._setup_styles()
 
     def _register_fonts(self):
         """Registruj Liberation Sans fontove za UTF-8 podršku."""
+        font_files = {
+            'regular': 'LiberationSans-Regular.ttf',
+            'bold': 'LiberationSans-Bold.ttf',
+            'italic': 'LiberationSans-Italic.ttf',
+            'bold_italic': 'LiberationSans-BoldItalic.ttf',
+        }
+        candidate_dirs = [
+            Path.home() / ".local/share/fonts",
+            Path("/usr/share/fonts/truetype/liberation2"),
+            Path("/usr/share/fonts/truetype/liberation"),
+            Path("/usr/share/fonts/liberation-sans-fonts"),
+            Path("/Library/Fonts"),
+            Path("C:/Windows/Fonts"),
+        ]
         try:
-            font_path = "/usr/share/fonts/liberation-sans-fonts/"
-            pdfmetrics.registerFont(TTFont('LibSans', font_path + 'LiberationSans-Regular.ttf'))
-            pdfmetrics.registerFont(TTFont('LibSans-Bold', font_path + 'LiberationSans-Bold.ttf'))
-            pdfmetrics.registerFont(TTFont('LibSans-Italic', font_path + 'LiberationSans-Italic.ttf'))
-            pdfmetrics.registerFont(TTFont('LibSans-BoldItalic', font_path + 'LiberationSans-BoldItalic.ttf'))
+            for font_dir in candidate_dirs:
+                regular = font_dir / font_files['regular']
+                bold = font_dir / font_files['bold']
+                italic = font_dir / font_files['italic']
+                bold_italic = font_dir / font_files['bold_italic']
+                if not all(path.exists() for path in [regular, bold, italic, bold_italic]):
+                    continue
+
+                pdfmetrics.registerFont(TTFont('LibSans', str(regular)))
+                pdfmetrics.registerFont(TTFont('LibSans-Bold', str(bold)))
+                pdfmetrics.registerFont(TTFont('LibSans-Italic', str(italic)))
+                pdfmetrics.registerFont(TTFont('LibSans-BoldItalic', str(bold_italic)))
+                self.font_regular = 'LibSans'
+                self.font_bold = 'LibSans-Bold'
+                self.font_italic = 'LibSans-Italic'
+                self.font_bold_italic = 'LibSans-BoldItalic'
+                print(f"✅ Liberation Sans fontovi registrovani: {font_dir}")
+                return
+
+            print("⚠️ Liberation Sans nije pronađen, koristim ReportLab default fontove")
         except Exception as e:
             print(f"⚠️ Greška pri registrovanju fontova: {e}")
+            print("   Koristim ReportLab default fontove")
 
     def _setup_styles(self):
         """Postavi custom stilove za PDF."""
@@ -68,7 +102,7 @@ class PDFFakturaPregled:
             name='PregledTitle',
             parent=self.styles['Heading1'],
             fontSize=14,
-            fontName='LibSans-Bold',
+            fontName=self.font_bold,
             textColor=colors.HexColor('#2563EB'),
             spaceAfter=4,
             spaceBefore=6
@@ -78,7 +112,7 @@ class PDFFakturaPregled:
             name='PregledSubTitle',
             parent=self.styles['Normal'],
             fontSize=10,
-            fontName='LibSans',
+            fontName=self.font_regular,
             textColor=colors.HexColor('#4B5563'),
             spaceAfter=8
         ))
@@ -87,7 +121,7 @@ class PDFFakturaPregled:
             name='PregledFakturaHeader',
             parent=self.styles['Normal'],
             fontSize=11,
-            fontName='LibSans-Bold',
+            fontName=self.font_bold,
             textColor=colors.HexColor('#1F2937'),
             spaceAfter=4,
             spaceBefore=12
@@ -97,7 +131,7 @@ class PDFFakturaPregled:
             name='PregledTableCell',
             parent=self.styles['Normal'],
             fontSize=8,
-            fontName='LibSans',
+            fontName=self.font_regular,
             leading=10
         ))
 
@@ -208,7 +242,7 @@ class PDFFakturaPregled:
                     'ZbirFakture',
                     parent=self.styles['Normal'],
                     fontSize=9,
-                    fontName='LibSans-Bold',
+                    fontName=self.font_bold,
                     textColor=colors.HexColor('#374151'),
                     spaceAfter=8,
                     leftIndent=6
@@ -237,7 +271,7 @@ class PDFFakturaPregled:
                     'Ukupno',
                     parent=self.styles['Normal'],
                     fontSize=11,
-                    fontName='LibSans-Bold',
+                    fontName=self.font_bold,
                     textColor=colors.HexColor('#1F2937'),
                     spaceBefore=6,
                     spaceAfter=12
@@ -252,7 +286,7 @@ class PDFFakturaPregled:
                     'Napomena',
                     parent=self.styles['Normal'],
                     fontSize=8,
-                    fontName='LibSans-Italic',
+                    fontName=self.font_italic,
                     textColor=colors.grey
                 )
             )
@@ -338,7 +372,7 @@ class PDFFakturaPregled:
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2563EB')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'LibSans-Bold'),
+            ('FONTNAME', (0, 0), (-1, 0), self.font_bold),
             ('FONTSIZE', (0, 0), (-1, 0), 9),
             ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
             ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
@@ -350,7 +384,7 @@ class PDFFakturaPregled:
             ('ALIGN', (2, 1), (2, -1), 'CENTER'),     # Tarifa
             ('ALIGN', (4, 1), (4, -1), 'RIGHT'),      # Količina
             ('ALIGN', (6, 1), (8, -1), 'RIGHT'),      # Iznos, Bruto, Neto
-            ('FONTNAME', (0, 1), (-1, -1), 'LibSans'),
+            ('FONTNAME', (0, 1), (-1, -1), self.font_regular),
             ('FONTSIZE', (0, 1), (-1, -1), 8),
             ('TOPPADDING', (0, 1), (-1, -1), 4),
             ('BOTTOMPADDING', (0, 1), (-1, -1), 4),
