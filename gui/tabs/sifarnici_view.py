@@ -185,8 +185,9 @@ class SifarniciView(BaseTabView):
             ("fa5s.globe",         "Zemlje",                "Zemlje"),
             ("fa5s.clipboard-check", "Inspekcijska pravila", "Inspekcijska pravila"),
             ("fa5s.exchange-alt",  "Inkoterms",             "Inkoterms"),
+            ("fa5s.chart-bar",     "Tarifne kvote",         "Tarifne kvote"),
         ]
-        fallback_emojis = ["📦", "📤", "📥", "💼", "🏛", "⚙️", "🌐", "🔬", "🚢"]
+        fallback_emojis = ["📦", "📤", "📥", "💼", "🏛", "⚙️", "🌐", "🔬", "🚢", "📊"]
 
         for i, (icon_name, display, data) in enumerate(categories):
             if QTAWESOME_AVAILABLE:
@@ -313,7 +314,18 @@ class SifarniciView(BaseTabView):
             pager = self._create_pager()
             content_layout.addWidget(pager)
 
-            layout.addWidget(content)
+            # QStackedWidget za prebacivanje između standardnog sadržaja i quota panela
+            from PySide6.QtWidgets import QStackedWidget
+            self._stack = QStackedWidget()
+            self.standard_content = content
+            self._stack.addWidget(content)   # index 0 — standardni sadržaj
+
+            # Quota panel placeholder (lazy init na prvom klik-u)
+            self._quota_placeholder = QWidget()
+            self._stack.addWidget(self._quota_placeholder)  # index 1 — kvote
+            self._quota_panel = None
+
+            layout.addWidget(self._stack, stretch=1)
 
             # Status bar
             status = self._create_status_bar()
@@ -717,6 +729,20 @@ class SifarniciView(BaseTabView):
             logger.info(f"Učitavanje kategorije: {category}")
             self.current_category = category
             self.title_label.setText(category)
+
+            # ── Tarifne kvote: poseban panel ─────────────────
+            if category == "Tarifne kvote":
+                if self._quota_panel is None:
+                    from gui.tabs.sifarnici.quota_panel import QuotaPanel
+                    self._quota_panel = QuotaPanel(parent=self)
+                    # Zamijeni placeholder sa pravim panelom u stacku
+                    self._stack.removeWidget(self._quota_placeholder)
+                    self._quota_placeholder.deleteLater()
+                    self._stack.addWidget(self._quota_panel)
+                self._stack.setCurrentWidget(self._quota_panel)
+                return
+            else:
+                self._stack.setCurrentWidget(self.standard_content)
 
             # Clear detail panel
             self._clear_detail_panel()

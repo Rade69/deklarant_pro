@@ -69,7 +69,7 @@ class MasterFrigoStrategy(PDFParseStrategy):
             # Extract weights from header
             bruto_kg = header.get("gross_kg", 0.0)
             neto_kg = header.get("net_kg", 0.0)
-            invoice_name = header.get("invoice_number", "")
+            invoice_name = header.get("invoice_no", "")
 
             logger.info(
                 f"Master Frigo parsing završen: {len(invoice_lines)} stavki, "

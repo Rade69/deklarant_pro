@@ -593,17 +593,8 @@ def _uvezi_u_deklaraciju(ctrl, invoice_lines: list, chat,
         return
 
     # 1. Uvezi podatke u draft
-    # Postavi invoice_number na svaku stavku — SAMO iz eksplicitno parsiranog broja
-    # Ne koristimo stem fajla jer može biti pogrešan (npr. PDF parser failuje na ćirilici)
-    invoice_name = ""
-    if completed:
-        for f in completed:
-            if f.status == 'Completed' and f.invoice_number:
-                invoice_name = f.invoice_number
-                break
-    for line in invoice_lines:
-        if invoice_name and not line.invoice_number:
-            line.invoice_number = invoice_name
+    # Važno: ne prepisuj globalno invoice_number sa "prvim" fajlom.
+    # Svaka stavka mora zadržati broj fakture koji je parser već postavio.
     
     chat.add_activity(f"📥 Uvoz {len(invoice_lines)} stavki...")
     ctrl.draft.invoice_lines.clear()
@@ -654,6 +645,7 @@ def _uvezi_u_deklaraciju(ctrl, invoice_lines: list, chat,
             if f.status == 'Completed' and f.invoice_number:
                 if f.invoice_number not in brojevi_faktura:
                     brojevi_faktura.append(f.invoice_number)
+    invoice_number = " | ".join(brojevi_faktura) if brojevi_faktura else ""
 
     # 4. Dijalog za porijeklo (PE2 / PE3 / EUR.1)
     dialog_tip = _origin_dialog_type(ctrl.draft.invoice_lines, has_origin_statement,

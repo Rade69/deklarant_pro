@@ -261,53 +261,6 @@ def get_di_container() -> DIContainer:
     return _di_container_instance
 
 
-def register_services(container: DIContainer = None):
-    """
-    Registruj sve standardne servise aplikacije.
-    
-    Args:
-        container: DI container (ako None, koristi globalni)
-        
-    Returns:
-        DIContainer sa registriranim servisima
-    """
-    if container is None:
-        container = get_di_container()
-    
-    # Import servisa
-    from services.zaglavlje_service_refactored import ZaglavljeService
-    from services.faktura_service_refactored import FakturaService
-    from services.naimenovanja_service_refactored import NaimenovanjaService
-    from services.sifarnici_service_refactored import SifarniciService
-    
-    from gui.tabs.zaglavlje_controller_refactored import ZaglavljeController
-    from gui.tabs.faktura_controller_refactored import FakturaController
-    from gui.tabs.naimenovanja_controller_refactored import NaimenovanjaController
-    from gui.tabs.sifarnici_controller_refactored import SifarniciController
-    
-    from gui.tabs.tab_factory import TabFactory
-    from utils.cache import Cache, get_cache
-    
-    # Registruj servise kao singleton
-    container.register_singleton(ZaglavljeService, ZaglavljeService)
-    container.register_singleton(FakturaService, FakturaService)
-    container.register_singleton(NaimenovanjaService, NaimenovanjaService)
-    container.register_singleton(SifarniciService, SifarniciService)
-    
-    # Registruj factory za cache
-    container.register_factory(Cache, get_cache, scope='singleton')
-    
-    # Registruj TabFactory kao singleton
-    container.register_singleton(TabFactory, TabFactory)
-    
-    # Registruj controllere kao transient (svaki tab dobija svoj)
-    container.register_transient(ZaglavljeController, ZaglavljeController)
-    container.register_transient(FakturaController, FakturaController)
-    container.register_transient(NaimenovanjaController, NaimenovanjaController)
-    container.register_transient(SifarniciController, SifarniciController)
-    
-    return container
-
 
 # Utility funkcije
 def inject_service(service_type: Type):

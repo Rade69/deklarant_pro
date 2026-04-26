@@ -6,8 +6,12 @@ Tariff Mapping Service
 Automatsko mapiranje proizvoda na tarifne brojeve koristeći bazu znanja.
 Omogućava:
 - Auto-popunjavanje tarifnih brojeva na osnovu product_code ili naziva
+- Istorijska provera dobavljača (XML sa carine) pre baze znanja
 - Učenje iz prošlih uvoza
 - Fuzzy matching za slične proizvode
+
+📄 Detalji: memory/project_tariff_history_prediction.md
+   scripts/CHANGES_2026-04-26.md
 """
 
 import logging

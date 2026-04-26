@@ -14,7 +14,8 @@ Pored pronalaženja mappinga, `_parse_master_frigo()` osigurava da agent ne obra
 ## Zavisnosti i pretpostavke
 
 - Excel mora biti u **istom folderu** kao PDF faktura
-- Ime Excel fajla mora sadržati `"tarife"` ili `"porekla"` ili `"porijekla"` (case-insensitive)
+- Ime Excel fajla mora sadržati prepoznatljiv marker kao `"tarife"`, `"podela"`,
+  `"porekla"`, `"poreklu"`, `"poreklo"`, `"porijekla"` ili `"porijeklu"` (case-insensitive)
 - Master Frigo PDF fakture ne sadrže tarifne šifre niti zemlja — sve dolazi iz ovog Excel-a
 - `convert_to_invoice_lines()` u `master_frigo_importer.py` postavlja samo `exporter`, ne i `importer`
 

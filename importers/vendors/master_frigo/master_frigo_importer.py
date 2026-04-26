@@ -41,7 +41,13 @@ class ImportedLine:
 _TABLE_HEADER_RE = re.compile(
     r"\bRbr\b.*\bSifra\b.*\bNaziv\b.*\bIznos\b", re.IGNORECASE
 )
-_INVOICE_NO_RE = re.compile(r"\bbroj:\s*([0-9]+)\b", re.IGNORECASE)
+_INVOICE_PATTERNS = [
+    re.compile(
+        r"\b(?:faktura|invoice)\s*(?:br\.?|broj|no\.?|number)?\s*[:#]?\s*([A-Z0-9][A-Z0-9\-\/\.]{2,})\b",
+        re.IGNORECASE,
+    ),
+    re.compile(r"\bbroj\s*[:#]?\s*([A-Z0-9][A-Z0-9\-\/\.]{2,})\b", re.IGNORECASE),
+]
 _DATE_RE = re.compile(r"\b(\d{1,2}/\d{1,2}/\d{4})\b")
 _TOTAL_VALUE_RE = re.compile(
     r"\bVrednost\s*\((?P<cur>[A-Z]{3})\)\s*:\s*(?P<val>[\d\.,]+)", re.IGNORECASE
@@ -93,6 +99,29 @@ def _extract_text_lines(pdf_path: str) -> List[str]:
             txt = page.extract_text() or ""
             lines.extend([ln.rstrip() for ln in txt.splitlines()])
     return lines
+
+
+def _is_date_like(value: str) -> bool:
+    return bool(re.fullmatch(r"\d{1,2}[\./-]\d{1,2}[\./-]\d{2,4}", value))
+
+
+def _extract_invoice_no(lines: List[str]) -> str:
+    for ln in lines[:120]:
+        if not ln:
+            continue
+        for pattern in _INVOICE_PATTERNS:
+            m = pattern.search(ln)
+            if not m:
+                continue
+            candidate = (m.group(1) or "").strip().rstrip(".,;:")
+            if not candidate:
+                continue
+            if _is_date_like(candidate):
+                continue
+            if not any(ch.isdigit() for ch in candidate):
+                continue
+            return candidate
+    return ""
 
 
 def _normalize_header_name(name: str) -> str:
@@ -210,11 +239,9 @@ def parse_master_frigo_pdf(
     header["zemlja_porekla_data"] = zemlja_porekla_data
 
     # Extract invoice number
-    for ln in lines[:80]:
-        m = _INVOICE_NO_RE.search(ln)
-        if m:
-            header["invoice_no"] = m.group(1)
-            break
+    invoice_no = _extract_invoice_no(lines)
+    if invoice_no:
+        header["invoice_no"] = invoice_no
 
     # Extract date
     for ln in lines[:160]:
@@ -468,7 +495,7 @@ def import_master_frigo(
         items=invoice_lines,
         bruto_kg=header.get("gross_kg", 0.0),
         neto_kg=header.get("net_kg", 0.0),
-        invoice_name=Path(pdf_path).stem,
+        invoice_name=header.get("invoice_no") or Path(pdf_path).stem,
         currency=currency,
         import_type="master_frigo",
         exporter=_exp,

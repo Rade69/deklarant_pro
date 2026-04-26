@@ -8,6 +8,7 @@ Koristi import_service (isti kao ručni uvoz kroz Faktura Tab):
 """
 from PySide6.QtCore import QThread, Signal
 from pathlib import Path
+import re
 from gui.tabs.agent.models.file_item import FileItem
 
 
@@ -47,17 +48,18 @@ class ProcessingWorker(QThread):
         svc = get_import_service()
         svc.clear_memory()  # Resetuj memoriju za detekciju parova
 
-        # ⭐ Sortiraj: grupiraj po imenu fajla, unutar grupe Excel PRVI pa PDF
-        sorted_files = sorted(
-            self.files,
-            key=lambda f: (
-                Path(f.filepath).stem,                                          # Grupiraj po imenu
-                0 if f.filepath.lower().endswith(('.xlsx', '.xls')) else 1      # Excel prije PDF
-            )
-        )
+        # ⭐ Sortiranje po normalizovanom broju fakture:
+        #   - povećava šansu da Excel+PDF parovi budu susjedni (import_service kombinuje samo "previous + current")
+        #   - mapping xlsx (tarife/porekla/podela) ide POSLIJE PDF-a da ne pravi lažne standalone uvoze
+        sorted_files = sorted(self.files, key=self._pair_sort_key)
 
         # ⭐ TRACKING: Koji fajlovi su već "potrošeni" kroz kombinaciju
         consumed_files: set[str] = set()
+        pdf_folders: set[str] = {
+            str(Path(f.filepath).parent)
+            for f in sorted_files
+            if Path(f.filepath).suffix.lower() == ".pdf"
+        }
 
         self.progress.emit(f"📊 Ukupno fajlova: {len(sorted_files)}")
         self.progress.emit(f"🔍 import_service: {svc}")
@@ -67,6 +69,15 @@ class ProcessingWorker(QThread):
         for file_item in sorted_files:
             if self._cancelled:
                 break
+
+            # Mapping Excel (tarife/porekla/podela) nije faktura.
+            # Ako u istom folderu postoji PDF u ovom batch-u, mapping xlsx preskačemo.
+            if self._is_mapping_xlsx(file_item.filepath) and str(Path(file_item.filepath).parent) in pdf_folders:
+                self.progress.emit(f"   ⏭️ Preskačem mapping Excel: {file_item.filename}")
+                file_item.status = 'Skipped'
+                file_item.invoice_lines = []
+                self.file_completed.emit(file_item)
+                continue
 
             # ⭐ PRESKOČI ako je već potrošen kroz kombinaciju fakture
             if file_item.filepath in consumed_files:
@@ -171,6 +182,13 @@ class ProcessingWorker(QThread):
                 self.progress.emit(f"   📋 Stack: {traceback.format_exc()}")
                 self.file_completed.emit(file_item)
 
+        # Post-process za Agent workflow:
+        # Master Frigo PDF + Excel sparivanje u istom batch-u (cijena/iznos iz Excel-a)
+        try:
+            self._postprocess_master_frigo_pairs(sorted_files)
+        except Exception as e:
+            self.progress.emit(f"⚠️ Master Frigo post-process greška: {e}")
+
         # Ukupno vrijeme
         total_elapsed = time.time() - total_start
         self.progress.emit(f"\n{'='*60}")
@@ -179,6 +197,155 @@ class ProcessingWorker(QThread):
         self.progress.emit(f"{'='*60}\n")
 
         self.all_completed.emit(self.files)
+
+    @staticmethod
+    def _normalize_code(value: str) -> str:
+        if not value:
+            return ""
+        return re.sub(r"[^a-z0-9]", "", value.lower())
+
+    @staticmethod
+    def _has_financials(line) -> bool:
+        return bool((getattr(line, "iznos", 0) or 0) > 0 or (getattr(line, "cijena_jed", 0) or 0) > 0)
+
+    @classmethod
+    def _apply_excel_financials(cls, pdf_lines: list, excel_lines: list) -> int:
+        """Prepiši finansijske podatke iz Excel-a u PDF stavke (primarno po product_code)."""
+        code_map = {}
+        name_map = {}
+        for el in excel_lines or []:
+            if not cls._has_financials(el):
+                continue
+            c = cls._normalize_code(getattr(el, "product_code", "") or "")
+            n = cls._normalize_code(getattr(el, "naziv_robe", "") or "")
+            if c and c not in code_map:
+                code_map[c] = el
+            if n and n not in name_map:
+                name_map[n] = el
+
+        enriched = 0
+        for pl in pdf_lines or []:
+            match = None
+            c = cls._normalize_code(getattr(pl, "product_code", "") or "")
+            if c:
+                match = code_map.get(c)
+            if not match:
+                n = cls._normalize_code(getattr(pl, "naziv_robe", "") or "")
+                if n:
+                    match = name_map.get(n)
+            if not match:
+                continue
+
+            changed = False
+            if (getattr(pl, "cijena_jed", 0) or 0) <= 0 and (getattr(match, "cijena_jed", 0) or 0) > 0:
+                pl.cijena_jed = match.cijena_jed
+                changed = True
+            if (getattr(pl, "iznos", 0) or 0) <= 0 and (getattr(match, "iznos", 0) or 0) > 0:
+                pl.iznos = match.iznos
+                changed = True
+            if (getattr(pl, "kolicina", 0) or 0) <= 0 and (getattr(match, "kolicina", 0) or 0) > 0:
+                pl.kolicina = match.kolicina
+                changed = True
+
+            if changed:
+                enriched += 1
+
+        return enriched
+
+    @staticmethod
+    def _is_master_frigo_pdf_item(file_item: FileItem) -> bool:
+        if file_item.status != "Completed" or not file_item.invoice_lines:
+            return False
+        if file_item.file_type != "PDF":
+            return False
+        parser = (file_item.detected_parser or "").lower()
+        return "master_frigo" in parser
+
+    def _postprocess_master_frigo_pairs(self, files: list[FileItem]) -> None:
+        """
+        Agent-level sparivanje Master Frigo PDF + Excel:
+        - po normalizovanom tokenu fakture
+        - finansije (cijena/iznos/kolicina) prepisuju se iz Excel-a u PDF stavke
+        - Excel se markira kao Skipped da ne uđe kao posebna faktura
+        """
+        excel_by_token: dict[str, list[FileItem]] = {}
+        for f in files:
+            if f.status != "Completed" or f.file_type != "Excel" or not f.invoice_lines:
+                continue
+            token = self._normalized_invoice_token(f.filepath)
+            excel_by_token.setdefault(token, []).append(f)
+
+        for pdf_item in files:
+            if not self._is_master_frigo_pdf_item(pdf_item):
+                continue
+            token = self._normalized_invoice_token(pdf_item.filepath)
+            candidates = excel_by_token.get(token) or []
+            if not candidates:
+                continue
+
+            excel_item = candidates[0]
+            enriched = self._apply_excel_financials(pdf_item.invoice_lines, excel_item.invoice_lines)
+            if enriched <= 0:
+                continue
+
+            pdf_item.is_combined = True
+            excel_item.status = "Skipped"
+            excel_item.invoice_lines = []
+            self.progress.emit(
+                f"   🔗 Master Frigo pair: {Path(pdf_item.filepath).name} + {Path(excel_item.filepath).name} "
+                f"(ažurirano finansija: {enriched} stavki)"
+            )
+            self.file_completed.emit(excel_item)
+
+    @staticmethod
+    def _normalized_invoice_token(filepath: str) -> str:
+        """Normalizuje naziv fajla za sparivanje parova (isti princip kao import_service)."""
+        stem = Path(filepath).stem.lower()
+        stem = stem.replace("-", "").replace("_", "").replace(" ", "")
+        for kw in ("packing", "list", "pl", "invoice", "inv", "faktura"):
+            stem = stem.replace(kw, "")
+        stem = re.sub(r"[^a-z0-9]", "", stem)
+        return stem
+
+    @staticmethod
+    def _is_mapping_xlsx(filepath: str) -> bool:
+        """Da li je ovo globalni mapping excel (Master Frigo i slični)."""
+        p = Path(filepath)
+        if p.suffix.lower() not in (".xlsx", ".xls", ".xlsm"):
+            return False
+        name = p.name.lower()
+        return any(
+            marker in name
+            for marker in (
+                "tarife",
+                "podela",
+                "porekla",
+                "poreklu",
+                "poreklo",
+                "porijekla",
+                "porijeklu",
+            )
+        )
+
+    @classmethod
+    def _pair_sort_key(cls, file_item: FileItem):
+        p = Path(file_item.filepath)
+        ext = p.suffix.lower()
+        token = cls._normalized_invoice_token(file_item.filepath)
+        is_mapping = cls._is_mapping_xlsx(file_item.filepath)
+
+        # Normalni Excel prije PDF (za combine slučajeve), mapping Excel na kraj grupe
+        if is_mapping:
+            priority = 2
+        elif ext in (".xlsx", ".xls", ".xlsm"):
+            priority = 0
+        elif ext == ".pdf":
+            priority = 1
+        else:
+            priority = 3
+
+        # Mapping fajlovi idu globalno na kraj reda da ne kvare sequence previous+current.
+        return (1 if is_mapping else 0, token, priority, p.name.lower())
 
     def _parse_xml(self, file_item: FileItem, filepath: Path) -> list:
         """Parsira XML fajl."""

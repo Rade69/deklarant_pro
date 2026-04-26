@@ -4,8 +4,11 @@ TariffLLMWorker - QThread worker za batch prijedlog tarifnih brojeva putem LLM-a
 Koristi LLMProvider (Groq → Gemini fallback).
 """
 
+import logging
 import re
 from PySide6.QtCore import QThread, Signal
+
+logger = logging.getLogger("asycuda_pro.agent.tariff_llm")
 
 
 class TariffLLMWorker(QThread):
@@ -46,8 +49,7 @@ class TariffLLMWorker(QThread):
         except Exception as e:
             import traceback
             from .llm_provider import parse_llm_error
-            print(f"[TariffLLMWorker] GREŠKA: {e}")
-            print(traceback.format_exc())
+            logger.error(f"Greška: {e}\n{traceback.format_exc()}")
             self.error_occurred.emit(parse_llm_error(e))
 
     def _process_batch(self, provider, batch: list) -> list:
@@ -90,8 +92,8 @@ class TariffLLMWorker(QThread):
                     confidence=mapping_result.similarity,
                     source="baza_znanja"
                 ))
-                print(
-                    f"[TariffLLMWorker] MAPPING idx={idx}: '{naziv[:40]}' "
+                logger.debug(
+                    f"MAPPING idx={idx}: '{naziv[:40]}' "
                     f"→ {mapping_result.tarifni_broj} ({mapping_result.similarity:.0%})"
                 )
             else:
@@ -172,7 +174,7 @@ class TariffLLMWorker(QThread):
             llm_proposals = self._parse_response(raw_text, remaining)
             return resolved + llm_proposals
         except Exception as e:
-            print(f"[TariffLLMWorker] Batch greška: {e}")
+            logger.error(f"Batch greška: {e}")
             return resolved
 
     def _parse_response(self, raw_text: str, batch: list) -> list:
@@ -222,12 +224,12 @@ class TariffLLMWorker(QThread):
             ))
             seen_indices.add(idx)
 
-            print(
-                f"[TariffLLMWorker] idx={idx}: '{getattr(line, 'naziv_robe', '')[:40]}' "
+            logger.debug(
+                f"idx={idx}: '{getattr(line, 'naziv_robe', '')[:40]}' "
                 f"→ {tariff} ({confidence:.0%}) — {explanation[:60]}"
             )
 
-        print(f"[TariffLLMWorker] Parsirano {len(proposals)}/{len(batch)} prijedloga")
+        logger.debug(f"Parsirano {len(proposals)}/{len(batch)} prijedloga")
         return proposals
 
     @staticmethod

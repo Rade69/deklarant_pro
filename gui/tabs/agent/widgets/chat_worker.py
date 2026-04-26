@@ -967,20 +967,20 @@ class ChatWorker(QThread):
             words = [w for w in re.split(r'\s+', query) if len(w) >= 3]
             if not words:
                 return []
-            results = []
+            patterns = [f"%{w}%" for w in words[:3]]
+            or_clause = " OR ".join(["name ILIKE %s"] * len(patterns))
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
-                    for word in words[:3]:
-                        cur.execute(
-                            "SELECT code, name, type FROM public.traders "
-                            "WHERE name ILIKE %s LIMIT 5",
-                            (f"%{word}%",)
-                        )
-                        for row in cur.fetchall():
-                            results.append(
-                                f"  [{row['type']}] {row['name']} (kod: {row['code']})"
-                            )
-            return list(dict.fromkeys(results))  # deduplicate
+                    cur.execute(
+                        f"SELECT code, name, type FROM public.traders "
+                        f"WHERE {or_clause} LIMIT 15",
+                        patterns,
+                    )
+                    results = [
+                        f"  [{row['type']}] {row['name']} (kod: {row['code']})"
+                        for row in cur.fetchall()
+                    ]
+            return list(dict.fromkeys(results))
         except Exception:
             return []
 

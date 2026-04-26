@@ -1,7 +1,7 @@
 import re
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from psycopg2.pool import SimpleConnectionPool
+from psycopg2.pool import ThreadedConnectionPool
 from contextlib import contextmanager
 from typing import Optional
 
@@ -12,10 +12,10 @@ from config.settings import get_db_settings
 # CONNECTION POOL
 # =========================================================
 
-_connection_pool: Optional[SimpleConnectionPool] = None
+_connection_pool: Optional[ThreadedConnectionPool] = None
 
 
-def get_connection_pool() -> SimpleConnectionPool:
+def get_connection_pool() -> ThreadedConnectionPool:
     """
     Dohvata ili kreira connection pool.
     
@@ -26,7 +26,7 @@ def get_connection_pool() -> SimpleConnectionPool:
     
     if _connection_pool is None:
         settings = get_db_settings()
-        _connection_pool = SimpleConnectionPool(
+        _connection_pool = ThreadedConnectionPool(
             minconn=1,
             maxconn=10,
             host=settings.host,
@@ -35,7 +35,7 @@ def get_connection_pool() -> SimpleConnectionPool:
             user=settings.user,
             password=settings.password,
             cursor_factory=RealDictCursor,
-            connect_timeout=10,
+            connect_timeout=3,
         )
     
     return _connection_pool
@@ -150,27 +150,26 @@ def get_tarifa_opis(tarifni_kod: str):
     """
     Vraća zakonski opis tarife iz catalogs.zvanicna_tarifa.
 
-    Ako tačan tarifni kod ne postoji,
-    koristi fallback (viši nivo tarife).
+    Ako tačan tarifni kod ne postoji, koristi fallback (viši nivo tarife).
+    Sve kandidate traži u jednom upitu, sortira po specifičnosti (duži kod = specifičniji).
     """
     fallback_codes = generate_fallback_codes(tarifni_kod)
-
-    sql = """
-        SELECT tarifni_kod, opis
-        FROM catalogs.zvanicna_tarifa
-        WHERE tarifni_kod = %s
-        LIMIT 1
-    """
+    if not fallback_codes:
+        return None
 
     with get_db_connection() as conn:
         with conn.cursor() as cur:
-            for kod in fallback_codes:
-                cur.execute(sql, (kod,))
-                row = cur.fetchone()
-                if row:
-                    return row
-
-    return None
+            cur.execute(
+                """
+                SELECT tarifni_kod, opis
+                FROM catalogs.zvanicna_tarifa
+                WHERE tarifni_kod = ANY(%s)
+                ORDER BY LENGTH(tarifni_kod) DESC
+                LIMIT 1
+                """,
+                (fallback_codes,),
+            )
+            return cur.fetchone()
 
 
 def search_tarife_by_text(query: str, limit: int = 20):

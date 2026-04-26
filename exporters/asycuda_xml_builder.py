@@ -846,8 +846,8 @@ class AsycudaXMLBuilder:
                     row = trazi_po_kodu(tariff_code[:4])
                     if row:
                         tariff_heading = (row.get("naziv") or "").strip()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"Fallback tariff heading neuspješan za {tariff_code}: {e}")
 
         if assigned:
             # Nazivi proizvoda

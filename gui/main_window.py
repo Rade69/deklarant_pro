@@ -1,12 +1,17 @@
 import os
+import traceback
 from pathlib import Path
 from PySide6.QtWidgets import QMainWindow, QTabWidget, QApplication, QMessageBox
 from PySide6.QtCore import QFile, QTextStream, QIODevice, QSettings
+
+import logging
+_dbg = logging.getLogger("asycuda_pro.resize_debug")
 
 from config.settings import get_path_settings
 
 from core.draft import DeclarationDraft
 from gui.tabs.tab_factory import get_tab_factory
+from gui.tabs.lazy_tab import LazyTab
 from gui.tabs.admin_tab import AdminTab
 from gui.tabs.agent_tab import AgentTab
 
@@ -18,9 +23,6 @@ class MainWindow(QMainWindow):
 
         # Postavi podrazumevanu veličinu (80% Full HD 1920x1080)
         self.resize(1536, 823)
-
-        # Postavi maksimalnu širinu da spreči window manager da je napravi preširoku
-        self.setMaximumWidth(1650)
 
         # Vrati geometriju prozora iz prethodne sesije
         self._restore_window_state()
@@ -47,21 +49,30 @@ class MainWindow(QMainWindow):
 
         # Kreiranje tabova koristeći TabFactory
         tab_factory = get_tab_factory()
-        
-        # Faktura tab (Refaktorisan - 3-layer arhitektura)
+
+        # Faktura tab — kreira se odmah (prikazuje se pri pokretanju)
         self.faktura_tab = tab_factory.create_tab('faktura', self.draft, self._on_dirty, tabs)
         tabs.addTab(self.faktura_tab, "📄 Faktura")
 
-        # Naimenovanja tab (rubrike 31-46)
-        self.naimenovanje_tab = tab_factory.create_tab('naimenovanja', self.draft, self._on_dirty, tabs)
+        # Naimenovanja — lazy (QUiLoader + widget cache, inicijalizuje se pri prvom kliku)
+        self.naimenovanje_tab = LazyTab(
+            lambda: tab_factory.create_tab('naimenovanja', self.draft, self._on_dirty),
+            parent=tabs,
+        )
         tabs.addTab(self.naimenovanje_tab, "📦 Naimenovanja")
 
-        # Zaglavlje tab (rubrike 1-49)
-        self.zaglavlje_tab = tab_factory.create_tab('zaglavlje', self.draft, self._on_dirty, tabs)
+        # Zaglavlje — lazy (5 DB upita pri inicijalizaciji)
+        self.zaglavlje_tab = LazyTab(
+            lambda: tab_factory.create_tab('zaglavlje', self.draft, self._on_dirty),
+            parent=tabs,
+        )
         tabs.addTab(self.zaglavlje_tab, "🗂️ Zaglavlje")
 
-        # Šifrarnici tab
-        self.sifarnici_tab = tab_factory.create_tab('sifarnici', self.draft, self._on_dirty, tabs)
+        # Šifrarnici — lazy
+        self.sifarnici_tab = LazyTab(
+            lambda: tab_factory.create_tab('sifarnici', self.draft, self._on_dirty),
+            parent=tabs,
+        )
         tabs.addTab(self.sifarnici_tab, "📋 Šifrarnici")
 
         # Admin tab (novi - plugin manager, settings, database, analytics, logs, system info)
@@ -87,6 +98,16 @@ class MainWindow(QMainWindow):
         # Osvježi naimenovanja izračune (Rb.44/46) kad se tab aktivira
         self.tabs_widget = tabs
         tabs.currentChanged.connect(self._on_tab_changed)
+
+    def resizeEvent(self, event):
+        old = event.oldSize()
+        new = event.size()
+        if old.isValid() and (new.width() < old.width() or new.height() < old.height()):
+            stack = "".join(traceback.format_stack())
+            _dbg.warning(
+                f"PROZOR SE SMANJIO: {old.width()}x{old.height()} → {new.width()}x{new.height()}\n{stack}"
+            )
+        super().resizeEvent(event)
 
     def load_stylesheet(self):
         """
@@ -134,9 +155,16 @@ class MainWindow(QMainWindow):
     def _on_tab_changed(self, index: int) -> None:
         """Osvježi naimenovanja tab kada se aktivira — da uzme svježe kurs/trosak iz drafta."""
         current_widget = self.tabs_widget.widget(index)
+
+        # Inicijalizuj LazyTab odmah u currentChanged, PRIJE nego Qt mjeri
+        # veličinu sadržaja. Ako čekamo showEvent, prozor se skupi na prazni placeholder.
+        if hasattr(current_widget, 'ensure_initialized'):
+            inner = current_widget.ensure_initialized()
+        else:
+            inner = current_widget
+
         if current_widget is self.naimenovanje_tab:
-            # Pozovi refresh na naimenovanja view da ponovo izračuna Rb.44 i Rb.46
-            naim_view = getattr(self.naimenovanje_tab, "view", None)
+            naim_view = getattr(inner, "view", None)
             if naim_view and hasattr(naim_view, "_load_current_item"):
                 naim_view._load_current_item()
 
@@ -185,11 +213,7 @@ class MainWindow(QMainWindow):
             # Pokušaj da vratiš, ali validiraj veličinu
             success = self.restoreGeometry(geometry)
 
-            # Proveri da li je vraćena veličina preširoka ili pogrešna visina (odbaci stare podešavanja)
-            MAX_WIDTH = 1650  # Maksimalna prihvatljiva širina
-            CORRECT_HEIGHT = 823  # Ispravna visina
-            if self.width() > MAX_WIDTH or self.height() != CORRECT_HEIGHT:
-                self.resize(1536, 823)  # Prisili ispravnu veličinu
+            if not success:
                 self._center_on_primary_screen()
             elif not success:
                 self._center_on_primary_screen()
@@ -208,18 +232,16 @@ class MainWindow(QMainWindow):
         """Sačuvaj geometriju kada se prozor prikaže (backup za closeEvent)."""
         super().showEvent(event)
 
-        # PRISILI veličinu nakon što se prozor prikaže (u slučaju da window manager pregazi)
-        MAX_WIDTH = 1650
-        CORRECT_HEIGHT = 823
-        if self.width() > MAX_WIDTH or self.height() != CORRECT_HEIGHT:
-            self.resize(1536, 823)
-            self._center_on_primary_screen()
+        # Samo pri prvom prikazivanju
+        if getattr(self, '_first_show_done', False):
+            return
+        self._first_show_done = True
 
         # Sačuvaj početnu poziciju nakon prvog prikazivanja
         settings = QSettings("AsycudaPro", "MainWindow")
         if not settings.value("geometry"):
             settings.setValue("geometry", self.saveGeometry())
-            settings.sync()  # Prisili trenutno pisanje
+            settings.sync()
 
     def closeEvent(self, event) -> None:
         """Sačuvaj stanje prozora pre zatvaranja."""

@@ -10,19 +10,7 @@ from typing import Optional, Callable, Dict, Any
 from PySide6.QtWidgets import QWidget
 
 from core.draft.draft import DeclarationDraft
-from utils.dependency_injection import get_di_container, register_services
-
-# Import tab klasa
-from gui.tabs.zaglavlje_tab import ZaglavljeTab as ZaglavljeTabRefactored
-from gui.tabs.faktura_tab import FakturaTab as FakturaTabRefactored
-from gui.tabs.naimenovanja_tab import NaimenovanjaTab as NaimenovanjaTabRefactored
-from gui.tabs.sifarnici_tab import SifarniciTab as SifarniciTabRefactored
-
-# Import service klasa (za DI registraciju)
-from services.zaglavlje_service import ZaglavljeService
-from services.faktura_service import FakturaService
-from services.naimenovanja_service import NaimenovanjaService
-from services.sifarnici_service import SifarniciService
+from utils.dependency_injection import get_di_container
 
 
 logger = logging.getLogger(__name__)
@@ -50,6 +38,11 @@ class TabFactory:
     def _register_services(self):
         """Registruj sve servise u DI container kao singletone."""
         try:
+            from services.zaglavlje_service import ZaglavljeService
+            from services.faktura_service import FakturaService
+            from services.naimenovanja_service import NaimenovanjaService
+            from services.sifarnici_service import SifarniciService
+
             if not self._container.has_service(ZaglavljeService):
                 self._container.register_singleton(ZaglavljeService, ZaglavljeService)
             if not self._container.has_service(FakturaService):
@@ -108,30 +101,30 @@ class TabFactory:
     def _create_zaglavlje_tab(self,
                               draft: Optional[DeclarationDraft],
                               on_dirty: Optional[Callable],
-                              parent: Optional[QWidget]) -> ZaglavljeTabRefactored:
-        """Kreiraj ZaglavljeTab sa refaktorisanim servisom."""
-        return ZaglavljeTabRefactored(draft=draft, on_dirty=on_dirty, parent=parent)
+                              parent: Optional[QWidget]):
+        from gui.tabs.zaglavlje_tab import ZaglavljeTab
+        return ZaglavljeTab(draft=draft, on_dirty=on_dirty, parent=parent)
 
     def _create_faktura_tab(self,
                             draft: Optional[DeclarationDraft],
                             on_dirty: Optional[Callable],
-                            parent: Optional[QWidget]) -> FakturaTabRefactored:
-        """Kreiraj FakturaTab sa refaktorisanim servisom."""
-        return FakturaTabRefactored(draft=draft, on_dirty=on_dirty, parent=parent)
+                            parent: Optional[QWidget]):
+        from gui.tabs.faktura_tab import FakturaTab
+        return FakturaTab(draft=draft, on_dirty=on_dirty, parent=parent)
 
     def _create_naimenovanja_tab(self,
                                  draft: Optional[DeclarationDraft],
                                  on_dirty: Optional[Callable],
-                                 parent: Optional[QWidget]) -> NaimenovanjaTabRefactored:
-        """Kreiraj NaimenovanjaTab sa refaktorisanim servisom."""
-        return NaimenovanjaTabRefactored(draft=draft, on_dirty=on_dirty, parent=parent)
+                                 parent: Optional[QWidget]):
+        from gui.tabs.naimenovanja_tab import NaimenovanjaTab
+        return NaimenovanjaTab(draft=draft, on_dirty=on_dirty, parent=parent)
 
     def _create_sifarnici_tab(self,
                               draft: Optional[DeclarationDraft],
                               on_dirty: Optional[Callable],
-                              parent: Optional[QWidget]) -> SifarniciTabRefactored:
-        """Kreiraj SifarniciTab sa refaktorisanim servisom."""
-        return SifarniciTabRefactored(draft=draft, on_dirty=on_dirty, parent=parent)
+                              parent: Optional[QWidget]):
+        from gui.tabs.sifarnici_tab import SifarniciTab
+        return SifarniciTab(draft=draft, on_dirty=on_dirty, parent=parent)
 
     def _get_cache_key(self,
                        tab_type: str,

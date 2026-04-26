@@ -224,8 +224,8 @@ class ImportService:
                     self.logger.info("💡 ŠUMAPROM Excel sačuvan - čeka ŠUMAPROM PDF sa istim brojem")
                     return
 
-            except Exception:
-                pass
+            except Exception as e:
+                self.logger.debug(f"Detekcija Excel formata neuspješna: {e}")
             self.last_import_type = "excel"
 
         elif ext == ".pdf":
@@ -240,8 +240,8 @@ class ImportService:
                     self.last_import_type = "sumaprom_pdf"
                     self.logger.info("💡 ŠUMAPROM PDF sačuvan - čeka ŠUMAPROM Excel sa istim brojem")
                     return
-            except Exception:
-                pass
+            except Exception as e:
+                self.logger.debug(f"Detekcija PDF formata neuspješna: {e}")
             self.last_import_type = "invoice"
 
         else:
@@ -299,7 +299,7 @@ class ImportService:
                         items=combined_items,
                         bruto_kg=stats.get("bruto_kg", 0.0),
                         neto_kg=stats.get("neto_kg", 0.0),
-                        invoice_name=filepath.stem,
+                        invoice_name=stats.get("invoice_name") or filepath.stem,
                         currency=stats.get("currency", "EUR"),
                         is_combined=True,
                         import_type="loren_excel",
@@ -321,7 +321,7 @@ class ImportService:
                         items=combined_items,
                         bruto_kg=stats.get("bruto_kg", 0.0),
                         neto_kg=stats.get("neto_kg", 0.0),
-                        invoice_name=filepath.stem,
+                        invoice_name=stats.get("invoice_name") or filepath.stem,
                         currency=stats.get("currency", "EUR"),
                         is_combined=True,
                         import_type="loren_excel",

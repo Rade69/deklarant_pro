@@ -270,14 +270,22 @@ def _find_master_frigo_mapping_xlsx(pdf_path: str) -> str | None:
     """
     Traži Excel fajl sa tarifama/zemljama u istom folderu kao PDF.
 
-    Master Frigo šalje jedan Excel ('tarife i zemlje porekla') za sve fakture.
-    Tražimo po imenu (mora sadržati 'tarife' ili 'porijekla'/'porekla').
+    Master Frigo šalje jedan Excel ('tarife i zemlje porekla' ili 'podela po poreklu')
+    za sve fakture. Tražimo po prepoznatljivim riječima iz tih naziva.
     """
     from pathlib import Path
     folder = Path(pdf_path).parent
     for xlsx in folder.glob("*.xlsx"):
         name_lower = xlsx.name.lower()
-        if "tarife" in name_lower or "porekla" in name_lower or "porijekla" in name_lower:
+        if (
+            "tarife" in name_lower
+            or "podela" in name_lower
+            or "porekla" in name_lower
+            or "poreklu" in name_lower
+            or "poreklo" in name_lower
+            or "porijekla" in name_lower
+            or "porijeklu" in name_lower
+        ):
             logger.info(f"  📋 Master Frigo: nađen mapping Excel: {xlsx.name}")
             return str(xlsx)
     return None

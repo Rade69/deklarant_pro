@@ -331,6 +331,7 @@ def combine_blagic_excel_and_pdf(
         "unmatched": unmatched_count,
         "unmatched_codes": unmatched_codes,
         "total_combined": len(combined_items),
+        "invoice_name": pdf_result.invoice_name,
         "bruto_kg": pdf_result.bruto_kg,
         "neto_kg": pdf_result.neto_kg,
         "currency": pdf_result.currency,

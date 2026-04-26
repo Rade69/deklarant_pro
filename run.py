@@ -22,6 +22,7 @@ import warnings
 
 warnings.filterwarnings('ignore', category=RuntimeWarning, message='Failed to disconnect')
 
+logging.getLogger("asycuda_pro.resize_debug").setLevel(logging.DEBUG)
 logging.basicConfig(
     level=logging.WARNING,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -44,6 +45,9 @@ except Exception as _import_err:
 
 
 def main():
+    import time
+    _t0 = time.perf_counter()
+
     app = QApplication(sys.argv)
     app.setApplicationName("ASYCUDA Pro")
     app.setOrganizationName("Carina")
@@ -62,6 +66,8 @@ def main():
     try:
         window = MainWindow()
         window.show()
+        _startup_ms = (time.perf_counter() - _t0) * 1000
+        logging.getLogger("asycuda_pro").warning(f"⏱️ Startup: {_startup_ms:.0f}ms")
     except Exception as e:
         import traceback
         msg = QMessageBox()

@@ -1,12 +1,15 @@
 """
-Tariff Intent Service — prijedlog, provjera i brisanje tarifnih brojeva.
+Tariff Intent Service — predlog, provjera i brisanje tarifnih brojeva.
 
 Business logika za:
-- Batch prijedlog tarifnih brojeva (lokalna baza + LLM fallback)
-- Prijedlog po filter keyword-u
+- Batch predlog tarifnih brojeva (istorija dobavljača + lokalna baza + LLM fallback)
+- Predlog po filter keyword-u
 - Provjera tarifnog za konkretan naziv robe (HybridTariffAgent)
 - Brisanje svih tarifnih brojeva
 - Izvršenje popune tarifnih nakon potvrde
+
+📄 Detalji: memory/project_tariff_history_prediction.md
+   scripts/CHANGES_2026-04-26.md
 """
 
 from __future__ import annotations
