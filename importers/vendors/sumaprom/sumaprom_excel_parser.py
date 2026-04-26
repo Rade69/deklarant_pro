@@ -16,7 +16,7 @@ Format:
 import os
 import logging
 import re
-from typing import List, Optional, Tuple, Dict
+from typing import Any, Dict, List, Optional, Tuple
 from pathlib import Path
 
 import xlrd
@@ -164,7 +164,7 @@ def parse_sumaprom_excel(filepath: str) -> ImportResult:
         raise ValueError(f"Nije moguce parsirati SUMAPROM Excel: {e}") from e
 
 
-def _extract_header_info(sheet: xlrd.sheet.Sheet) -> Dict[str, any]:
+def _extract_header_info(sheet: xlrd.sheet.Sheet) -> Dict[str, Any]:
     """
     Extract header information from sheet.
 
