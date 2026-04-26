@@ -9,9 +9,13 @@ OCR utility funkcije za PDF import.
 """
 
 import logging
-from typing import List
+import os
+from typing import Dict, List, Tuple
 
 logger = logging.getLogger("asycuda_pro.import.ocr")
+
+# Session-level OCR cache: (filepath, mtime, dpi) → List[str]
+_ocr_cache: Dict[Tuple[str, float, int], List[str]] = {}
 
 
 def is_scanned_pdf(filepath: str, min_text_len: int = 80) -> bool:
@@ -173,7 +177,19 @@ def ocr_pdf_to_text_no_lines(filepath: str, dpi: int = 300) -> List[str]:
     """
     OCR sa uklanjanjem linija tabele (za fakture sa tabličnim formatom).
     Koristi OpenCV morfološke operacije za brisanje linija prije OCR-a.
+    Rezultat se kešira u memoriji po (filepath, mtime, dpi) — isti fajl
+    se ne OCR-uje više puta u jednoj sesiji.
     """
+    # Cache lookup
+    try:
+        mtime = os.path.getmtime(filepath)
+    except OSError:
+        mtime = 0.0
+    cache_key = (os.path.abspath(filepath), mtime, dpi)
+    if cache_key in _ocr_cache:
+        logger.debug(f"⚡ OCR cache hit: {os.path.basename(filepath)}")
+        return _ocr_cache[cache_key]
+
     import pytesseract
     from pdf2image import convert_from_path
 
@@ -192,4 +208,5 @@ def ocr_pdf_to_text_no_lines(filepath: str, dpi: int = 300) -> List[str]:
         logger.debug(f"  Stranica {page_num}: {len(text)} karaktera")
 
     logger.info(f"✅ OCR (no-lines) završen: {len(pages_text)} stranica")
+    _ocr_cache[cache_key] = pages_text
     return pages_text

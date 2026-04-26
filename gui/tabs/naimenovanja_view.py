@@ -2097,9 +2097,7 @@ class NaimenovanjaView(BaseTabView):
 
     def _load_current_item(self) -> None:
         """Load current item from draft into form fields"""
-        print(f"  📦 _load_current_item START — items={len(self.draft.items)}, idx={self.current_item_index}")
         if len(self.draft.items) == 0 or not hasattr(self, "ui"):
-            print(f"  ⚠️ _load_current_item SKIPPED")
             return
 
         # Sakrij upozorenje pri svakom prelasku na novi item (ažurira se u _perform_tariff_lookup)
@@ -2108,7 +2106,6 @@ class NaimenovanjaView(BaseTabView):
 
         self.is_loading = True
         item = self.draft.items[self.current_item_index]
-        print(f"  📦 Item: tariff={item.tariff_code}, origin={item.origin_country_code}, value={item.item_value}")
 
         loaded = 0
         not_found = 0
@@ -2204,7 +2201,6 @@ class NaimenovanjaView(BaseTabView):
                     loaded += 1
             else:
                 not_found += 1
-                print(f"  ⚠️ Widget NOT FOUND: {widget_name} (field={field_name})")
 
         # FORCE: osiguraj da je main_grid_frame vidljiv
         if hasattr(self, "ui") and self.ui:
@@ -2224,40 +2220,9 @@ class NaimenovanjaView(BaseTabView):
         if rb40_2:
             rb40_2.setVisible(is_first_item)
 
-        print(f"  📦 _load_current_item END — loaded={loaded}, not_found={not_found}")
-
         # Automatski dodaj priložene dokumente na osnovu tarifnog broja
         if item and item.tariff_code:
             self._add_tariff_control_docs(item.tariff_code)
-
-        # DEBUG: provjeri vidljivost prvih 5 widgeta
-        if loaded > 0 and self.current_item_index == 0:
-            for wname in ["le_rubrika33", "le_rubrika34_zemlja", "le_rubrika35", "le_rubrika36", "te_r31_opis"]:
-                w = self._get_widget(wname)
-                if w:
-                    geo = w.geometry()
-                    text_val = w.text() if hasattr(w, 'text') else (w.toPlainText() if hasattr(w, 'toPlainText') else 'N/A')
-                    style = w.styleSheet()[:50]
-                    print(f"    👁️ {wname}: visible={w.isVisible()}, enabled={w.isEnabled()}, pos=({geo.x()},{geo.y()}), size=({geo.width()}x{geo.height()}), text='{str(text_val)[:30]}', style='{style}'")
-                else:
-                    print(f"    ❌ {wname}: NOT FOUND")
-            # Provjeri main_grid_frame i self.ui
-            if hasattr(self, "ui") and self.ui:
-                grid = self.ui.findChild(QFrame, "main_grid_frame")
-                if grid:
-                    geo = grid.geometry()
-                    print(f"    📐 main_grid_frame: visible={grid.isVisible()}, pos=({geo.x()},{geo.y()}), size=({geo.width()}x{geo.height()})")
-            # Provjeri self.view visibility
-            print(f"    📐 self.isVisible()={self.isVisible()}, self.isEnabled()={self.isEnabled()}, self.geometry()={self.geometry()}")
-            if hasattr(self, "ui") and self.ui:
-                print(f"    📐 self.ui.isVisible()={self.ui.isVisible()}, self.ui.geometry()={self.ui.geometry()}")
-                # Provjeri parent chain
-                p = self.ui.parent()
-                parent_info = []
-                while p:
-                    parent_info.append(f"{type(p).__name__}(visible={p.isVisible()}, geo={p.geometry()})")
-                    p = p.parent()
-                print(f"    📐 Parent chain: {' -> '.join(parent_info)}")
 
         self.is_loading = False
 
@@ -3119,8 +3084,6 @@ class NaimenovanjaView(BaseTabView):
         import traceback
         from PySide6.QtWidgets import QFileDialog, QMessageBox
 
-        print("📥 _on_import_xml POZVAN")
-
         try:
             filename, _ = QFileDialog.getOpenFileName(
                 self,
@@ -3128,7 +3091,6 @@ class NaimenovanjaView(BaseTabView):
                 "",
                 "XML Files (*.xml);;All Files (*)",
             )
-            print(f"  📁 Izabran fajl: {filename}")
             if not filename:
                 return
 
@@ -3136,7 +3098,6 @@ class NaimenovanjaView(BaseTabView):
             from services.zaglavlje_service import ZaglavljeService
             svc = ZaglavljeService()
             items = svc.parse_naimenovanja_from_xml(filename)
-            print(f"  📄 Parsirano {len(items)} naimenovanja")
 
             if not items:
                 self.show_warning(
@@ -3155,20 +3116,16 @@ class NaimenovanjaView(BaseTabView):
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No,
             )
-            print(f"  ✅ Odgovor: {reply}")
             if reply == QMessageBox.StandardButton.No:
                 return
 
             # 3. Zamijeni draft.items
             self.draft.items = items
             self.draft.mark_dirty()
-            print(f"  📦 draft.items zamijenjen: {len(self.draft.items)} stavki")
 
             # 4. Resetuj na prvu stavku i reload
             self.current_item_index = 0
-            print(f"  🔄 Pozivam reload_data()...")
             self.reload_data()
-            print(f"  🔄 reload_data() završio")
 
             self.show_success(
                 f"✅ Uvezeno {len(items)} naimenovanja iz XML-a.\n"
@@ -3176,9 +3133,7 @@ class NaimenovanjaView(BaseTabView):
             )
 
         except Exception as e:
-            import traceback
-            print(f"❌ GREŠKA PRI IMPORTU: {e}")
-            traceback.print_exc()
+            logger.error(f"Greška pri uvozu XML naimenovanja: {e}", exc_info=True)
             self.show_error(f"Greška pri uvozu: {e}")
 
         # Emituj signal za controller (ako postoji)
@@ -3570,30 +3525,21 @@ class NaimenovanjaView(BaseTabView):
         Public method to reload all naimenovanja data.
         Call this after naimenovanja are created/modified externally.
         """
-        print(f"  🔍 reload_data START — items={len(self.draft.items)}, current_idx={self.current_item_index}")
-        # Reset to first item if no items or current index is out of bounds
         if len(self.draft.items) == 0:
             self.current_item_index = -1
-            print(f"  ⚠️  No naimenovanja to display")
             logger.warning("  ⚠️  No naimenovanja to display")
             return
 
         if self.current_item_index >= len(self.draft.items):
             self.current_item_index = 0
-            print(f"  ⚠️ Index out of bounds, reset to 0")
 
-        # Reload current item and update all UI elements
-        print(f"  🔍 Pozivam _load_current_item...")
         self._load_current_item()
-        print(f"  🔍 Pozivam _update_all_ui...")
         self._update_all_ui()
-        # FORCE: repaint sve widgete
         if hasattr(self, "ui") and self.ui:
             self.ui.update()
             self.ui.repaint()
         self.update()
         self.repaint()
-        print(f"  ✅ reload_data END")
         logger.info(f"  ✅ Naimenovanja Tab reloaded: {len(self.draft.items)} items")
 
     def eventFilter(self, obj, event):
