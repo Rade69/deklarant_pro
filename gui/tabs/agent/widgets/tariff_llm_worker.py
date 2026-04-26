@@ -1,15 +1,15 @@
-# Arhitektura: docs/architecture/TARIFF_FACADE_REFACTORING.md
+﻿# Arhitektura: docs/architecture/TARIFF_FACADE_REFACTORING.md
 
 """
-TariffLLMWorker — QThread worker za batch prijedlog tarifnih brojeva putem LLM-a.
+TariffLLMWorker â€” QThread worker za batch prijedlog tarifnih brojeva putem LLM-a.
 
 Pipeline:
-  Korak 1: TariffFacade.suggest_fast()   — baza znanja (bez mreže, brzo)
-  Korak 2: TariffFacade.rag_candidates() — kandidati iz zvanicna_tarifa (kao kontekst)
-  Korak 3: LLMProvider.complete()        — jedan batch API poziv za preostale stavke
+  Korak 1: TariffFacade.suggest_fast()   â€” baza znanja (bez mreÅ¾e, brzo)
+  Korak 2: TariffFacade.rag_candidates() â€” kandidati iz zvanicna_tarifa (kao kontekst)
+  Korak 3: LLMProvider.complete()        â€” jedan batch API poziv za preostale stavke
 
 Batch LLM poziv (Korak 3) je namjerno odvojen od HybridTariffAgent koji radi
-N pojedinačnih poziva. Za 40 stavki, jedan batch poziv je 40× jeftiniji.
+N pojedinaÄnih poziva. Za 40 stavki, jedan batch poziv je 40Ã— jeftiniji.
 """
 
 import logging
@@ -21,11 +21,11 @@ logger = logging.getLogger("deklarant_pro.agent.tariff_llm")
 
 class TariffLLMWorker(QThread):
     """
-    Poziva LLM u pozadini da predloži tarifne brojeve za grupu stavki.
+    Poziva LLM u pozadini da predloÅ¾i tarifne brojeve za grupu stavki.
 
     Signals:
         proposals_ready(list): Lista TariffProposal objekata
-        error_occurred(str):   Poruka greške
+        error_occurred(str):   Poruka greÅ¡ke
     """
 
     proposals_ready = Signal(list)
@@ -44,7 +44,7 @@ class TariffLLMWorker(QThread):
             provider = LLMProvider()
             if provider.active_provider() == "none":
                 self.error_occurred.emit(
-                    "Nema AI ključa. Dodaj GROQ_API_KEY, GEMINI_API_KEY ili OPENROUTER_API_KEY u .env."
+                    "Nema AI kljuÄa. Dodaj GROQ_API_KEY, GEMINI_API_KEY ili OPENROUTER_API_KEY u .env."
                 )
                 return
 
@@ -58,13 +58,13 @@ class TariffLLMWorker(QThread):
         except Exception as e:
             import traceback
             from .llm_provider import parse_llm_error
-            logger.error(f"Greška: {e}\n{traceback.format_exc()}")
+            logger.error(f"GreÅ¡ka: {e}\n{traceback.format_exc()}")
             self.error_occurred.emit(parse_llm_error(e))
 
     def _process_batch(self, provider, batch: list) -> list:
         """
-        Korak 1 → 2 → 3 za jedan batch stavki.
-        Korak 1 i 2 idu kroz TariffFacade — docs/architecture/TARIFF_FACADE_REFACTORING.md
+        Korak 1 â†’ 2 â†’ 3 za jedan batch stavki.
+        Korak 1 i 2 idu kroz TariffFacade â€” docs/architecture/TARIFF_FACADE_REFACTORING.md
         """
         from services.tariff_facade import TariffFacade
         from gui.tabs.agent.agent_actions import TariffProposal
@@ -73,7 +73,7 @@ class TariffLLMWorker(QThread):
         resolved = []
         remaining = []
 
-        # Korak 1: pre-filter putem baze znanja (Level 1, bez mreže)
+        # Korak 1: pre-filter putem baze znanja (Level 1, bez mreÅ¾e)
         for idx, line in batch:
             naziv        = (getattr(line, "naziv_robe",    "") or "").strip()
             product_code = (getattr(line, "product_code",  "") or "").strip()
@@ -90,7 +90,7 @@ class TariffLLMWorker(QThread):
                 ))
                 logger.debug(
                     f"MAPPING idx={idx}: '{naziv[:40]}' "
-                    f"→ {fast.tarifni_broj} ({fast.confidence:.0%})"
+                    f"â†’ {fast.tarifni_broj} ({fast.confidence:.0%})"
                 )
             else:
                 remaining.append((idx, line))
@@ -98,7 +98,7 @@ class TariffLLMWorker(QThread):
         if not remaining:
             return resolved
 
-        # Korak 2 + 3: preostale stavke — RAG kandidati + batch LLM poziv
+        # Korak 2 + 3: preostale stavke â€” RAG kandidati + batch LLM poziv
         product_lines = []
         for idx, line in remaining:
             naziv        = (getattr(line, "naziv_robe",      "") or "").strip()
@@ -117,7 +117,7 @@ class TariffLLMWorker(QThread):
                 candidates = facade.rag_candidates(naziv, zemlja, limit=5)
                 if candidates:
                     c_lines = [
-                        f"  {c['tarifni_kod']} — {c['naziv_robe'][:70]}"
+                        f"  {c['tarifni_kod']} â€” {c['naziv_robe'][:70]}"
                         for c in candidates
                     ]
                     candidates_text = "\n  Kandidati iz tarife:\n" + "\n".join(c_lines)
@@ -130,23 +130,23 @@ class TariffLLMWorker(QThread):
         system_msg = (
             "Ti si asistent specijalizovan za klasifikaciju robe prema "
             "Harmonizovanom sistemu (HS) i carinskoj tarifi BiH. "
-            "Tarifni broj UVIJEK piši kao SAMO CIFRE bez tačaka i razmaka "
+            "Tarifni broj UVIJEK piÅ¡i kao SAMO CIFRE bez taÄaka i razmaka "
             "(npr. 84713000, NE 8471.30.00). "
-            "Odgovaraj SAMO u traženom formatu IDX|TARIFNI_BROJ|POUZDANOST|OBRAZLOŽENJE. "
-            "Bez uvoda, bez zaključka."
+            "Odgovaraj SAMO u traÅ¾enom formatu IDX|TARIFNI_BROJ|POUZDANOST|OBRAZLOÅ½ENJE. "
+            "Bez uvoda, bez zakljuÄka."
         )
         user_msg = (
             "Ti si ekspert za carinsku tarifu Bosne i Hercegovine (TARIC/HS nomeklatura).\n"
-            "Za svaki proizvod predloži odgovarajući tarifni broj.\n\n"
+            "Za svaki proizvod predloÅ¾i odgovarajuÄ‡i tarifni broj.\n\n"
             "PRAVILA:\n"
-            "- Tarifni broj ISKLJUČIVO cifre, BEZ tačaka (npr. 84713000)\n"
-            "- Ako su navedeni kandidati iz tarife — BIRAŠ između njih\n"
-            "- Ako nijedan kandidat ne odgovara — možeš predložiti drugi, ali SAMO ako si siguran\n"
-            "- Format: IDX|TARIFNI_BROJ|POUZDANOST|OBRAZLOŽENJE\n"
+            "- Tarifni broj ISKLJUÄŒIVO cifre, BEZ taÄaka (npr. 84713000)\n"
+            "- Ako su navedeni kandidati iz tarife â€” BIRAÅ  izmeÄ‘u njih\n"
+            "- Ako nijedan kandidat ne odgovara â€” moÅ¾eÅ¡ predloÅ¾iti drugi, ali SAMO ako si siguran\n"
+            "- Format: IDX|TARIFNI_BROJ|POUZDANOST|OBRAZLOÅ½ENJE\n"
             "- Jedan red po proizvodu, bez praznih redova\n\n"
             "PRIMJER:\n"
-            "5|84713000|0.9|Prijenosno računalo\n"
-            "12|62034231|0.85|Muške hlače od pamuka\n\n"
+            "5|84713000|0.9|Prijenosno raÄunalo\n"
+            "12|62034231|0.85|MuÅ¡ke hlaÄe od pamuka\n\n"
             f"LISTA PROIZVODA:\n{products_text}"
         )
 
@@ -159,11 +159,11 @@ class TariffLLMWorker(QThread):
             )
             return resolved + self._parse_response(raw, remaining)
         except Exception as e:
-            logger.error(f"Batch LLM greška: {e}")
+            logger.error(f"Batch LLM greÅ¡ka: {e}")
             return resolved
 
     def _parse_response(self, raw_text: str, batch: list) -> list:
-        """Parsira LLM odgovor (IDX|TARIFNI_BROJ|POUZDANOST|OBRAZLOŽENJE) u TariffProposal listu."""
+        """Parsira LLM odgovor (IDX|TARIFNI_BROJ|POUZDANOST|OBRAZLOÅ½ENJE) u TariffProposal listu."""
         from gui.tabs.agent.agent_actions import TariffProposal
 
         idx_map      = {idx: line for idx, line in batch}
@@ -211,7 +211,7 @@ class TariffLLMWorker(QThread):
 
             logger.debug(
                 f"idx={idx}: '{getattr(line, 'naziv_robe', '')[:40]}' "
-                f"→ {tariff} ({confidence:.0%}) — {explanation[:60]}"
+                f"â†’ {tariff} ({confidence:.0%}) â€” {explanation[:60]}"
             )
 
         logger.debug(f"Parsirano {len(proposals)}/{len(batch)} prijedloga")
@@ -222,3 +222,4 @@ class TariffLLMWorker(QThread):
         """Samo cifre, min 6, max 10."""
         digits = re.sub(r"\D", "", raw)
         return digits[:10] if len(digits) >= 6 else ""
+

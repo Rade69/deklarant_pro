@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 Deklarant Pro - Application Launcher
 """
@@ -9,12 +9,12 @@ import os
 # Projektni root = direktorij gdje se nalazi ovaj fajl
 _script_dir = os.path.dirname(os.path.abspath(__file__))
 
-# KRITIČNO: osiguraj da je projektni root u sys.path
+# KRITIÄŒNO: osiguraj da je projektni root u sys.path
 # (desktop ikonica nema CWD = project root, za razliku od terminala)
 if _script_dir not in sys.path:
     sys.path.insert(0, _script_dir)
 
-# Greške pri pokretanju pisati u log fajl (vidljivo i bez terminala)
+# GreÅ¡ke pri pokretanju pisati u log fajl (vidljivo i bez terminala)
 _log_dir = os.path.join(os.path.expanduser("~"), ".deklarant_pro", "logs")
 _log_file = os.path.join(_log_dir, "deklarant_pro.log")
 
@@ -43,10 +43,10 @@ try:
     from gui.main_window import MainWindow
     from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
 except Exception as _import_err:
-    # Upiši grešku u log fajl pa prikaži korisniku
+    # UpiÅ¡i greÅ¡ku u log fajl pa prikaÅ¾i korisniku
     with open(_log_file, "a", encoding="utf-8") as _f:
         import traceback
-        _f.write(f"\n=== IMPORT GREŠKA ===\n{traceback.format_exc()}\n")
+        _f.write(f"\n=== IMPORT GREÅ KA ===\n{traceback.format_exc()}\n")
     raise
 
 
@@ -55,27 +55,27 @@ def _check_ocr_availability():
     try:
         import pytesseract
 
-        # Učitaj ocr_utils PRIJE provjere — on pri importu auto-detektuje
-        # Tesseract na uobičajenim Windows lokacijama (npr. "C:\Program Files\
+        # UÄitaj ocr_utils PRIJE provjere â€” on pri importu auto-detektuje
+        # Tesseract na uobiÄajenim Windows lokacijama (npr. "C:\Program Files\
         # Tesseract-OCR\tesseract.exe") i postavlja pytesseract.tesseract_cmd.
         # Bez ovoga, get_tesseract_version() oslanja se samo na PATH i javlja
-        # lažno upozorenje iako je Tesseract instaliran (samo nije u PATH-u).
+        # laÅ¾no upozorenje iako je Tesseract instaliran (samo nije u PATH-u).
         try:
             from importers.pdf import ocr_utils  # noqa: F401
         except ImportError:
             pass
 
         pytesseract.get_tesseract_version()
-        logging.getLogger("deklarant_pro").info("✅ OCR (Tesseract) dostupan")
+        logging.getLogger("deklarant_pro").info("âœ… OCR (Tesseract) dostupan")
     except ImportError:
         logging.getLogger("deklarant_pro").warning(
-            "⚠️ OCR nije dostupan — pytesseract nije instaliran. "
-            "Skenirani PDF-ovi neće biti parsirani. "
+            "âš ï¸ OCR nije dostupan â€” pytesseract nije instaliran. "
+            "Skenirani PDF-ovi neÄ‡e biti parsirani. "
             "Instaliraj sa: uv sync --extra ocr"
         )
     except Exception as e:
         logging.getLogger("deklarant_pro").warning(
-            f"⚠️ OCR nije dostupan — Tesseract greška: {e}"
+            f"âš ï¸ OCR nije dostupan â€” Tesseract greÅ¡ka: {e}"
         )
 
 
@@ -91,14 +91,14 @@ def _check_license_on_startup(parent=None):
         if result.is_valid:
             if result.status == LicenseStatus.EXPIRED_GRACE:
                 QMessageBox.warning(
-                    parent, "Licenca ističe", result.message
+                    parent, "Licenca istiÄe", result.message
                 )
             return
 
         QMessageBox.critical(
             parent, "Licenca nije validna",
             f"{result.message}\n\n"
-            "Otvorite Admin Panel → Licenca da uvezete novu licencu."
+            "Otvorite Admin Panel â†’ Licenca da uvezete novu licencu."
         )
     except Exception as e:
         logging.getLogger("deklarant_pro").warning(
@@ -114,7 +114,7 @@ def main():
     if os.name == 'nt':
         import ctypes
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Carina.DeklarantPro.1")
-        # Fusion stil — identičan izgled na Windows i Linux
+        # Fusion stil â€” identiÄan izgled na Windows i Linux
         os.environ.setdefault("QT_STYLE_OVERRIDE", "Fusion")
 
     app = QApplication(sys.argv)
@@ -125,8 +125,8 @@ def main():
     if os.name == 'nt':
         app.setStyle("Fusion")
 
-    # Globalna paleta: selekcija teksta čitljiva na svim widgetima
-    # (QPalette Highlight/HighlightedText važi i za widgete sa inline setStyleSheet())
+    # Globalna paleta: selekcija teksta Äitljiva na svim widgetima
+    # (QPalette Highlight/HighlightedText vaÅ¾i i za widgete sa inline setStyleSheet())
     from PySide6.QtGui import QPalette, QColor, QFont, QIcon
     _font_size = 9 if os.name == 'nt' else 13
     app.setFont(QFont("Segoe UI", _font_size))
@@ -136,12 +136,12 @@ def main():
     palette = app.palette()
     palette.setColor(QPalette.Highlight, QColor("#DBEAFE"))          # Svijetlo plava pozadina
     palette.setColor(QPalette.HighlightedText, QColor("#1E3A8A"))    # Tamno plavi tekst
-    # Inactive selection (kad prozor nema fokus) — isti stil
+    # Inactive selection (kad prozor nema fokus) â€” isti stil
     palette.setColor(QPalette.Inactive, QPalette.Highlight, QColor("#DBEAFE"))
     palette.setColor(QPalette.Inactive, QPalette.HighlightedText, QColor("#1E3A8A"))
     app.setPalette(palette)
 
-    # OCR provera — opciona zavisnost, samo upozorenje ako nedostaje
+    # OCR provera â€” opciona zavisnost, samo upozorenje ako nedostaje
     _check_ocr_availability()
 
     try:
@@ -157,20 +157,20 @@ def main():
         window = MainWindow()
         window.show()
         _startup_ms = (time.perf_counter() - _t0) * 1000
-        logging.getLogger("deklarant_pro").warning(f"⏱️ Startup: {_startup_ms:.0f}ms")
+        logging.getLogger("deklarant_pro").warning(f"â±ï¸ Startup: {_startup_ms:.0f}ms")
 
-        # Licenca provera — ne blokira aplikaciju, samo upozorenje
+        # Licenca provera â€” ne blokira aplikaciju, samo upozorenje
         _check_license_on_startup(window)
     except Exception as e:
         import traceback
         msg = QMessageBox()
-        msg.setWindowTitle("Deklarant Pro — Greška pri pokretanju")
+        msg.setWindowTitle("Deklarant Pro â€” GreÅ¡ka pri pokretanju")
         msg.setText(str(e))
         msg.setDetailedText(traceback.format_exc())
         msg.setIcon(QMessageBox.Critical)
         msg.exec()
         with open(_log_file, "a", encoding="utf-8") as f:
-            f.write(f"\n=== RUNTIME GREŠKA ===\n{traceback.format_exc()}\n")
+            f.write(f"\n=== RUNTIME GREÅ KA ===\n{traceback.format_exc()}\n")
         sys.exit(1)
 
     try:
@@ -197,3 +197,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

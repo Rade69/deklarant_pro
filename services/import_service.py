@@ -1,10 +1,10 @@
-# services/import_service.py
+﻿# services/import_service.py
 
 """
 Import Service - Orchestrator sa memorijom za kombinovanje parova
 
 Koristi Strategy Registry za parsiranje, ali dodaje sloj memorije
-za auto-kombinovanje parova (Blagić-Loren Excel+PDF, Invoice+Packing List).
+za auto-kombinovanje parova (BlagiÄ‡-Loren Excel+PDF, Invoice+Packing List).
 """
 
 import sys
@@ -21,7 +21,7 @@ from importers.exceptions import ImportError as ImportException
 logger = logging.getLogger("deklarant_pro.import")
 
 # SECTION: known_vendor_formats
-# PURPOSE: Guard set koji sprječava da se PDF poznatog vendora tretira kao packing lista
+# PURPOSE: Guard set koji sprjeÄava da se PDF poznatog vendora tretira kao packing lista
 # DOC: docs/sections/known_vendor_formats.md
 _KNOWN_VENDOR_FORMATS = {
     "invoice_improved", "blagic_loren", "blagic_attos",
@@ -35,11 +35,11 @@ _KNOWN_VENDOR_FORMATS = {
 # DOC: docs/sections/invoice_number_similarity.md
 def _similar_invoice_number(name1: str, name2: str) -> bool:
     """
-    Provjera da li dva imena fajlova imaju sličan broj fakture.
+    Provjera da li dva imena fajlova imaju sliÄan broj fakture.
 
     Npr:
-    - "FAI-7-0-26.pdf" i "FAI-7-0-26 PACKING LIST.pdf" → True
-    - "702VP-2025.pdf" i "702VP-2025-PL.pdf" → True
+    - "FAI-7-0-26.pdf" i "FAI-7-0-26 PACKING LIST.pdf" â†’ True
+    - "702VP-2025.pdf" i "702VP-2025-PL.pdf" â†’ True
     """
     n1 = name1.lower().replace("-", "").replace("_", "").replace(" ", "")
     n2 = name2.lower().replace("-", "").replace("_", "").replace(" ", "")
@@ -71,7 +71,7 @@ class ImportService:
     Import orchestrator sa memorijom za auto-kombinovanje parova.
 
     Kombinuje:
-    - Blagić-Loren Excel + PDF (isti broj fakture)
+    - BlagiÄ‡-Loren Excel + PDF (isti broj fakture)
     - Invoice + Packing List (isti broj fakture)
     """
 
@@ -89,10 +89,10 @@ class ImportService:
         self.last_import_result = None
         self.last_import_path = None
         self.last_import_type = None
-        self.logger.info("🗑️ Import memory cleared")
+        self.logger.info("ðŸ—‘ï¸ Import memory cleared")
 
     # SECTION: import_pipeline
-    # PURPOSE: Glavni orchestrator - 4-koračni pipeline sa auto-kombinovanjem parova
+    # PURPOSE: Glavni orchestrator - 4-koraÄni pipeline sa auto-kombinovanjem parova
     # DOC: docs/sections/import_pipeline.md
     def import_file(
         self,
@@ -103,24 +103,24 @@ class ImportService:
         Importuj fajl uz auto-kombinovanje parova Excel+PDF ili Invoice+PackingList.
 
         Redoslijed:
-        1. Provjeri može li se kombinovati sa prethodnim importom
+        1. Provjeri moÅ¾e li se kombinovati sa prethodnim importom
         2. Za PDF: detektuj packing listu (prije registry-a)
         3. Delegiraj registry-u za parsiranje
-        4. Sačuvaj stanje za sljedeći import
+        4. SaÄuvaj stanje za sljedeÄ‡i import
         """
         filepath = Path(filepath)
 
         if not filepath.exists():
             raise FileNotFoundError(f"Fajl ne postoji: {filepath}")
 
-        self.logger.info(f"🔄 Importing: {filepath.name}")
+        self.logger.info(f"ðŸ”„ Importing: {filepath.name}")
 
         try:
-            # 1. Pokušaj kombinovanje sa prethodnim importom
+            # 1. PokuÅ¡aj kombinovanje sa prethodnim importom
             combined = self._try_combine_with_previous(filepath)
             if combined is not None:
                 self._validate_or_raise(combined, filepath.name)
-                self.logger.info(f"✅ Kombinovani import: {filepath.name}")
+                self.logger.info(f"âœ… Kombinovani import: {filepath.name}")
                 return combined
 
             ext = filepath.suffix.lower()
@@ -133,7 +133,7 @@ class ImportService:
                     self.last_import_result = packing_result
                     self.last_import_path = str(filepath)
                     self.last_import_type = "packing_list"
-                    self.logger.info("💡 Packing lista sačuvana - čeka Invoice sa istim brojem")
+                    self.logger.info("ðŸ’¡ Packing lista saÄuvana - Äeka Invoice sa istim brojem")
                     return packing_result
 
             # 2b. Za Excel: provjeri specijalizovane formate PRIJE registry-a
@@ -141,7 +141,7 @@ class ImportService:
                 try:
                     from importers.vendors.medicopharm.medicopharm_importer import detect_medicopharm_excel, parse_medicopharm_excel
                     if detect_medicopharm_excel(str(filepath)):
-                        self.logger.info("📊 Medicopharm Excel — direktan import")
+                        self.logger.info("ðŸ“Š Medicopharm Excel â€” direktan import")
                         med_result = parse_medicopharm_excel(str(filepath))
                         self._validate_or_raise(med_result, filepath.name)
                         self.last_import_result = med_result
@@ -151,45 +151,45 @@ class ImportService:
                 except ImportException:
                     raise
                 except Exception as e:
-                    self.logger.warning(f"⚠️ Medicopharm Excel detekcija greška: {e}")
+                    self.logger.warning(f"âš ï¸ Medicopharm Excel detekcija greÅ¡ka: {e}")
 
             # 3. Delegiraj registry-u za parsiranje
             result = self.registry.import_file(filepath, progress_callback=progress_callback)
             self._validate_or_raise(result, filepath.name)
 
-            # 4. Sačuvaj stanje za sljedeći import
+            # 4. SaÄuvaj stanje za sljedeÄ‡i import
             self._save_import_state(filepath, result)
 
             has_os = getattr(result, "has_origin_statement", False)
             origin_stmts = getattr(result, "origin_statements", None)
             origin_stmts_len = len(origin_stmts) if origin_stmts else 0
-            self.logger.info(f"✅ Import uspješan: {filepath.name} (type={self.last_import_type}, has_origin_statement={has_os}, origin_statements={origin_stmts_len})")
+            self.logger.info(f"âœ… Import uspjeÅ¡an: {filepath.name} (type={self.last_import_type}, has_origin_statement={has_os}, origin_statements={origin_stmts_len})")
             return result
 
         except ImportException as e:
-            self.logger.error(f"❌ Import failed: {e}")
+            self.logger.error(f"âŒ Import failed: {e}")
             raise
         except Exception as e:
-            self.logger.exception(f"❌ Neočekivana greška tokom importa")
+            self.logger.exception(f"âŒ NeoÄekivana greÅ¡ka tokom importa")
             raise ImportException(f"Import failed: {e}") from e
 
     def _validate_or_raise(self, result, filename: str, allow_empty: bool = False) -> None:
-        """Baci ImportException ako parser vratio fizički neispravan rezultat."""
+        """Baci ImportException ako parser vratio fiziÄki neispravan rezultat."""
         if not isinstance(result, ImportResult):
             return
         ok, errors, _ = result.validate(allow_empty=allow_empty)
         if not ok:
             raise ImportException(
-                f"Parsiranje '{filename}' nije uspješno: {'; '.join(errors)}"
+                f"Parsiranje '{filename}' nije uspjeÅ¡no: {'; '.join(errors)}"
             )
 
     # SECTION: packing_list_gate
-    # PURPOSE: Kapija koja odlučuje da li je PDF packing lista PRIJE slanja u registry
+    # PURPOSE: Kapija koja odluÄuje da li je PDF packing lista PRIJE slanja u registry
     # DOC: docs/sections/packing_list_gate.md
     def _try_import_as_packing_list(self, filepath: Path) -> Optional[ImportResult]:
         """
-        Pokušaj import kao packing lista (samo za PDF koji nisu poznati vendor format).
-        Vraća ImportResult ako je packing lista, None inače.
+        PokuÅ¡aj import kao packing lista (samo za PDF koji nisu poznati vendor format).
+        VraÄ‡a ImportResult ako je packing lista, None inaÄe.
         """
         try:
             from importers.smart_pdf_importer import _detect_pdf_format
@@ -197,12 +197,12 @@ class ImportService:
 
             pdf_format = _detect_pdf_format(str(filepath))
             if pdf_format in _KNOWN_VENDOR_FORMATS:
-                return None  # Poznati vendor → nije packing lista
+                return None  # Poznati vendor â†’ nije packing lista
 
             if not detect_packing_list(str(filepath)):
                 return None
 
-            self.logger.info("📦 Detektovana PACKING LISTA")
+            self.logger.info("ðŸ“¦ Detektovana PACKING LISTA")
             packing_items = parse_packing_list(str(filepath))
             invoice_items = [item.to_invoice_line() for item in packing_items]
 
@@ -218,10 +218,10 @@ class ImportService:
             return None
 
     # SECTION: import_state_machine
-    # PURPOSE: Detektuje tip upravo uvezenog fajla i pamti ga za buduće kombinovanje
+    # PURPOSE: Detektuje tip upravo uvezenog fajla i pamti ga za buduÄ‡e kombinovanje
     # DOC: docs/sections/import_state_machine.md
     def _save_import_state(self, filepath: Path, result) -> None:
-        """Detektuj tip importa i sačuvaj stanje za sljedeći import."""
+        """Detektuj tip importa i saÄuvaj stanje za sljedeÄ‡i import."""
         ext = filepath.suffix.lower()
         self.last_import_result = result
         self.last_import_path = str(filepath)
@@ -231,17 +231,17 @@ class ImportService:
                 from importers.blagic_loren_importer import detect_blagic_loren_excel
                 if detect_blagic_loren_excel(str(filepath)):
                     self.last_import_type = "loren_excel"
-                    self.logger.info("💡 Loren Excel sačuvan - čeka Loren PDF sa istim brojem")
+                    self.logger.info("ðŸ’¡ Loren Excel saÄuvan - Äeka Loren PDF sa istim brojem")
                     return
                     
                 from importers.sumaprom_excel_parser import detect_sumaprom_excel
                 if detect_sumaprom_excel(str(filepath)):
                     self.last_import_type = "sumaprom_excel"
-                    self.logger.info("💡 ŠUMAPROM Excel sačuvan - čeka ŠUMAPROM PDF sa istim brojem")
+                    self.logger.info("ðŸ’¡ Å UMAPROM Excel saÄuvan - Äeka Å UMAPROM PDF sa istim brojem")
                     return
 
             except Exception as e:
-                self.logger.debug(f"Detekcija Excel formata neuspješna: {e}")
+                self.logger.debug(f"Detekcija Excel formata neuspjeÅ¡na: {e}")
             self.last_import_type = "excel"
 
         elif ext == ".pdf":
@@ -250,14 +250,14 @@ class ImportService:
                 fmt = _detect_pdf_format(str(filepath))
                 if fmt == "blagic_loren":
                     self.last_import_type = "loren_pdf"
-                    self.logger.info("💡 Loren PDF sačuvan - čeka Loren Excel sa istim brojem")
+                    self.logger.info("ðŸ’¡ Loren PDF saÄuvan - Äeka Loren Excel sa istim brojem")
                     return
                 elif fmt == "sumaprom":
                     self.last_import_type = "sumaprom_pdf"
-                    self.logger.info("💡 ŠUMAPROM PDF sačuvan - čeka ŠUMAPROM Excel sa istim brojem")
+                    self.logger.info("ðŸ’¡ Å UMAPROM PDF saÄuvan - Äeka Å UMAPROM Excel sa istim brojem")
                     return
             except Exception as e:
-                self.logger.debug(f"Detekcija PDF formata neuspješna: {e}")
+                self.logger.debug(f"Detekcija PDF formata neuspjeÅ¡na: {e}")
             self.last_import_type = "invoice"
 
         else:
@@ -270,7 +270,7 @@ class ImportService:
         self, filepath: Path
     ) -> Optional[Union[List[InvoiceLine], ImportResult]]:
         """
-        Provjeri može li se trenutni fajl kombinovati sa prethodnim importom.
+        Provjeri moÅ¾e li se trenutni fajl kombinovati sa prethodnim importom.
 
         CASE 1: Prethodni Loren Excel + trenutni Loren PDF
         CASE 2: Prethodni Loren PDF + trenutni Loren Excel
@@ -286,7 +286,7 @@ class ImportService:
         last_basename = Path(self.last_import_path).stem
 
         logger.debug("=" * 60)
-        logger.debug(f"🔍 _try_combine_with_previous: {filepath.name}")
+        logger.debug(f"ðŸ” _try_combine_with_previous: {filepath.name}")
         logger.debug(f"   Prethodni: {Path(self.last_import_path).name} (type={self.last_import_type})")
 
         try:
@@ -302,10 +302,10 @@ class ImportService:
             logger.debug(f"   current_is_loren_excel={current_is_loren_excel}")
             logger.debug(f"   current_is_loren_pdf={current_is_loren_pdf}")
 
-            # CASE 1: Excel → PDF
+            # CASE 1: Excel â†’ PDF
             if last_is_loren_excel and current_is_loren_pdf:
                 if _similar_invoice_number(current_basename, last_basename):
-                    logger.info("   ✅ CASE 1: Excel+PDF par - kombinujem")
+                    logger.info("   âœ… CASE 1: Excel+PDF par - kombinujem")
                     _excel_path = self.last_import_path
                     combined_items, stats = combine_blagic_excel_and_pdf(
                         _excel_path, str(filepath)
@@ -321,13 +321,13 @@ class ImportService:
                         import_type="loren_excel",
                         has_origin_statement=stats.get("has_origin_statement", False),
                         origin_statements=stats.get("origin_statements", []),
-                        consumed_paths=[_excel_path],  # Excel je potrošen
+                        consumed_paths=[_excel_path],  # Excel je potroÅ¡en
                     )
 
-            # CASE 2: PDF → Excel
+            # CASE 2: PDF â†’ Excel
             elif last_is_loren_pdf and current_is_loren_excel:
                 if _similar_invoice_number(current_basename, last_basename):
-                    logger.info("   ✅ CASE 2: PDF+Excel par - kombinujem")
+                    logger.info("   âœ… CASE 2: PDF+Excel par - kombinujem")
                     _pdf_path = self.last_import_path
                     combined_items, stats = combine_blagic_excel_and_pdf(
                         str(filepath), _pdf_path
@@ -343,13 +343,13 @@ class ImportService:
                         import_type="loren_excel",
                         has_origin_statement=stats.get("has_origin_statement", False),
                         origin_statements=stats.get("origin_statements", []),
-                        consumed_paths=[_pdf_path],  # PDF je potrošen
+                        consumed_paths=[_pdf_path],  # PDF je potroÅ¡en
                     )
 
         except Exception as e:
             self.logger.warning(f"Loren kombinovanje nije uspjelo: {e}")
 
-        # CASE 1B & 2B: ŠUMAPROM Excel + PDF kombinovanje
+        # CASE 1B & 2B: Å UMAPROM Excel + PDF kombinovanje
         try:
             from importers.sumaprom_excel_parser import detect_sumaprom_excel
             from importers.sumaprom_pdf_parser import detect_sumaprom_pdf  # Will be created when needed
@@ -363,11 +363,11 @@ class ImportService:
             logger.debug(f"   current_is_sumaprom_excel={current_is_sumaprom_excel}")
             logger.debug(f"   current_is_sumaprom_pdf={current_is_sumaprom_pdf}")
 
-            # CASE 1B: ŠUMAPROM Excel → PDF
-            # Napomena: preskačemo _similar_invoice_number jer skener generiše
-            # timestamp kao naziv PDF-a (DOC041122-...) koji ne liči na naziv XLS-a
+            # CASE 1B: Å UMAPROM Excel â†’ PDF
+            # Napomena: preskaÄemo _similar_invoice_number jer skener generiÅ¡e
+            # timestamp kao naziv PDF-a (DOC041122-...) koji ne liÄi na naziv XLS-a
             if last_is_sumaprom_excel and current_is_sumaprom_pdf:
-                logger.info("   ✅ CASE 1B: ŠUMAPROM Excel+PDF par - kombinujem")
+                logger.info("   âœ… CASE 1B: Å UMAPROM Excel+PDF par - kombinujem")
                 _excel_path = self.last_import_path
                 combined_items, stats = combine_sumaprom_excel_and_pdf(
                     _excel_path, str(filepath)
@@ -385,9 +385,9 @@ class ImportService:
                     consumed_paths=[_excel_path],
                 )
 
-            # CASE 2B: ŠUMAPROM PDF → Excel
+            # CASE 2B: Å UMAPROM PDF â†’ Excel
             elif last_is_sumaprom_pdf and current_is_sumaprom_excel:
-                logger.info("   ✅ CASE 2B: ŠUMAPROM PDF+Excel par - kombinujem")
+                logger.info("   âœ… CASE 2B: Å UMAPROM PDF+Excel par - kombinujem")
                 _pdf_path = self.last_import_path
                 combined_items, stats = combine_sumaprom_excel_and_pdf(
                     str(filepath), _pdf_path
@@ -406,10 +406,10 @@ class ImportService:
                 )
 
         except ImportError:
-            # ŠUMAPROM PDF parser još nije kreiran - ovo je očekivano
-            logger.debug("   ℹ️  ŠUMAPROM PDF parser još nije dostupan")
+            # Å UMAPROM PDF parser joÅ¡ nije kreiran - ovo je oÄekivano
+            logger.debug("   â„¹ï¸  Å UMAPROM PDF parser joÅ¡ nije dostupan")
         except Exception as e:
-            self.logger.warning(f"ŠUMAPROM kombinovanje nije uspjelo: {e}")
+            self.logger.warning(f"Å UMAPROM kombinovanje nije uspjelo: {e}")
 
         # CASE 3 & 4: Invoice + Packing List
         try:
@@ -435,7 +435,7 @@ class ImportService:
             # CASE 3: Invoice pa Packing List
             if last_is_invoice and current_is_packing:
                 if _similar_invoice_number(current_basename, last_basename):
-                    logger.info("   ✅ CASE 3: Invoice+PackingList - kombinujem")
+                    logger.info("   âœ… CASE 3: Invoice+PackingList - kombinujem")
                     packing_items = parse_packing_list(str(filepath))
                     prev = self.last_import_result
                     invoice_items = prev.items if isinstance(prev, ImportResult) else prev
@@ -457,7 +457,7 @@ class ImportService:
             # CASE 4: Packing List pa Invoice
             elif last_is_packing and current_is_pdf_invoice:
                 if _similar_invoice_number(current_basename, last_basename):
-                    logger.info("   ✅ CASE 4: PackingList+Invoice - kombinujem")
+                    logger.info("   âœ… CASE 4: PackingList+Invoice - kombinujem")
                     # Importuj invoice via registry
                     invoice_result = self.registry.import_file(filepath)
                     invoice_items = (
@@ -466,7 +466,7 @@ class ImportService:
                         else invoice_result
                     )
                     packing_items_raw = self.last_import_result
-                    # Packing items su već InvoiceLine (konvertovani pri prvom importu)
+                    # Packing items su veÄ‡ InvoiceLine (konvertovani pri prvom importu)
                     combined = combine_invoice_and_packing(
                         invoice_items,
                         packing_items_raw.items if isinstance(packing_items_raw, ImportResult) else packing_items_raw
@@ -490,7 +490,7 @@ class ImportService:
         except Exception as e:
             self.logger.warning(f"Invoice+PackingList kombinovanje nije uspjelo: {e}")
 
-        logger.debug("   ℹ️  Nije par - nema kombinovanja")
+        logger.debug("   â„¹ï¸  Nije par - nema kombinovanja")
         return None
 
     def can_import(self, filepath: str | Path) -> bool:
@@ -519,3 +519,4 @@ def get_import_service() -> ImportService:
     if _import_service_instance is None:
         _import_service_instance = ImportService()
     return _import_service_instance
+

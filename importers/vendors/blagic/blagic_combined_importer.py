@@ -1,12 +1,12 @@
-# importers/blagic_combined_importer.py
+﻿# importers/blagic_combined_importer.py
 
 """
-Blagić Combined Importer - Master Frigo Style
+BlagiÄ‡ Combined Importer - Master Frigo Style
 
-Kombinuje Blagić Excel (mapping) + Blagić PDF (faktura) kao Master Frigo:
-1. Excel → product_code : {tariff, origin, preferential, naziv, jm}
-2. PDF → product_code : {cijena, količina, iznos}
-3. Match po product_code → kompletan InvoiceLine
+Kombinuje BlagiÄ‡ Excel (mapping) + BlagiÄ‡ PDF (faktura) kao Master Frigo:
+1. Excel â†’ product_code : {tariff, origin, preferential, naziv, jm}
+2. PDF â†’ product_code : {cijena, koliÄina, iznos}
+3. Match po product_code â†’ kompletan InvoiceLine
 """
 
 import logging
@@ -35,8 +35,8 @@ def _statement_origin_matches_country(statement_origin: str, country_code: str) 
     Provjeri da li se porijeklo iz izjave poklapa sa ISO zemljom stavke.
 
     Pravila:
-    - EU izjava pokriva sve EU države (npr. SI, HR, DE...)
-    - U ostalim slučajevima treba tačno poklapanje koda.
+    - EU izjava pokriva sve EU drÅ¾ave (npr. SI, HR, DE...)
+    - U ostalim sluÄajevima treba taÄno poklapanje koda.
     """
     stmt = (statement_origin or "").strip().upper()
     cc = (country_code or "").strip().upper()
@@ -49,15 +49,15 @@ def _statement_origin_matches_country(statement_origin: str, country_code: str) 
 
 def _extract_product_code_from_name(naziv: str) -> tuple[Optional[str], str]:
     """
-    Ekstraktuje product_code sa početka naziva ako postoji.
+    Ekstraktuje product_code sa poÄetka naziva ako postoji.
 
-    Npr: "301SA010 TUNEL GUMA..." → ("301SA010", "TUNEL GUMA...")
+    Npr: "301SA010 TUNEL GUMA..." â†’ ("301SA010", "TUNEL GUMA...")
 
     Returns:
         Tuple (product_code or None, cleaned_naziv)
     """
     import re
-    # Pattern: alfanumerička šifra (6-10 karaktera) na početku
+    # Pattern: alfanumeriÄka Å¡ifra (6-10 karaktera) na poÄetku
     match = re.match(r'^([A-Z0-9]{6,10})\s+(.+)$', naziv, re.IGNORECASE)
     if match:
         return (match.group(1), match.group(2))
@@ -70,21 +70,21 @@ def _fuzzy_match_by_name(
     threshold: float = 0.85
 ) -> Optional[InvoiceLine]:
     """
-    Pokušaj pronaći match u Excel mapping-u po nazivu proizvoda (fuzzy matching).
+    PokuÅ¡aj pronaÄ‡i match u Excel mapping-u po nazivu proizvoda (fuzzy matching).
 
     Args:
-        target_name: Naziv proizvoda koji tražimo (iz PDF-a)
-        excel_mapping: Dict product_code → InvoiceLine iz Excel-a
-        threshold: Minimalni prag sličnosti (default 0.85 = 85%)
+        target_name: Naziv proizvoda koji traÅ¾imo (iz PDF-a)
+        excel_mapping: Dict product_code â†’ InvoiceLine iz Excel-a
+        threshold: Minimalni prag sliÄnosti (default 0.85 = 85%)
 
     Returns:
-        InvoiceLine iz Excel-a ako je pronađen match, inače None
+        InvoiceLine iz Excel-a ako je pronaÄ‘en match, inaÄe None
     """
     if not target_name or not target_name.strip():
         return None
 
-    # VAŽNO: Ukloni product_code sa početka naziva ako postoji (npr. "301SA010 TUNEL...")
-    # Ovo omogućava matching čak i kada PDF parser stavi šifru u naziv
+    # VAÅ½NO: Ukloni product_code sa poÄetka naziva ako postoji (npr. "301SA010 TUNEL...")
+    # Ovo omoguÄ‡ava matching Äak i kada PDF parser stavi Å¡ifru u naziv
     extracted_code, cleaned_name = _extract_product_code_from_name(target_name)
     target_lower = cleaned_name.lower().strip()
 
@@ -97,19 +97,19 @@ def _fuzzy_match_by_name(
 
         candidate_lower = excel_item.naziv_robe.lower().strip()
 
-        # Izračunaj sličnost
+        # IzraÄunaj sliÄnost
         similarity = SequenceMatcher(None, target_lower, candidate_lower).ratio()
 
         if similarity > best_similarity:
             best_similarity = similarity
             best_match = excel_item
 
-    # Vraćamo match samo ako je iznad praga
+    # VraÄ‡amo match samo ako je iznad praga
     if best_similarity >= threshold:
         if extracted_code:
-            logger.info(f"   🎯 Fuzzy match po nazivu ({best_similarity*100:.1f}%): '{cleaned_name[:30]}' (izvučen kod: {extracted_code}) → '{best_match.naziv_robe[:40]}'")
+            logger.info(f"   ðŸŽ¯ Fuzzy match po nazivu ({best_similarity*100:.1f}%): '{cleaned_name[:30]}' (izvuÄen kod: {extracted_code}) â†’ '{best_match.naziv_robe[:40]}'")
         else:
-            logger.info(f"   🎯 Fuzzy match po nazivu ({best_similarity*100:.1f}%): '{target_name[:40]}' → '{best_match.naziv_robe[:40]}'")
+            logger.info(f"   ðŸŽ¯ Fuzzy match po nazivu ({best_similarity*100:.1f}%): '{target_name[:40]}' â†’ '{best_match.naziv_robe[:40]}'")
         return best_match
 
     return None
@@ -121,10 +121,10 @@ def _validate_weights(
     total_neto_kg: float
 ) -> None:
     """
-    Poredi sumu Excel stavki sa ukupnim PDF težinama (informativno).
+    Poredi sumu Excel stavki sa ukupnim PDF teÅ¾inama (informativno).
 
-    NAPOMENA: Excel ima precizne decimalne težine po stavkama.
-    PDF ima zaokružene ukupne težine. Razlika je očekivana i NORMALNA.
+    NAPOMENA: Excel ima precizne decimalne teÅ¾ine po stavkama.
+    PDF ima zaokruÅ¾ene ukupne teÅ¾ine. Razlika je oÄekivana i NORMALNA.
     ImportResult uvijek koristi Excel sume (preciznije za carinjenje).
     WARNING se emituje samo za sumnjive razlike > 25%.
     """
@@ -134,33 +134,33 @@ def _validate_weights(
         return
 
     if total_neto_kg > total_bruto_kg and total_bruto_kg > 0:
-        logger.error(f"❌ PDF GREŠKA: Neto ({total_neto_kg} kg) > Bruto ({total_bruto_kg} kg) — provjerite PDF!")
+        logger.error(f"âŒ PDF GREÅ KA: Neto ({total_neto_kg} kg) > Bruto ({total_bruto_kg} kg) â€” provjerite PDF!")
         return
 
     excel_bruto_sum = sum(item.bruto_kg for item in items)
     excel_neto_sum  = sum(item.neto_kg  for item in items)
 
     logger.info(
-        f"⚖️  Težine — Excel suma: {excel_bruto_sum:.3f} kg bruto / {excel_neto_sum:.3f} kg neto  |  "
-        f"PDF zaokruženo: {total_bruto_kg:.2f} kg bruto / {total_neto_kg:.2f} kg neto"
+        f"âš–ï¸  TeÅ¾ine â€” Excel suma: {excel_bruto_sum:.3f} kg bruto / {excel_neto_sum:.3f} kg neto  |  "
+        f"PDF zaokruÅ¾eno: {total_bruto_kg:.2f} kg bruto / {total_neto_kg:.2f} kg neto"
     )
-    logger.info("   ✅ Koriste se Excel vrijednosti (precizne decimale po stavkama)")
+    logger.info("   âœ… Koriste se Excel vrijednosti (precizne decimale po stavkama)")
 
-    # Upozori samo na sumnjivo veliku razliku (> 25%) koja može ukazivati na grešku
+    # Upozori samo na sumnjivo veliku razliku (> 25%) koja moÅ¾e ukazivati na greÅ¡ku
     if total_bruto_kg > 0 and excel_bruto_sum > 0:
         diff_pct = abs(excel_bruto_sum - total_bruto_kg) / total_bruto_kg * 100
         if diff_pct > 25.0:
             logger.warning(
-                f"⚠️  Velika razlika bruto: Excel {excel_bruto_sum:.3f} kg vs PDF {total_bruto_kg:.2f} kg "
-                f"({diff_pct:.1f}%) — provjerite da li su spareni pravi fajlovi!"
+                f"âš ï¸  Velika razlika bruto: Excel {excel_bruto_sum:.3f} kg vs PDF {total_bruto_kg:.2f} kg "
+                f"({diff_pct:.1f}%) â€” provjerite da li su spareni pravi fajlovi!"
             )
 
     if total_neto_kg > 0 and excel_neto_sum > 0:
         diff_pct = abs(excel_neto_sum - total_neto_kg) / total_neto_kg * 100
         if diff_pct > 25.0:
             logger.warning(
-                f"⚠️  Velika razlika neto: Excel {excel_neto_sum:.3f} kg vs PDF {total_neto_kg:.2f} kg "
-                f"({diff_pct:.1f}%) — provjerite da li su spareni pravi fajlovi!"
+                f"âš ï¸  Velika razlika neto: Excel {excel_neto_sum:.3f} kg vs PDF {total_neto_kg:.2f} kg "
+                f"({diff_pct:.1f}%) â€” provjerite da li su spareni pravi fajlovi!"
             )
 
 
@@ -169,26 +169,26 @@ def combine_blagic_excel_and_pdf(
     pdf_path: str
 ) -> Tuple[List[InvoiceLine], Dict[str, Any]]:
     """
-    Kombinuje Blagić Excel (mapping) i PDF (faktura) kao Master Frigo.
+    Kombinuje BlagiÄ‡ Excel (mapping) i PDF (faktura) kao Master Frigo.
 
     Args:
-        excel_path: Putanja do Blagić Excel fajla (Loren format)
-        pdf_path: Putanja do Blagić PDF fakture (Attos format)
+        excel_path: Putanja do BlagiÄ‡ Excel fajla (Loren format)
+        pdf_path: Putanja do BlagiÄ‡ PDF fakture (Attos format)
 
     Returns:
         Tuple of (combined_items, stats)
     """
-    logger.info(f"Kombinovanje Blagić Excel i PDF:")
+    logger.info(f"Kombinovanje BlagiÄ‡ Excel i PDF:")
     logger.info(f"  Excel (mapping): {Path(excel_path).name}")
     logger.info(f"  PDF (faktura): {Path(pdf_path).name}")
 
     # ========================================
-    # STEP 1: Učitaj Excel kao MAPPING
+    # STEP 1: UÄitaj Excel kao MAPPING
     # ========================================
-    # _skip_pdf_lookup=True jer PDF obrađujemo posebno u STEP 2 — izbjegavamo duplo otvaranje
+    # _skip_pdf_lookup=True jer PDF obraÄ‘ujemo posebno u STEP 2 â€” izbjegavamo duplo otvaranje
     excel_result = parse_blagic_loren_excel(excel_path, _skip_pdf_lookup=True)
 
-    # Kreiraj mapping: product_code → InvoiceLine (sa tarifom, zemljom, itd.)
+    # Kreiraj mapping: product_code â†’ InvoiceLine (sa tarifom, zemljom, itd.)
     excel_mapping: Dict[str, InvoiceLine] = {}
 
     for item in excel_result.items:
@@ -198,7 +198,7 @@ def combine_blagic_excel_and_pdf(
         else:
             logger.warning(f"Excel stavka nema product_code: {item.naziv_robe[:50]}")
 
-    logger.info(f"✅ Excel mapping: {len(excel_mapping)} stavki sa product_code")
+    logger.info(f"âœ… Excel mapping: {len(excel_mapping)} stavki sa product_code")
 
     # ========================================
     # STEP 2: Parsuj PDF fakturu (auto-detect Loren vs Attos)
@@ -208,13 +208,13 @@ def combine_blagic_excel_and_pdf(
     is_loren_pdf = detect_blagic_loren_pdf(pdf_path)
 
     if is_loren_pdf:
-        logger.info("📄 PDF format: Blagić Loren (Beograd)")
+        logger.info("ðŸ“„ PDF format: BlagiÄ‡ Loren (Beograd)")
         pdf_result = parse_blagic_loren_pdf(pdf_path)
     else:
-        logger.info("📄 PDF format: Blagić Attos")
+        logger.info("ðŸ“„ PDF format: BlagiÄ‡ Attos")
         pdf_result = parse_blagic_attos_with_auto_combine(pdf_path)
 
-    logger.info(f"✅ PDF faktura: {len(pdf_result.items)} stavki")
+    logger.info(f"âœ… PDF faktura: {len(pdf_result.items)} stavki")
     if pdf_result.bruto_kg > 0 or pdf_result.neto_kg > 0:
         logger.info(f"   Bruto: {pdf_result.bruto_kg} kg, Neto: {pdf_result.neto_kg} kg")
 
@@ -228,9 +228,9 @@ def combine_blagic_excel_and_pdf(
 
     for pdf_item in pdf_result.items:
         # MATCHING STRATEGIJA:
-        # 0. EXTRACTION: Ako product_code nije u polju, pokušaj izvući iz naziva
+        # 0. EXTRACTION: Ako product_code nije u polju, pokuÅ¡aj izvuÄ‡i iz naziva
         # 1. PRIMARY: Direct lookup po product_code (ako postoji)
-        # 2. SECONDARY: Fuzzy match po nazivu (>85% sličnosti)
+        # 2. SECONDARY: Fuzzy match po nazivu (>85% sliÄnosti)
 
         excel_item = None
         code = None
@@ -239,12 +239,12 @@ def combine_blagic_excel_and_pdf(
         if pdf_item.product_code and pdf_item.product_code.strip():
             code = pdf_item.product_code.strip()
         else:
-            # Pokušaj izvući product_code iz naziva (npr. "301SA010 TUNEL GUMA...")
+            # PokuÅ¡aj izvuÄ‡i product_code iz naziva (npr. "301SA010 TUNEL GUMA...")
             extracted_code, cleaned_name = _extract_product_code_from_name(pdf_item.naziv_robe or "")
             if extracted_code:
                 code = extracted_code
-                logger.debug(f"📌 Izvučen product_code '{code}' iz naziva: {pdf_item.naziv_robe[:50]}")
-                # VAŽNO: Postavi product_code u PDF item za dalju upotrebu
+                logger.debug(f"ðŸ“Œ IzvuÄen product_code '{code}' iz naziva: {pdf_item.naziv_robe[:50]}")
+                # VAÅ½NO: Postavi product_code u PDF item za dalju upotrebu
                 pdf_item.product_code = code
             else:
                 logger.debug(f"PDF stavka bez product_code: {pdf_item.naziv_robe[:50]}")
@@ -253,19 +253,19 @@ def combine_blagic_excel_and_pdf(
         if code:
             excel_item = excel_mapping.get(code)  # Primary match
             if excel_item:
-                logger.debug(f"✓ Primary match po code '{code}': {excel_item.naziv_robe[:40]}")
+                logger.debug(f"âœ“ Primary match po code '{code}': {excel_item.naziv_robe[:40]}")
 
         # KORAK 2: SECONDARY fuzzy match (ako PRIMARY nije uspio)
         if not excel_item:
             if code:
-                logger.debug(f"✗ Product code '{code}' nije pronađen - pokušavam fuzzy match po nazivu...")
+                logger.debug(f"âœ— Product code '{code}' nije pronaÄ‘en - pokuÅ¡avam fuzzy match po nazivu...")
             else:
-                logger.debug(f"Pokušavam fuzzy match po nazivu...")
+                logger.debug(f"PokuÅ¡avam fuzzy match po nazivu...")
 
             excel_item = _fuzzy_match_by_name(pdf_item.naziv_robe, excel_mapping, threshold=0.85)
 
         if excel_item:
-            # ✅ MATCHED! (bilo po code-u bilo po nazivu)
+            # âœ… MATCHED! (bilo po code-u bilo po nazivu)
             combined_item = InvoiceLine(
                 line_no=pdf_item.line_no,
 
@@ -276,8 +276,8 @@ def combine_blagic_excel_and_pdf(
                 povlastica=excel_item.povlastica,
                 jm=excel_item.jm or pdf_item.jm,
 
-                # VAŽNO: ZADRŽAVAMO product_code iz PDF-a za eventualnu upotrebu
-                # GUI će ga obrisati pri prikazu u tabeli
+                # VAÅ½NO: ZADRÅ½AVAMO product_code iz PDF-a za eventualnu upotrebu
+                # GUI Ä‡e ga obrisati pri prikazu u tabeli
                 product_code=pdf_item.product_code,
 
                 # Iz PDF-a (faktura - cijene)
@@ -286,11 +286,11 @@ def combine_blagic_excel_and_pdf(
                 iznos=pdf_item.iznos,
                 valuta=pdf_item.valuta,
 
-                # Iz Excel-a (težine - PDF ih nema po stavkama!)
+                # Iz Excel-a (teÅ¾ine - PDF ih nema po stavkama!)
                 bruto_kg=excel_item.bruto_kg if excel_item.bruto_kg > 0 else excel_item.neto_kg,
                 neto_kg=excel_item.neto_kg,
 
-                # Zadrži per-item izjavu o poreklu iz PDF-a
+                # ZadrÅ¾i per-item izjavu o poreklu iz PDF-a
                 has_origin_statement=pdf_item.has_origin_statement,
                 raw=dict(pdf_item.raw) if getattr(pdf_item, "raw", None) else {},
             )
@@ -311,7 +311,7 @@ def combine_blagic_excel_and_pdf(
                     combined_item.raw["origin_conflict"] = True
                     combined_item.raw["origin_conflict_details"] = combined_item.country_conflict_details
                     logger.warning(
-                        "⚠️ Konflikt porijekla za line_no=%s code=%s: %s",
+                        "âš ï¸ Konflikt porijekla za line_no=%s code=%s: %s",
                         combined_item.line_no,
                         combined_item.product_code,
                         combined_item.country_conflict_details,
@@ -320,38 +320,38 @@ def combine_blagic_excel_and_pdf(
             combined_items.append(combined_item)
             matched_count += 1
 
-            logger.debug(f"✓ Matched '{code}': {excel_item.naziv_robe[:40]}")
+            logger.debug(f"âœ“ Matched '{code}': {excel_item.naziv_robe[:40]}")
 
         else:
-            # ❌ UNMATCHED! Nije pronađen ni po code-u ni po nazivu
+            # âŒ UNMATCHED! Nije pronaÄ‘en ni po code-u ni po nazivu
             if code:
-                logger.warning(f"✗ Unmatched '{code}': {pdf_item.naziv_robe[:50]}")
+                logger.warning(f"âœ— Unmatched '{code}': {pdf_item.naziv_robe[:50]}")
                 unmatched_codes.append(code)
             else:
-                logger.warning(f"✗ Unmatched (bez code-a): {pdf_item.naziv_robe[:50]}")
+                logger.warning(f"âœ— Unmatched (bez code-a): {pdf_item.naziv_robe[:50]}")
 
-            logger.warning(f"   Nije pronađen ni po product_code ni po fuzzy match nazivu")
+            logger.warning(f"   Nije pronaÄ‘en ni po product_code ni po fuzzy match nazivu")
 
             # Dodaj PDF stavku kao unmatched (nedostaju tariff/origin)
-            # VAŽNO: Obriši product_code jer se koristi samo za matching!
-            logger.debug(f"🗑️  Brišem product_code '{pdf_item.product_code}' za unmatched item")
+            # VAÅ½NO: ObriÅ¡i product_code jer se koristi samo za matching!
+            logger.debug(f"ðŸ—‘ï¸  BriÅ¡em product_code '{pdf_item.product_code}' za unmatched item")
             pdf_item.product_code = ""
             logger.debug(f"   Nakon brisanja: product_code='{pdf_item.product_code}', naziv='{pdf_item.naziv_robe[:50]}'")
             combined_items.append(pdf_item)
             unmatched_count += 1
 
     # ========================================
-    # STEP 3.5: Validacija težina (Excel vs PDF)
+    # STEP 3.5: Validacija teÅ¾ina (Excel vs PDF)
     # ========================================
-    # Excel ima težine po stavkama, PDF ima ukupne bruto/neto
-    # Uporedi i prikaži upozorenja ako se ne poklapaju
+    # Excel ima teÅ¾ine po stavkama, PDF ima ukupne bruto/neto
+    # Uporedi i prikaÅ¾i upozorenja ako se ne poklapaju
     _validate_weights(combined_items, pdf_result.bruto_kg, pdf_result.neto_kg)
 
     # ========================================
-    # STEP 3.6: Raspodjela neto težine iz PDF-a
+    # STEP 3.6: Raspodjela neto teÅ¾ine iz PDF-a
     # ========================================
-    # Excel "Težina ukupno" = bruto (suma = PDF gross). Neto po stavci
-    # nije u Excelu → raspodijeliti PDF ukupni neto proporcionalno po bruto udjelu.
+    # Excel "TeÅ¾ina ukupno" = bruto (suma = PDF gross). Neto po stavci
+    # nije u Excelu â†’ raspodijeliti PDF ukupni neto proporcionalno po bruto udjelu.
     if pdf_result.neto_kg > 0:
         item_bruto_sum = sum(item.bruto_kg or 0.0 for item in combined_items)
         if item_bruto_sum > 0:
@@ -359,7 +359,7 @@ def combine_blagic_excel_and_pdf(
             for item in combined_items:
                 item.neto_kg = round((item.bruto_kg or 0.0) * neto_ratio, 3)
             logger.info(
-                f"⚖️  Neto raspodijeljen proporcionalno: ratio={neto_ratio:.4f} "
+                f"âš–ï¸  Neto raspodijeljen proporcionalno: ratio={neto_ratio:.4f} "
                 f"(PDF neto={pdf_result.neto_kg:.2f} / excel bruto suma={item_bruto_sum:.3f})"
             )
 
@@ -374,7 +374,7 @@ def combine_blagic_excel_and_pdf(
 
     if pdf_result.bruto_kg > 0 and abs(excel_bruto_sum - pdf_result.bruto_kg) > 0.5:
         logger.info(
-            f"ℹ️  Težine: ukupna bruto masa uzeta iz PDF-a ({pdf_result.bruto_kg:.2f} kg); "
+            f"â„¹ï¸  TeÅ¾ine: ukupna bruto masa uzeta iz PDF-a ({pdf_result.bruto_kg:.2f} kg); "
             f"Excel suma stavki je {excel_bruto_sum:.3f} kg"
         )
 
@@ -396,18 +396,18 @@ def combine_blagic_excel_and_pdf(
         "exporter_name": pdf_result.exporter.name if pdf_result.exporter else "LOREN",
     }
 
-    logger.info(f"\n📊 MATCHING REZULTAT:")
+    logger.info(f"\nðŸ“Š MATCHING REZULTAT:")
     logger.info(f"   Excel mapping: {stats['excel_items']} stavki")
     logger.info(f"   PDF faktura: {stats['pdf_items']} stavki")
-    logger.info(f"   ✅ Matched: {matched_count} ({matched_count / stats['pdf_items'] * 100:.1f}%)")
-    logger.info(f"   ❌ Unmatched: {unmatched_count}")
+    logger.info(f"   âœ… Matched: {matched_count} ({matched_count / stats['pdf_items'] * 100:.1f}%)")
+    logger.info(f"   âŒ Unmatched: {unmatched_count}")
 
     if unmatched_count > 0:
-        logger.warning(f"\n⚠️ Unmatched product kodovi:")
+        logger.warning(f"\nâš ï¸ Unmatched product kodovi:")
         for code in unmatched_codes[:10]:
             logger.warning(f"   - {code}")
         if len(unmatched_codes) > 10:
-            logger.warning(f"   ... i još {len(unmatched_codes) - 10}")
+            logger.warning(f"   ... i joÅ¡ {len(unmatched_codes) - 10}")
 
     return combined_items, stats
 
@@ -417,11 +417,11 @@ def import_blagic_combined(
     pdf_path: str
 ) -> ImportResult:
     """
-    Wrapper funkcija koja vraća ImportResult.
+    Wrapper funkcija koja vraÄ‡a ImportResult.
 
     Args:
-        excel_path: Putanja do Blagić Excel fajla
-        pdf_path: Putanja do Blagić PDF fakture
+        excel_path: Putanja do BlagiÄ‡ Excel fajla
+        pdf_path: Putanja do BlagiÄ‡ PDF fakture
 
     Returns:
         ImportResult sa kombinovanim stavkama
@@ -448,31 +448,31 @@ if __name__ == "__main__":
     import sys
     from pathlib import Path
 
-    # Add project root to path (vendors/blagic → vendors → importers → project_root)
+    # Add project root to path (vendors/blagic â†’ vendors â†’ importers â†’ project_root)
     project_root = Path(__file__).parent.parent.parent.parent
     sys.path.insert(0, str(project_root))
 
     # Test sa pravim fajlovima
     excel_file = "najavauvoza/blagic-loren/702VP-2025 BLAGIC.xlsx"
-    pdf_file = "najavauvoza/blagic-attos/Faktura 3940 Blagić.pdf"
+    pdf_file = "najavauvoza/blagic-attos/Faktura 3940 BlagiÄ‡.pdf"
 
     logger.debug("\n" + "=" * 70)
-    logger.debug("BLAGIĆ COMBINED IMPORTER - Test")
+    logger.debug("BLAGIÄ† COMBINED IMPORTER - Test")
     logger.debug("=" * 70 + "\n")
 
     try:
         combined_items, stats = combine_blagic_excel_and_pdf(excel_file, pdf_file)
 
-        logger.info(f"\n✅ Kombinovanje uspješno!")
-        logger.debug(f"\n📊 Statistike:")
+        logger.info(f"\nâœ… Kombinovanje uspjeÅ¡no!")
+        logger.debug(f"\nðŸ“Š Statistike:")
         logger.debug(f"   Excel stavki: {stats['excel_items']}")
         logger.debug(f"   PDF stavki: {stats['pdf_items']}")
         logger.debug(f"   Matched: {stats['matched']} ({stats['matched'] / stats['pdf_items'] * 100:.1f}%)")
         logger.debug(f"   Unmatched: {stats['unmatched']}")
         logger.debug(f"   Ukupno: {stats['total_combined']} stavki")
-        logger.debug(f"   Težine: Bruto {stats['bruto_kg']} kg, Neto {stats['neto_kg']} kg")
+        logger.debug(f"   TeÅ¾ine: Bruto {stats['bruto_kg']} kg, Neto {stats['neto_kg']} kg")
 
-        logger.debug(f"\n📦 Prvih 5 kombinovanih stavki:")
+        logger.debug(f"\nðŸ“¦ Prvih 5 kombinovanih stavki:")
         for i, item in enumerate(combined_items[:5], 1):
             logger.debug(f"\n{i}. {item.naziv_robe[:60]}")
             logger.debug(f"   Code: {item.product_code}")
@@ -480,12 +480,13 @@ if __name__ == "__main__":
             logger.debug(f"   Qty: {item.kolicina} {item.jm}, Price: {item.cijena_jed} {item.valuta}")
 
         if stats['unmatched'] > 0:
-            logger.warning(f"\n⚠️ {stats['unmatched']} stavki nije matchovano!")
-            logger.debug(f"   Razlog: Product kodovi nisu pronađeni u Excel-u")
+            logger.warning(f"\nâš ï¸ {stats['unmatched']} stavki nije matchovano!")
+            logger.debug(f"   Razlog: Product kodovi nisu pronaÄ‘eni u Excel-u")
             logger.debug(f"   Unmatched kodovi: {', '.join(stats['unmatched_codes'][:5])}")
 
     except Exception as e:
-        logger.error(f"\n❌ Greška: {e}")
+        logger.error(f"\nâŒ GreÅ¡ka: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)
+
