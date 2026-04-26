@@ -83,6 +83,9 @@ def _setup_ocr_engines() -> None:
 
 _setup_ocr_engines()
 
+# Session-level OCR cache: (filepath, mtime, dpi) → List[str]
+_ocr_cache: Dict[Tuple[str, float, int], List[str]] = {}
+
 
 def is_scanned_pdf(filepath: str, min_text_len: int = 80) -> bool:
     """
