@@ -48,6 +48,7 @@ class ProcessingWorker(QThread):
         svc = get_import_service()
         svc.clear_memory()  # Resetuj memoriju za detekciju parova
 
+        # DOC: scripts/master_frigo_agent_import_2026-04-26.md
         # ⭐ Sortiranje po normalizovanom broju fakture:
         #   - povećava šansu da Excel+PDF parovi budu susjedni (import_service kombinuje samo "previous + current")
         #   - mapping xlsx (tarife/porekla/podela) ide POSLIJE PDF-a da ne pravi lažne standalone uvoze
