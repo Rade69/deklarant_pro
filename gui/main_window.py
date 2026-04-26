@@ -1,11 +1,9 @@
 import os
-import traceback
 from pathlib import Path
 from PySide6.QtWidgets import QMainWindow, QTabWidget, QApplication, QMessageBox
 from PySide6.QtCore import QFile, QTextStream, QIODevice, QSettings
 
 import logging
-_dbg = logging.getLogger("asycuda_pro.resize_debug")
 
 from config.settings import get_path_settings
 
@@ -98,16 +96,6 @@ class MainWindow(QMainWindow):
         # Osvježi naimenovanja izračune (Rb.44/46) kad se tab aktivira
         self.tabs_widget = tabs
         tabs.currentChanged.connect(self._on_tab_changed)
-
-    def resizeEvent(self, event):
-        old = event.oldSize()
-        new = event.size()
-        if old.isValid() and (new.width() < old.width() or new.height() < old.height()):
-            stack = "".join(traceback.format_stack())
-            _dbg.warning(
-                f"PROZOR SE SMANJIO: {old.width()}x{old.height()} → {new.width()}x{new.height()}\n{stack}"
-            )
-        super().resizeEvent(event)
 
     def load_stylesheet(self):
         """

@@ -46,7 +46,7 @@ def _find_all_items(root: ET.Element):
     return list(root.iter("Item"))
 
 
-def test_faktura(pdf_path: Path):
+def _run_faktura_check(pdf_path: Path):
     print(f"\n{'='*70}")
     print(f"📄 Test: {pdf_path.name}")
     print(f"{'='*70}")
@@ -225,7 +225,7 @@ def main():
         return
 
     for pdf in pdf_files:
-        test_faktura(pdf)
+        _run_faktura_check(pdf)
 
 
 if __name__ == "__main__":
