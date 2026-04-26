@@ -268,6 +268,7 @@ class ZaglavljeView(BaseTabView):
     search_company_requested = Signal(str)
     add_company_requested = Signal(str)
     deklaracija_sifra_changed = Signal(str)
+    valuta_changed = Signal(str)
     # data_changed naslijeđen iz BaseTabView
 
     # ============================================================
@@ -1375,6 +1376,9 @@ class ZaglavljeView(BaseTabView):
         field22v.setValidator(validator)
         col22v_layout.addWidget(field22v)
         self.field_widgets["valuta"] = field22v
+        field22v.editingFinished.connect(
+            lambda: self.valuta_changed.emit(field22v.text().strip().upper())
+        )
         row_layout.addWidget(col22v)
 
         # 22 Ukupan Iznos
@@ -1954,13 +1958,13 @@ class ZaglavljeView(BaseTabView):
 
         return data
 
-    def set_data(self, data: Dict[str, Any]):
+    def set_data(self, data: Dict[str, Any], _from_import: bool = False):
         """Popuni widgete podacima."""
         for key, value in data.items():
             if key == 'attached_documents':
                 # Priložene isprave — popuni tabelu i sačuvaj snapshot iz importa
                 self._import_attached_docs = [dict(d) for d in value] if value else []
-                self._populate_attached_table(value)
+                self._populate_attached_table(value, clear_refs_on_import=_from_import)
                 continue
             widget = self.field_widgets.get(key)
             if widget is None:
@@ -2006,17 +2010,21 @@ class ZaglavljeView(BaseTabView):
         """Vrati snapshot priloženih dokumenata iz zadnjeg XML import-a."""
         return list(self._import_attached_docs)
 
-    def _populate_attached_table(self, attached_docs: list):
+    def _populate_attached_table(self, attached_docs: list, clear_refs_on_import: bool = False):
         """Popuni tabelu priloženih dokumenata.
-        
-        Nakon uvoza XML-a:
-        - Sve reference su prazne (osim DIS, N380 i OST šifre)
-        - DIS, N380 i OST zadržavaju referencu — vidi docs/sections/ost-rb40.md
+
+        Args:
+            attached_docs: Lista dokumenata
+            clear_refs_on_import: True samo pri uvozu XML-a — briše stare reference
+                                  za sve osim DIS/N380/OST/PE. Pri load_from_draft
+                                  uvijek False — čuvaju se sve reference.
         """
         if not self.table:
             return
         if not attached_docs:
             return
+
+        _PRESERVE_REFS = {"DIS", "N380", "OST", "PE1", "PE2", "PE3"}
 
         # Obriši postojeće redove
         self.table.setRowCount(0)
@@ -2028,7 +2036,6 @@ class ZaglavljeView(BaseTabView):
             code = doc.get('code', '')
             name = doc.get('name', '')
             number = doc.get('number', '')
-            from_rule = doc.get('from_rule', False)
 
             # Kolona 0 — Šifra
             code_item = QTableWidgetItem(code)
@@ -2040,15 +2047,13 @@ class ZaglavljeView(BaseTabView):
             self.table.setItem(idx, 1, name_item)
 
             # Kolona 2 — Referenca
-            # PRAVILO: Sve reference su prazne osim za DIS, N380, OST i PE šifre
-            # PE šifre — vidi docs/sections/pe-rub44-4.md
-            if code in ("DIS", "N380", "OST", "PE1", "PE2", "PE3"):
-                # Ove šifre zadržavaju referencu
-                ref_item = QTableWidgetItem(number)
-            else:
-                # Ostale šifre - prazna referenca
+            # Pri XML uvozu: brišemo stale ref-ove osim za DIS/N380/OST/PE
+            # Pri load_from_draft: uvijek čuvamo što je u draftu
+            if clear_refs_on_import and code not in _PRESERVE_REFS:
                 ref_item = QTableWidgetItem("")
-            
+            else:
+                ref_item = QTableWidgetItem(number)
+
             self.table.setItem(idx, 2, ref_item)
 
     def clear_data(self):

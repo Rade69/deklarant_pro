@@ -244,6 +244,7 @@ class CreateNaimenovanjaService:
             source_invoice_refs=[source_ref]
         )
 
+        apply_supplementary_unit(naimenovanje)
         return naimenovanje
 
     def _create_naimenovanje_from_group(self, lines: List[InvoiceLine], ordinal_no: int) -> NaimenovanjeDraft:
@@ -314,7 +315,102 @@ class CreateNaimenovanjaService:
             source_invoice_refs=source_refs
         )
 
+        apply_supplementary_unit(naimenovanje)
         return naimenovanje
+
+
+# ─────────────────────────────────────────────────────────────
+# Dopunska jedinica mjere — lookup iz tarife
+# ─────────────────────────────────────────────────────────────
+
+_DOPUNSKA_JM_MAP = {
+    'kd':  'NAR', 'kom': 'NAR', 'nar': 'NAR', 'par': 'NAR', 'pa': 'NAR',
+    'l':   'LTR', 'lit': 'LTR', 'ltr': 'LTR',
+    'm2':  'MTK', 'm²': 'MTK', 'mtk': 'MTK',
+    'm3':  'MTQ', 'm³': 'MTQ', 'mtq': 'MTQ',
+    'm':   'MTR', 'mtr': 'MTR',
+    'g':   'GRM', 'grm': 'GRM',
+    'kg':  'KGM', 'kgm': 'KGM',
+    'ce':  'CE',  'ct': 'CT',
+}
+
+# Prefix pravila za složene JM kodove iz tarife (npr. 'l alc. 100%', 'kg N', 'm² (¹)')
+_DOPUNSKA_JM_PREFIX = [
+    ('l ',    'LTR'), ('l ', 'LTR'),  # 'l alc. 100%' i slično
+    ('kg',    'KGM'),                        # 'kg N', 'kg P2O5', 'kg 90%...'
+    ('m²',    'MTK'), ('m2',     'MTK'),
+    ('m³',    'MTQ'), ('m3',     'MTQ'),
+    ('kd',    'NAR'),                        # 'kd (²)', '1000 kd' handled below
+    ('1000',  'NAR'),                        # '1000 kd'
+    ('gi',    'GRM'),                        # 'gi F/S' — gram izomerije
+]
+
+
+def get_supplementary_unit(tariff_code: str) -> str:
+    """Vrati ASYCUDA kod dopunske JM za tarifni broj, ili '' ako ne postoji."""
+    if not tariff_code:
+        return ""
+    try:
+        from services.tariff.tarifa_service import _get_conn
+        conn = _get_conn()
+        kod_clean = tariff_code.strip()
+
+        # 1. Traži prefiks: kod u bazi koji JE prefiks traženog (npr. '220421' je prefiks '2204210000')
+        candidates = [kod_clean[:n] for n in range(len(kod_clean), 3, -1)]
+        placeholders = ','.join('?' * len(candidates))
+        row = conn.execute(f"""
+            SELECT dopunska_jm FROM tarifa_2026
+            WHERE kod IN ({placeholders})
+              AND dopunska_jm NOT IN ('', '–', '-')
+            ORDER BY LENGTH(kod) DESC
+            LIMIT 1
+        """, candidates).fetchone()
+
+        # 2. Ako nema → traži siblinge: kodove koji počinju istim 6-cifrenim prefiksom
+        if not row:
+            prefix6 = kod_clean[:6]
+            row = conn.execute("""
+                SELECT dopunska_jm, COUNT(*) as cnt FROM tarifa_2026
+                WHERE kod LIKE ?
+                  AND LENGTH(kod) >= 8
+                  AND dopunska_jm NOT IN ('', '–', '-')
+                GROUP BY dopunska_jm
+                ORDER BY cnt DESC
+                LIMIT 1
+            """, (prefix6 + '%',)).fetchone()
+
+        if row:
+            raw = row['dopunska_jm'].strip()
+            mapped = _DOPUNSKA_JM_MAP.get(raw.lower())
+            if mapped:
+                return mapped
+            raw_lower = raw.lower()
+            for prefix, code in _DOPUNSKA_JM_PREFIX:
+                if raw_lower.startswith(prefix.lower()):
+                    return code
+    except Exception:
+        pass
+    # Fallback: poglavlja 01-24 → KGM (BiH ASYCUDA praxis)
+    try:
+        if int(tariff_code[:2]) in range(1, 25):
+            return "KGM"
+    except (ValueError, IndexError):
+        pass
+    return ""
+
+
+def apply_supplementary_unit(naim: NaimenovanjeDraft) -> None:
+    """Popuni supplementary_unit_code/qty na naimenovanju ako je propisano tarifom."""
+    if (naim.supplementary_unit_code or "").strip():
+        return  # Već postavljeno
+    unit = get_supplementary_unit(naim.tariff_code)
+    if not unit:
+        return
+    naim.supplementary_unit_code = unit
+    if unit == "KGM" and naim.net_mass_kg:
+        naim.supplementary_unit_qty = naim.net_mass_kg
+    elif unit == "NAR" and naim.package_qty:
+        naim.supplementary_unit_qty = naim.package_qty
 
 
 # ═══════════════════════════════════════════════════════════

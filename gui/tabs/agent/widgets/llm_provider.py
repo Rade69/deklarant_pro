@@ -15,9 +15,12 @@ Upotreba:
     text = provider.complete(messages)
 """
 
+import logging
 import os
 import re
 from pathlib import Path
+
+logger = logging.getLogger("asycuda_pro.agent.llm")
 
 
 def _load_env() -> dict:
@@ -134,11 +137,11 @@ class LLMProvider:
                 return
             except Exception as e:
                 if _is_rate_limit(e) and self.has_groq():
-                    print(f"[LLMProvider] DeepSeek 429 → prelazim na Groq")
+                    logger.warning("DeepSeek 429 → prelazim na Groq")
                     yield from self._groq_stream(messages, max_tokens)
                     return
                 elif _is_rate_limit(e) and self.has_gemini():
-                    print(f"[LLMProvider] DeepSeek greška → prelazim na Gemini")
+                    logger.warning("DeepSeek greška → prelazim na Gemini")
                     yield from self._gemini_stream(messages, max_tokens)
                     return
                 raise
@@ -149,7 +152,7 @@ class LLMProvider:
                 return
             except Exception as e:
                 if _is_rate_limit(e) and self.has_gemini():
-                    print(f"[LLMProvider] Groq 429 → prelazim na Gemini")
+                    logger.warning("Groq 429 → prelazim na Gemini")
                     yield from self._gemini_stream(messages, max_tokens)
                     return
                 raise
@@ -173,10 +176,10 @@ class LLMProvider:
                 return self._deepseek_complete(messages, max_tokens)
             except Exception as e:
                 if _is_rate_limit(e) and self.has_groq():
-                    print(f"[LLMProvider] DeepSeek 429 → prelazim na Groq (batch)")
+                    logger.warning("DeepSeek 429 → prelazim na Groq (batch)")
                     return self._groq_complete(messages, max_tokens, use_small_model)
                 elif _is_rate_limit(e) and self.has_gemini():
-                    print(f"[LLMProvider] DeepSeek greška → prelazim na Gemini (batch)")
+                    logger.warning("DeepSeek greška → prelazim na Gemini (batch)")
                     return self._gemini_complete(messages, max_tokens)
                 raise
 
@@ -185,7 +188,7 @@ class LLMProvider:
                 return self._groq_complete(messages, max_tokens, use_small_model)
             except Exception as e:
                 if _is_rate_limit(e) and self.has_gemini():
-                    print(f"[LLMProvider] Groq 429 → prelazim na Gemini (batch)")
+                    logger.warning("Groq 429 → prelazim na Gemini (batch)")
                     return self._gemini_complete(messages, max_tokens)
                 raise
 

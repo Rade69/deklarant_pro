@@ -91,17 +91,22 @@ class DocumentPanel(QWidget):
         for filepath in filepaths:
             file_item = FileItem.from_filepath(filepath)
             self.file_table.add_file(file_item)
+        # ⭐ Resetuj loading state — poništava zaostali stylesheet i tekst
+        self.upload_area.set_loading(False)
         self.upload_area.btn_analyze.setEnabled(True)
         self.files_added.emit(filepaths)
 
     def _on_file_removed(self, filepath: str):
         if len(self.file_table.get_files()) == 0:
+            self.upload_area.set_loading(False)
             self.upload_area.btn_analyze.setEnabled(False)
             self.results_viewer.clear()
 
     def _on_clear(self):
         self.file_table.clear_files()
         self.results_viewer.clear()
+        # ⭐ Prvo resetuj loading state (vraća normalan stylesheet i tekst)
+        self.upload_area.set_loading(False)
         self.upload_area.btn_analyze.setEnabled(False)
         self.clear_requested.emit()
 

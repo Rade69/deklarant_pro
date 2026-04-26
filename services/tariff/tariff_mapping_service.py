@@ -188,19 +188,48 @@ class TariffMappingService:
         matched_details = []
         unmatched_details = []
 
+        effective_supplier = supplier or ""
+
         for line in invoice_lines:
             # Skip ako već ima tarifni broj i ne želimo overwrite
             if line.tarifni_broj and not overwrite_existing:
                 continue
 
-            # Pokušaj pronaći mapping
-            mapping = self.find_mapping(
-                product_code=line.product_code,
-                naziv_robe=line.naziv_robe,
-                min_similarity=min_similarity,
-                zemlja_porijekla=line.zemlja_porijekla,
-                supplier=supplier or (line.exporter.name if line.exporter.name else "")
-            )
+            # Dobavi ime dobavljača za ovu liniju
+            line_supplier = effective_supplier or (line.exporter.name if line.exporter.name else "")
+
+            mapping = None
+
+            # ── 0. Prvo istorija dobavljača (XML fajlovi sa carine — najvalidniji) ──
+            if line_supplier:
+                try:
+                    from services.agent.tariff.tariff_suggestion_service import HybridMatchingService
+                    hybrid = HybridMatchingService()
+                    hist_match = hybrid.find_hybrid_mapping(
+                        product_code=line.product_code,
+                        naziv_robe=line.naziv_robe,
+                        supplier=line_supplier,
+                        country=line.zemlja_porijekla,
+                        min_confidence=0.75
+                    )
+                    if hist_match and hist_match.confidence >= 0.82:
+                        mapping = hist_match.tariff_mapping
+                        logger.debug(
+                            f"  📚 Istorija [{line_supplier}]: stavka #{line.line_no} "
+                            f"→ {mapping.tarifni_broj} (pouzdanost: {hist_match.confidence:.0%})"
+                        )
+                except Exception:
+                    pass  # Silent — istorijski match nije kritičan
+
+            # ── 1. Baza znanja (ako istorija nije dala rezultat) ──
+            if mapping is None:
+                mapping = self.find_mapping(
+                    product_code=line.product_code,
+                    naziv_robe=line.naziv_robe,
+                    min_similarity=min_similarity,
+                    zemlja_porijekla=line.zemlja_porijekla,
+                    supplier=line_supplier
+                )
 
             if mapping:
                 # Pronađen mapping - popuni tarifni broj i precision_1
