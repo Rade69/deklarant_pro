@@ -108,6 +108,10 @@ memory/
 # Logs
 logs/
 
+# Licensing — private key NIKADA ne ide u git
+tools/licensing/keys/
+licenses/
+
 # Veliki fajlovi — lokalno samo
 docs/NOVA ASIKUDA/
 docs/Carinska_tarifa_za_2026_-_bosanski.pdf

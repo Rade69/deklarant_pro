@@ -62,6 +62,33 @@ def _check_ocr_availability():
         )
 
 
+def _check_license_on_startup(parent=None):
+    """Proveri licencu pri startu. Ne blokira aplikaciju ako nije validna."""
+    try:
+        from core.licensing.license_paths import get_license_path
+        from core.licensing.license_validator import validate_license_file
+        from core.licensing.license_models import LicenseStatus
+
+        result = validate_license_file(get_license_path())
+
+        if result.is_valid:
+            if result.status == LicenseStatus.EXPIRED_GRACE:
+                QMessageBox.warning(
+                    parent, "Licenca ističe", result.message
+                )
+            return
+
+        QMessageBox.critical(
+            parent, "Licenca nije validna",
+            f"{result.message}\n\n"
+            "Otvorite Admin Panel → Licenca da uvezete novu licencu."
+        )
+    except Exception as e:
+        logging.getLogger("deklarant_pro").warning(
+            f"Licenca provera nije uspela: {e}"
+        )
+
+
 def main():
     import time
     _t0 = time.perf_counter()
@@ -89,6 +116,9 @@ def main():
         window.show()
         _startup_ms = (time.perf_counter() - _t0) * 1000
         logging.getLogger("deklarant_pro").warning(f"⏱️ Startup: {_startup_ms:.0f}ms")
+
+        # Licenca provera — ne blokira aplikaciju, samo upozorenje
+        _check_license_on_startup(window)
     except Exception as e:
         import traceback
         msg = QMessageBox()
