@@ -17,18 +17,18 @@
 
 ### Automatsko određivanje projekta
 - Ime projekta se određuje iz **working directory** ili **.claude/settings.json**
-- Za ovaj projekt: **`asycuda_pro`**
+- Za ovaj projekt: **`deklarant_pro`**
 
 ### Protokol na početku sesije:
 
 **1. Pozovi `get_project_overview`:**
 ```
-project: "asycuda_pro"
+project: "deklarant_pro"
 ```
 
 **2. Pozovi `query_memory` sa relevantnim query-ima:**
 ```
-project: "asycuda_pro"
+project: "deklarant_pro"
 query: "arhitektura tabovi refactor status"
 ```
 
@@ -101,7 +101,7 @@ query: "arhitektura tabovi refactor status"
   2. Fuzzy match po nazivu (>85% sličnosti)
 - **Auto-učenje**: sistem automatski pamti mapiranja pri kreiranju naimenovanja
 - **Dugme "Auto-popuni tarifne"**: automatski popuni poznate proizvode
-- **Database**: tabela `product_tariff_mapping` u asycuda_sistem.db
+- **Database**: tabela `product_tariff_mapping` u deklarant_sistem.db
 
 ## Stil koda
 
@@ -113,12 +113,12 @@ query: "arhitektura tabovi refactor status"
 ## Struktura projekta
 
 ```
-asycuda_pro/
+deklarant_pro/
 ├── core/draft/          # Draft modeli (DeclarationDraft, InvoiceLine, NaimenovanjeDraft)
 ├── gui/tabs/            # GUI tabovi (faktura, naimenovanja, zaglavlje)
 ├── importers/           # PDF/Excel parseri za različite dobavljače
 ├── services/            # Business logika (import_service, tariff_service)
-├── database/            # SQLite baze (asycuda_sistem.db, zvanicna_tarifa.db)
+├── database/            # SQLite baze (deklarant_sistem.db, zvanicna_tarifa.db)
 └── ui/                  # Qt .ui fajlovi
 ```
 

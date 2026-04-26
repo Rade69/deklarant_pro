@@ -38,7 +38,7 @@ class SettingsService:
 
     def __init__(self):
         """Inicijalizacija."""
-        self.settings_dir = Path.home() / ".asycuda_pro"
+        self.settings_dir = Path.home() / ".deklarant_pro"
         self.settings_dir.mkdir(parents=True, exist_ok=True)
         
         self.settings_file = self.settings_dir / "settings.json"

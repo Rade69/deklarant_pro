@@ -1,6 +1,6 @@
 /*
 ═══════════════════════════════════════════════════════════════
-ASYCUDA Pro - Main Tabs Styling
+Deklarant Pro - Main Tabs Styling
 Styling za glavne tabove aplikacije (Faktura, Zaglavlje, Naimenovanja, Šifrarnici)
 
 VAŽNO: Bez background-color na QTabWidget::pane — svaka tab stranica

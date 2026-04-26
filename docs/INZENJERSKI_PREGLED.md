@@ -1,4 +1,4 @@
-# Inženjerski Pregled — ASYCUDA Pro
+# Inženjerski Pregled — Deklarant Pro
 
 > Kompletna tehnička analiza arhitekture, tehnologija i inženjerskih praksi korištenih u razvoju desktop aplikacije za pripremu carinskih deklaracija.
 
@@ -104,7 +104,7 @@ Svi servisi (`TariffMappingService`, `MassCalculator`, `OriginStatementDetector`
 - **Connection Pooling**: Max 10 istovremenih konekcija
 
 ### SQLite (Lokalna)
-- `asycuda_sistem.db` — mapping znanja (tariff mappings), lokalne konfiguracije, sesije
+- `deklarant_sistem.db` — mapping znanja (tariff mappings), lokalne konfiguracije, sesije
 - `zvanicna_tarifa.db` — read-only snapshot carinske tarife za offline pretragu
 
 ### Sigurnosne Prakse
@@ -175,10 +175,10 @@ Svi servisi (`TariffMappingService`, `MassCalculator`, `OriginStatementDetector`
 ### Logging
 Strukturirani logovi po modulu:
 ```
-asycuda_pro.import.blagic_attos
-asycuda_pro.tariff_mapping
-asycuda_pro.agent.controller
-asycuda_pro.country_origin_validator
+deklarant_pro.import.blagic_attos
+deklarant_pro.tariff_mapping
+deklarant_pro.agent.controller
+deklarant_pro.country_origin_validator
 ```
 
 ### Code Quality
@@ -204,4 +204,4 @@ asycuda_pro.country_origin_validator
 
 ---
 
-*Ovaj dokument je generiran na osnovu kompletnog pregleda koda, git historije i arhitektonskih odluka donesenih tokom razvoja ASYCUDA Pro aplikacije.*
+*Ovaj dokument je generiran na osnovu kompletnog pregleda koda, git historije i arhitektonskih odluka donesenih tokom razvoja Deklarant Pro aplikacije.*

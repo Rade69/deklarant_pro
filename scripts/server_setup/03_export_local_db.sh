@@ -1,25 +1,25 @@
 #!/bin/bash
 # ============================================================
-# ASYCUDA Pro — Export lokalne baze za prenos na server
+# Deklarant Pro — Export lokalne baze za prenos na server
 # Pokrenuti sa razvoj mašine (Fedora) PRIJE preseljenja na server
 # ============================================================
 
 set -e
 
-EXPORT_FILE="asycuda_pro_backup_$(date +%Y%m%d_%H%M%S).sql"
+EXPORT_FILE="deklarant_pro_backup_$(date +%Y%m%d_%H%M%S).sql"
 EXPORT_DIR="$(dirname "$0")/../../backup"
 mkdir -p "$EXPORT_DIR"
 
 echo "===================================================="
-echo "  ASYCUDA Pro — Export baze podataka"
+echo "  Deklarant Pro — Export baze podataka"
 echo "===================================================="
 echo ""
-echo ">>> Eksportujem bazu 'asycuda_pro' iz lokalne instance..."
+echo ">>> Eksportujem bazu 'deklarant_pro' iz lokalne instance..."
 
 # pg_dump sa svim podacima i shemama
 pg_dump \
     -U radovan \
-    -d asycuda_pro \
+    -d deklarant_pro \
     --format=plain \
     --no-owner \
     --no-acl \

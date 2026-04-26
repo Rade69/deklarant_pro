@@ -24,7 +24,7 @@ from gui.dialogs.enhanced_tariff_suggestion_dialog import (
     create_context_from_invoice
 )
 
-logger = logging.getLogger("asycuda_pro.hybrid_matching")
+logger = logging.getLogger("deklarant_pro.hybrid_matching")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Dataclasses

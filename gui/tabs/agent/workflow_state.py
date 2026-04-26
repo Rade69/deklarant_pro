@@ -11,7 +11,7 @@ import logging
 from enum import Enum
 from typing import Callable, Optional, Set
 
-logger = logging.getLogger("asycuda_pro.workflow_state")
+logger = logging.getLogger("deklarant_pro.workflow_state")
 
 
 class WorkflowState(Enum):

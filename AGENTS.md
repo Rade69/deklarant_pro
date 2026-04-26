@@ -1,4 +1,4 @@
-# AGENTS.md — ASYCUDA Pro projektni standardi
+# AGENTS.md — Deklarant Pro projektni standardi
 
 Ovaj fajl čitaju svi agenti koji rade na ovom projektu: Qwen Code, GitHub Copilot, Cursor,
 MiniMax, CLI agenti i drugi. Dopunjuje globalni `~/.claude/AGENTS.md` — ne zamjenjuje ga.
@@ -9,7 +9,7 @@ MiniMax, CLI agenti i drugi. Dopunjuje globalni `~/.claude/AGENTS.md` — ne zam
 
 Memorija projekta (ne-trivijalni fakti, odluke, historija) nalazi se u:
 ```
-~/.claude/projects/-home-radovan-Desktop-asycuda-pro/memory/
+~/.claude/projects/-home-radovan-Desktop-deklarant-pro/memory/
 ```
 Indeks svih zapisa: `MEMORY.md` u tom folderu.
 
@@ -53,7 +53,7 @@ Napiši kratko (2-4 rečenice) šta si razumio iz zadatka i šta planiraš uradi
 ## Arhitektura
 
 ```
-asycuda_pro/
+deklarant_pro/
 ├── core/draft/          # Draft modeli: DeclarationDraft, InvoiceLine, NaimenovanjeDraft
 ├── gui/tabs/            # GUI tabovi (agent_tab, faktura_tab, naimenovanja_tab...)
 │   └── agent/
@@ -69,7 +69,7 @@ asycuda_pro/
 │       ├── tariff/      # hybrid_tariff_agent, rag, matching
 │       ├── learning/    # historical_learning, exporter_xml_indexer
 │       └── validation/  # declaration_validator, xml_template_service
-├── database/            # SQLite: asycuda_sistem.db, zvanicna_tarifa.db
+├── database/            # SQLite: deklarant_sistem.db, zvanicna_tarifa.db
 └── ui/                  # Qt .ui fajlovi
 ```
 
@@ -131,5 +131,5 @@ PITANJA: (ako postoje)
 - [ ] Nisam dodao nepotrebne komentare ili docstrings
 - [ ] Nisam ostavio zakomentiran kod
 - [ ] Nisam koristio string interpolaciju u SQL-u
-- [ ] Testovi prolaze: `cd /home/radovan/Desktop/asycuda_pro && python -m pytest tests/ -q`
+- [ ] Testovi prolaze: `cd /home/radovan/Desktop/deklarant_pro && python -m pytest tests/ -q`
 - [ ] Output format je popunjen (STATUS, IZMIJENJENI FAJLOVI, itd.)

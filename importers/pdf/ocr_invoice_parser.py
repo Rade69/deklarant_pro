@@ -21,7 +21,7 @@ from typing import List, Tuple, Dict, Optional
 from core.draft.draft import InvoiceLine
 from importers.import_result import ImportResult
 
-logger = logging.getLogger("asycuda_pro.import.ocr_parser")
+logger = logging.getLogger("deklarant_pro.import.ocr_parser")
 
 
 # ─────────────────────────────────────────────────────────────

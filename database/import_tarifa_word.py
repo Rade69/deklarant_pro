@@ -24,7 +24,7 @@ import sqlite3
 import docx
 
 WORD_PATH = '/home/radovan/Downloads/Prijedlog odluke o utvrđivanju Carinske tarife za 2026. godinu.docx'
-DB_PATH = os.path.join(os.path.dirname(__file__), 'asycuda_sistem.db')
+DB_PATH = os.path.join(os.path.dirname(__file__), 'deklarant_sistem.db')
 
 
 def normalize_kod(raw: str) -> str:

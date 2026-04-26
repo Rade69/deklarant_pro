@@ -30,7 +30,7 @@ from difflib import SequenceMatcher
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
-logger = logging.getLogger("asycuda_pro.exporter_indexer")
+logger = logging.getLogger("deklarant_pro.exporter_indexer")
 
 
 def get_db_connection():
@@ -45,7 +45,7 @@ def get_db_connection():
     
     host = db_config.get('DB_HOST', '/var/run/postgresql')
     port = db_config.get('DB_PORT', '5432')
-    dbname = db_config.get('DB_NAME', 'asycuda_pro')
+    dbname = db_config.get('DB_NAME', 'deklarant_pro')
     user = db_config.get('DB_USER', 'radovan')
     password = db_config.get('DB_PASSWORD', 'postgres')
     
@@ -55,7 +55,7 @@ def get_db_connection():
         return psycopg2.connect(host=host, port=port, database=dbname, user=user, password=password)
 
 
-# Putanja do XML foldera (4 nivoa gore: learning/agent/services/asycuda_pro)
+# Putanja do XML foldera (4 nivoa gore: learning/agent/services/deklarant_pro)
 XML_FOLDER = Path(__file__).parent.parent.parent.parent / "docs" / "NOVA ASIKUDA"
 
 # Godišnji filter — gornja granica je tekuća + 1 da pokrije nove deklaracije

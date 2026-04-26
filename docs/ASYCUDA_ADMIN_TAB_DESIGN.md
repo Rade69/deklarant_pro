@@ -142,7 +142,7 @@ Umjesto rasutih dialoga po menijima, **SVE admin funkcionalnosti** na jednom mje
 │ Database Connection:                                   │
 │ ┌────────────────────────────────────────────────────┐ │
 │ │ Host: localhost                   Port: 5432       │ │
-│ │ Database: asycuda_pro                              │ │
+│ │ Database: deklarant_pro                              │ │
 │ │ User: postgres                                     │ │
 │ │ Password: ********                                 │ │
 │ │                                                    │ │
@@ -151,10 +151,10 @@ Umjesto rasutih dialoga po menijima, **SVE admin funkcionalnosti** na jednom mje
 │                                                        │
 │ Paths:                                                 │
 │ ┌────────────────────────────────────────────────────┐ │
-│ │ Plugins:  C:\...\ASYCUDA Pro\plugins   [Browse]   │ │
+│ │ Plugins:  C:\...\Deklarant Pro\plugins   [Browse]   │ │
 │ │ Exports:  C:\Users\...\ASYCUDA\exports [Browse]   │ │
 │ │ Imports:  C:\Users\...\ASYCUDA\imports [Browse]   │ │
-│ │ Logs:     C:\...\ASYCUDA Pro\logs      [Browse]   │ │
+│ │ Logs:     C:\...\Deklarant Pro\logs      [Browse]   │ │
 │ └────────────────────────────────────────────────────┘ │
 │                                                        │
 │ Application Settings:                                  │
@@ -197,7 +197,7 @@ Umjesto rasutih dialoga po menijima, **SVE admin funkcionalnosti** na jednom mje
 │                                                        │
 │ Database Info:                                         │
 │ ┌────────────────────────────────────────────────────┐ │
-│ │ Database: asycuda_pro                              │ │
+│ │ Database: deklarant_pro                              │ │
 │ │ Size: 156 MB                                       │ │
 │ │ Tables: 24                                         │ │
 │ │ Total Records: 15,342                              │ │
@@ -346,7 +346,7 @@ Umjesto rasutih dialoga po menijima, **SVE admin funkcionalnosti** na jednom mje
 │ [🔄 Refresh]  [🗑️ Clear Logs]  [💾 Export Logs]       │
 │                                                        │
 │ Log File Location:                                     │
-│ C:\...\ASYCUDA Pro\logs\asycuda_2026-03-10.log       │
+│ C:\...\Deklarant Pro\logs\asycuda_2026-03-10.log       │
 │ [📂 Open Log Folder]                                  │
 │                                                        │
 └────────────────────────────────────────────────────────┘
@@ -375,7 +375,7 @@ Umjesto rasutih dialoga po menijima, **SVE admin funkcionalnosti** na jednom mje
 │                                                        │
 │ Application:                                           │
 │ ┌────────────────────────────────────────────────────┐ │
-│ │ Name: ASYCUDA Pro                                  │ │
+│ │ Name: Deklarant Pro                                  │ │
 │ │ Version: 2.0.1                                     │ │
 │ │ Build: 20260310                                    │ │
 │ │ License: Špediter ABC d.o.o. (Active)              │ │
@@ -395,7 +395,7 @@ Umjesto rasutih dialoga po menijima, **SVE admin funkcionalnosti** na jednom mje
 │ ┌────────────────────────────────────────────────────┐ │
 │ │ Engine: PostgreSQL 15.3                            │ │
 │ │ Host: localhost:5432                               │ │
-│ │ Database: asycuda_pro                              │ │
+│ │ Database: deklarant_pro                              │ │
 │ │ Schema Version: 3.2                                │ │
 │ │ Size: 156 MB                                       │ │
 │ └────────────────────────────────────────────────────┘ │
@@ -409,10 +409,10 @@ Umjesto rasutih dialoga po menijima, **SVE admin funkcionalnosti** na jednom mje
 │                                                        │
 │ Paths:                                                 │
 │ ┌────────────────────────────────────────────────────┐ │
-│ │ Installation: C:\Program Files\ASYCUDA Pro\        │ │
+│ │ Installation: C:\Program Files\Deklarant Pro\        │ │
 │ │ Data: C:\Users\User\AppData\Local\ASYCUDA\         │ │
-│ │ Plugins: C:\Program Files\ASYCUDA Pro\plugins\     │ │
-│ │ Logs: C:\Program Files\ASYCUDA Pro\logs\           │ │
+│ │ Plugins: C:\Program Files\Deklarant Pro\plugins\     │ │
+│ │ Logs: C:\Program Files\Deklarant Pro\logs\           │ │
 │ └────────────────────────────────────────────────────┘ │
 │                                                        │
 │ [📋 Copy System Info]  [📧 Email Support]             │

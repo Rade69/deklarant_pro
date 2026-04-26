@@ -20,7 +20,7 @@ import os
 import re
 from pathlib import Path
 
-logger = logging.getLogger("asycuda_pro.agent.llm")
+logger = logging.getLogger("deklarant_pro.agent.llm")
 
 
 def _load_env() -> dict:

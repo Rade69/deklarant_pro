@@ -66,7 +66,7 @@ def extract_from_xml(filepath: Path):
 
 
 def main():
-    xml_dir = Path('/home/radovan/Desktop/asycuda_pro/docs/NOVA ASIKUDA')
+    xml_dir = Path('/home/radovan/Desktop/deklarant_pro/docs/NOVA ASIKUDA')
     xml_files = sorted(xml_dir.glob('*.xml'))
     print(f"📂 {len(xml_files)} XML fajlova")
 

@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from core.draft.draft import DeclarationDraft
 
 
-logger = logging.getLogger("asycuda_pro.gui.zaglavlje_controller")
+logger = logging.getLogger("deklarant_pro.gui.zaglavlje_controller")
 
 
 class ZaglavljeController:

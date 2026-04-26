@@ -29,7 +29,7 @@ class LogService:
 
     def __init__(self):
         """Inicijalizacija."""
-        self.log_dir = Path.home() / ".asycuda_pro" / "logs"
+        self.log_dir = Path.home() / ".deklarant_pro" / "logs"
         self.log_dir.mkdir(parents=True, exist_ok=True)
         
         self.log_file = self.log_dir / "asycuda.log"

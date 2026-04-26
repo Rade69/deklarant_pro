@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ASYCUDA Pro - Kompletni setup baze podataka
+Deklarant Pro - Kompletni setup baze podataka
 Kreira sve tabele i popunjava ih iz JSON fajlova.
 """
 import sys, os, json
@@ -15,7 +15,7 @@ def load(f):
         return json.load(fp)
 
 def run():
-    print("🗄️  ASYCUDA Pro - Setup baze podataka")
+    print("🗄️  Deklarant Pro - Setup baze podataka")
     print("=" * 50)
 
     with get_db_connection() as conn:

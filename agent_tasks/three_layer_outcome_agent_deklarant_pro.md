@@ -1,8 +1,8 @@
-# Kako primijeniti three-layer outcome agent arhitekturu na `asycuda_pro`
+# Kako primijeniti three-layer outcome agent arhitekturu na `deklarant_pro`
 
 ## Svrha dokumenta
 
-Ovaj dokument prevodi ideju **three-layer outcome agent** arhitekture u praktičan model za `asycuda_pro`.
+Ovaj dokument prevodi ideju **three-layer outcome agent** arhitekture u praktičan model za `deklarant_pro`.
 
 Cilj nije praviti generički “AI agent za sve”, nego stabilan i kontrolisan agentni sloj koji:
 
@@ -19,7 +19,7 @@ Cilj nije praviti generički “AI agent za sve”, nego stabilan i kontrolisan 
 
 Outcome agent nije samo chat.
 
-Da bi agent u `asycuda_pro` radio ozbiljan posao, trebaš tri sloja:
+Da bi agent u `deklarant_pro` radio ozbiljan posao, trebaš tri sloja:
 
 1. **Knowledge Store**  
    mjesto gdje žive podaci, dokumenti, znanje i kontekst
@@ -42,7 +42,7 @@ To su tri stvari bez kojih “outcome agent” ostaje samo demo.
 
 # 1. Layer: Knowledge Store
 
-## Šta je to u `asycuda_pro`
+## Šta je to u `deklarant_pro`
 
 Knowledge Store nije samo baza podataka.
 
@@ -174,7 +174,7 @@ Recipes uvode disciplinu.
 
 ---
 
-## Preporučeni početni recipes za `asycuda_pro`
+## Preporučeni početni recipes za `deklarant_pro`
 
 ## 1. Recipe: Analiza učitanog dokumenta
 Cilj:
@@ -634,7 +634,7 @@ Tek tada uvodi:
 
 ---
 
-# Moj konkretan prijedlog za `asycuda_pro`
+# Moj konkretan prijedlog za `deklarant_pro`
 
 Ako ovo svedem na vrlo praktičan zaključak:
 

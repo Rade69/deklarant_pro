@@ -1,4 +1,4 @@
-Primio sam vaš predložak za analizu i poboljšanja ASYCUDA Pro aplikacije. Međutim, vidim da ste poslali kompletan dokument sa analizom i predlozima, a ne konkretne izmjene koda koje treba primijeniti na postojeći kod.
+Primio sam vaš predložak za analizu i poboljšanja Deklarant Pro aplikacije. Međutim, vidim da ste poslali kompletan dokument sa analizom i predlozima, a ne konkretne izmjene koda koje treba primijeniti na postojeći kod.
 
 Da bih mogao primijeniti ove predloge, trebam:
 

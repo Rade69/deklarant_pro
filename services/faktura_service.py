@@ -357,7 +357,7 @@ class FakturaService:
     def _log_operation(self, operation: str, success: bool, count: int = 0):
         """Logging helper."""
         import logging
-        logger = logging.getLogger("asycuda_pro.services.faktura")
+        logger = logging.getLogger("deklarant_pro.services.faktura")
         status = "✅" if success else "❌"
         logger.info(f"{status} {operation}: {count} items")
     

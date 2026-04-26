@@ -1,5 +1,5 @@
 """
-ASYCUDA Pro - Styled Button System
+Deklarant Pro - Styled Button System
 5 button categories according to UI/UX proposal
 """
 

@@ -19,7 +19,7 @@ from core.draft.draft import InvoiceLine, DeclarationDraft
 from services.product_master_list import ProductMasterList
 from services.tariff_mapping_service import validate_preference
 
-logger = logging.getLogger("asycuda_pro.services.assembly")
+logger = logging.getLogger("deklarant_pro.services.assembly")
 
 
 @dataclass

@@ -1,5 +1,5 @@
 """
-ASYCUDA Pro - Customs Declaration Application
+Deklarant Pro - Customs Declaration Application
 
 Main package initialization file.
 """

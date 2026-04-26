@@ -1,4 +1,4 @@
-# Development dependencies for ASYCUDA Pro
+# Development dependencies for Deklarant Pro
 
 # Testing
 pytest>=7.4.0

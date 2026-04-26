@@ -1,6 +1,6 @@
 # importers/leburic_pekabesko_importer.py
 """
-ASYCUDA Pro - Leburic/Pekabesko Excel Importer
+Deklarant Pro - Leburic/Pekabesko Excel Importer
 
 Parser za Leburic Komerc / Pekabesko AD fakture.
 
@@ -26,7 +26,7 @@ from core.draft.draft import InvoiceLine, Party
 from importers.import_result import ImportResult
 from utils.country_normalizer import normalize_country_name
 
-logger = logging.getLogger("asycuda_pro.import.leburic_pekabesko")
+logger = logging.getLogger("deklarant_pro.import.leburic_pekabesko")
 
 # Normalizacija jedinice mjere (Cyrillic → ASCII)
 _JM_MAP = {

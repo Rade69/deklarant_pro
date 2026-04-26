@@ -13,7 +13,7 @@ Pragovi:
 import logging
 from typing import Literal
 
-logger = logging.getLogger("asycuda_pro.token_budget")
+logger = logging.getLogger("deklarant_pro.token_budget")
 
 # Karaktera po tokenu (konzervativna procjena za bosanski/srpski)
 _CHARS_PER_TOKEN = 3.5

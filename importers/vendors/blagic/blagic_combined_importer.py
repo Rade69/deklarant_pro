@@ -20,7 +20,7 @@ from importers.vendors.blagic.blagic_loren_importer import parse_blagic_loren_ex
 from importers.vendors.blagic.blagic_loren_pdf_parser import parse_blagic_loren_pdf, detect_blagic_loren_pdf
 from importers.vendors.blagic.blagic_attos_importer import parse_blagic_attos_with_auto_combine
 
-logger = logging.getLogger("asycuda_pro.import.blagic_combined")
+logger = logging.getLogger("deklarant_pro.import.blagic_combined")
 
 
 def _extract_product_code_from_name(naziv: str) -> tuple[Optional[str], str]:

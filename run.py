@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ASYCUDA Pro - Application Launcher
+Deklarant Pro - Application Launcher
 """
 
 import sys
@@ -22,7 +22,7 @@ import warnings
 
 warnings.filterwarnings('ignore', category=RuntimeWarning, message='Failed to disconnect')
 
-logging.getLogger("asycuda_pro.resize_debug").setLevel(logging.DEBUG)
+logging.getLogger("deklarant_pro.resize_debug").setLevel(logging.DEBUG)
 logging.basicConfig(
     level=logging.WARNING,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -49,7 +49,7 @@ def main():
     _t0 = time.perf_counter()
 
     app = QApplication(sys.argv)
-    app.setApplicationName("ASYCUDA Pro")
+    app.setApplicationName("Deklarant Pro")
     app.setOrganizationName("Carina")
 
     # Globalna paleta: selekcija teksta čitljiva na svim widgetima
@@ -67,11 +67,11 @@ def main():
         window = MainWindow()
         window.show()
         _startup_ms = (time.perf_counter() - _t0) * 1000
-        logging.getLogger("asycuda_pro").warning(f"⏱️ Startup: {_startup_ms:.0f}ms")
+        logging.getLogger("deklarant_pro").warning(f"⏱️ Startup: {_startup_ms:.0f}ms")
     except Exception as e:
         import traceback
         msg = QMessageBox()
-        msg.setWindowTitle("ASYCUDA Pro — Greška pri pokretanju")
+        msg.setWindowTitle("Deklarant Pro — Greška pri pokretanju")
         msg.setText(str(e))
         msg.setDetailedText(traceback.format_exc())
         msg.setIcon(QMessageBox.Critical)

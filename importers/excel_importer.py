@@ -1,7 +1,7 @@
 # importers/excel_importer.py
 
 """
-ASYCUDA Pro - Excel Importer
+Deklarant Pro - Excel Importer
 Parsira .xlsx i .xls fakture koristeći openpyxl
 """
 
@@ -22,7 +22,7 @@ from services.error_handler import error_handler
 # from config.settings import settings  # uklonjeno - settings objekat ne postoji
 from utils.country_normalizer import normalize_country_name
 
-logger = logging.getLogger("asycuda_pro.import.excel")
+logger = logging.getLogger("deklarant_pro.import.excel")
 
 
 @dataclass

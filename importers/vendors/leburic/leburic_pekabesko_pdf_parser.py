@@ -1,6 +1,6 @@
 # importers/vendors/leburic/leburic_pekabesko_pdf_parser.py
 """
-ASYCUDA Pro - Leburic/Pekabesko PDF Parser
+Deklarant Pro - Leburic/Pekabesko PDF Parser
 
 Parsira Pekabesko AD fakture u PDF formatu (skenirani OCR dokumenti).
 
@@ -31,7 +31,7 @@ from typing import Optional
 from core.draft.draft import InvoiceLine, Party
 from importers.import_result import ImportResult
 
-logger = logging.getLogger("asycuda_pro.import.leburic_pekabesko_pdf")
+logger = logging.getLogger("deklarant_pro.import.leburic_pekabesko_pdf")
 
 # ──────────────────────────────────────────────────────────────────
 # OCR cleanup helpers

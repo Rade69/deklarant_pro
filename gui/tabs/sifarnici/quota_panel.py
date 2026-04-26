@@ -26,7 +26,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-logger = logging.getLogger("asycuda_pro.quota_panel")
+logger = logging.getLogger("deklarant_pro.quota_panel")
 
 # Status pragovi
 _RISK_HIGH   = 0.10   # < 10%

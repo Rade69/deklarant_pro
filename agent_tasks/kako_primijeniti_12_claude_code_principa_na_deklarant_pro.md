@@ -1,8 +1,8 @@
-# Kako primijeniti 12 Claude Code principa na `asycuda_pro` bez overengineeringa
+# Kako primijeniti 12 Claude Code principa na `deklarant_pro` bez overengineeringa
 
 ## Svrha dokumenta
 
-Ovaj dokument prevodi principe iz analize Claude Code transkripta u **praktičnu, umjerenu arhitekturu** za `asycuda_pro`.
+Ovaj dokument prevodi principe iz analize Claude Code transkripta u **praktičnu, umjerenu arhitekturu** za `deklarant_pro`.
 
 Cilj nije kopirati složenost velikog produkcijskog sistema, nego izvući ono što je stvarno korisno za tvoju aplikaciju:
 
@@ -17,7 +17,7 @@ Cilj nije kopirati složenost velikog produkcijskog sistema, nego izvući ono š
 
 ## Osnovni stav
 
-Za `asycuda_pro` ne treba graditi “mini Claude Code”.
+Za `deklarant_pro` ne treba graditi “mini Claude Code”.
 
 Treba uzeti **princip**, a ne **puni obim implementacije**.
 
@@ -40,7 +40,7 @@ To u praksi znači:
 Agent ne bi smio “znati” alate samo implicitno iz koda.  
 Treba imati **centralni registar alata** sa opisom svakog alata prije izvršenja.
 
-### Kako to primijeniti u `asycuda_pro`
+### Kako to primijeniti u `deklarant_pro`
 
 Napravi centralni registry, npr. `agent_tools_registry.py`, gdje svaki alat ima:
 
@@ -89,7 +89,7 @@ Kreni sa malim skupom koji stvarno koristiš.
 Nisu sve akcije jednako rizične.  
 Čitanje propisa nije isto što i upis u deklaraciju.
 
-### Predlog nivoa dozvola za `asycuda_pro`
+### Predlog nivoa dozvola za `deklarant_pro`
 
 #### Nivo 1 — Read only
 Agent smije:
@@ -296,7 +296,7 @@ Korisnik ne treba da vidi samo konačan odgovor.
 
 Treba da vidi i šta se dešava u toku rada.
 
-### Predlog event tipova za `asycuda_pro`
+### Predlog event tipova za `deklarant_pro`
 
 - `session_started`
 - `document_uploaded`
@@ -513,7 +513,7 @@ Ovo je jako korisno za osjetljive mutacije.
 
 Ne treba ti 6 ugrađenih agent tipova.
 
-Za `asycuda_pro` je dosta 3.
+Za `deklarant_pro` je dosta 3.
 
 ### 1. Retrieval Agent
 Odgovoran za:
@@ -625,7 +625,7 @@ To su tipične zamke overengineeringa.
 
 Ako ovo svedem na jednu rečenicu:
 
-**Za `asycuda_pro` uzmi iz Claude Code pristupa disciplinu sistema, a ne njegovu veličinu.**
+**Za `deklarant_pro` uzmi iz Claude Code pristupa disciplinu sistema, a ne njegovu veličinu.**
 
 Najveća vrijednost za tebe nije da imitiraš veliki agentni framework, nego da uvedeš:
 

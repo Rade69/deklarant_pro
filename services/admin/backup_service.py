@@ -26,7 +26,7 @@ class BackupService:
 
     def __init__(self):
         """Inicijalizacija."""
-        self.backup_dir = Path.home() / ".asycuda_pro" / "backups"
+        self.backup_dir = Path.home() / ".deklarant_pro" / "backups"
         self.backup_dir.mkdir(parents=True, exist_ok=True)
         
         # Putanja do database - koristi PathSettings
@@ -35,7 +35,7 @@ class BackupService:
             self.db_path = Path(path_settings.data_dir) / "asycuda.db"
         except:
             # Fallback na defaultnu lokaciju
-            self.db_path = Path.home() / ".asycuda_pro" / "asycuda.db"
+            self.db_path = Path.home() / ".deklarant_pro" / "asycuda.db"
 
     def create_backup(self, backup_path: str = None, 
                       progress_callback: Optional[Callable[[int], None]] = None) -> bool:

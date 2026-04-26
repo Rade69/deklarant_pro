@@ -25,7 +25,7 @@ from core.draft.draft import InvoiceLine
 from services.country_origin_validator import merge_country_origin
 from services.origin_statement_detector import OriginStatementDetector
 
-logger = logging.getLogger("asycuda_pro.tariff_mapping")
+logger = logging.getLogger("deklarant_pro.tariff_mapping")
 
 
 def _norm_tariff(code: str) -> str:

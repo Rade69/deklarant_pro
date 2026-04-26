@@ -55,7 +55,7 @@ def __init__(self, message, draft=None, parent=None, memory_service=None):
 ### 2. `gui/tabs/agent/widgets/chat_panel.py`
 ```python
 # __init__ - inicijalizacija memory service-a
-self._memory_service = ChatMemoryService(project="asycuda_pro")
+self._memory_service = ChatMemoryService(project="deklarant_pro")
 
 # NOVO: _create_memory_status_bar()
 - Prikazuje broj poruka u sesiji

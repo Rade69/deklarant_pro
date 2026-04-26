@@ -15,7 +15,7 @@
 ## Obavezno čitanje prije početka
 
 1. `/home/radovan/.claude/AGENTS.md` — globalni standardi
-2. `/home/radovan/Desktop/asycuda_pro/AGENTS.md` — projektni standardi
+2. `/home/radovan/Desktop/deklarant_pro/AGENTS.md` — projektni standardi
 3. Fajlovi navedeni u sekciji "Fajlovi za čitanje"
 
 ---

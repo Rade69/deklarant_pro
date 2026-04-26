@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class DraftRepository:
     """Repository za upravljanje Draft-ovima u bazi."""
 
-    def __init__(self, db_path: str = "asycuda_pro.db"):
+    def __init__(self, db_path: str = "deklarant_pro.db"):
         """
         Inicijalizuje repository.
 
@@ -237,7 +237,7 @@ class DraftRepository:
 class AttachmentRepository:
     """Repository za upravljanje prilozima."""
 
-    def __init__(self, db_path: str = "asycuda_pro.db"):
+    def __init__(self, db_path: str = "deklarant_pro.db"):
         """Inicijalizuje repository."""
         self.db_path = db_path
 

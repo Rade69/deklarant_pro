@@ -3637,7 +3637,7 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
 
     window = QMainWindow()
-    window.setWindowTitle("Šifrarnici - ASYCUDA Pro")
+    window.setWindowTitle("Šifrarnici - Deklarant Pro")
     window.setGeometry(50, 50, 1400, 900)
 
     # Apply global style

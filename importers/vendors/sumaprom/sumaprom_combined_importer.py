@@ -18,7 +18,7 @@ from typing import List, Tuple, Dict, Any
 from core.draft.draft import InvoiceLine
 from importers.import_result import ImportResult
 
-logger = logging.getLogger("asycuda_pro.import.sumaprom_combined")
+logger = logging.getLogger("deklarant_pro.import.sumaprom_combined")
 
 
 def combine_sumaprom_excel_and_pdf(

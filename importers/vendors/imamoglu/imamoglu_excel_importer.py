@@ -23,7 +23,7 @@ import openpyxl
 from core.draft.draft import InvoiceLine, Party
 from importers.import_result import ImportResult
 
-logger = logging.getLogger("asycuda_pro.import.imamoglu_excel")
+logger = logging.getLogger("deklarant_pro.import.imamoglu_excel")
 
 
 # ─── DETEKCIJA ───────────────────────────────────────────────────────────────

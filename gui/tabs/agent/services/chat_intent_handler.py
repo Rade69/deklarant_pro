@@ -10,7 +10,7 @@ Premješteno iz agent_controller.py radi smanjenja veličine controllera.
 import re
 import logging
 
-logger = logging.getLogger("asycuda_pro.agent.chat_intent")
+logger = logging.getLogger("deklarant_pro.agent.chat_intent")
 
 # Mapa sinonima kolona → (atribut, tab)
 KOLONA_MAP = {

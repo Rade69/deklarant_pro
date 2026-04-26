@@ -18,7 +18,7 @@ from importers.strategy_registry import get_registry
 from importers.exceptions import ImportError as ImportException
 
 
-logger = logging.getLogger("asycuda_pro.import")
+logger = logging.getLogger("deklarant_pro.import")
 
 # SECTION: known_vendor_formats
 # PURPOSE: Guard set koji sprječava da se PDF poznatog vendora tretira kao packing lista

@@ -1,7 +1,7 @@
 # services/import_worker.py
 
 """
-ASYCUDA Pro - Import Worker (Threading)
+Deklarant Pro - Import Worker (Threading)
 Non-blocking import sa progress reporting za PySide6 Qt aplikaciju
 """
 
@@ -13,7 +13,7 @@ from core.draft.draft import InvoiceLine
 from importers import ImportResult
 from services.import_service import get_import_service
 
-logger = logging.getLogger("asycuda_pro.import.worker")
+logger = logging.getLogger("deklarant_pro.import.worker")
 
 
 class ImportWorker(QThread):

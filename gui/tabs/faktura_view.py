@@ -1,5 +1,5 @@
 """
-ASYCUDA Pro - Faktura Tab V2
+Deklarant Pro - Faktura Tab V2
 Complete redesign based on HTML mockup with validation states
 """
 

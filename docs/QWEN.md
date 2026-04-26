@@ -1,11 +1,11 @@
 ## Qwen Added Memories
 - **AGENT TAB COMPLETE IMPLEMENTATION** (2026-03-19): Kreiran potpuno novi Agent Tab sa split-view layoutom. Fajlovi: gui/tabs/agent_tab.py (wrapper), gui/tabs/agent/agent_view.py (split UI), gui/tabs/agent/agent_controller.py (controller), gui/tabs/agent/constants.py, gui/tabs/agent/models/file_item.py, gui/tabs/agent/widgets/*.py (header_bar, upload_area, file_table, results_viewer, document_panel, chat_panel). Key features: QSplitter horizontal (70% dokumenti | 30% chat), tabovi [Agent][Aktivnosti][Pitanja] U CHAT PANELU, welcome message, input field sa send buttonom, activity log, FAQ, inline results viewer, drag & drop upload, file table sa 8 kolona + confidence progress bar (zelena 80%+, žuta 60%+, crvena <60%), debug printovi. Git cleanup: dodat data/xml_deklaracije/ u .gitignore, uklonjeno 1000+ XML test fajlova iz git trackinga. Commiti: 2031e58, 21ddd92, f8458b1.
-- Korisnik radi na ASYCUDA Pro projektu - aplikaciji za carinske deklaracije sa Python/PySide6. Projekat ima 231 test koji pokrivaju core modele, database, XML exporter, šifrarnike, utility funkcije i importere. Testovi su u tests/ direktorijumu i svi prolaze.
+- Korisnik radi na Deklarant Pro projektu - aplikaciji za carinske deklaracije sa Python/PySide6. Projekat ima 231 test koji pokrivaju core modele, database, XML exporter, šifrarnike, utility funkcije i importere. Testovi su u tests/ direktorijumu i svi prolaze.
 - Tab Refactor Pattern - 3-Layer arhitektura: View (UI only), Controller (orchestration), Service (business logic). Base klase: BaseTabView, BaseTabController, BaseTabService. Demo Tab kreiran kao proof of concept. ZaglavljeTab refaktorisan 60% - kritične metode load_from_draft() i save_to_draft() implementirane sa 41 mapiranim poljem. Gap analiza u docs/ZAGLAVLJE_REFACTOR_GAP_ANALYSIS.md.
 - Import System Refactor - Strategy pattern implementiran: PDFImportStrategy, ExcelImportStrategy, XMLImportStrategy. StrategyRegistry za auto-detekciju formata. ImportService pojednostavljen sa 688 na 80 linija (89% redukcija). Base klase: ImportStrategy (abstract), ImportResult. Exception hierarchy: FileNotSupportedError, ParseError, ValidationError. 314 testova passing.
 - Config System - Centralizovana konfiguracija preko config/settings.py: DatabaseSettings, PathSettings, AppSettings. Connection pooling implementiran (max 10 konekcija). Context manager get_db_connection() za auto commit/rollback. Svi hardcoded passwordi uklonjeni, credentials u .env fajlu. scripts/setup_env.py za interaktivni setup.
 - Faza 0 (cleanup): 25 __pycache__ direktorijuma, 191 .pyc/.pyo fajlova, 3 .backup fajla očišćeno. tests/ subdirektorijumi kreirani (unit/, integration/, fixtures/). .env.example kreiran. Faza 1 (config): Commit 2834556. Faza 2 (import refactor): Commit a415b67. Faza 3 Foundation (tab pattern): Commit 109613f.
-- ASYCUDA Pro Refactoring - Master Plan Podjela:
+- Deklarant Pro Refactoring - Master Plan Podjela:
 
 FAZA 1: ZAVRŠENO ✅
 - Phase 0: Repository cleanup (25 __pycache__, 191 .pyc, 3 .backup)
@@ -107,7 +107,7 @@ Testovi:
 - Full suite: 307 passed, 18 skipped
 
 Spreman za commit!
-- ASYCUDA Pro Refactoring - COMPLETE PROGRESS (6 Faza završeno):
+- Deklarant Pro Refactoring - COMPLETE PROGRESS (6 Faza završeno):
 
 FAZA 0: REPOSITORY CLEANUP ✅
 - 25 __pycache__ direktorijuma očišćeno
@@ -186,7 +186,7 @@ PREOSTALO ZA REFAKTOR:
 2. SifarniciTab (~3,900 linija) - PRIORITET #4
 
 CILJ: 12,220 → ~7,000 linija (-43% ukupno)
-- ASYCUDA Pro Refactoring - COMPLETE PROGRESS (7 Faza završeno + 1 u toku):
+- Deklarant Pro Refactoring - COMPLETE PROGRESS (7 Faza završeno + 1 u toku):
 
 FAZA 0: REPOSITORY CLEANUP ✅
 - 25 __pycache__, 191 .pyc, 3 .backup očišćeno
@@ -261,7 +261,7 @@ PREOSTALO:
 3. Final integration & testing
 
 CILJ: 12,220 → ~7,000 linija (-43% ukupno)
-- ASYCUDA Pro Refactoring - COMPLETE PROGRESS (8 Faza završeno):
+- Deklarant Pro Refactoring - COMPLETE PROGRESS (8 Faza završeno):
 
 FAZA 0: REPOSITORY CLEANUP ✅
 - Commit: 2834556
@@ -310,7 +310,7 @@ PREOSTALO:
 2. Final integration & testing
 
 CILJ: 12,220 → ~7,000 linija (-43% ukupno)
-- ASYCUDA Pro Refactoring - AŽURIRANO STANJE:
+- Deklarant Pro Refactoring - AŽURIRANO STANJE:
 
 FAZE 0-2: ✅ KOMPLETNE
 FAZA 3.1: ✅ ZaglavljeTab 100% refaktorisan (radi ispravno)
@@ -334,7 +334,7 @@ LEKCIJE:
 1. Uvijek testirati GUI prije commit-a
 2. Ne mijenjati funkcionalne tabove bez opsežnog QA
 3. Service layer je safe za refactor (nema GUI zavisnosti)
-- ASYCUDA Pro Refactoring - FINALNO STANJE:
+- Deklarant Pro Refactoring - FINALNO STANJE:
 
 FAZE 0-2: ✅ KOMPLETNE
 FAZA 3.1: ✅ ZaglavljeTab 100% refaktorisan (radi ispravno)
@@ -359,7 +359,7 @@ LEKCIJE:
 2. ❌ GUI refactor zahtijeva opsežno QA prije deploy-a
 3. ✅ Safe approach: Extract Service, ostavi GUI netaknutim
 4. ✅ Uvijek imati backup i mogućnost revert-a
-- ASYCUDA Pro Refactoring - FINAL STATUS (SAFE APPROACH):
+- Deklarant Pro Refactoring - FINAL STATUS (SAFE APPROACH):
 
 FAZE 0-2: ✅ KOMPLETNE
 FAZA 3.1: ✅ ZaglavljeTab 100% refaktorisan (3-layer, radi ispravno)

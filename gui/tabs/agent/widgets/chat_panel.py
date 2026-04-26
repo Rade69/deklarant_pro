@@ -39,7 +39,7 @@ class ChatPanel(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         # ENHANCED: Inicijalizuj memory service
-        self._memory_service = ChatMemoryService(project="asycuda_pro")
+        self._memory_service = ChatMemoryService(project="deklarant_pro")
         self._setup_ui()
 
     def _setup_ui(self):

@@ -1,6 +1,6 @@
 # importers/master_frigo_importer.py
 """
-ASYCUDA Pro - Master Frigo Specialized Importer
+Deklarant Pro - Master Frigo Specialized Importer
 Specijalizovani parser za Master Frigo fakture
 """
 
@@ -20,7 +20,7 @@ from core.draft.draft import InvoiceLine, Party
 from importers.invoice_line_utils import parse_eu_number
 from utils.country_normalizer import normalize_country_name
 
-logger = logging.getLogger("asycuda_pro.import.master_frigo")
+logger = logging.getLogger("deklarant_pro.import.master_frigo")
 
 
 @dataclass

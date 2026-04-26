@@ -17,7 +17,7 @@ from gui.tabs.agent_tab import AgentTab
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("ASYCUDA Pro")
+        self.setWindowTitle("Deklarant Pro")
 
         # Postavi podrazumevanu veličinu (80% Full HD 1920x1080)
         self.resize(1536, 823)

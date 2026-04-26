@@ -1,6 +1,6 @@
 # importers/blagic_importer.py
 """
-ASYCUDA Pro - Blagić/Loren Specialized Importer
+Deklarant Pro - Blagić/Loren Specialized Importer
 Specijalizovani parser za Blagić/Loren fakture (PDF + XLSX)
 Ova verzija je "MASTER" i služi za opšte formate Blagić faktura.
 """
@@ -20,7 +20,7 @@ import pdfplumber
 from core.draft.draft import InvoiceLine, Party
 from utils.country_normalizer import normalize_country_name
 
-logger = logging.getLogger("asycuda_pro.import.blagic")
+logger = logging.getLogger("deklarant_pro.import.blagic")
 
 
 _INVOICE_ID_RE = re.compile(r"(\d+VP-\d{4})", re.IGNORECASE)

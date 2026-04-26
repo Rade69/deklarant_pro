@@ -1,12 +1,12 @@
-# ASYCUDA Pro - Admin Tab User Guide
+# Deklarant Pro - Admin Tab User Guide
 
 ## 📋 Uvod
 
-Admin Tab je centralni panel za administraciju ASYCUDA Pro aplikacije. Omogućava upravljanje plugin-ovima, konfiguraciju, backup baze podataka, pregled logova i pristup sistemskim informacijama.
+Admin Tab je centralni panel za administraciju Deklarant Pro aplikacije. Omogućava upravljanje plugin-ovima, konfiguraciju, backup baze podataka, pregled logova i pristup sistemskim informacijama.
 
 ### Kako pristupiti Admin Tab-u
 
-1. Pokrenite ASYCUDA Pro aplikaciju
+1. Pokrenite Deklarant Pro aplikaciju
 2. Kliknite na posljednji tab **"⚙️ Admin"** u glavnom prozoru
 
 ---
@@ -66,7 +66,7 @@ Settings panel omogućava konfiguraciju aplikacije.
 
 1. Promijenite željene opcije
 2. Kliknite na **"Sačuvaj Settings"**
-3. Settings se čuvaju u `~/.asycuda_pro/settings.json`
+3. Settings se čuvaju u `~/.deklarant_pro/settings.json`
 
 ---
 
@@ -159,7 +159,7 @@ Informacije o sistemu i aplikaciji.
 
 ### Prikazane informacije
 
-- **Aplikacija:** Ime i verzija ASYCUDA Pro
+- **Aplikacija:** Ime i verzija Deklarant Pro
 - **Python:** Verzija Python interpretera
 - **Platforma:** Operativni sistem
 - **Arhitektura:** Hardverska arhitektura
@@ -188,9 +188,9 @@ Informacije o sistemu i aplikaciji.
 
 | Fajl/Direktorij | Opis | Lokacija |
 |-----------------|------|----------|
-| `settings.json` | Korisnički settings | `~/.asycuda_pro/settings.json` |
-| `backups/` | Backup-ovi baze | `~/.asycuda_pro/backups/` |
-| `logs/` | Log fajlovi | `~/.asycuda_pro/logs/` |
+| `settings.json` | Korisnički settings | `~/.deklarant_pro/settings.json` |
+| `backups/` | Backup-ovi baze | `~/.deklarant_pro/backups/` |
+| `logs/` | Log fajlovi | `~/.deklarant_pro/logs/` |
 | `parsers/` | Instalirani parseri | `plugins/parsers/` |
 
 ---

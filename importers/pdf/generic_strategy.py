@@ -14,7 +14,7 @@ from importers.generic_pdf_importer import parse_generic_pdf
 
 from .base import PDFParseStrategy
 
-logger = logging.getLogger("asycuda_pro.import.pdf.generic")
+logger = logging.getLogger("deklarant_pro.import.pdf.generic")
 
 
 class GenericPDFStrategy(PDFParseStrategy):

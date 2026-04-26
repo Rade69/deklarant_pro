@@ -1,4 +1,4 @@
-# Analiza aplikacije ASYCUDA Pro Modern - Predlozi za poboljšanje
+# Analiza aplikacije Deklarant Pro Modern - Predlozi za poboljšanje
 
 ## 1. Opšti pregled sistema
 
@@ -23,13 +23,13 @@ Aplikacija je kompletan sistem za pripremu carinskih deklaracija sa fokusom na A
 **Trenutno stanje**: 
 - Osnovni mapper sa stub metodama
 - Nema implementaciju za XML mapiranje
-- Nedostaje mapiranje za ASYCUDA Pro
+- Nedostaje mapiranje za Deklarant Pro
 
 **Predlozi**:
 1. Implementirati `map_from_xml()` za ASYCUDA World
-2. Dodati `map_from_asycuda_pro()` za Pro format
+2. Dodati `map_from_deklarant_pro()` za Pro format
 3. Implementirati `map_to_asycuda_xml()` za eksport
-4. Dodati `map_to_asycuda_pro()` za Pro eksport
+4. Dodati `map_to_deklarant_pro()` za Pro eksport
 5. Kreirati zajedničku mapu polja između formata
 
 ### 2.2 Exporters (`exporters/`)
@@ -39,7 +39,7 @@ Aplikacija je kompletan sistem za pripremu carinskih deklaracija sa fokusom na A
 
 **Predlozi**:
 1. Proširiti `asycuda_xml_exporter.py` sa pravim XML generisanjem
-2. Kreirati `asycuda_pro_builder.py` za Pro format
+2. Kreirati `deklarant_pro_builder.py` za Pro format
 3. Dodati validaciju pre eksporta
 4. Implementirati batch export za više deklaracija
 5. Dodati opcije za pretty print vs compact XML
@@ -51,7 +51,7 @@ Aplikacija je kompletan sistem za pripremu carinskih deklaracija sa fokusom na A
 - Ekstrakcija header i item podataka
 
 **Predlozi**:
-1. Dodati parser za ASYCUDA Pro XML
+1. Dodati parser za Deklarant Pro XML
 2. Poboljšati error handling sa specifičnim porukama
 3. Dodati progress bar za velike fajlove
 4. Implementirati caching parsiranih fajlova
@@ -73,10 +73,10 @@ Aplikacija je kompletan sistem za pripremu carinskih deklaracija sa fokusom na A
 
 ## 3. Glavni nedostaci i predlozi za rešavanje
 
-### 3.1 Nedostatak ASYCUDA Pro podrške
+### 3.1 Nedostatak Deklarant Pro podrške
 **Problem**: Aplikacija podržava samo ASYCUDA World format
 **Rešenje**:
-1. Analizirati ASYCUDA Pro XML schema
+1. Analizirati Deklarant Pro XML schema
 2. Kreirati nove parsere i buildere
 3. Implementirati konverziju između formata
 4. Dodati UI opciju za izbor formata
@@ -107,7 +107,7 @@ Aplikacija je kompletan sistem za pripremu carinskih deklaracija sa fokusom na A
 
 ## 4. Predlozi za nove funkcionalnosti
 
-### 4.1 ASYCUDA Pro integracija
+### 4.1 Deklarant Pro integracija
 - Parser za Pro XML format
 - Exporter za Pro XML
 - Konverzija između World i Pro formata
@@ -157,13 +157,13 @@ Aplikacija je kompletan sistem za pripremu carinskih deklaracija sa fokusom na A
 ## 6. Prioritetni zadaci
 
 ### Visok prioritet
-1. Implementirati ASYCUDA Pro XML parser
+1. Implementirati Deklarant Pro XML parser
 2. Dodati unit testove za kritične servise
 3. Poboljšati error handling i logging
 4. Optimizovati database upite
 
 ### Srednji prioritet
-1. Kreirati ASYCUDA Pro exporter
+1. Kreirati Deklarant Pro exporter
 2. Implementirati centralni validation service
 3. Dodati audit logging
 4. Poboljšati GUI performance
@@ -177,7 +177,7 @@ Aplikacija je kompletan sistem za pripremu carinskih deklaracija sa fokusom na A
 ## 7. Preporuke za implementaciju
 
 ### 7.1 Faze razvoja
-**Faza 1** (1-2 meseca): ASYCUDA Pro podrška i osnovni testovi
+**Faza 1** (1-2 meseca): Deklarant Pro podrška i osnovni testovi
 **Faza 2** (2-3 meseca): Performance optimizacija i advanced features
 **Faza 3** (3-4 meseca): Integration i enterprise features
 
@@ -197,14 +197,14 @@ Aplikacija je kompletan sistem za pripremu carinskih deklaracija sa fokusom na A
 
 Aplikacija ima solidnu osnovu sa dobrim separation of concerns, ali nedostaju ključne funkcionalnosti za produkcijsko korišćenje. Najvažniji nedostaci su:
 
-1. **ASYCUDA Pro podrška** - kritično za korisnike koji koriste Pro sistem
+1. **Deklarant Pro podrška** - kritično za korisnike koji koriste Pro sistem
 2. **Performance optimizacija** - potrebno za velike deklaracije
 3. **Comprehensive testing** - neophodno za stabilnost
 4. **Enterprise features** - za timsko korišćenje
 
-Preporučuje se fokus na ASYCUDA Pro integraciju kao prvi korak, praćen performance optimizacijama i poboljšanjem test pokrivenosti.
+Preporučuje se fokus na Deklarant Pro integraciju kao prvi korak, praćen performance optimizacijama i poboljšanjem test pokrivenosti.
 
 ---
 *Analiza urađena: 2026-03-27*
 *Status: Trenutna verzija 1.0 (ASYCUDA World fokus)*
-*Predložene promene: ASYCUDA Pro podrška + enterprise features*
+*Predložene promene: Deklarant Pro podrška + enterprise features*

@@ -24,7 +24,7 @@ from core.draft.draft import InvoiceLine
 from importers.import_result import ImportResult
 from utils.country_normalizer import normalize_country_name
 
-logger = logging.getLogger("asycuda_pro.import.sumaprom_pdf")
+logger = logging.getLogger("deklarant_pro.import.sumaprom_pdf")
 
 # Tokeni koje OCR generiše za JM/kolicinu — treba ih preskočiti
 _JM_NOISE = re.compile(

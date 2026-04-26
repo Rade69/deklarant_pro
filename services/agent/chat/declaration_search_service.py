@@ -20,7 +20,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import List, Dict, Optional
 
-logger = logging.getLogger("asycuda_pro.agent.declaration_search")
+logger = logging.getLogger("deklarant_pro.agent.declaration_search")
 
 # Putanja do XML fajlova
 XML_DIR = Path(__file__).parent.parent.parent / "data" / "knowledge_base" / "NOVA ASIKUDA"

@@ -7,7 +7,7 @@
 ## PROBLEM
 
 **Scenarij:**
-- ASYCUDA Pro instalirana kod klijenta (Windows .exe)
+- Deklarant Pro instalirana kod klijenta (Windows .exe)
 - Nova firma sa specifičnim formatom fakture
 - Treba dodati parser za tu fakturu
 - **CILJ:** Update bez reinstalacije cijele aplikacije!
@@ -22,10 +22,10 @@
 
 ### Koncept
 ```
-asycuda_pro.exe (instalirana aplikacija)
+deklarant_pro.exe (instalirana aplikacija)
     ↓
-C:/Program Files/ASYCUDA Pro/
-    ├── asycuda_pro.exe
+C:/Program Files/Deklarant Pro/
+    ├── deklarant_pro.exe
     ├── plugins/                    ← Plugin folder
     │   ├── parsers/                ← Parseri
     │   │   ├── firma_abc_parser.py
@@ -639,14 +639,14 @@ exe = EXE(
 **Opcija 1: Manualno**
 ```
 1. Dobij novi parser fajl: nova_firma_parser.py
-2. Kopiraj u: C:\Program Files\ASYCUDA Pro\plugins\parsers\
+2. Kopiraj u: C:\Program Files\Deklarant Pro\plugins\parsers\
 3. Restart aplikacije
 4. Done!
 ```
 
 **Opcija 2: Kroz GUI**
 ```
-1. Otvori ASYCUDA Pro
+1. Otvori Deklarant Pro
 2. Admin → Plugin Manager
 3. Klikni "Instaliraj Novi Parser"
 4. Odaberi .py fajl
@@ -1050,12 +1050,12 @@ print(result)
 
 **Opcija A - Manualno:**
 - Email `maxi_parser.py` klijentu
-- Instrukcije: Kopiraj u `C:\Program Files\ASYCUDA Pro\plugins\parsers\`
+- Instrukcije: Kopiraj u `C:\Program Files\Deklarant Pro\plugins\parsers\`
 - Restart aplikacije
 
 **Opcija B - Kroz GUI:**
 - Email `maxi_parser.py` klijentu
-- Otvori ASYCUDA Pro → Admin → Plugin Manager
+- Otvori Deklarant Pro → Admin → Plugin Manager
 - Klikni "Instaliraj Novi Parser"
 - Odaberi `maxi_parser.py`
 - Restart
@@ -1068,7 +1068,7 @@ print(result)
 ### 5. Verifikacija
 
 ```
-✅ Otvori ASYCUDA Pro
+✅ Otvori Deklarant Pro
 ✅ Import faktura → Odaberi Maxi Excel fajl
 ✅ Provjeri da se podaci automatski popune
 ✅ Done!

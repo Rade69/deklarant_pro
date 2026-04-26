@@ -13,7 +13,7 @@ from pathlib import Path
 
 from PySide6.QtWidgets import QFileDialog
 
-logger = logging.getLogger("asycuda_pro.agent.xml_workflow")
+logger = logging.getLogger("deklarant_pro.agent.xml_workflow")
 
 
 class XmlWorkflowService:

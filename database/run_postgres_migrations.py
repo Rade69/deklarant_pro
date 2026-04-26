@@ -19,7 +19,7 @@ from database.db import get_db_connection
 def run_migrations():
     """Pokreni PostgreSQL migracije."""
     
-    print("📦 ASYCUDA Pro - PostgreSQL Migracije")
+    print("📦 Deklarant Pro - PostgreSQL Migracije")
     print("📍 Baza: catalogs shema")
     print("-" * 60)
     

@@ -7,7 +7,7 @@ Kad korisnik unese brojčani prefiks (2+ cifre) u polje Pretraga,
 ova komponenta prikazuje cijelo poglavlje sa svim nasljednicima
 u tabelarnom prikazu sa indentacijom i QtAwesome ikonicama.
 
-Izvor podataka: database/asycuda_sistem.db → tarifa_2026
+Izvor podataka: database/deklarant_sistem.db → tarifa_2026
 """
 
 import os
@@ -31,7 +31,7 @@ except ImportError:
 # ============================================================
 
 _DB_PATH = os.path.normpath(
-    os.path.join(os.path.dirname(__file__), '..', '..', '..', 'database', 'asycuda_sistem.db')
+    os.path.join(os.path.dirname(__file__), '..', '..', '..', 'database', 'deklarant_sistem.db')
 )
 
 _NIVO_EMOJI = {

@@ -42,13 +42,13 @@ gsettings set org.gnome.desktop.interface monospace-font-name 'JetBrainsMono Ner
 
 2. **Pozovi `get_project_overview`**
    ```
-   project: "asycuda_pro"
+   project: "deklarant_pro"
    ```
    - Daje pregled: 13 cells, 4 scene (architecture, bugs, testing, performance)
 
 3. **Koristi `query_memory` za specifične teme**
    ```
-   project: "asycuda_pro"
+   project: "deklarant_pro"
    query: "[tema koju korisnik pita]"
    ```
 
@@ -83,10 +83,10 @@ gsettings set org.gnome.desktop.interface monospace-font-name 'JetBrainsMono Ner
 .venv/bin/pip list | grep mcp  # Treba: mcp 1.26.0
 
 # Provjeri database
-ls -la ~/.agent_memory_system/databases/asycuda_pro.db
+ls -la ~/.agent_memory_system/databases/deklarant_pro.db
 
 # Provjeri broj cells
-sqlite3 ~/.agent_memory_system/databases/asycuda_pro.db "SELECT COUNT(*) FROM mem_cells;"
+sqlite3 ~/.agent_memory_system/databases/deklarant_pro.db "SELECT COUNT(*) FROM mem_cells;"
 # Treba: 13
 ```
 

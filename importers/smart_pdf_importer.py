@@ -15,7 +15,7 @@ from pathlib import Path
 from importers.import_result import ImportResult
 from importers.generic_pdf_importer import parse_generic_pdf
 
-logger = logging.getLogger("asycuda_pro.import.smart_pdf")
+logger = logging.getLogger("deklarant_pro.import.smart_pdf")
 
 
 # SECTION: pdf_parse_pipeline

@@ -1,4 +1,4 @@
-# Plan integracije PageIndex u postojeći Agent tab (`asycuda_pro`)
+# Plan integracije PageIndex u postojeći Agent tab (`deklarant_pro`)
 
 ## 1. Cilj
 
@@ -11,7 +11,7 @@ U tvojoj aplikaciji to znači:
 - postojeći RAG ostaje
 - PageIndex se dodaje kao **drugi način pretrage i navigacije kroz dokumente**
 
-Najzdraviji model za `asycuda_pro` je:
+Najzdraviji model za `deklarant_pro` je:
 
 - **DB / klasični RAG** za pitanja nad bazom, istorijom i manje strukturisanim izvorima
 - **PageIndex** za pravilnike, zakone, uputstva, višestranične PDF priloge i druge dokumente sa jasnom hijerarhijom
@@ -205,7 +205,7 @@ Vraća:
 
 ---
 
-## 6. Glavni use caseovi za `asycuda_pro`
+## 6. Glavni use caseovi za `deklarant_pro`
 
 ### 6.1 Tumačenje propisa i pravilnika
 Najbolji fit za PageIndex.
@@ -354,7 +354,7 @@ To znači:
 
 ## 10. Konačna preporuka
 
-Za `asycuda_pro` je najbolji sljedeći smjer:
+Za `deklarant_pro` je najbolji sljedeći smjer:
 
 1. Zadrži postojeći agent i postojeći RAG.
 2. Dodaj `retrieval_router`.

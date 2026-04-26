@@ -1,5 +1,5 @@
 """
-ASYCUDA Pro Test Suite
+Deklarant Pro Test Suite
 
 Testovi za sve ključne komponente:
 - Core modeli (Draft, InvoiceLine, Naimenovanje)

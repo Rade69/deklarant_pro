@@ -55,7 +55,7 @@ _CODE_NORMALIZE = {
 
 _DB_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "database", "asycuda_sistem.db"
+    "database", "deklarant_sistem.db"
 )
 
 

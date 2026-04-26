@@ -27,7 +27,7 @@ class AnalyticsService:
             path_settings = get_path_settings()
             self.db_path = Path(path_settings.data_dir) / "asycuda.db"
         except:
-            self.db_path = Path.home() / ".asycuda_pro" / "asycuda.db"
+            self.db_path = Path.home() / ".deklarant_pro" / "asycuda.db"
         
         # Mock podaci za demonstraciju (dok se ne doda import_log tabela)
         self.mock_data = self._generate_mock_data()

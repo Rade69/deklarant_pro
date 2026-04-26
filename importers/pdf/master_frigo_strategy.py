@@ -19,7 +19,7 @@ from importers.master_frigo_importer import (
     _read_mapping_xlsx,
 )
 
-logger = logging.getLogger("asycuda_pro.import.pdf.master_frigo")
+logger = logging.getLogger("deklarant_pro.import.pdf.master_frigo")
 
 
 class MasterFrigoStrategy(PDFParseStrategy):

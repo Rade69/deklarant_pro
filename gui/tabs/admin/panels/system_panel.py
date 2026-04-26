@@ -157,7 +157,7 @@ class SystemPanel(QWidget):
         self.lbl_app_name.setFont(QFont("Arial", 13))
         app_layout.addWidget(self.lbl_app_name, 0, 0)
 
-        self.val_app_name = QLabel("ASYCUDA Pro")
+        self.val_app_name = QLabel("Deklarant Pro")
         self.val_app_name.setObjectName("info_value")
         self.val_app_name.setFont(QFont("Arial", 13, QFont.Bold))
         app_layout.addWidget(self.val_app_name, 0, 1)
@@ -417,7 +417,7 @@ Generated: {info.get('generated_at', 'N/A')}
             return json.dumps(info, indent=2, ensure_ascii=False)
         
         elif format == 'markdown':
-            return f"""# ASYCUDA Pro - System Info
+            return f"""# Deklarant Pro - System Info
 
 ## Application
 - **Name:** {info.get('app_name', 'N/A')}
@@ -437,7 +437,7 @@ Generated: {info.get('generated_at', 'N/A')}
 Generated: {info.get('generated_at', 'N/A')}
 """
         else:  # plain text
-            return f"""ASYCUDA Pro - System Info
+            return f"""Deklarant Pro - System Info
 ========================
 Application: {info.get('app_name', 'N/A')} v{info.get('app_version', 'N/A')}
 Build: {info.get('build_date', 'N/A')}
@@ -516,9 +516,9 @@ Generated: {info.get('generated_at', 'N/A')}
         """About button clicked."""
         QMessageBox.about(
             self,
-            "O ASYCUDA Pro",
+            "O Deklarant Pro",
             """
-            <h2>ASYCUDA Pro</h2>
+            <h2>Deklarant Pro</h2>
             <p><b>Verzija:</b> 2.0.0</p>
             <p><b>Opis:</b> Aplikacija za carinske deklaracije</p>
             <p><b>Tehnologija:</b> Python + PySide6 (Qt6)</p>
@@ -533,7 +533,7 @@ Generated: {info.get('generated_at', 'N/A')}
                 <li>Analytics</li>
             </ul>
             <br>
-            <p>© 2026 ASYCUDA Pro Team</p>
+            <p>© 2026 Deklarant Pro Team</p>
             """
         )
 

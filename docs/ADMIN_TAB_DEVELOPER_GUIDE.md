@@ -1,4 +1,4 @@
-# ASYCUDA Pro - Admin Tab Developer Documentation
+# Deklarant Pro - Admin Tab Developer Documentation
 
 ## 📋 Pregled
 
@@ -223,7 +223,7 @@ class SettingsService:
 
 **Napomene:**
 - Settings se čuvaju u JSON formatu
-- Lokacija: `~/.asycuda_pro/settings.json`
+- Lokacija: `~/.deklarant_pro/settings.json`
 - Default vrijednosti su definisane u `_get_default_settings()`
 
 ### BackupService
@@ -238,7 +238,7 @@ class BackupService:
 
 **Napomene:**
 - Koristi `shutil.copy2()` za kopiranje database fajla
-- Backup-ovi se čuvaju u `~/.asycuda_pro/backups/`
+- Backup-ovi se čuvaju u `~/.deklarant_pro/backups/`
 - Automatsko generisanje timestamp-a za backup fajlove
 
 ### LogService
@@ -251,7 +251,7 @@ class LogService:
 ```
 
 **Napomene:**
-- Logovi se čitaju iz `~/.asycuda_pro/logs/asycuda.log`
+- Logovi se čitaju iz `~/.deklarant_pro/logs/asycuda.log`
 - Format: `YYYY-MM-DD HH:MM:SS - LEVEL - Message`
 
 ### AnalyticsService
@@ -317,7 +317,7 @@ class AnalyticsService:
 
 ```python
 import logging
-logger = logging.getLogger('asycuda_pro.admin')
+logger = logging.getLogger('deklarant_pro.admin')
 
 logger.info("Admin tab initialized")
 logger.debug("Plugin loaded: %s", plugin_name)
@@ -627,7 +627,7 @@ import pdb; pdb.set_trace()
 pytest tests/admin/test_my_service.py -v -s
 
 # 5. Check logs
-tail -f ~/.asycuda_pro/logs/asycuda.log
+tail -f ~/.deklarant_pro/logs/asycuda.log
 ```
 
 ### 3. Testing workflow
@@ -761,4 +761,4 @@ def filter_logs(
 
 **Verzija dokumentacije:** 1.0  
 **Datum:** Mart 2026  
-**Autor:** ASYCUDA Pro Development Team
+**Autor:** Deklarant Pro Development Team

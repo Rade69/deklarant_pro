@@ -127,7 +127,7 @@ Implementiraj kompletnu AdminTab klasu koja:
 
 ```python
 """
-Admin Tab - Central admin panel for ASYCUDA Pro.
+Admin Tab - Central admin panel for Deklarant Pro.
 
 Ovaj tab pruža pristup svim admin funkcionalnostima:
 - Plugin Manager
@@ -931,7 +931,7 @@ class AdminService:
         from pathlib import Path
         
         return {
-            'app_name': 'ASYCUDA Pro',
+            'app_name': 'Deklarant Pro',
             'app_version': '2.0.0',  # TODO: Load from config
             'python_version': sys.version,
             'platform': platform.platform(),
@@ -1640,7 +1640,7 @@ Kreirati dokumentaciju:
 **USER GUIDE STRUKTURA:**
 
 ```markdown
-# ASYCUDA Pro - Admin Tab User Guide
+# Deklarant Pro - Admin Tab User Guide
 
 ## Uvod
 Admin Tab pruža pristup svim admin funkcionalnostima...

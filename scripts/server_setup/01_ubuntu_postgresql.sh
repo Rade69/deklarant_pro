@@ -1,13 +1,13 @@
 #!/bin/bash
 # ============================================================
-# ASYCUDA Pro — Ubuntu Server: Instalacija PostgreSQL-a
+# Deklarant Pro — Ubuntu Server: Instalacija PostgreSQL-a
 # Pokrenuti kao root ili sa sudo na Ubuntu Server laoptopu
 # ============================================================
 
 set -e  # Zaustavi na prvoj grešci
 
 echo "===================================================="
-echo "  ASYCUDA Pro — PostgreSQL Server Setup"
+echo "  Deklarant Pro — PostgreSQL Server Setup"
 echo "===================================================="
 
 # 1. Ažuriranje sistema i instalacija PostgreSQL
@@ -29,7 +29,7 @@ sudo -u postgres psql -c "\password postgres"
 
 # 4. Kreiranje baze i korisnika za aplikaciju
 echo ""
-echo ">>> Kreiranje baze 'asycuda_pro' i korisnika 'asycuda_app'..."
+echo ">>> Kreiranje baze 'deklarant_pro' i korisnika 'asycuda_app'..."
 sudo -u postgres psql -f "$(dirname "$0")/02_create_db_user.sql"
 
 # 5. Konfiguracija mrežnog pristupa
@@ -45,8 +45,8 @@ echo "    listen_addresses = '*' postavljeno."
 
 # Dozvoli konekcije sa LAN-a (192.168.x.x)
 echo "" >> "$PG_HBA"
-echo "# ASYCUDA Pro — Windows klijenti na LAN-u" >> "$PG_HBA"
-echo "host    asycuda_pro    asycuda_app    192.168.0.0/16    scram-sha-256" >> "$PG_HBA"
+echo "# Deklarant Pro — Windows klijenti na LAN-u" >> "$PG_HBA"
+echo "host    deklarant_pro    asycuda_app    192.168.0.0/16    scram-sha-256" >> "$PG_HBA"
 echo "    pg_hba.conf ažuriran za LAN pristup."
 
 # 6. Restart PostgreSQL da primijeni promjene
@@ -70,7 +70,7 @@ echo "  Setup završen!"
 echo ""
 echo "  Sljedeći korak:"
 echo "  1. Na ovom serveru pokreni:"
-echo "     cd /putanja/do/asycuda_pro"
+echo "     cd /putanja/do/deklarant_pro"
 echo "     bash scripts/server_setup/03_restore_db.sh"
 echo ""
 echo "  2. IP adresa ovog servera:"

@@ -1,5 +1,5 @@
 """
-ASYCUDA Pro - Custom Widgets
+Deklarant Pro - Custom Widgets
 Smart buttons and styled components
 """
 

@@ -15,7 +15,7 @@ import pdfplumber
 from core.draft.draft import InvoiceLine, Party
 from importers.import_result import ImportResult
 
-logger = logging.getLogger("asycuda_pro.import.blagic_loren_pdf")
+logger = logging.getLogger("deklarant_pro.import.blagic_loren_pdf")
 
 
 def parse_blagic_loren_pdf(pdf_path: str) -> ImportResult:

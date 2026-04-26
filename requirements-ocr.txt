@@ -1,5 +1,5 @@
 # ============================================================
-# ASYCUDA Pro - OCR Dodatne Zavisnosti (Opciono)
+# Deklarant Pro - OCR Dodatne Zavisnosti (Opciono)
 # ============================================================
 #
 # Ove biblioteke su potrebne samo ako želite OCR podršku

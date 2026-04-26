@@ -1,4 +1,4 @@
-# 🎨 Nerd Font Instalacija - ASYCUDA Pro
+# 🎨 Nerd Font Instalacija - Deklarant Pro
 
 **Datum:** 2026-03-22  
 **Status:** ✅ Završeno
@@ -130,9 +130,9 @@ Preporučene veličine:
 
 ---
 
-## 🎯 Preporuke za ASYCUDA Pro
+## 🎯 Preporuke za Deklarant Pro
 
-Za najbolje iskustvo sa ASYCUDA Pro projektom:
+Za najbolje iskustvo sa Deklarant Pro projektom:
 
 1. **Terminal Font:** JetBrainsMono Nerd Font 11
 2. **VSCode Font:** JetBrainsMono Nerd Font 11

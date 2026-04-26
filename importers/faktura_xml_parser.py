@@ -1,6 +1,6 @@
 # importers/faktura_xml_parser.py
 """
-ASYCUDA Pro - Univerzalni Faktura XML Parser
+Deklarant Pro - Univerzalni Faktura XML Parser
 
 Parsira bilo koji XML sa strukturom <Faktura>/<Stavke>.
 Radi sa Pekabesko, Medicopharm, Blagić, SumaProm, i bilo kojim drugim
@@ -21,7 +21,7 @@ from typing import Sequence
 from core.draft.draft import InvoiceLine, Party
 from importers.import_result import ImportResult
 
-logger = logging.getLogger("asycuda_pro.import.faktura_xml")
+logger = logging.getLogger("deklarant_pro.import.faktura_xml")
 
 # ── Mapping: koncept → mogući XML tagovi (redoslijed prioriteta) ──
 

@@ -1,6 +1,6 @@
-# ASYCUDA Pro Test Suite
+# Deklarant Pro Test Suite
 
-Sveobuhvatni testovi za ASYCUDA Pro aplikaciju.
+Sveobuhvatni testovi za Deklarant Pro aplikaciju.
 
 ## Rezultati
 
@@ -26,7 +26,7 @@ tests/
 
 ### Svi testovi
 ```bash
-cd /home/radovan/Desktop/PythonProjects/asycuda_pro
+cd /home/radovan/Desktop/PythonProjects/deklarant_pro
 python -m pytest tests/ -v
 ```
 

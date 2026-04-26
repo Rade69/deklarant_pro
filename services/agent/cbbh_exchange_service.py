@@ -14,7 +14,7 @@ import urllib.request
 from datetime import date
 from typing import Optional
 
-logger = logging.getLogger("asycuda_pro.cbbh_exchange")
+logger = logging.getLogger("deklarant_pro.cbbh_exchange")
 
 CBBH_API_URL = "https://www.cbbh.ba/CurrencyExchange/GetJson"
 EUR_FIXED_RATE = 1.95583

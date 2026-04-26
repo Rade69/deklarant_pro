@@ -8,7 +8,7 @@ Koristi extract_words() pristup (isti kao import_tarifa.py):
   - Kolona se odredjuje po x koordinati (kalibracija iz analize PDFa)
 
 Pokretanje:
-    cd /home/radovan/Desktop/asycuda_pro
+    cd /home/radovan/Desktop/deklarant_pro
     .venv/bin/python3 database/import_tariff_controls.py [--dry-run] [--csv]
 """
 

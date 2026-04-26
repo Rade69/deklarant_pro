@@ -1,5 +1,5 @@
 """
-ASYCUDA Pro - Smart (Assist) Buttons
+Deklarant Pro - Smart (Assist) Buttons
 Automation helpers that make the app a TOOL, not just a form
 """
 

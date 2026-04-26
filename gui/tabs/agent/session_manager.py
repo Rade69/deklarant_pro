@@ -22,7 +22,7 @@ from typing import Optional, Dict, Any
 
 from database.db import get_db_connection
 
-logger = logging.getLogger("asycuda_pro.session_manager")
+logger = logging.getLogger("deklarant_pro.session_manager")
 
 _CRITICAL_STATES = {'analyzing', 'applying', 'failed'}
 

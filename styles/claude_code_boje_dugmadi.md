@@ -1,7 +1,7 @@
 # Zadatak: Implementacija nove palete boja za dugmad
 
 ## Kontekst
-Radi se o PySide6 desktop aplikaciji (ASYCUDA Pro) za carinsku deklaraciju.
+Radi se o PySide6 desktop aplikaciji (Deklarant Pro) za carinsku deklaraciju.
 Aplikacija ima višestruke toolbar-e sa dugmadima grupisanim po funkciji.
 Cilj je zamijeniti trenutne previše zasićene boje sa muted profesionalnom paletom
 koja ne zamara oči pri dugotrajnom radu.
@@ -54,7 +54,7 @@ Kreiraj ili ažuriraj fajl `styles/button_styles.qss` (ili gdje se trenutno nala
 
 ```css
 /* ============================================
-   ASYCUDA Pro - Button Color System
+   Deklarant Pro - Button Color System
    Muted Professional Palette v2.0
    ============================================ */
 

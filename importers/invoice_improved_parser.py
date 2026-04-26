@@ -15,7 +15,7 @@ from typing import List
 from core.draft.draft import InvoiceLine, Party
 from importers.import_result import ImportResult
 
-logger = logging.getLogger("asycuda_pro.import.invoice_improved")
+logger = logging.getLogger("deklarant_pro.import.invoice_improved")
 
 
 def parse_invoice_improved(pdf_path: str) -> ImportResult:

@@ -384,6 +384,6 @@ class NaimenovanjaService:
     def _log_operation(self, operation: str, success: bool, count: int = 0):
         """Logging helper."""
         import logging
-        logger = logging.getLogger("asycuda_pro.services.naimenovanja")
+        logger = logging.getLogger("deklarant_pro.services.naimenovanja")
         status = "✅" if success else "❌"
         logger.info(f"{status} {operation}: {count} items")

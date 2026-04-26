@@ -27,7 +27,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Optional
 
-logger = logging.getLogger("asycuda_pro.inspection")
+logger = logging.getLogger("deklarant_pro.inspection")
 
 # Mapiranje internih ključeva na čitljive nazive
 INSPECTION_LABELS: dict[str, str] = {

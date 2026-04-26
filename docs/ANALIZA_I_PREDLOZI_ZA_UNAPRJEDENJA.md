@@ -1,4 +1,4 @@
-# ASYCUDA Pro - Kompletna Analiza i Predlozi za Unaprijedenja
+# Deklarant Pro - Kompletna Analiza i Predlozi za Unaprijedenja
 
 ## 📊 Trenutno Stanje Aplikacije
 
@@ -111,7 +111,7 @@
 ## 🔧 Tehnička Arhitektura
 
 ```
-ASYCUDA Pro Enhanced Stack:
+Deklarant Pro Enhanced Stack:
 ┌─────────────────────────────┐
 │         GUI Layer           │
 ├─────────────────────────────┤
@@ -141,6 +141,6 @@ Sve promjene su **backward compatible** i neće narušiti postojeći GUI ili fun
 
 ---
 **Datum:** Mart 2026  
-**Autor:** ASYCUDA Pro Development Team  
+**Autor:** Deklarant Pro Development Team  
 **Status:** Predlozi za implementaciju  
 **Verzija:** 1.0

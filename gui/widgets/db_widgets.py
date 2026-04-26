@@ -1,7 +1,7 @@
 import logging
 logger = logging.getLogger(__name__)
 """
-Database-integrated widgets for ASYCUDA Pro GUI.
+Database-integrated widgets for Deklarant Pro GUI.
 
 Provides autocomplete and database lookup functionality for:
 - Tariff codes (zvanicna_tarifa)

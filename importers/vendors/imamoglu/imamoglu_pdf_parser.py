@@ -15,7 +15,7 @@ import pdfplumber
 from core.draft.draft import InvoiceLine, Party
 from importers.import_result import ImportResult
 
-logger = logging.getLogger("asycuda_pro.import.imamoglu_pdf")
+logger = logging.getLogger("deklarant_pro.import.imamoglu_pdf")
 
 
 def parse_imamoglu_pdf(pdf_path: str) -> ImportResult:

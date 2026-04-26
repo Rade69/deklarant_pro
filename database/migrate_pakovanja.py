@@ -8,13 +8,13 @@ import psycopg2
 PG_CONFIG = {
     "host": "localhost",
     "port": 5432,
-    "dbname": "asycuda_pro",
+    "dbname": "deklarant_pro",
     "user": "postgres",
     "password": "!sofija#22$jelena%25&"
 }
 
 # SQLite path
-SQLITE_DB = "/home/radovan/Desktop/PythonProjects/asycuda_pro/database/asycuda_sistem.db"
+SQLITE_DB = "/home/radovan/Desktop/PythonProjects/deklarant_pro/database/deklarant_sistem.db"
 
 
 def migrate_pakovanja():

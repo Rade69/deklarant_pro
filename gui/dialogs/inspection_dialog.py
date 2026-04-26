@@ -43,7 +43,7 @@ from services.inspection_service import (
     get_inspection_service,
 )
 
-logger = logging.getLogger("asycuda_pro.inspection_dialog")
+logger = logging.getLogger("deklarant_pro.inspection_dialog")
 
 
 class InspectionDialog(QDialog):

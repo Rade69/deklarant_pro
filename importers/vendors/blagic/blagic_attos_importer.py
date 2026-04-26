@@ -26,7 +26,7 @@ from importers.import_result import ImportResult
 from importers.invoice_line_utils import KNOWN_JM, parse_eu_number, parse_invoice_tail, parse_packing_tail
 from utils.country_normalizer import normalize_country_name
 
-logger = logging.getLogger("asycuda_pro.import.blagic_attos")
+logger = logging.getLogger("deklarant_pro.import.blagic_attos")
 
 
 def detect_blagic_attos_pdf(filepath: str) -> bool:
@@ -645,7 +645,7 @@ def parse_blagic_attos_with_auto_combine(invoice_pdf_path: str) -> ImportResult:
 
 if __name__ == "__main__":
     # Test with sample file
-    test_invoice = "/home/radovan/Desktop/PythonProjects/asycuda_pro/najavauvoza/blagic-attos/Faktura 3940 Blagić.pdf"
+    test_invoice = "/home/radovan/Desktop/PythonProjects/deklarant_pro/najavauvoza/blagic-attos/Faktura 3940 Blagić.pdf"
 
     if os.path.exists(test_invoice):
         # Test detection

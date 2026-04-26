@@ -25,7 +25,7 @@ from core.draft.draft import InvoiceLine, Party
 from importers.import_result import ImportResult
 from utils.country_normalizer import normalize_country_name
 
-logger = logging.getLogger("asycuda_pro.import.sumaprom")
+logger = logging.getLogger("deklarant_pro.import.sumaprom")
 
 
 def detect_sumaprom_excel(filepath: str) -> bool:
@@ -623,7 +623,7 @@ if __name__ == "__main__":
     from pathlib import Path
 
     # Test with sample file
-    test_file = "/home/radovan/Desktop/asycuda_pro/najavauvoza/suma/"
+    test_file = "/home/radovan/Desktop/deklarant_pro/najavauvoza/suma/"
 
     if os.path.exists(test_file):
         files = [f for f in os.listdir(test_file) if f.endswith(('.xls', '.xlsx'))]

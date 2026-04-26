@@ -1,7 +1,7 @@
-# AGENTS.md — ASYCUDA Pro projektni standard
+# AGENTS.md — Deklarant Pro projektni standard
 
 **Čitaj zajedno s globalnim `~/.claude/AGENTS.md`.**
-Ovaj dokument je specifičan za projekat **ASYCUDA Pro** — desktop aplikacija za pripremu carinskih deklaracija.
+Ovaj dokument je specifičan za projekat **Deklarant Pro** — desktop aplikacija za pripremu carinskih deklaracija.
 
 ---
 
@@ -12,7 +12,7 @@ Ovaj dokument je specifičan za projekat **ASYCUDA Pro** — desktop aplikacija 
 | Jezik | Python 3.11+ |
 | GUI | PySide6 (Qt 6) |
 | Baza (glavna) | PostgreSQL — `catalogs` schema |
-| Baza (lokalna) | SQLite — `asycuda_sistem.db` |
+| Baza (lokalna) | SQLite — `deklarant_sistem.db` |
 | Tarifa (lookup) | SQLite — `zvanicna_tarifa.db` |
 | PDF parsing | pdfplumber |
 | Excel parsing | openpyxl |
@@ -137,7 +137,7 @@ cur.execute(f"SELECT * FROM catalogs.zvanicna_tarifa WHERE kod = '{kod}'")
 ```
 
 ### SQLite
-- `asycuda_sistem.db` — mappinzi, šifrarnici, lokalni podaci
+- `deklarant_sistem.db` — mappinzi, šifrarnici, lokalni podaci
 - `zvanicna_tarifa.db` — samo čitanje, carinska tarifa 2026
 - Koristiti context manager (`with conn:`) za transakcije
 
@@ -169,7 +169,7 @@ cur.execute(f"SELECT * FROM catalogs.zvanicna_tarifa WHERE kod = '{kod}'")
 ## 11. Struktura projekta
 
 ```
-asycuda_pro/
+deklarant_pro/
 ├── core/draft/          # Modeli: DeclarationDraft, InvoiceLine, NaimenovanjeDraft
 ├── gui/
 │   ├── main_window.py   # QMainWindow, tab setup

@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-logger = logging.getLogger("asycuda_pro.historical_learning")
+logger = logging.getLogger("deklarant_pro.historical_learning")
 
 
 # ---------------------------------------------------------------------------
@@ -73,7 +73,7 @@ class HistoricalLearningServiceSafe:
 
     def __init__(self, xml_folder: Optional[Path] = None):
         try:
-            self.xml_folder = xml_folder or Path("/home/radovan/Desktop/asycuda_pro/docs/NOVA ASIKUDA")
+            self.xml_folder = xml_folder or Path("/home/radovan/Desktop/deklarant_pro/docs/NOVA ASIKUDA")
             self.supplier_profiles: Dict[str, SupplierProfile] = {}
             self._cache_hits = 0
             self._cache_misses = 0
@@ -104,7 +104,7 @@ class HistoricalLearningServiceSafe:
 
         host = db_config.get('DB_HOST', '/var/run/postgresql')
         port = db_config.get('DB_PORT', '5432')
-        dbname = db_config.get('DB_NAME', 'asycuda_pro')
+        dbname = db_config.get('DB_NAME', 'deklarant_pro')
         user = db_config.get('DB_USER', 'radovan')
         password = db_config.get('DB_PASSWORD', 'postgres')
 

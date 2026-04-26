@@ -1,5 +1,5 @@
 """
-ASYCUDA Pro - Classic Style
+Deklarant Pro - Classic Style
 Definicije boja i fontova za klasičan izgled
 """
 

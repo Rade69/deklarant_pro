@@ -17,7 +17,7 @@ from enum import Enum
 from typing import Tuple, Optional
 from dataclasses import dataclass
 
-logger = logging.getLogger("asycuda_pro.country_origin_validator")
+logger = logging.getLogger("deklarant_pro.country_origin_validator")
 
 
 class ConfidenceLevel(Enum):

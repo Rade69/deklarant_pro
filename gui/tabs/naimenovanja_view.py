@@ -1,7 +1,7 @@
 import logging
 logger = logging.getLogger(__name__)
 """
-ASYCUDA Pro - Naimenovanja Tab
+Deklarant Pro - Naimenovanja Tab
 IMPLEMENTACIJA SA POSTOJEĆIM .ui FAJLOM
 
 Ova verzija:
@@ -3603,7 +3603,7 @@ if __name__ == "__main__":
 
     window = NaimenovanjaTab(draft)
     window.resize(1400, 850)  # Reduced height so bottom bar is closer to grid
-    window.setWindowTitle("ASYCUDA Pro - Naimenovanja (Existing .ui Structure)")
+    window.setWindowTitle("Deklarant Pro - Naimenovanja (Existing .ui Structure)")
     window.show()
 
     logger.info("\n✅ Naimenovanja Tab loaded with existing .ui structure!")

@@ -1,7 +1,7 @@
 # 🧠 MCP Universal Memory - Konfiguracija za Sve Agente
 
 **Datum:** 2026-03-22  
-**Projekt:** ASYCUDA Pro  
+**Projekt:** Deklarant Pro  
 **Status:** ✅ Aktivno
 
 ---
@@ -26,7 +26,7 @@
 {
   "mcpServers": {
     "universal-memory": {
-      "command": "/home/radovan/Desktop/asycuda_pro/.venv/bin/python3",
+      "command": "/home/radovan/Desktop/deklarant_pro/.venv/bin/python3",
       "args": ["/home/radovan/.agent_memory_system/memory_mcp_server_universal.py"],
       "env": {
         "PYTHONPATH": "/home/radovan/.agent_memory_system"
@@ -44,14 +44,14 @@
 
 1. **Pozovi `get_project_overview`**
    ```
-   project: "asycuda_pro"
+   project: "deklarant_pro"
    ```
    - Vraća: ukupan broj memory cells, scene, tipove
    - Daje kontekst o cijelom projektu
 
 2. **Zatim koristi `query_memory`** za specifične teme:
    ```
-   project: "asycuda_pro"
+   project: "deklarant_pro"
    query: "[tema o kojoj korisnik pita]"
    ```
 
@@ -95,7 +95,7 @@
 ### Primjer 1: Arhitektura
 ```
 query_memory(
-  project="asycuda_pro",
+  project="deklarant_pro",
   query="Tab Refactor Pattern View Controller Service"
 )
 ```
@@ -103,7 +103,7 @@ query_memory(
 ### Primjer 2: Status Refactor-a
 ```
 query_memory(
-  project="asycuda_pro", 
+  project="deklarant_pro", 
   query="FakturaTab ZaglavljeTab refactor status"
 )
 ```
@@ -111,7 +111,7 @@ query_memory(
 ### Primjer 3: Bugovi i Lekcije
 ```
 query_memory(
-  project="asycuda_pro",
+  project="deklarant_pro",
   query="bug recursion GUI safe approach"
 )
 ```
@@ -119,7 +119,7 @@ query_memory(
 ### Primjer 4: Testovi
 ```
 query_memory(
-  project="asycuda_pro",
+  project="deklarant_pro",
   query="testovi coverage integration"
 )
 ```
@@ -151,7 +151,7 @@ query_memory(
 ls -la ~/.agent_memory_system/memory_mcp_server_universal.py
 
 # Testiraj CLI (treba API key za neke komande)
-.venv/bin/python ~/.agent_memory_system/cli.py stats --project asycuda_pro
+.venv/bin/python ~/.agent_memory_system/cli.py stats --project deklarant_pro
 ```
 
 ### Memorija Prazna
@@ -159,10 +159,10 @@ ls -la ~/.agent_memory_system/memory_mcp_server_universal.py
 # Provjeri database
 ls -la ~/.agent_memory_system/databases/
 
-# Treba postojati: asycuda_pro.db (40KB)
+# Treba postojati: deklarant_pro.db (40KB)
 
 # Provjeri sadržaj
-sqlite3 ~/.agent_memory_system/databases/asycuda_pro.db "SELECT COUNT(*) FROM mem_cells;"
+sqlite3 ~/.agent_memory_system/databases/deklarant_pro.db "SELECT COUNT(*) FROM mem_cells;"
 # Treba biti: 13
 ```
 
@@ -178,13 +178,13 @@ sqlite3 ~/.agent_memory_system/databases/asycuda_pro.db "SELECT COUNT(*) FROM me
 ls -la ~/.agent_memory_system/memory_mcp_server_universal.py
 
 # 3. Database
-sqlite3 ~/.agent_memory_system/databases/asycuda_pro.db ".tables"
+sqlite3 ~/.agent_memory_system/databases/deklarant_pro.db ".tables"
 
 # 4. Memory Cells Count
-sqlite3 ~/.agent_memory_system/databases/asycuda_pro.db "SELECT COUNT(*) FROM mem_cells;"
+sqlite3 ~/.agent_memory_system/databases/deklarant_pro.db "SELECT COUNT(*) FROM mem_cells;"
 
 # 5. Projekat Overview (kroz MCP)
-# Koristi MCP tool: get_project_overview(project="asycuda_pro")
+# Koristi MCP tool: get_project_overview(project="deklarant_pro")
 ```
 
 ---

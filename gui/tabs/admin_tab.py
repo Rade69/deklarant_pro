@@ -1,5 +1,5 @@
 """
-Admin Tab - Central admin panel for ASYCUDA Pro.
+Admin Tab - Central admin panel for Deklarant Pro.
 
 Ovaj tab pruža pristup svim admin funkcionalnostima:
 - Plugin Manager

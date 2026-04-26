@@ -6,7 +6,7 @@
 
 ## 1. KONTEKST I TRENUTNO STANJE
 
-### PROJEKAT: ASYCUDA Pro
+### PROJEKAT: Deklarant Pro
 - Python/PySide6 desktop aplikacija
 - Upravljanje carinskim deklaracijama za BiH
 - 34,180 linija koda, 120 fajlova
@@ -1158,7 +1158,7 @@ Nakon što su SVI tabovi refaktorisani:
 
 ## KRAJ MASTER PLANA
 
-Ovaj plan je **KOMPLETNA roadmap** za refaktorisanje cijele ASYCUDA Pro aplikacije sa god-object monolita u čistu 3-layer arhitekturu.
+Ovaj plan je **KOMPLETNA roadmap** za refaktorisanje cijele Deklarant Pro aplikacije sa god-object monolita u čistu 3-layer arhitekturu.
 
 **Koristi ZaglavljeTab kao TEMPLATE i ponovi proces za svaki tab!**
 

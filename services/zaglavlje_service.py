@@ -19,7 +19,7 @@ from services.exceptions import ValidationError
 from core.draft.draft import DeclarationDraft, AttachedDocument, NaimenovanjeDraft
 
 
-logger = logging.getLogger("asycuda_pro.services.zaglavlje")
+logger = logging.getLogger("deklarant_pro.services.zaglavlje")
 
 
 class ZaglavljeService:
@@ -196,7 +196,7 @@ class ZaglavljeService:
     
     def _parse_pro_xml(self, root: ET.Element) -> Dict[str, Any]:
         """
-        Parsira ASYCUDA Pro XML strukturu.
+        Parsira Deklarant Pro XML strukturu.
         
         Args:
             root: Root XML element
@@ -1508,7 +1508,7 @@ class ZaglavljeService:
     
     def _build_pro_xml(self, data: Dict[str, Any]) -> ET.Element:
         """
-        Gradi ASYCUDA Pro XML strukturu.
+        Gradi Deklarant Pro XML strukturu.
         
         Args:
             data: Podaci zaglavlja
@@ -1516,8 +1516,8 @@ class ZaglavljeService:
         Returns:
             Root XML element
         """
-        # ASYCUDA Pro namespace
-        ns = "http://www.asycuda.org/asycuda-pro"
+        # Deklarant Pro namespace
+        ns = "http://www.asycuda.org/deklarant-pro"
         root = ET.Element(f"{{{ns}}}Declaration")
         root.set("xmlns", ns)
         

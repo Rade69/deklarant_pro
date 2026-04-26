@@ -1,5 +1,5 @@
 """
-ASYCUDA Pro - Tariff Controls Service
+Deklarant Pro - Tariff Controls Service
 
 Servis za automatsko dodavanje priloženih dokumenata u zaglavlje
 na osnovu tarifnog broja (inspection rules).

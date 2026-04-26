@@ -26,7 +26,7 @@ try:
 except ImportError:
     OCR_AVAILABLE = False
 
-logger = logging.getLogger("asycuda_pro.import.pdf.ocr")
+logger = logging.getLogger("deklarant_pro.import.pdf.ocr")
 
 
 class OCRPDFStrategy(PDFParseStrategy):

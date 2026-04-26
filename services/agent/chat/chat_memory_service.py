@@ -5,7 +5,7 @@ Chat Memory Service - Pamćenje konteksta chat sesije.
 šta je korisnik već pitao i šta je agent odgovorio.
 
 Usage:
-    memory = ChatMemoryService(project="asycuda_pro")
+    memory = ChatMemoryService(project="deklarant_pro")
     memory.add_message("user", "Kako da uvezem fakturu?")
     memory.add_message("assistant", "Koristi Agent tab...")
     context = memory.get_context()  # Za AI
@@ -59,7 +59,7 @@ class ChatMemoryService:
     # Max ukupnih poruka u istoriji
     MAX_HISTORY_MESSAGES = 100
     
-    def __init__(self, project: str = "asycuda_pro"):
+    def __init__(self, project: str = "deklarant_pro"):
         self.project = project
         self.messages: List[ChatMessage] = []
         self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -70,7 +70,7 @@ class ChatMemoryService:
     
     def _get_base_system_prompt(self) -> str:
         """Bazni sistem prompt za agenta."""
-        return """Ti si ASYCUDA Pro asistent - carinska aplikacija za deklaracije.
+        return """Ti si Deklarant Pro asistent - carinska aplikacija za deklaracije.
 
 Tvoje funkcije:
 - Pomoć pri importu faktura (PDF, Excel)

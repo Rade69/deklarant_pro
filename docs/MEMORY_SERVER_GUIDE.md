@@ -1,4 +1,4 @@
-# ASYCUDA Pro - Memory Configuration
+# Deklarant Pro - Memory Configuration
 
 Konfiguracija za pristup MCP Memory Serveru.
 
@@ -10,8 +10,8 @@ memory:
   server_url: "http://localhost:8765"
   
   # Projekt identifikator
-  project_id: "asycuda_pro"
-  project_name: "ASYCUDA Pro - Carinska deklaracija"
+  project_id: "deklarant_pro"
+  project_name: "Deklarant Pro - Carinska deklaracija"
   
   # Dozvoljeni tipovi memorije za čitanje
   allowed_read_types:
@@ -59,7 +59,7 @@ import requests
 
 config = {
     "server_url": "http://localhost:8765",
-    "project_id": "asycuda_pro"
+    "project_id": "deklarant_pro"
 }
 
 # Dobij projektni kontekst
@@ -169,13 +169,13 @@ curl http://localhost:8765/health
 # Proveri da li projekt postoji
 curl -X POST http://localhost:8765/project-context \
   -H "Content-Type: application/json" \
-  -d '{"project_id": "asycuda_pro"}'
+  -d '{"project_id": "deklarant_pro"}'
 ```
 
 ## Napomene
 
 - Memory server mora biti pokrenut (`python main.py`)
 - Prvo kreirati projekt u memory serveru ako ne postoji
-- Svi upisi idu pod `project_id: "asycuda_pro"`
+- Svi upisi idu pod `project_id: "deklarant_pro"`
 - Retrieval je po defaultu ograničen na ovaj projekt
 - Cross-project search zahteva eksplicitnu dozvolu

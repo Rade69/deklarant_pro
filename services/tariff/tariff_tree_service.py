@@ -21,9 +21,9 @@ import os
 import logging
 from typing import List, Dict, Optional
 
-logger = logging.getLogger("asycuda_pro.tariff_tree")
+logger = logging.getLogger("deklarant_pro.tariff_tree")
 
-DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'database', 'asycuda_sistem.db')
+DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'database', 'deklarant_sistem.db')
 
 
 def _get_conn() -> sqlite3.Connection:

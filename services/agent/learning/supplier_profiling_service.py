@@ -17,7 +17,7 @@ from datetime import datetime
 from database.db import get_db_connection
 from services.agent.learning.historical_learning_service_safe import HistoricalLearningServiceSafe
 
-logger = logging.getLogger("asycuda_pro.supplier_profiling")
+logger = logging.getLogger("deklarant_pro.supplier_profiling")
 
 
 @dataclass

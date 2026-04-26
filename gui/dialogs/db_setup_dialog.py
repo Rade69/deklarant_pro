@@ -75,7 +75,7 @@ class DbSetupDialog(QDialog):
 
     def __init__(self, error_msg: Optional[str] = None, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("ASYCUDA Pro — Podešavanje baze podataka")
+        self.setWindowTitle("Deklarant Pro — Podešavanje baze podataka")
         self.setMinimumWidth(480)
         self.setModal(True)
         self._thread: Optional[QThread] = None
@@ -147,7 +147,7 @@ class DbSetupDialog(QDialog):
         self._port.setMaximumWidth(80)
         form.addRow("Port:", self._port)
 
-        self._dbname = QLineEdit("asycuda_pro")
+        self._dbname = QLineEdit("deklarant_pro")
         form.addRow("Ime baze:", self._dbname)
 
         self._user = QLineEdit("postgres")
@@ -236,7 +236,7 @@ class DbSetupDialog(QDialog):
             host = "localhost"
         self._host.setText(host)
         self._port.setText(mapping.get("DB_PORT", "5432"))
-        self._dbname.setText(mapping.get("DB_NAME", "asycuda_pro"))
+        self._dbname.setText(mapping.get("DB_NAME", "deklarant_pro"))
         self._user.setText(mapping.get("DB_USER", "postgres"))
         self._password.setText(mapping.get("DB_PASSWORD", ""))
 
@@ -319,7 +319,7 @@ class DbSetupDialog(QDialog):
 
         # Zapiši nazad
         lines = [
-            "# ASYCUDA Pro - Konfiguracija baze podataka",
+            "# Deklarant Pro - Konfiguracija baze podataka",
             f"DB_HOST={existing.pop('DB_HOST')}",
             f"DB_PORT={existing.pop('DB_PORT')}",
             f"DB_NAME={existing.pop('DB_NAME')}",

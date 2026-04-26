@@ -1,6 +1,6 @@
 # importers/medicopharm_importer.py
 """
-ASYCUDA Pro - Medico Pharm Servis Parser
+Deklarant Pro - Medico Pharm Servis Parser
 
 Parser za fakture dobavljača MEDICO PHARM SERVIS DOO (Beograd/Leštane).
 
@@ -35,7 +35,7 @@ from importers.import_result import ImportResult
 from importers.invoice_line_utils import KNOWN_JM, parse_eu_number, normalize_tariff_number
 from utils.country_normalizer import normalize_country_name
 
-logger = logging.getLogger("asycuda_pro.import.medicopharm")
+logger = logging.getLogger("deklarant_pro.import.medicopharm")
 
 # ---------------------------------------------------------------------------
 # Regex patterns

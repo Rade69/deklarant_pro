@@ -1,5 +1,5 @@
 """
-ASYCUDA Pro - Kreiraj Naimenovanja Service
+Deklarant Pro - Kreiraj Naimenovanja Service
 SERVICE ZA KREIRANJE NAIMENOVANJA IZ FAKTURE
 
 Implementira logiku:

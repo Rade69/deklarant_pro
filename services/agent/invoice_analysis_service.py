@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from typing import List, Optional
 from core.draft.draft import InvoiceLine
 
-logger = logging.getLogger("asycuda_pro.agent.analysis")
+logger = logging.getLogger("deklarant_pro.agent.analysis")
 
 EUR1_THRESHOLD = 6000.0  # EUR
 

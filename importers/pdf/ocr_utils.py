@@ -12,7 +12,7 @@ import logging
 import os
 from typing import Dict, List, Tuple
 
-logger = logging.getLogger("asycuda_pro.import.ocr")
+logger = logging.getLogger("deklarant_pro.import.ocr")
 
 # Session-level OCR cache: (filepath, mtime, dpi) → List[str]
 _ocr_cache: Dict[Tuple[str, float, int], List[str]] = {}

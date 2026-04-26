@@ -16,9 +16,9 @@ import logging
 from functools import lru_cache
 from typing import List, Dict, Optional
 
-logger = logging.getLogger("asycuda_pro.tarifa_service")
+logger = logging.getLogger("deklarant_pro.tarifa_service")
 
-DB_PATH = os.path.join(os.path.dirname(__file__), '..', '..', 'database', 'asycuda_sistem.db')
+DB_PATH = os.path.join(os.path.dirname(__file__), '..', '..', 'database', 'deklarant_sistem.db')
 
 # Jedna dijeljenja read-only konekcija — tarifa_2026 se nikad ne mijenja za vrijeme rada
 _shared_conn: sqlite3.Connection | None = None

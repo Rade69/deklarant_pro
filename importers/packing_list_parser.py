@@ -18,7 +18,7 @@ from dataclasses import dataclass
 
 from core.draft.draft import InvoiceLine
 
-logger = logging.getLogger("asycuda_pro.import.packing_list")
+logger = logging.getLogger("deklarant_pro.import.packing_list")
 
 
 # Poznate jedinice pakovanja (za normalizaciju)

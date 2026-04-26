@@ -21,7 +21,7 @@ from difflib import SequenceMatcher
 from core.draft.draft import InvoiceLine
 from utils.country_normalizer import normalize_country_name
 
-logger = logging.getLogger("asycuda_pro.services.product_master")
+logger = logging.getLogger("deklarant_pro.services.product_master")
 
 
 @dataclass
@@ -281,7 +281,7 @@ class ProductMasterList:
 if __name__ == "__main__":
     # Test master list loading
     master_list = ProductMasterList(
-        "/home/radovan/Desktop/PythonProjects/asycuda_pro/tests/data/Podela po poreklu.xlsx"
+        "/home/radovan/Desktop/PythonProjects/deklarant_pro/tests/data/Podela po poreklu.xlsx"
     )
 
     logger.info(f"\n✅ Loaded {len(master_list.products)} products")

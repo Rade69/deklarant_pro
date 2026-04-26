@@ -208,7 +208,7 @@ class AdminService:
 
         # Application info
         app_info = {
-            'app_name': 'ASYCUDA Pro',
+            'app_name': 'Deklarant Pro',
             'app_version': '2.0.0',
             'build_date': '2026-03-12',
         }

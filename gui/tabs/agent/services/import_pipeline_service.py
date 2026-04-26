@@ -14,7 +14,7 @@ from pathlib import Path
 
 from PySide6.QtWidgets import QApplication
 
-logger = logging.getLogger("asycuda_pro.agent.import_pipeline")
+logger = logging.getLogger("deklarant_pro.agent.import_pipeline")
 
 EUR1_THRESHOLD = 6000.0  # EUR — iznad ovog iznosa standardna izjava ne važi
 

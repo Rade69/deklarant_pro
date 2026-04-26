@@ -1,10 +1,10 @@
 #!/bin/bash
 # ============================================================
-# ASYCUDA Pro — Restore baze na Ubuntu Server
+# Deklarant Pro — Restore baze na Ubuntu Server
 # Pokrenuti NA SERVERU nakon što je backup fajl prenesen
 #
 # Upotreba:
-#   bash scripts/server_setup/04_restore_db.sh ~/asycuda_pro_backup_DATUM.sql
+#   bash scripts/server_setup/04_restore_db.sh ~/deklarant_pro_backup_DATUM.sql
 # ============================================================
 
 set -e
@@ -23,7 +23,7 @@ if [ ! -f "$BACKUP_FILE" ]; then
 fi
 
 echo "===================================================="
-echo "  ASYCUDA Pro — Restore baze podataka"
+echo "  Deklarant Pro — Restore baze podataka"
 echo "===================================================="
 echo ""
 echo ">>> Restoring: $BACKUP_FILE"
@@ -31,13 +31,13 @@ echo "    Unesite lozinku za asycuda_app korisnika:"
 
 psql \
     -U asycuda_app \
-    -d asycuda_pro \
+    -d deklarant_pro \
     -h localhost \
     -f "$BACKUP_FILE"
 
 echo ""
 echo ">>> Provjera:"
-psql -U asycuda_app -d asycuda_pro -h localhost -c "
+psql -U asycuda_app -d deklarant_pro -h localhost -c "
     SELECT schemaname, tablename,
            (SELECT COUNT(*) FROM catalogs.zvanicna_tarifa) as tarifa_count
     FROM pg_tables
@@ -52,7 +52,7 @@ echo "  Sada postavi .env na Windows klijentima:"
 echo ""
 echo "  DB_HOST=$(hostname -I | awk '{print $1}')"
 echo "  DB_PORT=5432"
-echo "  DB_NAME=asycuda_pro"
+echo "  DB_NAME=deklarant_pro"
 echo "  DB_USER=asycuda_app"
 echo "  DB_PASSWORD=tvoja_lozinka"
 echo "===================================================="

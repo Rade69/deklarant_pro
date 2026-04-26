@@ -16,7 +16,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-logger = logging.getLogger("asycuda_pro.quota")
+logger = logging.getLogger("deklarant_pro.quota")
 
 UINO_PDF_URL = "https://www.uino.gov.ba/portal/wp-content/uploads/GenerisaniPDF/Qba-Stanje.pdf"
 
@@ -310,7 +310,7 @@ def refresh_quota_data() -> tuple[int, str]:
     try:
         req = urllib.request.Request(
             UINO_PDF_URL,
-            headers={"User-Agent": "Mozilla/5.0 (ASYCUDA Pro; quota fetch)"},
+            headers={"User-Agent": "Mozilla/5.0 (Deklarant Pro; quota fetch)"},
         )
         with urllib.request.urlopen(req, timeout=30) as resp:
             data = resp.read()

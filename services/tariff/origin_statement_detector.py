@@ -18,7 +18,7 @@ from typing import Optional, Dict, List, Tuple
 from dataclasses import dataclass
 from database.db import get_db_connection
 
-logger = logging.getLogger("asycuda_pro.origin_statement_detector")
+logger = logging.getLogger("deklarant_pro.origin_statement_detector")
 
 
 @dataclass

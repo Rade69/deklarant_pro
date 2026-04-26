@@ -1,4 +1,4 @@
-# ASYCUDA Pro
+# Deklarant Pro
 
 Aplikacija za carinske deklaracije.
 
@@ -27,26 +27,26 @@ Ovaj script će proveriti:
 
 ### Metoda 1: Direktno pokretanje (Preporučeno)
 ```bash
-cd /home/radovan/Desktop/PythonProjects/asycuda_pro
+cd /home/radovan/Desktop/PythonProjects/deklarant_pro
 python3 __main__.py
 ```
 
 ### Metoda 2: Korišćenjem shell skripta
 ```bash
-cd /home/radovan/Desktop/PythonProjects/asycuda_pro
+cd /home/radovan/Desktop/PythonProjects/deklarant_pro
 ./run_app.sh
 ```
 
 ### Metoda 3: Kao Python modul (iz parent direktorija)
 ```bash
 cd /home/radovan/Desktop/PythonProjects
-python3 -m asycuda_pro
+python3 -m deklarant_pro
 ```
 
 ## Struktura projekta
 
 ```
-asycuda_pro/
+deklarant_pro/
 ├── app/            - Glavna aplikacija (QApplication)
 ├── core/           - Osnovni modeli (Draft, Naimenovanje)
 ├── database/       - Database modeli i migracije

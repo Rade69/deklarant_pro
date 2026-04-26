@@ -25,7 +25,7 @@ from core.draft.draft import InvoiceLine, Party
 from importers.import_result import ImportResult
 from utils.country_normalizer import normalize_country_name
 
-logger = logging.getLogger("asycuda_pro.import.blagic_loren")
+logger = logging.getLogger("deklarant_pro.import.blagic_loren")
 
 
 def detect_blagic_loren_excel(filepath: str) -> bool:
@@ -439,7 +439,7 @@ def _parse_item_row(
 
 if __name__ == "__main__":
     # Test with sample file
-    test_file = "/home/radovan/Desktop/PythonProjects/asycuda_pro/najavauvoza/blagic-loren/702VP-2025 BLAGIC.xlsx"
+    test_file = "/home/radovan/Desktop/PythonProjects/deklarant_pro/najavauvoza/blagic-loren/702VP-2025 BLAGIC.xlsx"
 
     if os.path.exists(test_file):
         # Test detection

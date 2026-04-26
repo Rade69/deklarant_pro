@@ -42,7 +42,7 @@ hue familije — ali izrazito svijetlu (~10% zasićenosti) da ne dominira:
 
 ```css
 /* ============================================================
-   ASYCUDA Pro — Unified Color System v3.0
+   Deklarant Pro — Unified Color System v3.0
    Izvor: Zaglavlje hue paleta, desaturirana
    ============================================================ */
 

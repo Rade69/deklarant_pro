@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-ASYCUDA Pro - .env Fajl Setup Skripta
+Deklarant Pro - .env Fajl Setup Skripta
 
 Interaktivna skripta za kreiranje .env konfiguracijskog fajla.
 Vodi korisnika kroz unos svih potrebnih postavki.
@@ -35,7 +35,7 @@ BACKUP_FILE = PROJECT_ROOT / ".env.backup"
 DEFAULTS = {
     "DB_HOST": "localhost",
     "DB_PORT": "5432",
-    "DB_NAME": "asycuda_pro",
+    "DB_NAME": "deklarant_pro",
     "DB_USER": "postgres",
     "DEBUG": "False",
     "MAX_IMPORT_WORKERS": "4",
@@ -193,7 +193,7 @@ def main() -> int:
     Returns:
         Exit code (0 = success, 1 = error)
     """
-    print_header("🚀 ASYCUDA Pro - .env Setup")
+    print_header("🚀 Deklarant Pro - .env Setup")
     
     # 1. PROVJERA DA LI .env VEĆ POSTOJI
     if ENV_FILE.exists():
@@ -239,7 +239,7 @@ def main() -> int:
         return 1
     
     # 3. KREIRANJE .env FAJLA
-    env_content = f"""# ASYCUDA Pro - Environment Configuration
+    env_content = f"""# Deklarant Pro - Environment Configuration
 # Kreirano: {Path(__file__).name} setup skriptom
 
 # Database Configuration
@@ -282,7 +282,7 @@ STRICT_VALIDATION={DEFAULTS["STRICT_VALIDATION"]}
     # KRAJ
     print()
     print_header("✨ Setup završen!")
-    print("Sada možeš pokrenuti aplikaciju: python -m asycuda_pro")
+    print("Sada možeš pokrenuti aplikaciju: python -m deklarant_pro")
     print()
     
     return 0

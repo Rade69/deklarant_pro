@@ -209,13 +209,13 @@ class SifarniciService:
     def _log_error(self, operation: str, error: Exception):
         """Logging helper za error-e."""
         import logging
-        logger = logging.getLogger("asycuda_pro.services.sifarnici")
+        logger = logging.getLogger("deklarant_pro.services.sifarnici")
         logger.error(f"❌ {operation}: {error}")
     
     def _log_operation(self, operation: str, success: bool, count: int = 0):
         """Logging helper za operacije."""
         import logging
-        logger = logging.getLogger("asycuda_pro.services.sifarnici")
+        logger = logging.getLogger("deklarant_pro.services.sifarnici")
         status = "✅" if success else "❌"
         logger.info(f"{status} {operation}: {count} records")
     
@@ -639,7 +639,7 @@ class SifarniciService:
     def _log_error(self, operation: str, error: Exception):
         """Logovanje grešaka."""
         import logging
-        logger = logging.getLogger("asycuda_pro.services.sifarnici")
+        logger = logging.getLogger("deklarant_pro.services.sifarnici")
         logger.error(f"Greška u {operation}: {error}")
 
     # ============================================================

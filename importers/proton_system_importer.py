@@ -23,7 +23,7 @@ from importers.import_result import ImportResult
 from importers.invoice_line_utils import parse_eu_number
 from utils.country_normalizer import normalize_country_name
 
-logger = logging.getLogger("asycuda_pro.import.proton_system")
+logger = logging.getLogger("deklarant_pro.import.proton_system")
 
 # Linija sa Rbr + 7-cifrenom šifrom: "1 4000298 ..." ili "13 4000874 RS/ME/BH SF 400 kom ..."
 _DATA_LINE_RE = re.compile(r"^(\d{1,3})\s+(\d{6,8})\s+(.+)$")

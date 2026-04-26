@@ -1,7 +1,7 @@
 # config/settings.py
 
 """
-ASYCUDA Pro - Centralizovani sistem za konfiguraciju
+Deklarant Pro - Centralizovani sistem za konfiguraciju
 
 Ovaj modul pruža jedinstvenu tačku za upravljanje svim konfiguracijskim
 postavkama aplikacije koristeći Pydantic Settings v2.
@@ -40,7 +40,7 @@ class DatabaseSettings(BaseSettings):
     
     host: str = Field(default="localhost", alias="DB_HOST")
     port: int = Field(default=5432, alias="DB_PORT")
-    database: str = Field(default="asycuda_pro", alias="DB_NAME")
+    database: str = Field(default="deklarant_pro", alias="DB_NAME")
     user: str = Field(default="postgres", alias="DB_USER")
     password: str = Field(..., alias="DB_PASSWORD")  # REQUIRED iz env
     
@@ -110,7 +110,7 @@ class AppSettings(BaseSettings):
     Sadrži osnovne informacije o aplikaciji i opcione konfiguracije.
     """
     
-    app_name: str = Field(default="ASYCUDA Pro", alias="APP_NAME")
+    app_name: str = Field(default="Deklarant Pro", alias="APP_NAME")
     version: str = Field(default="1.0.0", alias="APP_VERSION")
     debug: bool = Field(default=False, alias="DEBUG")
     max_import_workers: int = Field(default=4, alias="MAX_IMPORT_WORKERS")

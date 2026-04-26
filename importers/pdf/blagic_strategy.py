@@ -20,7 +20,7 @@ from importers.blagic_importer import (
     convert_to_invoice_lines,
 )
 
-logger = logging.getLogger("asycuda_pro.import.pdf.blagic")
+logger = logging.getLogger("deklarant_pro.import.pdf.blagic")
 
 
 class BlagicStrategy(PDFParseStrategy):

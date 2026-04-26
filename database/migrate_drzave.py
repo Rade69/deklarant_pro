@@ -12,7 +12,7 @@ import os
 PG_CONFIG = {
     "host": "localhost",
     "port": 5432,
-    "dbname": "asycuda_pro",
+    "dbname": "deklarant_pro",
     "user": "postgres",
     "password": "!sofija#22$jelena%25&"
 }

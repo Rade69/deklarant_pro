@@ -47,7 +47,7 @@ class XMLImporter:
                 format_type = self._detect_xml_format(root)
             
             if format_type.lower() == "pro":
-                return self._parse_asycuda_pro_xml(root)
+                return self._parse_deklarant_pro_xml(root)
             else:
                 return self._parse_asycuda_xml(root)
         except ET.ParseError as e:
@@ -402,11 +402,11 @@ class XMLImporter:
 
         return default
 
-    def _parse_asycuda_pro_xml(self, root: ET.Element) -> Dict[str, Any]:
+    def _parse_deklarant_pro_xml(self, root: ET.Element) -> Dict[str, Any]:
         """
-        Parsira ASYCUDA Pro XML strukturu.
+        Parsira Deklarant Pro XML strukturu.
         
-        ASYCUDA Pro koristi drugačiju strukturu od World formata.
+        Deklarant Pro koristi drugačiju strukturu od World formata.
         Osnovni root je <Declaration> sa namespace-om.
         
         Args:
@@ -420,13 +420,13 @@ class XMLImporter:
         root_tag = root.tag.upper().replace('{', '').replace('}', '')
         if 'DECLARATION' not in root_tag:
             # Ako nije Pro format, probaj World parser
-            logger.warning("XML ne izgleda kao ASYCUDA Pro format, pokušavam World parser")
+            logger.warning("XML ne izgleda kao Deklarant Pro format, pokušavam World parser")
             return self._parse_asycuda_xml(root)
         
         items = self._parse_pro_items(root)
         header = self._parse_pro_header(root)
         
-        logger.debug(f"DEBUG: ASYCUDA Pro XML parsed - items count: {len(items)}, header keys: {list(header.keys())}")
+        logger.debug(f"DEBUG: Deklarant Pro XML parsed - items count: {len(items)}, header keys: {list(header.keys())}")
         return {
             'items': items,
             'header': header,
@@ -435,7 +435,7 @@ class XMLImporter:
         }
     
     def _parse_pro_header(self, root: ET.Element) -> Dict[str, Any]:
-        """Parsira zaglavlje ASYCUDA Pro XML-a."""
+        """Parsira zaglavlje Deklarant Pro XML-a."""
         header_data = {}
         
         # Namespace handling
@@ -501,7 +501,7 @@ class XMLImporter:
         return header_data
     
     def _parse_pro_items(self, root: ET.Element) -> List[InvoiceLine]:
-        """Parsira stavke iz ASYCUDA Pro XML-a."""
+        """Parsira stavke iz Deklarant Pro XML-a."""
         items = []
         
         # Namespace handling

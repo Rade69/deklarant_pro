@@ -1,6 +1,6 @@
 # services/__init__.py
 """
-Business logic services za ASYCUDA Pro aplikaciju
+Business logic services za Deklarant Pro aplikaciju
 """
 
 # Osnovni servisi - bez zavisnosti

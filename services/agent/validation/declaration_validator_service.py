@@ -1012,7 +1012,7 @@ import logging as _logging
 from dataclasses import dataclass as _dataclass, field as _field
 from typing import Literal as _Literal, List as _List
 
-_compliance_logger = _logging.getLogger("asycuda_pro.compliance_check")
+_compliance_logger = _logging.getLogger("deklarant_pro.compliance_check")
 
 
 @_dataclass

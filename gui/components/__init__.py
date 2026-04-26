@@ -1,5 +1,5 @@
 """
-UI komponente za ASYCUDA Pro aplikaciju.
+UI komponente za Deklarant Pro aplikaciju.
 """
 
 from .navigation_controls import NavigationControls

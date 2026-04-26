@@ -14,7 +14,7 @@ import pdfplumber
 from core.draft.draft import InvoiceLine
 from importers.import_result import ImportResult
 
-logger = logging.getLogger("asycuda_pro.import.generic_pdf")
+logger = logging.getLogger("deklarant_pro.import.generic_pdf")
 
 # Redovi koji su jasno footer/summary — ne stavke
 _SKIP_ROW_PREFIXES = re.compile(

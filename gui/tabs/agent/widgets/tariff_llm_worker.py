@@ -8,7 +8,7 @@ import logging
 import re
 from PySide6.QtCore import QThread, Signal
 
-logger = logging.getLogger("asycuda_pro.agent.tariff_llm")
+logger = logging.getLogger("deklarant_pro.agent.tariff_llm")
 
 
 class TariffLLMWorker(QThread):

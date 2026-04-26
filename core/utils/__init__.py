@@ -1,7 +1,7 @@
 # core/utils/__init__.py
 
 """
-Generičke utility klase za ASYCUDA Pro aplikaciju.
+Generičke utility klase za Deklarant Pro aplikaciju.
 
 Ove klase nisu vezane za specifičan tab — koriste se
 u više mjesta (Šifrarnici, Faktura, Zaglavlje, itd.).

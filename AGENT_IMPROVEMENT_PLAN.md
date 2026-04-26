@@ -1,9 +1,9 @@
-# 🚀 AGENT IMPROVEMENT PLAN - ASYCUDA Pro
+# 🚀 AGENT IMPROVEMENT PLAN - Deklarant Pro
 
 **Datum:** 2026-04-20  
 **Status:** ✅ Analiza završena | 🚧 Čeka implementaciju  
 **Autor:** Claude Sonnet (AI Assistant)  
-**Projekt:** asycuda_pro
+**Projekt:** deklarant_pro
 
 ---
 
@@ -343,7 +343,7 @@ gui/tabs/agent/
 
 ## 🏁 ZAKLJUČAK
 
-Agent u asycuda_pro ima **solidnu osnovu** (90% funkcionalno) ali **kritične probleme** koji blokiraju produkcijsku upotrebu.
+Agent u deklarant_pro ima **solidnu osnovu** (90% funkcionalno) ali **kritične probleme** koji blokiraju produkcijsku upotrebu.
 
 **Najvažnije akcije:**
 1. 🚨 **Prvo popravi PDF+Excel bug** - blokira celu produkciju

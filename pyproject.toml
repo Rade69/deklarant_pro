@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "asycuda-pro"
+name = "deklarant-pro"
 version = "0.1.0"
-description = "ASYCUDA Pro - Aplikacija za carinske deklaracije"
+description = "Deklarant Pro - Aplikacija za carinske deklaracije"
 requires-python = ">=3.10"
 dependencies = [
     # GUI Framework
@@ -57,7 +57,7 @@ dev = [
 ]
 
 [project.scripts]
-asycuda-pro = "app:main"
+deklarant-pro = "app:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["."]
