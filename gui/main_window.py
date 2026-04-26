@@ -1,4 +1,4 @@
-﻿import os
+﻿ï»¿import os
 from copy import deepcopy
 from dataclasses import fields
 from pathlib import Path
@@ -15,7 +15,6 @@ except ImportError:
     qta = None
 
 import logging
-_dbg = logging.getLogger("asycuda_pro.resize_debug")
 
 from config.settings import get_path_settings
 
@@ -32,61 +31,61 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Deklarant Pro")
 
-        # Postavi podrazumevanu veliÄinu (80% Full HD 1920x1080)
+        # Postavi podrazumevanu veliÃ„Âinu (80% Full HD 1920x1080)
         self.resize(1536, 823)
         self.setMinimumSize(1200, 700)
 
         # Vrati geometriju prozora iz prethodne sesije
         self._restore_window_state()
 
-        # 1. UÄitaj stilove
+        # 1. UÃ„Âitaj stilove
         self.load_stylesheet()
 
         # 2. Inicijalizacija draft-a
         self.draft = DeclarationDraft()
         self.draft.ensure_min_items(1)
 
-        # 3. Kreiranje tabova (redosled: Faktura, Zaglavlje, Naimenovanja, Å ifrarnici)
+        # 3. Kreiranje tabova (redosled: Faktura, Zaglavlje, Naimenovanja, Ã…Â ifrarnici)
         tabs = QTabWidget()
 
-        # OmoguÄ‡i responsive resizing za tab widget
+        # OmoguÃ„â€¡i responsive resizing za tab widget
         from PySide6.QtWidgets import QSizePolicy
         tabs.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         
-        # Font za tab kartice (stilovi su u main_tabs.qss â€” bez inline setStyleSheet koji bi kreirao QSS bubble)
+        # Font za tab kartice (stilovi su u main_tabs.qss Ã¢â‚¬â€ bez inline setStyleSheet koji bi kreirao QSS bubble)
         from PySide6.QtGui import QFont
         tabs.setFont(QFont("Segoe UI", 9))
         tabs.setIconSize(QSize(20, 20))
 
         self.setCentralWidget(tabs)
 
-        # Kreiranje tabova koristeÄ‡i TabFactory
+        # Kreiranje tabova koristeÃ„â€¡i TabFactory
         tab_factory = get_tab_factory()
 
-        # Faktura tab â€” kreira se odmah (prikazuje se pri pokretanju)
+        # Faktura tab Ã¢â‚¬â€ kreira se odmah (prikazuje se pri pokretanju)
         self.faktura_tab = tab_factory.create_tab('faktura', self.draft, self._on_dirty, tabs)
         tabs.addTab(self.faktura_tab, self._tab_icon("fa5s.file-alt"), "Faktura")
 
-        # Naimenovanja â€” lazy (QUiLoader + widget cache, inicijalizuje se pri prvom kliku)
+        # Naimenovanja Ã¢â‚¬â€ lazy (QUiLoader + widget cache, inicijalizuje se pri prvom kliku)
         self.naimenovanje_tab = LazyTab(
             lambda: tab_factory.create_tab('naimenovanja', self.draft, self._on_dirty),
             parent=tabs,
         )
         tabs.addTab(self.naimenovanje_tab, self._tab_icon("fa5s.boxes"), "Naimenovanja")
 
-        # Zaglavlje â€” lazy (5 DB upita pri inicijalizaciji)
+        # Zaglavlje Ã¢â‚¬â€ lazy (5 DB upita pri inicijalizaciji)
         self.zaglavlje_tab = LazyTab(
             lambda: tab_factory.create_tab('zaglavlje', self.draft, self._on_dirty),
             parent=tabs,
         )
         tabs.addTab(self.zaglavlje_tab, self._tab_icon("fa5s.folder-open"), "Zaglavlje")
 
-        # Å ifrarnici â€” lazy
+        # Ã…Â ifrarnici Ã¢â‚¬â€ lazy
         self.sifarnici_tab = LazyTab(
             lambda: tab_factory.create_tab('sifarnici', self.draft, self._on_dirty),
             parent=tabs,
         )
-        tabs.addTab(self.sifarnici_tab, self._tab_icon("fa5s.list-alt"), "Å ifrarnici")
+        tabs.addTab(self.sifarnici_tab, self._tab_icon("fa5s.list-alt"), "Ã…Â ifrarnici")
 
         # Admin tab (novi - plugin manager, settings, database, analytics, logs, system info)
         self.admin_tab = AdminTab(self)
@@ -102,7 +101,7 @@ class MainWindow(QMainWindow):
         )
         tabs.addTab(self.agent_tab, self._tab_icon("fa5s.robot"), "Agent")
 
-        # PoveÅ¾i FakturaView signal na agent controller za auto-provjeru naimenovanja
+        # PoveÃ…Â¾i FakturaView signal na agent controller za auto-provjeru naimenovanja
         # Vidi: docs/decisions/002-tool-dispatcher-integration.md
         if hasattr(self.faktura_tab, 'naimenovanja_created'):
             self.faktura_tab.naimenovanja_created.connect(
@@ -112,10 +111,10 @@ class MainWindow(QMainWindow):
         # Postavi Admin Tab kao trenutni tab za testiranje (opciono - za development)
         # tabs.setCurrentWidget(self.admin_tab)
 
-        # Registruj callback da aÅ¾urira sve tabove kada se draft podaci promene
+        # Registruj callback da aÃ…Â¾urira sve tabove kada se draft podaci promene
         self.draft.register_data_change_callback(self._on_draft_data_changed)
 
-        # OsvjeÅ¾i naimenovanja izraÄune (Rb.44/46) kad se tab aktivira
+        # OsvjeÃ…Â¾i naimenovanja izraÃ„Âune (Rb.44/46) kad se tab aktivira
         self.tabs_widget = tabs
         tabs.currentChanged.connect(self._on_tab_changed)
 
@@ -140,8 +139,8 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(
                 self,
-                "GreÅ¡ka",
-                f"Nije moguÄ‡e kreirati naimenovanja za sljedeÄ‡u deklaraciju:\n\n{e}",
+                "GreÃ…Â¡ka",
+                f"Nije moguÃ„â€¡e kreirati naimenovanja za sljedeÃ„â€¡u deklaraciju:\n\n{e}",
             )
             return False
 
@@ -185,10 +184,10 @@ class MainWindow(QMainWindow):
 
     def load_stylesheet(self):
         """
-        UÄitaj sve QSS stilove u ispravnom redosledu.
+        UÃ„Âitaj sve QSS stilove u ispravnom redosledu.
         Redosled je bitan: kasniji stilovi mogu da pregaze ranije.
         """
-        # Stil fajlovi u redosledu uÄitavanja
+        # Stil fajlovi u redosledu uÃ„Âitavanja
         style_files = [
             "asycuda_modern_material.qss",  # Osnovni stilovi
             "typography.qss",  # Tekst stilovi
@@ -199,7 +198,7 @@ class MainWindow(QMainWindow):
             "button_system.qss",  # Kategorije dugmadi
             "faktura_tab_v2.qss",  # Osnovni stilovi Faktura taba
             "QSS_header_toolbar_sistem.qss",  # Inputi, scrollbari, tabela, kombo
-            "unified_color_system.qss",  # Unificirana paleta boja (najviÅ¡i prioritet)
+            "unified_color_system.qss",  # Unificirana paleta boja (najviÃ…Â¡i prioritet)
         ]
 
         combined_style = ""
@@ -227,11 +226,11 @@ class MainWindow(QMainWindow):
             self.setWindowTitle(current_title + " *")
 
     def _on_tab_changed(self, index: int) -> None:
-        """OsvjeÅ¾i naimenovanja tab kada se aktivira â€” da uzme svjeÅ¾e kurs/trosak iz drafta."""
+        """OsvjeÃ…Â¾i naimenovanja tab kada se aktivira Ã¢â‚¬â€ da uzme svjeÃ…Â¾e kurs/trosak iz drafta."""
         current_widget = self.tabs_widget.widget(index)
 
         # Inicijalizuj LazyTab odmah u currentChanged, PRIJE nego Qt mjeri
-        # veliÄinu sadrÅ¾aja. Ako Äekamo showEvent, prozor se skupi na prazni placeholder.
+        # veliÃ„Âinu sadrÃ…Â¾aja. Ako Ã„Âekamo showEvent, prozor se skupi na prazni placeholder.
         if hasattr(current_widget, 'ensure_initialized'):
             inner = current_widget.ensure_initialized()
         else:
@@ -243,7 +242,7 @@ class MainWindow(QMainWindow):
                 naim_view._load_current_item()
 
         elif current_widget is self.zaglavlje_tab:
-            # Uzmi aktivni draft iz FakturaView (moÅ¾e biti split draft, ne nuÅ¾no self.draft)
+            # Uzmi aktivni draft iz FakturaView (moÃ…Â¾e biti split draft, ne nuÃ…Â¾no self.draft)
             active_draft = self.draft
             faktura_view = getattr(self.faktura_tab, "view", self.faktura_tab)
             if faktura_view and hasattr(faktura_view, "draft"):
@@ -252,19 +251,19 @@ class MainWindow(QMainWindow):
                 self.zaglavlje_tab.load_from_draft(active_draft)
 
     def _on_draft_data_changed(self) -> None:
-        """Poziva se kada se draft podaci promene - aÅ¾urira sve tabove koji treba da se osveÅ¾e."""
-        # SaÄuvaj samo ref-ove iz UI tabele u draft (ne zamjenjuje listu â€” Äuva programatski dodane doc-ove)
-        # Puni save_to_draft() bi OBRISAO novododane VET/SAN/FIT doc-ove koji joÅ¡ nisu vidljivi u UI.
+        """Poziva se kada se draft podaci promene - aÃ…Â¾urira sve tabove koji treba da se osveÃ…Â¾e."""
+        # SaÃ„Âuvaj samo ref-ove iz UI tabele u draft (ne zamjenjuje listu Ã¢â‚¬â€ Ã„Âuva programatski dodane doc-ove)
+        # Puni save_to_draft() bi OBRISAO novododane VET/SAN/FIT doc-ove koji joÃ…Â¡ nisu vidljivi u UI.
         try:
             if hasattr(self.zaglavlje_tab, 'view'):
                 table_data = self.zaglavlje_tab.view.get_data().get('attached_documents', [])
                 ui_by_code = {d['code']: d for d in table_data if d.get('code')}
                 header_docs = getattr(self.draft, 'header_attached_documents', None) or []
-                # 1. AÅ¾uriraj ref-ove za unose koji veÄ‡ postoje u draftu
+                # 1. AÃ…Â¾uriraj ref-ove za unose koji veÃ„â€¡ postoje u draftu
                 for doc in header_docs:
                     if doc.code in ui_by_code:
                         doc.number = ui_by_code[doc.code].get('number', doc.number)
-                # 2. Dodaj unose koje je korisnik ruÄno kreirao u UI (nisu joÅ¡ u draftu)
+                # 2. Dodaj unose koje je korisnik ruÃ„Âno kreirao u UI (nisu joÃ…Â¡ u draftu)
                 existing_codes = {d.code for d in header_docs}
                 from core.draft.draft import AttachedDocument
                 for code, d in ui_by_code.items():
@@ -276,24 +275,24 @@ class MainWindow(QMainWindow):
                             from_rule=d.get('from_rule', False),
                         ))
         except Exception as _e:
-            logger.debug("Rebuild priloÅ¾enih dokumenata: %s", _e)
-        # AÅ¾uriraj zaglavlje tab da odrazi promene u draft-u
+            logger.debug("Rebuild priloÃ…Â¾enih dokumenata: %s", _e)
+        # AÃ…Â¾uriraj zaglavlje tab da odrazi promene u draft-u
         self.zaglavlje_tab.load_from_draft(self.draft)
 
-        # Opciono aÅ¾uriraj druge tabove ako je potrebno
-        # Za sada Ä‡emo samo aÅ¾urirati zaglavlje tab jer je to na Å¡ta se fokusiramo
+        # Opciono aÃ…Â¾uriraj druge tabove ako je potrebno
+        # Za sada Ã„â€¡emo samo aÃ…Â¾urirati zaglavlje tab jer je to na Ã…Â¡ta se fokusiramo
 
-        # OsveÅ¾i UI da se osigura da su sve promene prikazane
+        # OsveÃ…Â¾i UI da se osigura da su sve promene prikazane
         self.zaglavlje_tab.update()
 
     def _restore_window_state(self) -> None:
         """Vrati geometriju i poziciju prozora iz prethodne sesije."""
         settings = QSettings("DeklarantPro", "MainWindow")
 
-        # Vrati geometriju (pozicija + veliÄina)
+        # Vrati geometriju (pozicija + veliÃ„Âina)
         geometry = settings.value("geometry")
         if geometry:
-            # PokuÅ¡aj da vratiÅ¡, ali validiraj veliÄinu
+            # PokuÃ…Â¡aj da vratiÃ…Â¡, ali validiraj veliÃ„Âinu
             success = self.restoreGeometry(geometry)
 
             if not success:
@@ -312,7 +311,7 @@ class MainWindow(QMainWindow):
         self.move(x, y)
 
     def showEvent(self, event) -> None:
-        """SaÄuvaj geometriju kada se prozor prikaÅ¾e (backup za closeEvent)."""
+        """SaÃ„Âuvaj geometriju kada se prozor prikaÃ…Â¾e (backup za closeEvent)."""
         super().showEvent(event)
 
         # Samo pri prvom prikazivanju
@@ -320,16 +319,17 @@ class MainWindow(QMainWindow):
             return
         self._first_show_done = True
 
-        # SaÄuvaj poÄetnu poziciju nakon prvog prikazivanja
+        # SaÃ„Âuvaj poÃ„Âetnu poziciju nakon prvog prikazivanja
         settings = QSettings("DeklarantPro", "MainWindow")
         if not settings.value("geometry"):
             settings.setValue("geometry", self.saveGeometry())
             settings.sync()
 
     def closeEvent(self, event) -> None:
-        """SaÄuvaj stanje prozora pre zatvaranja."""
+        """SaÃ„Âuvaj stanje prozora pre zatvaranja."""
         settings = QSettings("DeklarantPro", "MainWindow")
         settings.setValue("geometry", self.saveGeometry())
         settings.sync()  # Prisili trenutno pisanje na disk
         super().closeEvent(event)
+
 
