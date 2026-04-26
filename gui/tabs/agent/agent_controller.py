@@ -222,26 +222,49 @@ class AgentController:
         
         # ⭐ Pokaži loading state na dugmetu
         doc.upload_area.set_loading(True)
-        
-        chat.add_agent_message(
-            f"🚀 Pokrećem <b>{mode}</b> za {len(files)} fajlova..."
-        )
-        chat.add_activity(f"\n{'='*60}")
-        chat.add_activity(f"🚀 [{mode}] Počelo procesiranje {len(files)} fajlova")
 
-        # Ažuriraj workflow stanje
-        from .workflow_state import WorkflowState
-        self.workflow.transition(WorkflowState.ANALYZING)
+        try:
+            chat.add_agent_message(
+                f"🚀 Pokrećem <b>{mode}</b> za {len(files)} fajlova..."
+            )
+            chat.add_activity(f"\n{'='*60}")
+            chat.add_activity(f"🚀 [{mode}] Počelo procesiranje {len(files)} fajlova")
 
-        # Kreiraj i pokreni background worker
-        self._worker = ProcessingWorker(files)
-        self._worker.progress.connect(chat.add_activity)
-        self._worker.progress.connect(self._on_progress)  # ⭐ Prikaži i u Agent tabu
-        self._worker.file_started.connect(self._on_file_started)
-        self._worker.file_completed.connect(self._on_file_completed)
-        self._worker.all_completed.connect(self._on_all_completed)
-        self._worker.error_occurred.connect(self._on_error)
-        self._worker.start()
+            # Ažuriraj workflow stanje
+            from .workflow_state import WorkflowState
+            self.workflow.transition(WorkflowState.ANALYZING)
+
+            # Kreiraj i pokreni background worker
+            self._worker = ProcessingWorker(files)
+            self._worker.progress.connect(chat.add_activity)
+            self._worker.progress.connect(self._on_progress)
+            self._worker.file_started.connect(self._on_file_started)
+            self._worker.file_completed.connect(self._on_file_completed)
+            self._worker.all_completed.connect(self._on_all_completed)
+            self._worker.error_occurred.connect(self._on_error)
+            self._worker.finished.connect(self._on_worker_finished)
+            self._worker.finished.connect(self._worker.deleteLater)
+            self._worker.start()
+        except Exception:
+            # Ako bilo šta pukne pri pokretanju, vrati dugme
+            doc.upload_area.set_loading(False)
+            raise
+
+    def _on_worker_finished(self):
+        """
+        Sigurnosni reset UI stanja nakon završetka workera.
+        Pokriva slučajeve kada all_completed/error callback ne vrati dugme.
+        """
+        try:
+            doc = self.view.get_document_panel()
+            doc.upload_area.set_loading(False)
+            # Dugme treba biti aktivno samo ako postoje fajlovi u listi
+            has_files = len(doc.get_files()) > 0
+            doc.upload_area.btn_analyze.setEnabled(has_files)
+            if has_files:
+                self.view.get_header().set_status("Spreman")
+        finally:
+            self._worker = None
 
     def _on_file_started(self, filepath: str):
         """Ažuriraj tabelu - fajl počeo sa procesiranjem."""
@@ -282,6 +305,10 @@ class AgentController:
 
     def _on_all_completed(self, files: list):
         """Svi fajlovi završeni - izvrši pipeline logiku prema modu."""
+        # ⭐ ODMAH ukloni loading state — pre bilo čega drugog
+        doc = self.view.get_document_panel()
+        doc.upload_area.set_loading(False)
+
         chat = self.view.get_chat_panel()
         completed = [f for f in files if f.status == 'Completed']
         errors = [f for f in files if f.status == 'Error']
@@ -292,10 +319,6 @@ class AgentController:
             f"✅ Procesiranje završeno: {len(completed)} uspješno, {len(errors)} grešaka"
         )
         self.view.get_header().set_status("Spreman")
-        
-        # ⭐ Ukloni loading state i vrati dugme
-        doc = self.view.get_document_panel()
-        doc.upload_area.set_loading(False)
         
         # ⭐ Prebaci nazad na Agent tab na kraju
         chat.tabs.setCurrentIndex(0)
@@ -524,11 +547,15 @@ class AgentController:
         chat.add_activity(f"❌ Greška [{filename}]: {message}")
         self.workflow.transition(WorkflowState.FAILED)
         self._save_session()
+        # Vrati dugme — ako all_completed ne stigne
+        self.view.get_document_panel().upload_area.set_loading(False)
 
     def _on_clear_requested(self):
         """Očisti listu fajlova i otkaži worker ako radi."""
         if self._worker and self._worker.isRunning():
             self._worker.cancel()
+        # Vrati dugme ako je bilo u loading stanju
+        self.view.get_document_panel().upload_area.set_loading(False)
         self.view.get_chat_panel().add_activity("🗑️ Lista fajlova očišćena")
         self.view.get_header().update_sesija(0)
         self.workflow.reset()

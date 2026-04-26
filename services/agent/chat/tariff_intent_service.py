@@ -16,13 +16,14 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 @dataclass
 class TariffProposal:
-    """Prijedlog tarifnog broja za jednu stavku."""
+    """Predlog tarifnog broja za jednu stavku."""
     line_index: int
     naziv_robe: str
     product_code: str
     proposed_tariff: str
     confidence: float
-    source: str  # "baza_znanja" | "rag" | "llm"
+    source: str  # "istorija" | "baza_znanja" | "rag" | "llm"
+    source_detail: str = ""  # npr. ime dobavljača, broj prethodnih upotreba
 
 
 class TariffIntentService:
@@ -45,8 +46,9 @@ class TariffIntentService:
 
     def propose_all(self) -> Optional[List[TariffProposal]]:
         """
-        Analizira stavke bez tarifnog broja — lokalna baza.
-        Vraća prijedloge ili None ako su sve već popunjene.
+        Analizira stavke bez tarifnog broja.
+        Redosled: 1) istorija dobavljača  2) lokalna baza znanja  3) LLM
+        Vraća predloge ili None ako su sve već popunjene.
         """
         if not self.draft or not self.draft.invoice_lines:
             self._msg("⚠️ Nema učitanih stavki u Faktura tabu.")
@@ -61,14 +63,32 @@ class TariffIntentService:
             self._msg("✅ Sve stavke već imaju upisane tarifne brojeve.")
             return None
 
-        self._activity(f"🔍 Tražim u lokalnoj bazi za {len(bez_tarife)} stavki...")
+        # ── 0. Dobavi ime dobavljača za istorijsku proveru ──
+        exporter_name = self._get_exporter_name()
+
+        self._activity(f"🔍 Tražim tarifne brojeve za {len(bez_tarife)} stavki...")
 
         from services.tariff_mapping_service import TariffMappingService
         svc = TariffMappingService()
         proposals: List[TariffProposal] = []
         bez_lokalne: List[Tuple[int, Any]] = []
 
+        istorijskih = 0
+
         for idx, line in bez_tarife:
+            # ── 1. Prvo proveri istoriju dobavljača ──
+            if exporter_name:
+                hist_match = self._try_history_match(
+                    exporter_name, line.product_code, line.naziv_robe,
+                    getattr(line, 'zemlja_porijekla', '')
+                )
+                if hist_match:
+                    hist_match.line_index = idx
+                    proposals.append(hist_match)
+                    istorijskih += 1
+                    continue
+
+            # ── 2. Lokalna baza znanja ──
             mapping = svc.find_mapping(
                 product_code=line.product_code,
                 naziv_robe=line.naziv_robe,
@@ -86,6 +106,11 @@ class TariffIntentService:
             else:
                 bez_lokalne.append((idx, line))
 
+        if istorijskih:
+            self._activity(
+                f"📚 Istorija ({exporter_name}): {istorijskih} stavki rešeno iz ranijih deklaracija"
+            )
+
         return self._handle_llm_fallback(proposals, bez_lokalne, len(bez_tarife))
 
     # ─────────────────────────────────────────────────────
@@ -94,7 +119,8 @@ class TariffIntentService:
 
     def propose_by_keyword(self, keyword: str) -> Optional[List[TariffProposal]]:
         """
-        Predlaže tarifne brojeve samo za stavke čiji naziv_robe sadrži keyword.
+        Predlaže tarifne brojeve za stavke čiji naziv_robe sadrži keyword.
+        Redosled: 1) istorija dobavljača  2) lokalna baza  3) LLM
         """
         if not self.draft or not self.draft.invoice_lines:
             self._msg("⚠️ Nema učitanih stavki u Faktura tabu.")
@@ -111,6 +137,9 @@ class TariffIntentService:
             self._msg(f"⚠️ Nema stavki čiji naziv sadrži '{keyword}'.")
             return None
 
+        # ── 0. Dobavi ime dobavljača ──
+        exporter_name = self._get_exporter_name()
+
         self._activity(f"🔍 Nađeno {len(filtrirane)} stavki s '{keyword}', tražim tarifne...")
 
         from services.tariff_mapping_service import TariffMappingService
@@ -118,9 +147,25 @@ class TariffIntentService:
         proposals: List[TariffProposal] = []
         bez_lokalne: List[Tuple[int, Any]] = []
 
+        istorijskih = 0
+
         for idx, line in filtrirane:
             naziv = (getattr(line, 'naziv_robe', '') or '').strip()
             product_code = (getattr(line, 'product_code', '') or '').strip()
+            country = getattr(line, 'zemlja_porijekla', '') or ''
+
+            # ── 1. Prvo istorija dobavljača ──
+            if exporter_name:
+                hist_match = self._try_history_match(
+                    exporter_name, product_code, naziv, country
+                )
+                if hist_match:
+                    hist_match.line_index = idx
+                    proposals.append(hist_match)
+                    istorijskih += 1
+                    continue
+
+            # ── 2. Lokalna baza ──
             mapping = svc.find_mapping(
                 product_code=product_code,
                 naziv_robe=naziv,
@@ -138,7 +183,62 @@ class TariffIntentService:
             else:
                 bez_lokalne.append((idx, line))
 
+        if istorijskih:
+            self._activity(
+                f"📚 Istorija ({exporter_name}): {istorijskih} stavki rešeno iz ranijih deklaracija"
+            )
+
         return self._handle_llm_fallback(proposals, bez_lokalne, len(filtrirane))
+
+    # ─────────────────────────────────────────────────────
+    # ISTORIJSKI MATCHING (dobavljač → tarifni broj)
+    # ─────────────────────────────────────────────────────
+
+    def _get_exporter_name(self) -> str:
+        """Izvlači ime dobavljača (exporter) iz drafta."""
+        if self.draft and hasattr(self.draft, 'exporter') and self.draft.exporter:
+            name = getattr(self.draft.exporter, 'name', '') or ''
+            if name.strip():
+                return name.strip()
+        if self.draft and self.draft.invoice_lines:
+            for line in self.draft.invoice_lines:
+                if hasattr(line, 'exporter') and line.exporter:
+                    name = getattr(line.exporter, 'name', '') or ''
+                    if name.strip():
+                        return name.strip()
+        return ""
+
+    def _try_history_match(
+        self, exporter_name: str, product_code: str, naziv_robe: str, country: str
+    ) -> Optional[TariffProposal]:
+        """
+        Pokušaj da nađeš tarifni broj iz istorije dobavljača.
+        Koristi HybridMatchingService sa težinom na istorijskom match-u.
+        """
+        try:
+            from services.agent.tariff.tariff_suggestion_service import HybridMatchingService
+            hybrid = HybridMatchingService()
+            match = hybrid.find_hybrid_mapping(
+                product_code=product_code,
+                naziv_robe=naziv_robe,
+                supplier=exporter_name,
+                country=country,
+                min_confidence=0.75
+            )
+            if match and match.confidence >= 0.82:
+                detail = f"{exporter_name}, {match.explanation}"
+                return TariffProposal(
+                    line_index=-1,  # postaviće se u pozivaocu
+                    naziv_robe=naziv_robe[:60],
+                    product_code=product_code,
+                    proposed_tariff=match.tariff_mapping.tarifni_broj,
+                    confidence=match.confidence,
+                    source="istorija",
+                    source_detail=detail
+                )
+        except Exception:
+            pass  # Silent — istorijski match nije kritičan
+        return None
 
     # ─────────────────────────────────────────────────────
     # LLM FALLBACK
@@ -192,10 +292,18 @@ class TariffIntentService:
         linije = []
         for p in svi:
             pct = int(p.confidence * 100)
-            izvor = "📚 baza" if p.source == "baza_znanja" else "🤖 AI"
+            if p.source == "istorija":
+                izvor = "📚 istorija"
+                detail = f" — {p.source_detail}" if p.source_detail else ""
+            elif p.source == "baza_znanja":
+                izvor = "📚 baza"
+                detail = ""
+            else:
+                izvor = "🤖 AI"
+                detail = ""
             linije.append(
                 f"&nbsp;&nbsp;• <b>{p.proposed_tariff}</b> — {p.naziv_robe} "
-                f"<small>({izvor}, {pct}% sigurnost)</small>"
+                f"<small>({izvor}, {pct}% pouzdanost{detail})</small>"
             )
 
         nema = ukupno_bez - len(svi)
