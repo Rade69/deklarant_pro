@@ -27,17 +27,17 @@ echo "  Deklarant Pro — Restore baze podataka"
 echo "===================================================="
 echo ""
 echo ">>> Restoring: $BACKUP_FILE"
-echo "    Unesite lozinku za asycuda_app korisnika:"
+echo "    Unesite lozinku za deklarant_app korisnika:"
 
 psql \
-    -U asycuda_app \
+    -U deklarant_app \
     -d deklarant_pro \
     -h localhost \
     -f "$BACKUP_FILE"
 
 echo ""
 echo ">>> Provjera:"
-psql -U asycuda_app -d deklarant_pro -h localhost -c "
+psql -U deklarant_app -d deklarant_pro -h localhost -c "
     SELECT schemaname, tablename,
            (SELECT COUNT(*) FROM catalogs.zvanicna_tarifa) as tarifa_count
     FROM pg_tables
@@ -53,6 +53,6 @@ echo ""
 echo "  DB_HOST=$(hostname -I | awk '{print $1}')"
 echo "  DB_PORT=5432"
 echo "  DB_NAME=deklarant_pro"
-echo "  DB_USER=asycuda_app"
+echo "  DB_USER=deklarant_app"
 echo "  DB_PASSWORD=tvoja_lozinka"
 echo "===================================================="

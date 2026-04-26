@@ -29,7 +29,7 @@ sudo -u postgres psql -c "\password postgres"
 
 # 4. Kreiranje baze i korisnika za aplikaciju
 echo ""
-echo ">>> Kreiranje baze 'deklarant_pro' i korisnika 'asycuda_app'..."
+echo ">>> Kreiranje baze 'deklarant_pro' i korisnika 'deklarant_app'..."
 sudo -u postgres psql -f "$(dirname "$0")/02_create_db_user.sql"
 
 # 5. Konfiguracija mrežnog pristupa
@@ -46,7 +46,7 @@ echo "    listen_addresses = '*' postavljeno."
 # Dozvoli konekcije sa LAN-a (192.168.x.x)
 echo "" >> "$PG_HBA"
 echo "# Deklarant Pro — Windows klijenti na LAN-u" >> "$PG_HBA"
-echo "host    deklarant_pro    asycuda_app    192.168.0.0/16    scram-sha-256" >> "$PG_HBA"
+echo "host    deklarant_pro    deklarant_app    192.168.0.0/16    scram-sha-256" >> "$PG_HBA"
 echo "    pg_hba.conf ažuriran za LAN pristup."
 
 # 6. Restart PostgreSQL da primijeni promjene
