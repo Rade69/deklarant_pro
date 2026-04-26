@@ -1,10 +1,10 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
-Migracija šifara vrsta carinskih deklaracija (polje 1) iz JSON fajla u PostgreSQL.
+Migracija Å¡ifara vrsta carinskih deklaracija (polje 1) iz JSON fajla u PostgreSQL.
 
 Kreira tri tabele u catalogs shemi:
   - vrste_deklaracija   : kombinacije EX/IM + oznaka (H, I, J, K, A, C, E)
-  - postupci_rb37       : dozvoljene šifre polja 37 za svaku vrstu
+  - postupci_rb37       : dozvoljene Å¡ifre polja 37 za svaku vrstu
   - tipovi_deklaracija  : tip deklaracije iz polja 1/2 (A, Z, B)
 """
 
@@ -42,7 +42,7 @@ def create_tables(cur):
         CREATE INDEX IF NOT EXISTS idx_vrste_dek_sifra
             ON catalogs.vrste_deklaracija (sifra);
     """)
-    print("✅ Tabela catalogs.vrste_deklaracija kreirana")
+    print("âœ… Tabela catalogs.vrste_deklaracija kreirana")
 
     # --- postupci_rb37 (dozvoljeni postupci za svaku vrstu) ---
     cur.execute("""
@@ -63,7 +63,7 @@ def create_tables(cur):
         CREATE INDEX IF NOT EXISTS idx_postupci_rb37_sifra
             ON catalogs.postupci_rb37 (sifra);
     """)
-    print("✅ Tabela catalogs.postupci_rb37 kreirana")
+    print("âœ… Tabela catalogs.postupci_rb37 kreirana")
 
     # --- tipovi_deklaracija (polje 1/2: A, Z, B) ---
     cur.execute("""
@@ -72,7 +72,7 @@ def create_tables(cur):
             opis   TEXT       NOT NULL
         );
     """)
-    print("✅ Tabela catalogs.tipovi_deklaracija kreirana")
+    print("âœ… Tabela catalogs.tipovi_deklaracija kreirana")
 
 
 def migrate_polje_1_1(cur, data):
@@ -95,7 +95,7 @@ def migrate_polje_1_1(cur, data):
         vrsta_id = cur.fetchone()["id"]
         unose_vrsta += 1
 
-        # Obriši stare postupke za ovu vrstu pa upiši nove (idempotentno)
+        # ObriÅ¡i stare postupke za ovu vrstu pa upiÅ¡i nove (idempotentno)
         cur.execute(
             "DELETE FROM catalogs.postupci_rb37 WHERE vrsta_id = %s;",
             (vrsta_id,)
@@ -108,7 +108,7 @@ def migrate_polje_1_1(cur, data):
             """, (vrsta_id, postupak["sifra"], postupak["opis"]))
             unose_postupaka += 1
 
-    print(f"✅ Uneseno {unose_vrsta} vrsta deklaracija, "
+    print(f"âœ… Uneseno {unose_vrsta} vrsta deklaracija, "
           f"{unose_postupaka} postupaka Rb.37")
 
 
@@ -122,11 +122,11 @@ def migrate_polje_1_2(cur, data):
             ON CONFLICT (sifra) DO UPDATE SET opis = EXCLUDED.opis;
         """, (stavka["sifra"], stavka["opis"]))
         count += 1
-    print(f"✅ Uneseno {count} tipova deklaracija (A/Z/B)")
+    print(f"âœ… Uneseno {count} tipova deklaracija (A/Z/B)")
 
 
 def verify(cur):
-    """Ispiši kratki pregled unesenih podataka."""
+    """IspiÅ¡i kratki pregled unesenih podataka."""
     cur.execute("""
         SELECT vd.sifra, vd.oznaka, vd.opis,
                COUNT(p.id) AS broj_postupaka
@@ -136,27 +136,27 @@ def verify(cur):
         ORDER BY vd.sifra, vd.oznaka;
     """)
     rows = cur.fetchall()
-    print("\n📋 Pregled vrste_deklaracija:")
-    print(f"  {'Šifra':<6} {'Oz':<4} {'Postupaka':>10}  Opis")
+    print("\nðŸ“‹ Pregled vrste_deklaracija:")
+    print(f"  {'Å ifra':<6} {'Oz':<4} {'Postupaka':>10}  Opis")
     print("  " + "-" * 70)
     for r in rows:
         print(f"  {r['sifra']:<6} {r['oznaka']:<4} {r['broj_postupaka']:>10}  {r['opis'][:55]}")
 
     cur.execute("SELECT sifra, opis FROM catalogs.tipovi_deklaracija ORDER BY sifra;")
-    print("\n📋 Tipovi deklaracija (polje 1/2):")
+    print("\nðŸ“‹ Tipovi deklaracija (polje 1/2):")
     for r in cur.fetchall():
         print(f"  {r['sifra']}  {r['opis'][:80]}")
 
 
 def main():
     if not os.path.exists(JSON_FILE):
-        print(f"❌ JSON fajl nije pronađen: {JSON_FILE}")
+        print(f"âŒ JSON fajl nije pronaÄ‘en: {JSON_FILE}")
         return
 
     with open(JSON_FILE, encoding="utf-8") as f:
         data = json.load(f)
 
-    print(f"📂 Učitan JSON: {os.path.basename(JSON_FILE)}")
+    print(f"ðŸ“‚ UÄitan JSON: {os.path.basename(JSON_FILE)}")
 
     conn = psycopg2.connect(**_pg_config())
     try:
@@ -166,9 +166,9 @@ def main():
                 migrate_polje_1_1(cur, data)
                 migrate_polje_1_2(cur, data)
                 verify(cur)
-        print("\n✅ Migracija završena uspješno.")
+        print("\nâœ… Migracija zavrÅ¡ena uspjeÅ¡no.")
     except Exception as e:
-        print(f"\n❌ Greška: {e}")
+        print(f"\nâŒ GreÅ¡ka: {e}")
         raise
     finally:
         conn.close()
@@ -176,3 +176,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

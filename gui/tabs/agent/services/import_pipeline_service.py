@@ -600,3 +600,4 @@ def _otvori_faktura_tab_nakon_uvoza(ctrl, chat) -> None:
     else:
         chat.add_activity("âš ï¸ Parent window nije pronaÄ‘en")
 
+

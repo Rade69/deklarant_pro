@@ -1,5 +1,5 @@
-#!/usr/bin/env python3
-"""Migracija šifara pakovanja iz SQLite u PostgreSQL."""
+﻿#!/usr/bin/env python3
+"""Migracija Å¡ifara pakovanja iz SQLite u PostgreSQL."""
 
 import sqlite3
 import psycopg2
@@ -15,20 +15,20 @@ SQLITE_DB = "/home/radovan/Desktop/PythonProjects/deklarant_pro/database/deklara
 
 
 def migrate_pakovanja():
-    """Migriraj šifre pakovanja iz SQLite u PostgreSQL."""
+    """Migriraj Å¡ifre pakovanja iz SQLite u PostgreSQL."""
 
     print("=" * 70)
-    print("MIGRACIJA ŠIFARA PAKOVANJA")
+    print("MIGRACIJA Å IFARA PAKOVANJA")
     print("=" * 70)
 
     # 1. Konektuj se na obe baze
-    print("\n1️⃣  Konektujem na baze podataka...")
+    print("\n1ï¸âƒ£  Konektujem na baze podataka...")
     sqlite_conn = sqlite3.connect(SQLITE_DB)
     pg_conn = psycopg2.connect(**_pg_config())
     pg_cursor = pg_conn.cursor()
 
     # 2. Kreiraj tabelu u PostgreSQL ako ne postoji
-    print("2️⃣  Kreiram tabelu catalogs.pakovanja...")
+    print("2ï¸âƒ£  Kreiram tabelu catalogs.pakovanja...")
     pg_cursor.execute("""
         CREATE TABLE IF NOT EXISTS catalogs.pakovanja (
             sifra VARCHAR(10) PRIMARY KEY,
@@ -36,34 +36,34 @@ def migrate_pakovanja():
         )
     """)
     pg_conn.commit()
-    print("   ✅ Tabela kreirana")
+    print("   âœ… Tabela kreirana")
 
-    # 3. Provjeri da li tabela već ima podatke
+    # 3. Provjeri da li tabela veÄ‡ ima podatke
     pg_cursor.execute("SELECT COUNT(*) FROM catalogs.pakovanja")
     existing_count = pg_cursor.fetchone()[0]
 
     if existing_count > 0:
-        print(f"\n⚠️  Tabela već ima {existing_count} redova!")
-        response = input("   Da li da obrišem postojeće podatke i migriram iznova? (da/ne): ")
+        print(f"\nâš ï¸  Tabela veÄ‡ ima {existing_count} redova!")
+        response = input("   Da li da obriÅ¡em postojeÄ‡e podatke i migriram iznova? (da/ne): ")
         if response.lower() in ['da', 'd', 'yes', 'y']:
             pg_cursor.execute("DELETE FROM catalogs.pakovanja")
             pg_conn.commit()
-            print("   ✅ Stari podaci obrisani")
+            print("   âœ… Stari podaci obrisani")
         else:
-            print("   ❌ Migracija otkazana")
+            print("   âŒ Migracija otkazana")
             sqlite_conn.close()
             pg_conn.close()
             return
 
-    # 4. Učitaj podatke iz SQLite
-    print("\n3️⃣  Učitavam podatke iz SQLite...")
+    # 4. UÄitaj podatke iz SQLite
+    print("\n3ï¸âƒ£  UÄitavam podatke iz SQLite...")
     sqlite_cursor = sqlite_conn.cursor()
     sqlite_cursor.execute("SELECT kod, opis FROM pakovanja ORDER BY kod")
     pakovanja = sqlite_cursor.fetchall()
-    print(f"   ✅ Učitano {len(pakovanja)} šifara pakovanja")
+    print(f"   âœ… UÄitano {len(pakovanja)} Å¡ifara pakovanja")
 
     # 5. Migracija u PostgreSQL
-    print("\n4️⃣  Migriram podatke u PostgreSQL...")
+    print("\n4ï¸âƒ£  Migriram podatke u PostgreSQL...")
 
     migrated = 0
     errors = 0
@@ -79,36 +79,36 @@ def migrate_pakovanja():
 
             # Progress bar
             if migrated % 50 == 0:
-                print(f"   📦 {migrated}/{len(pakovanja)} migrirano...")
+                print(f"   ðŸ“¦ {migrated}/{len(pakovanja)} migrirano...")
 
         except Exception as e:
             errors += 1
-            print(f"   ⚠️  Greška kod šifre {kod}: {e}")
+            print(f"   âš ï¸  GreÅ¡ka kod Å¡ifre {kod}: {e}")
 
     pg_conn.commit()
 
     # 6. Verifikacija
-    print("\n5️⃣  Verifikacija...")
+    print("\n5ï¸âƒ£  Verifikacija...")
     pg_cursor.execute("SELECT COUNT(*) FROM catalogs.pakovanja")
     final_count = pg_cursor.fetchone()[0]
 
-    print(f"\n   ✅ Migrirano: {migrated} redova")
-    print(f"   ❌ Greške: {errors}")
-    print(f"   📊 Ukupno u PostgreSQL: {final_count} redova")
+    print(f"\n   âœ… Migrirano: {migrated} redova")
+    print(f"   âŒ GreÅ¡ke: {errors}")
+    print(f"   ðŸ“Š Ukupno u PostgreSQL: {final_count} redova")
 
-    # 7. Prikaži primjer podataka
-    print("\n6️⃣  Primjer migriranih podataka:")
+    # 7. PrikaÅ¾i primjer podataka
+    print("\n6ï¸âƒ£  Primjer migriranih podataka:")
     pg_cursor.execute("SELECT sifra, opis FROM catalogs.pakovanja LIMIT 5")
     samples = pg_cursor.fetchall()
     for sifra, opis in samples:
-        print(f"   • {sifra:5s} → {opis}")
+        print(f"   â€¢ {sifra:5s} â†’ {opis}")
 
     # Zatvori konekcije
     sqlite_conn.close()
     pg_conn.close()
 
     print("\n" + "=" * 70)
-    print("✅ MIGRACIJA ZAVRŠENA!")
+    print("âœ… MIGRACIJA ZAVRÅ ENA!")
     print("=" * 70)
 
 
@@ -116,6 +116,7 @@ if __name__ == "__main__":
     try:
         migrate_pakovanja()
     except Exception as e:
-        print(f"\n❌ FATALNA GREŠKA: {e}")
+        print(f"\nâŒ FATALNA GREÅ KA: {e}")
         import traceback
         traceback.print_exc()
+

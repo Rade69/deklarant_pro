@@ -1,10 +1,10 @@
-"""
+﻿"""
 Smart PDF Importer - Unified univerzalni parser sa automatskom detekcijom
 
 Jedan parser koji:
-1. Automatski detektuje format (Blagić, IMAMOGLU, Master Frigo...)
+1. Automatski detektuje format (BlagiÄ‡, IMAMOGLU, Master Frigo...)
 2. Koristi specijalizovane funkcije za poznate formate
-3. Fallback na generičku tabular extraction za nepoznate formate
+3. Fallback na generiÄku tabular extraction za nepoznate formate
 """
 
 import logging
@@ -17,8 +17,8 @@ from importers.generic_pdf_importer import parse_generic_pdf
 
 logger = logging.getLogger("deklarant_pro.import.smart_pdf")
 
-# Cache teksta prvih stranica po putanji — punjen u _detect_pdf_format,
-# dostupan specijalizovanim parserima koji inače čitaju iste stranice ponovo.
+# Cache teksta prvih stranica po putanji â€” punjen u _detect_pdf_format,
+# dostupan specijalizovanim parserima koji inaÄe Äitaju iste stranice ponovo.
 # Format: {filepath: (text_raw, text_upper, text_norm)}
 _pdf_text_cache: dict = {}
 
@@ -29,12 +29,12 @@ def get_cached_pdf_text(pdf_path: str):
 
 
 # SECTION: pdf_parse_pipeline
-# PURPOSE: 5-koračni pipeline sa fallback lancem: specijalizirani → generic → OCR
+# PURPOSE: 5-koraÄni pipeline sa fallback lancem: specijalizirani â†’ generic â†’ OCR
 # DOC: docs/sections/pdf_parse_pipeline.md
 def parse_smart_pdf(pdf_path: str) -> ImportResult:
     """
     Pametno parsira bilo koji PDF - automatski detektuje format i koristi
-    odgovarajuću parsing funkciju.
+    odgovarajuÄ‡u parsing funkciju.
 
     Args:
         pdf_path: Putanja do PDF fajla
@@ -42,7 +42,7 @@ def parse_smart_pdf(pdf_path: str) -> ImportResult:
     Returns:
         ImportResult sa parsiranim stavkama
     """
-    logger.info(f"🤖 Smart PDF Parser: {Path(pdf_path).name}")
+    logger.info(f"ðŸ¤– Smart PDF Parser: {Path(pdf_path).name}")
 
     # 1. DETEKCIJA FORMATA
     pdf_format = _detect_pdf_format(pdf_path)
@@ -53,122 +53,122 @@ def parse_smart_pdf(pdf_path: str) -> ImportResult:
     # 2. PARSIRANJE PREMA FORMATU
     try:
         if pdf_format == "leburic_pekabesko":
-            logger.info("   📋 Koristim Leburic/Pekabesko specijalizovanu funkciju")
+            logger.info("   ðŸ“‹ Koristim Leburic/Pekabesko specijalizovanu funkciju")
             result = _parse_leburic_pekabesko(pdf_path)
 
         elif pdf_format == "pip_food":
-            logger.info("   📋 Koristim PIP Food Group specijalizovanu funkciju")
+            logger.info("   ðŸ“‹ Koristim PIP Food Group specijalizovanu funkciju")
             result = _parse_pip_food(pdf_path)
 
         elif pdf_format == "invoice_improved":
-            logger.info("   📋 Koristim Invoice-Improved specijalizovanu funkciju")
+            logger.info("   ðŸ“‹ Koristim Invoice-Improved specijalizovanu funkciju")
             result = _parse_invoice_improved(pdf_path)
 
         elif pdf_format == "blagic_loren":
-            logger.info("   📋 Koristim Blagić-Loren specijalizovanu funkciju")
+            logger.info("   ðŸ“‹ Koristim BlagiÄ‡-Loren specijalizovanu funkciju")
             result = _parse_blagic_loren(pdf_path)
 
         elif pdf_format == "blagic_attos":
-            logger.info("   📋 Koristim Blagić-Attos specijalizovanu funkciju")
+            logger.info("   ðŸ“‹ Koristim BlagiÄ‡-Attos specijalizovanu funkciju")
             result = _parse_blagic_attos(pdf_path)
 
         elif pdf_format == "imamoglu":
-            logger.info("   📋 Koristim IMAMOGLU specijalizovanu funkciju")
+            logger.info("   ðŸ“‹ Koristim IMAMOGLU specijalizovanu funkciju")
             result = _parse_imamoglu(pdf_path)
 
         elif pdf_format == "master_frigo":
-            logger.info("   📋 Koristim Master Frigo specijalizovanu funkciju")
+            logger.info("   ðŸ“‹ Koristim Master Frigo specijalizovanu funkciju")
             result = _parse_master_frigo(pdf_path)
 
         elif pdf_format == "medicopharm":
-            logger.info("   📋 Koristim Medico Pharm specijalizovanu funkciju")
+            logger.info("   ðŸ“‹ Koristim Medico Pharm specijalizovanu funkciju")
             result = _parse_medicopharm(pdf_path)
 
         elif pdf_format == "proton_system":
-            logger.info("   📋 Koristim Proton System (MGM) specijalizovanu funkciju")
+            logger.info("   ðŸ“‹ Koristim Proton System (MGM) specijalizovanu funkciju")
             result = _parse_proton_system(pdf_path)
 
         elif pdf_format == "sumaprom":
-            logger.info("   📋 Koristim ŠUMAPROM specijalizovanu funkciju")
+            logger.info("   ðŸ“‹ Koristim Å UMAPROM specijalizovanu funkciju")
             result = _parse_sumaprom(pdf_path)
 
         elif pdf_format == "kg_fashion":
-            logger.info("   📋 Koristim KG Fashion specijalizovanu funkciju")
+            logger.info("   ðŸ“‹ Koristim KG Fashion specijalizovanu funkciju")
             result = _parse_kg_fashion(pdf_path)
 
         elif pdf_format == "cmana":
-            logger.info("   📋 Koristim CMANA specijalizovanu funkciju")
+            logger.info("   ðŸ“‹ Koristim CMANA specijalizovanu funkciju")
             result = _parse_cmana(pdf_path)
 
         else:
-            logger.info("   🔍 Nepoznat format - koristim generičku tabular extraction")
+            logger.info("   ðŸ” Nepoznat format - koristim generiÄku tabular extraction")
             result = parse_generic_pdf(pdf_path)
 
     except Exception as e:
-        logger.exception(f"   ⚠️  Specijalizovani parser nije uspio: {e}")
-        logger.info("   🔄 Fallback na generičku extraction...")
+        logger.exception(f"   âš ï¸  Specijalizovani parser nije uspio: {e}")
+        logger.info("   ðŸ”„ Fallback na generiÄku extraction...")
         result = parse_generic_pdf(pdf_path)
 
     # 3. FALLBACK AKO JE REZULTAT PRAZAN
-    # VAŽNO: koristiti "result is not None" jer ImportResult.__len__ vraća 0 za prazan result
-    # što bi ga učinilo falsy pri bool evaluaciji
+    # VAÅ½NO: koristiti "result is not None" jer ImportResult.__len__ vraÄ‡a 0 za prazan result
+    # Å¡to bi ga uÄinilo falsy pri bool evaluaciji
     if result is not None and hasattr(result, 'items') and len(result.items) == 0:
-        logger.warning("   ⚠️  Parser vratio 0 stavki")
+        logger.warning("   âš ï¸  Parser vratio 0 stavki")
 
-        # Ako smo već koristili generic, ne pokušavaj ponovo
+        # Ako smo veÄ‡ koristili generic, ne pokuÅ¡avaj ponovo
         if pdf_format != "generic":
-            logger.info("   🔄 Pokušavam sa generičkom extraction kao fallback...")
+            logger.info("   ðŸ”„ PokuÅ¡avam sa generiÄkom extraction kao fallback...")
             try:
                 result = parse_generic_pdf(pdf_path)
                 if result is not None and len(result.items) > 0:
-                    logger.info(f"   ✅ Generic fallback našao {len(result.items)} stavki!")
+                    logger.info(f"   âœ… Generic fallback naÅ¡ao {len(result.items)} stavki!")
             except Exception as e:
-                logger.error(f"   ❌ Generic fallback također nije uspio: {e}")
+                logger.error(f"   âŒ Generic fallback takoÄ‘er nije uspio: {e}")
 
-    # 4. OCR FALLBACK — ako i dalje nema stavki, provjeri da li je PDF skeniran
+    # 4. OCR FALLBACK â€” ako i dalje nema stavki, provjeri da li je PDF skeniran
     if result is not None and hasattr(result, 'items') and len(result.items) == 0:
         try:
             from importers.pdf.ocr_utils import is_scanned_pdf, ocr_pdf_to_text
             from importers.pdf.ocr_invoice_parser import parse_ocr_result
             if is_scanned_pdf(pdf_path):
-                logger.info("   📷 PDF je skeniran — pokušavam OCR (Tesseract)...")
+                logger.info("   ðŸ“· PDF je skeniran â€” pokuÅ¡avam OCR (Tesseract)...")
                 pages_text = ocr_pdf_to_text(pdf_path, dpi=300)
                 ocr_result = parse_ocr_result(pages_text, pdf_path=pdf_path)
                 if ocr_result is not None and len(ocr_result.items) > 0:
-                    logger.info(f"   ✅ OCR našao {len(ocr_result.items)} stavki!")
+                    logger.info(f"   âœ… OCR naÅ¡ao {len(ocr_result.items)} stavki!")
                     result = ocr_result
                 else:
-                    logger.warning("   ⚠️  OCR nije pronašao stavke")
+                    logger.warning("   âš ï¸  OCR nije pronaÅ¡ao stavke")
         except ImportError:
             logger.debug("   OCR nije dostupan (pytesseract/pdf2image nisu instalirani)")
         except Exception as e:
-            logger.error(f"   ❌ OCR fallback nije uspio: {e}")
+            logger.error(f"   âŒ OCR fallback nije uspio: {e}")
 
     # 5. FINALNI REZULTAT
     if result is not None:
         item_count = len(result.items) if hasattr(result, 'items') else len(result)
-        logger.info(f"✅ Parsiranje završeno: {item_count} stavki")
+        logger.info(f"âœ… Parsiranje zavrÅ¡eno: {item_count} stavki")
 
-        # VAŽNO: Dodaj metadata o detektovanom formatu
-        # Ovo će pomoći import_service da postavi pravilan last_import_type
+        # VAÅ½NO: Dodaj metadata o detektovanom formatu
+        # Ovo Ä‡e pomoÄ‡i import_service da postavi pravilan last_import_type
         if hasattr(result, '__dict__'):
             result._detected_format = pdf_format  # Hidden attribute za internal use
     else:
-        logger.warning("❌ Parsiranje nije uspjelo - nema rezultata")
+        logger.warning("âŒ Parsiranje nije uspjelo - nema rezultata")
         result = ImportResult(items=[], bruto_kg=0.0, neto_kg=0.0, invoice_name="", currency="EUR")
 
-    # Oslobodi cache — fajl je parsiran, tekst više nije potreban
+    # Oslobodi cache â€” fajl je parsiran, tekst viÅ¡e nije potreban
     _pdf_text_cache.pop(str(pdf_path), None)
 
     return result
 
 
 # SECTION: pdf_format_detection
-# PURPOSE: Analizira tekst PDF-a i vraća string-key formata; redoslijed provjera je bitan
+# PURPOSE: Analizira tekst PDF-a i vraÄ‡a string-key formata; redoslijed provjera je bitan
 # DOC: docs/sections/pdf_format_detection.md
 def _detect_pdf_format(pdf_path: str) -> str:
     """
-    Detektuje format PDF-a analizirajući tekst.
+    Detektuje format PDF-a analizirajuÄ‡i tekst.
 
     Returns:
         "invoice_improved", "blagic_loren", "blagic_attos", "imamoglu", "master_frigo", "medicopharm", "sumaprom", ili "generic"
@@ -179,40 +179,40 @@ def _detect_pdf_format(pdf_path: str) -> str:
             text = ""
             for page in pdf.pages[:3]:
                 page_text = page.extract_text() or ""
-                text += page_text[:2000]  # Ograniči na 2000 karaktera po stranici
+                text += page_text[:2000]  # OgraniÄi na 2000 karaktera po stranici
 
             text_upper = text.upper()
 
-            # Normalizovana verzija bez dijakritika (npr. BLAGIĆ → BLAGIC)
+            # Normalizovana verzija bez dijakritika (npr. BLAGIÄ† â†’ BLAGIC)
             import unicodedata
             text_norm = "".join(
                 c for c in unicodedata.normalize("NFD", text_upper)
                 if unicodedata.category(c) != "Mn"
             )
 
-            # Sačuvaj u cache — specijalizovani parseri mogu preskočiti re-čitanje
+            # SaÄuvaj u cache â€” specijalizovani parseri mogu preskoÄiti re-Äitanje
             _pdf_text_cache[str(pdf_path)] = (text, text_upper, text_norm)
 
-            # BLAGIĆ ATTOS - specifičan format (provjeri prije generičkog Blagić)
-            # Koristimo text_norm jer PDF može imati BLAGIĆ (dijakritik) umjesto BLAGIC
+            # BLAGIÄ† ATTOS - specifiÄan format (provjeri prije generiÄkog BlagiÄ‡)
+            # Koristimo text_norm jer PDF moÅ¾e imati BLAGIÄ† (dijakritik) umjesto BLAGIC
             if "BLAGIC" in text_norm and "ATTOS" in text_upper:
                 return "blagic_attos"
 
-            # INVOICE IMPROVED - moderni format sa specifičnim header-om
-            # VAŽNO: Provjeri PRIJE generičkog Blagić Loren!
-            # Karakteristični header: No. Code Title Measure Quantity Price Value
+            # INVOICE IMPROVED - moderni format sa specifiÄnim header-om
+            # VAÅ½NO: Provjeri PRIJE generiÄkog BlagiÄ‡ Loren!
+            # KarakteristiÄni header: No. Code Title Measure Quantity Price Value
             if ("NO." in text_upper and "CODE" in text_upper and
                 "TITLE" in text_upper and "MEASURE" in text_upper and
                 "QUANTITY" in text_upper and "PRICE" in text_upper):
                 return "invoice_improved"
 
             # IMAMOGLU - provjeri PRIJE blagic_loren jer fakture mogu imati
-            # BLAGIC kao ime kupca (uvoznika), što bi lažno aktiviralo blagic_loren
-            if "IMAMOGLU" in text_upper or "İMAMOĞLU" in text:
+            # BLAGIC kao ime kupca (uvoznika), Å¡to bi laÅ¾no aktiviralo blagic_loren
+            if "IMAMOGLU" in text_upper or "Ä°MAMOÄžLU" in text:
                 return "imamoglu"
 
-            # BLAGIĆ LOREN - stariji generički Blagić format
-            # Koristimo text_norm za detekciju BLAGIĆ/BLAGIC
+            # BLAGIÄ† LOREN - stariji generiÄki BlagiÄ‡ format
+            # Koristimo text_norm za detekciju BLAGIÄ†/BLAGIC
             if "BLAGIC" in text_norm or "LOREN" in text_upper:
                 # Dodatna provjera - ima li karakteristike Loren fakture
                 if "INVOICE" in text_upper and "CODE" in text_upper:
@@ -229,18 +229,18 @@ def _detect_pdf_format(pdf_path: str) -> str:
                 return "medicopharm"
 
             # PROTON SYSTEM DOO (MGM fakture)
-            # Detektuj po nazivu firme ILI po specifičnom zaglavlje tabele
+            # Detektuj po nazivu firme ILI po specifiÄnom zaglavlje tabele
             if "PROTON SYSTEM" in text_upper:
                 return "proton_system"
-            if ("ŠIFRA ARTIKLA" in text_upper or "SIFRA ARTIKLA" in text_upper) and "NETO CENA" in text_upper:
+            if ("Å IFRA ARTIKLA" in text_upper or "SIFRA ARTIKLA" in text_upper) and "NETO CENA" in text_upper:
                 return "proton_system"
 
-            # ŠUMAPROM
-            if "ŠUMAPROM" in text or "SUMAPROM" in text_upper:
+            # Å UMAPROM
+            if "Å UMAPROM" in text or "SUMAPROM" in text_upper:
                 if "FAKTURA" in text_upper or "INVOICE" in text_upper:
                     return "sumaprom"
 
-            # Skenirani PDF (bez teksta) — probaj OCR za Šumaprom detekciju
+            # Skenirani PDF (bez teksta) â€” probaj OCR za Å umaprom detekciju
             if len(text.strip()) < 50:
                 try:
                     from importers.sumaprom_pdf_parser import detect_sumaprom_pdf
@@ -249,7 +249,7 @@ def _detect_pdf_format(pdf_path: str) -> str:
                 except Exception:
                     pass
 
-            # LEBURIC / PEKABESKO — PDF je supplement (uz Excel), ne importuje se direktno
+            # LEBURIC / PEKABESKO â€” PDF je supplement (uz Excel), ne importuje se direktno
             if "PEKABESKO" in text_upper:
                 return "leburic_pekabesko"
 
@@ -263,15 +263,15 @@ def _detect_pdf_format(pdf_path: str) -> str:
             if "K... G... FASHION" in text_upper or "KGFASHION" in text_upper:
                 return "kg_fashion"
 
-            # CMANA - Račun ino kupcu
-            if "CMANA" in text_upper and ("RAČUN" in text_upper or "RACUN" in text_upper):
+            # CMANA - RaÄun ino kupcu
+            if "CMANA" in text_upper and ("RAÄŒUN" in text_upper or "RACUN" in text_upper):
                 return "cmana"
 
-            # Nepoznat format - generička extraction
+            # Nepoznat format - generiÄka extraction
             return "generic"
 
     except Exception as e:
-        logger.warning(f"Greška tokom detekcije formata: {e}")
+        logger.warning(f"GreÅ¡ka tokom detekcije formata: {e}")
         return "generic"
 
 
@@ -282,19 +282,19 @@ def _parse_invoice_improved(pdf_path: str) -> ImportResult:
 
 
 def _parse_blagic_loren(pdf_path: str) -> ImportResult:
-    """Parsira Blagić-Loren format."""
+    """Parsira BlagiÄ‡-Loren format."""
     from importers.blagic_loren_pdf_parser import parse_blagic_loren_pdf
     return parse_blagic_loren_pdf(pdf_path)
 
 
 def _parse_blagic_attos(pdf_path: str) -> ImportResult:
-    """Parsira Blagić-Attos format."""
+    """Parsira BlagiÄ‡-Attos format."""
     from importers.blagic_attos_importer import parse_blagic_attos_with_auto_combine
     return parse_blagic_attos_with_auto_combine(pdf_path)
 
 
 def _parse_sumaprom(pdf_path: str) -> ImportResult:
-    """Parsira ŠUMAPROM format (PDF) — tekstualni ili skenirani (OCR)."""
+    """Parsira Å UMAPROM format (PDF) â€” tekstualni ili skenirani (OCR)."""
     from importers.sumaprom_pdf_parser import parse_sumaprom_pdf
     return parse_sumaprom_pdf(pdf_path)
 
@@ -311,10 +311,10 @@ def _parse_imamoglu(pdf_path: str) -> ImportResult:
 # DOC: scripts/master_frigo_agent_import_2026-04-26.md
 def _find_master_frigo_mapping_xlsx(pdf_path: str) -> str | None:
     """
-    Traži Excel fajl sa tarifama/zemljama u istom folderu kao PDF.
+    TraÅ¾i Excel fajl sa tarifama/zemljama u istom folderu kao PDF.
 
-    Master Frigo šalje jedan Excel ('tarife i zemlje porekla' ili 'podela po poreklu')
-    za sve fakture. Tražimo po prepoznatljivim riječima iz tih naziva.
+    Master Frigo Å¡alje jedan Excel ('tarife i zemlje porekla' ili 'podela po poreklu')
+    za sve fakture. TraÅ¾imo po prepoznatljivim rijeÄima iz tih naziva.
     """
     from pathlib import Path
     folder = Path(pdf_path).parent
@@ -329,14 +329,14 @@ def _find_master_frigo_mapping_xlsx(pdf_path: str) -> str | None:
             or "porijekla" in name_lower
             or "porijeklu" in name_lower
         ):
-            logger.info(f"  📋 Master Frigo: nađen mapping Excel: {xlsx.name}")
+            logger.info(f"  ðŸ“‹ Master Frigo: naÄ‘en mapping Excel: {xlsx.name}")
             return str(xlsx)
     return None
 
 
-# DOC: docs/sections/master_frigo_mapping.md — consumed_paths + importer fix
+# DOC: docs/sections/master_frigo_mapping.md â€” consumed_paths + importer fix
 def _parse_master_frigo(pdf_path: str) -> ImportResult:
-    """Parsira Master Frigo format koristeći specijalizovani parser."""
+    """Parsira Master Frigo format koristeÄ‡i specijalizovani parser."""
     from importers.master_frigo_importer import (
         parse_master_frigo_pdf, convert_to_invoice_lines, _read_mapping_xlsx
     )
@@ -349,11 +349,11 @@ def _parse_master_frigo(pdf_path: str) -> ImportResult:
     if xlsx_path:
         try:
             mapping = _read_mapping_xlsx(xlsx_path)
-            logger.info(f"  ✅ Master Frigo mapping učitan: {len(mapping)} šifara")
-            # Označiti mapping xlsx kao potrošen — agent ne smije da ga uvozi zasebno
+            logger.info(f"  âœ… Master Frigo mapping uÄitan: {len(mapping)} Å¡ifara")
+            # OznaÄiti mapping xlsx kao potroÅ¡en â€” agent ne smije da ga uvozi zasebno
             consumed = [xlsx_path]
         except Exception as e:
-            logger.warning(f"  ⚠️ Greška pri učitavanju Master Frigo mapping-a: {e}")
+            logger.warning(f"  âš ï¸ GreÅ¡ka pri uÄitavanju Master Frigo mapping-a: {e}")
 
     header, imported_items = parse_master_frigo_pdf(pdf_path, mapping=mapping)
     currency = header.get("currency", "EUR")
@@ -421,3 +421,4 @@ def _parse_cmana(pdf_path: str) -> ImportResult:
 
 # Alias za kompatibilnost
 smart_parse_pdf = parse_smart_pdf
+

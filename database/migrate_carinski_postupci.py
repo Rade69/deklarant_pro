@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 Migracija carinskih postupaka iz JSON fajla u PostgreSQL bazu.
 """
@@ -48,7 +48,7 @@ def create_table(cursor):
         ON catalogs.carinski_postupci (vrsta);
     """)
     
-    print("✅ Tabela catalogs.carinski_postupci kreirana")
+    print("âœ… Tabela catalogs.carinski_postupci kreirana")
 
 
 def migrate_data(cursor, conn):
@@ -56,29 +56,29 @@ def migrate_data(cursor, conn):
     
     # Proveri da li fajl postoji
     if not os.path.exists(JSON_FILE):
-        print(f"❌ Greška: Fajl {JSON_FILE} ne postoji!")
+        print(f"âŒ GreÅ¡ka: Fajl {JSON_FILE} ne postoji!")
         return
     
-    # Učitaj JSON podatke
+    # UÄitaj JSON podatke
     with open(JSON_FILE, 'r', encoding='utf-8') as f:
         postupci = json.load(f)
     
-    print(f"📊 Učitano {len(postupci)} carinskih postupaka iz JSON fajla")
+    print(f"ðŸ“Š UÄitano {len(postupci)} carinskih postupaka iz JSON fajla")
     
-    # Proveri koliko već ima podataka u bazi
+    # Proveri koliko veÄ‡ ima podataka u bazi
     cursor.execute("SELECT COUNT(*) FROM catalogs.carinski_postupci")
     result = cursor.fetchone()
     existing_count = result['count'] if result else 0
     
     if existing_count > 0:
-        print(f"⚠️  Tabela već ima {existing_count} redova!")
-        response = input("   Da li da obrišem postojeće podatke i migriram iznova? (da/ne): ")
+        print(f"âš ï¸  Tabela veÄ‡ ima {existing_count} redova!")
+        response = input("   Da li da obriÅ¡em postojeÄ‡e podatke i migriram iznova? (da/ne): ")
         if response.lower() in ['da', 'd', 'yes', 'y']:
             cursor.execute("DELETE FROM catalogs.carinski_postupci")
             conn.commit()
-            print("   ✅ Stari podaci obrisani")
+            print("   âœ… Stari podaci obrisani")
         else:
-            print("   ❌ Migracija otkazana")
+            print("   âŒ Migracija otkazana")
             return
     
     # Migracija podataka
@@ -104,11 +104,11 @@ def migrate_data(cursor, conn):
             
             # Progress
             if migrated % 50 == 0:
-                print(f"   📦 {migrated}/{len(postupci)} migrirano...")
+                print(f"   ðŸ“¦ {migrated}/{len(postupci)} migrirano...")
                 
         except Exception as e:
             errors += 1
-            print(f"   ⚠️  Greška kod šifre {postupak.get('sifra', 'NEPoznato')}: {e}")
+            print(f"   âš ï¸  GreÅ¡ka kod Å¡ifre {postupak.get('sifra', 'NEPoznato')}: {e}")
     
     conn.commit()
     return migrated, errors
@@ -135,16 +135,16 @@ def verify_data(cursor):
     samples = cursor.fetchall()
     
     print("\n" + "=" * 50)
-    print("📋 VERIFIKACIJA PODATAKA")
+    print("ðŸ“‹ VERIFIKACIJA PODATAKA")
     print("=" * 50)
-    print(f"   ✅ Ukupno redova: {total}")
+    print(f"   âœ… Ukupno redova: {total}")
     print("\n   Po vrsti (EX/IM):")
     for row in by_type:
-        print(f"      • {row['vrsta']}: {row['broj']}")
+        print(f"      â€¢ {row['vrsta']}: {row['broj']}")
     
     print("\n   Primerci (prvih 5):")
     for row in samples:
-        print(f"      • {row['sifra']} ({row['vrsta']}) - {row['opis'][:50]}...")
+        print(f"      â€¢ {row['sifra']} ({row['vrsta']}) - {row['opis'][:50]}...")
 
 
 def main():
@@ -156,23 +156,23 @@ def main():
     
     try:
         # Konekcija na bazu
-        print("\n1️⃣  Povezujem na PostgreSQL bazu...")
+        print("\n1ï¸âƒ£  Povezujem na PostgreSQL bazu...")
         conn = psycopg2.connect(**_pg_config())
         conn.autocommit = False
         cursor = conn.cursor(cursor_factory=RealDictCursor)
-        print("   ✅ Povezano!")
+        print("   âœ… Povezano!")
         
         # Kreiraj tabelu
-        print("\n2️⃣  Kreiram tabelu...")
+        print("\n2ï¸âƒ£  Kreiram tabelu...")
         create_table(cursor)
         conn.commit()
         
         # Migriraj podatke
-        print("\n3️⃣  Migriram podatke...")
+        print("\n3ï¸âƒ£  Migriram podatke...")
         migrated, errors = migrate_data(cursor, conn)
         
         # Verifikuj
-        print("\n4️⃣  Verifikujem podatke...")
+        print("\n4ï¸âƒ£  Verifikujem podatke...")
         verify_data(cursor)
         
         # Zatvori konekciju
@@ -180,16 +180,17 @@ def main():
         conn.close()
         
         print("\n" + "=" * 60)
-        print("✅ MIGRACIJA ZAVRŠENA USPEŠNO!")
+        print("âœ… MIGRACIJA ZAVRÅ ENA USPEÅ NO!")
         print(f"   Migrirano: {migrated}")
-        print(f"   Greške: {errors}")
+        print(f"   GreÅ¡ke: {errors}")
         print("=" * 60)
         
     except Exception as e:
-        print(f"\n❌ GREŠKA: {e}")
+        print(f"\nâŒ GREÅ KA: {e}")
         import traceback
         traceback.print_exc()
 
 
 if __name__ == "__main__":
     main()
+

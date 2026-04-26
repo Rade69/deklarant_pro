@@ -1,4 +1,4 @@
-"""Repository za CRUD operacije sa Draft-om."""
+﻿"""Repository za CRUD operacije sa Draft-om."""
 
 import json
 import sqlite3
@@ -78,7 +78,7 @@ class DraftRepository:
         Kreira novi draft u bazi.
 
         Args:
-            draft: Draft model za čuvanje
+            draft: Draft model za Äuvanje
 
         Returns:
             ID kreiranog draft-a
@@ -101,7 +101,7 @@ class DraftRepository:
 
     def get_by_id(self, draft_id: int) -> Optional[DraftModel]:
         """
-        Vraća draft po ID-u.
+        VraÄ‡a draft po ID-u.
 
         Args:
             draft_id: ID draft-a
@@ -128,7 +128,7 @@ class DraftRepository:
 
     def get_all(self) -> List[DraftModel]:
         """
-        Vraća sve draft-ove.
+        VraÄ‡a sve draft-ove.
 
         Returns:
             Lista svih draft-ova
@@ -153,13 +153,13 @@ class DraftRepository:
 
     def update(self, draft: DraftModel) -> bool:
         """
-        Ažurira postojeći draft.
+        AÅ¾urira postojeÄ‡i draft.
 
         Args:
             draft: Draft model sa izmenjenim podacima
 
         Returns:
-            True ako je uspešno ažurirano
+            True ako je uspeÅ¡no aÅ¾urirano
         """
         if draft.id is None:
             logger.error("Cannot update draft without ID")
@@ -186,13 +186,13 @@ class DraftRepository:
 
     def delete(self, draft_id: int) -> bool:
         """
-        Briše draft iz baze.
+        BriÅ¡e draft iz baze.
 
         Args:
             draft_id: ID draft-a za brisanje
 
         Returns:
-            True ako je uspešno obrisano
+            True ako je uspeÅ¡no obrisano
         """
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -205,13 +205,13 @@ class DraftRepository:
 
     def search(self, query: str) -> List[DraftModel]:
         """
-        Pretražuje draft-ove.
+        PretraÅ¾uje draft-ove.
 
         Args:
             query: Search query (broj deklaracije, status...)
 
         Returns:
-            Lista pronađenih draft-ova
+            Lista pronaÄ‘enih draft-ova
         """
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -299,7 +299,7 @@ class AttachmentRepository:
             return attachment_id
 
     def get_by_draft_id(self, draft_id: int) -> List[AttachmentModel]:
-        """Vraća sve priloge za draft."""
+        """VraÄ‡a sve priloge za draft."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
@@ -323,7 +323,7 @@ class AttachmentRepository:
             return attachments
 
     def delete(self, attachment_id: int) -> bool:
-        """Briše prilog."""
+        """BriÅ¡e prilog."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("DELETE FROM attachments WHERE id = ?", (attachment_id,))
@@ -332,3 +332,4 @@ class AttachmentRepository:
             if deleted:
                 logger.info(f"Deleted attachment with ID: {attachment_id}")
             return deleted
+

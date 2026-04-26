@@ -1,4 +1,4 @@
-import logging
+﻿import logging
 logger = logging.getLogger(__name__)
 """
 Analytics Service - Statistics gathering.
@@ -35,7 +35,7 @@ class AnalyticsService:
 
     def _generate_mock_data(self) -> Dict[str, Any]:
         """
-        Generiši mock podatke za demonstraciju.
+        GeneriÅ¡i mock podatke za demonstraciju.
 
         Returns:
             Dict sa mock podacima
@@ -99,7 +99,7 @@ class AnalyticsService:
             if self.db_path.exists():
                 stats = self._get_import_stats_from_db(stats)
         except Exception as e:
-            logger.warning(f"⚠️  Database error: {e}")
+            logger.warning(f"âš ï¸  Database error: {e}")
 
         # Ako nema podataka iz baze, koristi mock
         if stats['total_imports'] == 0:
@@ -112,7 +112,7 @@ class AnalyticsService:
                 'imports_last_month': mock['imports_last_month'],
             })
             
-            # Izračunaj trend
+            # IzraÄunaj trend
             if mock['imports_last_month'] > 0:
                 change = mock['imports_this_month'] - mock['imports_last_month']
                 stats['trend'] = round((change / mock['imports_last_month']) * 100, 1)
@@ -134,13 +134,13 @@ class AnalyticsService:
 
     def _get_import_stats_from_db(self, stats: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Pokušaj dohvatiti statistiku iz baze.
+        PokuÅ¡aj dohvatiti statistiku iz baze.
 
         Args:
-            stats: Postojeći stats dict
+            stats: PostojeÄ‡i stats dict
 
         Returns:
-            Ažurirani stats dict
+            AÅ¾urirani stats dict
         """
         if not self.db_path.exists():
             return stats
@@ -174,14 +174,14 @@ class AnalyticsService:
                 if usage:
                     return usage
         except Exception as e:
-            logger.warning(f"⚠️  Database error: {e}")
+            logger.warning(f"âš ï¸  Database error: {e}")
 
         # Vrati mock podatke
         return self.mock_data['parser_usage']
 
     def _get_parser_usage_from_db(self) -> List[Dict[str, Any]]:
         """
-        Pokušaj dohvatiti parser usage iz baze.
+        PokuÅ¡aj dohvatiti parser usage iz baze.
 
         Returns:
             Lista dict-ova sa parser usage-om
@@ -241,7 +241,7 @@ class AnalyticsService:
             if self.db_path.exists():
                 stats = self._get_declaration_stats_from_db(stats)
         except Exception as e:
-            logger.warning(f"⚠️  Database error: {e}")
+            logger.warning(f"âš ï¸  Database error: {e}")
 
         # Ako nema podataka iz baze, koristi mock
         if stats['total'] == 0:
@@ -274,13 +274,13 @@ class AnalyticsService:
 
     def _get_declaration_stats_from_db(self, stats: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Pokušaj dohvatiti statistiku deklaracija iz baze.
+        PokuÅ¡aj dohvatiti statistiku deklaracija iz baze.
 
         Args:
-            stats: Postojeći stats dict
+            stats: PostojeÄ‡i stats dict
 
         Returns:
-            Ažurirani stats dict
+            AÅ¾urirani stats dict
         """
         if not self.db_path.exists():
             return stats
@@ -309,7 +309,7 @@ class AnalyticsService:
                 stats['completion_rate'] = round((completed / stats['total']) * 100, 1)
                 
         except Exception as e:
-            logger.warning(f"⚠️  Error: {e}")
+            logger.warning(f"âš ï¸  Error: {e}")
 
         conn.close()
         return stats
@@ -329,20 +329,20 @@ class AnalyticsService:
 
     def get_monthly_trend(self) -> List[Dict[str, Any]]:
         """
-        Vrati mjesečni trend za zadnjih 12 mjeseci.
+        Vrati mjeseÄni trend za zadnjih 12 mjeseci.
 
         Returns:
-            Lista dict-ova sa mjesečnim trendom
+            Lista dict-ova sa mjeseÄnim trendom
         """
         # Vrati mock podatke za sada
         return self.mock_data['monthly_trend']
 
     def get_summary(self) -> Dict[str, Any]:
         """
-        Vrati sažetak svih statistika.
+        Vrati saÅ¾etak svih statistika.
 
         Returns:
-            Dict sa sažetkom
+            Dict sa saÅ¾etkom
         """
         import_stats = self.get_import_statistics()
         declaration_stats = self.get_declaration_statistics()
@@ -364,7 +364,7 @@ class AnalyticsService:
             format: Format ('json' ili 'csv')
 
         Returns:
-            True ako uspješno
+            True ako uspjeÅ¡no
         """
         try:
             summary = self.get_summary()
@@ -383,9 +383,10 @@ class AnalyticsService:
                     f.write(f"Declarations,Total,{summary['declarations']['total']}\n")
                     f.write(f"Declarations,Completion Rate,{summary['declarations']['completion_rate']}%\n")
 
-            logger.info(f"✅ Statistics exported: {output_path}")
+            logger.info(f"âœ… Statistics exported: {output_path}")
             return True
             
         except Exception as e:
-            logger.error(f"❌ Export failed: {e}")
+            logger.error(f"âŒ Export failed: {e}")
             return False
+

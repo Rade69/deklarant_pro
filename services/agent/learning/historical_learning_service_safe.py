@@ -1,18 +1,18 @@
-"""
+﻿"""
 Historical Learning Service
 
-Analizira istorijske XML deklaracije i uči pattern-e za povlastice:
-1. Koje povlastice se koriste za koje dobavljače
-2. Koje zemlje porijekla su tipične za svakog dobavljača
-3. Koje kombinacije (dobavljač + zemlja → povlastica) su najčešće
+Analizira istorijske XML deklaracije i uÄi pattern-e za povlastice:
+1. Koje povlastice se koriste za koje dobavljaÄe
+2. Koje zemlje porijekla su tipiÄne za svakog dobavljaÄa
+3. Koje kombinacije (dobavljaÄ + zemlja â†’ povlastica) su najÄeÅ¡Ä‡e
 
 Koristi lxml za XML parsiranje. Sve javne metode imaju silent error handling
-i nikad ne bacaju exception koji bi porušio ostatak aplikacije.
+i nikad ne bacaju exception koji bi poruÅ¡io ostatak aplikacije.
 
 Javni API:
-- enhance_preference_logic(country_code, exporter_name) — glavna funkcija
-- get_historical_service() — singleton instanca
-- HistoricalLearningServiceSafe — klasa
+- enhance_preference_logic(country_code, exporter_name) â€” glavna funkcija
+- get_historical_service() â€” singleton instanca
+- HistoricalLearningServiceSafe â€” klasa
 """
 
 import logging
@@ -31,7 +31,7 @@ logger = logging.getLogger("deklarant_pro.historical_learning")
 
 @dataclass
 class SupplierProfile:
-    """Profil dobavljača sa istorijskim podacima."""
+    """Profil dobavljaÄa sa istorijskim podacima."""
     exporter_normalized: str
     total_declarations: int = 0
     total_items: int = 0
@@ -50,7 +50,7 @@ class SupplierProfile:
 
 @dataclass
 class HistoricalPattern:
-    """Istorijski pattern za kombinaciju dobavljač + zemlja."""
+    """Istorijski pattern za kombinaciju dobavljaÄ + zemlja."""
     exporter_normalized: str
     country_code: str
     preference_code: str
@@ -64,11 +64,11 @@ class HistoricalPattern:
 
 class HistoricalLearningServiceSafe:
     """
-    Servis za učenje iz istorijskih XML deklaracija.
+    Servis za uÄenje iz istorijskih XML deklaracija.
 
-    Sve metode su wrapped u try/except — greške su silent i ne utiču
-    na ostatak aplikacije. Koristi cache da izbjegne višestruko čitanje
-    iz baze i XML-ova za istog dobavljača.
+    Sve metode su wrapped u try/except â€” greÅ¡ke su silent i ne utiÄu
+    na ostatak aplikacije. Koristi cache da izbjegne viÅ¡estruko Äitanje
+    iz baze i XML-ova za istog dobavljaÄa.
     """
 
     def __init__(self, xml_folder: Optional[Path] = None):
@@ -78,9 +78,9 @@ class HistoricalLearningServiceSafe:
             self._cache_hits = 0
             self._cache_misses = 0
             self._initialized = True
-            logger.debug("✅ HistoricalLearningServiceSafe inicijalizovan")
+            logger.debug("âœ… HistoricalLearningServiceSafe inicijalizovan")
         except Exception as e:
-            logger.debug(f"⚠️ Silent init error: {e}")
+            logger.debug(f"âš ï¸ Silent init error: {e}")
             self._initialized = False
 
     def is_available(self) -> bool:
@@ -92,7 +92,7 @@ class HistoricalLearningServiceSafe:
     # -----------------------------------------------------------------------
 
     def get_db_connection(self):
-        """Konekcija na bazu — delegira na centralni pool iz database.db."""
+        """Konekcija na bazu â€” delegira na centralni pool iz database.db."""
         from database.db import get_db_connection as _pool_conn
         return _pool_conn()
 
@@ -102,10 +102,10 @@ class HistoricalLearningServiceSafe:
 
     def normalize_exporter_name(self, name: str) -> Optional[str]:
         """
-        Normalizuje ime exportera za upoređivanje.
+        Normalizuje ime exportera za uporeÄ‘ivanje.
 
-        Uklanja pravne sufikse (DOO, LTD...), višestruke razmake i
-        specijalne karaktere. Vraća None ako je unos prazan.
+        Uklanja pravne sufikse (DOO, LTD...), viÅ¡estruke razmake i
+        specijalne karaktere. VraÄ‡a None ako je unos prazan.
         """
         try:
             if not name:
@@ -114,9 +114,9 @@ class HistoricalLearningServiceSafe:
             name = name.upper().strip()
 
             prefixes_to_remove = [
-                r'^TRGOVINSKA\s+DRUŠTVA?\s*',
-                r'^PREDMUZEĆE\s+',
-                r'^DRUŠTVO\s+SA\s+OGRANIČENOM\s+ODGOVORNOŠĆU\s*',
+                r'^TRGOVINSKA\s+DRUÅ TVA?\s*',
+                r'^PREDMUZEÄ†E\s+',
+                r'^DRUÅ TVO\s+SA\s+OGRANIÄŒENOM\s+ODGOVORNOÅ Ä†U\s*',
                 r'^DOO\s*',
                 r'^D\.\s*O\.\s*O\.?\s*',
                 r'^D\s*O\s*O\s*',
@@ -135,7 +135,7 @@ class HistoricalLearningServiceSafe:
             return None
 
     def _normalize_preference_code(self, pref_code: str) -> str:
-        """Normalizuje kod povlastice u grupni kod (CEFTAT/CEFTAP → CEFTA)."""
+        """Normalizuje kod povlastice u grupni kod (CEFTAT/CEFTAP â†’ CEFTA)."""
         if not pref_code:
             return ""
         pref_code = pref_code.strip().upper()
@@ -143,11 +143,11 @@ class HistoricalLearningServiceSafe:
             "CEFTAT": "CEFTA",
             "CEFTAP": "CEFTA",
             "CEFTAR": "CEFTA",
-            "EFTA1":  "EFTA1",   # Švajcarska+Lihtenštajn — čuvamo specifičnost
+            "EFTA1":  "EFTA1",   # Å vajcarska+LihtenÅ¡tajn â€” Äuvamo specifiÄnost
             "EFTA1R": "EFTA1",
             "EFTA2":  "EFTA2",   # Island
             "EFTA2R": "EFTA2",
-            "EFTA3":  "EFTA3",   # Norveška
+            "EFTA3":  "EFTA3",   # NorveÅ¡ka
             "EFTA3R": "EFTA3",
             "EUP":    "EUP",
             "EUPR":   "EUP",
@@ -159,7 +159,7 @@ class HistoricalLearningServiceSafe:
 
     def _denormalize_preference_code(self, normalized_code: str, context: str = "") -> str:
         """
-        Vraća specifičan kod povlastice iz normalizovanog koda.
+        VraÄ‡a specifiÄan kod povlastice iz normalizovanog koda.
 
         Args:
             normalized_code: Normalizovani kod (npr. "CEFTA", "EUP")
@@ -224,21 +224,21 @@ class HistoricalLearningServiceSafe:
                     items.append(item_data)
 
         except Exception as e:
-            logger.debug(f"Greška pri ekstrakciji stavki iz {xml_path.name}: {e}")
+            logger.debug(f"GreÅ¡ka pri ekstrakciji stavki iz {xml_path.name}: {e}")
 
         return items
 
     def _map_country_name_to_code(self, country_name: str) -> str:
         """Mapira ime zemlje na ISO kod."""
         country_map = {
-            "SRBIJA": "RS", "NEMAČKA": "DE", "ITALIJA": "IT", "KINA": "CN",
+            "SRBIJA": "RS", "NEMAÄŒKA": "DE", "ITALIJA": "IT", "KINA": "CN",
             "TURSKA": "TR", "SLOVENIJA": "SI", "HRVATSKA": "HR",
-            "BOSNA I HERCEGOVINA": "BA", "CRNA GORA": "ME", "MAĐARSKA": "HU",
-            "AUSTRIJA": "AT", "POLJSKA": "PL", "ČEŠKA": "CZ", "SLOVAČKA": "SK",
-            "RUMUNIJA": "RO", "BUGARSKA": "BG", "GRČKA": "GR", "ŠPANLJA": "ES",
+            "BOSNA I HERCEGOVINA": "BA", "CRNA GORA": "ME", "MAÄARSKA": "HU",
+            "AUSTRIJA": "AT", "POLJSKA": "PL", "ÄŒEÅ KA": "CZ", "SLOVAÄŒKA": "SK",
+            "RUMUNIJA": "RO", "BUGARSKA": "BG", "GRÄŒKA": "GR", "Å PANLJA": "ES",
             "PORTUGAL": "PT", "FRANCUSKA": "FR", "BELGIJA": "BE", "HOLANDIJA": "NL",
-            "DANSKA": "DK", "ŠVEDSKA": "SE", "FINSKA": "FI", "NORVEŠKA": "NO",
-            "ŠVICARSKA": "CH", "UKRAJNA": "UA", "RUSIJA": "RU",
+            "DANSKA": "DK", "Å VEDSKA": "SE", "FINSKA": "FI", "NORVEÅ KA": "NO",
+            "Å VICARSKA": "CH", "UKRAJNA": "UA", "RUSIJA": "RU",
         }
         for name, code in country_map.items():
             if name in country_name.upper():
@@ -246,11 +246,11 @@ class HistoricalLearningServiceSafe:
         return ""
 
     # -----------------------------------------------------------------------
-    # Zvanični rječnici (povlastice i dokumenti)
+    # ZvaniÄni rjeÄnici (povlastice i dokumenti)
     # -----------------------------------------------------------------------
 
     def get_official_preference_info(self, pref_code: str) -> Dict:
-        """Vraća zvanične informacije o povlastici (Polje 36)."""
+        """VraÄ‡a zvaniÄne informacije o povlastici (Polje 36)."""
         pref_code = pref_code.strip().upper()
         official_info = {
             "CEFTAT": {
@@ -267,7 +267,7 @@ class HistoricalLearningServiceSafe:
             },
             "EFTA1": {
                 "code": "EFTA1",
-                "description": "Povlastica za robu iz Švajcarske i Lihtenštajna",
+                "description": "Povlastica za robu iz Å vajcarske i LihtenÅ¡tajna",
                 "preference_document": "EFTA",
                 "origin_documents": ["PE1", "PE2", "PE3"],
             },
@@ -279,7 +279,7 @@ class HistoricalLearningServiceSafe:
             },
             "EFTA3": {
                 "code": "EFTA3",
-                "description": "Povlastica za robu porijeklom iz Norveške",
+                "description": "Povlastica za robu porijeklom iz NorveÅ¡ke",
                 "preference_document": "EFTA",
                 "origin_documents": ["PE1", "PE2", "PE3"],
             },
@@ -310,12 +310,12 @@ class HistoricalLearningServiceSafe:
         })
 
     def get_origin_document_info(self, doc_code: str) -> Dict:
-        """Vraća informacije o dokumentima o porijeklu (PE1, PE2, PE3...)."""
+        """VraÄ‡a informacije o dokumentima o porijeklu (PE1, PE2, PE3...)."""
         doc_code = doc_code.strip().upper()
         origin_docs = {
             "PE1": {"code": "PE1", "description": "Uvjerenje o kretanju robe EUR.1"},
             "PE2": {"code": "PE2", "description": "Izjava o porijeklu"},
-            "PE3": {"code": "PE3", "description": "Izjava o porijeklu ovlaštenog izvoznika"},
+            "PE3": {"code": "PE3", "description": "Izjava o porijeklu ovlaÅ¡tenog izvoznika"},
             "FTAT": {"code": "FTAT", "description": "Dokaz o porijeklu po CEFTA - Tranziciona pravila"},
             "FTAP": {"code": "FTAP", "description": "Dokaz o porijeklu po CEFTA - PEM Konvencija"},
             "EUP": {"code": "EUP", "description": "Dokaz o porijeklu iz Evropske unije"},
@@ -326,11 +326,11 @@ class HistoricalLearningServiceSafe:
         return origin_docs.get(doc_code, {"code": doc_code, "description": "Nepoznati dokument"})
 
     # -----------------------------------------------------------------------
-    # Učenje iz XML-ova
+    # UÄenje iz XML-ova
     # -----------------------------------------------------------------------
 
     def get_xml_files_for_exporter(self, exporter_name: str, limit: int = 20) -> List[Path]:
-        """Pronalazi XML fajlove za određenog exportera iz baze."""
+        """Pronalazi XML fajlove za odreÄ‘enog exportera iz baze."""
         xml_files = []
         try:
             from psycopg2.extras import RealDictCursor
@@ -355,14 +355,14 @@ class HistoricalLearningServiceSafe:
                             if rel_path.exists():
                                 xml_files.append(rel_path)
         except Exception as e:
-            logger.debug(f"Greška pri dobavljanju XML fajlova za '{exporter_name}': {e}")
+            logger.debug(f"GreÅ¡ka pri dobavljanju XML fajlova za '{exporter_name}': {e}")
         return xml_files
 
     def learn_from_exporter(
         self, exporter_name: str, max_xml_files: int = 10
     ) -> Optional[SupplierProfile]:
-        """Uči pattern-e iz XML fajlova određenog exportera."""
-        logger.info(f"🔍 Učim pattern-e za exportera: {exporter_name}")
+        """UÄi pattern-e iz XML fajlova odreÄ‘enog exportera."""
+        logger.info(f"ðŸ” UÄim pattern-e za exportera: {exporter_name}")
 
         xml_files = self.get_xml_files_for_exporter(exporter_name, limit=max_xml_files)
         if not xml_files:
@@ -402,18 +402,18 @@ class HistoricalLearningServiceSafe:
                         profile.country_preference_map[country_code][pref_normalized] += 1
 
             except Exception as e:
-                logger.debug(f"Greška pri analizi {xml_path.name}: {e}")
+                logger.debug(f"GreÅ¡ka pri analizi {xml_path.name}: {e}")
 
         self._calculate_top_patterns(profile)
 
         logger.info(
-            f"✅ Naučeno {profile.total_items} stavki za '{exporter_name}': "
+            f"âœ… NauÄeno {profile.total_items} stavki za '{exporter_name}': "
             f"{len(profile.countries)} zemalja, {len(profile.preferences)} povlastica"
         )
         return profile
 
     def _calculate_top_patterns(self, profile: SupplierProfile):
-        """Izračunaj najčešće pattern-e za profil."""
+        """IzraÄunaj najÄeÅ¡Ä‡e pattern-e za profil."""
         try:
             top_patterns = []
             for country_code, pref_counts in profile.country_preference_map.items():
@@ -436,14 +436,14 @@ class HistoricalLearningServiceSafe:
         self, exporter_name: str, country_code: str
     ) -> Tuple[Optional[str], float, str]:
         """
-        Predlaže povlasticu za kombinaciju dobavljač + zemlja.
+        PredlaÅ¾e povlasticu za kombinaciju dobavljaÄ + zemlja.
 
         Returns:
             (preference_code, confidence, explanation)
         """
         exporter_norm = self.normalize_exporter_name(exporter_name)
         if not exporter_norm:
-            return None, 0.0, "Nije moguće normalizovati ime exportera"
+            return None, 0.0, "Nije moguÄ‡e normalizovati ime exportera"
 
         if exporter_norm in self.supplier_profiles:
             profile = self.supplier_profiles[exporter_norm]
@@ -461,7 +461,7 @@ class HistoricalLearningServiceSafe:
                 total_for_country = sum(pref_counts.values())
                 confidence = count / total_for_country
                 explanation = (
-                    f"Predlažem '{pref_code}' jer {exporter_norm} koristi ovu povlasticu "
+                    f"PredlaÅ¾em '{pref_code}' jer {exporter_norm} koristi ovu povlasticu "
                     f"{count} od {total_for_country} puta ({confidence:.0%}) za robu iz {country_code}."
                 )
                 return pref_code, confidence, explanation
@@ -474,9 +474,9 @@ class HistoricalLearningServiceSafe:
             confidence = total_count / total_all if total_all > 0 else 0.5
             pref_code = self._denormalize_preference_code(pref_normalized, country_code)
             explanation = (
-                f"Predlažem '{pref_code}' jer {exporter_norm} najčešće koristi ovu vrstu povlastice "
+                f"PredlaÅ¾em '{pref_code}' jer {exporter_norm} najÄeÅ¡Ä‡e koristi ovu vrstu povlastice "
                 f"({total_count} od {total_all} puta, {confidence:.0%}). "
-                f"Nema specifičnih podataka za zemlju {country_code}."
+                f"Nema specifiÄnih podataka za zemlju {country_code}."
             )
             return pref_code, confidence, explanation
 
@@ -485,17 +485,17 @@ class HistoricalLearningServiceSafe:
             total_all = sum(profile.preferences.values())
             confidence = total_count / total_all if total_all > 0 else 0.5
             explanation = (
-                f"Predlažem '{pref_code}' jer {exporter_norm} najčešće koristi ovu povlasticu "
+                f"PredlaÅ¾em '{pref_code}' jer {exporter_norm} najÄeÅ¡Ä‡e koristi ovu povlasticu "
                 f"({total_count} od {total_all} puta, {confidence:.0%}). "
-                f"Nema specifičnih podataka za zemlju {country_code}."
+                f"Nema specifiÄnih podataka za zemlju {country_code}."
             )
             return pref_code, confidence, explanation
 
         return None, 0.0, f"Nema istorijskih podataka za kombinaciju {exporter_norm} + {country_code}"
 
     def batch_learn_top_exporters(self, limit: int = 20) -> Dict[str, SupplierProfile]:
-        """Uči pattern-e za top N exportera."""
-        logger.info(f"🔍 Počinjem batch učenje za top {limit} exportera")
+        """UÄi pattern-e za top N exportera."""
+        logger.info(f"ðŸ” PoÄinjem batch uÄenje za top {limit} exportera")
         try:
             from psycopg2.extras import RealDictCursor
             with self.get_db_connection() as conn:
@@ -512,17 +512,17 @@ class HistoricalLearningServiceSafe:
                     )
                     for row in cursor.fetchall():
                         exporter_norm = row['exporter_normalized']
-                        logger.info(f"  Učim {exporter_norm} ({row['xml_count']} XML-ova)")
+                        logger.info(f"  UÄim {exporter_norm} ({row['xml_count']} XML-ova)")
                         profile = self.learn_from_exporter(exporter_norm, max_xml_files=10)
                         if profile:
                             self.supplier_profiles[exporter_norm] = profile
         except Exception as e:
-            logger.error(f"Greška pri batch učenju: {e}")
-        logger.info(f"✅ Batch učenje završeno. Naučeno {len(self.supplier_profiles)} profila.")
+            logger.error(f"GreÅ¡ka pri batch uÄenju: {e}")
+        logger.info(f"âœ… Batch uÄenje zavrÅ¡eno. NauÄeno {len(self.supplier_profiles)} profila.")
         return self.supplier_profiles
 
     # -----------------------------------------------------------------------
-    # Safe (silent) API — koristi se izvana
+    # Safe (silent) API â€” koristi se izvana
     # -----------------------------------------------------------------------
 
     def get_preference_safe(self, exporter_name: str, country_code: str) -> Optional[str]:
@@ -565,44 +565,44 @@ class HistoricalLearningServiceSafe:
         try:
             if exporter_norm in self.supplier_profiles:
                 self._cache_hits += 1
-                logger.debug(f"✅ Cache hit za '{exporter_norm}'")
+                logger.debug(f"âœ… Cache hit za '{exporter_norm}'")
                 return self.supplier_profiles[exporter_norm]
 
             self._cache_misses += 1
-            logger.debug(f"🔍 Cache miss za '{exporter_norm}', učenje iz baze...")
+            logger.debug(f"ðŸ” Cache miss za '{exporter_norm}', uÄenje iz baze...")
 
             profile = self._learn_from_database_safe(exporter_norm)
             if profile:
                 self.supplier_profiles[exporter_norm] = profile
-                logger.debug(f"✅ Naučen profil za '{exporter_norm}': {profile.total_items} stavki")
+                logger.debug(f"âœ… NauÄen profil za '{exporter_norm}': {profile.total_items} stavki")
             else:
-                logger.debug(f"ℹ️ Nema istorijskih podataka za '{exporter_norm}'")
+                logger.debug(f"â„¹ï¸ Nema istorijskih podataka za '{exporter_norm}'")
 
             return profile
 
         except Exception as e:
-            logger.debug(f"⚠️ Silent error u _get_profile_safe za '{exporter_norm}': {e}")
+            logger.debug(f"âš ï¸ Silent error u _get_profile_safe za '{exporter_norm}': {e}")
             return None
 
     def _learn_from_database_safe(self, exporter_norm: str) -> Optional[SupplierProfile]:
-        """Sigurno uči profil iz XML-ova (silent error handling)."""
+        """Sigurno uÄi profil iz XML-ova (silent error handling)."""
         try:
             return self.learn_from_exporter(exporter_norm, max_xml_files=10)
         except Exception as e:
-            logger.debug(f"⚠️ Silent error pri učenju za '{exporter_norm}': {e}")
+            logger.debug(f"âš ï¸ Silent error pri uÄenju za '{exporter_norm}': {e}")
             return None
 
     def enhance_existing_preference(
         self, country_code: str, exporter_name: str = ""
     ) -> str:
-        """Poboljšaj logiku povlastica bez breaking changes."""
+        """PoboljÅ¡aj logiku povlastica bez breaking changes."""
         historical_pref = self.get_preference_safe(exporter_name, country_code)
         if historical_pref:
             return historical_pref
         return self._hardcoded_preference_fallback(country_code)
 
     def preload_top_exporters(self, limit: int = 20) -> int:
-        """Preload top exportera u cache (batch učenje)."""
+        """Preload top exportera u cache (batch uÄenje)."""
         try:
             from database.db import get_db_connection
             from psycopg2.extras import RealDictCursor
@@ -624,7 +624,7 @@ class HistoricalLearningServiceSafe:
                         return 0
 
             loaded_count = 0
-            logger.debug(f"🔍 Preloading {len(rows)} top exportera...")
+            logger.debug(f"ðŸ” Preloading {len(rows)} top exportera...")
             for row in rows:
                 exporter_norm = row['exporter_normalized']
                 if exporter_norm not in self.supplier_profiles:
@@ -633,15 +633,15 @@ class HistoricalLearningServiceSafe:
                         if profile and profile.total_items > 0:
                             self.supplier_profiles[exporter_norm] = profile
                             loaded_count += 1
-                            logger.debug(f"  ✅ Preloaded '{exporter_norm}': {profile.total_items} stavki")
+                            logger.debug(f"  âœ… Preloaded '{exporter_norm}': {profile.total_items} stavki")
                     except Exception as e:
-                        logger.debug(f"  ⚠️ Error preloading '{exporter_norm}': {e}")
+                        logger.debug(f"  âš ï¸ Error preloading '{exporter_norm}': {e}")
 
-            logger.info(f"✅ Preloaded {loaded_count} top exportera u cache")
+            logger.info(f"âœ… Preloaded {loaded_count} top exportera u cache")
             return loaded_count
 
         except Exception as e:
-            logger.debug(f"⚠️ Silent error u preload_top_exporters: {e}")
+            logger.debug(f"âš ï¸ Silent error u preload_top_exporters: {e}")
             return 0
 
     def get_cache_stats(self) -> Dict[str, Any]:
@@ -657,7 +657,7 @@ class HistoricalLearningServiceSafe:
 
     def _hardcoded_preference_fallback(self, country_code: str) -> str:
         """
-        Hardcoded fallback — identičan postojećoj logici u EUR1QuickDialog.
+        Hardcoded fallback â€” identiÄan postojeÄ‡oj logici u EUR1QuickDialog.
         Osigurava 100% backward compatibility.
         """
         country_upper = country_code.upper()
@@ -705,9 +705,9 @@ def enhance_preference_logic(country_code: str, exporter_name: str = "") -> str:
     Glavna funkcija za predlaganje povlastice.
 
     Pravila:
-    1. Ako znamo exportera → koristi istorijsko učenje
-    2. Ako ne znamo exportera → koristi hardcoded pravila
-    3. Ako istorijsko učenje ne radi → silent fallback
+    1. Ako znamo exportera â†’ koristi istorijsko uÄenje
+    2. Ako ne znamo exportera â†’ koristi hardcoded pravila
+    3. Ako istorijsko uÄenje ne radi â†’ silent fallback
     """
     try:
         service = get_historical_service()
@@ -723,3 +723,4 @@ def enhance_preference_logic(country_code: str, exporter_name: str = "") -> str:
 
 # Backward compatibility alias
 HistoricalLearningService = HistoricalLearningServiceSafe
+

@@ -1,13 +1,13 @@
-# gui/tabs/zaglavlje_controller.py
+﻿# gui/tabs/zaglavlje_controller.py
 # SECTION: zaglavlje-controller
-# PURPOSE: Orchestration između ZaglavljeView i servis sloja; pokreće agent validaciju
-# FIX ce2ab0e: _get_naimenovanja_data sortira po ordinal_no i uključuje ga u dict
+# PURPOSE: Orchestration izmeÄ‘u ZaglavljeView i servis sloja; pokreÄ‡e agent validaciju
+# FIX ce2ab0e: _get_naimenovanja_data sortira po ordinal_no i ukljuÄuje ga u dict
 # MEM: memory/2026-05-01_validator_ordinal_fix.md
 
 """
 Zaglavlje Controller - Orchestration Layer
 
-Koordinacija između View i Service layer-a.
+Koordinacija izmeÄ‘u View i Service layer-a.
 Nema business logike.
 """
 
@@ -42,7 +42,7 @@ class ZaglavljeController:
     Controller layer za Zaglavlje tab.
     
     Odgovornosti:
-    - Orkestracija između View i Service
+    - Orkestracija izmeÄ‘u View i Service
     - Event handling
     - Error handling
     - Progress tracking
@@ -64,7 +64,7 @@ class ZaglavljeController:
             view: View instanca
             service: Service instanca
             save_draft_fn: Callback koji poziva ZaglavljeTab.save_to_draft()
-            get_draft_fn: Callback koji vraća trenutni DeclarationDraft
+            get_draft_fn: Callback koji vraÄ‡a trenutni DeclarationDraft
         """
         self.view = view
         self.service = service
@@ -79,18 +79,18 @@ class ZaglavljeController:
 
     def _connect_signals(self):
         """
-        Poveži View signale sa controller metodama.
+        PoveÅ¾i View signale sa controller metodama.
 
         Connections:
-        - save_requested → _on_save
-        - validation_requested → _on_validate
-        - delete_requested → _on_delete
-        - import_xml_requested → _on_import_xml
-        - export_xml_requested → _on_export_xml
-        - new_requested → _on_new
-        - close_requested → _on_close
-        - search_company_requested → _on_search_company
-        - add_company_requested → _on_add_company
+        - save_requested â†’ _on_save
+        - validation_requested â†’ _on_validate
+        - delete_requested â†’ _on_delete
+        - import_xml_requested â†’ _on_import_xml
+        - export_xml_requested â†’ _on_export_xml
+        - new_requested â†’ _on_new
+        - close_requested â†’ _on_close
+        - search_company_requested â†’ _on_search_company
+        - add_company_requested â†’ _on_add_company
         """
         self.view.save_requested.connect(self._on_save)
         self.view.validation_requested.connect(self._on_validate)
@@ -114,9 +114,9 @@ class ZaglavljeController:
 
         Workflow:
         1. Snimi trenutne podatke u draft
-        2. Pokušaj enhanced agent validaciju
+        2. PokuÅ¡aj enhanced agent validaciju
         3. Ako nije dostupna, koristi osnovnu validaciju
-        4. Prikaži rezultate u enhanced dialogu
+        4. PrikaÅ¾i rezultate u enhanced dialogu
         """
         try:
             self.logger.info("Validation requested")
@@ -134,13 +134,13 @@ class ZaglavljeController:
             view_data = self.view.get_data()
             import_docs = self.view.get_import_attached_docs()
             
-            # 3. Pokušaj enhanced agent validaciju
+            # 3. PokuÅ¡aj enhanced agent validaciju
             enhanced_result = self._try_enhanced_validation(
                 view_data, draft, import_docs
             )
             
             if enhanced_result:
-                # Enhanced validacija uspješna
+                # Enhanced validacija uspjeÅ¡na
                 return
             
             # 4. Fallback na osnovnu validaciju
@@ -148,7 +148,7 @@ class ZaglavljeController:
 
         except Exception as e:
             self.logger.error(f"Validation failed: {e}", exc_info=True)
-            self.view.show_error(f"Greška pri validaciji: {e}")
+            self.view.show_error(f"GreÅ¡ka pri validaciji: {e}")
     
     def _try_enhanced_validation(
         self,
@@ -157,10 +157,10 @@ class ZaglavljeController:
         import_docs: List[Dict]
     ) -> bool:
         """
-        Pokušaj enhanced agent validaciju.
+        PokuÅ¡aj enhanced agent validaciju.
         
         Returns:
-            True ako je enhanced validacija korištena
+            True ako je enhanced validacija koriÅ¡tena
         """
         try:
             from services.agent.declaration_validator_service import (
@@ -183,7 +183,7 @@ class ZaglavljeController:
                 draft=draft
             )
             
-            # Prikaži enhanced dijalog
+            # PrikaÅ¾i enhanced dijalog
             config = DialogConfig(
                 show_details=True,
                 show_recommendations=True,
@@ -196,7 +196,7 @@ class ZaglavljeController:
             if result:
                 self.logger.info(f"Enhanced validation completed: {report.error_count} errors")
                 
-                # Ako je validno i korisnik želi export, pokreni export
+                # Ako je validno i korisnik Å¾eli export, pokreni export
                 if report.valid:
                     self._on_export_xml()
                 
@@ -219,7 +219,7 @@ class ZaglavljeController:
         # Pokreni osnovnu validaciju
         result = self.service.validate(view_data, draft, import_docs)
         
-        # Prikaži rezultate
+        # PrikaÅ¾i rezultate
         self._show_validation_result(result)
         
         self.logger.info(
@@ -273,11 +273,11 @@ class ZaglavljeController:
 
     def _show_validation_result(self, result: dict):
         """
-        Prikaži rezultate validacije u dialogu.
+        PrikaÅ¾i rezultate validacije u dialogu.
 
-        Ako ima errors — prikaži ih i blokiraj dalje.
-        Ako ima samo warnings — prikaži upozorenja.
-        Ako je sve OK — prikaži success.
+        Ako ima errors â€” prikaÅ¾i ih i blokiraj dalje.
+        Ako ima samo warnings â€” prikaÅ¾i upozorenja.
+        Ako je sve OK â€” prikaÅ¾i success.
         """
         geometry_state = capture_window_geometry(self.view)
         try:
@@ -287,9 +287,9 @@ class ZaglavljeController:
 
             if valid and not warnings:
                 self.view.show_success(
-                    "✅ Validacija uspješna!\n\n"
+                    "âœ… Validacija uspjeÅ¡na!\n\n"
                     "Sva obavezna polja su popunjena i podaci su sinhronizovani.\n"
-                    "Možete nastaviti sa XML exportom."
+                    "MoÅ¾ete nastaviti sa XML exportom."
                 )
                 return
 
@@ -302,7 +302,7 @@ class ZaglavljeController:
             all_fixable = fixable + fixable_warnings
 
             if errors:
-                msg_parts.append(f"❌ {len(errors)} GREŠAKA (blokiraju export):\n")
+                msg_parts.append(f"âŒ {len(errors)} GREÅ AKA (blokiraju export):\n")
                 for i, err in enumerate(errors, 1):
                     msg_parts.append(f"  {i}. {err['message']}")
                 msg_parts.append("")
@@ -313,7 +313,7 @@ class ZaglavljeController:
                 ]
                 if non_fixable_warnings:
                     msg_parts.append(
-                        f"⚠️ {len(non_fixable_warnings)} UPOZORENJA:\n"
+                        f"âš ï¸ {len(non_fixable_warnings)} UPOZORENJA:\n"
                     )
                     for i, w in enumerate(non_fixable_warnings, 1):
                         msg_parts.append(f"  {i}. {w['message']}")
@@ -321,7 +321,7 @@ class ZaglavljeController:
 
             if all_fixable:
                 msg_parts.append(
-                    f"🔧 {len(all_fixable)} AUTOMATSKIH POPRAVKI dostupno:\n"
+                    f"ðŸ”§ {len(all_fixable)} AUTOMATSKIH POPRAVKI dostupno:\n"
                 )
                 for i, item in enumerate(all_fixable, 1):
                     msg_parts.append(f"  {i}. {item['message']}")
@@ -332,7 +332,7 @@ class ZaglavljeController:
             # Ako ima fixable, ponudi auto-fix
             if all_fixable:
                 reply = self.view.ask_question(
-                    full_msg + "\nŽelite li automatski popraviti ove greške?",
+                    full_msg + "\nÅ½elite li automatski popraviti ove greÅ¡ke?",
                     "Rezultat validacije",
                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                     QMessageBox.StandardButton.Yes,
@@ -348,22 +348,22 @@ class ZaglavljeController:
                         new_result = self.service.validate(view_data, draft)
                         self._show_validation_result(new_result)
                     return
-                # Ako user kaže Ne, samo prikaži info
+                # Ako user kaÅ¾e Ne, samo prikaÅ¾i info
                 self.view.show_warning(
                     full_msg,
-                    "Validacija — ima grešaka",
+                    "Validacija â€” ima greÅ¡aka",
                 )
             else:
-                # Nema fixable — samo prikaži
+                # Nema fixable â€” samo prikaÅ¾i
                 if errors:
                     self.view.show_error(
                         full_msg,
-                        "Validacija — greške",
+                        "Validacija â€” greÅ¡ke",
                     )
                 else:
                     self.view.show_info(
                         full_msg,
-                        "Validacija — upozorenja",
+                        "Validacija â€” upozorenja",
                     )
         finally:
             restore_window_geometry_queued(geometry_state)
@@ -372,10 +372,10 @@ class ZaglavljeController:
         """
         Primijeni automatske popravke na view podatke.
 
-        Podržane akcije:
-        - auto_update_iznos: ažuriraj iznos iz fakture
-        - auto_update_valuta: ažuriraj valutu iz fakture
-        - auto_update_stavke: ažuriraj broj stavki
+        PodrÅ¾ane akcije:
+        - auto_update_iznos: aÅ¾uriraj iznos iz fakture
+        - auto_update_valuta: aÅ¾uriraj valutu iz fakture
+        - auto_update_stavke: aÅ¾uriraj broj stavki
         """
         draft = self._get_draft_fn() if self._get_draft_fn else None
         if draft is None:
@@ -392,7 +392,7 @@ class ZaglavljeController:
                 widget = self.view.field_widgets.get("iznos")
                 if widget and hasattr(widget, "setText"):
                     widget.setText(f"{iznos:.2f}")
-                    self.logger.info(f"Auto-fix: iznos ažuriran na {iznos:.2f}")
+                    self.logger.info(f"Auto-fix: iznos aÅ¾uriran na {iznos:.2f}")
 
             elif action == "auto_update_valuta":
                 invoice_lines = getattr(draft, "invoice_lines", []) or []
@@ -405,16 +405,16 @@ class ZaglavljeController:
                 widget = self.view.field_widgets.get("valuta")
                 if widget and hasattr(widget, "setText"):
                     widget.setText(valuta)
-                    self.logger.info(f"Auto-fix: valuta ažurirana na {valuta}")
+                    self.logger.info(f"Auto-fix: valuta aÅ¾urirana na {valuta}")
 
             elif action == "auto_update_stavke":
                 n_items = len(draft.items) if draft.items else 0
                 widget = self.view.field_widgets.get("stavke")
                 if widget and hasattr(widget, "setText"):
                     widget.setText(str(n_items))
-                    self.logger.info(f"Auto-fix: broj stavki ažuriran na {n_items}")
+                    self.logger.info(f"Auto-fix: broj stavki aÅ¾uriran na {n_items}")
 
-        # Označi dirty
+        # OznaÄi dirty
         self.view.data_changed.emit()
 
     def _on_save(self):
@@ -424,26 +424,26 @@ class ZaglavljeController:
 
             if self._save_draft_fn:
                 self._save_draft_fn()
-                self.view.show_success("Podaci sačuvani!")
+                self.view.show_success("Podaci saÄuvani!")
                 self.logger.info("Save successful")
             else:
-                # Fallback: emituj data_changed da označi dirty
+                # Fallback: emituj data_changed da oznaÄi dirty
                 self.view.data_changed.emit()
-                self.view.show_success("Podaci sačuvani!")
+                self.view.show_success("Podaci saÄuvani!")
 
         except Exception as e:
             self.logger.error(f"Save failed: {e}", exc_info=True)
-            self.view.show_error(f"Greška pri čuvanju: {e}")
+            self.view.show_error(f"GreÅ¡ka pri Äuvanju: {e}")
     
     def _on_delete(self):
-        """Briši (očisti) zaglavlje — potvrdi i resetuj formu."""
+        """BriÅ¡i (oÄisti) zaglavlje â€” potvrdi i resetuj formu."""
         geometry_state = capture_window_geometry(self.view)
         try:
             self.logger.info("Delete requested")
 
             if not self.view.confirm(
-                "Da li ste sigurni da želite obrisati ovo zaglavlje?\n"
-                "Svi uneseni podaci će biti izgubljeni.",
+                "Da li ste sigurni da Å¾elite obrisati ovo zaglavlje?\n"
+                "Svi uneseni podaci Ä‡e biti izgubljeni.",
                 "Potvrda brisanja"
             ):
                 return
@@ -453,7 +453,7 @@ class ZaglavljeController:
 
         except Exception as e:
             self.logger.error(f"Delete failed: {e}", exc_info=True)
-            self.view.show_error(f"Greška pri brisanju: {e}")
+            self.view.show_error(f"GreÅ¡ka pri brisanju: {e}")
         finally:
             restore_window_geometry_queued(geometry_state)
     
@@ -461,8 +461,8 @@ class ZaglavljeController:
         """
         Handle import XML event.
         
-        Učitava OST iz draft.header_attached_documents (unos iz Rb.40.3)
-        i dodaje ga u attached_documents — vidi docs/sections/ost-rb40.md
+        UÄitava OST iz draft.header_attached_documents (unos iz Rb.40.3)
+        i dodaje ga u attached_documents â€” vidi docs/sections/ost-rb40.md
         
         Args:
             filename: Putanja do XML fajla
@@ -475,7 +475,7 @@ class ZaglavljeController:
             # Load data from XML via service
             data = self.service.load_from_xml(filename)
 
-            # Blokiraj zastarjele šifre dokumenata — zamijenjene novim ASYCUDA kodovima
+            # Blokiraj zastarjele Å¡ifre dokumenata â€” zamijenjene novim ASYCUDA kodovima
             _BLOCKED_CODES = {"FAK", "CMR", "SAN", "VET", "UVK"}
             if 'attached_documents' in data:
                 data['attached_documents'] = [
@@ -483,8 +483,8 @@ class ZaglavljeController:
                     if (d.get('code') or '').upper() not in _BLOCKED_CODES
                 ]
 
-            # Rb.22 — iznos se uvijek uzima iz fakture/naim., ne iz XML-a
-            # XML može sadržavati zastarjeli iznos iz prethodne deklaracije
+            # Rb.22 â€” iznos se uvijek uzima iz fakture/naim., ne iz XML-a
+            # XML moÅ¾e sadrÅ¾avati zastarjeli iznos iz prethodne deklaracije
             draft = self._get_draft_fn() if self._get_draft_fn else None
             if draft:
                 invoice_lines = getattr(draft, 'invoice_lines', None) or []
@@ -496,8 +496,8 @@ class ZaglavljeController:
                         ''
                     )
                 
-                # Broj fakture — uvijek iz fakture, ne iz XML-a
-                # Skupljamo SVE brojeve faktura (može ih biti više u tabeli faktura)
+                # Broj fakture â€” uvijek iz fakture, ne iz XML-a
+                # Skupljamo SVE brojeve faktura (moÅ¾e ih biti viÅ¡e u tabeli faktura)
                 # Prioritet: line.invoice_number > line.raw['invoice_number'] > draft.ref_br
                 brojevi_faktura = []
                 for line in invoice_lines:
@@ -516,7 +516,7 @@ class ZaglavljeController:
                     # Svi brojevi spojeni sa | idu u N380 referencu
                     svi_brojevi = ' | '.join(brojevi_faktura)
 
-                    # Dodaj/ažuriraj N380 u attached_documents sa svim brojevima faktura
+                    # Dodaj/aÅ¾uriraj N380 u attached_documents sa svim brojevima faktura
                     docs = data.setdefault('attached_documents', [])
                     n380 = next((d for d in docs if d.get('code') == 'N380'), None)
                     if n380:
@@ -529,7 +529,7 @@ class ZaglavljeController:
                             'from_rule': True,
                         })
 
-                # Rub.6 (Uk. paketa) — uvijek iz fakture/naimenovanja, ne iz XML-a
+                # Rub.6 (Uk. paketa) â€” uvijek iz fakture/naimenovanja, ne iz XML-a
                 if hasattr(draft, 'items') and draft.items:
                     total_qty = sum(getattr(it, 'package_qty', 0.0) or 0.0 for it in draft.items)
                     if total_qty > 0:
@@ -541,8 +541,8 @@ class ZaglavljeController:
                 if getattr(draft, 'uk_paketa', ''):
                     data['uk_paketa'] = draft.uk_paketa
 
-                # Rub.40.3 (rb40_broj): ručni unos u aplikaciji je izvor istine.
-                # XML import ne smije prepisati postojeću vrijednost ako već postoji u draftu.
+                # Rub.40.3 (rb40_broj): ruÄni unos u aplikaciji je izvor istine.
+                # XML import ne smije prepisati postojeÄ‡u vrijednost ako veÄ‡ postoji u draftu.
                 rb40_broj_draft = (getattr(draft, 'rb40_broj', '') or '').strip()
                 if rb40_broj_draft:
                     data['rb40_broj'] = rb40_broj_draft
@@ -565,20 +565,20 @@ class ZaglavljeController:
             }
             corrected = self._sanitize_attached_documents_after_import(data, protected_codes=protected_codes)
 
-            # Populate view with data — _from_import=True briše stale ref-ove pri XML uvozu
+            # Populate view with data â€” _from_import=True briÅ¡e stale ref-ove pri XML uvozu
             self.view.set_data(data, _from_import=True)
 
-            # Odmah snimi u draft da bi ostali tabovi (Naimenovanja) imali ažurne trosak/kurs
+            # Odmah snimi u draft da bi ostali tabovi (Naimenovanja) imali aÅ¾urne trosak/kurs
             if self._save_draft_fn:
                 self._save_draft_fn()
 
             if corrected > 0:
                 self.view.show_warning(
                     f"Uvoz je ispravio {corrected} konflikt(a) u Rub.44 "
-                    f"(PE referenca na pogrešnoj šifri dokumenta)."
+                    f"(PE referenca na pogreÅ¡noj Å¡ifri dokumenta)."
                 )
 
-            self.view.show_success(f"Podaci učitani iz: {filename}")
+            self.view.show_success(f"Podaci uÄitani iz: {filename}")
             self.logger.info(f"Import successful: {filename}")
             
         except FileNotFoundError as e:
@@ -591,7 +591,7 @@ class ZaglavljeController:
         
         except Exception as e:
             self.logger.error(f"Import failed: {e}", exc_info=True)
-            self.view.show_error(f"Greška pri uvozu: {e}")
+            self.view.show_error(f"GreÅ¡ka pri uvozu: {e}")
         finally:
             restore_window_geometry_queued(geometry_state)
 
@@ -630,7 +630,7 @@ class ZaglavljeController:
         naziv_map = {
             "PE1": "EUR.1 obrazac",
             "PE2": "Izjava na fakturi",
-            "PE3": "Izjava ovlaštenog izvoznika",
+            "PE3": "Izjava ovlaÅ¡tenog izvoznika",
         }
         for sifra, broj in pe_entries:
             header_docs.append(
@@ -651,14 +651,14 @@ class ZaglavljeController:
         if ost:
             ost.number = rb40_broj
             if not getattr(ost, "name", ""):
-                ost.name = "Ostali prateći dokumenti"
+                ost.name = "Ostali prateÄ‡i dokumenti"
             return
 
         from core.draft.draft import AttachedDocument
         header_docs.append(
             AttachedDocument(
                 code="OST",
-                name="Ostali prateći dokumenti",
+                name="Ostali prateÄ‡i dokumenti",
                 number=rb40_broj,
                 from_rule=False,
             )
@@ -713,7 +713,7 @@ class ZaglavljeController:
             code = (d.get("code") or "").strip()
             if not code:
                 continue
-            if code.upper() in existing_codes:  # dedupliciraj existing_docs po šifri
+            if code.upper() in existing_codes:  # dedupliciraj existing_docs po Å¡ifri
                 continue
             existing_codes.add(code.upper())
             merged.append({
@@ -721,7 +721,7 @@ class ZaglavljeController:
                 "name": d.get("name", ""),
                 "number": d.get("number", ""),
                 "from_rule": bool(d.get("from_rule", False)),
-                "_user_entered": True,  # čuva referencu pri XML uvozu
+                "_user_entered": True,  # Äuva referencu pri XML uvozu
             })
 
         for hd in draft_header_docs:
@@ -769,8 +769,8 @@ class ZaglavljeController:
             if not code:
                 continue
 
-            # Za ove šifre referenca mora ostati prazna nakon XML uvoza.
-            # Ako je šifra već bila ručno prisutna prije importa, ne diraj.
+            # Za ove Å¡ifre referenca mora ostati prazna nakon XML uvoza.
+            # Ako je Å¡ifra veÄ‡ bila ruÄno prisutna prije importa, ne diraj.
             if code in protected:
                 continue
             if code in force_empty_codes and number:
@@ -784,7 +784,7 @@ class ZaglavljeController:
             if not number:
                 continue
 
-            # Za PE1/PE2/PE3 očisti prefiks iz reference ako XML dođe kao "pe3 0504-..."
+            # Za PE1/PE2/PE3 oÄisti prefiks iz reference ako XML doÄ‘e kao "pe3 0504-..."
             if code in {"PE1", "PE2", "PE3"} and pe_prefix.match(number):
                 cleaned = pe_prefix.sub("", number).strip(" :,-")
                 if cleaned != number:
@@ -807,7 +807,7 @@ class ZaglavljeController:
         try:
             self.logger.info("Export XML requested")
 
-            # 1. Provjeri da li je validacija prošla
+            # 1. Provjeri da li je validacija proÅ¡la
             draft = self._get_draft_fn() if self._get_draft_fn else None
             if draft is None:
                 self.view.show_error("Nema draft podataka za export.")
@@ -819,9 +819,9 @@ class ZaglavljeController:
 
             if not result["valid"]:
                 self.view.show_error(
-                    f"❌ Nije moguće izvesti XML — validacija nije prošla.\n\n"
-                    f"Pronađeno {result['error_count']} grešaka koje blokiraju export.\n"
-                    f"Kliknite na dugme 'Provjeri' da pregledate i popravite greške."
+                    f"âŒ Nije moguÄ‡e izvesti XML â€” validacija nije proÅ¡la.\n\n"
+                    f"PronaÄ‘eno {result['error_count']} greÅ¡aka koje blokiraju export.\n"
+                    f"Kliknite na dugme 'Provjeri' da pregledate i popravite greÅ¡ke."
                 )
                 self.logger.warning(
                     f"Export blocked: {result['error_count']} validation errors"
@@ -830,9 +830,9 @@ class ZaglavljeController:
 
             if result["warnings"]:
                 reply = self.view.ask_question(
-                    f"⚠️ Validacija ima {len(result['warnings'])} upozorenja.\n\n"
+                    f"âš ï¸ Validacija ima {len(result['warnings'])} upozorenja.\n\n"
                     f"{'; '.join(w['message'][:80] for w in result['warnings'][:3])}\n\n"
-                    f"Da li želite nastaviti sa exportom?",
+                    f"Da li Å¾elite nastaviti sa exportom?",
                     "Upozorenje prije exporta",
                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                     QMessageBox.StandardButton.No,
@@ -872,7 +872,7 @@ class ZaglavljeController:
                     reply = self.view.ask_question(
                         "Ova deklaracija je izvezena.\n\n"
                         "Postoje preostale stavke koje su odvojene zbog ASYCUDA limita od 99 naimenovanja.\n"
-                        "Da li želite sada učitati sljedeću deklaraciju sa ostatkom?",
+                        "Da li Å¾elite sada uÄitati sljedeÄ‡u deklaraciju sa ostatkom?",
                         "Nastavi sa ostatkom",
                         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                         QMessageBox.StandardButton.Yes,
@@ -882,18 +882,18 @@ class ZaglavljeController:
                         if hasattr(main_window, "continue_with_pending_declaration"):
                             if main_window.continue_with_pending_declaration():
                                 self.view.show_success(
-                                    "Učitana je sljedeća deklaracija sa preostalim stavkama."
+                                    "UÄitana je sljedeÄ‡a deklaracija sa preostalim stavkama."
                                 )
                         else:
                             self.view.show_error(
-                                "Nije pronađen mehanizam za učitavanje sljedeće deklaracije."
+                                "Nije pronaÄ‘en mehanizam za uÄitavanje sljedeÄ‡e deklaracije."
                             )
             else:
-                self.view.show_error("Greška pri eksportu")
+                self.view.show_error("GreÅ¡ka pri eksportu")
 
         except Exception as e:
             self.logger.error(f"Export failed: {e}", exc_info=True)
-            self.view.show_error(f"Greška pri eksportu: {e}")
+            self.view.show_error(f"GreÅ¡ka pri eksportu: {e}")
         finally:
             restore_window_geometry_queued(geometry_state)
     
@@ -905,7 +905,7 @@ class ZaglavljeController:
             
             # Confirm
             if not self.view.confirm(
-                "Kreiraj novu praznu deklaraciju?\nNesačuvane promjene će biti izgubljene.",
+                "Kreiraj novu praznu deklaraciju?\nNesaÄuvane promjene Ä‡e biti izgubljene.",
                 "Novi"
             ):
                 return
@@ -917,17 +917,17 @@ class ZaglavljeController:
 
         except Exception as e:
             self.logger.error(f"New failed: {e}", exc_info=True)
-            self.view.show_error(f"Greška: {e}")
+            self.view.show_error(f"GreÅ¡ka: {e}")
         finally:
             restore_window_geometry_queued(geometry_state)
 
     def _on_close(self):
-        """Izlaz — snimi podatke u draft i obavijesti korisnika."""
+        """Izlaz â€” snimi podatke u draft i obavijesti korisnika."""
         try:
             self.logger.info("Close requested")
             if self._save_draft_fn:
                 self._save_draft_fn()
-            # Zatvori glavni prozor (ako smo u standalone modu) ili ignoriši
+            # Zatvori glavni prozor (ako smo u standalone modu) ili ignoriÅ¡i
             parent = self.view.window()
             if parent and parent is not self.view:
                 parent.close()
@@ -976,7 +976,7 @@ class ZaglavljeController:
                     
         except Exception as e:
             self.logger.error(f"Search company failed: {e}", exc_info=True)
-            self.view.show_error(f"Greška pri pretrazi: {e}")
+            self.view.show_error(f"GreÅ¡ka pri pretrazi: {e}")
     
     def _on_add_company(self, company_type: str):
         """
@@ -1000,7 +1000,7 @@ class ZaglavljeController:
             
         except Exception as e:
             self.logger.error(f"Add company failed: {e}", exc_info=True)
-            self.view.show_error(f"Greška pri dodavanju: {e}")
+            self.view.show_error(f"GreÅ¡ka pri dodavanju: {e}")
     
     def _on_import_jci(self):
         """
@@ -1021,18 +1021,18 @@ class ZaglavljeController:
             
         except Exception as e:
             self.logger.error(f"JCI import failed: {e}", exc_info=True)
-            self.view.show_error(f"Greška pri JCI importu: {e}")
+            self.view.show_error(f"GreÅ¡ka pri JCI importu: {e}")
     
     def _populate_oznaka_combo(self, sifra: str):
         """
-        Popuni combo za oznaku postupka prema odabranoj šifri (EX/IM).
+        Popuni combo za oznaku postupka prema odabranoj Å¡ifri (EX/IM).
         
         Args:
-            sifra: Šifra vrste deklaracije (npr. 'IM', 'EX')
+            sifra: Å ifra vrste deklaracije (npr. 'IM', 'EX')
         
         Workflow:
         1. Dohvati vrste deklaracija iz service-a
-        2. Popuni combo sa odgovarajućim oznakama
+        2. Popuni combo sa odgovarajuÄ‡im oznakama
         3. Handle errors
         """
         try:
@@ -1043,7 +1043,7 @@ class ZaglavljeController:
             cb.blockSignals(True)
             cb.clear()
             
-            # Dohvati oznake za odabranu šifru
+            # Dohvati oznake za odabranu Å¡ifru
             vrste = self.service.get_vrste_deklaracija()
             for oznaka, opis in vrste.get(sifra, []):
                 cb.addItem(oznaka)
@@ -1059,9 +1059,9 @@ class ZaglavljeController:
         """
         Auto-popuni Rb.23 (kurs) na osnovu valute u Rb.22.
 
-        EUR → fiksni kurs 1.95583 (BiH nominalni kurs)
-        USD/ostalo → dohvati srednji kurs od CBBH API-ja
-        Prazno → ne radi ništa
+        EUR â†’ fiksni kurs 1.95583 (BiH nominalni kurs)
+        USD/ostalo â†’ dohvati srednji kurs od CBBH API-ja
+        Prazno â†’ ne radi niÅ¡ta
         """
         if not valuta:
             return
@@ -1069,7 +1069,7 @@ class ZaglavljeController:
             from services.agent.cbbh_exchange_service import get_cbbh_rate
             rate = get_cbbh_rate(valuta)
             if rate is None:
-                self.logger.warning(f"[Rb.23] Nije moguće dohvatiti kurs za {valuta}")
+                self.logger.warning(f"[Rb.23] Nije moguÄ‡e dohvatiti kurs za {valuta}")
                 return
             kurs_widget = self.view.field_widgets.get("kurs")
             if kurs_widget is None:
@@ -1078,25 +1078,25 @@ class ZaglavljeController:
             kurs_widget.setText(formatted)
             self.logger.info(f"[Rb.23] Kurs za {valuta} = {formatted}")
         except Exception as e:
-            self.logger.error(f"[Rb.23] Greška pri dohvatanju kursa: {e}", exc_info=True)
+            self.logger.error(f"[Rb.23] GreÅ¡ka pri dohvatanju kursa: {e}", exc_info=True)
 
     def _on_dekl_sifra_changed(self, sifra: str):
         """
-        Event handler za promjenu šifre deklaracije (EX/IM).
+        Event handler za promjenu Å¡ifre deklaracije (EX/IM).
         
         Args:
-            sifra: Nova šifra (npr. 'IM' ili 'EX')
+            sifra: Nova Å¡ifra (npr. 'IM' ili 'EX')
         
         Workflow:
-        1. Kada se promijeni EX/IM, osvježi listu oznaka u combou
+        1. Kada se promijeni EX/IM, osvjeÅ¾i listu oznaka u combou
         2. Pozovi _populate_oznaka_combo
         """
         try:
-            self.logger.debug(f"Deklaracija šifra changed: {sifra}")
+            self.logger.debug(f"Deklaracija Å¡ifra changed: {sifra}")
             self._populate_oznaka_combo(sifra)
             
         except Exception as e:
-            self.logger.error(f"Deklaracija šifra changed failed: {e}", exc_info=True)
+            self.logger.error(f"Deklaracija Å¡ifra changed failed: {e}", exc_info=True)
     
     def _populate_company_fields(self, company_type: str, partner: dict):
         """
@@ -1132,7 +1132,7 @@ class ZaglavljeController:
     
     def load_dropdowns(self):
         """
-        Učitaj dropdown opcije iz baze.
+        UÄitaj dropdown opcije iz baze.
         
         Popunjava:
         - Vrste deklaracija
@@ -1152,20 +1152,21 @@ class ZaglavljeController:
                         vrsta_widget.addItem(f"{sifra} - {opis}", sifra)
             
             # Load tipovi deklaracija - VIEW sada sam popunjava deklaracija_oznaka sa tipovima (A, Z, B)
-            # Controller više ne treba da popunjava ovaj dropdown
+            # Controller viÅ¡e ne treba da popunjava ovaj dropdown
             pass
             
-            # Load vid prevoza (Rb.25/26) — dropdown "30 — Cestovni prevoz", u polju samo šifra
+            # Load vid prevoza (Rb.25/26) â€” dropdown "30 â€” Cestovni prevoz", u polju samo Å¡ifra
             vidovi = self.service.get_vid_unutra()
             for field_key in ('vid_25', 'vid_26'):
                 vid_widget = self.view.field_widgets.get(field_key)
                 if vid_widget and hasattr(vid_widget, 'addItem'):
                     vid_widget.clear()
                     for sifra, opis in vidovi:
-                        vid_widget.addItem(f"{sifra} — {opis}", sifra)
+                        vid_widget.addItem(f"{sifra} â€” {opis}", sifra)
 
             self.logger.info("Dropdowns loaded successfully")
             
         except Exception as e:
             self.logger.error(f"Failed to load dropdowns: {e}", exc_info=True)
             # Don't show error to user - dropdowns can be filled manually
+

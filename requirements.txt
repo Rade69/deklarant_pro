@@ -1,4 +1,4 @@
-# Deklarant Pro — Python zavisnosti za pip instalaciju
+﻿# Deklarant Pro â€” Python zavisnosti za pip instalaciju
 # NAPOMENA: Source of truth je pyproject.toml (koristi uv sync)
 # Ovaj fajl je derivat za Windows/pip setup (setup_windows_venv.bat)
 
@@ -47,5 +47,6 @@ google-generativeai>=0.8.0
 mcp>=1.0.0
 ollama>=0.1.0
 
-# OCR (opciono — instalirati samo ako treba skeniranje)
+# OCR (opciono â€” instalirati samo ako treba skeniranje)
 # pip install -r requirements-ocr.txt
+

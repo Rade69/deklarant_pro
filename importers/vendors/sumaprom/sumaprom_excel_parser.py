@@ -1,4 +1,4 @@
-# importers/sumaprom_excel_parser.py
+﻿# importers/sumaprom_excel_parser.py
 
 """
 SUMAPROM Excel Importer
@@ -101,7 +101,7 @@ def detect_sumaprom_excel(filepath: str) -> bool:
                     row_text += str(cell_value).upper() + " "
 
             # Check for SUMAPROM
-            if "SUMAPROM" in row_text or "ŠUMAPROM" in row_text:
+            if "SUMAPROM" in row_text or "Å UMAPROM" in row_text:
                 found_sumaprom = True
 
             # Check for header row (Pos. R.br. | Item Code | Description)
@@ -271,7 +271,7 @@ def _extract_header_info(sheet: _SheetAdapter) -> Dict[str, Any]:
             if date_match and not header_info['invoice_date']:
                 header_info['invoice_date'] = date_match.group(1)
 
-    # EKSPORTATOR (strani prodavac/dobavljac) — trazimo po labelama SELLER/EKSPORTATOR
+    # EKSPORTATOR (strani prodavac/dobavljac) â€” trazimo po labelama SELLER/EKSPORTATOR
     # Napomena: SUMAPROM je KUPAC (consignee/uvoznik), NE eksportator!
     seller_keywords = ['SELLER', 'EKSPORTATOR', 'EXPORTER', 'PRODAVAC', 'SUPPLIER', 'DOBAVLJAC', 'FROM:']
     for row_idx in range(min(20, sheet.nrows)):
@@ -339,14 +339,14 @@ def _extract_header_info(sheet: _SheetAdapter) -> Dict[str, Any]:
                 cell_str = str(cell_value)
                 
                 # Look for gross weight: "Gross weight" or "BRUTO TEZINA"
-                if "GROSS WEIGHT" in cell_str.upper() or "BRUTO" in cell_str.upper() and "TEŽINA" in cell_str.upper():
+                if "GROSS WEIGHT" in cell_str.upper() or "BRUTO" in cell_str.upper() and "TEÅ½INA" in cell_str.upper():
                     weight_match = re.search(r'([\d,\.]+)\s*KG', cell_str, re.IGNORECASE)
                     if weight_match:
                         weight_str = weight_match.group(1).replace(',', '.')
                         header_info['bruto_kg'] = float(weight_str)
                         break
-                # Look for net weight: "Net weight" or "NETO TEŽINA"
-                if "NET WEIGHT" in cell_str.upper() or "NETO" in cell_str.upper() and "TEŽINA" in cell_str.upper():
+                # Look for net weight: "Net weight" or "NETO TEÅ½INA"
+                if "NET WEIGHT" in cell_str.upper() or "NETO" in cell_str.upper() and "TEÅ½INA" in cell_str.upper():
                     weight_match = re.search(r'([\d,\.]+)\s*KG', cell_str, re.IGNORECASE)
                     if weight_match:
                         weight_str = weight_match.group(1).replace(',', '.')
@@ -589,7 +589,7 @@ def _parse_item_row(
     skip_keywords = [
         'TOTAL', 'SUBTOTAL', 'NETO', 'BRUTO', 'UKUPNO', 'ZBIR',
         'KOMENTAR', 'NAPOMENA', 'PRICE TERM', 'DELIVERY', 'BANK',
-        'ISSUED BY', 'UNDER', 'VAT', 'PDV', 'OSLOBOĐENO'
+        'ISSUED BY', 'UNDER', 'VAT', 'PDV', 'OSLOBOÄENO'
     ]
     if any(kw in naziv_robe.upper() for kw in skip_keywords):
         return None
@@ -624,7 +624,7 @@ def _parse_item_row(
             elif zemlja_iso == "IE":
                 zemlja_iso = "IE"
             elif zemlja_iso == "IR":
-                # Šumaprom koristi "IR" za Irsku (IRSKA), a ne za Iran
+                # Å umaprom koristi "IR" za Irsku (IRSKA), a ne za Iran
                 full_name = zemlja_porijekla_raw.upper()
                 if "IRSKA" in full_name or "IRELAND" in full_name:
                     zemlja_iso = "IE"
@@ -644,7 +644,7 @@ def _parse_item_row(
         cijena_jed=cijena_jed,
         iznos=iznos,
         valuta="EUR",
-        bruto_kg=0.0,  # Težine nisu po stavkama u Excelu
+        bruto_kg=0.0,  # TeÅ¾ine nisu po stavkama u Excelu
         neto_kg=0.0,
         jm=jm if jm else "kom",
         povlastica=""  # Nije dostupno u Excelu
@@ -696,3 +696,4 @@ if __name__ == "__main__":
                     logger.debug(f"   Country: {item.zemlja_porijekla}")
     else:
         logger.debug(f"Test folder not found: {test_file}")
+

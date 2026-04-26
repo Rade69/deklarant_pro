@@ -1,4 +1,4 @@
-import logging
+﻿import logging
 logger = logging.getLogger(__name__)
 """
 Backup Service - Backup/Restore operations.
@@ -21,7 +21,7 @@ class BackupService:
     TASK 10: Backup/Restore sa validacijom, cleanup-om i progress callback-om
     """
 
-    # Koliko backup-a zadržati
+    # Koliko backup-a zadrÅ¾ati
     MAX_BACKUPS = 10
 
     def __init__(self):
@@ -43,11 +43,11 @@ class BackupService:
         Kreiraj database backup.
 
         Args:
-            backup_path: Put gdje sačuvati backup (opciono)
+            backup_path: Put gdje saÄuvati backup (opciono)
             progress_callback: Callback za progress (0-100)
 
         Returns:
-            True ako uspješno, False ako ne
+            True ako uspjeÅ¡no, False ako ne
         """
         try:
             if progress_callback:
@@ -55,14 +55,14 @@ class BackupService:
 
             # 1. Validacija: database mora postojati
             if not self.db_path.exists():
-                logger.error(f"❌ Database not found: {self.db_path}")
+                logger.error(f"âŒ Database not found: {self.db_path}")
                 if progress_callback:
                     progress_callback(0)
                 return False
 
             # 2. Validacija: database mora biti validan SQLite fajl
             if not self._validate_database(self.db_path):
-                logger.error(f"❌ Database validation failed: {self.db_path}")
+                logger.error(f"âŒ Database validation failed: {self.db_path}")
                 if progress_callback:
                     progress_callback(0)
                 return False
@@ -85,7 +85,7 @@ class BackupService:
 
             # 5. Validiraj backup
             if not self._validate_database(backup_path):
-                logger.error(f"❌ Backup validation failed: {backup_path}")
+                logger.error(f"âŒ Backup validation failed: {backup_path}")
                 backup_path.unlink(missing_ok=True)
                 if progress_callback:
                     progress_callback(0)
@@ -94,7 +94,7 @@ class BackupService:
             if progress_callback:
                 progress_callback(100)
 
-            logger.info(f"✅ Backup created: {backup_path}")
+            logger.info(f"âœ… Backup created: {backup_path}")
             
             # 6. Cleanup starih backup-a
             self._cleanup_old_backups()
@@ -102,7 +102,7 @@ class BackupService:
             return True
 
         except Exception as e:
-            logger.error(f"❌ Backup failed: {e}")
+            logger.error(f"âŒ Backup failed: {e}")
             if progress_callback:
                 progress_callback(0)
             return False
@@ -119,7 +119,7 @@ class BackupService:
             progress_callback: Callback za progress (0-100)
 
         Returns:
-            True ako uspješno, False ako ne
+            True ako uspjeÅ¡no, False ako ne
         """
         try:
             if progress_callback:
@@ -129,14 +129,14 @@ class BackupService:
 
             # 1. Validacija: backup fajl mora postojati
             if not backup_file.exists():
-                logger.error(f"❌ Backup file not found: {backup_path}")
+                logger.error(f"âŒ Backup file not found: {backup_path}")
                 if progress_callback:
                     progress_callback(0)
                 return False
 
             # 2. Validacija: backup mora biti validan SQLite
             if not self._validate_database(backup_file):
-                logger.error(f"❌ Backup validation failed: {backup_path}")
+                logger.error(f"âŒ Backup validation failed: {backup_path}")
                 if progress_callback:
                     progress_callback(0)
                 return False
@@ -144,13 +144,13 @@ class BackupService:
             if progress_callback:
                 progress_callback(20)
 
-            # 3. Kreiraj backup trenutne baze (opciono ali preporučeno)
+            # 3. Kreiraj backup trenutne baze (opciono ali preporuÄeno)
             if create_backup_before and self.db_path.exists():
-                logger.debug("📦 Kreiranje backup-a trenutne baze prije restore-a...")
+                logger.debug("ðŸ“¦ Kreiranje backup-a trenutne baze prije restore-a...")
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 auto_backup_path = self.backup_dir / f"auto_backup_before_restore_{timestamp}.db"
                 shutil.copy2(self.db_path, auto_backup_path)
-                logger.info(f"   ✅ Auto backup kreiran: {auto_backup_path}")
+                logger.info(f"   âœ… Auto backup kreiran: {auto_backup_path}")
                 
                 if progress_callback:
                     progress_callback(40)
@@ -163,10 +163,10 @@ class BackupService:
 
             # 5. Validiraj restore-ovanu bazu
             if not self._validate_database(self.db_path):
-                logger.error(f"❌ Restore validation failed!")
-                # Pokušaj rollback na auto backup
+                logger.error(f"âŒ Restore validation failed!")
+                # PokuÅ¡aj rollback na auto backup
                 if create_backup_before and auto_backup_path.exists():
-                    logger.debug("🔄 Pokušaj rollback-a...")
+                    logger.debug("ðŸ”„ PokuÅ¡aj rollback-a...")
                     shutil.copy2(auto_backup_path, self.db_path)
                 
                 if progress_callback:
@@ -176,11 +176,11 @@ class BackupService:
             if progress_callback:
                 progress_callback(100)
 
-            logger.info(f"✅ Database restored from: {backup_path}")
+            logger.info(f"âœ… Database restored from: {backup_path}")
             return True
 
         except Exception as e:
-            logger.error(f"❌ Restore failed: {e}")
+            logger.error(f"âŒ Restore failed: {e}")
             if progress_callback:
                 progress_callback(0)
             return False
@@ -198,7 +198,7 @@ class BackupService:
             return backups
 
         for filepath in self.backup_dir.glob("*.db"):
-            # Preskoči auto backup-ove ako nisu traženi
+            # PreskoÄi auto backup-ove ako nisu traÅ¾eni
             if filepath.name.startswith('auto_backup_'):
                 continue
                 
@@ -217,10 +217,10 @@ class BackupService:
 
     def get_database_size(self) -> int:
         """
-        Vrati veličinu database fajla.
+        Vrati veliÄinu database fajla.
 
         Returns:
-            Veličina u bajtovima
+            VeliÄina u bajtovima
         """
         try:
             if self.db_path.exists():
@@ -249,26 +249,26 @@ class BackupService:
 
     def delete_backup(self, backup_path: str) -> bool:
         """
-        Obriši specifični backup.
+        ObriÅ¡i specifiÄni backup.
 
         Args:
             backup_path: Put do backup fajla
 
         Returns:
-            True ako uspješno, False ako ne
+            True ako uspjeÅ¡no, False ako ne
         """
         try:
             backup_file = Path(backup_path)
             
             if not backup_file.exists():
-                logger.error(f"❌ Backup file not found: {backup_path}")
+                logger.error(f"âŒ Backup file not found: {backup_path}")
                 return False
             
             backup_file.unlink()
-            logger.info(f"✅ Backup obrisan: {backup_path}")
+            logger.info(f"âœ… Backup obrisan: {backup_path}")
             return True
         except Exception as e:
-            logger.error(f"❌ Delete failed: {e}")
+            logger.error(f"âŒ Delete failed: {e}")
             return False
 
     def _validate_database(self, db_path: Path) -> bool:
@@ -285,7 +285,7 @@ class BackupService:
             conn = sqlite3.connect(str(db_path))
             cursor = conn.cursor()
             
-            # Probaj izvršiti jednostavan query
+            # Probaj izvrÅ¡iti jednostavan query
             cursor.execute("SELECT 1")
             result = cursor.fetchone()
             
@@ -298,10 +298,10 @@ class BackupService:
 
     def _cleanup_old_backups(self, keep_count: int = None):
         """
-        Obriši stare backup-e, zadrži samo zadnjih N.
+        ObriÅ¡i stare backup-e, zadrÅ¾i samo zadnjih N.
 
         Args:
-            keep_count: Broj backup-a za zadržati (default: MAX_BACKUPS)
+            keep_count: Broj backup-a za zadrÅ¾ati (default: MAX_BACKUPS)
         """
         try:
             if keep_count is None:
@@ -310,13 +310,13 @@ class BackupService:
             backups = self.get_available_backups()
             
             if len(backups) > keep_count:
-                # Obriši najstarije
+                # ObriÅ¡i najstarije
                 for backup in backups[keep_count:]:
                     backup_file = Path(backup['filepath'])
                     backup_file.unlink()
-                    logger.debug(f"🗑️  Obrisan stari backup: {backup['filename']}")
+                    logger.debug(f"ðŸ—‘ï¸  Obrisan stari backup: {backup['filename']}")
         except Exception as e:
-            logger.error(f"❌ Cleanup failed: {e}")
+            logger.error(f"âŒ Cleanup failed: {e}")
 
     def get_auto_backups(self) -> List[Dict[str, Any]]:
         """
@@ -342,3 +342,4 @@ class BackupService:
 
         auto_backups.sort(key=lambda x: x['created'], reverse=True)
         return auto_backups
+

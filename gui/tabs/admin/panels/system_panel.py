@@ -1,7 +1,7 @@
-"""
+﻿"""
 System Panel - UI for system info.
 
-TASK 13: Styling improvements - više sekcija, bolji layout, export opcije
+TASK 13: Styling improvements - viÅ¡e sekcija, bolji layout, export opcije
 """
 
 from PySide6.QtWidgets import (
@@ -22,7 +22,7 @@ from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
 
 
 class SystemPanel(QWidget):
-    """System Info panel UI sa poboljšanim styling-om."""
+    """System Info panel UI sa poboljÅ¡anim styling-om."""
 
     refresh_requested = Signal()
 
@@ -130,7 +130,7 @@ class SystemPanel(QWidget):
         self.btn_ai_health.setStyleSheet(button_style)
 
     def setup_ui(self):
-        """Setup UI-a sa više sekcija."""
+        """Setup UI-a sa viÅ¡e sekcija."""
         layout = QVBoxLayout(self)
         layout.setContentsMargins(15, 15, 15, 15)
         layout.setSpacing(15)
@@ -160,7 +160,7 @@ class SystemPanel(QWidget):
         scroll_layout.setSpacing(15)
 
         # ===== APPLICATION INFO GROUP =====
-        app_group = QGroupBox("📦 Informacije o Aplikaciji")
+        app_group = QGroupBox("ðŸ“¦ Informacije o Aplikaciji")
         app_layout = QGridLayout(app_group)
         app_layout.setVerticalSpacing(8)
         app_layout.setHorizontalSpacing(15)
@@ -197,7 +197,7 @@ class SystemPanel(QWidget):
         scroll_layout.addWidget(app_group)
 
         # ===== SYSTEM INFO GROUP =====
-        system_group = QGroupBox("💻 Sistemske Informacije")
+        system_group = QGroupBox("ðŸ’» Sistemske Informacije")
         system_layout = QGridLayout(system_group)
         system_layout.setVerticalSpacing(8)
         system_layout.setHorizontalSpacing(15)
@@ -243,7 +243,7 @@ class SystemPanel(QWidget):
 
 
         # ===== DETAILED INFO TEXT =====
-        detailed_group = QGroupBox("📋 Detaljne Informacije")
+        detailed_group = QGroupBox("ðŸ“‹ Detaljne Informacije")
         detailed_layout = QVBoxLayout(detailed_group)
 
         self.info_text = QTextEdit()
@@ -300,10 +300,10 @@ class SystemPanel(QWidget):
 
         self.btn_ai_health = QPushButton(
             qta.icon('fa5s.heartbeat', color='white'),
-            " Osvježi AI"
+            " OsvjeÅ¾i AI"
         )
         self.btn_ai_health.setFont(QFont("Arial", 13))
-        self.btn_ai_health.setToolTip("Provjeri AI providere i mrežu")
+        self.btn_ai_health.setToolTip("Provjeri AI providere i mreÅ¾u")
         self.btn_ai_health.clicked.connect(self._on_ai_health_clicked)
         self.btn_ai_health.setMinimumHeight(40)
         self.btn_ai_health.setObjectName("aiHealthButton")
@@ -317,7 +317,7 @@ class SystemPanel(QWidget):
             " Refresh"
         )
         self.btn_refresh.setFont(QFont("Arial", 13))
-        self.btn_refresh.setToolTip("Osveži system informacije")
+        self.btn_refresh.setToolTip("OsveÅ¾i system informacije")
         self.btn_refresh.clicked.connect(self._on_refresh_clicked)
         self.btn_refresh.setMinimumHeight(40)
         self.btn_refresh.setObjectName("refreshButton")
@@ -351,21 +351,21 @@ class SystemPanel(QWidget):
         self._update_detailed_info(info)
 
     def show_success(self, message: str):
-        """Prikaži success poruku."""
+        """PrikaÅ¾i success poruku."""
         QMessageBox.information(self, "Uspjeh", message)
 
     def show_error(self, message: str):
-        """Prikaži error poruku."""
-        QMessageBox.critical(self, "Greška", message)
+        """PrikaÅ¾i error poruku."""
+        QMessageBox.critical(self, "GreÅ¡ka", message)
 
     # PRIVATE HANDLERS
 
     def _update_detailed_info(self, info: Dict[str, Any]):
-        """Ažuriraj detaljne informacije u text editor-u."""
+        """AÅ¾uriraj detaljne informacije u text editor-u."""
         detailed = f"""
-═══════════════════════════════════════════════════════════
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 DEKLARANT PRO - SYSTEM INFORMATION
-═══════════════════════════════════════════════════════════
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 APLIKACIJA
 ----------
@@ -380,9 +380,9 @@ SISTEM
   Qt:          {info.get('qt_version', 'N/A')}
   Arhitektura: {info.get('architecture', 'N/A')}
 
-═══════════════════════════════════════════════════════════
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 Generisano: {info.get('generated_at', 'N/A')}
-═══════════════════════════════════════════════════════════
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 """
         self.info_text.setText(detailed)
 
@@ -409,7 +409,7 @@ Generisano: {info.get('generated_at', 'N/A')}
         if format == 'json':
             return json.dumps(info, indent=2, ensure_ascii=False)
         elif format == 'markdown':
-            return f"""# Deklarant Pro — System Info
+            return f"""# Deklarant Pro â€” System Info
 
 ## Aplikacija
 - **Naziv:** {info.get('app_name', 'N/A')}
@@ -425,7 +425,7 @@ Generisano: {info.get('generated_at', 'N/A')}
 Generisano: {info.get('generated_at', 'N/A')}
 """
         else:  # plain text
-            return f"""Deklarant Pro — System Info
+            return f"""Deklarant Pro â€” System Info
 ===========================
 Aplikacija: {info.get('app_name', 'N/A')} v{info.get('app_version', 'N/A')}
 Datum build: {info.get('build_date', 'N/A')}
@@ -444,7 +444,7 @@ Generisano: {info.get('generated_at', 'N/A')}
         format_choice, ok = QInputDialog.getItem(
             self,
             "Odaberi Format",
-            "U kom formatu želiš da kopiraš?",
+            "U kom formatu Å¾eliÅ¡ da kopiraÅ¡?",
             ["Plain Text", "Markdown", "JSON"],
             0,
             False
@@ -488,7 +488,7 @@ Generisano: {info.get('generated_at', 'N/A')}
                     f.write(text)
                 self.show_success(f"System info eksportovan!\n\nFajl: {filepath}\nFormat: {format.upper()}")
             except Exception as e:
-                self.show_error(f"Greška pri eksportu:\n{str(e)}")
+                self.show_error(f"GreÅ¡ka pri eksportu:\n{str(e)}")
 
     def _on_refresh_clicked(self):
         """Refresh button clicked."""
@@ -513,15 +513,15 @@ Generisano: {info.get('generated_at', 'N/A')}
                 <li>Logovi</li>
                 <li>Sistemske informacije</li>
                 <li>Licenca</li>
-                <li>Učenje iz XML-ova</li>
+                <li>UÄenje iz XML-ova</li>
             </ul>
             <br>
-            <p>© 2026 Radovan Stojanović</p>
+            <p>Â© 2026 Radovan StojanoviÄ‡</p>
             """
         )
 
     def _on_ai_health_clicked(self):
-        """AI health check: ključevi, DNS i testni odgovor providera."""
+        """AI health check: kljuÄevi, DNS i testni odgovor providera."""
         from gui.tabs.agent.widgets.llm_provider import LLMProvider
 
         provider = LLMProvider()
@@ -529,10 +529,10 @@ Generisano: {info.get('generated_at', 'N/A')}
             "AI HEALTH CHECK",
             "===============",
             "",
-            f"DeepSeek ključ: {'OK' if provider.has_deepseek() else 'NEDOSTAJE'}",
-            f"Groq ključ:     {'OK' if provider.has_groq() else 'NEDOSTAJE'}",
-            f"Gemini ključ:   {'OK' if provider.has_gemini() else 'NEDOSTAJE'}",
-            f"OpenRouter ključ: {'OK' if provider.has_openrouter() else 'NEDOSTAJE'}",
+            f"DeepSeek kljuÄ: {'OK' if provider.has_deepseek() else 'NEDOSTAJE'}",
+            f"Groq kljuÄ:     {'OK' if provider.has_groq() else 'NEDOSTAJE'}",
+            f"Gemini kljuÄ:   {'OK' if provider.has_gemini() else 'NEDOSTAJE'}",
+            f"OpenRouter kljuÄ: {'OK' if provider.has_openrouter() else 'NEDOSTAJE'}",
             f"Aktivni redoslijed (primarni): {provider.active_provider()}",
             "",
             "DNS provjera:",
@@ -549,7 +549,7 @@ Generisano: {info.get('generated_at', 'N/A')}
                 ip = socket.gethostbyname(host)
                 lines.append(f"- {name}: OK ({host} -> {ip})")
             except Exception as e:
-                lines.append(f"- {name}: GREŠKA ({host}) - {e}")
+                lines.append(f"- {name}: GREÅ KA ({host}) - {e}")
 
         lines.extend([
             "",
@@ -571,7 +571,7 @@ Generisano: {info.get('generated_at', 'N/A')}
         try:
             for name, has_key, forced in tests:
                 if not has_key:
-                    lines.append(f"- {name}: preskočeno (nema ključ)")
+                    lines.append(f"- {name}: preskoÄeno (nema kljuÄ)")
                     continue
                 prev_deepseek = provider.deepseek_key
                 prev_groq = provider.groq_key
@@ -599,7 +599,7 @@ Generisano: {info.get('generated_at', 'N/A')}
                     preview = out[:80] if out else "<prazan odgovor>"
                     lines.append(f"- {name}: OK ({preview})")
                 except Exception as e:
-                    lines.append(f"- {name}: GREŠKA ({e})")
+                    lines.append(f"- {name}: GREÅ KA ({e})")
                 finally:
                     provider.deepseek_key = prev_deepseek
                     provider.groq_key = prev_groq
@@ -609,3 +609,4 @@ Generisano: {info.get('generated_at', 'N/A')}
             QApplication.restoreOverrideCursor()
 
         QMessageBox.information(self, "AI status", "\n".join(lines))
+

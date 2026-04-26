@@ -1,11 +1,11 @@
-# services/sifarnici_service.py
+﻿# services/sifarnici_service.py
 
 """
 Sifarnici Service - Business Logic Layer
 
 Service layer za Sifarnici tab - potpuno Qt-independent.
 Odgovoran za:
-- CRUD operacije za šifrarnike (valute, države, dokumenti, itd.)
+- CRUD operacije za Å¡ifrarnike (valute, drÅ¾ave, dokumenti, itd.)
 - Validacija podataka
 - Database pristup (kroz get_db_connection)
 
@@ -55,7 +55,7 @@ class SifarniciService:
             return []
     
     def get_valuta_by_code(self, code: str) -> Optional[Dict[str, Any]]:
-        """Dohvati valutu po šifri."""
+        """Dohvati valutu po Å¡ifri."""
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
@@ -79,7 +79,7 @@ class SifarniciService:
             return False
     
     def delete_valuta(self, code: str) -> bool:
-        """Obriši valutu."""
+        """ObriÅ¡i valutu."""
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
@@ -91,11 +91,11 @@ class SifarniciService:
             return False
     
     # ============================================================
-    # DRŽAVE (Countries)
+    # DRÅ½AVE (Countries)
     # ============================================================
     
     def get_all_drzave(self) -> List[Dict[str, Any]]:
-        """Dohvati sve države iz baze."""
+        """Dohvati sve drÅ¾ave iz baze."""
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
@@ -107,7 +107,7 @@ class SifarniciService:
             return []
     
     def get_drzava_by_code(self, code: str) -> Optional[Dict[str, Any]]:
-        """Dohvati državu po šifri."""
+        """Dohvati drÅ¾avu po Å¡ifri."""
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
@@ -151,7 +151,7 @@ class SifarniciService:
             return []
     
     def get_ured_odredista(self) -> str:
-        """Dohvati ured odredišta (default: BA097012)."""
+        """Dohvati ured odrediÅ¡ta (default: BA097012)."""
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
@@ -166,11 +166,11 @@ class SifarniciService:
             return ""
     
     # ============================================================
-    # PRONILOŽENI DOKUMENTI (Attached Documents)
+    # PRONILOÅ½ENI DOKUMENTI (Attached Documents)
     # ============================================================
     
     def get_all_prilozeni_dokumenti(self) -> List[Dict[str, Any]]:
-        """Dohvati sve priložene dokumente."""
+        """Dohvati sve priloÅ¾ene dokumente."""
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
@@ -186,12 +186,12 @@ class SifarniciService:
     # ============================================================
     
     def validate_sifra(self, code: str, required_length: int = 0) -> List[str]:
-        """Validiraj šifru."""
+        """Validiraj Å¡ifru."""
         errors = []
         if not code or not code.strip():
-            errors.append("Šifra je obavezna")
+            errors.append("Å ifra je obavezna")
         if required_length > 0 and len(code) != required_length:
-            errors.append(f"Šifra mora imati tačno {required_length} karaktera")
+            errors.append(f"Å ifra mora imati taÄno {required_length} karaktera")
         return errors
     
     def validate_naziv(self, naziv: str, min_length: int = 2, max_length: int = 100) -> List[str]:
@@ -202,7 +202,7 @@ class SifarniciService:
         elif len(naziv) < min_length:
             errors.append(f"Naziv mora imati najmanje {min_length} karaktera")
         elif len(naziv) > max_length:
-            errors.append(f"Naziv može imati najviše {max_length} karaktera")
+            errors.append(f"Naziv moÅ¾e imati najviÅ¡e {max_length} karaktera")
         return errors
     
     # ============================================================
@@ -210,7 +210,7 @@ class SifarniciService:
     # ============================================================
     
     def _ensure_deklaranti_schema(self, cur) -> None:
-        """Osiguraj Rub.14 kolone za postojeće catalogs.deklaranti tabele."""
+        """Osiguraj Rub.14 kolone za postojeÄ‡e catalogs.deklaranti tabele."""
         cur.execute("CREATE SCHEMA IF NOT EXISTS catalogs")
         cur.execute("""
             CREATE TABLE IF NOT EXISTS catalogs.deklaranti (
@@ -304,11 +304,11 @@ class SifarniciService:
             return []
     
     # ============================================================
-    # POŠILJAOCI (Exporters)
+    # POÅ ILJAOCI (Exporters)
     # ============================================================
     
     def load_posiljaoci_data(self, search_query: str = "") -> List[Dict[str, Any]]:
-        """Dohvati podatke o pošiljaocima sa opcionom pretragom."""
+        """Dohvati podatke o poÅ¡iljaocima sa opcionom pretragom."""
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
@@ -333,7 +333,7 @@ class SifarniciService:
             return []
     
     def add_posiljalac(self, data: Dict[str, str]) -> bool:
-        """Dodaj novog pošiljaoca."""
+        """Dodaj novog poÅ¡iljaoca."""
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
@@ -370,7 +370,7 @@ class SifarniciService:
             return False
     
     def delete_posiljalac(self, jib: str) -> bool:
-        """Obriši pošiljaoca po JIB-u."""
+        """ObriÅ¡i poÅ¡iljaoca po JIB-u."""
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
@@ -382,7 +382,7 @@ class SifarniciService:
             return False
 
     def update_posiljalac(self, data: Dict[str, str]) -> bool:
-        """Ažuriraj postojećeg pošiljaoca."""
+        """AÅ¾uriraj postojeÄ‡eg poÅ¡iljaoca."""
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
@@ -477,7 +477,7 @@ class SifarniciService:
             return False
     
     def delete_uvoznik(self, jib: str) -> bool:
-        """Obriši uvoznika po JIB-u."""
+        """ObriÅ¡i uvoznika po JIB-u."""
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
@@ -489,7 +489,7 @@ class SifarniciService:
             return False
 
     def update_uvoznik(self, data: Dict[str, str]) -> bool:
-        """Ažuriraj postojećeg uvoznika."""
+        """AÅ¾uriraj postojeÄ‡eg uvoznika."""
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
@@ -518,7 +518,7 @@ class SifarniciService:
             return False
     
     # ============================================================
-    # TRGOVAČKI NAZIVI (Trade Names)
+    # TRGOVAÄŒKI NAZIVI (Trade Names)
     # ============================================================
     
     def load_trgovacki_nazivi_data(self, search_query: str = "") -> List[Dict[str, Any]]:
@@ -616,11 +616,11 @@ class SifarniciService:
             return []
     
     # ============================================================
-    # GENERIČKA PRETRAGA (Generic Search)
+    # GENERIÄŒKA PRETRAGA (Generic Search)
     # ============================================================
     
     def search_generic(self, table_name: str, search_query: str) -> List[Dict[str, Any]]:
-        """Generička pretraga po tabeli."""
+        """GeneriÄka pretraga po tabeli."""
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
@@ -664,9 +664,9 @@ class SifarniciService:
             return []
 
     def _log_error(self, operation: str, error: Exception):
-        """Logovanje grešaka."""
+        """Logovanje greÅ¡aka."""
         self.last_error = str(error)
-        logger.error(f"Greška u {operation}: {error}")
+        logger.error(f"GreÅ¡ka u {operation}: {error}")
 
     # ============================================================
     # DEKLARANTI (Declarants)
@@ -674,7 +674,7 @@ class SifarniciService:
 
     def load_deklaranti_data(self, search_query: str = "") -> List[Dict[str, Any]]:
         """Dohvati podatke o deklarantima sa opcionom pretragom."""
-        # NOTE: catalogs.deklaranti tabela treba da postoji — kreirati je ako ne postoji
+        # NOTE: catalogs.deklaranti tabela treba da postoji â€” kreirati je ako ne postoji
         self.last_error = ""
         try:
             with get_db_connection() as conn:
@@ -747,11 +747,11 @@ class SifarniciService:
             return False
 
     def update_deklarant(self, data: Dict[str, str]) -> bool:
-        """Ažuriraj postojećeg deklaranta."""
+        """AÅ¾uriraj postojeÄ‡eg deklaranta."""
         return self.add_deklarant(data)
 
     def delete_deklarant(self, jib: str) -> bool:
-        """Obriši deklaranta po JIB-u."""
+        """ObriÅ¡i deklaranta po JIB-u."""
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
@@ -785,7 +785,7 @@ class SifarniciService:
             return False
 
     def update_carinarnica(self, sifra: str, naziv: str) -> bool:
-        """Ažuriraj carinarnicu."""
+        """AÅ¾uriraj carinarnicu."""
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
@@ -801,7 +801,7 @@ class SifarniciService:
             return False
 
     def delete_carinarnica(self, sifra: str) -> bool:
-        """Obriši carinarnicu po šifri."""
+        """ObriÅ¡i carinarnicu po Å¡ifri."""
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
@@ -836,7 +836,7 @@ class SifarniciService:
             return False
 
     def delete_carinski_postupak(self, sifra: str) -> bool:
-        """Obriši carinski postupak po šifri."""
+        """ObriÅ¡i carinski postupak po Å¡ifri."""
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
@@ -869,7 +869,7 @@ class SifarniciService:
             return False
 
     def delete_zemlja(self, sifra: str) -> bool:
-        """Obriši zemlju po šifri."""
+        """ObriÅ¡i zemlju po Å¡ifri."""
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
@@ -881,11 +881,11 @@ class SifarniciService:
             return False
 
     # ============================================================
-    # TRGOVAČKI NAZIVI - CRUD OPERACIJE
+    # TRGOVAÄŒKI NAZIVI - CRUD OPERACIJE
     # ============================================================
 
     def add_trgovacki_naziv(self, tarifni_kod: str, opis: str) -> bool:
-        """Dodaj novi trgovački naziv (carinsku tarifu)."""
+        """Dodaj novi trgovaÄki naziv (carinsku tarifu)."""
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
@@ -903,7 +903,7 @@ class SifarniciService:
             return False
 
     def delete_trgovacki_naziv(self, tarifni_kod: str) -> bool:
-        """Obriši trgovački naziv po tarifnom kodu."""
+        """ObriÅ¡i trgovaÄki naziv po tarifnom kodu."""
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
@@ -915,7 +915,7 @@ class SifarniciService:
             return False
 
     def update_trgovacki_naziv(self, tarifni_kod: str, opis: str) -> bool:
-        """Ažuriraj trgovački naziv."""
+        """AÅ¾uriraj trgovaÄki naziv."""
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
@@ -931,11 +931,11 @@ class SifarniciService:
             return False
 
     # ============================================================
-    # VALIDACIJA SPECIFIČNA ZA KATEGORIJE
+    # VALIDACIJA SPECIFIÄŒNA ZA KATEGORIJE
     # ============================================================
 
     def validate_posiljalac_data(self, data: Dict[str, str]) -> List[str]:
-        """Validiraj podatke za pošiljaoca."""
+        """Validiraj podatke za poÅ¡iljaoca."""
         errors = []
         
         # JIB validacija
@@ -999,9 +999,9 @@ class SifarniciService:
         errors = []
         
         if not sifra or not sifra.strip():
-            errors.append("Šifra je obavezna")
+            errors.append("Å ifra je obavezna")
         elif len(sifra) != 8:
-            errors.append("Šifra carinarnice mora imati 8 karaktera")
+            errors.append("Å ifra carinarnice mora imati 8 karaktera")
         
         if not naziv or not naziv.strip():
             errors.append("Naziv je obavezan")
@@ -1015,9 +1015,9 @@ class SifarniciService:
         errors = []
         
         if not sifra or not sifra.strip():
-            errors.append("Šifra je obavezna")
+            errors.append("Å ifra je obavezna")
         elif len(sifra) != 2:
-            errors.append("Šifra carinskog postupka mora imati 2 karaktera")
+            errors.append("Å ifra carinskog postupka mora imati 2 karaktera")
         
         if not naziv or not naziv.strip():
             errors.append("Naziv je obavezan")
@@ -1031,9 +1031,9 @@ class SifarniciService:
         errors = []
         
         if not sifra or not sifra.strip():
-            errors.append("Šifra je obavezna")
+            errors.append("Å ifra je obavezna")
         elif len(sifra) != 2:
-            errors.append("Šifra zemlje mora imati 2 karaktera")
+            errors.append("Å ifra zemlje mora imati 2 karaktera")
         
         if not naziv or not naziv.strip():
             errors.append("Naziv je obavezan")
@@ -1043,7 +1043,7 @@ class SifarniciService:
         return errors
 
     def validate_trgovacki_naziv_data(self, tarifni_kod: str, naziv_robe: str) -> List[str]:
-        """Validiraj podatke za trgovački naziv."""
+        """Validiraj podatke za trgovaÄki naziv."""
         errors = []
         
         if not tarifni_kod or not tarifni_kod.strip():
@@ -1063,7 +1063,7 @@ class SifarniciService:
     # ============================================================
 
     def search_posiljaoci(self, query: str) -> List[Dict[str, Any]]:
-        """Pretraga pošiljalaca po nazivu, JIB-u, gradu."""
+        """Pretraga poÅ¡iljalaca po nazivu, JIB-u, gradu."""
         return self.load_posiljaoci_data(query)
 
     def search_uvoznici(self, query: str) -> List[Dict[str, Any]]:
@@ -1071,7 +1071,7 @@ class SifarniciService:
         return self.load_uvoznici_data(query)
 
     def search_zemlje(self, query: str) -> List[Dict[str, Any]]:
-        """Pretraga zemalja po nazivu ili šifri."""
+        """Pretraga zemalja po nazivu ili Å¡ifri."""
         return self.load_zemlje_data(query)
 
     def search_trgovacki_nazivi(self, query: str) -> List[Dict[str, Any]]:
@@ -1101,14 +1101,14 @@ class SifarniciService:
             return []
 
     # ============================================================
-    # HIERARHIJSKI PRIKAZ — CARINARNICE SA REGIONALNIM CENTRIMA
+    # HIERARHIJSKI PRIKAZ â€” CARINARNICE SA REGIONALNIM CENTRIMA
     # ============================================================
 
     def load_carinarnice_hierarchical(self) -> List[Dict[str, Any]]:
-        """Učitaj carinske ispostave grupisane po regionalnim centrima.
+        """UÄitaj carinske ispostave grupisane po regionalnim centrima.
 
         Returns:
-            Lista dict-ova sa ključevima:
+            Lista dict-ova sa kljuÄevima:
             - rc_id, rc_sifra, rc_naziv (regionalni centar)
             - ispostave: [(ci_sifra, ci_naziv), ...]
         """
@@ -1153,7 +1153,7 @@ class SifarniciService:
     # ============================================================
 
     def count_izvoznici(self) -> int:
-        """Broj pošiljalaca u bazi."""
+        """Broj poÅ¡iljalaca u bazi."""
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
@@ -1219,11 +1219,11 @@ class SifarniciService:
         Args:
             search:      Tekst pretrage (tariff_code_norm ili description)
             insp_type:   Filter po tipu (veterinary, sanitary, ...)
-            only_active: Ako True, vraća samo is_active = TRUE redove
+            only_active: Ako True, vraÄ‡a samo is_active = TRUE redove
             limit:       Maksimalan broj redova
 
         Returns:
-            Lista rječnika sa svim kolonama inspekcijskog pravila
+            Lista rjeÄnika sa svim kolonama inspekcijskog pravila
         """
         try:
             clauses = []
@@ -1302,7 +1302,7 @@ class SifarniciService:
 
     def update_inspection_rule(self, rule_id: int, updates: dict) -> bool:
         """
-        Ažurira inspekcijsko pravilo (samo dozvoljene kolone).
+        AÅ¾urira inspekcijsko pravilo (samo dozvoljene kolone).
 
         Dozvoljene kolone za izmjenu: description, condition_text,
         can_auto_decide, is_active, notes, marker.
@@ -1344,7 +1344,7 @@ class SifarniciService:
         Doda novo inspekcijsko pravilo.
 
         Returns:
-            ID novog reda, ili None ako je greška.
+            ID novog reda, ili None ako je greÅ¡ka.
         """
         import re as _re
         required = {"inspection_type", "tariff_code"}
@@ -1411,3 +1411,4 @@ class SifarniciService:
         except Exception as e:
             self._log_error("load_incoterms", e)
             return []
+

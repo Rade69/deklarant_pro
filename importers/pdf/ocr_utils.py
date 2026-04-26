@@ -1,11 +1,11 @@
-# importers/pdf/ocr_utils.py
+﻿# importers/pdf/ocr_utils.py
 
 """
 OCR utility funkcije za PDF import.
 
 - detekcija da li je PDF skeniran (nema tekstualnog sloja)
 - pre-processing slike za bolji OCR kvalitet
-- OCR ekstrakcija pomoću Tesseract-a
+- OCR ekstrakcija pomoÄ‡u Tesseract-a
 """
 
 import logging
@@ -17,15 +17,15 @@ from typing import Dict, List, Optional, Tuple
 
 logger = logging.getLogger("deklarant_pro.import.ocr")
 
-# Session-level OCR cache: (filepath, mtime, dpi) → List[str]
+# Session-level OCR cache: (filepath, mtime, dpi) â†’ List[str]
 _ocr_cache: Dict[Tuple[str, float, int], List[str]] = {}
 
-# Poppler path za pdf2image (None = tražiti u PATH-u)
+# Poppler path za pdf2image (None = traÅ¾iti u PATH-u)
 _poppler_path: Optional[str] = None
 
 
 def _find_tesseract() -> Optional[str]:
-    """Vraća putanju do Tesseract exe-a, ili None ako nije pronađen."""
+    """VraÄ‡a putanju do Tesseract exe-a, ili None ako nije pronaÄ‘en."""
     if platform.system() != "Windows":
         return None  # Na Linux/Mac tesseract je u PATH-u
 
@@ -42,7 +42,7 @@ def _find_tesseract() -> Optional[str]:
 
 
 def _find_poppler() -> Optional[str]:
-    """Vraća putanju do Poppler bin/ foldera na Windowsu, ili None."""
+    """VraÄ‡a putanju do Poppler bin/ foldera na Windowsu, ili None."""
     if platform.system() != "Windows":
         return None  # Na Linux/Mac poppler je u PATH-u
 
@@ -83,14 +83,14 @@ def _setup_ocr_engines() -> None:
 
 _setup_ocr_engines()
 
-# Session-level OCR cache: (filepath, mtime, dpi) → List[str]
+# Session-level OCR cache: (filepath, mtime, dpi) â†’ List[str]
 _ocr_cache: Dict[Tuple[str, float, int], List[str]] = {}
 
 
 def is_scanned_pdf(filepath: str, min_text_len: int = 80) -> bool:
     """
     Provjerava da li PDF ima tekstualni sloj ili je skeniran.
-    Koristi pdfplumber (tačniji od PyPDF2 za ekstrakciju teksta).
+    Koristi pdfplumber (taÄniji od PyPDF2 za ekstrakciju teksta).
 
     Returns:
         True ako je skeniran PDF (potreban OCR)
@@ -112,16 +112,16 @@ def _preprocess_image(img):
     Pre-processing slike za bolji OCR kvalitet.
 
     Koraci:
-    1. Grayscale — uklanja boju koja zbunjuje OCR
-    2. Kontrast — pojačava razliku tekst/pozadina
-    3. Oštrina — pojašnjava ivice slova
-    4. Binary threshold — čisti pozadinu (bijelo/crno)
+    1. Grayscale â€” uklanja boju koja zbunjuje OCR
+    2. Kontrast â€” pojaÄava razliku tekst/pozadina
+    3. OÅ¡trina â€” pojaÅ¡njava ivice slova
+    4. Binary threshold â€” Äisti pozadinu (bijelo/crno)
     """
     from PIL import ImageEnhance
 
     img = img.convert("L")                              # grayscale
-    img = ImageEnhance.Contrast(img).enhance(2.0)      # pojačaj kontrast
-    img = ImageEnhance.Sharpness(img).enhance(2.5)     # pojačaj oštrinu
+    img = ImageEnhance.Contrast(img).enhance(2.0)      # pojaÄaj kontrast
+    img = ImageEnhance.Sharpness(img).enhance(2.5)     # pojaÄaj oÅ¡trinu
     img = img.point(lambda x: 255 if x > 145 else 0, "1")  # binary threshold
     return img
 
@@ -130,13 +130,13 @@ def ocr_pdf_to_words(filepath: str, dpi: int = 300) -> List[List[dict]]:
     """
     OCR sa word-level koordinatama (kao pdfplumber.extract_words()).
     Svaka stranica je lista {text, x0, top, x1, bottom}.
-    Rijeci sa confidence < 30 se filtriraju (OCR šum).
+    Rijeci sa confidence < 30 se filtriraju (OCR Å¡um).
     """
     import pytesseract
     from pytesseract import Output
     from pdf2image import convert_from_path
 
-    logger.info(f"🔍 OCR (word-level): {filepath} @ {dpi} DPI")
+    logger.info(f"ðŸ” OCR (word-level): {filepath} @ {dpi} DPI")
 
     images = convert_from_path(filepath, dpi=dpi, poppler_path=_poppler_path)
     all_pages: List[List[dict]] = []
@@ -170,7 +170,7 @@ def ocr_pdf_to_words(filepath: str, dpi: int = 300) -> List[List[dict]]:
         all_pages.append(words)
         logger.debug(f"  Stranica {page_num}: {len(words)} rijeci")
 
-    logger.info(f"✅ OCR word-level završen: {len(all_pages)} stranica")
+    logger.info(f"âœ… OCR word-level zavrÅ¡en: {len(all_pages)} stranica")
     return all_pages
 
 
@@ -188,7 +188,7 @@ def ocr_pdf_to_text(filepath: str, dpi: int = 300) -> List[str]:
     import pytesseract
     from pdf2image import convert_from_path
 
-    logger.info(f"🔍 OCR: {filepath} @ {dpi} DPI")
+    logger.info(f"ðŸ” OCR: {filepath} @ {dpi} DPI")
 
     images = convert_from_path(filepath, dpi=dpi, poppler_path=_poppler_path)
     pages_text: List[str] = []
@@ -199,7 +199,7 @@ def ocr_pdf_to_text(filepath: str, dpi: int = 300) -> List[str]:
     for page_num, img in enumerate(images, 1):
         processed = _preprocess_image(img)
 
-        # Pokušaj sa eng+bos; ako bos nije dostupan, fallback na eng
+        # PokuÅ¡aj sa eng+bos; ako bos nije dostupan, fallback na eng
         try:
             text = pytesseract.image_to_string(processed, lang="eng+bos", config=tess_config)
         except pytesseract.TesseractError:
@@ -208,15 +208,15 @@ def ocr_pdf_to_text(filepath: str, dpi: int = 300) -> List[str]:
         pages_text.append(text)
         logger.debug(f"  Stranica {page_num}: {len(text)} karaktera")
 
-    logger.info(f"✅ OCR završen: {len(pages_text)} stranica, ukupno {sum(len(t) for t in pages_text)} karaktera")
+    logger.info(f"âœ… OCR zavrÅ¡en: {len(pages_text)} stranica, ukupno {sum(len(t) for t in pages_text)} karaktera")
     return pages_text
 
 
 def _remove_table_lines(img):
     """
-    Uklanja horizontalne i vertikalne linije tabele iz slike koristeći OpenCV morfološke operacije.
-    Vraća PIL Image pogodnu za OCR.
-    Fallback: vraća originalnu grayscale sliku ako OpenCV nije dostupan.
+    Uklanja horizontalne i vertikalne linije tabele iz slike koristeÄ‡i OpenCV morfoloÅ¡ke operacije.
+    VraÄ‡a PIL Image pogodnu za OCR.
+    Fallback: vraÄ‡a originalnu grayscale sliku ako OpenCV nije dostupan.
     """
     try:
         import cv2
@@ -238,16 +238,16 @@ def _remove_table_lines(img):
         return PILImage.fromarray(result)
 
     except ImportError:
-        logger.debug("opencv nije dostupan — koristi se standardni preprocessing")
+        logger.debug("opencv nije dostupan â€” koristi se standardni preprocessing")
         return _preprocess_image(img)
 
 
 def ocr_pdf_to_text_no_lines(filepath: str, dpi: int = 300) -> List[str]:
     """
-    OCR sa uklanjanjem linija tabele (za fakture sa tabličnim formatom).
-    Koristi OpenCV morfološke operacije za brisanje linija prije OCR-a.
-    Rezultat se kešira u memoriji po (filepath, mtime, dpi) — isti fajl
-    se ne OCR-uje više puta u jednoj sesiji.
+    OCR sa uklanjanjem linija tabele (za fakture sa tabliÄnim formatom).
+    Koristi OpenCV morfoloÅ¡ke operacije za brisanje linija prije OCR-a.
+    Rezultat se keÅ¡ira u memoriji po (filepath, mtime, dpi) â€” isti fajl
+    se ne OCR-uje viÅ¡e puta u jednoj sesiji.
     """
     # Cache lookup
     try:
@@ -256,13 +256,13 @@ def ocr_pdf_to_text_no_lines(filepath: str, dpi: int = 300) -> List[str]:
         mtime = 0.0
     cache_key = (os.path.abspath(filepath), mtime, dpi)
     if cache_key in _ocr_cache:
-        logger.debug(f"⚡ OCR cache hit: {os.path.basename(filepath)}")
+        logger.debug(f"âš¡ OCR cache hit: {os.path.basename(filepath)}")
         return _ocr_cache[cache_key]
 
     import pytesseract
     from pdf2image import convert_from_path
 
-    logger.info(f"🔍 OCR (no-lines): {filepath} @ {dpi} DPI")
+    logger.info(f"ðŸ” OCR (no-lines): {filepath} @ {dpi} DPI")
     images = convert_from_path(filepath, dpi=dpi, poppler_path=_poppler_path)
     pages_text: List[str] = []
     tess_config = "--psm 6 --oem 3"
@@ -276,6 +276,7 @@ def ocr_pdf_to_text_no_lines(filepath: str, dpi: int = 300) -> List[str]:
         pages_text.append(text)
         logger.debug(f"  Stranica {page_num}: {len(text)} karaktera")
 
-    logger.info(f"✅ OCR (no-lines) završen: {len(pages_text)} stranica")
+    logger.info(f"âœ… OCR (no-lines) zavrÅ¡en: {len(pages_text)} stranica")
     _ocr_cache[cache_key] = pages_text
     return pages_text
+
