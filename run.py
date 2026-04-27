@@ -95,6 +95,7 @@ def main():
 
     app = QApplication(sys.argv)
     app.setApplicationName("Deklarant Pro")
+    app.setDesktopFileName("deklarant-pro")
     app.setOrganizationName("Carina")
 
     # Globalna paleta: selekcija teksta čitljiva na svim widgetima

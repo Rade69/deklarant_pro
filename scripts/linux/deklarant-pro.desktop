@@ -9,3 +9,4 @@ Icon=/home/radovan/Desktop/deklarant_pro/assets/icons/deklarant_icon_256.png
 Terminal=false
 Categories=Office;
 StartupNotify=true
+StartupWMClass=deklarant-pro
