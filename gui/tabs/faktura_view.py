@@ -564,84 +564,74 @@ class FakturaView(BaseTabView):
 
     def _create_status_bar(self) -> QWidget:
         """Create the status bar with statistics."""
-        from PySide6.QtGui import QPalette, QColor
         container = QWidget()
         container.setObjectName("statusBarContainer")
-        # WA_StyledBackground osigurava da inline stylesheet ne izgubi na repoliranju
         container.setAttribute(Qt.WA_StyledBackground, True)
-        container.setMinimumHeight(36)
+        container.setFixedHeight(42)
         container.setStyleSheet("""
             QWidget#statusBarContainer {
-                background-color: #E8EDF2;
-                border-top: 2px solid #C8D4E0;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #1E3A5F, stop:1 #162D4A);
+                border-top: 2px solid #2D5A8E;
             }
             QWidget#statusBarContainer QLabel {
                 font-size: 13px;
-                color: #334155;
+                font-weight: 600;
+                color: #CBD8E8;
                 background: transparent;
+                padding: 0 2px;
             }
             QWidget#statusBarContainer QLabel#statusSeparator {
-                color: #94A3B8;
-                font-size: 13px;
+                color: #3A5F82;
+                font-size: 15px;
+                font-weight: 400;
                 background: transparent;
+                padding: 0;
+            }
+            QWidget#statusBarContainer QLabel[status="error"] {
+                color: #FF6B6B;
+            }
+            QWidget#statusBarContainer QLabel[status="warning"] {
+                color: #FFD93D;
+            }
+            QWidget#statusBarContainer QLabel[status="success"] {
+                color: #6BCB77;
             }
         """)
         layout = QHBoxLayout(container)
-        layout.setContentsMargins(12, 6, 12, 6)
-        layout.setSpacing(15)
+        layout.setContentsMargins(16, 0, 16, 0)
+        layout.setSpacing(12)
 
-        # Status labels (will be updated dynamically)
-        self.lbl_item_count = QLabel("📦 Stavki: 0")
-        self.lbl_item_count.setProperty("class", "statusLabel")
-        layout.addWidget(self.lbl_item_count)
+        def _stat_lbl(text: str, name: str = "") -> QLabel:
+            lbl = QLabel(text)
+            lbl.setProperty("class", "statusLabel")
+            if name:
+                lbl.setObjectName(name)
+            return lbl
 
-        sep1 = QLabel("|")
-        sep1.setObjectName("statusSeparator")
-        layout.addWidget(sep1)
+        def _sep() -> QLabel:
+            s = QLabel("|")
+            s.setObjectName("statusSeparator")
+            return s
 
-        self.lbl_total_amount = QLabel("💰 Ukupno: 0.00 EUR")
-        self.lbl_total_amount.setProperty("class", "statusLabel")
-        layout.addWidget(self.lbl_total_amount)
+        self.lbl_item_count    = _stat_lbl("📦 Stavki: 0")
+        self.lbl_total_amount  = _stat_lbl("💰 Ukupno: 0.00 EUR")
+        self.lbl_total_quantity = _stat_lbl("⬛ Komada: 0")
+        self.lbl_bruto         = _stat_lbl("⚖  Bruto: 0.00 kg")
+        self.lbl_neto          = _stat_lbl("◈  Neto: 0.00 kg")
+        self.lbl_validation    = _stat_lbl("⚪ Neprovjereno")
+        self.lbl_assembly      = _stat_lbl("📋 Assembly: N/A")
 
-        sep2 = QLabel("|")
-        sep2.setObjectName("statusSeparator")
-        layout.addWidget(sep2)
-
-        self.lbl_total_quantity = QLabel("📦 Komada: 0")
-        self.lbl_total_quantity.setProperty("class", "statusLabel")
-        layout.addWidget(self.lbl_total_quantity)
-
-        sep3 = QLabel("|")
-        sep3.setObjectName("statusSeparator")
-        layout.addWidget(sep3)
-
-        self.lbl_bruto = QLabel("⚖️ Bruto: 0.00 kg")
-        self.lbl_bruto.setProperty("class", "statusLabel")
-        layout.addWidget(self.lbl_bruto)
-
-        sep4 = QLabel("|")
-        sep4.setObjectName("statusSeparator")
-        layout.addWidget(sep4)
-
-        self.lbl_neto = QLabel("📊 Neto: 0.00 kg")
-        self.lbl_neto.setProperty("class", "statusLabel")
-        layout.addWidget(self.lbl_neto)
-
-        sep5 = QLabel("|")
-        sep5.setObjectName("statusSeparator")
-        layout.addWidget(sep5)
-
-        self.lbl_validation = QLabel("⚪ Neprovjereno")
-        self.lbl_validation.setProperty("class", "statusLabel")
-        layout.addWidget(self.lbl_validation)
-
-        sep6 = QLabel("|")
-        sep6.setObjectName("statusSeparator")
-        layout.addWidget(sep6)
-
-        self.lbl_assembly = QLabel("📋 Assembly: N/A")
-        self.lbl_assembly.setProperty("class", "statusLabel")
-        layout.addWidget(self.lbl_assembly)
+        for widget in [
+            self.lbl_item_count,    _sep(),
+            self.lbl_total_amount,  _sep(),
+            self.lbl_total_quantity, _sep(),
+            self.lbl_bruto,          _sep(),
+            self.lbl_neto,           _sep(),
+            self.lbl_validation,     _sep(),
+            self.lbl_assembly,
+        ]:
+            layout.addWidget(widget)
 
         layout.addStretch()
 
