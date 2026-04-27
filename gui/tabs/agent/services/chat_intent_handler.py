@@ -957,33 +957,34 @@ def _compliance_check(ctrl) -> None:
     chat.add_activity("🔍 Kompleksna provjera deklaracije u toku...")
     try:
         from services.agent.compliance_check_service import ComplianceCheckService
-        svc = ComplianceCheckService()
-        result = svc.check(ctrl.draft)
+        from gui.tabs.agent.widgets.compliance_report_dialog import ComplianceReportDialog
 
-        n_err  = len(result.errors)
-        n_warn = len(result.warnings)
+        result = ComplianceCheckService().check(ctrl.draft)
+
+        n_err   = len(result.errors)
+        n_warn  = len(result.warnings)
         n_lines = len(ctrl.draft.invoice_lines)
         n_items = len(getattr(ctrl.draft, 'items', []) or [])
 
-        if result.is_ok:
-            status_badge = "<span style='color:#2d6a30;'>✅ sve uredu</span>"
-        else:
-            status_badge = (
-                f"<span style='color:#b05050;'>❌ {n_err} greška</span>"
-                + (f" &nbsp;<span style='color:#b8963a;'>⚠️ {n_warn} upozorenja</span>" if n_warn else "")
-            )
-
-        context_line = (
+        context = (
             f"{n_lines} stavki fakture"
             + (f", {n_items} naimenovanja" if n_items else "")
         )
 
-        header_html = (
-            f"<b>📋 Provjera deklaracije</b> — {context_line}<br>"
-            f"Rezultat: {status_badge}"
-        )
+        parent_widget = getattr(ctrl.view, 'window', lambda: None)()
+        dlg = ComplianceReportDialog(result, context=context, parent=parent_widget)
+        dlg.show()
 
-        chat.add_agent_message(f"{header_html}<br><br>{result.summary_html()}")
+        # Kratka poruka u chatu kao potvrda
+        if result.is_ok:
+            chat.add_agent_message("✅ Provjera završena — sve uredu. Detalji u otvorenom prozoru.")
+        else:
+            chat.add_agent_message(
+                f"📋 Provjera završena — <b>{n_err} greška</b>"
+                + (f", <b>{n_warn} upozorenja</b>" if n_warn else "")
+                + ". Detalji u otvorenom prozoru."
+            )
+
         chat.add_activity(
             f"{'✅' if result.is_ok else '❌'} Compliance: "
             f"{n_err} grešaka, {n_warn} upozorenja"
