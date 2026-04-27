@@ -564,20 +564,26 @@ class FakturaView(BaseTabView):
 
     def _create_status_bar(self) -> QWidget:
         """Create the status bar with statistics."""
+        from PySide6.QtGui import QPalette, QColor
         container = QWidget()
         container.setObjectName("statusBarContainer")
+        # WA_StyledBackground osigurava da inline stylesheet ne izgubi na repoliranju
+        container.setAttribute(Qt.WA_StyledBackground, True)
+        container.setMinimumHeight(36)
         container.setStyleSheet("""
             QWidget#statusBarContainer {
-                background-color: #f0f0f0;
-                border-top: 1px solid #d0d0d0;
+                background-color: #E8EDF2;
+                border-top: 2px solid #C8D4E0;
             }
-            QLabel {
+            QWidget#statusBarContainer QLabel {
                 font-size: 13px;
-                color: #333;
+                color: #334155;
+                background: transparent;
             }
-            QLabel#statusSeparator {
-                color: #aaa;
+            QWidget#statusBarContainer QLabel#statusSeparator {
+                color: #94A3B8;
                 font-size: 13px;
+                background: transparent;
             }
         """)
         layout = QHBoxLayout(container)

@@ -153,7 +153,6 @@ class TariffFacade:
                 product_code=product_code,
                 naziv_robe=naziv_robe,
                 tarifni_broj=tarifni_broj,
-                confidence=confidence,
                 zemlja_porijekla=zemlja_porijekla,
                 povlastica=povlastica,
                 precision_1=precision_1,
