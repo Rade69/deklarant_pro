@@ -99,7 +99,11 @@ def main():
 
     # Globalna paleta: selekcija teksta čitljiva na svim widgetima
     # (QPalette Highlight/HighlightedText važi i za widgete sa inline setStyleSheet())
-    from PySide6.QtGui import QPalette, QColor
+    from PySide6.QtGui import QPalette, QColor, QFont, QIcon
+    app.setFont(QFont("Segoe UI", 13))
+    icon_path = os.path.join(_script_dir, "assets", "icons", "deklarant_icon_256.png")
+    if os.path.exists(icon_path):
+        app.setWindowIcon(QIcon(icon_path))
     palette = app.palette()
     palette.setColor(QPalette.Highlight, QColor("#DBEAFE"))          # Svijetlo plava pozadina
     palette.setColor(QPalette.HighlightedText, QColor("#1E3A8A"))    # Tamno plavi tekst

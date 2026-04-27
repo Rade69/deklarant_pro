@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Deklarant Pro
+Comment=Carinska deklaracija
+Exec=/usr/bin/env bash -lc 'cd /home/radovan/Desktop/deklarant_pro && python3 run.py'
+Path=/home/radovan/Desktop/deklarant_pro
+Icon=/home/radovan/Desktop/deklarant_pro/assets/icons/deklarant_icon_256.png
+Terminal=false
+Categories=Office;
+StartupNotify=true
