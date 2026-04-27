@@ -397,15 +397,10 @@ def _handle_message(ctrl, message: str) -> None:
     if any(kw in msg for kw in _generalni_tarif_kw):
         ctrl._predlozi_tarifne_brojeve()
         return
-    elif _is_query and any(kw in msg for kw in ['tarif', 'tarifn', 'naim', 'stavk']):
-        pass  # Informativni upit → LLM
-    elif any(kw in msg for kw in ['tarif', 'tarifn']) and not _has_specific_items and not _is_query:
-        _has_za_nesto = bool(re.search(r'\btarif\w*\s+za\s+\w{3,}', msg)
-                             or re.search(r'\bza\s+\w{3,}.{0,30}\btarif', msg))
-        if _has_za_nesto:
-            _klasificiraj_i_usmjeri(ctrl, message)
-        else:
-            ctrl._predlozi_tarifne_brojeve()
+    elif any(kw in msg for kw in ['tarif', 'tarifn']):
+        # Sve tarif-vezane poruke koje ne pogode eksplicitni keyword
+        # idu kroz IntentClassifier — razumije slobodan tekst i razne varijante
+        _klasificiraj_i_usmjeri(ctrl, message)
         return
 
     # --- PREGLED I VALIDACIJA NAIMENOVANJA ---
