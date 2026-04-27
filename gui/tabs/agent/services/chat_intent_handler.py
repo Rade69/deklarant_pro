@@ -389,6 +389,10 @@ def _handle_message(ctrl, message: str) -> None:
         'tarifne brojeve za stavke', 'tarifne za stavke',
         'stavke koje nemaju tarif', 'stavke bez tarif',
         'koje nemaju tarifni', 'nemaju tarifni',
+        # "provjeri tarifne" — "provjeri" lažno udara u _is_query pa ga eksplicitno hvatamo ovdje
+        'provjeri tarifne', 'provjeri tarifni', 'provjeri tarifu',
+        'validiraj tarifne', 'validiraj tarifni',
+        'provjera tarifnih', 'provjera tarifn',
     ]
     if any(kw in msg for kw in _generalni_tarif_kw):
         ctrl._predlozi_tarifne_brojeve()
