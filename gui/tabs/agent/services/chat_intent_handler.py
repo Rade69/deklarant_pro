@@ -954,26 +954,36 @@ def _compliance_check(ctrl) -> None:
         chat.add_agent_message("⚠️ Nema uvezenih stavki — učitaj fakturu prije provjere.")
         return
 
-    chat.add_activity("🔍 Compliance check u toku...")
+    chat.add_activity("🔍 Kompleksna provjera deklaracije u toku...")
     try:
         from services.agent.compliance_check_service import ComplianceCheckService
         svc = ComplianceCheckService()
         result = svc.check(ctrl.draft)
-        html = result.summary_html()
-        n_err = len(result.errors)
+
+        n_err  = len(result.errors)
         n_warn = len(result.warnings)
-        header = (
-            f"<b>📋 Provjera deklaracije</b> — "
-            f"{len(ctrl.draft.invoice_lines)} stavki"
-        )
+        n_lines = len(ctrl.draft.invoice_lines)
+        n_items = len(getattr(ctrl.draft, 'items', []) or [])
+
         if result.is_ok:
-            status = " <span style='color:#2d6a30;'>✅ sve uredu</span>"
+            status_badge = "<span style='color:#2d6a30;'>✅ sve uredu</span>"
         else:
-            status = (
-                f" <span style='color:#b05050;'>❌ {n_err} greška</span>"
-                + (f", <span style='color:#b8963a;'>⚠️ {n_warn} upozorenja</span>" if n_warn else "")
+            status_badge = (
+                f"<span style='color:#b05050;'>❌ {n_err} greška</span>"
+                + (f" &nbsp;<span style='color:#b8963a;'>⚠️ {n_warn} upozorenja</span>" if n_warn else "")
             )
-        chat.add_agent_message(f"{header}{status}<br><br>{html}")
+
+        context_line = (
+            f"{n_lines} stavki fakture"
+            + (f", {n_items} naimenovanja" if n_items else "")
+        )
+
+        header_html = (
+            f"<b>📋 Provjera deklaracije</b> — {context_line}<br>"
+            f"Rezultat: {status_badge}"
+        )
+
+        chat.add_agent_message(f"{header_html}<br><br>{result.summary_html()}")
         chat.add_activity(
             f"{'✅' if result.is_ok else '❌'} Compliance: "
             f"{n_err} grešaka, {n_warn} upozorenja"

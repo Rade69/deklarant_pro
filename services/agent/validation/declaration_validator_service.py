@@ -1009,6 +1009,7 @@ if __name__ == "__main__":
 # ---------------------------------------------------------------------------
 
 import logging as _logging
+import difflib as _difflib
 from dataclasses import dataclass as _dataclass, field as _field
 from typing import Literal as _Literal, List as _List
 
@@ -1079,9 +1080,11 @@ class ComplianceCheckService:
             return result
         self._check_tariff_codes(lines, result)
         self._check_zemlja_porijekla(lines, result)
-        self._check_tezine(lines, result)
+        self._check_tezine(draft, lines, result)
         self._check_eur1_povlastica(lines, result)
         self._check_naimenovanja(draft, result)
+        self._check_izvoznik_uvoznik(draft, lines, result)
+        self._check_attached_docs(draft, result)
         return result
 
     def _check_tariff_codes(self, lines, result: ComplianceResult):
@@ -1110,7 +1113,7 @@ class ComplianceCheckService:
             msg = f"Stavke bez zemlje porijekla: {indices}" if len(bez_zemlje) <= 5 else f"{len(bez_zemlje)} stavki nema zemlju porijekla."
             result.issues.append(Issue('error', 'no_country', msg))
 
-    def _check_tezine(self, lines, result: ComplianceResult):
+    def _check_tezine(self, draft, lines, result: ComplianceResult):
         ukupno_bruto = sum(getattr(l, 'bruto_kg', 0) or 0 for l in lines)
         ukupno_neto = sum(getattr(l, 'neto_kg', 0) or 0 for l in lines)
         if ukupno_bruto <= 0:
@@ -1120,6 +1123,16 @@ class ComplianceCheckService:
                 f"Neto ({ukupno_neto:.3f} kg) je veći od bruto ({ukupno_bruto:.3f} kg)."))
         elif ukupno_neto <= 0:
             result.issues.append(Issue('info', 'no_neto', "Neto težina je 0 — biće jednaka bruto pri kreiranju naimenovanja."))
+        # Poređenje faktura vs naimenovanja težina
+        items = getattr(draft, 'items', []) or []
+        if items:
+            naim_bruto = sum(getattr(it, 'gross_mass_kg', 0) or 0 for it in items)
+            naim_neto = sum(getattr(it, 'net_mass_kg', 0) or 0 for it in items)
+            if naim_bruto > 0 and ukupno_bruto > 0:
+                razlika_bruto = abs(naim_bruto - ukupno_bruto) / ukupno_bruto
+                if razlika_bruto > 0.05:
+                    result.issues.append(Issue('warning', 'weight_naim_mismatch',
+                        f"Bruto težina fakture ({ukupno_bruto:.3f} kg) i naimenovanja ({naim_bruto:.3f} kg) se razlikuju za >{razlika_bruto*100:.0f}%."))
 
     def _check_eur1_povlastica(self, lines, result: ComplianceResult):
         needs_doc = [i for i, l in enumerate(lines, 1)
@@ -1141,3 +1154,104 @@ class ComplianceCheckService:
         bez_procedure = [i for i, it in enumerate(items, 1) if not getattr(it, 'procedure_code', None)]
         if bez_procedure:
             result.issues.append(Issue('warning', 'naim_no_procedure', f"{len(bez_procedure)} naimenovanja bez šifre postupka (Rub.37)."))
+
+    @staticmethod
+    def _fuzzy_match(a: str, b: str) -> float:
+        """Vraća sličnost dva string-a [0.0-1.0] (case-insensitive)."""
+        a, b = (a or "").lower().strip(), (b or "").lower().strip()
+        if not a or not b:
+            return 0.0
+        return _difflib.SequenceMatcher(None, a, b).ratio()
+
+    def _check_izvoznik_uvoznik(self, draft, lines, result: ComplianceResult):
+        izvoznik_zag = (getattr(draft, 'izvoznik_naziv', '') or '').strip()
+        primalac_zag = (getattr(draft, 'primalac_naziv', '') or '').strip()
+
+        # Skupljamo jedinstvene vrijednosti izvoznika/uvoznika iz fakture
+        faktura_izvoznici = list({
+            (getattr(l, 'exporter', None) and getattr(l.exporter, 'name', '')) or ''
+            for l in lines
+        } - {''})
+        faktura_uvoznici = list({
+            (getattr(l, 'importer', None) and getattr(l.importer, 'name', '')) or ''
+            for l in lines
+        } - {''})
+
+        THRESHOLD = 0.55  # dopušta razlike u skraćenicama (d.o.o. vs doo, Ltd vs Limited)
+
+        if izvoznik_zag and faktura_izvoznici:
+            best = max(self._fuzzy_match(izvoznik_zag, fn) for fn in faktura_izvoznici)
+            if best < THRESHOLD:
+                result.issues.append(Issue('warning', 'izvoznik_mismatch',
+                    f"Izvoznik u Zaglavlju ('{izvoznik_zag}') ne odgovara fakturi "
+                    f"('{faktura_izvoznici[0]}'). Provjeri Rubriku 2."))
+            elif best < 0.85:
+                result.issues.append(Issue('info', 'izvoznik_partial',
+                    f"Izvoznik — djelimično podudaranje: Zaglavlje='{izvoznik_zag}', "
+                    f"Faktura='{faktura_izvoznici[0]}'."))
+        elif izvoznik_zag and not faktura_izvoznici:
+            result.issues.append(Issue('info', 'no_faktura_izvoznik',
+                "Faktura ne sadrži podatke o izvozniku — provjeri ručno (Rubrika 2)."))
+        elif not izvoznik_zag and faktura_izvoznici:
+            result.issues.append(Issue('warning', 'no_zag_izvoznik',
+                f"Zaglavlje nema izvoznika — faktura navodi '{faktura_izvoznici[0]}'. "
+                "Unesi podatke u Rubriku 2."))
+
+        if primalac_zag and faktura_uvoznici:
+            best = max(self._fuzzy_match(primalac_zag, fu) for fu in faktura_uvoznici)
+            if best < THRESHOLD:
+                result.issues.append(Issue('warning', 'primalac_mismatch',
+                    f"Primalac u Zaglavlju ('{primalac_zag}') ne odgovara fakturi "
+                    f"('{faktura_uvoznici[0]}'). Provjeri Rubriku 8."))
+            elif best < 0.85:
+                result.issues.append(Issue('info', 'primalac_partial',
+                    f"Primalac — djelimično podudaranje: Zaglavlje='{primalac_zag}', "
+                    f"Faktura='{faktura_uvoznici[0]}'."))
+        elif not primalac_zag and faktura_uvoznici:
+            result.issues.append(Issue('warning', 'no_zag_primalac',
+                f"Zaglavlje nema primaoca — faktura navodi '{faktura_uvoznici[0]}'. "
+                "Unesi podatke u Rubriku 8."))
+
+    def _check_attached_docs(self, draft, result: ComplianceResult):
+        header_docs = getattr(draft, 'header_attached_documents', []) or []
+        items = getattr(draft, 'items', []) or []
+
+        # Skupi sve dokumente sa stavki naimenovanja
+        item_doc_strings = []
+        for it in items:
+            for field_name in ('attached_document1', 'attached_document2',
+                               'attached_document3', 'attached_document4', 'attached_document5'):
+                val = (getattr(it, field_name, '') or '').strip()
+                if val:
+                    item_doc_strings.append(val)
+            for ad in (getattr(it, 'attached_documents', []) or []):
+                code = (getattr(ad, 'document_code', '') or '').strip()
+                if code:
+                    item_doc_strings.append(code)
+
+        ukupno_docs = len(header_docs) + len(item_doc_strings)
+
+        if ukupno_docs == 0:
+            result.issues.append(Issue('warning', 'no_docs',
+                "Nije priložen nijedan dokument (Rubrika 44). Provjeri CMR, fakturu, EUR.1."))
+            return
+
+        # Provjera: ima li stavki sa povlasticom ali bez EUR.1 u Rub.44
+        lines = getattr(draft, 'invoice_lines', []) or []
+        stavke_sa_povlasticom = [l for l in lines if getattr(l, 'povlastica', None)]
+        if stavke_sa_povlasticom:
+            sve_kodovi = " ".join(item_doc_strings)
+            header_kodovi = " ".join(
+                (getattr(d, 'document_code', '') or '') for d in header_docs
+            )
+            eur1_prisutan = any(
+                k in sve_kodovi.upper() or k in header_kodovi.upper()
+                for k in ('EUR', 'N864', 'N865', 'C019', 'U001')
+            )
+            if not eur1_prisutan:
+                result.issues.append(Issue('warning', 'no_eur1_doc',
+                    f"{len(stavke_sa_povlasticom)} stavki ima povlasticu, ali EUR.1 / "
+                    "izjava o porijeklu nije pronađena u Rub.44."))
+
+        result.issues.append(Issue('info', 'docs_ok',
+            f"Rubrika 44: {ukupno_docs} dokument(a) priloženo."))
