@@ -514,22 +514,20 @@ class ChatWorker(QThread):
 
         result = []
 
-        # KB prijedlozi (product_tariff_mapping)
+        # KB prijedlozi — docs/TARIFF_FACADE_REFACTORING.md
         kb_prijedlozi = []
         try:
-            from services.tariff_mapping_service import TariffMappingService
-            mapping_svc = TariffMappingService()
+            from services.tariff_facade import TariffFacade
+            facade = TariffFacade.get_instance()
             for l in bez_tarife_list[:20]:
-                naziv = getattr(l, 'naziv_robe', '') or ''
-                product_code = getattr(l, 'product_code', '') or ''
-                zemlja = getattr(l, 'zemlja_porijekla', '') or ''
-                mapping = mapping_svc.find_mapping(
-                    product_code, naziv, min_similarity=0.60, zemlja_porijekla=zemlja
-                )
-                if mapping:
+                naziv        = getattr(l, "naziv_robe",      "") or ""
+                product_code = getattr(l, "product_code",    "") or ""
+                zemlja       = getattr(l, "zemlja_porijekla", "") or ""
+                fast = facade.suggest_fast(naziv, product_code)
+                if fast and fast.tarifni_broj:
                     kb_prijedlozi.append(
-                        f"  '{naziv[:50]}' → tarifa={mapping.tarifni_broj} "
-                        f"(sličnost={mapping.similarity:.0%}, korišten {mapping.usage_count}x)"
+                        f"  '{naziv[:50]}' → tarifa={fast.tarifni_broj} "
+                        f"(sličnost={fast.confidence:.0%})"
                     )
                 else:
                     kb_prijedlozi.append(f"  '{naziv[:50]}' → (nije u bazi znanja)")
@@ -543,15 +541,15 @@ class ChatWorker(QThread):
         # RAG prijedlozi (istorija deklaracija)
         rag_prijedlozi = []
         try:
-            from services.agent.tariff_rag_service import TariffRAGService
-            rag_svc = TariffRAGService()
-            seen_queries = set()
+            from services.tariff_facade import TariffFacade
+            facade = TariffFacade.get_instance()
+            seen_queries: set = set()
             for l in bez_tarife_list[:10]:
-                naziv = getattr(l, 'naziv_robe', '') or ''
+                naziv = getattr(l, "naziv_robe", "") or ""
                 if naziv and naziv not in seen_queries:
                     seen_queries.add(naziv)
-                    results = rag_svc.search_historical(naziv, limit=2)
-                    for r in results:
+                    historija = facade.rag_candidates(naziv, limit=2)
+                    for r in historija:
                         rag_prijedlozi.append(
                             f"  '{naziv[:40]}' → tarifa={r.get('tarifni_kod', '?')} "
                             f"(istorija: {r.get('naziv_robe', '')[:40]})"

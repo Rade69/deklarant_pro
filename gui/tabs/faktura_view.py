@@ -2669,12 +2669,10 @@ class FakturaView(BaseTabView):
             # Vidi docs/sections/pe-rub44-4.md
             self._sync_pe_docs_to_header()
 
-            # Auto-učenje: sačuvaj mappinge u bazu znanja
+            # Auto-učenje: sačuvaj mappinge u bazu znanja — docs/TARIFF_FACADE_REFACTORING.md
             try:
-                from services.tariff_mapping_service import TariffMappingService
-
-                mapping_service = TariffMappingService()
-                learned_count = mapping_service.learn_from_draft(
+                from services.tariff_facade import TariffFacade
+                learned_count = TariffFacade.get_instance().learn_from_draft(
                     self.draft.invoice_lines
                 )
                 if learned_count > 0:
@@ -3062,14 +3060,10 @@ class FakturaView(BaseTabView):
             self.draft.invoice_lines
         )
 
-        # Sada pokušaj auto-popuniti tarifne brojeve iz baze znanja
+        # Auto-popuni tarifne iz baze znanja — docs/TARIFF_FACADE_REFACTORING.md
         try:
-            from services.tariff_mapping_service import (
-                TariffMappingService,
-                MappingResult,
-            )
+            from services.tariff_facade import TariffFacade
 
-            # Kreiraj progress dialog (samo u interaktivnom modu)
             if not auto:
                 progress = QProgressDialog(
                     "Auto-popunjavanje tarifnih brojeva...",
@@ -3086,7 +3080,7 @@ class FakturaView(BaseTabView):
             else:
                 progress = None
 
-            service = TariffMappingService()
+            facade = TariffFacade.get_instance()
 
             # Skupi skipped stavke (već imaju tarifni broj)
             skipped_details = [
@@ -3099,13 +3093,11 @@ class FakturaView(BaseTabView):
                 if line.tarifni_broj
             ]
 
-            # Auto-popuni tarifne brojeve za stavke bez tarifnog broja
-            # Izvuci naziv dobavljača iz prve linije (exporter.name)
             supplier_name = ""
             if self.draft.invoice_lines:
                 supplier_name = self.draft.invoice_lines[0].exporter.name or ""
 
-            result = service.auto_populate_tariffs(
+            result = facade.auto_populate_tariffs(
                 self.draft.invoice_lines,
                 min_similarity=0.70,
                 overwrite_existing=False,
@@ -3359,9 +3351,9 @@ class FakturaView(BaseTabView):
             return
 
         try:
-            from services.tariff_mapping_service import TariffMappingService
+            # Uvoz XML mappinga — docs/TARIFF_FACADE_REFACTORING.md
+            from services.tariff_facade import TariffFacade
 
-            # Kreiraj progress dialog
             progress = QProgressDialog(
                 f"Učitavanje mappinga iz {len(filepaths)} XML fajlova...",
                 "Otkaži",
@@ -3371,12 +3363,10 @@ class FakturaView(BaseTabView):
             )
             progress.setWindowTitle("Učitaj novi XML")
             progress.setWindowModality(Qt.WindowModal)
-            progress.setMinimumDuration(0)  # Prikaži odmah
-
-            service = TariffMappingService()
+            progress.setMinimumDuration(0)
 
             # Importuj mappinge
-            stats = service.import_from_xml_files(filepaths)
+            stats = TariffFacade.get_instance().import_from_xml_files(filepaths)
 
             progress.setValue(len(filepaths))
 

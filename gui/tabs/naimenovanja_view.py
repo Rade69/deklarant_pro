@@ -1728,8 +1728,8 @@ class NaimenovanjaView(BaseTabView):
 
         if reply == QMessageBox.Yes:
             try:
-                from services.tariff_mapping_service import TariffMappingService
-                kb_svc = TariffMappingService()
+                # Učenje — docs/TARIFF_FACADE_REFACTORING.md
+                from services.tariff_facade import TariffFacade
                 product_code = invoice_line.product_code if invoice_line else ""
                 zemlja = invoice_line.zemlja_porijekla if invoice_line else (item.origin_country_code or "")
                 new_suffix = item.tariff_suffix or "000"
@@ -1746,7 +1746,7 @@ class NaimenovanjaView(BaseTabView):
                             """, (f"%{naziv_robe}%", product_code or "__NONE__", new_tariff))
 
                 if naziv_robe and new_tariff:
-                    kb_svc.save_mapping(
+                    TariffFacade.get_instance().learn(
                         product_code=product_code or "",
                         naziv_robe=naziv_robe,
                         tarifni_broj=new_tariff,
@@ -2411,14 +2411,13 @@ class NaimenovanjaView(BaseTabView):
         zemlja = invoice_line.zemlja_porijekla if invoice_line else naim_item.origin_country_code
 
         try:
-            from services.tariff_mapping_service import TariffMappingService
-            kb_svc = TariffMappingService()
+            # Učenje — docs/TARIFF_FACADE_REFACTORING.md
+            from services.tariff_facade import TariffFacade
 
             # Prvo izbriši STARE zapise sa pogrešnom tarifom (isti naziv ili product_code)
             from database.db import get_db_connection
             with get_db_connection() as conn:
                 with conn.cursor() as cursor:
-                    # Izbriši zapise koji imaju ISTI naziv ali POGREŠNU tarifu
                     cursor.execute("""
                         DELETE FROM catalogs.product_tariff_mapping
                         WHERE (naziv_robe ILIKE %s OR product_code = %s)
@@ -2426,9 +2425,9 @@ class NaimenovanjaView(BaseTabView):
                     """, (f"%{naziv_robe}%", product_code or "__NONE__", old_tariff))
                     deleted = cursor.rowcount
 
-            # Zatim sačuvaj novi tarif sa increased usage_count
+            # Zatim sačuvaj novi tarif
             if naziv_robe and new_tariff:
-                kb_svc.save_mapping(
+                TariffFacade.get_instance().learn(
                     product_code=product_code or "",
                     naziv_robe=naziv_robe,
                     tarifni_broj=new_tariff,
@@ -3419,14 +3418,12 @@ class NaimenovanjaView(BaseTabView):
         if self.on_dirty:
             self.on_dirty()
 
-        # Inkrementiraj usage_count (učenje sistema)
+        # Inkrementiraj usage_count — docs/TARIFF_FACADE_REFACTORING.md
         try:
-            from services.tariff_mapping_service import TariffMappingService
-
-            service = TariffMappingService()
-            service._increment_usage(
+            from services.tariff_facade import TariffFacade
+            TariffFacade.get_instance().increment_usage(
                 result["tarifni_broj"],
-                None,  # product_code
+                None,
                 current_item.goods_trade_name,
             )
         except Exception as e:
