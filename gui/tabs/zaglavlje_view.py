@@ -1466,6 +1466,17 @@ class ZaglavljeView(BaseTabView):
             row_layout.addWidget(field_val)
             self.field_widgets[f"trosak_{i}"] = field_val
 
+            # Valuta dropdown — samo za trosak_1 (prevoz do granice)
+            if i == 1:
+                from PySide6.QtWidgets import QComboBox
+                cb_valuta = QComboBox()
+                cb_valuta.addItems(["BAM", "EUR"])
+                cb_valuta.setFixedWidth(60)
+                cb_valuta.setObjectName("trosak_1_valuta")
+                cb_valuta.setToolTip("Valuta prevoza do granice")
+                row_layout.addWidget(cb_valuta)
+                self.field_widgets["trosak_1_valuta"] = cb_valuta
+
             label_naziv = QLabel(naziv)
             label_naziv.setStyleSheet("font-size: 16pt; color: #333333;")
             row_layout.addWidget(label_naziv)
@@ -2024,7 +2035,7 @@ class ZaglavljeView(BaseTabView):
         if not attached_docs:
             return
 
-        _PRESERVE_REFS = {"DIS", "N380", "PZT", "N730", "OST", "PE1", "PE2", "PE3"}
+        _PRESERVE_REFS = {"DIS", "N380", "OST", "PE1", "PE2", "PE3"}
 
         # Obriši postojeće redove
         self.table.setRowCount(0)

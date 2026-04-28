@@ -656,6 +656,7 @@ class ZaglavljeService:
         # Troškovi transporta (Rb. 20 okvir)
         for i in range(1, 6):
             data[f'trosak_{i}'] = getattr(draft, f'trosak_{i}', '0,00') or '0,00'
+        data['trosak_1_valuta'] = getattr(draft, 'trosak_1_valuta', '') or ''
 
         # Rubrika 40 - Zbirna deklaracija / prethodni dokument
         data['rb40_tip'] = getattr(draft, 'rb40_tip', '') or ''
@@ -889,6 +890,7 @@ class ZaglavljeService:
         # Troškovi transporta
         for i in range(1, 6):
             setattr(draft, f'trosak_{i}', safe_get(f'trosak_{i}', '0,00'))
+        draft.trosak_1_valuta = safe_get('trosak_1_valuta', '')
 
         # Rubrika 40 - Zbirna deklaracija / prethodni dokument
         draft.rb40_tip = safe_get('rb40_tip')
@@ -1172,6 +1174,11 @@ class ZaglavljeService:
                     amt = _txt(gs, "Amount_foreign_currency")
                     if amt and amt != "0":
                         data[field] = amt.replace('.', ',')
+                    # Sačuvaj valutu spoljne vozarine ako je EUR (ne BAM)
+                    if field == 'trosak_1':
+                        curr = _txt(gs, "Currency_code")
+                        if curr and curr not in ("", "BAM"):
+                            data['trosak_1_valuta'] = curr
 
         # ── Priložene isprave (Attached_documents) iz Item sekcija ─────────────
         data['attached_documents'] = []

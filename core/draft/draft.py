@@ -425,6 +425,7 @@ class DeclarationDraft:
 
     # Troškovi
     trosak_1: str = "0,00"
+    trosak_1_valuta: str = ""   # "" = BAM, "EUR" = strana valuta s kursom
     trosak_2: str = "0,00"
     trosak_3: str = "0,00"
     trosak_4: str = "0,00"

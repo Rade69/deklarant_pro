@@ -107,17 +107,45 @@ def _parse_cost(cost_str: str) -> float:
         return 0.0
 
 
-def _gs_cost_section(parent: ET.Element, tag: str, amount: float) -> None:
-    """Kreira Gs_* sekciju troška u zaglavlju."""
+def _fmt_thousands(v: float) -> str:
+    """Formatira broj sa zarezom za hiljade: 1056.01 → '1,056.01'."""
+    if v >= 1000:
+        return f"{v:,.2f}"
+    return f"{v:.2f}"
+
+
+def _gs_cost_section(
+    parent: ET.Element,
+    tag: str,
+    amount: float,
+    foreign_amount: float = 0.0,
+    currency_code: str = "",
+    currency_rate: float = 1.0,
+) -> None:
+    """Kreira Gs_* sekciju troška u zaglavlju.
+
+    Ako je foreign_amount > 0, pretpostavlja se strana valuta (EUR):
+    - Amount_national_currency = amount (BAM)
+    - Amount_foreign_currency = foreign_amount (EUR)
+    - Currency_code = currency_code
+    - Currency_rate = currency_rate
+    Inače: BAM direktno, bez valute.
+    """
     gs = ET.SubElement(parent, tag)
-    _val(gs, "Amount_national_currency", f"{amount:.1f}" if amount else "0.0")
-    _val(gs, "Amount_foreign_currency", f"{amount:.1f}" if amount else "0.0")
-    if amount:
-        _null(gs, "Currency_code")   # <null/> kad postoji iznos
+    _val(gs, "Amount_national_currency", f"{amount:.2f}" if amount else "0.0")
+    if foreign_amount > 0:
+        _val(gs, "Amount_foreign_currency", f"{foreign_amount:.2f}")
+        _val(gs, "Currency_code", currency_code)
+        _val(gs, "Currency_name", "Nema stranih valuta")
+        _val(gs, "Currency_rate", f"{currency_rate:.5f}")
     else:
-        ET.SubElement(gs, "Currency_code")  # prazan kad je 0
-    _val(gs, "Currency_name", "Nema stranih valuta")
-    _val(gs, "Currency_rate", "1" if amount else "0")
+        _val(gs, "Amount_foreign_currency", f"{amount:.1f}" if amount else "0.0")
+        if amount:
+            _null(gs, "Currency_code")
+        else:
+            ET.SubElement(gs, "Currency_code")
+        _val(gs, "Currency_name", "Nema stranih valuta")
+        _val(gs, "Currency_rate", "1" if amount else "0")
 
 
 def _item_cost_section(parent: ET.Element, tag: str) -> None:
@@ -515,7 +543,7 @@ class AsycudaXMLBuilder:
         """<Valuation> — vrijednosti na nivou zaglavlja."""
         val = ET.SubElement(self.root, "Valuation")
 
-        _val(val, "Calculation_working_mode", "0")
+        ET.SubElement(val, "Calculation_working_mode")  # prazno — ASYCUDA popunjava
 
         weight = ET.SubElement(val, "Weight")
         total_gross = sum(item.gross_mass_kg or 0.0 for item in self.draft.items)
@@ -523,22 +551,28 @@ class AsycudaXMLBuilder:
         if total_gross:
             gross_w.text = f"{total_gross:.2f}"
 
-        t1 = _parse_cost(self._g("trosak_1"))
+        t1_eur = _parse_cost(self._g("trosak_1"))  # unesen iznos (EUR ili BAM)
         t2 = _parse_cost(self._g("trosak_2"))
         t3 = _parse_cost(self._g("trosak_3"))
         t4 = _parse_cost(self._g("trosak_4"))
         t5 = _parse_cost(self._g("trosak_5"))
-        total_cost = t1 + t2 + t3 + t4 + t5
-
-        cost_elem = ET.SubElement(val, "Total_cost")
-        cost_elem.text = f"{total_cost:.1f}" if total_cost else ""
-
         kurs = self.draft.kurs or 1.0
         iznos = self.draft.iznos or 0.0
 
-        # Total_CIF = iznos_BAM + ext_freight (ista logika kao na stavkama)
-        # Formula iz referentnih fajlova: Total_CIF = (iznos_EUR × kurs) + Gs_external_freight
+        # Ako je vozarina u EUR, pretvori u BAM za izračune
+        t1_valuta = self._g("trosak_1_valuta")
+        if t1_valuta and t1_valuta != "BAM" and t1_eur > 0:
+            t1 = round(t1_eur * kurs, 2)   # BAM ekvivalent za izračune
+        else:
+            t1 = t1_eur                     # već u BAM
+
+        total_cost = t1 + t2 + t3 + t4 + t5
+        cost_elem = ET.SubElement(val, "Total_cost")
+        cost_elem.text = f"{total_cost:.1f}" if total_cost else ""
+
         iznos_bam = round(iznos * kurs, 2)
+
+        # Total_CIF = iznos_BAM + ext_freight_BAM
         total_cif = iznos_bam + t1
         cif_elem = ET.SubElement(val, "Total_CIF")
         if total_cif:
@@ -557,8 +591,16 @@ class AsycudaXMLBuilder:
         _val(gs_inv, "Currency_name", "Nema stranih valuta")
         _val(gs_inv, "Currency_rate", f"{kurs:.5f}")
 
-        # Troškovi: t1=prevoz vanjski, t2=osiguranje, t3=ostalo, t4=unutrašnji, t5=popust
-        _gs_cost_section(val, "Gs_external_freight", t1)
+        # Troškovi: t1=prevoz vanjski (možda EUR), t2=osiguranje, t3=ostalo, t4=unutrašnji, t5=popust
+        t1_valuta = self._g("trosak_1_valuta")  # "" = BAM, "EUR" = strana valuta
+        if t1_valuta and t1_valuta != "BAM" and t1 > 0:
+            # Vanjska vozarina u EUR: t1 je iznos u EUR, konvertuj na BAM
+            t1_bam = round(t1 * kurs, 2)
+            _gs_cost_section(val, "Gs_external_freight",
+                             foreign_amount=t1, amount=t1_bam,
+                             currency_code=t1_valuta, currency_rate=kurs)
+        else:
+            _gs_cost_section(val, "Gs_external_freight", t1)
         _gs_cost_section(val, "Gs_internal_freight", t4)
         _gs_cost_section(val, "Gs_insurance", t2)
         _gs_cost_section(val, "Gs_other_cost", t3)
@@ -598,6 +640,9 @@ class AsycudaXMLBuilder:
                         from_rule=True,
                     ))
 
+        # Sortiraj: non-from_rule dokumenti idu prije from_rule (ASYCUDA standard)
+        header_docs.sort(key=lambda d: (1 if d.from_rule else 0))
+
         for idx, item in enumerate(self.draft.items):
             is_first = idx == 0
             self._add_single_item(item, header_docs if is_first else [], is_first)
@@ -612,7 +657,11 @@ class AsycudaXMLBuilder:
         item_elem = ET.SubElement(self.root, "Item")
 
         # Troškovi na nivou zaglavlja (za Valuation_item alpha raspodjelu)
-        t1 = _parse_cost(self._g("trosak_1"))
+        kurs = self.draft.kurs or 1.0
+        t1_valuta = self._g("trosak_1_valuta")
+        t1_raw = _parse_cost(self._g("trosak_1"))
+        # t1 uvijek u BAM za izračune
+        t1 = round(t1_raw * kurs, 2) if (t1_valuta and t1_valuta != "BAM" and t1_raw > 0) else t1_raw
         t2 = _parse_cost(self._g("trosak_2"))
         t3 = _parse_cost(self._g("trosak_3"))
         t4 = _parse_cost(self._g("trosak_4"))
@@ -726,7 +775,11 @@ class AsycudaXMLBuilder:
         _vi_oth = t3 * _vi_alpha
         _vi_ded = t5 * _vi_alpha
         vi_elem = ET.SubElement(tarif, "Value_item")
-        vi_elem.text = f"{_vi_ext:.2f}+{_vi_int:.2f}+{_vi_ins:.2f}+{_vi_oth:.2f}-{_vi_ded:.2f}"
+        vi_elem.text = (
+            f"{_fmt_thousands(_vi_ext)}+{_fmt_thousands(_vi_int)}"
+            f"+{_fmt_thousands(_vi_ins)}+{_fmt_thousands(_vi_oth)}"
+            f"-{_fmt_thousands(_vi_ded)}"
+        )
 
         # Attached_doc_item — na prvoj stavci: space-separated from_rule kodovi
         # Na ostalim stavkama: null (ASYCUDA World standard)
@@ -975,7 +1028,21 @@ class AsycudaXMLBuilder:
         _val(ii, "Currency_rate", f"{kurs:.5f}")
 
         # --- Troškovi po stavci ---
-        self._item_cost_section_filled(val_item, "item_external_freight", item_ext_freight)
+        # Ako je vanjska vozarina u EUR, per-item freight prikazujemo u EUR s kursom
+        t1_valuta = self._g("trosak_1_valuta")
+        t1_raw = _parse_cost(self._g("trosak_1"))
+        total_items_value_ref = sum(it.item_value or 0.0 for it in self.draft.items)
+        if t1_valuta and t1_valuta != "BAM" and t1_raw > 0 and total_items_value_ref > 0:
+            alpha_here = (item_value / total_items_value_ref) if total_items_value_ref > 0 else 0.0
+            item_ext_eur = t1_raw * alpha_here
+            item_ext_bam = round(item_ext_eur * kurs, 2)
+            self._item_cost_section_filled(val_item, "item_external_freight",
+                                           item_ext_bam,
+                                           foreign_amount=item_ext_eur,
+                                           currency_code=t1_valuta,
+                                           currency_rate=kurs)
+        else:
+            self._item_cost_section_filled(val_item, "item_external_freight", item_ext_freight)
         self._item_cost_section_filled(val_item, "item_internal_freight", item_int_freight)
         self._item_cost_section_filled(val_item, "item_insurance", item_insurance)
         self._item_cost_section_filled(val_item, "item_other_cost", item_other)
@@ -989,18 +1056,33 @@ class AsycudaXMLBuilder:
         _null(mv, "Basis_description")
         ET.SubElement(mv, "Basis_amount")
 
-    def _item_cost_section_filled(self, parent: ET.Element, tag: str, amount: float, negative: bool = False) -> None:
+    def _item_cost_section_filled(
+        self,
+        parent: ET.Element,
+        tag: str,
+        amount: float,
+        negative: bool = False,
+        foreign_amount: float = 0.0,
+        currency_code: str = "",
+        currency_rate: float = 1.0,
+    ) -> None:
         """Kreira item_* sekciju troška stavke sa stvarnom vrijednošću."""
         gs = ET.SubElement(parent, tag)
         val = -amount if negative else amount
         _val(gs, "Amount_national_currency", f"{val:.2f}" if val else "0.0")
-        _val(gs, "Amount_foreign_currency", f"{val:.2f}" if val else "0.0")
-        if val:
-            _null(gs, "Currency_code")   # <null/> kad postoji iznos
+        if foreign_amount > 0:
+            _val(gs, "Amount_foreign_currency", f"{foreign_amount:.2f}")
+            _val(gs, "Currency_code", currency_code)
+            _null(gs, "Currency_name")
+            _val(gs, "Currency_rate", f"{currency_rate:.5f}")
         else:
-            ET.SubElement(gs, "Currency_code")  # prazan kad je 0
-        _val(gs, "Currency_name", "Nema stranih valuta")
-        _val(gs, "Currency_rate", "1" if val else "0")
+            _val(gs, "Amount_foreign_currency", f"{val:.2f}" if val else "0.0")
+            if val:
+                _null(gs, "Currency_code")
+            else:
+                ET.SubElement(gs, "Currency_code")
+            _val(gs, "Currency_name", "Nema stranih valuta")
+            _val(gs, "Currency_rate", "1" if val else "0")
 
     def _add_attached_doc(self, item_elem: ET.Element, doc: AttachedDocument) -> None:
         """Dodaje <Attached_documents> element."""
@@ -1036,12 +1118,12 @@ def export_to_xml(draft: DeclarationDraft, output_path: str) -> bool:
         tree = ET.ElementTree(root)
         ET.indent(tree, space="")  # Bez indentacije — Asycuda preferuje kompaktan format
 
-        tree.write(
-            output_path,
-            encoding="UTF-8",
-            xml_declaration=True,
-            short_empty_elements=True,
-        )
+        # ASYCUDA zahtijeva double-quote atribute i standalone="no" — Python ET to ne podržava,
+        # pa pišemo deklaraciju ručno.
+        xml_str = ET.tostring(root, encoding="unicode", short_empty_elements=True)
+        with open(output_path, 'w', encoding='utf-8') as _f:
+            _f.write('<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n')
+            _f.write(xml_str)
 
         file_size = Path(output_path).stat().st_size
         print(f"XML exportovan: {output_path} ({file_size:,} bytes, {len(draft.items)} stavki)")
