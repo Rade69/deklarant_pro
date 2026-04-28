@@ -2823,10 +2823,16 @@ class FakturaView(BaseTabView):
             dlg = TariffValidationDialog(matches, parent=self.window())
 
             def _on_accepted(changes: list):
-                for idx, tarif in changes:
-                    if 0 <= idx < len(self.draft.invoice_lines):
-                        self.draft.invoice_lines[idx].tarifni_broj = tarif
-                self._refresh_table()
+                self.table.blockSignals(True)
+                try:
+                    for idx, tarif in changes:
+                        if 0 <= idx < len(self.draft.invoice_lines):
+                            self.draft.invoice_lines[idx].tarifni_broj = tarif
+                            self._set_table_item(idx, 4, tarif, align=Qt.AlignCenter)
+                            self._validate_and_color_row(idx, self.draft.invoice_lines[idx])
+                finally:
+                    self.table.blockSignals(False)
+                self.table.viewport().update()
                 self._update_status_bar()
 
             dlg.tariffs_accepted.connect(_on_accepted)

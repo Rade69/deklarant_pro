@@ -828,9 +828,7 @@ def _prikaz_tarifnih_trenutnih(ctrl) -> None:
             for idx, tarif in changes:
                 if 0 <= idx < len(ctrl.draft.invoice_lines):
                     ctrl.draft.invoice_lines[idx].tarifni_broj = tarif
-            if hasattr(ctrl, 'on_refresh_faktura') and ctrl.on_refresh_faktura:
-                ctrl.on_refresh_faktura()
-            elif hasattr(ctrl, '_refresh_faktura_tab'):
+            if hasattr(ctrl, '_refresh_faktura_tab'):
                 ctrl._refresh_faktura_tab()
 
         dlg.tariffs_accepted.connect(_on_accepted)
