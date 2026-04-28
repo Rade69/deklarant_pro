@@ -189,13 +189,11 @@ class NaimenovanjaView(BaseTabView):
         # 6.6 Postavi redosljed Tab navigacije
         self._setup_tab_order()
 
-        # 7. Load data
+        # 7. Load data — redosljed bitan: clear mora biti PRIJE load, inače briše tarife
         self.draft.ensure_min_items(1)
-        self._load_current_item()
-        self._update_all_ui()
-
-        # 8. FORCE clear all fields one more time (override any loaded data)
         self._clear_all_input_fields()
+        self._update_all_ui()
+        self._load_current_item()
 
     def _create_icon_button(self, text: str, icon_name: str) -> QPushButton:
         """Create a button with an icon from QtAwesome."""

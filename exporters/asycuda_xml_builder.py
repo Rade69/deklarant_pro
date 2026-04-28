@@ -139,7 +139,7 @@ def _gs_cost_section(
         _val(gs, "Currency_name", "Nema stranih valuta")
         _val(gs, "Currency_rate", f"{currency_rate:.5f}")
     else:
-        _val(gs, "Amount_foreign_currency", f"{amount:.1f}" if amount else "0.0")
+        _val(gs, "Amount_foreign_currency", f"{amount:.2f}" if amount else "0.0")
         _null(gs, "Currency_code")
         _val(gs, "Currency_name", "Nema stranih valuta")
         _val(gs, "Currency_rate", "1" if amount else "0")
@@ -1086,8 +1086,6 @@ class AsycudaXMLBuilder:
             _val(attached, "Attached_document_name", doc.name)
         ref = ET.SubElement(attached, "Attached_document_reference")
         ref.text = doc.number or ""
-        if doc.from_rule:
-            _val(attached, "Attached_document_from_rule", "1")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
