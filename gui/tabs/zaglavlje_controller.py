@@ -8,6 +8,7 @@ Nema business logike.
 """
 
 import logging
+import re
 from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
 
 from PySide6.QtWidgets import QMessageBox
@@ -448,6 +449,7 @@ class ZaglavljeController:
         """
         try:
             self.logger.info(f"Import XML requested: {filename}")
+            current_view_docs = self.view.get_data().get("attached_documents", [])
             
             # Load data from XML via service
             data = self.service.load_from_xml(filename)
@@ -498,29 +500,40 @@ class ZaglavljeController:
                             'from_rule': True,
                         })
 
-                # Merge SVIH dokumenata iz draft.header_attached_documents u XML import data.
-                # Aplikacija (tariff_controls, tariff_doc_history, PE, OST) dodaje dokumente
-                # u draft prije XML uvoza — ti se ne smiju izgubiti pri uvozu.
+                # Rub.6 (Uk. paketa) — uvijek iz fakture/naimenovanja, ne iz XML-a
+                if hasattr(draft, 'items') and draft.items:
+                    total_qty = sum(getattr(it, 'package_qty', 0.0) or 0.0 for it in draft.items)
+                    if total_qty > 0:
+                        draft.uk_paketa = f"{int(total_qty)}"
+                if (not getattr(draft, 'uk_paketa', '')) and invoice_lines:
+                    total_qty_inv = sum(getattr(l, 'kolicina', 0.0) or 0.0 for l in invoice_lines)
+                    if total_qty_inv > 0:
+                        draft.uk_paketa = f"{int(total_qty_inv)}"
+                if getattr(draft, 'uk_paketa', ''):
+                    data['uk_paketa'] = draft.uk_paketa
+
+                # Rub.40.3 (rb40_broj): ručni unos u aplikaciji je izvor istine.
+                # XML import ne smije prepisati postojeću vrijednost ako već postoji u draftu.
+                rb40_broj_draft = (getattr(draft, 'rb40_broj', '') or '').strip()
+                if rb40_broj_draft:
+                    data['rb40_broj'] = rb40_broj_draft
+
+                # Osiguraj da su PE1/PE2/PE3 iz Rub.44.4 sinhronizovani u header docs
+                self._sync_pe_docs_from_items_to_header(draft)
+
                 header_docs = getattr(draft, "header_attached_documents", None) if draft else None
-                if header_docs:
-                    docs = data.setdefault('attached_documents', [])
-                    xml_codes = {d.get('code') for d in docs if d.get('code')}
-                    for hd in header_docs:
-                        if not hd.code:
-                            continue
-                        existing = next((d for d in docs if d.get('code') == hd.code), None)
-                        if existing:
-                            # Kod već postoji u XML podacima — sačuvaj ref iz drafa ako XML nema ref
-                            if hd.number and not existing.get('number'):
-                                existing['number'] = hd.number
-                        else:
-                            # Kod nije u XML — dodaj ga (aplikacija ga je unijela automatski)
-                            docs.append({
-                                'code': hd.code,
-                                'name': hd.name,
-                                'number': hd.number,
-                                'from_rule': hd.from_rule,
-                            })
+                data['attached_documents'] = self._merge_import_docs_add_only_missing(
+                    existing_docs=current_view_docs,
+                    draft_header_docs=header_docs or [],
+                    imported_docs=data.get('attached_documents', []) or [],
+                )
+
+            protected_codes = {
+                (d.get("code") or "").strip().upper()
+                for d in current_view_docs
+                if isinstance(d, dict) and (d.get("code") or "").strip()
+            }
+            corrected = self._sanitize_attached_documents_after_import(data, protected_codes=protected_codes)
 
             # Populate view with data — _from_import=True briše stale ref-ove pri XML uvozu
             self.view.set_data(data, _from_import=True)
@@ -528,6 +541,12 @@ class ZaglavljeController:
             # Odmah snimi u draft da bi ostali tabovi (Naimenovanja) imali ažurne trosak/kurs
             if self._save_draft_fn:
                 self._save_draft_fn()
+
+            if corrected > 0:
+                self.view.show_warning(
+                    f"Uvoz je ispravio {corrected} konflikt(a) u Rub.44 "
+                    f"(PE referenca na pogrešnoj šifri dokumenta)."
+                )
 
             self.view.show_success(f"Podaci učitani iz: {filename}")
             self.logger.info(f"Import successful: {filename}")
@@ -543,6 +562,157 @@ class ZaglavljeController:
         except Exception as e:
             self.logger.error(f"Import failed: {e}", exc_info=True)
             self.view.show_error(f"Greška pri uvozu: {e}")
+
+    def _sync_pe_docs_from_items_to_header(self, draft) -> None:
+        header_docs = getattr(draft, "header_attached_documents", None)
+        items = getattr(draft, "items", None)
+        if header_docs is None or not items:
+            return
+
+        pe_entries: list[tuple[str, str]] = []
+        seen: set[tuple[str, str]] = set()
+        for item in items:
+            candidates = [
+                (getattr(item, "attached_document4", "") or "").strip(),
+                (getattr(item, "attached_document3", "") or "").strip(),
+                (getattr(item, "attached_document1", "") or "").strip(),
+            ]
+            for raw in candidates:
+                if not raw:
+                    continue
+                parts = raw.split(" ", 1)
+                sifra = parts[0].strip().upper()
+                broj = parts[1].strip() if len(parts) > 1 else ""
+                if sifra in {"PE1", "PE2", "PE3"}:
+                    key = (sifra, broj)
+                    if key not in seen:
+                        seen.add(key)
+                        pe_entries.append(key)
+
+        if not pe_entries:
+            return
+
+        header_docs[:] = [d for d in header_docs if getattr(d, "code", "") not in {"PE1", "PE2", "PE3"}]
+
+        from core.draft.draft import AttachedDocument
+        naziv_map = {
+            "PE1": "EUR.1 obrazac",
+            "PE2": "Izjava na fakturi",
+            "PE3": "Izjava ovlaštenog izvoznika",
+        }
+        for sifra, broj in pe_entries:
+            header_docs.append(
+                AttachedDocument(
+                    code=sifra,
+                    name=naziv_map.get(sifra, f"Dokument {sifra}"),
+                    number=broj,
+                    from_rule=(sifra == "PE1"),
+                )
+            )
+
+    def _merge_import_docs_add_only_missing(
+        self,
+        existing_docs: List[Dict[str, Any]],
+        draft_header_docs: List[Any],
+        imported_docs: List[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        merged: List[Dict[str, Any]] = []
+        existing_codes: set[str] = set()
+
+        for d in existing_docs:
+            if not isinstance(d, dict):
+                continue
+            code = (d.get("code") or "").strip()
+            if not code:
+                continue
+            existing_codes.add(code.upper())
+            merged.append({
+                "code": code,
+                "name": d.get("name", ""),
+                "number": d.get("number", ""),
+                "from_rule": bool(d.get("from_rule", False)),
+            })
+
+        for hd in draft_header_docs:
+            code = (getattr(hd, "code", "") or "").strip()
+            if not code:
+                continue
+            if code.upper() in existing_codes:
+                continue
+            existing_codes.add(code.upper())
+            merged.append({
+                "code": code,
+                "name": getattr(hd, "name", ""),
+                "number": getattr(hd, "number", ""),
+                "from_rule": bool(getattr(hd, "from_rule", False)),
+            })
+
+        for d in imported_docs:
+            if not isinstance(d, dict):
+                continue
+            code = (d.get("code") or "").strip()
+            if not code:
+                continue
+            if code.upper() in existing_codes:
+                continue
+            existing_codes.add(code.upper())
+            merged.append({
+                "code": code,
+                "name": d.get("name", ""),
+                "number": d.get("number", ""),
+                "from_rule": bool(d.get("from_rule", False)),
+            })
+
+        return merged
+
+    def _sanitize_attached_documents_after_import(self, data: Dict[str, Any], protected_codes: Optional[set[str]] = None) -> int:
+        docs = data.get("attached_documents")
+        if not isinstance(docs, list):
+            return 0
+
+        corrected = 0
+        protected = protected_codes or set()
+        pe_prefix = re.compile(r"^\s*PE[123]\b", re.IGNORECASE)
+        force_empty_codes = {"N730", "PZT", "DV1"}
+        for d in docs:
+            if not isinstance(d, dict):
+                continue
+            code = (d.get("code") or "").strip().upper()
+            number = (d.get("number") or "").strip()
+            if not code:
+                continue
+
+            # Za ove šifre referenca mora ostati prazna nakon XML uvoza.
+            # Ako je šifra već bila ručno prisutna prije importa, ne diraj.
+            if code in protected:
+                continue
+            if code in force_empty_codes and number:
+                d["number"] = ""
+                corrected += 1
+                self.logger.warning(
+                    f"Cleared import reference by rule: code={code}, number={number!r}"
+                )
+                continue
+
+            if not number:
+                continue
+
+            # Za PE1/PE2/PE3 očisti prefiks iz reference ako XML dođe kao "pe3 0504-..."
+            if code in {"PE1", "PE2", "PE3"} and pe_prefix.match(number):
+                cleaned = pe_prefix.sub("", number).strip(" :,-")
+                if cleaned != number:
+                    d["number"] = cleaned
+                    corrected += 1
+                continue
+
+            if code not in {"PE1", "PE2", "PE3"} and pe_prefix.match(number):
+                d["number"] = ""
+                corrected += 1
+                self.logger.warning(
+                    f"Sanitized conflicting doc reference: code={code}, number={number!r}"
+                )
+
+        return corrected
     
     def _on_export_xml(self):
         """Izvezi deklaraciju u ASYCUDA XML format."""
