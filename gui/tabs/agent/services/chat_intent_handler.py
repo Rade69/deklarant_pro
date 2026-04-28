@@ -378,6 +378,17 @@ def _handle_message(ctrl, message: str) -> None:
         _alternativni_tarifni_za_stavku(ctrl, item_query=item_q, item_ordinal=item_ord, is_alt=True)
         return
 
+    # --- PREGLED TRENUTNIH TARIFNIH BROJEVA ---
+    _pregled_tarifa_kw = [
+        'pregledaj tarif', 'pregled tarif', 'pokaži tarif', 'pokazi tarif',
+        'prikaži tarif', 'prikazi tarif', 'lista tarif', 'izlistaj tarif',
+        'koji su tarif', 'koje tarif', 'trenutni tarif', 'uneseni tarif',
+        'koji su uneseni tarif', 'šta ima tarif', 'sta ima tarif',
+    ]
+    if any(kw in msg for kw in _pregled_tarifa_kw):
+        _prikaz_tarifnih_trenutnih(ctrl)
+        return
+
     # --- BATCH TARIFNI PRIJEDLOZI ---
     _generalni_tarif_kw = [
         'popuni tarif', 'nađi sve bez tarif', 'nađi stavke bez tarif',
@@ -775,6 +786,63 @@ def _provjeri_naimenovanja(ctrl) -> None:
         f"<b>Detalji po naimenovanjima:</b><br><br>"
         + "<br><br>".join(linije)
     )
+
+
+def _prikaz_tarifnih_trenutnih(ctrl) -> None:
+    """Prikaži pregled tarifnih brojeva za sve stavke fakture — bez LLM poziva."""
+    chat = ctrl.view.get_chat_panel()
+
+    lines = getattr(ctrl.draft, 'invoice_lines', []) if ctrl.draft else []
+    if not lines:
+        chat.add_agent_message("&#9888;&#65039; Nema ucitanih stavki — ucitaj fakturu prvo.")
+        return
+
+    sa_tarifom  = [(i + 1, l) for i, l in enumerate(lines) if getattr(l, 'tarifni_broj', '')]
+    bez_tarife  = [(i + 1, l) for i, l in enumerate(lines) if not getattr(l, 'tarifni_broj', '')]
+
+    redovi_sa = "".join(
+        f"<tr>"
+        f"<td style='padding:3px 8px; color:#555;'>{rb}.</td>"
+        f"<td style='padding:3px 8px;'>{(getattr(l, 'naziv_robe', '') or '')[:50]}</td>"
+        f"<td style='padding:3px 8px; font-family:monospace; color:#1E3A5F;'>"
+        f"<b>{getattr(l, 'tarifni_broj', '')}</b></td>"
+        f"</tr>"
+        for rb, l in sa_tarifom
+    )
+    redovi_bez = "".join(
+        f"<tr style='background:#fff8f8;'>"
+        f"<td style='padding:3px 8px; color:#555;'>{rb}.</td>"
+        f"<td style='padding:3px 8px; color:#b05050;'>{(getattr(l, 'naziv_robe', '') or '')[:50]}</td>"
+        f"<td style='padding:3px 8px; color:#b05050;'>-- nema --</td>"
+        f"</tr>"
+        for rb, l in bez_tarife
+    )
+
+    status_html = (
+        f"<span style='color:#2d6a30;'>&#10003; {len(sa_tarifom)} uneseno</span>"
+        + (f" &nbsp; <span style='color:#b05050;'>&#9888; {len(bez_tarife)} bez tarife</span>"
+           if bez_tarife else "")
+    )
+
+    html = (
+        f"<b>Tarifni brojevi</b> — {len(lines)} stavki &nbsp; {status_html}"
+        f"<br><br>"
+        f"<table width='100%' cellspacing='0' cellpadding='0' "
+        f"style='border:1px solid #e0e4ea; border-radius:4px; font-size:12px;'>"
+        f"<tr style='background:#f0f4fa;'>"
+        f"<th style='padding:4px 8px; text-align:left; color:#555;'>Rb.</th>"
+        f"<th style='padding:4px 8px; text-align:left; color:#555;'>Naziv robe</th>"
+        f"<th style='padding:4px 8px; text-align:left; color:#555;'>Tarifni broj</th>"
+        f"</tr>"
+        f"{redovi_sa}{redovi_bez}"
+        f"</table>"
+    )
+    if bez_tarife:
+        html += (
+            f"<br><small>Pitaj: <i>predloži mi tarife</i> ili "
+            f"<i>predloži tarifne za sve</i></small>"
+        )
+    chat.add_agent_message(html)
 
 
 def _pregledaj_naimenovanja(ctrl, indeksi=None) -> None:
