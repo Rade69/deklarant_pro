@@ -1,0 +1,201 @@
+"""
+HistoricalTariffSearchService — pretraga tarifnih iz odobrenih XML deklaracija.
+
+Za svaku stavku fakture traži historijski validiran tarifni broj iz
+catalogs.product_tariff_mapping (popunjenog uvozom XML fajlova).
+
+Logika pretrage:
+  1. Ključne riječi iz naziv_robe → ILIKE AND upit (strogi)
+  2. Fallback: najdulja ključna riječ → ILIKE OR upit (širi)
+  3. ORDER BY: izvoznik match > uvoznik match > usage_count DESC
+
+Rezultat po stavci: lista TariffHistoryMatch, sortirana po pouzdanosti.
+"""
+
+from __future__ import annotations
+
+import re
+import logging
+from dataclasses import dataclass
+from typing import List, Optional
+
+logger = logging.getLogger("deklarant_pro.historical_tariff_search")
+
+# Bosanske/srpske stopper-riječi koje ne doprinose pretrazi
+_STOP = frozenset({
+    'i', 'ili', 'je', 'su', 'sa', 'se', 'za', 'na', 'u', 'iz', 'od', 'do',
+    'po', 'pri', 'kao', 'ali', 'te', 'da', 'ne', 'ni', 'koji', 'koja', 'koje',
+    'ostali', 'ostalo', 'ostale', 'ostala', 'drugi', 'druge', 'ost', 'razni',
+    'the', 'and', 'or', 'of', 'for', 'with', 'other', 'others',
+})
+
+
+@dataclass
+class TariffHistoryMatch:
+    line_index: int
+    naziv_robe_original: str       # iz invoice_line
+    naziv_robe_historijski: str    # iz baze znanja
+    tarifni_broj_historijski: str
+    tarifni_broj_trenutni: str     # iz invoice_line (može biti prazan)
+    supplier_match: bool           # izvoznik se poklapa
+    usage_count: int
+    source: str                    # supplier iz baze (xml fajl ili ime dobavljača)
+    confidence: float              # 0.0–1.0
+
+
+class HistoricalTariffSearchService:
+    """
+    Pretražuje catalogs.product_tariff_mapping za historijski validirane tarife.
+    Koristi se za validaciju: poređenje trenutnog tarifa sa onim iz XML deklaracija.
+    """
+
+    MAX_RESULTS_PER_LINE = 3
+    MIN_WORD_LEN = 3
+
+    def validate_lines(
+        self,
+        invoice_lines: list,
+        izvoznik_naziv: str = "",
+        uvoznik_naziv: str = "",
+    ) -> List[TariffHistoryMatch]:
+        """
+        Za svaku stavku u invoice_lines traži historijski tarif.
+        Vraća samo one gdje postoji prijedlog (bez "sve je uredu" redova).
+
+        Args:
+            invoice_lines: lista InvoiceLine objekata
+            izvoznik_naziv: ime izvoznika iz Zaglavlja (boost)
+            uvoznik_naziv: ime uvoznika iz Zaglavlja (boost)
+        """
+        results = []
+        for idx, line in enumerate(invoice_lines):
+            naziv = (getattr(line, 'naziv_robe', '') or '').strip()
+            if not naziv:
+                continue
+            trenutni = (getattr(line, 'tarifni_broj', '') or '').strip()
+            exporter_line = (
+                getattr(getattr(line, 'exporter', None), 'name', '') or ''
+            ).strip()
+
+            izvoznik = exporter_line or izvoznik_naziv
+            matches = self._search_one(naziv, izvoznik, uvoznik_naziv)
+            if not matches:
+                continue
+
+            best = matches[0]
+            # Prikaži samo ako je prijedlog drugačiji ili nema tarife
+            if best.tarifni_broj_historijski == trenutni and trenutni:
+                continue
+
+            best.line_index = idx
+            best.tarifni_broj_trenutni = trenutni
+            results.append(best)
+
+        return results
+
+    def _search_one(
+        self,
+        naziv_robe: str,
+        izvoznik: str = "",
+        uvoznik: str = "",
+    ) -> List[TariffHistoryMatch]:
+        """Pretraži bazu za jedan naziv robe. Vraća max MAX_RESULTS_PER_LINE."""
+        try:
+            from database.db import get_db_connection
+            words = self._extract_keywords(naziv_robe)
+            if not words:
+                return []
+
+            with get_db_connection() as conn:
+                with conn.cursor() as cur:
+                    rows = self._query_strict(cur, words, izvoznik, uvoznik)
+                    if not rows:
+                        rows = self._query_broad(cur, words, izvoznik, uvoznik)
+                    return self._to_matches(rows, naziv_robe)
+        except Exception as e:
+            logger.warning("HistoricalTariffSearch greška za '%s': %s", naziv_robe[:40], e)
+            return []
+
+    # ------------------------------------------------------------------
+    # SQL upiti
+    # ------------------------------------------------------------------
+
+    def _query_strict(self, cur, words: list, izvoznik: str, uvoznik: str) -> list:
+        """AND upit — svi ključni pojmovi moraju biti prisutni."""
+        conditions = " AND ".join("naziv_robe ILIKE %s" for _ in words)
+        params = [f"%{w}%" for w in words]
+        return self._execute(cur, conditions, params, izvoznik, uvoznik)
+
+    def _query_broad(self, cur, words: list, izvoznik: str, uvoznik: str) -> list:
+        """OR fallback — najdulja ključna riječ (najspecifičnija)."""
+        longest = max(words, key=len)
+        conditions = "naziv_robe ILIKE %s"
+        params = [f"%{longest}%"]
+        return self._execute(cur, conditions, params, izvoznik, uvoznik)
+
+    def _execute(self, cur, where_clause: str, params: list,
+                 izvoznik: str, uvoznik: str) -> list:
+        boost_params = []
+        boost_sql = ""
+        if izvoznik:
+            boost_sql += "CASE WHEN supplier ILIKE %s THEN 0 ELSE 1 END,"
+            boost_params.append(f"%{izvoznik[:60]}%")
+        if uvoznik:
+            # uvoznik nije u product_tariff_mapping, ali je u exporter_xml_index
+            # Ovdje koristimo source polje (xml filename) kao proxy
+            pass
+
+        sql = f"""
+            SELECT naziv_robe, commodity_code, supplier, usage_count,
+                   zemlja_porijekla, source
+            FROM catalogs.product_tariff_mapping
+            WHERE {where_clause}
+              AND commodity_code IS NOT NULL
+              AND commodity_code != ''
+            ORDER BY {boost_sql} usage_count DESC
+            LIMIT %s
+        """
+        cur.execute(sql, params + boost_params + [self.MAX_RESULTS_PER_LINE])
+        return cur.fetchall()
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    def _extract_keywords(self, naziv: str) -> list:
+        """Izvuci ključne riječi iz naziva robe (min 3 slova, nije stopword)."""
+        raw = re.sub(r'[^\w\s]', ' ', naziv.lower())
+        words = [
+            w for w in raw.split()
+            if len(w) >= self.MIN_WORD_LEN and w not in _STOP
+        ]
+        # Uzmi najspecifičnije (najdulje) — max 3 riječi
+        words_sorted = sorted(set(words), key=len, reverse=True)
+        return words_sorted[:3]
+
+    def _to_matches(self, rows: list, naziv_original: str) -> List[TariffHistoryMatch]:
+        results = []
+        for row in rows:
+            tarif    = (row['commodity_code'] or '').strip()
+            naziv_h  = (row['naziv_robe'] or '')
+            supplier = (row['supplier'] or '').strip()
+            usage    = int(row['usage_count'] or 0)
+            source   = (row['source'] or '').strip()
+            if not tarif:
+                continue
+            # Pouzdanost: bazirana na usage_count i ima li supplier
+            conf = min(0.95, 0.60 + min(usage, 100) * 0.003)
+            if supplier and supplier not in ('HISTORIJA', '+', ' ', 'A'):
+                conf = min(conf + 0.05, 0.97)
+            results.append(TariffHistoryMatch(
+                line_index=-1,
+                naziv_robe_original=naziv_original,
+                naziv_robe_historijski=naziv_h[:80],
+                tarifni_broj_historijski=tarif,
+                tarifni_broj_trenutni='',
+                supplier_match=False,
+                usage_count=usage,
+                source=supplier or source,
+                confidence=round(conf, 2),
+            ))
+        return results

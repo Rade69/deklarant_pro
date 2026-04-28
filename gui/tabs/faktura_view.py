@@ -2792,8 +2792,51 @@ class FakturaView(BaseTabView):
             else:
                 message += "\n🎉 SVE STAVKE SU VALIDNE!"
                 QMessageBox.information(self, "Validacija", message)
+
+            # Historijska validacija tarifnih brojeva (iz XML deklaracija)
+            self._run_historical_tariff_validation()
+
         except Exception as e:
             self.error_handler.handle_validation_error(e)
+
+    def _run_historical_tariff_validation(self):
+        """Pokreni istorijsku validaciju tarifa i prikaži dialog ako ima prijedloga."""
+        try:
+            from services.agent.validation.historical_tariff_search_service import (
+                HistoricalTariffSearchService,
+            )
+            from gui.tabs.agent.widgets.tariff_validation_dialog import TariffValidationDialog
+
+            izvoznik = getattr(self.draft, 'izvoznik_naziv', '') or ''
+            primalac = getattr(self.draft, 'primalac_naziv', '') or ''
+
+            svc = HistoricalTariffSearchService()
+            matches = svc.validate_lines(
+                self.draft.invoice_lines,
+                izvoznik_naziv=izvoznik,
+                uvoznik_naziv=primalac,
+            )
+
+            if not matches:
+                return  # Nema prijedloga — tiho
+
+            dlg = TariffValidationDialog(matches, parent=self.window())
+
+            def _on_accepted(changes: list):
+                for idx, tarif in changes:
+                    if 0 <= idx < len(self.draft.invoice_lines):
+                        self.draft.invoice_lines[idx].tarifni_broj = tarif
+                self._refresh_table()
+                self._update_status_bar()
+
+            dlg.tariffs_accepted.connect(_on_accepted)
+            dlg.show()
+
+        except Exception as e:
+            import logging
+            logging.getLogger("deklarant_pro.faktura").warning(
+                "Historijska validacija greška: %s", e
+            )
 
     def _update_weight_totals(self):
         """

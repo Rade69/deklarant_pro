@@ -789,60 +789,63 @@ def _provjeri_naimenovanja(ctrl) -> None:
 
 
 def _prikaz_tarifnih_trenutnih(ctrl) -> None:
-    """Prikaži pregled tarifnih brojeva za sve stavke fakture — bez LLM poziva."""
+    """
+    Istorijska validacija tarifa — za svaku stavku traži historijski odobreni
+    tarif iz XML deklaracija i predlaže ga ako je razlicit od trenutnog.
+    """
     chat = ctrl.view.get_chat_panel()
-
     lines = getattr(ctrl.draft, 'invoice_lines', []) if ctrl.draft else []
     if not lines:
-        chat.add_agent_message("&#9888;&#65039; Nema ucitanih stavki — ucitaj fakturu prvo.")
+        chat.add_agent_message("Nema ucitanih stavki — ucitaj fakturu prvo.")
         return
 
-    sa_tarifom  = [(i + 1, l) for i, l in enumerate(lines) if getattr(l, 'tarifni_broj', '')]
-    bez_tarife  = [(i + 1, l) for i, l in enumerate(lines) if not getattr(l, 'tarifni_broj', '')]
+    chat.add_activity(f"Pretrazujem historiju za {len(lines)} stavki...")
 
-    redovi_sa = "".join(
-        f"<tr>"
-        f"<td style='padding:3px 8px; color:#555;'>{rb}.</td>"
-        f"<td style='padding:3px 8px;'>{(getattr(l, 'naziv_robe', '') or '')[:50]}</td>"
-        f"<td style='padding:3px 8px; font-family:monospace; color:#1E3A5F;'>"
-        f"<b>{getattr(l, 'tarifni_broj', '')}</b></td>"
-        f"</tr>"
-        for rb, l in sa_tarifom
-    )
-    redovi_bez = "".join(
-        f"<tr style='background:#fff8f8;'>"
-        f"<td style='padding:3px 8px; color:#555;'>{rb}.</td>"
-        f"<td style='padding:3px 8px; color:#b05050;'>{(getattr(l, 'naziv_robe', '') or '')[:50]}</td>"
-        f"<td style='padding:3px 8px; color:#b05050;'>-- nema --</td>"
-        f"</tr>"
-        for rb, l in bez_tarife
-    )
-
-    status_html = (
-        f"<span style='color:#2d6a30;'>&#10003; {len(sa_tarifom)} uneseno</span>"
-        + (f" &nbsp; <span style='color:#b05050;'>&#9888; {len(bez_tarife)} bez tarife</span>"
-           if bez_tarife else "")
-    )
-
-    html = (
-        f"<b>Tarifni brojevi</b> — {len(lines)} stavki &nbsp; {status_html}"
-        f"<br><br>"
-        f"<table width='100%' cellspacing='0' cellpadding='0' "
-        f"style='border:1px solid #e0e4ea; border-radius:4px; font-size:12px;'>"
-        f"<tr style='background:#f0f4fa;'>"
-        f"<th style='padding:4px 8px; text-align:left; color:#555;'>Rb.</th>"
-        f"<th style='padding:4px 8px; text-align:left; color:#555;'>Naziv robe</th>"
-        f"<th style='padding:4px 8px; text-align:left; color:#555;'>Tarifni broj</th>"
-        f"</tr>"
-        f"{redovi_sa}{redovi_bez}"
-        f"</table>"
-    )
-    if bez_tarife:
-        html += (
-            f"<br><small>Pitaj: <i>predloži mi tarife</i> ili "
-            f"<i>predloži tarifne za sve</i></small>"
+    try:
+        from services.agent.validation.historical_tariff_search_service import (
+            HistoricalTariffSearchService,
         )
-    chat.add_agent_message(html)
+        from gui.tabs.agent.widgets.tariff_validation_dialog import TariffValidationDialog
+
+        izvoznik = getattr(ctrl.draft, 'izvoznik_naziv', '') or ''
+        primalac = getattr(ctrl.draft, 'primalac_naziv', '') or ''
+
+        svc = HistoricalTariffSearchService()
+        matches = svc.validate_lines(lines, izvoznik_naziv=izvoznik, uvoznik_naziv=primalac)
+
+        if not matches:
+            chat.add_agent_message(
+                "Historijska validacija zavrsena — svi tarifni brojevi se "
+                "podudaraju sa bazom znanja ili nema historijskih podataka za te stavke."
+            )
+            return
+
+        parent_widget = getattr(ctrl.view, 'window', lambda: None)()
+        dlg = TariffValidationDialog(matches, parent=parent_widget)
+
+        # Kad korisnik prihvati → upisi u draft i osvjezi Faktura tab
+        def _on_accepted(changes: list):
+            for idx, tarif in changes:
+                if 0 <= idx < len(ctrl.draft.invoice_lines):
+                    ctrl.draft.invoice_lines[idx].tarifni_broj = tarif
+            if hasattr(ctrl, 'on_refresh_faktura') and ctrl.on_refresh_faktura:
+                ctrl.on_refresh_faktura()
+            elif hasattr(ctrl, '_refresh_faktura_tab'):
+                ctrl._refresh_faktura_tab()
+
+        dlg.tariffs_accepted.connect(_on_accepted)
+        dlg.show()
+
+        chat.add_agent_message(
+            f"Historijska validacija: <b>{len(matches)} stavki</b> ima drugaciji "
+            f"historijski tarif. Detalji u otvorenom prozoru."
+        )
+        chat.add_activity(
+            f"Historijska validacija: {len(matches)} prijedloga"
+        )
+
+    except Exception as e:
+        chat.add_agent_message(f"Greska pri historijskoj validaciji: {e}")
 
 
 def _pregledaj_naimenovanja(ctrl, indeksi=None) -> None:
