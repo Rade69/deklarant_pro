@@ -140,10 +140,7 @@ def _gs_cost_section(
         _val(gs, "Currency_rate", f"{currency_rate:.5f}")
     else:
         _val(gs, "Amount_foreign_currency", f"{amount:.1f}" if amount else "0.0")
-        if amount:
-            _null(gs, "Currency_code")
-        else:
-            ET.SubElement(gs, "Currency_code")
+        _null(gs, "Currency_code")
         _val(gs, "Currency_name", "Nema stranih valuta")
         _val(gs, "Currency_rate", "1" if amount else "0")
 
@@ -281,12 +278,12 @@ class AsycudaXMLBuilder:
         _null(ident, "Manifest_reference_number")
 
         reg = ET.SubElement(ident, "Registration")
-        _null(reg, "Serial_number")
-        _null(reg, "Number")
+        ET.SubElement(reg, "Serial_number")
+        ET.SubElement(reg, "Number")
         ET.SubElement(reg, "Date")
 
         assess = ET.SubElement(ident, "Assessment")
-        _null(assess, "Serial_number")
+        ET.SubElement(assess, "Serial_number")
         ET.SubElement(assess, "Number")
         ET.SubElement(assess, "Date")
 
@@ -1077,10 +1074,7 @@ class AsycudaXMLBuilder:
             _val(gs, "Currency_rate", f"{currency_rate:.5f}")
         else:
             _val(gs, "Amount_foreign_currency", f"{val:.2f}" if val else "0.0")
-            if val:
-                _null(gs, "Currency_code")
-            else:
-                ET.SubElement(gs, "Currency_code")
+            _null(gs, "Currency_code")
             _val(gs, "Currency_name", "Nema stranih valuta")
             _val(gs, "Currency_rate", "1" if val else "0")
 
