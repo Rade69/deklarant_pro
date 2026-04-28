@@ -344,7 +344,7 @@ class DeclarationValidatorService:
                         message=f"Stavka {item_num}: Tarifni broj '{tariff}' nije pronađen u zvaničnoj tarifi",
                         explanation=(
                             "Uneseni tarifni broj ne postoji u bazi zvanične carinske tarife. "
-                            "Provjerite da li je broj tačan (uobičajeno 10 cifara)."
+                            "Provjerite da li je broj tačan (ASYCUDA koristi 8 cifara)."
                         )
                     ))
 
@@ -763,16 +763,26 @@ class DeclarationValidatorService:
         return recommendations
     
     def _tariff_exists_in_db(self, tariff_code: str) -> bool:
-        """Provjeri da li tarifni broj postoji u catalogs.zvanicna_tarifa."""
+        """Provjeri da li tarifni broj postoji u catalogs.zvanicna_tarifa.
+
+        ASYCUDA koristi 8-cifrene kodove; baza može čuvati 10-cifrene.
+        Za 8-cifrene kodove radi LIKE prefix pretragu.
+        """
         try:
             from database.db import get_db_connection
             norm = tariff_code.strip()
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
-                    cur.execute(
-                        "SELECT 1 FROM catalogs.zvanicna_tarifa WHERE tarifni_kod = %s LIMIT 1",
-                        (norm,)
-                    )
+                    if len(norm) == 8:
+                        cur.execute(
+                            "SELECT 1 FROM catalogs.zvanicna_tarifa WHERE tarifni_kod LIKE %s LIMIT 1",
+                            (norm + '%',)
+                        )
+                    else:
+                        cur.execute(
+                            "SELECT 1 FROM catalogs.zvanicna_tarifa WHERE tarifni_kod = %s LIMIT 1",
+                            (norm,)
+                        )
                     return cur.fetchone() is not None
         except Exception as e:
             print(f"⚠️ Greška pri provjeri tarife {tariff_code}: {e}")

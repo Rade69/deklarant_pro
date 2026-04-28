@@ -77,7 +77,7 @@ class AddItemDialog(QDialog):
 
         # Tarifni broj (required)
         self.tariff_input = QLineEdit()
-        self.tariff_input.setPlaceholderText("10 cifara (npr. 0201300090)")
+        self.tariff_input.setPlaceholderText("8 cifara (npr. 02013000)")
         self.tariff_input.setMaxLength(10)
         form_layout.addRow("Tarifni broj: *", self.tariff_input)
 
