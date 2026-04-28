@@ -34,7 +34,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMenu,
 )
-from PySide6.QtCore import Qt, Signal, QSize
+from PySide6.QtCore import Qt, Signal, QSize, QTimer
 from PySide6.QtGui import QIcon, QKeySequence, QShortcut, QPalette, QColor, QFont
 import psycopg2
 
@@ -96,6 +96,10 @@ class SifarniciView(BaseTabView):
         self.validator = FormValidator()
         self.ui_helper = UIHelper()
         self.service = SifarniciService()
+        self._search_timer = QTimer(self)
+        self._search_timer.setSingleShot(True)
+        self._search_timer.setInterval(300)
+        self._search_timer.timeout.connect(self._execute_db_search)
 
         self.setObjectName("SifarniciTab")
 
@@ -2426,51 +2430,43 @@ class SifarniciView(BaseTabView):
         except Exception as e:
             logger.error(f"Greška pri primeni pretrage: {str(e)}")
 
-    def _on_search_text_changed(self, text: str):
-        """Live search as user types - immediate filtering"""
-        try:
-            logger.info(
-                f"🔍 PRETRAGA: text='{text}', category='{self.current_category}'"
-            )
+    # Kategorije koje pretražuju direktno u bazi (debounced)
+    _DB_SEARCH_CATEGORIES = frozenset(
+        ["Pošiljaoci", "Uvoznici", "Zemlje", "Carinske tarife"]
+    )
 
-            # For Zemlje - use database search like Pošiljaoci
-            if self.current_category == "Zemlje":
-                logger.info(f"▶️ Pozivam _search_zemlje za '{self.current_category}'")
-                self._search_zemlje(text)
-            # For Carinarnice - use tree widget search
+    def _on_search_text_changed(self, text: str):
+        """Live pretraga dok korisnik kuca — DB kategorije debounced 300ms."""
+        try:
+            if self.current_category in self._DB_SEARCH_CATEGORIES:
+                # Odgodi DB query da ne gađamo bazu na svaki karakter
+                self._search_timer.start()
             elif self.current_category == "Carinarnice":
-                logger.info(
-                    f"▶️ Pozivam _search_carinarnice za '{self.current_category}'"
-                )
                 self._search_carinarnice(text)
                 self._update_status()
-            # For Carinski postupci - use read-only filtering
-            elif self.current_category == "Carinski postupci":
-                logger.info(f"▶️ Pozivam _filter_table za '{self.current_category}'")
-                self._filter_table(text)
-                self._update_status()
-            elif self.current_category == "Carinske tarife":
-                # Za Carinske tarife — direktno iz baze (hijerarhijski za brojeve)
-                logger.info(f"▶️ Pozivam _search_trgovacki_nazivi za '{self.current_category}'")
-                self._search_trgovacki_nazivi(text)
-                self._update_status()
-            elif self.current_category in [
-                "Pošiljaoci",
-                "Uvoznici",
-                "Primaoci",
-                "Deklaranti",
-                "Inkoterms",
-            ]:
-                # Za ostale kategorije — filter tabele
-                logger.info(f"▶️ Pozivam _filter_table za '{self.current_category}'")
-                self._filter_table(text)
-                self._update_status()
             else:
-                logger.info(
-                    f"⏭️ Preskačem - kategorija '{self.current_category}' nije u listi"
-                )
+                # Lokalni filter (Carinski postupci, Deklaranti, Inkoterms...)
+                self._filter_table(text)
+                self._update_status()
         except Exception as e:
             logger.error(f"Greška pri live pretrazi: {str(e)}")
+
+    def _execute_db_search(self):
+        """Pokrenuto debounce timerom — izvršava DB pretragu za trenutnu kategoriju."""
+        try:
+            text = self.search_input.text().strip()
+            cat = self.current_category
+            if cat == "Pošiljaoci":
+                self._search_posiljaoci(text)
+            elif cat == "Uvoznici":
+                self._search_uvoznici(text)
+            elif cat == "Zemlje":
+                self._search_zemlje(text)
+            elif cat == "Carinske tarife":
+                self._search_trgovacki_nazivi(text)
+            self._update_status()
+        except Exception as e:
+            logger.error(f"Greška pri DB pretrazi: {str(e)}")
 
     def _search_posiljaoci(self, query: str):
         """Search posiljaoci using Service layer."""
@@ -2492,32 +2488,19 @@ class SifarniciView(BaseTabView):
             )
 
     def _filter_table(self, search_text: str):
-        """Filter table rows based on search text - prefix matching only"""
+        """Filter table rows based on search text — substring match across all columns."""
         try:
             search_text = search_text.lower().strip()
-            logger.debug(f"Filtriranje tabele sa tekstom: '{search_text}'")
 
             for row in range(self.table.rowCount()):
-                match = False
-
                 if not search_text:
-                    # No search text - show all
-                    match = True
-                else:
-                    # Proveri sve kolone
-                    for col in range(self.table.columnCount()):
-                        item = self.table.item(row, col)
-                        if item:
-                            cell_text = item.text().lower()
-
-                            # Prefix match only - starts with
-                            if cell_text.startswith(search_text):
-                                match = True
-                                break
-
+                    self.table.setRowHidden(row, False)
+                    continue
+                match = any(
+                    search_text in (self.table.item(row, col).text().lower() if self.table.item(row, col) else "")
+                    for col in range(self.table.columnCount())
+                )
                 self.table.setRowHidden(row, not match)
-
-            logger.debug("Filtriranje tabele završeno")
 
         except Exception as e:
             logger.error(f"Greška pri filtriranju tabele: {str(e)}")
