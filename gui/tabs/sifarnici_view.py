@@ -1169,12 +1169,6 @@ class SifarniciView(BaseTabView):
         da ne ostanu podaci iz prethodne kategorije (to je izgledalo kao 'bug' u GUI).
         """
         try:
-            
-            if not hasattr(self, 'db_manager'):
-                logger.error("db_manager NE POSTOJI!")
-            if not hasattr(self, 'validator'):
-                logger.error("validator NE POSTOJI!")
-
             logger.info(f"Učitavanje podataka za kategoriju: {self.current_category}")
 
             if self.current_category == "Pošiljaoci":
