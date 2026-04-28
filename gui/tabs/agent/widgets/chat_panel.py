@@ -504,7 +504,6 @@ class ChatPanel(QWidget):
         """Zatvori streaming bubble (prikaži finalni tekst bez kursora)."""
         if not hasattr(self, '_stream_start_pos'):
             return
-        # Zaustavi timer
         if hasattr(self, '_stream_timer'):
             self._stream_timer.stop()
             self._stream_timer.deleteLater()
@@ -523,6 +522,24 @@ class ChatPanel(QWidget):
         self.input_field.setEnabled(True)
         self.input_field.setFocus()
         self._update_memory_status()
+
+    def cancel_streaming(self):
+        """Ukloni streaming bubble bez prikaza sadržaja (npr. pri grešci)."""
+        if not hasattr(self, '_stream_start_pos'):
+            return
+        if hasattr(self, '_stream_timer'):
+            self._stream_timer.stop()
+            self._stream_timer.deleteLater()
+            del self._stream_timer
+        cursor = self.agent_view.textCursor()
+        cursor.setPosition(self._stream_start_pos)
+        cursor.movePosition(QTextCursor.End, QTextCursor.KeepAnchor)
+        cursor.removeSelectedText()
+        for attr in ('_stream_start_pos', '_stream_buffer', '_stream_timestamp'):
+            if hasattr(self, attr):
+                delattr(self, attr)
+        self.input_field.setEnabled(True)
+        self.input_field.setFocus()
 
     def _typing_bubble(self, timestamp: str) -> str:
         return f"""

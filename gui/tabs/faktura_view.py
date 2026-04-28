@@ -2664,6 +2664,7 @@ class FakturaView(BaseTabView):
             # Sinhronizuj PE1/PE2/PE3 iz attached_document4 u header_attached_documents
             # Vidi docs/sections/pe-rub44-4.md
             self._sync_pe_docs_to_header()
+            self._sync_inspection_docs_to_header()
 
             # Auto-učenje: sačuvaj mappinge u bazu znanja — docs/TARIFF_FACADE_REFACTORING.md
             try:
@@ -2793,7 +2794,7 @@ class FakturaView(BaseTabView):
                 message += "\n🎉 SVE STAVKE SU VALIDNE!"
                 QMessageBox.information(self, "Validacija", message)
 
-            # Historijska validacija tarifnih brojeva (iz XML deklaracija)
+            # Istorijska validacija tarifnih brojeva (iz XML deklaracija)
             self._run_historical_tariff_validation()
 
         except Exception as e:
@@ -2841,7 +2842,7 @@ class FakturaView(BaseTabView):
         except Exception as e:
             import logging
             logging.getLogger("deklarant_pro.faktura").warning(
-                "Historijska validacija greška: %s", e
+                "Istorijska validacija greška: %s", e
             )
 
     def _update_weight_totals(self):
@@ -3519,6 +3520,45 @@ class FakturaView(BaseTabView):
             # Obavijesti da su se podaci promijenili
             if self.on_dirty:
                 self.on_dirty()
+
+    def _sync_inspection_docs_to_header(self) -> None:
+        header_docs = getattr(self.draft, "header_attached_documents", None)
+        if header_docs is None:
+            return
+
+        try:
+            from services.tariff_controls_service import get_tariff_controls_service
+            svc = get_tariff_controls_service()
+        except Exception:
+            return
+
+        seen_codes = {getattr(d, "code", "") for d in header_docs}
+        added = 0
+
+        for item in getattr(self.draft, "items", []) or []:
+            tariff_code = (getattr(item, "tariff_code", "") or "").strip()
+            if not tariff_code:
+                continue
+            try:
+                docs = svc.get_required_docs(tariff_code)
+            except Exception:
+                continue
+            for doc in docs:
+                code = (doc.get("code") or "").strip()
+                if not code or code in seen_codes:
+                    continue
+                from core.draft.draft import AttachedDocument
+                header_docs.append(AttachedDocument(
+                    code=code,
+                    name=doc.get("name", ""),
+                    number="",
+                    from_rule=False,
+                ))
+                seen_codes.add(code)
+                added += 1
+
+        if added > 0 and self.on_dirty:
+            self.on_dirty()
 
     def clear_form(self) -> None:
         """Čisti formu (BaseTabView interface) - uklanja sve stavke iz tabele."""

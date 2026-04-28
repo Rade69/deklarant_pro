@@ -3,7 +3,7 @@
 Pokreni PostgreSQL migracije za catalogs shemu.
 
 Kreira tabele:
-- catalogs.declarations (historija deklaracija)
+- catalogs.declarations (istorija deklaracija)
 - catalogs.declaration_items (stavke sa tarifnim brojevima)
 """
 

@@ -38,6 +38,7 @@ class ProcessingWorker(QThread):
         parsirana sa automatskom kombinacijom (Blagić-Attos).
         """
         import time
+        import gc
         total_start = time.time()
 
         from services.import_service import get_import_service
@@ -174,6 +175,14 @@ class ProcessingWorker(QThread):
                 self.progress.emit(f"   ⏱️ Vrijeme: {file_elapsed:.1f}s")
                 self.file_completed.emit(file_item)
 
+            except MemoryError:
+                file_item.status = 'Error'
+                file_item.error_message = "Nedovoljno memorije za parsiranje fajla"
+                self.error_occurred.emit(file_item.filepath, file_item.error_message)
+                self.progress.emit(f"   ❌ MemoryError — pokušaj sa manjim brojem fajlova odjednom")
+                self.file_completed.emit(file_item)
+                gc.collect()
+
             except Exception as e:
                 import traceback
                 file_item.status = 'Error'
@@ -182,6 +191,10 @@ class ProcessingWorker(QThread):
                 self.progress.emit(f"   ❌ Greška: {e}")
                 self.progress.emit(f"   📋 Stack: {traceback.format_exc()}")
                 self.file_completed.emit(file_item)
+
+            finally:
+                # Oslobodi memoriju između fajlova — kritično pri uvozu većeg broja PDF-ova
+                gc.collect()
 
         # Post-process za Agent workflow:
         # Master Frigo PDF + Excel sparivanje u istom batch-u (cijena/iznos iz Excel-a)

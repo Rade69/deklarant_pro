@@ -985,7 +985,7 @@ def test_agent_validation():
     for item in report.naimenovanja_items[:3]:
         print(f"   {item.severity.value.upper()}: {item.message}")
     
-    print(f"\n📊 HISTORIJSKA ANALIZA ({len(report.historical_items)} stavki):")
+    print(f"\n📊 ISTORIJSKA ANALIZA ({len(report.historical_items)} stavki):")
     for item in report.historical_items[:3]:
         print(f"   {item.severity.value.upper()}: {item.message}")
     

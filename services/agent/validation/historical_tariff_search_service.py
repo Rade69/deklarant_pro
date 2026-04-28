@@ -1,7 +1,7 @@
 """
 HistoricalTariffSearchService — pretraga tarifnih iz odobrenih XML deklaracija.
 
-Za svaku stavku fakture traži historijski validiran tarifni broj iz
+Za svaku stavku fakture traži istorijski validiran tarifni broj iz
 catalogs.product_tariff_mapping (popunjenog uvozom XML fajlova).
 
 Logika pretrage:
@@ -45,7 +45,7 @@ class TariffHistoryMatch:
 
 class HistoricalTariffSearchService:
     """
-    Pretražuje catalogs.product_tariff_mapping za historijski validirane tarife.
+    Pretražuje catalogs.product_tariff_mapping za istorijski validirane tarife.
     Koristi se za validaciju: poređenje trenutnog tarifa sa onim iz XML deklaracija.
     """
 
@@ -59,7 +59,7 @@ class HistoricalTariffSearchService:
         uvoznik_naziv: str = "",
     ) -> List[TariffHistoryMatch]:
         """
-        Za svaku stavku u invoice_lines traži historijski tarif.
+        Za svaku stavku u invoice_lines traži istorijski tarif.
         Vraća samo one gdje postoji prijedlog (bez "sve je uredu" redova).
 
         Args:

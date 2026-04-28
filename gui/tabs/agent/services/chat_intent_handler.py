@@ -492,6 +492,7 @@ def _handle_message(ctrl, message: str) -> None:
             ctrl._check_budget_after_response(),
         )
     )
+    worker.error_occurred.connect(lambda _: chat.cancel_streaming())
     worker.error_occurred.connect(lambda _: chat.hide_typing_indicator())
     worker.error_occurred.connect(lambda err: chat.add_agent_message(f"⚠️ {err}"))
     worker.finished.connect(worker.deleteLater)
@@ -668,6 +669,7 @@ def _alternativni_tarifni_za_stavku(ctrl, item_query: str = "",
             ctrl._check_budget_after_response(),
         )
     )
+    worker.error_occurred.connect(lambda _: chat.cancel_streaming())
     worker.error_occurred.connect(lambda _: chat.hide_typing_indicator())
     worker.error_occurred.connect(lambda err: chat.add_agent_message(f"⚠️ {err}"))
     worker.finished.connect(worker.deleteLater)
@@ -728,6 +730,7 @@ def _klasificiraj_i_usmjeri(ctrl, message: str) -> None:
             cw.stream_started.connect(chat.start_streaming)
             cw.token_received.connect(chat.append_stream_token)
             cw.response_ready.connect(lambda _: chat.finalize_streaming())
+            cw.error_occurred.connect(lambda _: chat.cancel_streaming())
             cw.error_occurred.connect(lambda _: chat.hide_typing_indicator())
             cw.error_occurred.connect(lambda e: chat.add_agent_message(f"⚠️ {e}"))
             cw.finished.connect(cw.deleteLater)
@@ -790,7 +793,7 @@ def _provjeri_naimenovanja(ctrl) -> None:
 
 def _prikaz_tarifnih_trenutnih(ctrl) -> None:
     """
-    Istorijska validacija tarifa — za svaku stavku traži historijski odobreni
+    Istorijska validacija tarifa — za svaku stavku traži istorijski odobreni
     tarif iz XML deklaracija i predlaže ga ako je razlicit od trenutnog.
     """
     chat = ctrl.view.get_chat_panel()
@@ -799,7 +802,7 @@ def _prikaz_tarifnih_trenutnih(ctrl) -> None:
         chat.add_agent_message("Nema ucitanih stavki — ucitaj fakturu prvo.")
         return
 
-    chat.add_activity(f"Pretrazujem historiju za {len(lines)} stavki...")
+    chat.add_activity(f"Pretrazujem istoriju za {len(lines)} stavki...")
 
     try:
         from services.agent.validation.historical_tariff_search_service import (
@@ -815,8 +818,8 @@ def _prikaz_tarifnih_trenutnih(ctrl) -> None:
 
         if not matches:
             chat.add_agent_message(
-                "Historijska validacija zavrsena — svi tarifni brojevi se "
-                "podudaraju sa bazom znanja ili nema historijskih podataka za te stavke."
+                "Istorijska validacija zavrsena — svi tarifni brojevi se "
+                "podudaraju sa bazom znanja ili nema istorijskih podataka za te stavke."
             )
             return
 
@@ -835,15 +838,15 @@ def _prikaz_tarifnih_trenutnih(ctrl) -> None:
         dlg.show()
 
         chat.add_agent_message(
-            f"Historijska validacija: <b>{len(matches)} stavki</b> ima drugaciji "
-            f"historijski tarif. Detalji u otvorenom prozoru."
+            f"Istorijska validacija: <b>{len(matches)} stavki</b> ima drugaciji "
+            f"istorijski tarif. Detalji u otvorenom prozoru."
         )
         chat.add_activity(
-            f"Historijska validacija: {len(matches)} prijedloga"
+            f"Istorijska validacija: {len(matches)} prijedloga"
         )
 
     except Exception as e:
-        chat.add_agent_message(f"Greska pri historijskoj validaciji: {e}")
+        chat.add_agent_message(f"Greska pri istorijskoj validaciji: {e}")
 
 
 def _pregledaj_naimenovanja(ctrl, indeksi=None) -> None:

@@ -2024,7 +2024,7 @@ class ZaglavljeView(BaseTabView):
         if not attached_docs:
             return
 
-        _PRESERVE_REFS = {"DIS", "N380", "OST", "PE1", "PE2", "PE3"}
+        _PRESERVE_REFS = {"DIS", "N380", "PZT", "N730", "OST", "PE1", "PE2", "PE3"}
 
         # Obriši postojeće redove
         self.table.setRowCount(0)

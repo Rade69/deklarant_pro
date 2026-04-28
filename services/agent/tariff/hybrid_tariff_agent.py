@@ -12,7 +12,7 @@ Performansne napomene:
 - Skup validnih tarifnih kodova se učitava jednom (lazy) i kešira u memoriji.
   Provjera valjanosti broja je O(1) bez ijednog DB poziva.
 - zemlja_porijekla se koristi kao boost u rankiranju — ne filtrira rezultate
-  (da ne bi izgubili korisne historijske podatke kad zemlja nije upisana).
+  (da ne bi izgubili korisne istorijske podatke kad zemlja nije upisana).
 - AI poziv (Groq/Ollama) se radi samo ako prva dva nivoa ne daju dovoljan
   confidence, čime se izbjegava kašnjenje na sporijim mašinama.
 """

@@ -1,7 +1,7 @@
 """
 TariffValidationDialog — ne-modalni dijaloški prozor za istorijsku validaciju tarifa.
 
-Prikazuje poređenje trenutnih tarifnih brojeva sa historijski odobrenim (iz XML deklaracija).
+Prikazuje poređenje trenutnih tarifnih brojeva sa istorijski odobrenim (iz XML deklaracija).
 Korisnik može prihvatiti prijedlog per-stavka ili sve odjednom.
 """
 
@@ -91,7 +91,7 @@ class TariffValidationDialog(QDialog):
         title.setStyleSheet("font-size: 14px;")
 
         subtitle = QLabel(
-            f"{n} stavki ima drugi historijski tarif (iz odobrenih XML deklaracija)"
+            f"{n} stavki ima drugi istorijski tarif (iz odobrenih XML deklaracija)"
         )
         subtitle.setStyleSheet("color: #6b7280; font-size: 12px;")
 
@@ -135,13 +135,13 @@ class TariffValidationDialog(QDialog):
             tarif_html = (
                 f"Trenutni: <code style='color:#b05050;'>{match.tarifni_broj_trenutni}</code>"
                 f" &nbsp;→&nbsp; "
-                f"Historijski: <code style='color:#1E3A5F; font-weight:bold;'>"
+                f"Istorijski: <code style='color:#1E3A5F; font-weight:bold;'>"
                 f"{match.tarifni_broj_historijski}</code>"
             )
         else:
             tarif_html = (
                 f"Nema tarifa &nbsp;→&nbsp; "
-                f"Historijski: <code style='color:#1E3A5F; font-weight:bold;'>"
+                f"Istorijski: <code style='color:#1E3A5F; font-weight:bold;'>"
                 f"{match.tarifni_broj_historijski}</code>"
             )
         tarif_label = QLabel(tarif_html)
@@ -261,7 +261,7 @@ class TariffValidationDialog(QDialog):
             lines.append(
                 f"Rb.{rb} — {match.naziv_robe_original[:50]}\n"
                 f"  Trenutni: {match.tarifni_broj_trenutni or '—'} → "
-                f"Historijski: {match.tarifni_broj_historijski} "
+                f"Istorijski: {match.tarifni_broj_historijski} "
                 f"(korišten {match.usage_count}×, {int(match.confidence*100)}%)"
             )
         QGuiApplication.clipboard().setText("\n\n".join(lines))

@@ -136,23 +136,25 @@ class LLMProvider:
                 yield from self._deepseek_stream(messages, max_tokens)
                 return
             except Exception as e:
-                if _is_rate_limit(e) and self.has_groq():
-                    logger.warning("DeepSeek 429 → prelazim na Groq")
-                    yield from self._groq_stream(messages, max_tokens)
-                    return
-                elif _is_rate_limit(e) and self.has_gemini():
-                    logger.warning("DeepSeek greška → prelazim na Gemini")
+                logger.warning("DeepSeek greška (%s) → prelazim na fallback", e)
+                if self.has_groq():
+                    try:
+                        yield from self._groq_stream(messages, max_tokens)
+                        return
+                    except Exception as e2:
+                        logger.warning("Groq greška (%s) → prelazim na Gemini", e2)
+                if self.has_gemini():
                     yield from self._gemini_stream(messages, max_tokens)
                     return
-                raise
+                raise  # Nema fallbacka — propagiraj originalnu grešku
 
         if self.has_groq():
             try:
                 yield from self._groq_stream(messages, max_tokens)
                 return
             except Exception as e:
-                if _is_rate_limit(e) and self.has_gemini():
-                    logger.warning("Groq 429 → prelazim na Gemini")
+                logger.warning("Groq greška (%s) → prelazim na Gemini", e)
+                if self.has_gemini():
                     yield from self._gemini_stream(messages, max_tokens)
                     return
                 raise
@@ -175,11 +177,13 @@ class LLMProvider:
             try:
                 return self._deepseek_complete(messages, max_tokens)
             except Exception as e:
-                if _is_rate_limit(e) and self.has_groq():
-                    logger.warning("DeepSeek 429 → prelazim na Groq (batch)")
-                    return self._groq_complete(messages, max_tokens, use_small_model)
-                elif _is_rate_limit(e) and self.has_gemini():
-                    logger.warning("DeepSeek greška → prelazim na Gemini (batch)")
+                logger.warning("DeepSeek greška (%s) → prelazim na fallback (batch)", e)
+                if self.has_groq():
+                    try:
+                        return self._groq_complete(messages, max_tokens, use_small_model)
+                    except Exception as e2:
+                        logger.warning("Groq greška (%s) → prelazim na Gemini (batch)", e2)
+                if self.has_gemini():
                     return self._gemini_complete(messages, max_tokens)
                 raise
 
@@ -187,8 +191,8 @@ class LLMProvider:
             try:
                 return self._groq_complete(messages, max_tokens, use_small_model)
             except Exception as e:
-                if _is_rate_limit(e) and self.has_gemini():
-                    logger.warning("Groq 429 → prelazim na Gemini (batch)")
+                logger.warning("Groq greška (%s) → prelazim na Gemini (batch)", e)
+                if self.has_gemini():
                     return self._gemini_complete(messages, max_tokens)
                 raise
 

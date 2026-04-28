@@ -585,7 +585,19 @@ class ZaglavljeService:
             data['obrazac_2'] = str(math.ceil(n_items / 3))
 
         # Rubrika 6 - Uk. paketa
-        data['uk_paketa'] = getattr(draft, 'uk_paketa', '') or ''
+        # Prioritet: suma package_qty iz naimenovanja -> suma kolicina iz faktura -> postojeća vrijednost
+        uk_paketa = (getattr(draft, 'uk_paketa', '') or '').strip()
+        if hasattr(draft, 'items') and draft.items:
+            total_qty = sum(getattr(item, 'package_qty', 0.0) or 0.0 for item in draft.items)
+            if total_qty > 0:
+                uk_paketa = f"{int(total_qty)}"
+                draft.uk_paketa = uk_paketa
+        if (not uk_paketa) and hasattr(draft, 'invoice_lines') and draft.invoice_lines:
+            total_qty_inv = sum(getattr(line, 'kolicina', 0.0) or 0.0 for line in draft.invoice_lines)
+            if total_qty_inv > 0:
+                uk_paketa = f"{int(total_qty_inv)}"
+                draft.uk_paketa = uk_paketa
+        data['uk_paketa'] = uk_paketa
 
         # Rubrika 7 - Ref.br.
         data['ref_br'] = getattr(draft, 'ref_br', '') or ''
@@ -697,6 +709,16 @@ class ZaglavljeService:
                     'code': 'N380',
                     'name': 'Faktura',
                     'number': ' | '.join(brojevi),
+                    'from_rule': True,
+                })
+
+        # Auto-dodaj PZT i N730 ako nisu prisutni — obavezne isprave u svakoj deklaraciji
+        for _code, _name in [('PZT', 'Zavisni troškovi'), ('N730', 'Tovarni list')]:
+            if not any(d.get('code') == _code for d in data['attached_documents']):
+                data['attached_documents'].append({
+                    'code': _code,
+                    'name': _name,
+                    'number': '',
                     'from_rule': True,
                 })
 
@@ -878,18 +900,45 @@ class ZaglavljeService:
         draft.identifikacija_skladista = safe_get('identifikacija_skladista')
 
         # Priložene isprave (header_attached_documents)
+        # Zaštita: obavezni i PE dokumenti iz postojećeg drafta se ne smiju izgubiti
         if 'attached_documents' in data and data['attached_documents']:
+            previous_docs = getattr(draft, 'header_attached_documents', []) or []
+            preserve_codes = {"VOZ", "PZT", "N730", "N380", "DIS", "DV1", "PE1", "PE2", "PE3"}
+            previous_map = {
+                (getattr(d, 'code', '') or '').strip(): d
+                for d in previous_docs
+                if (getattr(d, 'code', '') or '').strip()
+            }
+
+            docs_in = [d for d in data['attached_documents'] if isinstance(d, dict) and d.get('code')]
+            data_map = {(d.get('code') or '').strip(): d for d in docs_in if (d.get('code') or '').strip()}
+
+            for code in preserve_codes:
+                prev = previous_map.get(code)
+                cur = data_map.get(code)
+                if prev and not cur:
+                    docs_in.append({
+                        'code': prev.code,
+                        'name': prev.name,
+                        'number': prev.number,
+                        'from_rule': prev.from_rule,
+                    })
+                elif prev and cur:
+                    if prev.number and not (cur.get('number') or '').strip():
+                        cur['number'] = prev.number
+                    if prev.name and not (cur.get('name') or '').strip():
+                        cur['name'] = prev.name
+
             draft.header_attached_documents = []
-            for doc in data['attached_documents']:
-                if isinstance(doc, dict) and doc.get('code'):
-                    draft.header_attached_documents.append(
-                        AttachedDocument(
-                            code=doc.get('code', ''),
-                            name=doc.get('name', ''),
-                            number=doc.get('number', ''),
-                            from_rule=doc.get('from_rule', False),
-                        )
+            for doc in docs_in:
+                draft.header_attached_documents.append(
+                    AttachedDocument(
+                        code=doc.get('code', ''),
+                        name=doc.get('name', ''),
+                        number=doc.get('number', ''),
+                        from_rule=doc.get('from_rule', False),
                     )
+                )
         elif 'attached_documents' in data:
             # Eksplicitno prazna lista — očisti
             draft.header_attached_documents = []
@@ -1767,8 +1816,8 @@ class ZaglavljeService:
         # B) Šifre koje se mijenjaju za svaki uvoz moraju imati drugačiju referencu od importa
         #    (DIS=Dispozicija može ostati isti broj — isključen iz provjere promjene)
         #
-        # VOZ=Vozarina, OST=Posebna dokumenta, PZT=Potvrda o zdravstvenom pregledu,
-        # N380=Faktura komercijalna, DIS=Dispozicija, DV1=Prijava o carinskoj vrijednosti
+        # VOZ=Vozarina, OST=Posebna dokumenta, PZT=Zavisni troškovi,
+        # N730=Tovarni list, N380=Faktura komercijalna, DIS=Dispozicija, DV1=Prijava o carinskoj vrijednosti
         #
         # VOZ nije obavezna ako je paritet (Rb.20) jedan od Incoterms uslova gdje
         # je vozarina uključena u cijenu fakture: CIF, CIP, CFR, CPT, DAP, DPU, DDP.
@@ -1777,8 +1826,8 @@ class ZaglavljeService:
         _paritet = str(view_data.get("uslovi_kod", "")).strip().upper()
         _voz_obavezna = _paritet not in _INCOTERMS_VOZ_UKLJUCENA
 
-        OBAVEZNE_SIFRE = ["PZT", "N380", "DIS", "DV1"]
-        MORAJU_SE_PROMIJENITI = {"PZT", "N380", "DV1"}  # DIS isključen; OST nije obavezan
+        OBAVEZNE_SIFRE = ["PZT", "N730", "N380", "DIS", "DV1"]
+        MORAJU_SE_PROMIJENITI = {"PZT", "N730", "N380", "DV1"}  # DIS isključen; OST nije obavezan
         if _voz_obavezna:
             OBAVEZNE_SIFRE.insert(0, "VOZ")
             MORAJU_SE_PROMIJENITI.add("VOZ")

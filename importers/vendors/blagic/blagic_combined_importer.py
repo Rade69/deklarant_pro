@@ -97,72 +97,47 @@ def _validate_weights(
     total_neto_kg: float
 ) -> None:
     """
-    Validira težine iz Excel-a sa ukupnim težinama iz PDF-a.
+    Poredi sumu Excel stavki sa ukupnim PDF težinama (informativno).
 
-    VAŽNO: Excel ima težine po stavkama, PDF ima ukupne bruto/neto.
-    Ova funkcija SAMO UPOREĐUJE težine i prikazuje upozorenja - NE MIJENJA ih!
-
-    Args:
-        items: Stavke sa težinama iz Excel-a (bruto_kg i/ili neto_kg)
-        total_bruto_kg: Ukupna bruto iz PDF-a (Gross weight)
-        total_neto_kg: Ukupna neto iz PDF-a (Net weight)
+    NAPOMENA: Excel ima precizne decimalne težine po stavkama.
+    PDF ima zaokružene ukupne težine. Razlika je očekivana i NORMALNA.
+    ImportResult uvijek koristi Excel sume (preciznije za carinjenje).
+    WARNING se emituje samo za sumnjive razlike > 25%.
     """
     if not items:
-        logger.warning("⚠️  Nema stavki - preskačem validaciju težina")
         return
-
     if total_bruto_kg <= 0 and total_neto_kg <= 0:
-        logger.info("ℹ️  PDF nema ukupne težine - preskačem validaciju")
         return
 
-    # Validacija: Neto ne može biti veće od bruto (na PDF-u)
     if total_neto_kg > total_bruto_kg and total_bruto_kg > 0:
-        logger.error(f"❌ GREŠKA NA PDF-U: Neto ({total_neto_kg} kg) > Bruto ({total_bruto_kg} kg)!")
-        logger.error("   Ovo nije moguće! Provjerite PDF fakturu.")
+        logger.error(f"❌ PDF GREŠKA: Neto ({total_neto_kg} kg) > Bruto ({total_bruto_kg} kg) — provjerite PDF!")
         return
 
-    # Suma težina iz Excel-a
     excel_bruto_sum = sum(item.bruto_kg for item in items)
-    excel_neto_sum = sum(item.neto_kg for item in items)
+    excel_neto_sum  = sum(item.neto_kg  for item in items)
 
-    logger.info(f"📊 Validacija težina (Excel vs PDF):")
-    logger.info(f"   PDF ukupna bruto:  {total_bruto_kg:.2f} kg")
-    logger.info(f"   PDF ukupna neto:   {total_neto_kg:.2f} kg")
-    logger.info(f"   Excel suma bruto:  {excel_bruto_sum:.2f} kg")
-    logger.info(f"   Excel suma neto:   {excel_neto_sum:.2f} kg")
+    logger.info(
+        f"⚖️  Težine — Excel suma: {excel_bruto_sum:.3f} kg bruto / {excel_neto_sum:.3f} kg neto  |  "
+        f"PDF zaokruženo: {total_bruto_kg:.2f} kg bruto / {total_neto_kg:.2f} kg neto"
+    )
+    logger.info("   ✅ Koriste se Excel vrijednosti (precizne decimale po stavkama)")
 
-    if total_bruto_kg > 0 and total_neto_kg > 0:
-        logger.info(f"   Pakovanje (PDF):   {total_bruto_kg - total_neto_kg:.2f} kg ({(total_bruto_kg - total_neto_kg)/total_bruto_kg*100:.1f}%)")
+    # Upozori samo na sumnjivo veliku razliku (> 25%) koja može ukazivati na grešku
+    if total_bruto_kg > 0 and excel_bruto_sum > 0:
+        diff_pct = abs(excel_bruto_sum - total_bruto_kg) / total_bruto_kg * 100
+        if diff_pct > 25.0:
+            logger.warning(
+                f"⚠️  Velika razlika bruto: Excel {excel_bruto_sum:.3f} kg vs PDF {total_bruto_kg:.2f} kg "
+                f"({diff_pct:.1f}%) — provjerite da li su spareni pravi fajlovi!"
+            )
 
-    # VALIDACIJA BRUTO težina
-    if total_bruto_kg > 0:
-        bruto_diff = abs(excel_bruto_sum - total_bruto_kg)
-        bruto_diff_pct = (bruto_diff / total_bruto_kg * 100) if total_bruto_kg > 0 else 0
-
-        if bruto_diff_pct > 1.0:  # Tolerancija 1%
-            logger.warning(f"⚠️  UPOZORENJE: Excel bruto ({excel_bruto_sum:.2f} kg) ≠ PDF bruto ({total_bruto_kg:.2f} kg)")
-            logger.warning(f"   Razlika: {bruto_diff:.2f} kg ({bruto_diff_pct:.1f}%)")
-            logger.warning(f"   Provjerite Excel i PDF!")
-        elif bruto_diff > 0.1:  # Tolerancija 100g
-            logger.info(f"✅ Bruto OK (razlika: {bruto_diff:.3f} kg - prihvatljivo)")
-        else:
-            logger.info(f"✅ Bruto se TAČNO poklapa!")
-
-    # VALIDACIJA NETO težina (ako Excel ima neto)
     if total_neto_kg > 0 and excel_neto_sum > 0:
-        neto_diff = abs(excel_neto_sum - total_neto_kg)
-        neto_diff_pct = (neto_diff / total_neto_kg * 100) if total_neto_kg > 0 else 0
-
-        if neto_diff_pct > 1.0:  # Tolerancija 1%
-            logger.warning(f"⚠️  UPOZORENJE: Excel neto ({excel_neto_sum:.2f} kg) ≠ PDF neto ({total_neto_kg:.2f} kg)")
-            logger.warning(f"   Razlika: {neto_diff:.2f} kg ({neto_diff_pct:.1f}%)")
-            logger.warning(f"   Provjerite Excel i PDF!")
-        elif neto_diff > 0.1:  # Tolerancija 100g
-            logger.info(f"✅ Neto OK (razlika: {neto_diff:.3f} kg - prihvatljivo)")
-        else:
-            logger.info(f"✅ Neto se TAČNO poklapa!")
-    elif excel_neto_sum == 0:
-        logger.info(f"ℹ️  Excel nema neto težine - korisnik će ih ručno popuniti")
+        diff_pct = abs(excel_neto_sum - total_neto_kg) / total_neto_kg * 100
+        if diff_pct > 25.0:
+            logger.warning(
+                f"⚠️  Velika razlika neto: Excel {excel_neto_sum:.3f} kg vs PDF {total_neto_kg:.2f} kg "
+                f"({diff_pct:.1f}%) — provjerite da li su spareni pravi fajlovi!"
+            )
 
 
 def combine_blagic_excel_and_pdf(
@@ -186,7 +161,8 @@ def combine_blagic_excel_and_pdf(
     # ========================================
     # STEP 1: Učitaj Excel kao MAPPING
     # ========================================
-    excel_result = parse_blagic_loren_excel(excel_path)
+    # _skip_pdf_lookup=True jer PDF obrađujemo posebno u STEP 2 — izbjegavamo duplo otvaranje
+    excel_result = parse_blagic_loren_excel(excel_path, _skip_pdf_lookup=True)
 
     # Kreiraj mapping: product_code → InvoiceLine (sa tarifom, zemljom, itd.)
     excel_mapping: Dict[str, InvoiceLine] = {}
@@ -324,6 +300,21 @@ def combine_blagic_excel_and_pdf(
     # ========================================
     # STEP 4: Stats
     # ========================================
+    # Koristimo sumu Excel stavki jer je preciznija od zaokruženih PDF vrijednosti.
+    # PDF ima cijele kg (npr. 451 kg), Excel ima decimale po stavkama (npr. 463.52 kg).
+    excel_bruto_sum = sum(item.bruto_kg for item in combined_items)
+    excel_neto_sum  = sum(item.neto_kg  for item in combined_items)
+
+    # Ako Excel nema neto po stavkama, padni na PDF vrijednost
+    final_bruto = excel_bruto_sum if excel_bruto_sum > 0 else pdf_result.bruto_kg
+    final_neto  = excel_neto_sum  if excel_neto_sum  > 0 else pdf_result.neto_kg
+
+    if pdf_result.bruto_kg > 0 and abs(excel_bruto_sum - pdf_result.bruto_kg) > 0.5:
+        logger.info(
+            f"ℹ️  Težine: Excel suma ({excel_bruto_sum:.3f} kg bruto) korišćena umjesto "
+            f"zaokružene PDF vrijednosti ({pdf_result.bruto_kg:.2f} kg)"
+        )
+
     stats = {
         "excel_items": len(excel_result.items),
         "pdf_items": len(pdf_result.items),
@@ -332,8 +323,10 @@ def combine_blagic_excel_and_pdf(
         "unmatched_codes": unmatched_codes,
         "total_combined": len(combined_items),
         "invoice_name": pdf_result.invoice_name,
-        "bruto_kg": pdf_result.bruto_kg,
-        "neto_kg": pdf_result.neto_kg,
+        "bruto_kg": final_bruto,
+        "neto_kg": final_neto,
+        "bruto_kg_pdf": pdf_result.bruto_kg,   # za referencu
+        "neto_kg_pdf": pdf_result.neto_kg,      # za referencu
         "currency": pdf_result.currency,
         "has_origin_statement": pdf_result.has_origin_statement,
         "origin_statements": pdf_result.origin_statements,
