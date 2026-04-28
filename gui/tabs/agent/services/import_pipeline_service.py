@@ -324,7 +324,9 @@ def _apply_eur1_to_naimenovanja(ctrl, eur1_data: dict, chat) -> None:
         eur1_num = (data.get('eur1_number') or '').strip()
         preference = (data.get('preference') or '').strip()
         has_stmt = data.get('has_origin_statement', False)
-        doc_code = "PE2" if has_stmt else "PE1"
+        doc_code = (data.get('code') or '').strip().upper()
+        if doc_code not in {"PE1", "PE2", "PE3"}:
+            doc_code = "PE2" if has_stmt else "PE1"
         doc44 = f"{doc_code} {eur1_num}".strip()
 
         for item in ctrl.draft.items:

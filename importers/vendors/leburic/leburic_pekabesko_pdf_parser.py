@@ -27,6 +27,7 @@ import logging
 import re
 from pathlib import Path
 from typing import Optional
+from types import SimpleNamespace
 
 from core.draft.draft import InvoiceLine, Party
 from importers.import_result import ImportResult
@@ -98,6 +99,88 @@ def _clean_tariff(raw: str) -> str:
         # Možda su izgubljene vodeće nule — ne dodaj automatski
         pass
     return s
+
+
+def _normalize_tariff_length(tariff: str) -> str:
+    s = re.sub(r"[^\d]", "", tariff or "")
+    if not s:
+        return ""
+    if len(s) == 11:
+        if s.startswith("1") and s[1:3] in {"02", "16"}:
+            s = s[1:]
+        elif s[:2] in {"02", "16"}:
+            s = s[:10]
+    elif len(s) > 11:
+        if "160" in s:
+            i = s.find("160")
+            s = s[i:i + 10]
+        elif "021" in s:
+            i = s.find("021")
+            s = s[i:i + 10]
+        else:
+            s = s[:10]
+    return s
+
+
+def _extract_tariff_from_row(row_words: list[dict], tariff_words: list[dict], barcode_words: list[dict]) -> str:
+    tariff_raw = " ".join(w["text"] for w in tariff_words).strip()
+    tariff_parts = [t for t in tariff_raw.split() if len(re.findall(r"\d", t)) >= 4]
+    tariff = _clean_tariff(" ".join(tariff_parts)) if tariff_parts else ""
+    tariff = _normalize_tariff_length(tariff)
+    if tariff:
+        return tariff
+
+    # Fallback: OCR često spoji barcode + tarifu (npr. 5310...|1601009900)
+    for w in barcode_words + row_words:
+        text = w.get("text", "")
+        for candidate in re.findall(r"(?:\d[\d\|=]{7,14}\d)", text):
+            digits = re.sub(r"[^\d]", "", candidate)
+            if len(digits) < 8 or len(digits) > 13:
+                continue
+            if digits.startswith("5310"):  # EAN barcode prefix
+                continue
+            if "160" in digits:
+                i = digits.find("160")
+                t = _normalize_tariff_length(digits[i:i + 11])
+                if len(t) >= 8:
+                    return t
+            if "021" in digits:
+                i = digits.find("021")
+                t = _normalize_tariff_length(digits[i:i + 11])
+                if len(t) >= 8:
+                    return t
+    return ""
+
+
+def _extract_item_code(item_code_str: str) -> str:
+    # OCR često daje "6/160917" (redni broj + stvarna šifra artikla)
+    m = re.match(r"^\s*\d+\s*/\s*(\d{5,6})", item_code_str)
+    if m:
+        code = m.group(1)
+        if len(code) == 6 and code.startswith("1"):
+            return code[1:]
+        return code
+
+    # Normalizuj OCR artefakte: "603:13" → "60313", "60/85" → "60785"
+    # "/" je OCR za "7" (ne "4") u Pekabesko kodovima
+    item_code_clean = item_code_str.replace("/", "7")
+    item_code_clean = re.sub(r"[:\\;]", "", item_code_clean)
+
+    # Šifra mora imati bar 5 cifara i ne smije počinjati s 0
+    if not re.search(r"[1-9]\d{4}", item_code_clean):
+        return ""
+
+    # Pekabesko kodovi počinju sa "6" → prednostna pretraga
+    # Na stranici 2 OCR spaja redni broj + šifru: "10160835" = red 10 + šifra 60835
+    m_code = re.search(r"(6\d{4,5})", item_code_clean)
+    if not m_code:
+        m_code = re.search(r"([1-9]\d{4,5})", item_code_clean)
+    if not m_code:
+        return ""
+    item_code = m_code.group(1)
+    if len(item_code) > 6:
+        item_code = item_code[-6:]
+    return item_code
 
 
 def _clean_number(raw: str) -> Optional[float]:
@@ -297,6 +380,16 @@ def parse_leburic_pekabesko_pdf(pdf_path: str) -> ImportResult:
     logger.info(f"  Izvoznik: {exporter.name if exporter else '—'} | "
                 f"Uvoznik: {importer.name if importer else '—'}")
 
+    origin_statements = _detect_origin_statements_robust(full_text)
+    has_origin_statement = bool(origin_statements)
+    is_authorized_exporter = any(
+        getattr(s, "tip_izjave", "") == "ovlaseni_izvoznik" for s in origin_statements
+    )
+    logger.info(
+        f"  Izjava o porijeklu: {'DA' if has_origin_statement else 'NE'} | "
+        f"ovlasteni izvoznik: {'DA' if is_authorized_exporter else 'NE'}"
+    )
+
     # ── 2. FOOTER: bruto, neto, zemlja ──────────────────────────────
 
     m = _BRUTO_RE.search(full_text)
@@ -381,47 +474,26 @@ def parse_leburic_pekabesko_pdf(pdf_path: str) -> ImportResult:
         barcode_words    = [w for w in row_words if _in_col(w, _COL_BARCODE)]
         tariff_words     = [w for w in row_words if _in_col(w, _COL_TARIFF)]
         neto_words       = [w for w in row_words if _in_col(w, _COL_NETO_KGR)]
+        packets_words    = [w for w in row_words if _in_col(w, _COL_PACKETS)]
         qty_unit_words   = [w for w in row_words if _in_col(w, _COL_QTY_UNIT)]
         price_words      = [w for w in row_words if _in_col(w, _COL_PRICE)]
         total_eur_words  = [w for w in row_words if _in_col(w, _COL_TOTAL_EUR)]
 
         # Item code mora biti 5 cifara (Pekabesko format)
         item_code_str = " ".join(w["text"] for w in item_code_words).strip()
-        # Normalizuj OCR artefakte: "603:13" → "60313", "60/85" → "60785"
-        # "/" je OCR za "7" (ne "4") u Pekabesko kodovima
-        item_code_clean = item_code_str.replace("/", "7")
-        item_code_clean = re.sub(r"[:\\;]", "", item_code_clean)
-
-        # Šifra mora imati bar 5 cifara i ne smije počinjati s 0
-        if not re.search(r"[1-9]\d{4}", item_code_clean):
+        item_code = _extract_item_code(item_code_str)
+        if not item_code:
             continue
-
-        # Pekabesko kodovi počinju sa "6" → prednostna pretraga
-        # Na stranici 2 OCR spaja redni broj + šifru: "10160835" = red 10 + šifra 60835
-        m_code = re.search(r"(6\d{4,5})", item_code_clean)
-        if not m_code:
-            m_code = re.search(r"([1-9]\d{4,5})", item_code_clean)
-        if not m_code:
-            continue
-        item_code = m_code.group(1)
-        # Obreži na max 6 cifara (OCR može spojiti redni broj ispred)
-        if len(item_code) > 6:
-            item_code = item_code[-6:]
 
         # Tarifni broj (OCR — može biti neprecizan)
-        tariff_raw = " ".join(w["text"] for w in tariff_words).strip()
-        # Filtriraj jedinice mjere (qr, gr, kgr...); tariff mora imati ukupno ≥4 cifre
-        tariff_parts = [
-            t for t in tariff_raw.split()
-            if len(re.findall(r"\d", t)) >= 4
-        ]
-        tariff = _clean_tariff(" ".join(tariff_parts)) if tariff_parts else ""
+        tariff = _extract_tariff_from_row(row_words, tariff_words, barcode_words)
 
         # Naziv robe i Excel override: Excel > PDF > prazan string
         desc_words = [w for w in row_words if _in_col(w, _COL_DESC)]
-        pdf_naziv = _extract_desc(desc_words)
+        pdf_naziv = _extract_desc_from_row(item_code_words, desc_words)
         excel_entry = excel_data.get(item_code, {})
         naziv = excel_entry.get("naziv") or pdf_naziv
+        naziv = _normalize_product_name(naziv)
         # Tarifa iz Excel-a pouzdanija nego OCR (npr. "1601009100" vs "0601009100")
         if excel_entry.get("tariff"):
             tariff = excel_entry["tariff"]
@@ -430,9 +502,20 @@ def parse_leburic_pekabesko_pdf(pdf_path: str) -> ImportResult:
         neto_raw = " ".join(w["text"] for w in neto_words).strip()
         neto_item = _parse_neto_kgr(neto_raw)
 
+        # Količina paketa (Packets kolona)
+        packets_raw = " ".join(w["text"] for w in packets_words).strip()
+        packets = _parse_packets(packets_raw)
+
         # Količina u jedinici mjere (Qty in Unit of measure)
         qty_raw = " ".join(w["text"] for w in qty_unit_words).strip()
         qty = _parse_qty(qty_raw)
+        if packets > 0.0:
+            # Fallback: Qty nije čitljiv
+            if qty <= 0.0:
+                qty = packets
+            # OCR anomalija: Qty često "pobjegne" x5-x20 naspram Pakets kolone
+            elif qty >= packets * 3:
+                qty = packets
 
         # Cijena po jedinici mjere
         price_raw = " ".join(w["text"] for w in price_words).strip()
@@ -450,7 +533,7 @@ def parse_leburic_pekabesko_pdf(pdf_path: str) -> ImportResult:
         line_no += 1
         logger.debug(
             f"  Stavka {line_no}: code={item_code}, tariff={tariff}, "
-            f"qty={qty:.3f}, cijena={cijena:.3f}, neto={neto_item:.3f}kg, EUR={total_eur:.3f}"
+            f"qty={qty:.3f}, packets={packets:.3f}, cijena={cijena:.3f}, neto={neto_item:.3f}kg, EUR={total_eur:.3f}"
         )
 
         line = InvoiceLine(
@@ -467,6 +550,8 @@ def parse_leburic_pekabesko_pdf(pdf_path: str) -> ImportResult:
             valuta="EUR",
             bruto_kg=0.0,         # ukupni bruto je u ImportResult
             neto_kg=neto_item,
+            has_origin_statement=has_origin_statement,
+            is_authorized_exporter=is_authorized_exporter,
         )
         if exporter:
             line.exporter = exporter
@@ -486,6 +571,9 @@ def parse_leburic_pekabesko_pdf(pdf_path: str) -> ImportResult:
         invoice_name=invoice_number,
         currency="EUR",
         import_type="leburic_pekabesko",
+        has_origin_statement=has_origin_statement,
+        is_authorized_exporter=is_authorized_exporter,
+        origin_statements=origin_statements,
         exporter=exporter,
         importer=importer,
     )
@@ -530,6 +618,65 @@ def _extract_parties(full_text: str) -> tuple[Optional[Party], Optional[Party]]:
     return exporter, importer
 
 
+def _detect_origin_statements_robust(full_text: str) -> list:
+    try:
+        from services.tariff.origin_statement_detector import OriginStatementDetector
+        detector = OriginStatementDetector()
+        matches = detector.detect_all_in_text(full_text)
+        if matches:
+            return matches
+    except Exception:
+        pass
+
+    normalized = full_text
+    replacements = {
+        "Theexporter": "The exporter",
+        "ofthe": "of the",
+        "bythis": "by this",
+        "customsauthorization": "customs authorization",
+        "exceptwhere": "except where",
+        "indicated,these": "indicated, these",
+        "Macedonianpreferential": "Macedonian preferential",
+        "appliedwithEU": "applied with EU",
+    }
+    for src, dst in replacements.items():
+        normalized = normalized.replace(src, dst)
+
+    try:
+        from services.tariff.origin_statement_detector import OriginStatementDetector
+        detector = OriginStatementDetector()
+        matches = detector.detect_all_in_text(normalized)
+        if matches:
+            return matches
+    except Exception:
+        pass
+
+    # Fallback regex tolerantan na OCR bez razmaka: "Theexporter ... customsauthorization No. MK/153/2020 ... preferential origin"
+    compact = re.sub(r"\s+", "", full_text)
+    m = re.search(
+        r"theexporteroftheproductscoveredbythisdocument"
+        r"\(customsauthorizationno\.?(?P<broj>[A-Z0-9/\-]+)\)"
+        r"declaresthat,?exceptwhereotherwiseclearlyindicated,?"
+        r"theseproductsareof(?P<origin>[A-Za-z]+)preferentialorigin",
+        compact,
+        re.IGNORECASE,
+    )
+    if m:
+        return [
+            SimpleNamespace(
+                jezik="english",
+                tip_izjave="ovlaseni_izvoznik",
+                origin_country=m.group("origin").upper(),
+                authorization_number=m.group("broj"),
+                full_text="",
+                confidence=0.8,
+                text_position=0,
+                item_range=None,
+            )
+        ]
+    return []
+
+
 # ──────────────────────────────────────────────────────────────────
 # Pomoćne funkcije za parsiranje
 # ──────────────────────────────────────────────────────────────────
@@ -547,11 +694,100 @@ def _extract_desc(desc_words: list[dict]) -> str:
     Filtrira OCR artefakte — prihvata samo riječi s bar 2 slova.
     Ako nema ništa čitljivo, vrać prazan string.
     """
-    words = [
-        w["text"] for w in desc_words
-        if len(re.sub(r"[^a-zA-ZšđčćžŠĐČĆŽäöüÄÖÜ]", "", w["text"])) >= 2
-    ]
+    words = []
+    for w in desc_words:
+        tok = re.sub(r"^[^\wšđčćžŠĐČĆŽäöüÄÖÜ]+|[^\wšđčćžŠĐČĆŽäöüÄÖÜ]+$", "", w["text"])
+        if len(re.sub(r"[^a-zA-ZšđčćžŠĐČĆŽäöüÄÖÜ]", "", tok)) >= 2:
+            words.append(tok)
     return " ".join(words).strip()
+
+
+def _extract_desc_from_row(item_code_words: list[dict], desc_words: list[dict]) -> str:
+    base_desc = _extract_desc(desc_words)
+    extra_desc = ""
+
+    item_text = " ".join(w["text"] for w in item_code_words).strip()
+    if item_text:
+        stripped = re.sub(r"^\s*\d+\s*/\s*\d{5,6}[.\-_:|]*", "", item_text)
+        stripped = re.sub(r"^\s*\d+\|\s*\d{5,6}[.\-_:|]*", "", stripped)
+        stripped = re.sub(r"^\s*\d+\s+\d{5,6}[.\-_:|]*", "", stripped)
+        stripped = re.sub(r"^\s*\d{6,8}[.\-_:|]*", "", stripped)
+        stripped = re.sub(r"^\s*\d+[.\-_:|]+", "", stripped)
+        stripped = stripped.strip()
+        if stripped:
+            clean = re.sub(r"[|=]+", " ", stripped)
+            clean = re.sub(r"\s+", " ", clean).strip()
+            if clean:
+                extra_desc = clean
+
+    # Ako već imamo solidan naziv iz desc kolone, item tail koristi samo kao dopunu
+    if base_desc and extra_desc:
+        base_l = base_desc.lower()
+        extra_l = extra_desc.lower()
+        if extra_l in base_l:
+            merged_text = base_desc
+        elif base_l in extra_l and len(extra_desc) >= len(base_desc):
+            merged_text = extra_desc
+        else:
+            merged_text = f"{extra_desc} {base_desc}"
+    else:
+        merged_text = base_desc or extra_desc
+
+    desc_tokens = merged_text.split()
+    seen: set[str] = set()
+    merged: list[str] = []
+    for tok in desc_tokens:
+        tok = re.sub(r"^[^\wšđčćžŠĐČĆŽäöüÄÖÜ]+|[^\wšđčćžŠĐČĆŽäöüÄÖÜ]+$", "", tok)
+        if not tok:
+            continue
+        key = tok.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.append(tok)
+    return " ".join(merged).strip()
+
+
+def _normalize_product_name(name: str) -> str:
+    if not name:
+        return ""
+    s = re.sub(r"[|=]+", " ", name)
+    s = re.sub(r"\s+", " ", s).strip()
+
+    # Najčešći OCR spojevi na Leburic/Pekabesko fakturama
+    fixes = [
+        (r"(?i)\bPilecaPicasunka\b", "Pileca Picasunka"),
+        (r"(?i)\bPilecaekstra\b", "Pileca ekstra"),
+        (r"(?i)\bPilecavirsla\b", "Pileca virsla"),
+        (r"(?i)\bkolbaspiknik\b", "kolbas piknik"),
+        (r"(?i)\bslajsMAP\b", "slajs MAP"),
+        (r"(?i)\bumrezavakum\b", "u mreza vakum"),
+        (r"(?i)\buomotacu\b", "u omotacu"),
+        (r"(?i)\bpremiumkobasica\b", "premium kobasica"),
+        (r"(?i)\bDimjenapecenica\b", "Dimljena pecenica"),
+        (r"(?i)\bDimjenaplecka\b", "Dimljena plecka"),
+        (r"(?i)\bCajnikolbasrefus\b", "Cajni kolbas refus"),
+        (r"(?i)\bCaen\b", "Cajni"),
+        (r"(?i)\bGoldpilecefile\b", "Gold pilece file"),
+        (r"(?i)\bGoldsunka\b", "Gold sunka"),
+        (r"(?i)\bslajs100g\b", "slajs 100 g"),
+        (r"(?i)\bkolbas295grvakum\b", "kolbas 295 gr vakum"),
+    ]
+    for pattern, repl in fixes:
+        s = re.sub(pattern, repl, s)
+
+    # Generic cleanup: spojevi slova+brojeva+jedinica
+    s = re.sub(r"(?i)([A-Za-zšđčćžŠĐČĆŽ])(\d{2,4}gr)\b", r"\1 \2", s)
+    s = re.sub(r"(?i)\b(\d{2,4})(gr|kg|g)\b", r"\1 \2", s)
+    s = re.sub(r"(?i)\b(vak)(\d{2,4}g)\b", r"\1.\2", s)
+
+    # OCR dupli prefiks na pocetku (npr. PPileci -> Pileci)
+    s = re.sub(r"(?i)^PPile", "Pile", s)
+
+    # Ukloni vodece artefakte
+    s = re.sub(r"^[^A-Za-z0-9šđčćžŠĐČĆŽ]+", "", s)
+    s = re.sub(r"\s+", " ", s).strip()
+    return s
 
 
 def _load_excel_data(pdf_path: str, pdf_invoice_number: str = "") -> dict[str, dict]:
@@ -682,6 +918,25 @@ def _parse_qty(raw: str) -> float:
 
     digits = re.sub(r"[^\d]", "", s_clean)
     return _apply_qty_decimal(digits)
+
+
+def _parse_packets(raw: str) -> float:
+    s = raw.strip()
+    if not s:
+        return 0.0
+    s = s.translate(_NUM_OCR)
+    s = _LEADING_TRASH.sub("", s)
+    s = _TRAILING_TRASH.sub("", s)
+    if not s:
+        return 0.0
+    s = s.replace(",", ".")
+    m = re.search(r"\d+(?:\.\d+)?", s)
+    if not m:
+        return 0.0
+    try:
+        return float(m.group(0))
+    except ValueError:
+        return 0.0
 
 
 def _apply_qty_decimal(digits: str) -> float:

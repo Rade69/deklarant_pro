@@ -62,15 +62,16 @@ def group_invoice_lines(
         gross = _sum(lines, "bruto_kg")
         net = _sum(lines, "neto_kg")
 
-        # Rb.44 dokument porijekla: PE2 = izjava na fakturi, PE1 = EUR.1 obrazac
+        # Rb.44 dokument porijekla: PE3 = ovlašteni izvoznik, PE2 = izjava, PE1 = EUR.1
         first_ln = lines[0]
         eur1_nums = {getattr(ln, 'eur1_number', '') or '' for ln in lines}
         eur1_nums.discard('')
         eur1_num = eur1_nums.pop() if len(eur1_nums) == 1 else ''
         has_stmt = getattr(first_ln, 'has_origin_statement', False)
+        is_auth = getattr(first_ln, 'is_authorized_exporter', False)
         doc44 = ""
         if pref:
-            doc_code = "PE2" if has_stmt else "PE1"
+            doc_code = "PE3" if (has_stmt and is_auth) else ("PE2" if has_stmt else "PE1")
             doc44 = f"{doc_code} {eur1_num}".strip()
 
         it = NaimenovanjeDraft(

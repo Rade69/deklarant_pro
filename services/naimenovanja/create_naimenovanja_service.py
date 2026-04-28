@@ -280,12 +280,14 @@ class CreateNaimenovanjaService:
 
         # Odredi kod dokumenta porijekla
         # PE1 = EUR.1 obrazac (nema izjave na fakturi)
-        # PE2 = Izjava o porijeklu na fakturi (has_origin_statement)
+        # PE2 = Izjava o porijeklu na fakturi
+        # PE3 = Izjava ovlaštenog izvoznika
         pov_group = first_line.povlastica or ''
         has_stmt_group = getattr(first_line, 'has_origin_statement', False)
+        is_auth_group = getattr(first_line, 'is_authorized_exporter', False)
         doc_code = ""
         if pov_group:
-            doc_code = "PE2" if has_stmt_group else "PE1"
+            doc_code = "PE3" if (has_stmt_group and is_auth_group) else ("PE2" if has_stmt_group else "PE1")
 
         naimenovanje = NaimenovanjeDraft(
             item_id=str(uuid.uuid4()),
