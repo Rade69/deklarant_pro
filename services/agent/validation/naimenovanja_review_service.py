@@ -199,15 +199,20 @@ class NaimenovanjaReviewService:
             prazne_opcione: List[str] = []
 
             for rubrika, info in _RUBRIKE_CONFIG.items():
-                for fld in info['fields']:
-                    val = getattr(item, fld, None)
-                    if val is None or val == '' or val == 0:
-                        prazne_obavezne.append(f"{rubrika} ({fld})")
+                label = info.get('label', rubrika)
+                missing_required = any(
+                    (getattr(item, fld, None) in (None, '', 0))
+                    for fld in info['fields']
+                )
+                if missing_required:
+                    prazne_obavezne.append(f"{rubrika} — {label}")
 
-                for fld in info['optional']:
-                    val = getattr(item, fld, None)
-                    if val is None or val == '' or val == 0:
-                        prazne_opcione.append(f"{rubrika} ({fld})")
+                missing_optional = any(
+                    (getattr(item, fld, None) in (None, '', 0))
+                    for fld in info['optional']
+                )
+                if missing_optional:
+                    prazne_opcione.append(f"{rubrika} — {label}")
 
             total_praznih_obaveznih += len(prazne_obavezne)
             total_praznih_opcionih += len(prazne_opcione)

@@ -276,8 +276,7 @@ def _execute_tool(ctrl, name: str, args: dict) -> None:
             ctrl._predlozi_tarifne_brojeve()
 
     elif name == "provjeri_tarife":
-        # Koristi postojeći _provjeri_tarifne_brojeve() koji ide kroz IntentClassifier
-        _provjeri_naimenovanja(ctrl)
+        _prikaz_tarifnih_trenutnih(ctrl)
 
     elif name == "pretrazi_tarifu":
         naziv = args.get("naziv", "")
@@ -947,21 +946,20 @@ def _provjeri_naimenovanja(ctrl) -> None:
 
     linije = []
     for p in result['problemi']:
-        ob_str = ", ".join(p.prazne_obavezne) if p.prazne_obavezne else "—"
-        op_str = ", ".join(p.prazne_opcione) if p.prazne_opcione else "—"
         status = "❌" if p.prazne_obavezne else "⚠️"
-        linije.append(
-            f"{status} <b>Rb.{p.ordinal_no}</b> (tarifa: {p.tariff_code})<br>"
-            f"&nbsp;&nbsp;Obavezne: {ob_str}<br>"
-            f"&nbsp;&nbsp;Opcione: {op_str}"
-        )
+        tarif = p.tariff_code if p.tariff_code and p.tariff_code != '?' else "nema tarife"
+        red = [f"{status} <b>Naim. {p.ordinal_no}</b> (tarifa: {tarif})"]
+        if p.prazne_obavezne:
+            red.append(f"&nbsp;&nbsp;Nedostaje: {', '.join(p.prazne_obavezne)}")
+        if p.prazne_opcione:
+            red.append(f"&nbsp;&nbsp;Opciono prazno: {', '.join(p.prazne_opcione)}")
+        linije.append("<br>".join(red))
 
     chat.add_agent_message(
-        f"📋 <b>Provjera naimenovanja — rezime:</b><br><br>"
-        f"Ukupno naimenovanja: <b>{result['total_naim']}</b><br>"
-        f"Praznih obaveznih polja: <b style='color:red'>{result['total_praznih_obaveznih']}</b><br>"
-        f"Praznih opcionih polja: <b style='color:orange'>{result['total_praznih_opcionih']}</b><br><br>"
-        f"<b>Detalji po naimenovanjima:</b><br><br>"
+        f"📋 <b>Provjera popunjenosti naimenovanja:</b><br><br>"
+        f"Ukupno: <b>{result['total_naim']}</b> | "
+        f"Obaveznih rubrika prazno: <b style='color:red'>{result['total_praznih_obaveznih']}</b> | "
+        f"Opcionih prazno: <b style='color:orange'>{result['total_praznih_opcionih']}</b><br><br>"
         + "<br><br>".join(linije)
     )
 
