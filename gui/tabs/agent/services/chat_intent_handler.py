@@ -1,12 +1,16 @@
 """
 Chat Intent Handler
 
-Logika za obradu chat poruka u agentu: keyword detekcija, routing na akcije
-(tarifni, pretraga tarife, naimenovanja, compliance, spajanje) i LLM fallback.
+Logika za obradu chat poruka u agentu: Tool Use routing (primarni),
+keyword detekcija (fallback), i LLM chat.
+
+📄 docs/decisions/001-tool-use-refactoring.md
+   docs/decisions/002-tool-dispatcher-integration.md
 
 Premješteno iz agent_controller.py radi smanjenja veličine controllera.
 """
 
+import json
 import re
 import logging
 
@@ -115,15 +119,23 @@ _REDNI = {
 
 
 class ChatIntentHandler:
-    """Upravljanje chat porukom — keyword routing i LLM fallback."""
+    """Upravljanje chat porukom — Tool Use routing (primarni) + keyword fallback."""
 
     def __init__(self, controller):
         self._ctrl = controller
+        self._dispatcher_workers = []  # ToolDispatcherWorker instances
 
     # ── Javni API ────────────────────────────────────────────────────
 
     def handle_message(self, message: str) -> None:
         _handle_message(self._ctrl, message)
+
+    # ── Tool Execution ───────────────────────────────────────────────
+    # Vidi: docs/decisions/002-tool-dispatcher-integration.md
+
+    def execute_tool(self, name: str, args: dict) -> None:
+        """Izvrši tool call — mapira alat na postojeći servis."""
+        _execute_tool(self._ctrl, name, args)
 
     def alternativni_tarifni_za_stavku(self, item_query: str = "",
                                         item_ordinal: int = None,
@@ -171,7 +183,14 @@ class ChatIntentHandler:
 
 
 def _handle_message(ctrl, message: str) -> None:
+    """
+    Primarni entry point za chat poruke.
+    Flow: injection → pending → Tool Use (DeepSeek) → regex fallback → ChatWorker.
+
+    📄 docs/decisions/002-tool-dispatcher-integration.md
+    """
     from gui.tabs.agent.widgets.chat_worker import ChatWorker, check_injection
+    from services.agent.chat.tool_dispatcher import ToolDispatcherWorker
 
     chat = ctrl.view.get_chat_panel()
 
@@ -180,20 +199,176 @@ def _handle_message(ctrl, message: str) -> None:
         chat.add_agent_message(blocked)
         return
 
-    msg = message.lower().strip()
+    msg_lower = message.lower().strip()
 
     # --- POTVRDA pending akcije ---
     POTVRDE = {'da', 'odobri', 'potvrdi', 'yes', 'ok', 'u redu', 'slažem se'}
     OTKAZI = {'ne', 'odustani', 'cancel', 'no', 'storno'}
 
     if ctrl._pending_action:
-        if msg in POTVRDE or msg.startswith('da ') or msg.startswith('odobr'):
+        if msg_lower in POTVRDE or msg_lower.startswith('da ') or msg_lower.startswith('odobr'):
             ctrl._execute_pending_action()
             return
-        if msg in OTKAZI:
+        if msg_lower in OTKAZI:
             ctrl._pending_action = None
             chat.add_agent_message("❌ Akcija otkazana.")
             return
+
+    # ═══════════════════════════════════════════════════════════════
+    # Faza 2: Tool Use routing (PRIMARNI) — DeepSeek bira alat
+    # Ako uspije → izvrši alat i gotovo
+    # Ako fallback_to_chat → ChatWorker
+    # Ako error → regex fallback (_handle_message_regex_fallback)
+    # ═══════════════════════════════════════════════════════════════
+    # Vidi: docs/decisions/001-tool-use-refactoring.md
+
+    dispatcher = ToolDispatcherWorker(message, parent=ctrl.view)
+
+    def _on_tool_call(name: str, args: dict):
+        logger.debug(f"[ToolUse] → {name}({args})")
+        _execute_tool(ctrl, name, args)
+
+    def _on_fallback(text: str):
+        logger.debug(f"[ToolUse] → fallback to ChatWorker")
+        _start_chat_worker(ctrl, message)
+
+    def _on_error(err: str):
+        logger.warning(f"[ToolUse] Error, falling back to regex: {err}")
+        chat.add_activity(f"⚠️ Tool use nedostupan, koristim fallback...")
+        _handle_message_regex_fallback(ctrl, message)
+
+    dispatcher.tool_call_received.connect(_on_tool_call)
+    dispatcher.fallback_to_chat.connect(_on_fallback)
+    dispatcher.error_occurred.connect(_on_error)
+    dispatcher.finished.connect(dispatcher.deleteLater)
+
+    # Drži referencu da GC ne počisti
+    if not hasattr(ctrl, '_tool_dispatchers'):
+        ctrl._tool_dispatchers = []
+    ctrl._tool_dispatchers.append(dispatcher)
+    dispatcher.finished.connect(
+        lambda: ctrl._tool_dispatchers.remove(dispatcher)
+        if dispatcher in ctrl._tool_dispatchers else None
+    )
+
+    chat.add_activity("🤔 Analiziram upit...")
+    dispatcher.start()
+    # Kraj Tool Use bloka — ostatak _handle_message se NE izvršava
+    return
+
+
+# ── Tool execution (mapira tool → servis) ────────────────────────────
+# Vidi: docs/decisions/002-tool-dispatcher-integration.md#execute_tool-mapiranje
+
+def _execute_tool(ctrl, name: str, args: dict) -> None:
+    """
+    Izvrši tool call pozivom postojećeg servisa.
+    Svaki tool mapira na postojeću funkciju/metodu.
+    """
+    chat = ctrl.view.get_chat_panel()
+
+    if name == "predlozi_tarife":
+        filter_kw = args.get("filter", "")
+        if filter_kw:
+            # Vidi: services/agent/chat/tariff_intent_service.py → propose_by_keyword()
+            ctrl.tariff_svc.propose_by_keyword(filter_kw)
+        else:
+            ctrl._predlozi_tarifne_brojeve()
+
+    elif name == "provjeri_tarife":
+        # Koristi postojeći _provjeri_tarifne_brojeve() koji ide kroz IntentClassifier
+        _provjeri_naimenovanja(ctrl)
+
+    elif name == "pretrazi_tarifu":
+        naziv = args.get("naziv", "")
+        if naziv:
+            _pretrazi_tarifu(ctrl, naziv)
+        else:
+            chat.add_agent_message("⚠️ Navedi naziv proizvoda za pretragu tarife.")
+
+    elif name == "validuj_deklaraciju":
+        _compliance_check(ctrl)
+
+    elif name == "prikazi_naimenovanja":
+        _pregledaj_naimenovanja(ctrl)
+
+    elif name == "upisi_u_kolonu":
+        kolona = args.get("kolona", "")
+        vrijednost = args.get("vrijednost", "")
+        tab = args.get("tab", "faktura")
+
+        if not kolona or not vrijednost:
+            chat.add_agent_message("⚠️ Navedi kolonu i vrijednost za upis.")
+            return
+
+        # Koristi NaimenovanjaIntentService._resolve_kolona za mapiranje
+        svc = ctrl.naim_intent_svc
+        atribut, resolved_tab = svc._resolve_kolona(kolona, tab_hint=tab)
+        if not atribut:
+            chat.add_agent_message(
+                f"⚠️ Kolona '{kolona}' nije prepoznata. "
+                f"Pokušaj: tarifni broj, zemlja porijekla, povlastica, "
+                f"procedura, oznake, pakovanje, valuta, napomena..."
+            )
+            return
+
+        svc.execute(atribut, vrijednost, resolved_tab)
+
+    elif name == "spoji_naimenovanja":
+        ctrl._predlozi_spajanje_naimenovanja()
+
+    else:
+        logger.warning(f"[ToolUse] Nepoznat alat: {name}")
+        chat.add_agent_message(f"⚠️ Nepoznata akcija: {name}")
+
+
+def _start_chat_worker(ctrl, message: str) -> None:
+    """Pokreće standardni ChatWorker za plain chat odgovor."""
+    from gui.tabs.agent.widgets.chat_worker import ChatWorker
+    chat = ctrl.view.get_chat_panel()
+    memory_service = chat.get_memory_service()
+
+    chat.add_activity("💬 Šaljem upit AI-u...")
+    chat.show_typing_indicator()
+
+    worker = ChatWorker(message, draft=ctrl.draft, parent=ctrl.view,
+                        memory_service=memory_service)
+    worker.stream_started.connect(chat.start_streaming)
+    worker.token_received.connect(chat.append_stream_token)
+    worker.response_ready.connect(lambda _: chat.finalize_streaming())
+    worker.response_ready.connect(
+        lambda text: (
+            ctrl.budget.estimate_output(text),
+            ctrl._check_budget_after_response(),
+        )
+    )
+    worker.error_occurred.connect(lambda _: chat.cancel_streaming())
+    worker.error_occurred.connect(lambda _: chat.hide_typing_indicator())
+    worker.error_occurred.connect(lambda err: chat.add_agent_message(f"⚠️ {err}"))
+    worker.finished.connect(worker.deleteLater)
+    worker.start()
+
+    if not hasattr(ctrl, '_chat_workers'):
+        ctrl._chat_workers = []
+    ctrl._chat_workers.append(worker)
+    worker.finished.connect(
+        lambda: ctrl._chat_workers.remove(worker) if worker in ctrl._chat_workers else None
+    )
+
+
+# ── Regex fallback (postojeći kod, koristi se kad Tool Use nije dostupan) ──
+# Vidi: docs/decisions/002-tool-dispatcher-integration.md
+# OVAJ KOD ĆE BITI UKLONJEN u Fazi 3 refaktoringa.
+
+def _handle_message_regex_fallback(ctrl, message: str) -> None:
+    """
+    Fallback: regex keyword routing + IntentClassifier + ChatWorker.
+    Koristi se samo kad ToolDispatcherWorker vrati error.
+    """
+    from gui.tabs.agent.widgets.chat_worker import ChatWorker, check_injection
+
+    chat = ctrl.view.get_chat_panel()
+    msg = message.lower().strip()
 
     # Redni brojevi na srpskom
     _has_ordinal = any(w in msg for w in _REDNI)
