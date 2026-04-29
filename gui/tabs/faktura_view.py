@@ -2688,6 +2688,15 @@ class FakturaView(BaseTabView):
             self._reload_naimenovanja_tab()
             logger.info(f"✅ [_on_create_naimenovanja] Naimenovanja i Zaglavlje tab ažurirani")
 
+            # Automatska provjera popunjenosti naimenovanja u agent panelu
+            try:
+                main_window = self.window()
+                if hasattr(main_window, 'agent_tab') and hasattr(main_window.agent_tab, 'controller'):
+                    from gui.tabs.agent.services.chat_intent_handler import _provjeri_naimenovanja
+                    _provjeri_naimenovanja(main_window.agent_tab.controller)
+            except Exception as e:
+                logger.warning(f"⚠️ [_on_create_naimenovanja] Auto provjera popunjenosti nije uspjela: {e}")
+
             # Clear import service memory (za auto-kombinovanje Loren parova)
             # Ovo osigurava da sljedeći import počinje sa čistom memorijom
             try:
