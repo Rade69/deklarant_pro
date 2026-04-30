@@ -560,8 +560,12 @@ class FakturaView(BaseTabView):
         validation_delegate = ValidationDelegate(table)
         table.setItemDelegate(validation_delegate)
 
-        # Dodaj bottom marginu viewportu — zadnji red ne bude sakriven ispod okvira
-        table.setViewportMargins(0, 0, 0, 4)
+        # Dodaj buffer ispod zadnjeg reda: proširuje scroll range za visinu jednog reda,
+        # tako da zadnji red može biti scrollan uz gornji rub viewporta.
+        row_h = table.verticalHeader().defaultSectionSize()  # 35px
+        table.verticalScrollBar().rangeChanged.connect(
+            lambda mn, mx: table.verticalScrollBar().setMaximum(mx + row_h)
+        )
 
         # Connect signals
         table.itemSelectionChanged.connect(self._on_selection_changed)
@@ -3278,10 +3282,6 @@ class FakturaView(BaseTabView):
         current = self.table.currentRow()
         has_selection = current >= 0
         self.btn_delete.setEnabled(has_selection)
-
-        # Osiguraj da je zadnji red potpuno vidljiv kada se selektuje
-        if current >= 0 and current == self.table.rowCount() - 1:
-            self.table.scrollToBottom()
 
     def _on_export_excel(self):
         # docs/sections/export-pdf-excel.md — Excel izvoz, grupisanje po naimenovanjima
