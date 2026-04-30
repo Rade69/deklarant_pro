@@ -116,6 +116,54 @@ class AgentController:
         if self.naimenovanje_tab:
             getattr(self.naimenovanje_tab, 'reload_data', getattr(self.naimenovanje_tab, 'reload', lambda: None))()
 
+    def auto_provjeri_naimenovanja(self):
+        """
+        Automatska provjera naimenovanja nakon kreiranja — kratak rezime.
+        Poziva se preko signala naimenovanja_created iz FakturaView.
+        Prikazuje samo rezime (broj praznih polja), ne detalje.
+        Za detalje korisnik pita: "provjeri naimenovanja".
+
+        📄 docs/decisions/002-tool-dispatcher-integration.md
+        """
+        from services.agent.validation.naimenovanja_review_service import NaimenovanjaReviewService
+
+        chat = self.view.get_chat_panel()
+        naim_items = self.draft.items if self.draft else []
+
+        if not naim_items:
+            return  # Bez naimenovanja — ništa ne prikazuj
+
+        result = NaimenovanjaReviewService.provjeri_naimenovanja(naim_items)
+
+        if result['is_complete']:
+            chat.add_agent_message(
+                f"✅ <b>{result['total_naim']} naimenovanja kreirano</b> — sve rubrike popunjene."
+            )
+            return
+
+        # Kratak rezime — samo problematična naimenovanja
+        problematic = [p for p in result['problemi'] if p.prazne_obavezne]
+        optional_only = [p for p in result['problemi'] if not p.prazne_obavezne and p.prazne_opcione]
+
+        parts = [f"📋 <b>{result['total_naim']} naimenovanja kreirano.</b>"]
+
+        if problematic:
+            rbs = ", ".join(f"Rb.{p.ordinal_no}" for p in problematic)
+            parts.append(
+                f"⚠️ <b>{result['total_praznih_obaveznih']}</b> praznih obaveznih polja "
+                f"({rbs})."
+            )
+
+        if optional_only:
+            parts.append(
+                f"💡 <b>{result['total_praznih_opcionih']}</b> praznih opcionih polja "
+                f"({len(optional_only)} naim.)."
+            )
+
+        parts.append("<small>Za detalje: <i>provjeri naimenovanja</i></small>")
+
+        chat.add_agent_message("<br>".join(parts))
+
     def _connect_signals(self):
         """Poveži view signale sa handler metodama."""
         doc = self.view.get_document_panel()

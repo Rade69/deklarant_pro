@@ -84,6 +84,10 @@ class FakturaView(BaseTabView):
 
     # data_changed naslijeđen iz BaseTabView
 
+    # Signal za automatsku provjeru naimenovanja (sluša agent_tab controller)
+    # Vidi: docs/decisions/002-tool-dispatcher-integration.md
+    naimenovanja_created = Signal()
+
     # Regex za detekciju alfanumeričke šifre na početku naziva robe
     _RE_CODE_PREFIX = re.compile(r"^([A-Z0-9]{6,10})\s+(.+)$", re.IGNORECASE)
 
@@ -2689,13 +2693,13 @@ class FakturaView(BaseTabView):
             logger.info(f"✅ [_on_create_naimenovanja] Naimenovanja i Zaglavlje tab ažurirani")
 
             # Automatska provjera popunjenosti naimenovanja u agent panelu
+            # Emituje signal — agent_tab controller ga sluša i poziva
+            # auto_provjeri_naimenovanja() sa kratkim rezimeom.
+            # Vidi: docs/decisions/002-tool-dispatcher-integration.md
             try:
-                main_window = self.window()
-                if hasattr(main_window, 'agent_tab') and hasattr(main_window.agent_tab, 'controller'):
-                    from gui.tabs.agent.services.chat_intent_handler import _provjeri_naimenovanja
-                    _provjeri_naimenovanja(main_window.agent_tab.controller)
+                self.naimenovanja_created.emit()
             except Exception as e:
-                logger.warning(f"⚠️ [_on_create_naimenovanja] Auto provjera popunjenosti nije uspjela: {e}")
+                logger.warning(f"⚠️ [_on_create_naimenovanja] Signal naimenovanja_created nije uspio: {e}")
 
             # Clear import service memory (za auto-kombinovanje Loren parova)
             # Ovo osigurava da sljedeći import počinje sa čistom memorijom

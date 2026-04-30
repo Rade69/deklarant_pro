@@ -291,6 +291,9 @@ def _execute_tool(ctrl, name: str, args: dict) -> None:
     elif name == "prikazi_naimenovanja":
         _pregledaj_naimenovanja(ctrl)
 
+    elif name == "provjeri_naimenovanja":
+        _provjeri_naimenovanja(ctrl)
+
     elif name == "upisi_u_kolonu":
         kolona = args.get("kolona", "")
         vrijednost = args.get("vrijednost", "")
@@ -924,6 +927,10 @@ def _klasificiraj_i_usmjeri(ctrl, message: str) -> None:
 
 
 def _provjeri_naimenovanja(ctrl) -> None:
+    """
+    Provjera popunjenosti naimenovanja — prikazuje SAMO obavezne probleme.
+    Opciona polja su opciona — ne prikazuju se pojedinačno.
+    """
     from services.agent.naimenovanja_review_service import NaimenovanjaReviewService
 
     chat = ctrl.view.get_chat_panel()
@@ -937,31 +944,49 @@ def _provjeri_naimenovanja(ctrl) -> None:
 
     result = NaimenovanjaReviewService.provjeri_naimenovanja(naim_items)
 
-    if result['is_complete']:
+    # Filtriraj: samo naimenovanja sa OBAVEZNIM praznim rubrikama
+    problematic = [p for p in result['problemi'] if p.prazne_obavezne]
+
+    if not problematic:
+        # Nema praznih obaveznih — sve je u redu
+        opcioni_msg = ""
+        if result['total_praznih_opcionih'] > 0:
+            opcioni_msg = (
+                f"<br><small style='color:grey'>"
+                f"({result['total_praznih_opcionih']} opcionih polja prazno — "
+                f"opciona polja nisu obavezna)"
+                f"</small>"
+            )
         chat.add_agent_message(
-            f"✅ <b>Sva {result['total_naim']} naimenovanja su kompletno popunjena!</b><br>"
-            f"Nema praznih obaveznih ni opcionih rubrika."
+            f"✅ <b>Sva {result['total_naim']} naimenovanja su uredno popunjena!</b>"
+            f"{opcioni_msg}"
         )
         return
 
+    # Prikaži SAMO problematična naimenovanja (ona sa praznim obaveznim)
     linije = []
-    for p in result['problemi']:
-        status = "❌" if p.prazne_obavezne else "⚠️"
+    for p in problematic:
         tarif = p.tariff_code if p.tariff_code and p.tariff_code != '?' else "nema tarife"
-        red = [f"{status} <b>Naim. {p.ordinal_no}</b> (tarifa: {tarif})"]
-        if p.prazne_obavezne:
-            red.append(f"&nbsp;&nbsp;Nedostaje: {', '.join(p.prazne_obavezne)}")
-        if p.prazne_opcione:
-            red.append(f"&nbsp;&nbsp;Opciono prazno: {', '.join(p.prazne_opcione)}")
-        linije.append("<br>".join(red))
+        linije.append(
+            f"❌ <b>Naim. {p.ordinal_no}</b> (tarifa: {tarif})<br>"
+            f"&nbsp;&nbsp;Nedostaje: {', '.join(p.prazne_obavezne)}"
+        )
 
-    chat.add_agent_message(
-        f"📋 <b>Provjera popunjenosti naimenovanja:</b><br><br>"
-        f"Ukupno: <b>{result['total_naim']}</b> | "
-        f"Obaveznih rubrika prazno: <b style='color:red'>{result['total_praznih_obaveznih']}</b> | "
-        f"Opcionih prazno: <b style='color:orange'>{result['total_praznih_opcionih']}</b><br><br>"
+    msg = (
+        f"📋 <b>Provjera naimenovanja — {len(problematic)}/{result['total_naim']} "
+        f"sa problemima:</b><br><br>"
         + "<br><br>".join(linije)
     )
+
+    if result['total_praznih_opcionih'] > 0:
+        msg += (
+            f"<br><br><small style='color:grey'>"
+            f"ℹ️ {result['total_praznih_opcionih']} opcionih polja prazno "
+            f"({result['total_naim'] - len(problematic)} naim. nema obaveznih praznih polja)."
+            f"</small>"
+        )
+
+    chat.add_agent_message(msg)
 
 
 def _prikaz_tarifnih_trenutnih(ctrl) -> None:

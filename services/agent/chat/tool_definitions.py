@@ -17,20 +17,21 @@ Ti si carinski agent za Deklarant Pro — softver za carinske deklaracije u BiH.
 Tvoj zadatak je da razumiješ korisnikovu namjeru i ODMAH pozoveš odgovarajući alat.
 
 PRAVILA:
-1. UVJEK koristi alat za carinske operacije — NIKADA ne izmišljaj tarifne brojeve, 
+1. UVJEK koristi alat za carinske operacije — NIKADA ne izmišljaj tarifne brojeve,
    podatke ili odgovore napamet.
 2. Za upite o tarifnim brojevima → zovi pretrazi_tarifu
 3. Za provjeru ispravnosti tarifa → zovi provjeri_tarife
 4. Za popunjavanje/predlaganje tarifa za sve stavke → zovi predlozi_tarife
 5. Za validaciju cijele deklaracije → zovi validuj_deklaraciju
-6. Za pregled naimenovanja → zovi prikazi_naimenovanja
-7. Za upis vrijednosti u kolone → zovi upisi_u_kolonu
-8. Za spajanje naimenovanja → zovi spoji_naimenovanja
-9. Samo za čisto informativna pitanja NEVEZANA za carinske operacije 
-   (npr. "šta je carinska tarifa?") možeš odgovoriti direktno bez alata.
-10. Za "provjeri tarifne brojeve" ili "jesu li tarife ispravne" → provjeri_tarife (NE validuj_deklaraciju)
-11. Za "predloži tarifu za X" (specifičan proizvod) → pretrazi_tarifu (NE predlozi_tarife)
-12. Za "predloži tarife" ili "popuni sve" (bez specifičnog proizvoda) → predlozi_tarife
+6. Za pregled svih detalja naimenovanja → zovi prikazi_naimenovanja
+7. Za provjeru popunjenosti (prazne rubrike, šta fali) → zovi provjeri_naimenovanja
+8. Za upis vrijednosti u kolone → zovi upisi_u_kolonu
+9. Za spajanje naimenovanja → zovi spoji_naimenovanja
+10. Samo za čisto informativna pitanja NEVEZANA za carinske operacije
+    (npr. "šta je carinska tarifa?") možeš odgovoriti direktno bez alata.
+11. Za "provjeri tarifne brojeve" ili "jesu li tarife ispravne" → provjeri_tarife (NE validuj_deklaraciju)
+12. Za "predloži tarifu za X" (specifičan proizvod) → pretrazi_tarifu (NE predlozi_tarife)
+13. Za "predloži tarife" ili "popuni sve" (bez specifičnog proizvoda) → predlozi_tarife
 """
 
 # ── Alati ────────────────────────────────────────────────────────────
@@ -118,9 +119,28 @@ TOOLS = [
         "function": {
             "name": "prikazi_naimenovanja",
             "description": (
-                "Prikaži pregled svih naimenovanja sa statusom popunjenosti. "
-                "Koristi za 'pregledaj naimenovanja', 'pokaži naimenovanja', "
-                "'detalji naimenovanja', 'sva naimenovanja'."
+                "Prikaži pregled svih naimenovanja sa punim detaljima (sve rubrike, "
+                "vrijednosti, mase, isprave). Koristi za 'pregledaj naimenovanja', "
+                "'pokaži naimenovanja', 'detalji naimenovanja', 'sva naimenovanja'. "
+                "NE koristi za provjeru praznih rubrika — za to koristi provjeri_naimenovanja."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": False
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "provjeri_naimenovanja",
+            "description": (
+                "Provjeri popunjenost naimenovanja — koje obavezne i opcione rubrike "
+                "su prazne. Vraća rezime sa brojem praznih polja po naimenovanju. "
+                "Koristi za 'provjeri naimenovanja', 'šta fali u naimenovanjima', "
+                "'prazne rubrike', 'nedostaje u naimenovanju', 'jesu li naimenovanja popunjena'. "
+                "NE koristi za pregled svih detalja — za to koristi prikazi_naimenovanja."
             ),
             "parameters": {
                 "type": "object",

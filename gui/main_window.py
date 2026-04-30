@@ -87,6 +87,13 @@ class MainWindow(QMainWindow):
         )
         tabs.addTab(self.agent_tab, "🤖 Agent")
 
+        # Poveži FakturaView signal na agent controller za auto-provjeru naimenovanja
+        # Vidi: docs/decisions/002-tool-dispatcher-integration.md
+        if hasattr(self.faktura_tab, 'naimenovanja_created'):
+            self.faktura_tab.naimenovanja_created.connect(
+                self.agent_tab.controller.auto_provjeri_naimenovanja
+            )
+
         # Postavi Admin Tab kao trenutni tab za testiranje (opciono - za development)
         # tabs.setCurrentWidget(self.admin_tab)
 
