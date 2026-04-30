@@ -1292,6 +1292,7 @@ class NaimenovanjaView(BaseTabView):
         self.combo_items = QComboBox()
         self.combo_items.setMinimumWidth(380)
         self.combo_items.setFixedHeight(34)
+        self.combo_items.setMaxVisibleItems(80)
         self.combo_items.setStyleSheet("""
             QComboBox {
                 font-size: 14px;
