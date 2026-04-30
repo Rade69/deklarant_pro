@@ -28,8 +28,8 @@ class TariffValidationDialog(QDialog):
     def __init__(self, matches: list, parent=None):
         super().__init__(parent, Qt.Window)
         self.setWindowTitle("Istorijska validacija tarifnih brojeva")
-        self.setMinimumSize(700, 480)
-        self.resize(780, 560)
+        self.setMinimumSize(820, 540)
+        self.resize(920, 640)
         self.setAttribute(Qt.WA_DeleteOnClose)
         self.setModal(False)
 
@@ -88,12 +88,12 @@ class TariffValidationDialog(QDialog):
 
         n = len(self._matches)
         title = QLabel(f"<b>Istorijska validacija tarifnih brojeva</b>")
-        title.setStyleSheet("font-size: 14px;")
+        title.setStyleSheet("font-size: 16px;")
 
         subtitle = QLabel(
             f"{n} stavki ima drugi istorijski tarif (iz odobrenih XML deklaracija)"
         )
-        subtitle.setStyleSheet("color: #6b7280; font-size: 12px;")
+        subtitle.setStyleSheet("color: #6b7280; font-size: 14px;")
 
         left = QVBoxLayout()
         left.setSpacing(2)
@@ -128,7 +128,7 @@ class TariffValidationDialog(QDialog):
         naziv_label = QLabel(
             f"<b>Rb.{rb}</b> — {match.naziv_robe_original[:60]}"
         )
-        naziv_label.setStyleSheet("font-size: 13px;")
+        naziv_label.setStyleSheet("font-size: 15px;")
 
         # Poređenje tarifa
         if match.tarifni_broj_trenutni:
@@ -146,22 +146,22 @@ class TariffValidationDialog(QDialog):
             )
         tarif_label = QLabel(tarif_html)
         tarif_label.setTextFormat(Qt.RichText)
-        tarif_label.setStyleSheet("font-size: 12px;")
+        tarif_label.setStyleSheet("font-size: 14px;")
 
         # Meta info
         source_txt = match.source[:40] if match.source else "—"
         pct = int(match.confidence * 100)
         meta_label = QLabel(
-            f"<small style='color:#888;'>"
+            f"<span style='color:#888; font-size:13px;'>"
             f"Izvor: {source_txt} &nbsp;|&nbsp; "
             f"Korišten {match.usage_count}× &nbsp;|&nbsp; "
             f"Pouzdanost: {pct}%"
-            f"</small>"
+            f"</span>"
         )
         meta_label.setTextFormat(Qt.RichText)
 
         hist_naziv = match.naziv_robe_historijski[:70]
-        hist_label = QLabel(f"<small style='color:#888;'>Naziv u bazi: {hist_naziv}</small>")
+        hist_label = QLabel(f"<span style='color:#888; font-size:13px;'>Naziv u bazi: {hist_naziv}</span>")
         hist_label.setTextFormat(Qt.RichText)
         hist_label.setWordWrap(True)
 
@@ -173,12 +173,12 @@ class TariffValidationDialog(QDialog):
         # Desna kolona — dugme Prihvati
         accept_btn = QPushButton("Prihvati")
         accept_btn.setCursor(Qt.PointingHandCursor)
-        accept_btn.setFixedWidth(90)
+        accept_btn.setFixedWidth(110)
         accept_btn.setStyleSheet("""
             QPushButton {
                 background: #1E3A5F; color: white;
                 border: none; border-radius: 6px;
-                padding: 6px 0; font-size: 12px; font-weight: 600;
+                padding: 8px 0; font-size: 14px; font-weight: 600;
             }
             QPushButton:hover { background: #2D5A8E; }
             QPushButton:disabled {
