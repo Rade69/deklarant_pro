@@ -1775,6 +1775,17 @@ class ZaglavljeService:
 
         # 2d. Broj stavki — mora odgovarati
         n_items_draft = len(draft.items) if draft.items else 0
+        # Docs: docs/sections/asycuda-99-item-limit.md
+        if n_items_draft > 99:
+            errors.append({
+                "rule": "5",
+                "field": "Broj stavki",
+                "message": (
+                    f"Rb.5 — ASYCUDA World u BiH dozvoljava najviše 99 naimenovanja "
+                    f"po deklaraciji. Trenutno ih ima {n_items_draft}."
+                ),
+            })
+
         view_stavke = str(view_data.get("stavke", "")).strip()
         if view_stavke and view_stavke != str(n_items_draft):
             warnings.append({

@@ -1,4 +1,6 @@
 import os
+from copy import deepcopy
+from dataclasses import fields
 from pathlib import Path
 from PySide6.QtWidgets import QMainWindow, QTabWidget, QApplication, QMessageBox
 from PySide6.QtCore import QFile, QTextStream, QIODevice, QSettings
@@ -103,6 +105,64 @@ class MainWindow(QMainWindow):
         # Osvježi naimenovanja izračune (Rb.44/46) kad se tab aktivira
         self.tabs_widget = tabs
         tabs.currentChanged.connect(self._on_tab_changed)
+
+    def continue_with_pending_declaration(self) -> bool:
+        # Docs: docs/sections/asycuda-99-item-limit.md
+        pending = getattr(self.draft, "pending_next_declaration", None)
+        if pending is None:
+            return False
+
+        self._replace_draft_contents(pending)
+
+        try:
+            from services.create_naimenovanja_service import CreateNaimenovanjaService
+            service = CreateNaimenovanjaService(self.draft)
+            service.create_smart_group()
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Greška",
+                f"Nije moguće kreirati naimenovanja za sljedeću deklaraciju:\n\n{e}",
+            )
+            return False
+
+        self._reload_all_tabs_from_draft()
+        self._on_dirty()
+        return True
+
+    def _replace_draft_contents(self, source: DeclarationDraft) -> None:
+        callbacks = list(getattr(self.draft, "_data_change_callbacks", []) or [])
+        for field_info in fields(DeclarationDraft):
+            if field_info.name == "_data_change_callbacks":
+                continue
+            setattr(self.draft, field_info.name, deepcopy(getattr(source, field_info.name)))
+        self.draft._data_change_callbacks = callbacks
+
+    def _reload_all_tabs_from_draft(self) -> None:
+        try:
+            if hasattr(self.faktura_tab, "view"):
+                view = self.faktura_tab.view
+                if hasattr(view, "_set_weight_inputs_from_draft"):
+                    view._set_weight_inputs_from_draft()
+                view._load_data_from_draft()
+        except Exception:
+            pass
+
+        try:
+            if hasattr(self.naimenovanje_tab, "ensure_initialized"):
+                naim_tab = self.naimenovanje_tab.ensure_initialized()
+            else:
+                naim_tab = self.naimenovanje_tab
+            if hasattr(naim_tab, "reload_data"):
+                naim_tab.reload_data()
+        except Exception:
+            pass
+
+        try:
+            if hasattr(self.zaglavlje_tab, "load_from_draft"):
+                self.zaglavlje_tab.load_from_draft(self.draft)
+        except Exception:
+            pass
 
     def load_stylesheet(self):
         """

@@ -780,6 +780,29 @@ class ZaglavljeController:
             if success:
                 self.view.show_success(f"XML exportovan u: {filename}")
                 self.logger.info(f"Export successful: {filename}")
+                # Docs: docs/sections/asycuda-99-item-limit.md
+                pending = getattr(draft, "pending_next_declaration", None)
+                if pending is not None:
+                    reply = QMessageBox.question(
+                        self.view,
+                        "Nastavi sa ostatkom",
+                        "Ova deklaracija je izvezena.\n\n"
+                        "Postoje preostale stavke koje su odvojene zbog ASYCUDA limita od 99 naimenovanja.\n"
+                        "Da li želite sada učitati sljedeću deklaraciju sa ostatkom?",
+                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                        QMessageBox.StandardButton.Yes,
+                    )
+                    if reply == QMessageBox.StandardButton.Yes:
+                        main_window = self.view.window()
+                        if hasattr(main_window, "continue_with_pending_declaration"):
+                            if main_window.continue_with_pending_declaration():
+                                self.view.show_success(
+                                    "Učitana je sljedeća deklaracija sa preostalim stavkama."
+                                )
+                        else:
+                            self.view.show_error(
+                                "Nije pronađen mehanizam za učitavanje sljedeće deklaracije."
+                            )
             else:
                 self.view.show_error("Greška pri eksportu")
 

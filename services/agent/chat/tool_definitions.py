@@ -32,6 +32,7 @@ PRAVILA:
 11. Za "provjeri tarifne brojeve" ili "jesu li tarife ispravne" → provjeri_tarife (NE validuj_deklaraciju)
 12. Za "predloži tarifu za X" (specifičan proizvod) → pretrazi_tarifu (NE predlozi_tarife)
 13. Za "predloži tarife" ili "popuni sve" (bez specifičnog proizvoda) → predlozi_tarife
+14. Za "porijeklo proizvoda X" ili "zemlja porijekla za X" → pretrazi_porijeklo
 """
 
 # ── Alati ────────────────────────────────────────────────────────────
@@ -91,6 +92,29 @@ TOOLS = [
                     "naziv": {
                         "type": "string",
                         "description": "Naziv proizvoda, materijala ili robe za pretragu"
+                    }
+                },
+                "required": ["naziv"],
+                "additionalProperties": False
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "pretrazi_porijeklo",
+            # Docs: docs/sections/agent-origin-query-routing.md
+            "description": (
+                "Pronađi zemlju porijekla za specifičan proizvod iz istorijskih XML deklaracija. "
+                "Koristi kada korisnik pita za porijeklo, poreklo, origin ili zemlju porijekla "
+                "konkretnog proizvoda. NE koristi pretrazi_tarifu za ove upite."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "naziv": {
+                        "type": "string",
+                        "description": "Naziv, oznaka ili opis proizvoda za pretragu porijekla"
                     }
                 },
                 "required": ["naziv"],

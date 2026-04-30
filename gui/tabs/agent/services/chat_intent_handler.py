@@ -13,6 +13,7 @@ Premješteno iz agent_controller.py radi smanjenja veličine controllera.
 import json
 import re
 import logging
+from html import escape
 
 logger = logging.getLogger("deklarant_pro.agent.chat_intent")
 
@@ -154,6 +155,9 @@ class ChatIntentHandler:
     def pretrazi_tarifu(self, upit: str) -> None:
         _pretrazi_tarifu(self._ctrl, upit)
 
+    def pretrazi_porijeklo(self, upit: str) -> None:
+        _pretrazi_porijeklo(self._ctrl, upit)
+
     def pretrazi_tarifu_po_kodu(self, kod: str) -> None:
         _pretrazi_tarifu_po_kodu(self._ctrl, kod)
 
@@ -182,6 +186,45 @@ class ChatIntentHandler:
 # ── Implementacija (slobodne funkcije) ────────────────────────────────
 
 
+def _extract_origin_product_query(message: str) -> str:
+    # Docs: docs/sections/agent-origin-query-routing.md
+    msg = (message or "").strip()
+    lower = msg.lower()
+    if not any(k in lower for k in ("porijekl", "porekl", "origin", "zemlja por")):
+        return ""
+    if re.search(r'\b(upiši|upisi|upišite|upisite|postavi|unesi|unesite|stavi)\b', lower):
+        return ""
+
+    quote = re.search(r'["\']([^"\']{3,100})["\']', msg)
+    if quote:
+        return quote.group(1).strip()
+
+    parts = [p.strip() for p in re.split(r'[,;\n]+', msg) if p.strip()]
+    non_origin_parts = [
+        p for p in parts
+        if not re.search(r'porijekl|porekl|origin|zemlja por', p, flags=re.IGNORECASE)
+    ]
+    if non_origin_parts:
+        return max(non_origin_parts, key=len).strip().rstrip("?! .")
+
+    patterns = [
+        r'(?:potra[žz]i|pretra[žz]i|prona[đd]i|na[đd]i|tra[žz]i|trazi)\s+(?:mi\s+)?(?:porijekl\w*|porekl\w*|origin|zemlju\s+porijekla|zemlja\s+porijekla)\s+(?:za\s+)?(.+)',
+        r'(?:porijekl\w*|porekl\w*|origin|zemlja\s+porijekla)\s+(?:ovog\s+proizvoda\s+)?(?:za\s+)?(.+)',
+        r'(?:koja|koje|koji)\s+je\s+(?:zemlja\s+porijekla|porijeklo|poreklo|origin)\s+(?:za\s+)?(.+)',
+        r'odakle\s+je\s+(?:proizvod\s+)?(.+)',
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, msg, flags=re.IGNORECASE)
+        if match:
+            query = match.group(1).strip().rstrip("?! .")
+            query = re.sub(r'\b(ovog|ovaj|tog|taj|proizvoda|proizvod)\b', '', query, flags=re.IGNORECASE)
+            query = re.sub(r'\s+', ' ', query).strip()
+            if len(query) >= 3:
+                return query
+
+    return ""
+
+
 def _handle_message(ctrl, message: str) -> None:
     """
     Primarni entry point za chat poruke.
@@ -200,6 +243,11 @@ def _handle_message(ctrl, message: str) -> None:
         return
 
     msg_lower = message.lower().strip()
+
+    origin_query = _extract_origin_product_query(message)
+    if origin_query:
+        _pretrazi_porijeklo(ctrl, origin_query)
+        return
 
     # --- POTVRDA pending akcije ---
     POTVRDE = {'da', 'odobri', 'potvrdi', 'yes', 'ok', 'u redu', 'slažem se'}
@@ -284,6 +332,13 @@ def _execute_tool(ctrl, name: str, args: dict) -> None:
             _pretrazi_tarifu(ctrl, naziv)
         else:
             chat.add_agent_message("⚠️ Navedi naziv proizvoda za pretragu tarife.")
+
+    elif name == "pretrazi_porijeklo":
+        naziv = args.get("naziv", "")
+        if naziv:
+            _pretrazi_porijeklo(ctrl, naziv)
+        else:
+            chat.add_agent_message("⚠️ Navedi naziv proizvoda za pretragu porijekla.")
 
     elif name == "validuj_deklaraciju":
         _compliance_check(ctrl)
@@ -371,6 +426,11 @@ def _handle_message_regex_fallback(ctrl, message: str) -> None:
 
     chat = ctrl.view.get_chat_panel()
     msg = message.lower().strip()
+
+    origin_query = _extract_origin_product_query(message)
+    if origin_query:
+        _pretrazi_porijeklo(ctrl, origin_query)
+        return
 
     # Redni brojevi na srpskom
     _has_ordinal = any(w in msg for w in _REDNI)
@@ -1150,6 +1210,60 @@ def _pretrazi_tarifu(ctrl, upit: str) -> None:
         )
     except Exception as e:
         chat.add_agent_message(f"❌ Greška pri pretrazi tarife: {e}")
+
+
+def _pretrazi_porijeklo(ctrl, upit: str) -> None:
+    # Docs: docs/sections/agent-origin-query-routing.md
+    chat = ctrl.view.get_chat_panel()
+    chat.add_activity(f"🔍 Pretražujem porijeklo za: {upit}")
+    try:
+        from collections import Counter
+        from services.agent.declaration_search_service import DeclarationSearchService
+
+        svc = DeclarationSearchService()
+        rezultati = svc.search_by_goods(upit, limit=20)
+        rezultati = [r for r in rezultati if (r.get("country_origin") or "").strip()]
+
+        if not rezultati:
+            chat.add_agent_message(
+                f"<b>🌍 Porijeklo proizvoda: '{escape(upit)}'</b><br><br>"
+                "Nisam pronašao pouzdan zapis o zemlji porijekla u istorijskim XML deklaracijama. "
+                "Neću predlagati tarifne brojeve za ovaj upit jer si tražio porijeklo, ne razvrstavanje robe."
+            )
+            return
+
+        brojac = Counter((r.get("country_origin") or "").strip() for r in rezultati)
+        zemlje = ", ".join(
+            f"<b>{escape(zemlja)}</b> ({broj}x)"
+            for zemlja, broj in brojac.most_common(5)
+        )
+        linije = []
+        seen = set()
+        for r in rezultati[:8]:
+            key = (
+                r.get("hs_code", ""),
+                r.get("commercial_desc", "")[:40],
+                r.get("country_origin", ""),
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            naziv = r.get("commercial_desc") or r.get("description") or ""
+            linije.append(
+                f"• <b>{escape(r.get('country_origin', ''))}</b> — "
+                f"{escape(naziv[:70])} "
+                f"<small>(tarifa {escape(r.get('hs_code', '') or '?')}, "
+                f"povlastica {escape(r.get('preference', '') or '?')})</small>"
+            )
+
+        chat.add_agent_message(
+            f"<b>🌍 Porijeklo proizvoda: '{escape(upit)}'</b><br><br>"
+            f"U istorijskim deklaracijama najčešće se pojavljuje: {zemlje}.<br><br>"
+            + "<br>".join(linije)
+            + "<br><br><small>Izvor: lokalni indeks istorijskih XML deklaracija.</small>"
+        )
+    except Exception as e:
+        chat.add_agent_message(f"❌ Greška pri pretrazi porijekla: {e}")
 
 
 def _pretrazi_tarifu_po_kodu(ctrl, kod: str) -> None:

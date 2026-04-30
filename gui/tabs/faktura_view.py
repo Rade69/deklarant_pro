@@ -2650,17 +2650,29 @@ class FakturaView(BaseTabView):
             # Use SMART_GROUP strategy (recommended)
             logger.debug(f"🔍 [_on_create_naimenovanja] Pozivanje create_smart_group()...")
             count = service.create_smart_group()
+            split_info = getattr(service, "last_split_info", None)
             logger.info(f"✅ [_on_create_naimenovanja] Kreirano {count} naimenovanja")
 
             # Show success message (samo u interaktivnom modu)
             if not auto:
-                QMessageBox.information(
-                    self,
-                    "Uspjeh!",
-                    f"✅ Kreirano {count} naimenovanja iz {len(self.draft.invoice_lines)} stavki!\n\n"
-                    f"Naimenovanja su grupisana po tarifi, zemlji porijekla i povlastici.\n\n"
-                    f"Možete ih pregledati i editovati u tabu 'Naimenovanja'.",
-                )
+                if split_info and split_info.overflow_count > 0:
+                    QMessageBox.warning(
+                        self,
+                        "ASYCUDA limit — 99 naimenovanja",
+                        f"ASYCUDA World u BiH podržava najviše 99 naimenovanja po deklaraciji.\n\n"
+                        f"Ukupno je formirano {split_info.total_count} naimenovanja.\n"
+                        f"Trenutna deklaracija je ograničena na prvih {split_info.current_count}.\n"
+                        f"Preostalih {split_info.overflow_count} naimenovanja je pripremljeno za sljedeću deklaraciju.\n\n"
+                        f"Završite i izvezite ovu deklaraciju, pa će aplikacija ponuditi nastavak sa ostatkom.",
+                    )
+                else:
+                    QMessageBox.information(
+                        self,
+                        "Uspjeh!",
+                        f"✅ Kreirano {count} naimenovanja iz {len(self.draft.invoice_lines)} stavki!\n\n"
+                        f"Naimenovanja su grupisana po tarifi, zemlji porijekla i povlastici.\n\n"
+                        f"Možete ih pregledati i editovati u tabu 'Naimenovanja'.",
+                    )
 
             # Mark as dirty
             if self.on_dirty:
@@ -2686,6 +2698,7 @@ class FakturaView(BaseTabView):
 
             # Reload table to show assigned naimenovanje numbers in column
             logger.debug(f"🔍 [_on_create_naimenovanja] Pozivanje _load_data_from_draft()...")
+            self._set_weight_inputs_from_draft()
             self._load_data_from_draft()
             logger.info(f"✅ [_on_create_naimenovanja] Faktura tab ažuriran")
 
@@ -2718,6 +2731,14 @@ class FakturaView(BaseTabView):
             QMessageBox.critical(
                 self, "Greška", f"Greška prilikom kreiranja naimenovanja:\n\n{str(e)}"
             )
+
+    def _set_weight_inputs_from_draft(self):
+        total_bruto = sum(getattr(line, "bruto_kg", 0.0) or 0.0 for line in self.draft.invoice_lines)
+        total_neto = sum(getattr(line, "neto_kg", 0.0) or 0.0 for line in self.draft.invoice_lines)
+        self.weight_manager.accumulated_bruto_kg = total_bruto
+        self.weight_manager.accumulated_neto_kg = total_neto
+        self.input_bruto.setText(self._format_weight(total_bruto) if total_bruto > 0 else "")
+        self.input_neto.setText(self._format_weight(total_neto) if total_neto > 0 else "")
 
     def _reload_naimenovanja_tab(self):
         """Helper method to reload Naimenovanja Tab after creating items.
