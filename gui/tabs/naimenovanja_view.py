@@ -41,6 +41,21 @@ from PySide6.QtWidgets import (
     QSpacerItem,
     QGroupBox,
 )
+
+
+class _ScrollableCombo(QComboBox):
+    """QComboBox koji garantuje scrollabilan popup sa svim stavkama vidljivim."""
+
+    def showPopup(self):
+        super().showPopup()
+        # Pronađi popup frame i postavi mu minimalnu visinu
+        popup = self.findChild(QFrame)
+        if popup:
+            row_h = self.view().sizeHintForRow(0) or 26
+            desired = self.count() * row_h + 8
+            screen_h = QApplication.primaryScreen().availableGeometry().height()
+            popup.setMinimumHeight(min(desired, screen_h - 120))
+            self.view().setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import QFile, Qt, Signal, QTimer, QPoint, QSize
 from PySide6.QtGui import QColor, QIcon, QPainter, QTextOption
@@ -1289,7 +1304,7 @@ class NaimenovanjaView(BaseTabView):
         lbl_nav.setProperty("class", "nav-label")  # CSS in naimenovanja_components.qss
         nav_layout.addWidget(lbl_nav)
 
-        self.combo_items = QComboBox()
+        self.combo_items = _ScrollableCombo()
         self.combo_items.setMinimumWidth(380)
         self.combo_items.setFixedHeight(34)
         self.combo_items.setMaxVisibleItems(99)
