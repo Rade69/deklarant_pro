@@ -1,11 +1,5 @@
 """
 Learning Panel — GUI za upravljanje učenjem aplikacije iz XML deklaracija.
-
-Omogućava:
-- Pregled XML fajlova u docs/NOVA ASIKUDA/
-- Dodavanje novih XML fajlova
-- Pokretanje reindeksiranja (exporter_xml_index)
-- Pregled statusa product_tariff_mapping
 """
 
 from __future__ import annotations
@@ -14,7 +8,7 @@ import shutil
 from pathlib import Path
 
 import qtawesome as qta
-from PySide6.QtCore import Qt, QThread, Signal
+from PySide6.QtCore import QThread, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -29,15 +23,15 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-XML_FOLDER = Path(__file__).parents[5] / "docs" / "NOVA ASIKUDA"
+XML_FOLDER = Path(__file__).parents[4] / "docs" / "NOVA ASIKUDA"
 
 
-# ── Worker thread ────────────────────────────────────────────────────────────
+# ── Worker threadovi ─────────────────────────────────────────────────────────
 
 class _ReindexWorker(QThread):
     log_line = Signal(str)
     finished = Signal(int, int)   # (dodano, ukupno)
-    error = Signal(str)
+    error    = Signal(str)
 
     def run(self):
         try:
@@ -45,19 +39,18 @@ class _ReindexWorker(QThread):
             import logging
 
             class _QtHandler(logging.Handler):
-                def __init__(self, signal): self._s = signal; super().__init__()
+                def __init__(self, sig): self._s = sig; super().__init__()
                 def emit(self, record): self._s.emit(self.format(record))
 
             handler = _QtHandler(self.log_line)
-            handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+            handler.setFormatter(logging.Formatter("%(message)s"))
             logger = logging.getLogger("deklarant_pro.exporter_indexer")
             logger.addHandler(handler)
 
             self.log_line.emit("Pokrećem reindeksiranje...")
             dodano = reindex()
-            stats = get_stats()
+            stats  = get_stats()
             ukupno = stats.get("total_pairs", 0)
-
             logger.removeHandler(handler)
             self.finished.emit(dodano, ukupno)
         except Exception as e:
@@ -66,15 +59,21 @@ class _ReindexWorker(QThread):
 
 class _MappingStatsWorker(QThread):
     finished = Signal(int)
-    error = Signal(str)
+    error    = Signal(str)
 
     def run(self):
         try:
-            from database.db import get_db_connection
-            with get_db_connection() as conn:
-                with conn.cursor() as cur:
-                    cur.execute("SELECT COUNT(*) FROM catalogs.product_tariff_mapping")
-                    count = cur.fetchone()[0]
+            import psycopg2
+            from config.settings import get_db_settings
+            s = get_db_settings()
+            conn = psycopg2.connect(
+                host=s.host, port=s.port, dbname=s.name,
+                user=s.user, password=s.password,
+            )
+            with conn.cursor() as cur:
+                cur.execute("SELECT COUNT(*) FROM catalogs.product_tariff_mapping")
+                count = cur.fetchone()[0]
+            conn.close()
             self.finished.emit(count)
         except Exception as e:
             self.error.emit(str(e))
@@ -88,23 +87,28 @@ class LearningPanel(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._reindex_worker: _ReindexWorker | None = None
+        self._mapping_worker: _MappingStatsWorker | None = None
         self._setup_ui()
         self._refresh_stats()
 
-    # ── UI ───────────────────────────────────────────────────────────────────
+    # ── Izgradnja UI-a ───────────────────────────────────────────────────────
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(15, 15, 15, 15)
         layout.setSpacing(14)
 
-        # Header
+        # Zaglavlje
         hdr = QHBoxLayout()
         icon_lbl = QLabel()
-        icon_lbl.setPixmap(qta.icon("fa5s.brain", color="#1E3A5F", scale_factor=2).pixmap(32, 32))
+        icon_lbl.setPixmap(
+            qta.icon("fa5s.brain", color="#1E3A5F", scale_factor=2).pixmap(32, 32)
+        )
         hdr.addWidget(icon_lbl)
         title = QLabel("Učenje iz XML deklaracija")
-        title.setStyleSheet("font-size: 20px; font-weight: bold; color: #1E3A5F; margin-left: 10px;")
+        title.setStyleSheet(
+            "font-size: 22px; font-weight: bold; color: #1E3A5F; margin-left: 10px;"
+        )
         hdr.addWidget(title)
         hdr.addStretch()
         layout.addLayout(hdr)
@@ -120,24 +124,22 @@ class LearningPanel(QWidget):
         lay = QVBoxLayout(grp)
         lay.setSpacing(10)
 
-        # Info redovi
-        info_lay = QHBoxLayout()
-        self.lbl_xml_count = self._info_label("XML fajlova: —")
-        self.lbl_xml_folder = self._info_label(str(XML_FOLDER))
-        self.lbl_xml_folder.setStyleSheet("color: #555; font-size: 12px; font-family: monospace;")
-        info_lay.addWidget(self.lbl_xml_count)
-        info_lay.addStretch()
-        lay.addLayout(info_lay)
+        self.lbl_xml_count = self._info_label("Broj XML fajlova: —")
+        lay.addWidget(self.lbl_xml_count)
+
+        self.lbl_xml_folder = QLabel(str(XML_FOLDER))
+        self.lbl_xml_folder.setStyleSheet(
+            "color: #555; font-size: 13px; font-family: monospace;"
+        )
         lay.addWidget(self.lbl_xml_folder)
 
-        # Dugmad
         btn_lay = QHBoxLayout()
         btn_lay.setSpacing(10)
 
         self.btn_add_xml = QPushButton(
             qta.icon("fa5s.file-import", color="white"), "  Dodaj XML fajlove"
         )
-        self.btn_add_xml.setMinimumHeight(38)
+        self.btn_add_xml.setMinimumHeight(42)
         self.btn_add_xml.setStyleSheet(self._btn_style("#2563eb"))
         self.btn_add_xml.clicked.connect(self._on_add_xml)
         btn_lay.addWidget(self.btn_add_xml)
@@ -145,15 +147,15 @@ class LearningPanel(QWidget):
         self.btn_reindex = QPushButton(
             qta.icon("fa5s.sync-alt", color="white"), "  Pokreni reindeksiranje"
         )
-        self.btn_reindex.setMinimumHeight(38)
+        self.btn_reindex.setMinimumHeight(42)
         self.btn_reindex.setStyleSheet(self._btn_style("#1E3A5F"))
         self.btn_reindex.clicked.connect(self._on_reindex)
         btn_lay.addWidget(self.btn_reindex)
 
         self.btn_refresh = QPushButton(
-            qta.icon("fa5s.redo", color="#555"), "  Osvježi statistiku"
+            qta.icon("fa5s.redo", color="#374151"), "  Osvježi statistiku"
         )
-        self.btn_refresh.setMinimumHeight(38)
+        self.btn_refresh.setMinimumHeight(42)
         self.btn_refresh.setStyleSheet(self._btn_style_secondary())
         self.btn_refresh.clicked.connect(self._refresh_stats)
         btn_lay.addWidget(self.btn_refresh)
@@ -161,10 +163,9 @@ class LearningPanel(QWidget):
         btn_lay.addStretch()
         lay.addLayout(btn_lay)
 
-        # Progress bar
         self.progress = QProgressBar()
         self.progress.setVisible(False)
-        self.progress.setRange(0, 0)   # indeterminate
+        self.progress.setRange(0, 0)
         self.progress.setFixedHeight(18)
         self.progress.setStyleSheet("""
             QProgressBar { border: 1px solid #ccc; border-radius: 4px; background: #f5f5f5; }
@@ -175,30 +176,34 @@ class LearningPanel(QWidget):
         return grp
 
     def _make_mapping_group(self) -> QGroupBox:
-        grp = QGroupBox("🧠 Product Tariff Mapping (naučeni mappinzi)")
+        grp = QGroupBox("🧠 Naučeni tarifni mappinzi")
         grp.setStyleSheet(self._grp_style())
         lay = QHBoxLayout(grp)
 
-        self.lbl_mapping_count = self._info_label("Mappinga u bazi: —")
-        self.lbl_mapping_count.setStyleSheet("font-size: 15px; font-weight: bold; color: #1E3A5F;")
+        self.lbl_mapping_count = QLabel("Mappinga u bazi: —")
+        self.lbl_mapping_count.setFont(QFont("Arial", 16, QFont.Bold))
+        self.lbl_mapping_count.setStyleSheet("color: #1E3A5F;")
         lay.addWidget(self.lbl_mapping_count)
         lay.addStretch()
 
         return grp
 
     def _make_log_group(self) -> QGroupBox:
-        grp = QGroupBox("📋 Log reindeksiranja")
+        grp = QGroupBox("📋 Tok reindeksiranja")
         grp.setStyleSheet(self._grp_style())
         lay = QVBoxLayout(grp)
 
         self.log_output = QTextEdit()
         self.log_output.setReadOnly(True)
-        self.log_output.setFixedHeight(180)
-        self.log_output.setFont(QFont("Monospace", 11))
+        self.log_output.setFixedHeight(190)
+        self.log_output.setFont(QFont("Monospace", 12))
         self.log_output.setStyleSheet(
-            "background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; padding: 6px;"
+            "background: #f8f9fa; border: 1px solid #dee2e6;"
+            " border-radius: 4px; padding: 6px;"
         )
-        self.log_output.setPlaceholderText("Ovdje će se prikazivati tok reindeksiranja...")
+        self.log_output.setPlaceholderText(
+            "Ovdje će se prikazivati tok reindeksiranja..."
+        )
         lay.addWidget(self.log_output)
 
         return grp
@@ -220,7 +225,8 @@ class LearningPanel(QWidget):
                 odgovor = QMessageBox.question(
                     self, "Fajl postoji",
                     f"{dst.name} već postoji. Prepiši?",
-                    QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.No,
                 )
                 if odgovor != QMessageBox.Yes:
                     continue
@@ -233,7 +239,6 @@ class LearningPanel(QWidget):
     def _on_reindex(self):
         if self._reindex_worker and self._reindex_worker.isRunning():
             return
-
         self.log_output.clear()
         self.btn_reindex.setEnabled(False)
         self.progress.setVisible(True)
@@ -247,7 +252,9 @@ class LearningPanel(QWidget):
     def _on_reindex_done(self, dodano: int, ukupno: int):
         self.progress.setVisible(False)
         self.btn_reindex.setEnabled(True)
-        self._log(f"✅ Reindeksiranje završeno — {dodano} promjena, ukupno {ukupno} parova u bazi.")
+        self._log(
+            f"✅ Reindeksiranje završeno — {dodano} promjena, ukupno {ukupno} parova u bazi."
+        )
         self._refresh_stats()
 
     def _on_reindex_error(self, msg: str):
@@ -257,18 +264,24 @@ class LearningPanel(QWidget):
 
     def _refresh_stats(self):
         self._refresh_xml_count()
-        w = _MappingStatsWorker()
-        w.finished.connect(lambda n: self.lbl_mapping_count.setText(f"Mappinga u bazi: {n:,}"))
-        w.error.connect(lambda e: self.lbl_mapping_count.setText("Mappinga u bazi: (greška)"))
-        w.start()
-        self._mapping_worker = w  # sprečava GC
+        self._mapping_worker = _MappingStatsWorker()
+        self._mapping_worker.finished.connect(
+            lambda n: self.lbl_mapping_count.setText(f"Mappinga u bazi: {n:,}")
+        )
+        self._mapping_worker.error.connect(self._on_mapping_error)
+        self._mapping_worker.start()
+
+    def _on_mapping_error(self, msg: str):
+        self.lbl_mapping_count.setText("Mappinga u bazi: nije dostupno")
+        self.lbl_mapping_count.setStyleSheet("color: #9ca3af; font-size: 15px;")
+        self._log(f"⚠️ Statistika mappinga: {msg}")
 
     def _refresh_xml_count(self):
         if XML_FOLDER.exists():
             count = len(list(XML_FOLDER.glob("*.xml")))
-            self.lbl_xml_count.setText(f"XML fajlova: {count}")
+            self.lbl_xml_count.setText(f"Broj XML fajlova: {count}")
         else:
-            self.lbl_xml_count.setText("XML fajlova: 0 (folder ne postoji)")
+            self.lbl_xml_count.setText("Broj XML fajlova: 0  (folder ne postoji)")
 
     def _log(self, tekst: str):
         self.log_output.append(tekst)
@@ -278,7 +291,7 @@ class LearningPanel(QWidget):
     @staticmethod
     def _info_label(text: str) -> QLabel:
         lbl = QLabel(text)
-        lbl.setFont(QFont("Arial", 13))
+        lbl.setFont(QFont("Arial", 14))
         return lbl
 
     @staticmethod
@@ -287,7 +300,7 @@ class LearningPanel(QWidget):
             QGroupBox {
                 border: 1px solid #ddd; border-radius: 6px;
                 margin-top: 12px; padding-top: 10px;
-                font-weight: bold; font-size: 13px;
+                font-weight: bold; font-size: 14px;
                 background: white;
             }
             QGroupBox::title {
@@ -302,9 +315,9 @@ class LearningPanel(QWidget):
             QPushButton {{
                 background: {color}; color: white;
                 border: none; border-radius: 5px;
-                padding: 6px 16px; font-size: 13px; font-weight: 600;
+                padding: 6px 18px; font-size: 14px; font-weight: 600;
             }}
-            QPushButton:hover {{ opacity: 0.9; }}
+            QPushButton:hover {{ background-color: rgba(0,0,0,0.15); }}
             QPushButton:disabled {{ background: #9ca3af; }}
         """
 
@@ -314,7 +327,7 @@ class LearningPanel(QWidget):
             QPushButton {
                 background: white; color: #374151;
                 border: 1px solid #d1d5db; border-radius: 5px;
-                padding: 6px 16px; font-size: 13px;
+                padding: 6px 18px; font-size: 14px;
             }
             QPushButton:hover { background: #f3f4f6; }
         """
