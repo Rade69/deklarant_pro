@@ -221,9 +221,14 @@ class ZaglavljeController:
         if not draft or not hasattr(draft, 'items'):
             return []
         
+        sorted_items = sorted(
+            draft.items,
+            key=lambda it: getattr(it, 'ordinal_no', 0),
+        )
         naimenovanja_data = []
-        for item in draft.items:
+        for item in sorted_items:
             item_data = {
+                'ordinal_no': getattr(item, 'ordinal_no', 0),
                 'tariff_code': getattr(item, 'tariff_code', ''),
                 'goods_trade_name': getattr(item, 'goods_trade_name', ''),
                 'origin_country_code': getattr(item, 'origin_country_code', ''),
@@ -233,7 +238,7 @@ class ZaglavljeController:
                 'item_value': getattr(item, 'item_value', 0),
             }
             naimenovanja_data.append(item_data)
-        
+
         return naimenovanja_data
     
     def _get_invoice_lines(self, draft: Any) -> List[Dict[str, Any]]:

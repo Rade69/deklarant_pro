@@ -298,8 +298,8 @@ class DeclarationValidatorService:
         
         # Provjeri svako naimenovanje
         for i, item in enumerate(naimenovanja_data):
-            item_num = i + 1
-            
+            item_num = item.get("ordinal_no") or (i + 1)
+
             # Obavezna polja
             if not item.get('tariff_code'):
                 items.append(ValidationItem(
@@ -385,7 +385,7 @@ class DeclarationValidatorService:
                 item.get('preference_code', ''),
                 item.get('goods_trade_name', '')[:50]  # Prvih 50 karaktera
             )
-            groups[key].append(i + 1)  # +1 za human-readable broj
+            groups[key].append(item.get("ordinal_no") or (i + 1))
         
         # Pronađi grupe sa više od 1 stavke
         for key, indices in groups.items():
@@ -446,7 +446,7 @@ class DeclarationValidatorService:
             # Analiziraj naimenovanja u odnosu na istoriju —
             # javljamo SAMO ako je poznat proizvod dobio drugačiji tarifni broj
             for i, item in enumerate(naimenovanja_data):
-                item_num = i + 1
+                item_num = item.get("ordinal_no") or (i + 1)
                 product_name = item.get('goods_trade_name', '')
                 tariff_code = item.get('tariff_code', '')
 
@@ -504,7 +504,7 @@ class DeclarationValidatorService:
             
             # Provjeri povlastice za svaku stavku
             for i, item in enumerate(naimenovanja_data):
-                item_num = i + 1
+                item_num = item.get("ordinal_no") or (i + 1)
                 country = item.get('origin_country_code', '')
                 preference = item.get('preference_code', '')
                 
@@ -837,6 +837,7 @@ class DeclarationValidatorService:
                 if not result.requires_any_inspection:
                     continue
 
+                rb_x = item.get("ordinal_no") or (i + 1)
                 for match in result.matches:
                     itype = match.inspection_type
                     entry = self._INSPECTION_DOC_MAP.get(itype)
@@ -845,7 +846,7 @@ class DeclarationValidatorService:
                     primary, alternatives = entry
                     all_accepted = {primary.upper()} | {a.upper() for a in alternatives}
                     if not all_accepted & attached_codes:
-                        missing.setdefault(itype, []).append(i + 1)
+                        missing.setdefault(itype, []).append(rb_x)
 
             from services.inspection_service import INSPECTION_LABELS
             for itype, stavke in missing.items():
