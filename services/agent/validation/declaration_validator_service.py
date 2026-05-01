@@ -763,27 +763,27 @@ class DeclarationValidatorService:
         return recommendations
     
     def _tariff_exists_in_db(self, tariff_code: str) -> bool:
-        """Provjeri da li tarifni broj postoji u catalogs.zvanicna_tarifa.
+        """Provjeri da li tarifni broj postoji u tarifa_2026 (SQLite).
 
-        ASYCUDA koristi 8-cifrene kodove; baza može čuvati 10-cifrene.
-        Za 8-cifrene kodove radi LIKE prefix pretragu.
+        ASYCUDA koristi 8-cifrene kodove (heading 4 + subheading 2 + nacionalni 2).
+        Baza tarife ima 10-cifrene kodove. Prvih 6 cifara (heading + subheading)
+        su pouzdane — provjera se radi na nivou 6-cifrenog podbroja.
         """
         try:
-            from database.db import get_db_connection
-            norm = tariff_code.strip()
-            with get_db_connection() as conn:
-                with conn.cursor() as cur:
-                    if len(norm) == 8:
-                        cur.execute(
-                            "SELECT 1 FROM catalogs.zvanicna_tarifa WHERE tarifni_kod LIKE %s LIMIT 1",
-                            (norm + '%',)
-                        )
-                    else:
-                        cur.execute(
-                            "SELECT 1 FROM catalogs.zvanicna_tarifa WHERE tarifni_kod = %s LIMIT 1",
-                            (norm,)
-                        )
-                    return cur.fetchone() is not None
+            from services.tarifa_service import trazi_po_kodu
+            norm = tariff_code.strip().replace(" ", "").replace(".", "")
+            if not norm:
+                return True
+
+            # Pokušaj exact match
+            if trazi_po_kodu(norm):
+                return True
+
+            # Za 8-cifrene ASYCUDA kodove: provjeri 6-cifreni podbrojnik (heading+subheading)
+            if len(norm) == 8:
+                return bool(trazi_po_kodu(norm[:6]))
+
+            return False
         except Exception as e:
             print(f"⚠️ Greška pri provjeri tarife {tariff_code}: {e}")
             return True  # U slučaju greške ne blokiramo
