@@ -18,6 +18,7 @@ from gui.tabs.admin.panels.logs_panel import LogsPanel
 from gui.tabs.admin.panels.system_panel import SystemPanel
 from gui.tabs.admin.panels.analytics_panel import AnalyticsPanel
 from gui.tabs.admin.panels.license_panel import LicensePanel
+from gui.tabs.admin.panels.learning_panel import LearningPanel
 import qtawesome as qta
 
 
@@ -121,6 +122,7 @@ class AdminView(BaseTabView):
             ("fa5s.file-alt",     "Logovi",                 "Pregled i filtriranje logova"),
             ("fa5s.info-circle",  "Sistemske Informacije",  "Informacije o sistemu i aplikaciji"),
             ("fa5s.key",          "Licenca",                "Machine ID, status licence, uvoz licence"),
+            ("fa5s.brain",        "Učenje iz XML-ova",      "Reindeksiranje XML deklaracija i upravljanje mappingima"),
         ]
 
         for icon_name, item_text, tooltip in items:
@@ -193,6 +195,10 @@ class AdminView(BaseTabView):
         self.license_panel = LicensePanel()
         self.content_stack.addWidget(self.license_panel)
 
+        # Learning panel
+        self.learning_panel = LearningPanel()
+        self.content_stack.addWidget(self.learning_panel)
+
     def _on_nav_changed(self, index: int):
         """
         Handler za promjenu navigation selection.
@@ -231,6 +237,10 @@ class AdminView(BaseTabView):
     def get_license_panel(self) -> LicensePanel:
         """Getter za license panel."""
         return self.license_panel
+
+    def get_learning_panel(self) -> LearningPanel:
+        """Getter za learning panel."""
+        return self.learning_panel
 
     def get_data(self) -> dict:
         return {}
