@@ -171,34 +171,20 @@ class DeclarationValidatorService:
         )
         all_items.extend(naimenovanja_items)
         
-        # 3. Istorijska analiza (ako imamo suppliera)
-        supplier_name = zaglavlje_data.get('izvoznik_r1', '')
-        if supplier_name:
-            historical_items = self._validate_historical(
-                supplier_name, naimenovanja_data, invoice_lines
-            )
-            all_items.extend(historical_items)
-        else:
-            historical_items = []
-        
-        # 4. Pravne provjere (povlastice, dokumentacija)
+        # 3. Pravne provjere — samo konkretne, akcione greške
         legal_items = self._validate_legal(
             zaglavlje_data, naimenovanja_data, invoice_lines
         )
         all_items.extend(legal_items)
-        
-        # 5. Kontekstualne provjere
-        contextual_items = self._validate_contextual(
-            zaglavlje_data, naimenovanja_data, invoice_lines
-        )
-        all_items.extend(contextual_items)
 
-        # 6. Provjera inspekcijskih dokumenata u Rb.44
+        # 4. Inspekcijski dokumenti (can_auto_decide=True tarife)
         inspection_doc_items = self._validate_inspection_documents(
             naimenovanja_data, draft
         )
         all_items.extend(inspection_doc_items)
-        contextual_items = contextual_items + inspection_doc_items
+
+        historical_items = []
+        contextual_items = inspection_doc_items
         
         # 7. Izračunaj statistiku
         error_count = sum(1 for item in all_items if item.severity == ValidationSeverity.ERROR)
@@ -226,7 +212,8 @@ class DeclarationValidatorService:
                 ValidationCategory.SYNCHRONIZATION,
                 ValidationCategory.CONSISTENCY
             ]],
-            naimenovanja_items=[i for i in all_items if i.rule.startswith('Na')],
+            naimenovanja_items=[i for i in all_items if i.rule.startswith('Na')
+                                and i.category not in [ValidationCategory.LEGAL]],
             historical_items=historical_items,
             legal_items=legal_items,
             contextual_items=contextual_items,
@@ -499,77 +486,25 @@ class DeclarationValidatorService:
         naimenovanja_data: List[Dict[str, Any]],
         invoice_lines: List[Dict[str, Any]]
     ) -> List[ValidationItem]:
-        """Pravne provjere (povlastice, dokumentacija)."""
+        """Pravne provjere — samo konkretne, akcione greške."""
         items = []
-        
-        try:
-            from services.agent.learning.historical_learning_service_safe import HistoricalLearningServiceSafe
-            
-            service = HistoricalLearningServiceSafe()
-            supplier_name = zaglavlje_data.get('izvoznik_r1', '')
-            
-            if not supplier_name:
-                return items
-            
-            # Provjeri povlastice za svaku stavku
-            for i, item in enumerate(naimenovanja_data):
-                item_num = item.get("ordinal_no") or (i + 1)
-                country = item.get('origin_country_code', '')
-                preference = item.get('preference_code', '')
-                
-                if not country or not preference:
-                    continue
-                
-                # Dobavi istorijsku povlasticu
-                historical_pref = service.get_preference_safe(supplier_name, country)
-                
-                if historical_pref and historical_pref != preference:
-                    items.append(ValidationItem(
-                        severity=ValidationSeverity.WARNING,
-                        category=ValidationCategory.LEGAL,
-                        rule=f"Na{item_num}",
-                        field="Povlastica",
-                        message=(
-                            f"Stavka {item_num}: Povlastica se razlikuje od istorijske\n"
-                            f"Istorijski: {historical_pref}, Sada: {preference}"
-                        ),
-                        explanation=(
-                            f"{supplier_name} je ranije koristio {historical_pref} "
-                            f"za {country}. Provjeri da li je {preference} tačna."
-                        )
-                    ))
-                
-                # Provjeri da li je povlastica validna za zemlju
-                if country == "RS" and preference == "EUP":
-                    items.append(ValidationItem(
-                        severity=ValidationSeverity.ERROR,
-                        category=ValidationCategory.LEGAL,
-                        rule=f"Na{item_num}",
-                        field="Povlastica",
-                        message=f"Stavka {item_num}: EUP nije validna za Srbiju",
-                        explanation="Srbija nije članica EU. EUP povlastica nije validna."
-                    ))
-                
-                # Provjeri dokumentaciju za vrijednost preko 10.000 EUR
-                item_value = float(item.get('item_value', 0) or 0)
-                if item_value > 10000 and not preference:
-                    items.append(ValidationItem(
-                        severity=ValidationSeverity.WARNING,
-                        category=ValidationCategory.DOCUMENTATION,
-                        rule=f"Na{item_num}",
-                        field="Dokumentacija",
-                        message=f"Stavka {item_num}: Vrijednost preko 10.000 EUR bez povlastice",
-                        explanation=(
-                            "Za robu vrijednosti preko 10.000 EUR obično je potrebna "
-                            "dodatna dokumentacija za povlasticu."
-                        )
-                    ))
-            
-        except ImportError:
-            print("⚠️ HistoricalLearningService nije dostupan")
-        except Exception as e:
-            print(f"⚠️ Greška pri pravnim provjerama: {e}")
-        
+
+        for i, item in enumerate(naimenovanja_data):
+            item_num = item.get("ordinal_no") or (i + 1)
+            country = item.get('origin_country_code', '')
+            preference = item.get('preference_code', '')
+
+            # EUP nije validna za Srbiju — konkretna, uvijek tačna
+            if country == "RS" and preference and preference.startswith("EU"):
+                items.append(ValidationItem(
+                    severity=ValidationSeverity.ERROR,
+                    category=ValidationCategory.LEGAL,
+                    rule=f"Na{item_num}",
+                    field="Povlastica",
+                    message=f"Stavka {item_num}: {preference} nije validna za Srbiju (RS)",
+                    explanation="Srbija nije članica EU. Koristiti CEFTA povlasticu ili bez povlastice."
+                ))
+
         return items
     
     def _validate_contextual(
@@ -578,72 +513,8 @@ class DeclarationValidatorService:
         naimenovanja_data: List[Dict[str, Any]],
         invoice_lines: List[Dict[str, Any]]
     ) -> List[ValidationItem]:
-        """Kontekstualne provjere (analiza fakture, kategorije)."""
-        items = []
-        
-        try:
-            # Analiziraj kategorije proizvoda
-            categories = self._analyze_product_categories(naimenovanja_data)
-            
-            if len(categories) > 1:
-                # Više kategorija u fakturi
-                main_category = max(categories.items(), key=lambda x: x[1])[0]
-                other_categories = [c for c in categories if c != main_category]
-                
-                if other_categories:
-                    items.append(ValidationItem(
-                        severity=ValidationSeverity.INFO,
-                        category=ValidationCategory.CONTEXTUAL,
-                        rule="Faktura",
-                        field="Kategorije",
-                        message=f"Faktura sadrži {len(categories)} različite kategorije",
-                        explanation=(
-                            f"Glavna kategorija: {main_category}. "
-                            f"Ostale: {', '.join(other_categories)}. "
-                            f"Provjeri da li svi proizvodi pripadaju istoj pošiljci."
-                        )
-                    ))
-            
-            # Provjeri konzistentnost sa dobavljačem
-            supplier_name = zaglavlje_data.get('izvoznik_r1', '')
-            if supplier_name:
-                supplier_category = self._detect_supplier_category(supplier_name)
-                
-                if supplier_category and categories:
-                    invoice_categories = set(categories.keys())
-                    
-                    if supplier_category not in invoice_categories:
-                        items.append(ValidationItem(
-                            severity=ValidationSeverity.WARNING,
-                            category=ValidationCategory.CONTEXTUAL,
-                            rule="Dobavljač",
-                            field="Kategorija",
-                            message=(
-                                f"Dobavljač {supplier_name} uvozi {supplier_category}, "
-                                f"ali faktura sadrži {', '.join(invoice_categories)}"
-                            ),
-                            explanation=(
-                                f"Provjeri da li su proizvodi iz fakture konzistentni "
-                                f"sa uobičajenim asortimanom dobavljača."
-                            )
-                        ))
-            
-            # Provjeri da li faktura ima origin statement
-            has_origin_statement = self._check_origin_statement(invoice_lines)
-            if has_origin_statement:
-                items.append(ValidationItem(
-                    severity=ValidationSeverity.INFO,
-                    category=ValidationCategory.DOCUMENTATION,
-                    rule="Faktura",
-                    field="Izjava o poreklu",
-                    message="Faktura sadrži izjavu o poreklu",
-                    explanation="Detektovana izjava o poreklu na fakturi. Provjeri da li je potrebna dodatna dokumentacija."
-                ))
-            
-        except Exception as e:
-            print(f"⚠️ Greška pri kontekstualnim provjerama: {e}")
-        
-        return items
+        """Kontekstualne provjere — zadržan samo skeleton; inspekcija se dodaje zasebno."""
+        return []
     
     def _analyze_product_categories(
         self,
