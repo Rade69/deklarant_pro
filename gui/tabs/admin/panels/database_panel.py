@@ -14,6 +14,7 @@ from PySide6.QtCore import Signal, Qt
 from PySide6.QtGui import QFont
 from typing import List, Dict, Any
 import qtawesome as qta
+from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
 
 
 class DatabasePanel(QWidget):

@@ -16,6 +16,7 @@ from typing import Dict, Any
 import qtawesome as qta
 import json
 from gui.tabs.admin.panels import styles as S
+from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
 
 
 class SystemPanel(QWidget):

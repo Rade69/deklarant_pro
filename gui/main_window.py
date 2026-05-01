@@ -14,6 +14,7 @@ from gui.tabs.tab_factory import get_tab_factory
 from gui.tabs.lazy_tab import LazyTab
 from gui.tabs.admin_tab import AdminTab
 from gui.tabs.agent_tab import AgentTab
+from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
 
 
 class MainWindow(QMainWindow):

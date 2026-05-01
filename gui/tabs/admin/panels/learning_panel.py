@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
 )
 
 from services.agent.learning.exporter_xml_indexer import get_xml_folder
+from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
 
 XML_FOLDER = get_xml_folder()
 

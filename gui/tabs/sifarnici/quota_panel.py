@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
 
 logger = logging.getLogger("deklarant_pro.quota_panel")
 

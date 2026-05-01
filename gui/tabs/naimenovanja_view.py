@@ -41,6 +41,7 @@ from PySide6.QtWidgets import (
     QSpacerItem,
     QGroupBox,
 )
+from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
 
 
 class _ScrollableCombo(QComboBox):
@@ -237,7 +238,7 @@ class NaimenovanjaView(BaseTabView):
 
         # Prikaz korisniku (samo ako nema UI ili ako je glavni thread)
         try:
-            from PySide6.QtWidgets import QMessageBox
+            from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
 
             QMessageBox.critical(
                 self, "Greška", f"{context}\n\n{str(error)}", QMessageBox.Ok
@@ -3095,7 +3096,8 @@ class NaimenovanjaView(BaseTabView):
     def _on_import_xml(self) -> None:
         """Otvori file dialog i uvezi naimenovanja iz XML fajla."""
         import traceback
-        from PySide6.QtWidgets import QFileDialog, QMessageBox
+        from PySide6.QtWidgets import QFileDialog
+        from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
 
         try:
             filename, _ = QFileDialog.getOpenFileName(

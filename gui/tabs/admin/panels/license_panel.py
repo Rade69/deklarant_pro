@@ -18,6 +18,7 @@ from core.licensing.license_importer import import_license
 from core.licensing.license_paths import get_license_path
 from core.licensing.license_validator import validate_license_file
 from core.licensing.machine_id import get_machine_id
+from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
 
 
 class LicensePanel(QWidget):

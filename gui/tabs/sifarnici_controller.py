@@ -288,7 +288,7 @@ class SifarniciController:
 
     def _on_obrisi(self):
         """Obriši record."""
-        from PySide6.QtWidgets import QMessageBox
+        from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
 
         try:
             row = self._get_selected_row()

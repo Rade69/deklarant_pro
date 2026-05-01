@@ -44,6 +44,8 @@ from PySide6.QtCore import Qt, Signal, QSize, QObject, QEvent
 from PySide6.QtGui import QFont, QIcon, QRegularExpressionValidator, QPainter, QColor
 from PySide6.QtCore import QRegularExpression
 from typing import Dict, Any, Optional, List
+from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
+from gui.utils.safe_message_box import capture_window_geometry, restore_window_geometry_queued
 
 try:
     import qtawesome as qta
@@ -1718,11 +1720,15 @@ class ZaglavljeView(BaseTabView):
         self.btn_izlaz.clicked.connect(self.close_requested.emit)
 
     def _on_import_clicked(self):
-        filename, _ = QFileDialog.getOpenFileName(
-            self, "Uvezi XML datoteku", "", "XML Files (*.xml);;All Files (*)"
-        )
-        if filename:
-            self.import_xml_requested.emit(filename)
+        geometry_state = capture_window_geometry(self)
+        try:
+            filename, _ = QFileDialog.getOpenFileName(
+                self, "Uvezi XML datoteku", "", "XML Files (*.xml);;All Files (*)"
+            )
+            if filename:
+                self.import_xml_requested.emit(filename)
+        finally:
+            restore_window_geometry_queued(geometry_state)
 
     # ============================================================
     # STYLES
@@ -2106,31 +2112,16 @@ class ZaglavljeView(BaseTabView):
     # ============================================================
 
     def show_success(self, message: str):
-        # FIX(7fe41e3): QMessageBox(self) triggeruje layout recalc → window shrinks.
-        # Koristimo self.window() kao parent i vraćamo geometriju poslije exec().
-        win = self.window()
-        was_maximized = win.isMaximized()
-        geom = win.geometry()
-        QMessageBox.information(win, "Uspjeh", message)
-        if not was_maximized:
-            win.setGeometry(geom)
-        else:
-            win.showMaximized()
+        super().show_success(message)
 
     def show_error(self, message: str):
-        QMessageBox.critical(self, "Greška", message)
+        super().show_error(message)
 
     def show_warning(self, message: str):
-        QMessageBox.warning(self, "Upozorenje", message)
+        super().show_warning(message)
 
     def show_info(self, message: str):
-        QMessageBox.information(self, "Info", message)
+        super().show_info(message)
 
     def confirm(self, message: str, title: str = "Potvrda") -> bool:
-        reply = QMessageBox.question(
-            self,
-            title,
-            message,
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        )
-        return reply == QMessageBox.StandardButton.Yes
+        return super().confirm(message, title)

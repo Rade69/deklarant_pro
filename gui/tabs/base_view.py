@@ -21,9 +21,11 @@ Primjer korišćenja:
             pass
 """
 
-from PySide6.QtWidgets import QWidget, QMessageBox
+from PySide6.QtWidgets import QWidget
 from PySide6.QtCore import Signal
-from typing import Dict, Any, Optional
+from typing import Callable, Dict, Any, Optional
+
+from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
 
 
 class BaseTabView(QWidget):
@@ -129,8 +131,44 @@ class BaseTabView(QWidget):
     # ============================================================
     # UTILITY METHODS
     # ============================================================
+
+    def _message_parent(self) -> QWidget:
+        win = self.window()
+        return win if win else self
+
+    def _with_preserved_window_geometry(self, callback: Callable[[QWidget], Any]) -> Any:
+        win = self._message_parent()
+        was_maximized = win.isMaximized()
+        geom = win.geometry()
+        result = callback(win)
+        if was_maximized:
+            win.showMaximized()
+        else:
+            win.setGeometry(geom)
+        return result
+
+    def _show_message(self, method: Callable[..., Any], title: str, message: str) -> Any:
+        return self._with_preserved_window_geometry(
+            lambda parent: method(parent, title, message)
+        )
+
+    def ask_question(
+        self,
+        message: str,
+        title: str = "Potvrda",
+        buttons: QMessageBox.StandardButton = (
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        ),
+        default_button: Optional[QMessageBox.StandardButton] = None,
+    ) -> QMessageBox.StandardButton:
+        def _ask(parent: QWidget) -> QMessageBox.StandardButton:
+            if default_button is None:
+                return QMessageBox.question(parent, title, message, buttons)
+            return QMessageBox.question(parent, title, message, buttons, default_button)
+
+        return self._with_preserved_window_geometry(_ask)
     
-    def show_success(self, message: str = "Operacija uspješna") -> None:
+    def show_success(self, message: str = "Operacija uspješna", title: str = "Uspjeh") -> None:
         """
         Prikaži success poruku korisniku.
         
@@ -140,9 +178,9 @@ class BaseTabView(QWidget):
         Primjer:
             >>> view.show_success("Podaci sačuvani!")
         """
-        QMessageBox.information(self, "Uspjeh", message)
+        self._show_message(QMessageBox.information, title, message)
     
-    def show_error(self, message: str) -> None:
+    def show_error(self, message: str, title: str = "Greška") -> None:
         """
         Prikaži error poruku korisniku.
         
@@ -155,10 +193,10 @@ class BaseTabView(QWidget):
         Primjer:
             >>> view.show_error("Greška pri čuvanju podataka")
         """
-        QMessageBox.critical(self, "Greška", message)
+        self._show_message(QMessageBox.critical, title, message)
         self.error_occurred.emit(message)
     
-    def show_warning(self, message: str) -> None:
+    def show_warning(self, message: str, title: str = "Upozorenje") -> None:
         """
         Prikaži warning poruku korisniku.
         
@@ -168,7 +206,10 @@ class BaseTabView(QWidget):
         Primjer:
             >>> view.show_warning("Nesačuvane promjene će biti izgubljene")
         """
-        QMessageBox.warning(self, "Upozorenje", message)
+        self._show_message(QMessageBox.warning, title, message)
+
+    def show_info(self, message: str, title: str = "Info") -> None:
+        self._show_message(QMessageBox.information, title, message)
     
     def confirm(self, message: str, title: str = "Potvrda") -> bool:
         """
@@ -185,12 +226,7 @@ class BaseTabView(QWidget):
             >>> if view.confirm("Da li ste sigurni?"):
             ...     # Korak dalje
         """
-        reply = QMessageBox.question(
-            self,
-            title,
-            message,
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        )
+        reply = self.ask_question(message, title)
         return reply == QMessageBox.StandardButton.Yes
     
     def confirm_warning(
@@ -216,10 +252,9 @@ class BaseTabView(QWidget):
             >>> if view.confirm_warning("Ovo će obrisati sve podatke!"):
             ...     # Destructive action
         """
-        reply = QMessageBox.question(
-            self,
-            title,
+        reply = self.ask_question(
             message,
+            title,
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             default_button,
         )

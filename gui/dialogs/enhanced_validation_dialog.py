@@ -605,7 +605,7 @@ class EnhancedValidationDialog(QDialog):
     
     def _on_auto_fix(self, items: List[ValidationItem]):
         """Handler za automatsko popravljanje."""
-        from PySide6.QtWidgets import QMessageBox
+        from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
         
         reply = QMessageBox.question(
             self,
@@ -647,7 +647,7 @@ class EnhancedValidationDialog(QDialog):
             with open(filename, 'w', encoding='utf-8') as f:
                 f.write(content)
             
-            from PySide6.QtWidgets import QMessageBox
+            from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
             QMessageBox.information(
                 self,
                 "Izvještaj sačuvan",
@@ -655,7 +655,7 @@ class EnhancedValidationDialog(QDialog):
             )
             
         except Exception as e:
-            from PySide6.QtWidgets import QMessageBox
+            from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
             QMessageBox.critical(
                 self,
                 "Greška",

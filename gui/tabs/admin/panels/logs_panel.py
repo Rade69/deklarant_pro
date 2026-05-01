@@ -15,6 +15,7 @@ from PySide6.QtGui import QFont
 from typing import List, Dict, Any
 import qtawesome as qta
 from gui.tabs.admin.panels import styles as S
+from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
 
 
 class LogsPanel(QWidget):

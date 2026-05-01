@@ -13,6 +13,7 @@ from PySide6.QtCore import Qt
 from typing import Optional
 
 from core.draft import InvoiceLine
+from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
 from ..classic_style import ClassicFonts
 
 

@@ -15,8 +15,11 @@ import logging
 import re
 from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
 
-from PySide6.QtWidgets import QMessageBox
 from PySide6.QtCore import Qt
+from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
+from gui.utils.safe_message_box import capture_window_geometry, restore_window_geometry_queued
+from gui.utils.safe_message_box import exec_dialog_preserving_geometry
+# Docs: docs/sections/window-geometry-modal-guard.md
 
 if TYPE_CHECKING:
     from gui.tabs.zaglavlje_view import ZaglavljeView
@@ -271,94 +274,94 @@ class ZaglavljeController:
         Ako ima samo warnings — prikaži upozorenja.
         Ako je sve OK — prikaži success.
         """
-        errors = result.get("errors", [])
-        warnings = result.get("warnings", [])
-        valid = result.get("valid", False)
+        geometry_state = capture_window_geometry(self.view)
+        try:
+            errors = result.get("errors", [])
+            warnings = result.get("warnings", [])
+            valid = result.get("valid", False)
 
-        if valid and not warnings:
-            self.view.show_success(
-                "✅ Validacija uspješna!\n\n"
-                "Sva obavezna polja su popunjena i podaci su sinhronizovani.\n"
-                "Možete nastaviti sa XML exportom."
-            )
-            return
-
-        # Sastavi poruku
-        msg_parts = []
-
-        # Fixable akcije (auto-update)
-        fixable = [e for e in errors if e.get("fixable")]
-        fixable_warnings = [w for w in warnings if w.get("fixable")]
-        all_fixable = fixable + fixable_warnings
-
-        if errors:
-            msg_parts.append(f"❌ {len(errors)} GREŠAKA (blokiraju export):\n")
-            for i, err in enumerate(errors, 1):
-                msg_parts.append(f"  {i}. {err['message']}")
-            msg_parts.append("")
-
-        if warnings:
-            non_fixable_warnings = [
-                w for w in warnings if not w.get("fixable")
-            ]
-            if non_fixable_warnings:
-                msg_parts.append(
-                    f"⚠️ {len(non_fixable_warnings)} UPOZORENJA:\n"
+            if valid and not warnings:
+                self.view.show_success(
+                    "✅ Validacija uspješna!\n\n"
+                    "Sva obavezna polja su popunjena i podaci su sinhronizovani.\n"
+                    "Možete nastaviti sa XML exportom."
                 )
-                for i, w in enumerate(non_fixable_warnings, 1):
-                    msg_parts.append(f"  {i}. {w['message']}")
+                return
+
+            # Sastavi poruku
+            msg_parts = []
+
+            # Fixable akcije (auto-update)
+            fixable = [e for e in errors if e.get("fixable")]
+            fixable_warnings = [w for w in warnings if w.get("fixable")]
+            all_fixable = fixable + fixable_warnings
+
+            if errors:
+                msg_parts.append(f"❌ {len(errors)} GREŠAKA (blokiraju export):\n")
+                for i, err in enumerate(errors, 1):
+                    msg_parts.append(f"  {i}. {err['message']}")
                 msg_parts.append("")
 
-        if all_fixable:
-            msg_parts.append(
-                f"🔧 {len(all_fixable)} AUTOMATSKIH POPRAVKI dostupno:\n"
-            )
-            for i, item in enumerate(all_fixable, 1):
-                msg_parts.append(f"  {i}. {item['message']}")
-            msg_parts.append("")
+            if warnings:
+                non_fixable_warnings = [
+                    w for w in warnings if not w.get("fixable")
+                ]
+                if non_fixable_warnings:
+                    msg_parts.append(
+                        f"⚠️ {len(non_fixable_warnings)} UPOZORENJA:\n"
+                    )
+                    for i, w in enumerate(non_fixable_warnings, 1):
+                        msg_parts.append(f"  {i}. {w['message']}")
+                    msg_parts.append("")
 
-        full_msg = "\n".join(msg_parts)
+            if all_fixable:
+                msg_parts.append(
+                    f"🔧 {len(all_fixable)} AUTOMATSKIH POPRAVKI dostupno:\n"
+                )
+                for i, item in enumerate(all_fixable, 1):
+                    msg_parts.append(f"  {i}. {item['message']}")
+                msg_parts.append("")
 
-        # Ako ima fixable, ponudi auto-fix
-        if all_fixable:
-            reply = QMessageBox.question(
-                self.view,
-                "Rezultat validacije",
-                full_msg + "\nŽelite li automatski popraviti ove greške?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.Yes,
-            )
-            if reply == QMessageBox.StandardButton.Yes:
-                self._apply_auto_fixes(all_fixable)
-                # Ponovo validiraj nakon fix-a
-                if self._save_draft_fn:
-                    self._save_draft_fn()
-                view_data = self.view.get_data()
-                draft = self._get_draft_fn() if self._get_draft_fn else None
-                if draft:
-                    new_result = self.service.validate(view_data, draft)
-                    self._show_validation_result(new_result)
-                return
-            # Ako user kaže Ne, samo prikaži info
-            QMessageBox.warning(
-                self.view,
-                "Validacija — ima grešaka",
-                full_msg,
-            )
-        else:
-            # Nema fixable — samo prikaži
-            if errors:
-                QMessageBox.critical(
-                    self.view,
-                    "Validacija — greške",
+            full_msg = "\n".join(msg_parts)
+
+            # Ako ima fixable, ponudi auto-fix
+            if all_fixable:
+                reply = self.view.ask_question(
+                    full_msg + "\nŽelite li automatski popraviti ove greške?",
+                    "Rezultat validacije",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.Yes,
+                )
+                if reply == QMessageBox.StandardButton.Yes:
+                    self._apply_auto_fixes(all_fixable)
+                    # Ponovo validiraj nakon fix-a
+                    if self._save_draft_fn:
+                        self._save_draft_fn()
+                    view_data = self.view.get_data()
+                    draft = self._get_draft_fn() if self._get_draft_fn else None
+                    if draft:
+                        new_result = self.service.validate(view_data, draft)
+                        self._show_validation_result(new_result)
+                    return
+                # Ako user kaže Ne, samo prikaži info
+                self.view.show_warning(
                     full_msg,
+                    "Validacija — ima grešaka",
                 )
             else:
-                QMessageBox.information(
-                    self.view,
-                    "Validacija — upozorenja",
-                    full_msg,
-                )
+                # Nema fixable — samo prikaži
+                if errors:
+                    self.view.show_error(
+                        full_msg,
+                        "Validacija — greške",
+                    )
+                else:
+                    self.view.show_info(
+                        full_msg,
+                        "Validacija — upozorenja",
+                    )
+        finally:
+            restore_window_geometry_queued(geometry_state)
 
     def _apply_auto_fixes(self, fixable_items: list):
         """
@@ -429,6 +432,7 @@ class ZaglavljeController:
     
     def _on_delete(self):
         """Briši (očisti) zaglavlje — potvrdi i resetuj formu."""
+        geometry_state = capture_window_geometry(self.view)
         try:
             self.logger.info("Delete requested")
 
@@ -445,6 +449,8 @@ class ZaglavljeController:
         except Exception as e:
             self.logger.error(f"Delete failed: {e}", exc_info=True)
             self.view.show_error(f"Greška pri brisanju: {e}")
+        finally:
+            restore_window_geometry_queued(geometry_state)
     
     def _on_import_xml(self, filename: str):
         """
@@ -456,6 +462,7 @@ class ZaglavljeController:
         Args:
             filename: Putanja do XML fajla
         """
+        geometry_state = capture_window_geometry(self.view)
         try:
             self.logger.info(f"Import XML requested: {filename}")
             current_view_docs = self.view.get_data().get("attached_documents", [])
@@ -571,6 +578,8 @@ class ZaglavljeController:
         except Exception as e:
             self.logger.error(f"Import failed: {e}", exc_info=True)
             self.view.show_error(f"Greška pri uvozu: {e}")
+        finally:
+            restore_window_geometry_queued(geometry_state)
 
     def _sync_pe_docs_from_items_to_header(self, draft) -> None:
         header_docs = getattr(draft, "header_attached_documents", None)
@@ -725,6 +734,7 @@ class ZaglavljeController:
     
     def _on_export_xml(self):
         """Izvezi deklaraciju u ASYCUDA XML format."""
+        geometry_state = capture_window_geometry(self.view)
         try:
             self.logger.info("Export XML requested")
 
@@ -750,13 +760,11 @@ class ZaglavljeController:
                 return
 
             if result["warnings"]:
-                from PySide6.QtWidgets import QMessageBox
-                reply = QMessageBox.question(
-                    self.view,
-                    "Upozorenje prije exporta",
+                reply = self.view.ask_question(
                     f"⚠️ Validacija ima {len(result['warnings'])} upozorenja.\n\n"
                     f"{'; '.join(w['message'][:80] for w in result['warnings'][:3])}\n\n"
                     f"Da li želite nastaviti sa exportom?",
+                    "Upozorenje prije exporta",
                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                     QMessageBox.StandardButton.No,
                 )
@@ -792,12 +800,11 @@ class ZaglavljeController:
                 # Docs: docs/sections/asycuda-99-item-limit.md
                 pending = getattr(draft, "pending_next_declaration", None)
                 if pending is not None:
-                    reply = QMessageBox.question(
-                        self.view,
-                        "Nastavi sa ostatkom",
+                    reply = self.view.ask_question(
                         "Ova deklaracija je izvezena.\n\n"
                         "Postoje preostale stavke koje su odvojene zbog ASYCUDA limita od 99 naimenovanja.\n"
                         "Da li želite sada učitati sljedeću deklaraciju sa ostatkom?",
+                        "Nastavi sa ostatkom",
                         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                         QMessageBox.StandardButton.Yes,
                     )
@@ -818,9 +825,12 @@ class ZaglavljeController:
         except Exception as e:
             self.logger.error(f"Export failed: {e}", exc_info=True)
             self.view.show_error(f"Greška pri eksportu: {e}")
+        finally:
+            restore_window_geometry_queued(geometry_state)
     
     def _on_new(self):
         """Handle new declaration event."""
+        geometry_state = capture_window_geometry(self.view)
         try:
             self.logger.info("New declaration requested")
             
@@ -839,6 +849,8 @@ class ZaglavljeController:
         except Exception as e:
             self.logger.error(f"New failed: {e}", exc_info=True)
             self.view.show_error(f"Greška: {e}")
+        finally:
+            restore_window_geometry_queued(geometry_state)
 
     def _on_close(self):
         """Izlaz — snimi podatke u draft i obavijesti korisnika."""
@@ -881,7 +893,7 @@ class ZaglavljeController:
             from gui.widgets import PartnerSearchDialog
             dialog = PartnerSearchDialog(self.view, partner_type=partner_type)
             
-            if dialog.exec():
+            if exec_dialog_preserving_geometry(dialog, self.view):
                 partner = dialog.get_selected_partner()
                 
                 if partner:

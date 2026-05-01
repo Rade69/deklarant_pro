@@ -67,6 +67,10 @@ from gui.delegates import ValidationDelegate
 from gui.dialogs import AddItemDialog
 from importers.import_result import ImportResult
 from gui.tabs.base_view import BaseTabView
+from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
+from gui.utils.safe_message_box import capture_window_geometry, restore_window_geometry_queued
+from gui.utils.safe_message_box import exec_dialog_preserving_geometry, show_dialog_preserving_geometry
+# Docs: docs/sections/window-geometry-modal-guard.md
 
 
 class FakturaView(BaseTabView):
@@ -1813,7 +1817,7 @@ class FakturaView(BaseTabView):
         if not warnings:
             return True
 
-        from PySide6.QtWidgets import QMessageBox
+        from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
         msg = QMessageBox(self)
         msg.setWindowTitle("Upozorenje — Pogrešan partner?")
         msg.setIcon(QMessageBox.Icon.Warning)
@@ -2051,7 +2055,7 @@ class FakturaView(BaseTabView):
         logger.debug(f"📋 [_show_eur1_dialog] Otvaranje EUR.1 dialoga...")
         dialog = Eur1QuickDialog(self.draft.invoice_lines, self)
         
-        result = dialog.exec()
+        result = exec_dialog_preserving_geometry(dialog, self)
         logger.debug(f"📋 [_show_eur1_dialog] Dialog zatvoren, result={result}")
         
         # PySide6: exec() vraća int (1=Accepted, 0=Rejected)
@@ -2120,7 +2124,7 @@ class FakturaView(BaseTabView):
         dialog = PE2QuickDialog(self.draft.invoice_lines, self,
                                 invoice_number=invoice_number, doc_code=doc_code)
 
-        result = dialog.exec()
+        result = exec_dialog_preserving_geometry(dialog, self)
         logger.debug(f"📋 [_show_pe2_dialog] Dialog zatvoren, result={result}")
 
         if result == 1:
@@ -2481,7 +2485,7 @@ class FakturaView(BaseTabView):
         # Open dialog
         dialog = AddItemDialog(self, next_line_no=next_line_no)
 
-        if dialog.exec() == AddItemDialog.Accepted:
+        if exec_dialog_preserving_geometry(dialog, self) == AddItemDialog.Accepted:
             new_item = dialog.get_item()
 
             if new_item:
@@ -2597,57 +2601,58 @@ class FakturaView(BaseTabView):
         Args:
             auto: Ako True, preskoči sve dijaloge (za punu automatizaciju).
         """
+        geometry_state = capture_window_geometry(self) if not auto else None
         from services.create_naimenovanja_service import CreateNaimenovanjaService
 
-        logger.debug(f"\n{'='*80}")
-        logger.debug(f"🔍 [_on_create_naimenovanja] START (auto={auto})")
-        logger.debug(f"🔍 [_on_create_naimenovanja] Broj invoice_lines: {len(self.draft.invoice_lines)}")
-
-        if not self.draft.invoice_lines:
-            if not auto:
-                QMessageBox.warning(
-                    self,
-                    "Nema faktura",
-                    "Molimo prvo uvezite fakture (PDF/Excel/XML) prije kreiranja naimenovanja.",
-                )
-            return
-
-        # Upozori ako ima stavki bez tarifnog broja (samo u interaktivnom modu)
-        bez_tarife = [l for l in self.draft.invoice_lines if not getattr(l, 'tarifni_broj', None)]
-        if bez_tarife and not auto:
-            odgovor = QMessageBox.warning(
-                self,
-                "Upozorenje — nedostaje tarifni broj",
-                f"⚠️ {len(bez_tarife)} od {len(self.draft.invoice_lines)} stavki nema tarifni broj!\n\n"
-                f"Grupiranje naimensovnja neće biti tačno — stavke bez tarife bit će "
-                f"spojene u JEDNO naimensovnje bez obzira na vrstu robe.\n\n"
-                f"Preporučuje se prvo popuniti sve tarifne brojeve (dugme 'Auto-popuni tarifne'), "
-                f"pa tek onda kreirati naimensovnja.\n\n"
-                f"Nastavi svejedno?",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No,
-            )
-            if odgovor == QMessageBox.No:
-                return
-
-        # Potvrda (samo u interaktivnom modu)
-        if not auto:
-            reply = QMessageBox.question(
-                self,
-                "Kreiraj Naimenovanja",
-                f"Kreirati naimenovanja iz {len(self.draft.invoice_lines)} stavki?\n\n"
-                f"Naimenovanja će biti grupisana po:\n"
-                f"  • Tarifa (33)\n"
-                f"  • Zemlja porijekla (34)\n"
-                f"  • Povlastica (36)\n\n"
-                f"Postojeća naimenovanja će biti obrisana!",
-                QMessageBox.Yes | QMessageBox.No,
-            )
-            if reply == QMessageBox.No:
-                logger.debug(f"🔍 [_on_create_naimenovanja] Korisnik odustao")
-                return
-
         try:
+            logger.debug(f"\n{'='*80}")
+            logger.debug(f"🔍 [_on_create_naimenovanja] START (auto={auto})")
+            logger.debug(f"🔍 [_on_create_naimenovanja] Broj invoice_lines: {len(self.draft.invoice_lines)}")
+
+            if not self.draft.invoice_lines:
+                if not auto:
+                    QMessageBox.warning(
+                        self,
+                        "Nema faktura",
+                        "Molimo prvo uvezite fakture (PDF/Excel/XML) prije kreiranja naimenovanja.",
+                    )
+                return
+
+            # Upozori ako ima stavki bez tarifnog broja (samo u interaktivnom modu)
+            bez_tarife = [l for l in self.draft.invoice_lines if not getattr(l, 'tarifni_broj', None)]
+            if bez_tarife and not auto:
+                odgovor = QMessageBox.warning(
+                    self,
+                    "Upozorenje — nedostaje tarifni broj",
+                    f"⚠️ {len(bez_tarife)} od {len(self.draft.invoice_lines)} stavki nema tarifni broj!\n\n"
+                    f"Grupiranje naimensovnja neće biti tačno — stavke bez tarife bit će "
+                    f"spojene u JEDNO naimensovnje bez obzira na vrstu robe.\n\n"
+                    f"Preporučuje se prvo popuniti sve tarifne brojeve (dugme 'Auto-popuni tarifne'), "
+                    f"pa tek onda kreirati naimensovnja.\n\n"
+                    f"Nastavi svejedno?",
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.No,
+                )
+                if odgovor == QMessageBox.No:
+                    return
+
+            # Potvrda (samo u interaktivnom modu)
+            if not auto:
+                reply = QMessageBox.question(
+                    self,
+                    "Kreiraj Naimenovanja",
+                    f"Kreirati naimenovanja iz {len(self.draft.invoice_lines)} stavki?\n\n"
+                    f"Naimenovanja će biti grupisana po:\n"
+                    f"  • Tarifa (33)\n"
+                    f"  • Zemlja porijekla (34)\n"
+                    f"  • Povlastica (36)\n\n"
+                    f"Postojeća naimenovanja će biti obrisana!",
+                    QMessageBox.Yes | QMessageBox.No,
+                )
+                if reply == QMessageBox.No:
+                    logger.debug(f"🔍 [_on_create_naimenovanja] Korisnik odustao")
+                    return
+
             # Create service
             service = CreateNaimenovanjaService(self.draft)
 
@@ -2735,6 +2740,8 @@ class FakturaView(BaseTabView):
             QMessageBox.critical(
                 self, "Greška", f"Greška prilikom kreiranja naimenovanja:\n\n{str(e)}"
             )
+        finally:
+            restore_window_geometry_queued(geometry_state)
 
     def _set_weight_inputs_from_draft(self):
         total_bruto = sum(getattr(line, "bruto_kg", 0.0) or 0.0 for line in self.draft.invoice_lines)
@@ -2878,7 +2885,7 @@ class FakturaView(BaseTabView):
                 self._update_status_bar()
 
             dlg.tariffs_accepted.connect(_on_accepted)
-            dlg.show()
+            show_dialog_preserving_geometry(dlg, self)
 
         except Exception as e:
             import logging

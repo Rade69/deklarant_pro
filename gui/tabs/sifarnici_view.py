@@ -34,6 +34,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMenu,
 )
+from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
 from PySide6.QtCore import Qt, Signal, QSize, QTimer
 from PySide6.QtGui import QIcon, QKeySequence, QShortcut, QPalette, QColor, QFont
 import psycopg2

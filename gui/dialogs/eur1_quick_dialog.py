@@ -22,6 +22,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 
 from core.draft.draft import InvoiceLine
+from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
 
 
 class Eur1QuickDialog(QDialog):

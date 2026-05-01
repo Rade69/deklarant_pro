@@ -36,6 +36,7 @@ logging.basicConfig(
 try:
     from PySide6.QtWidgets import QApplication, QMessageBox
     from gui.main_window import MainWindow
+    from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
 except Exception as _import_err:
     # Upiši grešku u log fajl pa prikaži korisniku
     with open(_log_file, "a", encoding="utf-8") as _f:

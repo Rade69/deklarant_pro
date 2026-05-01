@@ -4,6 +4,7 @@ Error Handler - Centralizovano rukovanje greškama
 
 from typing import Optional
 from PySide6.QtWidgets import QMessageBox
+from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
 
 
 class ErrorHandler:
@@ -20,7 +21,7 @@ class ErrorHandler:
             error: Izuzetak koji se desio
             context: Kontekst u kojem se greška desila (npr. "Import", "Validacija")
         """
-        from PySide6.QtWidgets import QMessageBox
+        from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
         import logging
 
         logger = logging.getLogger(__name__)
