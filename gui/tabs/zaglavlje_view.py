@@ -2106,6 +2106,8 @@ class ZaglavljeView(BaseTabView):
     # ============================================================
 
     def show_success(self, message: str):
+        # FIX(7fe41e3): QMessageBox(self) triggeruje layout recalc → window shrinks.
+        # Koristimo self.window() kao parent i vraćamo geometriju poslije exec().
         win = self.window()
         was_maximized = win.isMaximized()
         geom = win.geometry()
