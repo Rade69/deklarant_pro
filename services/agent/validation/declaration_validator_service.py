@@ -4,8 +4,10 @@
 #   ce2ab0e — ordinal_no umjesto i+1 za prikaz Rb.X u upozorenjima
 #   ef58456 — inspekcijsko upozorenje samo za can_auto_decide=True pravila
 #   70d92e4 — _tariff_exists_in_db: 6-cifreni podbrojnik za ASYCUDA 8-cifrene kodove
+#   3a7a823 — uklonjen šum: istorija, historijske povlastice, kategorijska analiza
 # MEM: memory/2026-05-01_validator_ordinal_fix.md
 # MEM: memory/2026-05-01_validator_inspection_tariff_fix.md
+# MEM: memory/2026-05-01_validator_noise_reduction.md
 
 """
 Declaration Validator Service
