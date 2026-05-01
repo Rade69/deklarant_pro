@@ -1619,6 +1619,8 @@ class ZaglavljeView(BaseTabView):
         for i in range(20):
             self.table.setRowHeight(i, 32)
 
+        # Fiksna visina — spriječava da setRowCount(0) skupi prozor pri XML uvozu
+        self.table.setFixedHeight(20 * 32 + self.table.horizontalHeader().height())
         self.table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
@@ -2037,9 +2039,11 @@ class ZaglavljeView(BaseTabView):
 
         _PRESERVE_REFS = {"DIS", "N380", "OST", "PE1", "PE2", "PE3"}
 
-        # Obriši postojeće redove
-        self.table.setRowCount(0)
-        self.table.setRowCount(20)
+        # Očisti sadržaj bez mijenjanja broja redova — sprečava skupljanje prozora
+        for row in range(self.table.rowCount()):
+            for col in range(self.table.columnCount()):
+                self.table.setItem(row, col, QTableWidgetItem(""))
+            self.table.setRowHeight(row, 32)
 
         for idx, doc in enumerate(attached_docs):
             if idx >= 20:
