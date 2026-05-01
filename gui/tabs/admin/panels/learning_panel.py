@@ -12,6 +12,7 @@ from PySide6.QtCore import QThread, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QFileDialog,
+    QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -26,11 +27,23 @@ from PySide6.QtWidgets import (
 XML_FOLDER = Path(__file__).parents[4] / "docs" / "NOVA ASIKUDA"
 
 
+# ── DB helper ────────────────────────────────────────────────────────────────
+
+def _db_connect():
+    import psycopg2
+    from config.settings import get_db_settings
+    s = get_db_settings()
+    return psycopg2.connect(
+        host=s.host, port=s.port, dbname=s.database,
+        user=s.user, password=s.password,
+    )
+
+
 # ── Worker threadovi ─────────────────────────────────────────────────────────
 
 class _ReindexWorker(QThread):
     log_line = Signal(str)
-    finished = Signal(int, int)   # (dodano, ukupno)
+    finished = Signal(int, int)
     error    = Signal(str)
 
     def run(self):
@@ -57,24 +70,26 @@ class _ReindexWorker(QThread):
             self.error.emit(str(e))
 
 
-class _MappingStatsWorker(QThread):
-    finished = Signal(int)
+class _StatsWorker(QThread):
+    """Učitava sve statistike iz baze u jednom upitu."""
+    finished = Signal(dict)
     error    = Signal(str)
 
     def run(self):
         try:
-            import psycopg2
-            from config.settings import get_db_settings
-            s = get_db_settings()
-            conn = psycopg2.connect(
-                host=s.host, port=s.port, dbname=s.name,
-                user=s.user, password=s.password,
-            )
+            conn = _db_connect()
             with conn.cursor() as cur:
-                cur.execute("SELECT COUNT(*) FROM catalogs.product_tariff_mapping")
-                count = cur.fetchone()[0]
+                stats = {}
+                for key, tbl in [
+                    ("deklaracije",  "exporter_xml_index"),
+                    ("tarife",       "product_tariff_mapping"),
+                    ("uvoznici",     "uvoznici"),
+                    ("izvoznici",    "izvoznici"),
+                ]:
+                    cur.execute(f"SELECT COUNT(*) FROM catalogs.{tbl}")
+                    stats[key] = cur.fetchone()[0]
             conn.close()
-            self.finished.emit(count)
+            self.finished.emit(stats)
         except Exception as e:
             self.error.emit(str(e))
 
@@ -82,12 +97,11 @@ class _MappingStatsWorker(QThread):
 # ── Panel ────────────────────────────────────────────────────────────────────
 
 class LearningPanel(QWidget):
-    """Admin panel za učenje aplikacije iz XML deklaracija."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._reindex_worker: _ReindexWorker | None = None
-        self._mapping_worker: _MappingStatsWorker | None = None
+        self._stats_worker:   _StatsWorker   | None = None
         self._setup_ui()
         self._refresh_stats()
 
@@ -114,7 +128,7 @@ class LearningPanel(QWidget):
         layout.addLayout(hdr)
 
         layout.addWidget(self._make_xml_group())
-        layout.addWidget(self._make_mapping_group())
+        layout.addWidget(self._make_stats_group())
         layout.addWidget(self._make_log_group())
         layout.addStretch()
 
@@ -172,20 +186,37 @@ class LearningPanel(QWidget):
             QProgressBar::chunk { background: #1E3A5F; border-radius: 3px; }
         """)
         lay.addWidget(self.progress)
-
         return grp
 
-    def _make_mapping_group(self) -> QGroupBox:
-        grp = QGroupBox("🧠 Naučeni tarifni mappinzi")
+    def _make_stats_group(self) -> QGroupBox:
+        grp = QGroupBox("📊 Naučene deklaracije — stanje baze")
         grp.setStyleSheet(self._grp_style())
-        lay = QHBoxLayout(grp)
+        grid = QGridLayout(grp)
+        grid.setSpacing(14)
+        grid.setContentsMargins(14, 16, 14, 14)
 
-        self.lbl_mapping_count = QLabel("Mappinga u bazi: —")
-        self.lbl_mapping_count.setFont(QFont("Arial", 16, QFont.Bold))
-        self.lbl_mapping_count.setStyleSheet("color: #1E3A5F;")
-        lay.addWidget(self.lbl_mapping_count)
-        lay.addStretch()
+        def stat_pair(row, icon_name, opis, attr):
+            ico = QLabel()
+            ico.setPixmap(
+                qta.icon(icon_name, color="#1E3A5F", scale_factor=1.2).pixmap(22, 22)
+            )
+            lbl_opis = QLabel(opis)
+            lbl_opis.setFont(QFont("Arial", 14))
+            lbl_opis.setStyleSheet("color: #374151;")
+            lbl_val = QLabel("—")
+            lbl_val.setFont(QFont("Arial", 15, QFont.Bold))
+            lbl_val.setStyleSheet("color: #1E3A5F;")
+            grid.addWidget(ico,      row, 0, alignment=0)
+            grid.addWidget(lbl_opis, row, 1)
+            grid.addWidget(lbl_val,  row, 2)
+            setattr(self, attr, lbl_val)
 
+        stat_pair(0, "fa5s.file-code",   "Naučenih deklaracija (XML indeks):", "lbl_stat_dekl")
+        stat_pair(1, "fa5s.tags",         "Tarifnih veza (roba → tarifa):",     "lbl_stat_tarife")
+        stat_pair(2, "fa5s.building",     "Uvoznika u bazi:",                   "lbl_stat_uvoznici")
+        stat_pair(3, "fa5s.truck",        "Izvoznika u bazi:",                  "lbl_stat_izvoznici")
+
+        grid.setColumnStretch(1, 1)
         return grp
 
     def _make_log_group(self) -> QGroupBox:
@@ -205,7 +236,6 @@ class LearningPanel(QWidget):
             "Ovdje će se prikazivati tok reindeksiranja..."
         )
         lay.addWidget(self.log_output)
-
         return grp
 
     # ── Akcije ───────────────────────────────────────────────────────────────
@@ -222,13 +252,12 @@ class LearningPanel(QWidget):
         for src in files:
             dst = XML_FOLDER / Path(src).name
             if dst.exists():
-                odgovor = QMessageBox.question(
+                odg = QMessageBox.question(
                     self, "Fajl postoji",
                     f"{dst.name} već postoji. Prepiši?",
-                    QMessageBox.Yes | QMessageBox.No,
-                    QMessageBox.No,
+                    QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
                 )
-                if odgovor != QMessageBox.Yes:
+                if odg != QMessageBox.Yes:
                     continue
             shutil.copy2(src, dst)
             kopirano += 1
@@ -252,9 +281,7 @@ class LearningPanel(QWidget):
     def _on_reindex_done(self, dodano: int, ukupno: int):
         self.progress.setVisible(False)
         self.btn_reindex.setEnabled(True)
-        self._log(
-            f"✅ Reindeksiranje završeno — {dodano} promjena, ukupno {ukupno} parova u bazi."
-        )
+        self._log(f"✅ Završeno — {dodano} promjena, ukupno {ukupno} naučenih deklaracija.")
         self._refresh_stats()
 
     def _on_reindex_error(self, msg: str):
@@ -264,17 +291,18 @@ class LearningPanel(QWidget):
 
     def _refresh_stats(self):
         self._refresh_xml_count()
-        self._mapping_worker = _MappingStatsWorker()
-        self._mapping_worker.finished.connect(
-            lambda n: self.lbl_mapping_count.setText(f"Mappinga u bazi: {n:,}")
+        self._stats_worker = _StatsWorker()
+        self._stats_worker.finished.connect(self._on_stats_loaded)
+        self._stats_worker.error.connect(
+            lambda e: self._log(f"⚠️ Statistika nedostupna: {e}")
         )
-        self._mapping_worker.error.connect(self._on_mapping_error)
-        self._mapping_worker.start()
+        self._stats_worker.start()
 
-    def _on_mapping_error(self, msg: str):
-        self.lbl_mapping_count.setText("Mappinga u bazi: nije dostupno")
-        self.lbl_mapping_count.setStyleSheet("color: #9ca3af; font-size: 15px;")
-        self._log(f"⚠️ Statistika mappinga: {msg}")
+    def _on_stats_loaded(self, stats: dict):
+        self.lbl_stat_dekl.setText(f"{stats['deklaracije']:,}")
+        self.lbl_stat_tarife.setText(f"{stats['tarife']:,}")
+        self.lbl_stat_uvoznici.setText(f"{stats['uvoznici']:,}")
+        self.lbl_stat_izvoznici.setText(f"{stats['izvoznici']:,}")
 
     def _refresh_xml_count(self):
         if XML_FOLDER.exists():
@@ -317,7 +345,6 @@ class LearningPanel(QWidget):
                 border: none; border-radius: 5px;
                 padding: 6px 18px; font-size: 14px; font-weight: 600;
             }}
-            QPushButton:hover {{ background-color: rgba(0,0,0,0.15); }}
             QPushButton:disabled {{ background: #9ca3af; }}
         """
 
