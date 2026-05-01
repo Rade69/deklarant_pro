@@ -2106,7 +2106,14 @@ class ZaglavljeView(BaseTabView):
     # ============================================================
 
     def show_success(self, message: str):
-        QMessageBox.information(self, "Uspjeh", message)
+        win = self.window()
+        was_maximized = win.isMaximized()
+        geom = win.geometry()
+        QMessageBox.information(win, "Uspjeh", message)
+        if not was_maximized:
+            win.setGeometry(geom)
+        else:
+            win.showMaximized()
 
     def show_error(self, message: str):
         QMessageBox.critical(self, "Greška", message)
