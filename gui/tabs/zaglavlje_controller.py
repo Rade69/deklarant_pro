@@ -1,4 +1,8 @@
 # gui/tabs/zaglavlje_controller.py
+# SECTION: zaglavlje-controller
+# PURPOSE: Orchestration između ZaglavljeView i servis sloja; pokreće agent validaciju
+# FIX ce2ab0e: _get_naimenovanja_data sortira po ordinal_no i uključuje ga u dict
+# MEM: memory/2026-05-01_validator_ordinal_fix.md
 
 """
 Zaglavlje Controller - Orchestration Layer
