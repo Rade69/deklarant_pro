@@ -839,6 +839,10 @@ class DeclarationValidatorService:
 
                 rb_x = item.get("ordinal_no") or (i + 1)
                 for match in result.matches:
+                    # Samo can_auto_decide=True trigguje obavezno upozorenje.
+                    # can_auto_decide=False znači sistem ne može sam utvrditi — preskačemo.
+                    if not match.can_auto_decide:
+                        continue
                     itype = match.inspection_type
                     entry = self._INSPECTION_DOC_MAP.get(itype)
                     if not entry:
