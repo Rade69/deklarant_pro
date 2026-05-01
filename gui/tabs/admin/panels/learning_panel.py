@@ -119,6 +119,17 @@ class LearningPanel(QWidget):
         self._setup_ui()
         self._refresh_stats()
 
+    def closeEvent(self, event):
+        self._stop_worker(self._stats_worker)
+        self._stop_worker(self._reindex_worker)
+        super().closeEvent(event)
+
+    @staticmethod
+    def _stop_worker(worker: QThread | None):
+        if worker and worker.isRunning():
+            worker.quit()
+            worker.wait(1500)
+
     # ── Izgradnja UI-a ───────────────────────────────────────────────────────
 
     def _setup_ui(self):
@@ -220,7 +231,7 @@ class LearningPanel(QWidget):
             lbl_val = QLabel("—")
             lbl_val.setFont(QFont("Arial", 15, QFont.Bold))
             lbl_val.setStyleSheet("color: #1E3A5F;")
-            grid.addWidget(ico,      row, 0, alignment=0)
+            grid.addWidget(ico,      row, 0)
             grid.addWidget(lbl_opis, row, 1)
             grid.addWidget(lbl_val,  row, 2)
             setattr(self, attr, lbl_val)
