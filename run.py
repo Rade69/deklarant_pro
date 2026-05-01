@@ -92,6 +92,7 @@ def _check_license_on_startup(parent=None):
 def main():
     import time
     _t0 = time.perf_counter()
+    mcp_started = False
 
     app = QApplication(sys.argv)
     app.setApplicationName("Deklarant Pro")
@@ -117,6 +118,15 @@ def main():
     _check_ocr_availability()
 
     try:
+        try:
+            from app.run import _start_mcp_server
+            _start_mcp_server(app)
+            mcp_started = True
+        except Exception as e:
+            logging.getLogger("deklarant_pro").warning(
+                f"MCP server nije pokrenut: {e}"
+            )
+
         window = MainWindow()
         window.show()
         _startup_ms = (time.perf_counter() - _t0) * 1000
@@ -136,7 +146,19 @@ def main():
             f.write(f"\n=== RUNTIME GREŠKA ===\n{traceback.format_exc()}\n")
         sys.exit(1)
 
-    sys.exit(app.exec())
+    try:
+        exit_code = app.exec()
+    finally:
+        if mcp_started:
+            try:
+                from app.run import _stop_mcp_server
+                _stop_mcp_server()
+            except Exception as e:
+                logging.getLogger("deklarant_pro").warning(
+                    f"MCP server cleanup nije uspio: {e}"
+                )
+
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":

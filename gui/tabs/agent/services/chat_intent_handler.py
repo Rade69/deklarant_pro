@@ -225,6 +225,91 @@ def _extract_origin_product_query(message: str) -> str:
     return ""
 
 
+def _get_conversation_context(ctrl) -> dict:
+    ctx = getattr(ctrl, "_conversation_context", None)
+    if ctx is None:
+        ctx = {}
+        ctrl._conversation_context = ctx
+    return ctx
+
+
+def _remember_subject(ctrl, subject: str) -> None:
+    subject = (subject or "").strip()
+    if subject:
+        _get_conversation_context(ctrl)["last_subject"] = subject
+
+
+def _set_offered_action(ctrl, action: str, subject: str, label: str = "") -> None:
+    ctx = _get_conversation_context(ctrl)
+    ctx["last_offered_action"] = {
+        "action": action,
+        "subject": (subject or "").strip(),
+        "label": label,
+    }
+
+
+def _clear_offered_action(ctrl) -> None:
+    _get_conversation_context(ctrl).pop("last_offered_action", None)
+
+
+def _is_followup_confirmation(message: str) -> bool:
+    msg = (message or "").lower().strip()
+    msg = re.sub(r'[.!?]+$', '', msg).strip()
+    return msg in {
+        "da", "moze", "može", "moze li", "može li", "pretrazi", "pretraži",
+        "trazi", "traži", "potrazi", "potraži", "provjeri", "nastavi",
+        "uradi", "kreni", "ok", "u redu",
+    }
+
+
+def _extract_web_search_subject(message: str) -> str:
+    msg = (message or "").strip()
+    lower = msg.lower()
+    if not any(k in lower for k in ("internet", "internetu", "web", "online")):
+        return ""
+
+    patterns = [
+        r'(?:potra[žz]i|pretra[žz]i|prona[đd]i|na[đd]i|tra[žz]i|trazi).{0,30}?(?:internet\w*|web|online)\s+(?:za\s+)?(.+)',
+        r'(?:mo[žz]e[šs]\s+li|mozes\s+li).{0,50}?(?:internet\w*|web|online).{0,20}?(?:za\s+)?(.+)',
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, msg, flags=re.IGNORECASE)
+        if match:
+            subject = match.group(1).strip().rstrip("?! .")
+            subject = re.sub(r'\b(ga|to|ovo|ovaj|proizvod|proizvoda)\b', '', subject, flags=re.IGNORECASE)
+            subject = re.sub(r'\s+', ' ', subject).strip()
+            if len(subject) >= 3:
+                return subject
+    return ""
+
+
+def _resolve_followup(ctrl, message: str) -> bool:
+    chat = ctrl.view.get_chat_panel()
+    ctx = _get_conversation_context(ctrl)
+    offered = ctx.get("last_offered_action") or {}
+
+    if _is_followup_confirmation(message) and offered:
+        action = offered.get("action")
+        subject = offered.get("subject") or ctx.get("last_subject", "")
+        if action == "search_archive" and subject:
+            _clear_offered_action(ctrl)
+            _pretrazi_arhiv_za_proizvod(ctrl, subject)
+            return True
+
+    web_subject = _extract_web_search_subject(message) or ctx.get("last_subject", "")
+    if web_subject and any(k in message.lower() for k in ("internet", "internetu", "web", "online")):
+        _remember_subject(ctrl, web_subject)
+        _set_offered_action(ctrl, "search_archive", web_subject, "Pretraži lokalni arhiv")
+        chat.add_agent_message(
+            f"Nemam direktnu web pretragu iz aplikacije, ali mogu odmah pretražiti "
+            f"lokalni arhiv XML deklaracija i bazu znanja za: <b>{escape(web_subject)}</b>.<br><br>"
+            f"Napiši <b>Pretraži</b> i nastaviću sa tim proizvodom."
+        )
+        return True
+
+    return False
+
+
 def _handle_message(ctrl, message: str) -> None:
     """
     Primarni entry point za chat poruke.
@@ -244,8 +329,12 @@ def _handle_message(ctrl, message: str) -> None:
 
     msg_lower = message.lower().strip()
 
+    if _resolve_followup(ctrl, message):
+        return
+
     origin_query = _extract_origin_product_query(message)
     if origin_query:
+        _remember_subject(ctrl, origin_query)
         _pretrazi_porijeklo(ctrl, origin_query)
         return
 
@@ -1212,10 +1301,56 @@ def _pretrazi_tarifu(ctrl, upit: str) -> None:
         chat.add_agent_message(f"❌ Greška pri pretrazi tarife: {e}")
 
 
+def _display_origin_from_mcp(ctrl, chat, upit: str, mcp_result: dict) -> None:
+    """Prikaži rezultate porijekla dobijene preko MCP servera."""
+    origins = mcp_result.get("origins", [])
+    if not origins:
+        return
+
+    zemlje = ", ".join(
+        f"<b>{escape(o['country_code'])}</b> ({o['count']}x, {o['confidence']:.0%})"
+        for o in origins[:5]
+    )
+    linije = []
+    for o in origins[:8]:
+        for ex in (o.get("examples") or [])[:2]:
+            hs = ex.get("hs_code", "?")
+            desc = escape((ex.get("commercial_desc") or "")[:70])
+            linije.append(
+                f"• <b>{escape(o['country_code'])}</b> — {desc} "
+                f"<small>(tarifa {escape(hs)})</small>"
+            )
+
+    notes = mcp_result.get("notes", [])
+    source_note = ""
+    if notes:
+        source_note = f"<br><small>Izvor: MCP server (PostgreSQL){' — ' + notes[0] if notes else ''}</small>"
+
+    chat.add_agent_message(
+        f"<b>🌍 Porijeklo proizvoda: '{escape(upit)}'</b><br><br>"
+        f"Najčešće zemlje porijekla: {zemlje}.<br><br>"
+        + "<br>".join(linije)
+        + source_note
+    )
+
+
 def _pretrazi_porijeklo(ctrl, upit: str) -> None:
     # Docs: docs/sections/agent-origin-query-routing.md
+    _remember_subject(ctrl, upit)
     chat = ctrl.view.get_chat_panel()
     chat.add_activity(f"🔍 Pretražujem porijeklo za: {upit}")
+
+    # ── MCP server — probaj prvo centralizovanu pretragu ─────────────────
+    try:
+        from services.agent.mcp_facade import mcp_facade
+        mcp_result = mcp_facade.find_product_origin(upit, limit=10)
+        if mcp_result.get("found") and mcp_result.get("origins"):
+            _display_origin_from_mcp(ctrl, chat, upit, mcp_result)
+            return
+    except Exception:
+        pass  # Silent fallback to local index
+
+    # ── Lokalni SQLite indeks (fallback) ──────────────────────────────────
     try:
         from collections import Counter
         from services.agent.declaration_search_service import DeclarationSearchService
@@ -1225,10 +1360,13 @@ def _pretrazi_porijeklo(ctrl, upit: str) -> None:
         rezultati = [r for r in rezultati if (r.get("country_origin") or "").strip()]
 
         if not rezultati:
+            _set_offered_action(ctrl, "search_archive", upit, "Pretraži lokalni arhiv")
             chat.add_agent_message(
                 f"<b>🌍 Porijeklo proizvoda: '{escape(upit)}'</b><br><br>"
                 "Nisam pronašao pouzdan zapis o zemlji porijekla u istorijskim XML deklaracijama. "
-                "Neću predlagati tarifne brojeve za ovaj upit jer si tražio porijeklo, ne razvrstavanje robe."
+                "Neću predlagati tarifne brojeve za ovaj upit jer si tražio porijeklo, ne razvrstavanje robe.<br><br>"
+                "Mogu dodatno pretražiti lokalni arhiv i bazu znanja za isti proizvod. "
+                "Napiši <b>Pretraži</b> i nastaviću bez ponovnog pitanja."
             )
             return
 
@@ -1264,6 +1402,52 @@ def _pretrazi_porijeklo(ctrl, upit: str) -> None:
         )
     except Exception as e:
         chat.add_agent_message(f"❌ Greška pri pretrazi porijekla: {e}")
+
+
+def _pretrazi_arhiv_za_proizvod(ctrl, upit: str) -> None:
+    chat = ctrl.view.get_chat_panel()
+    chat.add_activity(f"🔍 Pretražujem lokalni arhiv za: {upit}")
+    try:
+        from services.agent.declaration_search_service import DeclarationSearchService
+
+        svc = DeclarationSearchService()
+        rezultati = svc.search_by_goods(upit, limit=12)
+
+        if not rezultati:
+            chat.add_agent_message(
+                f"<b>🔎 Lokalni arhiv — pretraga: '{escape(upit)}'</b><br><br>"
+                "Nisam pronašao isti ili dovoljno sličan proizvod u istorijskim XML deklaracijama."
+            )
+            return
+
+        linije = []
+        seen = set()
+        for r in rezultati:
+            key = (
+                r.get("hs_code", ""),
+                r.get("commercial_desc", "")[:45],
+                r.get("country_origin", ""),
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            naziv = r.get("commercial_desc") or r.get("description") or ""
+            linije.append(
+                f"• <b>{escape(r.get('hs_code', '') or '?')}</b> — "
+                f"{escape(naziv[:75])} "
+                f"<small>(zemlja {escape(r.get('country_origin', '') or '?')}, "
+                f"povlastica {escape(r.get('preference', '') or '?')})</small>"
+            )
+            if len(linije) >= 8:
+                break
+
+        chat.add_agent_message(
+            f"<b>🔎 Lokalni arhiv — pretraga: '{escape(upit)}'</b><br><br>"
+            + "<br>".join(linije)
+            + "<br><br><small>Izvor: lokalni indeks istorijskih XML deklaracija.</small>"
+        )
+    except Exception as e:
+        chat.add_agent_message(f"❌ Greška pri pretrazi lokalnog arhiva: {e}")
 
 
 def _pretrazi_tarifu_po_kodu(ctrl, kod: str) -> None:

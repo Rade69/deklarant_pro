@@ -73,6 +73,9 @@ filterwarnings = [
     "ignore::DeprecationWarning",
     "ignore::PendingDeprecationWarning",
 ]
+markers = [
+    "integration: tests that require PostgreSQL or external services",
+]
 
 [dependency-groups]
 dev = [
