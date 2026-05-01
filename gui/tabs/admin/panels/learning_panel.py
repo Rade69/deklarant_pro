@@ -5,6 +5,7 @@ Learning Panel — GUI za upravljanje učenjem aplikacije iz XML deklaracija.
 from __future__ import annotations
 
 import shutil
+import hashlib
 from pathlib import Path
 
 import qtawesome as qta
@@ -24,7 +25,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-XML_FOLDER = Path(__file__).parents[4] / "docs" / "NOVA ASIKUDA"
+from services.agent.learning.exporter_xml_indexer import get_xml_folder
+
+XML_FOLDER = get_xml_folder()
 
 
 # ── DB helper ────────────────────────────────────────────────────────────────
@@ -47,6 +50,8 @@ class _ReindexWorker(QThread):
     error    = Signal(str)
 
     def run(self):
+        handler = None
+        logger = None
         try:
             from services.agent.learning.exporter_xml_indexer import reindex, get_stats
             import logging
@@ -64,10 +69,12 @@ class _ReindexWorker(QThread):
             dodano = reindex()
             stats  = get_stats()
             ukupno = stats.get("total_pairs", 0)
-            logger.removeHandler(handler)
             self.finished.emit(dodano, ukupno)
         except Exception as e:
             self.error.emit(str(e))
+        finally:
+            if logger is not None and handler is not None:
+                logger.removeHandler(handler)
 
 
 class _StatsWorker(QThread):
@@ -76,22 +83,29 @@ class _StatsWorker(QThread):
     error    = Signal(str)
 
     def run(self):
+        conn = None
         try:
+            from services.agent.learning.exporter_xml_indexer import create_table_if_not_exists
+
+            create_table_if_not_exists()
             conn = _db_connect()
             with conn.cursor() as cur:
                 stats = {}
-                for key, tbl in [
-                    ("deklaracije",  "exporter_xml_index"),
-                    ("tarife",       "product_tariff_mapping"),
-                    ("uvoznici",     "uvoznici"),
-                    ("izvoznici",    "izvoznici"),
-                ]:
-                    cur.execute(f"SELECT COUNT(*) FROM catalogs.{tbl}")
+                queries = {
+                    "deklaracije": "SELECT COUNT(*) FROM catalogs.exporter_xml_index",
+                    "tarife": "SELECT COUNT(*) FROM catalogs.product_tariff_mapping",
+                    "uvoznici": "SELECT COUNT(*) FROM catalogs.uvoznici",
+                    "izvoznici": "SELECT COUNT(*) FROM catalogs.izvoznici",
+                }
+                for key, query in queries.items():
+                    cur.execute(query)
                     stats[key] = cur.fetchone()[0]
-            conn.close()
             self.finished.emit(stats)
         except Exception as e:
             self.error.emit(str(e))
+        finally:
+            if conn is not None:
+                conn.close()
 
 
 # ── Panel ────────────────────────────────────────────────────────────────────
@@ -212,7 +226,7 @@ class LearningPanel(QWidget):
             setattr(self, attr, lbl_val)
 
         stat_pair(0, "fa5s.file-code",   "Naučenih deklaracija (XML indeks):", "lbl_stat_dekl")
-        stat_pair(1, "fa5s.tags",         "Tarifnih veza (roba → tarifa):",     "lbl_stat_tarife")
+        stat_pair(1, "fa5s.tags",         "Tarifnih veza u bazi znanja:",       "lbl_stat_tarife")
         stat_pair(2, "fa5s.building",     "Uvoznika u bazi:",                   "lbl_stat_uvoznici")
         stat_pair(3, "fa5s.truck",        "Izvoznika u bazi:",                  "lbl_stat_izvoznici")
 
@@ -249,8 +263,19 @@ class LearningPanel(QWidget):
 
         XML_FOLDER.mkdir(parents=True, exist_ok=True)
         kopirano = 0
+        preskoceno = 0
         for src in files:
-            dst = XML_FOLDER / Path(src).name
+            src_path = Path(src)
+            if not self._is_valid_learning_xml(src_path):
+                preskoceno += 1
+                continue
+
+            if self._is_duplicate_xml(src_path):
+                self._log(f"⚠️ Preskočen duplikat: {src_path.name}")
+                preskoceno += 1
+                continue
+
+            dst = XML_FOLDER / src_path.name
             if dst.exists():
                 odg = QMessageBox.question(
                     self, "Fajl postoji",
@@ -258,12 +283,36 @@ class LearningPanel(QWidget):
                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
                 )
                 if odg != QMessageBox.Yes:
+                    preskoceno += 1
                     continue
             shutil.copy2(src, dst)
             kopirano += 1
 
         self._log(f"✅ Kopirano {kopirano} fajl(ova) u {XML_FOLDER.name}")
+        if preskoceno:
+            self._log(f"⚠️ Preskočeno {preskoceno} fajl(ova)")
         self._refresh_xml_count()
+
+    def _is_valid_learning_xml(self, xml_path: Path) -> bool:
+        try:
+            from services.agent.learning.exporter_xml_indexer import extract_parties_from_xml
+            exporter, consignee, _jib, _date = extract_parties_from_xml(xml_path)
+            if exporter and consignee:
+                return True
+            self._log(f"⚠️ Preskočen XML bez exportera/consignee-a: {xml_path.name}")
+            return False
+        except Exception as e:
+            self._log(f"⚠️ Nevalidan XML {xml_path.name}: {e}")
+            return False
+
+    def _is_duplicate_xml(self, xml_path: Path) -> bool:
+        src_hash = _file_hash(xml_path)
+        for existing in XML_FOLDER.glob("*.xml"):
+            if existing.name == xml_path.name:
+                continue
+            if _file_hash(existing) == src_hash:
+                return True
+        return False
 
     def _on_reindex(self):
         if self._reindex_worker and self._reindex_worker.isRunning():
@@ -358,3 +407,11 @@ class LearningPanel(QWidget):
             }
             QPushButton:hover { background: #f3f4f6; }
         """
+
+
+def _file_hash(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()

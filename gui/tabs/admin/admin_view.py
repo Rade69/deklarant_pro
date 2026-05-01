@@ -122,7 +122,7 @@ class AdminView(BaseTabView):
             ("fa5s.file-alt",     "Logovi",                 "Pregled i filtriranje logova"),
             ("fa5s.info-circle",  "Sistemske Informacije",  "Informacije o sistemu i aplikaciji"),
             ("fa5s.key",          "Licenca",                "Machine ID, status licence, uvoz licence"),
-            ("fa5s.brain",        "Učenje iz XML-ova",      "Reindeksiranje XML deklaracija i upravljanje mappingima"),
+            ("fa5s.brain",        "Učenje iz XML-ova",      "Reindeksiranje XML deklaracija i pregled stanja baze znanja"),
         ]
 
         for icon_name, item_text, tooltip in items:
