@@ -1619,8 +1619,9 @@ class ZaglavljeView(BaseTabView):
         for i in range(20):
             self.table.setRowHeight(i, 32)
 
-        # Fiksna visina — spriječava da setRowCount(0) skupi prozor pri XML uvozu
-        self.table.setFixedHeight(20 * 32 + self.table.horizontalHeader().height())
+        # Minimalna visina — spriječava skupljanje prozora pri setRowCount(0),
+        # ali dozvoljava rast kad je prozor maksimiziran.
+        self.table.setMinimumHeight(20 * 32 + self.table.horizontalHeader().height())
         self.table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
