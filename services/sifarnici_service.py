@@ -33,7 +33,7 @@ class SifarniciService:
     
     def __init__(self):
         """Inicijalizacija bez Qt dependency."""
-        pass
+        self.last_error = ""
     
     # ============================================================
     # VALUTE (Currencies)
@@ -210,6 +210,7 @@ class SifarniciService:
         """Logging helper za error-e."""
         import logging
         logger = logging.getLogger("deklarant_pro.services.sifarnici")
+        self.last_error = str(error)
         logger.error(f"❌ {operation}: {error}")
     
     def _log_operation(self, operation: str, success: bool, count: int = 0):
@@ -218,6 +219,29 @@ class SifarniciService:
         logger = logging.getLogger("deklarant_pro.services.sifarnici")
         status = "✅" if success else "❌"
         logger.info(f"{status} {operation}: {count} records")
+
+    def _ensure_deklaranti_schema(self, cur) -> None:
+        """Osiguraj Rub.14 kolone za postojeće catalogs.deklaranti tabele."""
+        cur.execute("CREATE SCHEMA IF NOT EXISTS catalogs")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS catalogs.deklaranti (
+                jib VARCHAR(50) PRIMARY KEY,
+                naziv TEXT NOT NULL DEFAULT '',
+                adresa TEXT DEFAULT '',
+                grad TEXT DEFAULT '',
+                postanski_broj TEXT DEFAULT '',
+                drzava TEXT DEFAULT '',
+                telefon TEXT DEFAULT '',
+                email TEXT DEFAULT '',
+                kontakt TEXT DEFAULT '',
+                pdv_broj TEXT DEFAULT '',
+                maticni TEXT DEFAULT ''
+            )
+        """)
+        cur.execute("""
+            ALTER TABLE catalogs.deklaranti
+            ADD COLUMN IF NOT EXISTS postanski_broj TEXT DEFAULT ''
+        """)
     
     def get_all_dokumenti(self) -> List[Dict[str, Any]]:
         """Dohvati sve dokumente iz baze."""
@@ -640,6 +664,7 @@ class SifarniciService:
         """Logovanje grešaka."""
         import logging
         logger = logging.getLogger("deklarant_pro.services.sifarnici")
+        self.last_error = str(error)
         logger.error(f"Greška u {operation}: {error}")
 
     # ============================================================
@@ -649,20 +674,27 @@ class SifarniciService:
     def load_deklaranti_data(self, search_query: str = "") -> List[Dict[str, Any]]:
         """Dohvati podatke o deklarantima sa opcionom pretragom."""
         # NOTE: catalogs.deklaranti tabela treba da postoji — kreirati je ako ne postoji
+        self.last_error = ""
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
+                    self._ensure_deklaranti_schema(cur)
                     if search_query:
                         search_pattern = f"%{search_query}%"
                         cur.execute("""
-                            SELECT jib, naziv, adresa, grad, drzava, telefon, email, kontakt, pdv_broj, maticni
+                            SELECT jib, naziv, adresa, grad, postanski_broj, drzava, telefon, email, kontakt, pdv_broj, maticni
                             FROM catalogs.deklaranti
-                            WHERE naziv ILIKE %s OR jib ILIKE %s OR grad ILIKE %s
+                            WHERE naziv ILIKE %s OR jib ILIKE %s OR grad ILIKE %s OR adresa ILIKE %s
                             ORDER BY naziv
-                        """, (search_pattern, search_pattern, search_pattern))
+                        """, (
+                            search_pattern,
+                            search_pattern,
+                            search_pattern,
+                            search_pattern,
+                        ))
                     else:
                         cur.execute("""
-                            SELECT jib, naziv, adresa, grad, drzava, telefon, email, kontakt, pdv_broj, maticni
+                            SELECT jib, naziv, adresa, grad, postanski_broj, drzava, telefon, email, kontakt, pdv_broj, maticni
                             FROM catalogs.deklaranti
                             ORDER BY naziv
                         """)
@@ -674,17 +706,20 @@ class SifarniciService:
 
     def add_deklarant(self, data: Dict[str, str]) -> bool:
         """Dodaj novog deklaranta."""
+        self.last_error = ""
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
+                    self._ensure_deklaranti_schema(cur)
                     cur.execute("""
                         INSERT INTO catalogs.deklaranti
-                        (jib, naziv, adresa, grad, drzava, telefon, email, kontakt, pdv_broj, maticni)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        (jib, naziv, adresa, grad, postanski_broj, drzava, telefon, email, kontakt, pdv_broj, maticni)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT (jib) DO UPDATE SET
                             naziv = EXCLUDED.naziv,
                             adresa = EXCLUDED.adresa,
                             grad = EXCLUDED.grad,
+                            postanski_broj = EXCLUDED.postanski_broj,
                             drzava = EXCLUDED.drzava,
                             telefon = EXCLUDED.telefon,
                             email = EXCLUDED.email,
@@ -696,6 +731,7 @@ class SifarniciService:
                         data.get("naziv", ""),
                         data.get("adresa", ""),
                         data.get("grad", ""),
+                        data.get("postanski_broj", ""),
                         data.get("drzava", ""),
                         data.get("telefon", ""),
                         data.get("email", ""),
@@ -708,6 +744,10 @@ class SifarniciService:
         except Exception as e:
             self._log_error("add_deklarant", e)
             return False
+
+    def update_deklarant(self, data: Dict[str, str]) -> bool:
+        """Ažuriraj postojećeg deklaranta."""
+        return self.add_deklarant(data)
 
     def delete_deklarant(self, jib: str) -> bool:
         """Obriši deklaranta po JIB-u."""

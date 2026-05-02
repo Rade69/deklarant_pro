@@ -62,7 +62,7 @@ class SifarniciController:
             "validate_method": "validate_uvoznik_data",
         },
         "Deklaranti": {
-            "columns": ["JIB", "Naziv", "Adresa", "Grad", "Zemlja", "Telefon", "Email"],
+            "columns": ["JIB", "Naziv", "Adresa", "Grad", "Poštanski broj", "Država"],
             "table": "catalogs.deklaranti",
             "service_method": "load_deklaranti_data",
             "add_method": "add_deklarant",

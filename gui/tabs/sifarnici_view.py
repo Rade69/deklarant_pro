@@ -981,25 +981,40 @@ class SifarniciView(BaseTabView):
 
     def _setup_deklaranti(self):
         """Setup Deklaranti"""
-        self.table.setColumnCount(5)
+        self.table.setColumnCount(4)
         self.table.setHorizontalHeaderLabels(
-            ["Kod", "Naziv", "Licenca", "Kontakt", "Akcije"]
+            ["JIB", "Naziv", "Grad", "Adresa"]
         )
+
+        # Kolone: JIB fiksna, Naziv i Grad rastegljive, Adresa popunjava ostatak
+        header = self.table.horizontalHeader()
+        self.table.setColumnWidth(0, 180)
+        self.table.setColumnWidth(1, 350)
+        self.table.setColumnWidth(2, 200)
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Interactive)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Interactive)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
 
         grid = self.detail_container.layout()
 
-        group = QGroupBox("≡ DETALJI DEKLARANTA")
+        group = QGroupBox("14. Deklarant / Zastupnik")
         form = QFormLayout(group)
 
-        self.kod_field = QLineEdit()
+        self.jib_field = QLineEdit()
         self.naziv_field = QLineEdit()
-        self.licenca_field = QLineEdit()
-        self.kontakt_field = QLineEdit()
+        self.grad_field = QLineEdit()
+        self.adresa_field = QLineEdit()
 
-        form.addRow("Kod:", self.kod_field)
+        self.jib_field.setPlaceholderText("JIB / ID")
+        self.naziv_field.setPlaceholderText("Naziv deklaranta / zastupnika")
+        self.grad_field.setPlaceholderText("Grad")
+        self.adresa_field.setPlaceholderText("Adresa")
+
+        form.addRow("JIB:", self.jib_field)
         form.addRow("Naziv:", self.naziv_field)
-        form.addRow("Licenca:", self.licenca_field)
-        form.addRow("Kontakt:", self.kontakt_field)
+        form.addRow("Grad:", self.grad_field)
+        form.addRow("Adresa:", self.adresa_field)
 
         grid.addWidget(group, 0, 0, 2, 2)
 
@@ -2040,7 +2055,7 @@ class SifarniciView(BaseTabView):
 
             self._populate_table_from_service(
                 results,
-                columns=["jib", "naziv", "adresa", "grad", "drzava"],
+                columns=["jib", "naziv", "grad", "adresa"],
             )
 
             logger.info(f"Uspešno učitano {len(results)} deklaranta")
@@ -2178,6 +2193,39 @@ class SifarniciView(BaseTabView):
                         else ""
                     ),
                 }
+            elif self.current_category == "Deklaranti":
+                data = {
+                    "jib": (
+                        self.table.item(row, 0).text()
+                        if self.table.item(row, 0)
+                        else ""
+                    ),
+                    "naziv": (
+                        self.table.item(row, 1).text()
+                        if self.table.item(row, 1)
+                        else ""
+                    ),
+                    "adresa": (
+                        self.table.item(row, 2).text()
+                        if self.table.item(row, 2)
+                        else ""
+                    ),
+                    "grad": (
+                        self.table.item(row, 3).text()
+                        if self.table.item(row, 3)
+                        else ""
+                    ),
+                    "postanski_broj": (
+                        self.table.item(row, 4).text()
+                        if self.table.item(row, 4)
+                        else ""
+                    ),
+                    "drzava": (
+                        self.table.item(row, 5).text()
+                        if self.table.item(row, 5)
+                        else ""
+                    ),
+                }
             elif self.current_category == "Carinske tarife":
                 data = {
                     "tarifni_kod": (
@@ -2213,11 +2261,12 @@ class SifarniciView(BaseTabView):
     def _populate_form(self, data: Dict[str, Any]):
         """Populate form with data"""
         try:
-            if self.current_category in ["Pošiljaoci", "Uvoznici"]:
+            if self.current_category in ["Pošiljaoci", "Uvoznici", "Deklaranti"]:
                 self.jib_field.setText(data.get("jib", ""))
                 self.naziv_field.setText(data.get("naziv", ""))
                 self.adresa_field.setText(data.get("adresa", ""))
                 self.grad_field.setText(data.get("grad", ""))
+                self.postanski_broj_field.setText(data.get("postanski_broj", ""))
                 self.zemlja_field.setText(data.get("drzava", ""))
             elif self.current_category == "Carinske tarife":
                 self.tarifni_kod_field.setText(data.get("tarifni_kod", ""))
@@ -2231,13 +2280,15 @@ class SifarniciView(BaseTabView):
     def _delete_from_database(self, data: Dict[str, Any]):
         """Delete record from database using Service layer"""
         try:
-            if self.current_category in ["Pošiljaoci", "Uvoznici"]:
+            if self.current_category in ["Pošiljaoci", "Uvoznici", "Deklaranti"]:
                 jib = data.get("jib")
                 if jib:
                     if self.current_category == "Pošiljaoci":
                         self.service.delete_posiljalac(jib)
-                    else:
+                    elif self.current_category == "Uvoznici":
                         self.service.delete_uvoznik(jib)
+                    else:
+                        self.service.delete_deklarant(jib)
                     logger.info(f"Zapis sa JIB {jib} obrisan")
             elif self.current_category == "Carinske tarife":
                 tarifni_kod = data.get("tarifni_kod")
@@ -2310,7 +2361,7 @@ class SifarniciView(BaseTabView):
 
     def _validate_form_data(self, category_data):
         """Centralizovana validacija forme"""
-        if self.current_category in ["Pošiljaoci", "Uvoznici"]:
+        if self.current_category in ["Pošiljaoci", "Uvoznici", "Deklaranti"]:
             required_fields = {
                 "JIB": category_data.get("jib"),
                 "Naziv": category_data.get("naziv"),
@@ -2332,41 +2383,60 @@ class SifarniciView(BaseTabView):
 
     def _prepare_form_data(self):
         """Priprema podatke iz forme za snimanje"""
-        if self.current_category in ["Pošiljaoci", "Uvoznici"]:
+        import shiboken6
+
+        def _safe_text(widget) -> str:
+            """Safely read widget text — returns '' if C++ object was deleted."""
+            if widget is None:
+                return ""
+            if not shiboken6.isValid(widget):
+                return ""
+            return widget.text()
+
+        if self.current_category in ["Pošiljaoci", "Uvoznici", "Deklaranti"]:
+            def field_text(field_name: str) -> str:
+                field = getattr(self, field_name, None)
+                if field is None:
+                    return ""
+                if not shiboken6.isValid(field):
+                    return ""
+                return self.validator.sanitize_input(field.text())
+
             return {
-                "jib": self.validator.sanitize_input(self.jib_field.text()),
-                "naziv": self.validator.sanitize_input(self.naziv_field.text()),
-                "adresa": self.validator.sanitize_input(self.adresa_field.text()),
-                "grad": self.validator.sanitize_input(self.grad_field.text()),
-                "postanski_broj": self.validator.sanitize_input(
-                    self.postanski_broj_field.text()
-                ),
-                "zemlja": self.validator.sanitize_input(self.zemlja_field.text()),
-                "telefon": self.validator.sanitize_input(self.telefon_field.text()),
-                "email": self.validator.sanitize_input(self.email_field.text()),
-                "kontakt": self.validator.sanitize_input(self.kontakt_field.text()),
-                "pdv": self.validator.sanitize_input(self.pdv_field.text()),
-                "maticni": self.validator.sanitize_input(self.maticni_field.text()),
+                "jib": field_text("jib_field"),
+                "naziv": field_text("naziv_field"),
+                "adresa": field_text("adresa_field"),
+                "grad": field_text("grad_field"),
+                "postanski_broj": field_text("postanski_broj_field"),
+                "zemlja": field_text("zemlja_field"),
+                "telefon": field_text("telefon_field"),
+                "email": field_text("email_field"),
+                "kontakt": field_text("kontakt_field"),
+                "pdv": field_text("pdv_field"),
+                "maticni": field_text("maticni_field"),
             }
         elif self.current_category == "Carinske tarife":
             # Ukloni razmake iz tarifnog koda pri snimanju
             tarifni_kod = self.validator.sanitize_input(
-                self.tarifni_kod_field.text()
+                _safe_text(self.tarifni_kod_field)
             ).replace(" ", "")
             return {
                 "tarifni_kod": tarifni_kod,
-                "opis": self.validator.sanitize_input(self.naziv_robe_field.text()),
+                "opis": self.validator.sanitize_input(_safe_text(self.naziv_robe_field)),
             }
         elif self.current_category == "Carinarnice":
             return {
-                "sifra": self.validator.sanitize_input(self.sifra_field.text()),
-                "naziv": self.validator.sanitize_input(self.naziv_field.text()),
+                "sifra": self.validator.sanitize_input(_safe_text(self.sifra_field)),
+                "naziv": self.validator.sanitize_input(_safe_text(self.naziv_field)),
             }
         return {}
 
     def _apply_search(self):
         """Apply search/filter"""
+        import shiboken6
         try:
+            if not shiboken6.isValid(self.search_input):
+                return
             query = self.search_input.text().strip()
             logger.info(f"Primena pretrage sa query-jem: '{query}'")
 
@@ -2386,7 +2456,7 @@ class SifarniciView(BaseTabView):
             elif self.current_category == "Primaoci":
                 self._filter_table(query)
             elif self.current_category == "Deklaranti":
-                self._filter_table(query)
+                self._search_deklaranti(query)
             elif self.current_category == "Zemlje":
                 self._search_zemlje(query)
             else:
@@ -2433,7 +2503,7 @@ class SifarniciView(BaseTabView):
 
     # Kategorije koje pretražuju direktno u bazi (debounced)
     _DB_SEARCH_CATEGORIES = frozenset(
-        ["Pošiljaoci", "Uvoznici", "Zemlje", "Carinske tarife"]
+        ["Pošiljaoci", "Uvoznici", "Deklaranti", "Zemlje", "Carinske tarife"]
     )
 
     def _on_search_text_changed(self, text: str):
@@ -2461,6 +2531,8 @@ class SifarniciView(BaseTabView):
                 self._search_posiljaoci(text)
             elif cat == "Uvoznici":
                 self._search_uvoznici(text)
+            elif cat == "Deklaranti":
+                self._search_deklaranti(text)
             elif cat == "Zemlje":
                 self._search_zemlje(text)
             elif cat == "Carinske tarife":
@@ -2486,6 +2558,25 @@ class SifarniciView(BaseTabView):
             logger.error(f"Greška pri pretrazi pošiljalaca: {str(e)}")
             QMessageBox.critical(
                 self, "Greška", f"Greška pri pretrazi pošiljalaca:\n{str(e)}"
+            )
+
+    def _search_deklaranti(self, query: str):
+        """Search deklaranti using Service layer."""
+        try:
+            logger.info(f"Pretraga deklaranta sa query-jem: '{query}'")
+
+            results = self.service.search_deklaranti(query)
+
+            self._populate_table_from_service(
+                results,
+                columns=["jib", "naziv", "grad", "adresa"],
+            )
+
+            logger.info(f"Uspešno prikazano {len(results)} rezultata za deklarante")
+        except Exception as e:
+            logger.error(f"Greška pri pretrazi deklaranta: {str(e)}")
+            QMessageBox.critical(
+                self, "Greška", f"Greška pri pretrazi deklaranta:\n{str(e)}"
             )
 
     def _filter_table(self, search_text: str):
@@ -2810,7 +2901,14 @@ class SifarniciView(BaseTabView):
 
             # Enable/disable edit buttons based on readonly mode
             if hasattr(self, "btn_novi"):
-                self.btn_novi.setEnabled(not readonly)
+                crud_categories = {
+                    "Pošiljaoci",
+                    "Uvoznici",
+                    "Deklaranti",
+                    "Carinske tarife",
+                    "Carinarnice",
+                }
+                self.btn_novi.setEnabled(readonly and self.current_category in crud_categories)
 
             # Check current selection differently based on widget type
             current_selection_exists = False
@@ -2951,7 +3049,12 @@ class SifarniciView(BaseTabView):
         try:
             logger.info("Kreiranje novog zapisa")
 
-            if self.current_category in ["Pošiljaoci", "Carinske tarife"]:
+            if self.current_category in [
+                "Pošiljaoci",
+                "Uvoznici",
+                "Deklaranti",
+                "Carinske tarife",
+            ]:
                 self._clear_form()
                 self.btn_snimi.setEnabled(True)
                 self.is_editing = False
@@ -3086,6 +3189,30 @@ class SifarniciView(BaseTabView):
                 self._set_readonly_mode(readonly=False)
                 logger.info(f"Uvoznik {jib} uspešno učitan za uređivanje")
 
+            elif self.current_category == "Deklaranti":
+                if row is None:
+                    current_row = self.table.currentRow()
+                    if current_row < 0:
+                        QMessageBox.warning(
+                            self, "Upozorenje", "Molimo odaberite red za uređivanje."
+                        )
+                        return
+                    row = current_row
+
+                data = self._extract_row_data(row)
+                if not data:
+                    QMessageBox.warning(
+                        self, "Greška", "Nije moguće učitati podatke deklaranta."
+                    )
+                    return
+
+                self._populate_form(data)
+                self.current_row_index = row
+                self.btn_snimi.setEnabled(True)
+                self.is_editing = True
+                self._set_readonly_mode(readonly=False)
+                logger.info(f"Deklarant {data.get('jib', '')} uspešno učitan za uređivanje")
+
             elif self.current_category == "Carinske tarife":
                 if row is None:
                     current_row = self.table.currentRow()
@@ -3192,7 +3319,7 @@ class SifarniciView(BaseTabView):
 
     def _on_obrisi(self, row: int = None):
         """Handle Obriši button click"""
-        if self.current_category in ["Pošiljaoci", "Uvoznici"]:
+        if self.current_category in ["Pošiljaoci", "Uvoznici", "Deklaranti"]:
             if row is None:
                 current_row = self.table.currentRow()
                 if current_row < 0:
@@ -3217,6 +3344,10 @@ class SifarniciView(BaseTabView):
                 entity_name = "uvoznika"
                 table_name = "catalogs.uvoznici"
                 success_message = "Uvoznik uspješno obrisan."
+            elif self.current_category == "Deklaranti":
+                entity_name = "deklaranta"
+                table_name = "catalogs.deklaranti"
+                success_message = "Deklarant uspješno obrisan."
             elif self.current_category == "Carinske tarife":
                 entity_name = "carinske tarife"
                 table_name = "catalogs.zvanicna_tarifa"
@@ -3277,6 +3408,8 @@ class SifarniciView(BaseTabView):
                         deleted = self.service.delete_posiljalac(identifier_value)
                     elif self.current_category == "Uvoznici":
                         deleted = self.service.delete_uvoznik(identifier_value)
+                    elif self.current_category == "Deklaranti":
+                        deleted = self.service.delete_deklarant(identifier_value)
                     elif self.current_category == "Carinske tarife":
                         deleted = self.service.delete_trgovacki_naziv(identifier_value)
                     elif self.current_category == "Carinarnice":
@@ -3293,6 +3426,8 @@ class SifarniciView(BaseTabView):
                         self._load_posiljaoci_data()
                     elif self.current_category == "Uvoznici":
                         self._load_uvoznici_data()
+                    elif self.current_category == "Deklaranti":
+                        self._load_deklaranti_data()
                     elif self.current_category == "Carinske tarife":
                         self._load_trgovacki_nazivi_data()
                     elif self.current_category == "Carinarnice":
@@ -3313,7 +3448,7 @@ class SifarniciView(BaseTabView):
 
     def _on_snimi(self):
         """Handle Snimi button click"""
-        if self.current_category in ["Pošiljaoci", "Uvoznici"]:
+        if self.current_category in ["Pošiljaoci", "Uvoznici", "Deklaranti"]:
             # Prepare and validate data
             form_data = self._prepare_form_data()
             validation_errors = self._validate_form_data(form_data)
@@ -3326,6 +3461,7 @@ class SifarniciView(BaseTabView):
                 return
 
             try:
+                success = False
                 if self.is_editing:
                     # Update existing record
                     if self.current_category == "Pošiljaoci":
@@ -3358,6 +3494,22 @@ class SifarniciView(BaseTabView):
                         })
                         if success:
                             self._load_uvoznici_data()
+                    elif self.current_category == "Deklaranti":
+                        success = self.service.update_deklarant({
+                            "jib": form_data["jib"],
+                            "naziv": form_data["naziv"],
+                            "adresa": form_data["adresa"],
+                            "grad": form_data["grad"],
+                            "postanski_broj": form_data["postanski_broj"],
+                            "drzava": form_data["zemlja"],
+                            "telefon": form_data["telefon"],
+                            "email": form_data["email"],
+                            "kontakt": form_data["kontakt"],
+                            "pdv_broj": form_data["pdv"],
+                            "maticni": form_data["maticni"],
+                        })
+                        if success:
+                            self._load_deklaranti_data()
                     elif self.current_category == "Carinske tarife":
                         success = self.service.update_trgovacki_naziv(
                             form_data["tarifni_kod"],
@@ -3397,6 +3549,22 @@ class SifarniciView(BaseTabView):
                         })
                         if success:
                             self._load_uvoznici_data()
+                    elif self.current_category == "Deklaranti":
+                        success = self.service.add_deklarant({
+                            "jib": form_data["jib"],
+                            "naziv": form_data["naziv"],
+                            "adresa": form_data["adresa"],
+                            "grad": form_data["grad"],
+                            "postanski_broj": form_data["postanski_broj"],
+                            "drzava": form_data["zemlja"],
+                            "telefon": form_data["telefon"],
+                            "email": form_data["email"],
+                            "kontakt": form_data["kontakt"],
+                            "pdv_broj": form_data["pdv"],
+                            "maticni": form_data["maticni"],
+                        })
+                        if success:
+                            self._load_deklaranti_data()
                     elif self.current_category == "Carinske tarife":
                         success = self.service.add_trgovacki_naziv(
                             form_data["tarifni_kod"],
@@ -3425,6 +3593,18 @@ class SifarniciView(BaseTabView):
                         if success:
                             self._load_carinarnice_data()
 
+                if not success:
+                    detail = getattr(self.service, "last_error", "")
+                    message = "Podaci nisu sačuvani. Provjerite unos i vezu sa bazom."
+                    if detail:
+                        message = f"{message}\n\nDetalj: {detail}"
+                    QMessageBox.warning(
+                        self,
+                        "Upozorenje",
+                        message,
+                    )
+                    return
+
                 # Clear form
                 self._clear_form()
 
@@ -3440,6 +3620,8 @@ class SifarniciView(BaseTabView):
             except Exception as e:
                 if self.current_category == "Pošiljaoci":
                     error_msg = f"Greška pri čuvanju pošiljaoca:\n{str(e)}"
+                elif self.current_category == "Deklaranti":
+                    error_msg = f"Greška pri čuvanju deklaranta:\n{str(e)}"
                 elif self.current_category == "Carinske tarife":
                     error_msg = f"Greška pri čuvanju carinske tarife:\n{str(e)}"
                 else:
@@ -3472,8 +3654,8 @@ class SifarniciView(BaseTabView):
             self.btn_obrisi.setEnabled(True)
             self.current_row_index = current_row
 
-            # Populate fields for Pošiljaoci and Uvoznici
-            if self.current_category in ["Pošiljaoci", "Uvoznici"] and hasattr(
+            # Populate fields for Pošiljaoci, Uvoznici and Deklaranti
+            if self.current_category in ["Pošiljaoci", "Uvoznici", "Deklaranti"] and hasattr(
                 self, "jib_field"
             ):
                 try:
@@ -3482,14 +3664,27 @@ class SifarniciView(BaseTabView):
                     pdv_val = jib_item.text() if jib_item else ""
                     self.jib_field.setText(pdv_val)  # PDV (12 cifara) u headeru
 
-                    for col, field in [
+                    column_fields = [
                         (1, self.naziv_field),
                         (2, self.adresa_field),
                         (3, self.grad_field),
-                        (4, self.zemlja_field),
-                    ]:
+                    ]
+                    if self.current_category == "Deklaranti":
+                        column_fields.extend([
+                            (4, self.postanski_broj_field),
+                            (5, self.zemlja_field),
+                        ])
+                    else:
+                        column_fields.append((4, self.zemlja_field))
+
+                    for col, field in column_fields:
                         item = self.table.item(current_row, col)
                         field.setText(item.text() if item else "")
+
+                    if self.current_category == "Deklaranti":
+                        logger.debug(f"Popunjeni podaci deklaranta za red {current_row}")
+                        self._update_pager()
+                        return
 
                     # Desni panel JIB = "4" + PDV (13 cifara)
                     if hasattr(self, "pdv_field"):

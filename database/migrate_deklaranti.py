@@ -21,6 +21,7 @@ def create_deklaranti_table():
                 naziv TEXT NOT NULL DEFAULT '',
                 adresa TEXT DEFAULT '',
                 grad TEXT DEFAULT '',
+                postanski_broj TEXT DEFAULT '',
                 drzava TEXT DEFAULT '',
                 telefon TEXT DEFAULT '',
                 email TEXT DEFAULT '',
@@ -28,6 +29,10 @@ def create_deklaranti_table():
                 pdv_broj TEXT DEFAULT '',
                 maticni TEXT DEFAULT ''
             );
+        """)
+        cur.execute("""
+            ALTER TABLE catalogs.deklaranti
+            ADD COLUMN IF NOT EXISTS postanski_broj TEXT DEFAULT ''
         """)
         conn.commit()
         print("✅ catalogs.deklaranti tabela kreirana (ili već postoji)")
@@ -44,16 +49,16 @@ def seed_deklaranti():
 
         if count_val == 0:
             primjeri = [
-                ("1234567890123", "Carinski zastupnik DOO", "Ulica bb", "Sarajevo", "BA", "033/123-456", "info@cz.ba", "Marko Marković", "4987654321098", "MZ-001"),
-                ("9876543210987", "Logistics Partners", "Put 1", "Banja Luka", "BA", "051/987-654", "office@lp.ba", "Ana Anić", "4123456789012", "MZ-002"),
+                ("1234567890123", "Carinski zastupnik DOO", "Ulica bb", "Sarajevo", "71000", "BA", "033/123-456", "info@cz.ba", "Marko Marković", "4987654321098", "MZ-001"),
+                ("9876543210987", "Logistics Partners", "Put 1", "Banja Luka", "78000", "BA", "051/987-654", "office@lp.ba", "Ana Anić", "4123456789012", "MZ-002"),
             ]
-            for jib, naziv, adresa, grad, drzava, telefon, email, kontakt, pdv, maticni in primjeri:
+            for jib, naziv, adresa, grad, postanski_broj, drzava, telefon, email, kontakt, pdv, maticni in primjeri:
                 cur.execute("""
                     INSERT INTO catalogs.deklaranti
-                    (jib, naziv, adresa, grad, drzava, telefon, email, kontakt, pdv_broj, maticni)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    (jib, naziv, adresa, grad, postanski_broj, drzava, telefon, email, kontakt, pdv_broj, maticni)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (jib) DO NOTHING
-                """, (jib, naziv, adresa, grad, drzava, telefon, email, kontakt, pdv, maticni))
+                """, (jib, naziv, adresa, grad, postanski_broj, drzava, telefon, email, kontakt, pdv, maticni))
             conn.commit()
             print(f"✅ Uneseno {len(primjeri)} primjera deklaranta")
         else:
