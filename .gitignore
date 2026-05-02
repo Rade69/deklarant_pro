@@ -121,3 +121,4 @@ tests.7z
 .aider*
 *.csv
 database/*.csv
+.gitnexus
