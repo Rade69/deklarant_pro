@@ -46,12 +46,32 @@ class _StatsThread(QThread):
             result['calls_today'] = result['tokens_today'] = result['blocked_today'] = 0
             result['session_tokens'] = result['session_budget'] = result['session_pct'] = 0
 
-        # Parseri
+        # Importeri (vendor folderi)
         try:
-            from services.plugin_service import PluginService
-            result['parseri'] = len(PluginService().get_installed_parsers())
+            import os
+            vendors_dir = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(
+                    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))),
+                'importers', 'vendors'
+            )
+            vendor_mapa = {
+                'blagic':       'Blagić (Excel + PDF)',
+                'imamoglu':     'İmamoğlu (Excel + PDF)',
+                'leburic':      'Leburić / Pekabesko (PDF)',
+                'master_frigo': 'Master Frigo (PDF)',
+                'medicopharm':  'Medicopharm (PDF)',
+                'sumaprom':     'Šumaprom (Excel + PDF)',
+            }
+            vendors = sorted([
+                d for d in os.listdir(vendors_dir)
+                if os.path.isdir(os.path.join(vendors_dir, d)) and not d.startswith('_')
+            ])
+            result['importeri'] = [
+                vendor_mapa.get(v, v.replace('_', ' ').title())
+                for v in vendors
+            ]
         except Exception:
-            result['parseri'] = None
+            result['importeri'] = []
 
         # Carinski dokumenti — lista i zadnje indeksiranje
         try:
@@ -141,14 +161,28 @@ class AnalyticsPanel(QWidget):
         self.lbl_provider.setFont(QFont("Arial", 13, QFont.Bold))
         prov_lay.addWidget(self.lbl_provider, 0, 2)
 
-        prov_lay.addWidget(self._ico('fa5s.puzzle-piece'), 1, 0)
-        prov_lay.addWidget(QLabel("Instaliranih parsera:"), 1, 1)
-        self.lbl_parseri = QLabel("—")
-        self.lbl_parseri.setFont(QFont("Arial", 13, QFont.Bold))
-        self.lbl_parseri.setStyleSheet("color: #0078d4;")
-        prov_lay.addWidget(self.lbl_parseri, 1, 2)
-
         sl.addWidget(prov_group)
+
+        # ── Importeri (vendor parseri) ─────────────────────────
+        imp_group = QGroupBox("📦 Ugrađeni importeri")
+        imp_lay = QVBoxLayout(imp_group)
+        imp_lay.setSpacing(6)
+
+        self.imp_lista = QListWidget()
+        self.imp_lista.setMinimumHeight(120)
+        self.imp_lista.setMaximumHeight(180)
+        self.imp_lista.setStyleSheet("""
+            QListWidget {
+                border: 1px solid #e0e0e0; border-radius: 4px;
+                background: #fafafa; font-size: 12px;
+            }
+            QListWidget::item { padding: 4px 8px; border-bottom: 1px solid #f0f0f0; }
+            QListWidget::item:hover { background: #e8f0fe; }
+        """)
+        self.imp_lista.setSelectionMode(QListWidget.NoSelection)
+        imp_lay.addWidget(self.imp_lista)
+
+        sl.addWidget(imp_group)
 
         # ── Upotreba danas ─────────────────────────────────────
         today_group = QGroupBox("📊 Upotreba danas")
@@ -265,8 +299,16 @@ class AnalyticsPanel(QWidget):
             f"color: {boje.get(prov, '#333')}; font-size: 13px; font-weight: bold;"
         )
 
-        parseri = stats.get('parseri')
-        self.lbl_parseri.setText(str(parseri) if parseri is not None else "—")
+        # Importeri
+        self.imp_lista.clear()
+        importeri = stats.get('importeri', [])
+        if importeri:
+            for ime in importeri:
+                self.imp_lista.addItem(QListWidgetItem(f"⚙️  {ime}"))
+        else:
+            item = QListWidgetItem("Nema pronađenih importera")
+            item.setForeground(Qt.gray)
+            self.imp_lista.addItem(item)
 
         # Danas
         self.lbl_calls.setText(str(stats.get('calls_today', 0)))
