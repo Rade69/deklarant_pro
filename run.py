@@ -15,7 +15,9 @@ if _script_dir not in sys.path:
     sys.path.insert(0, _script_dir)
 
 # Greške pri pokretanju pisati u log fajl (vidljivo i bez terminala)
-_log_file = os.path.join(_script_dir, "asycuda_launch.log")
+_log_dir = os.path.join(os.path.expanduser("~"), ".deklarant_pro", "logs")
+os.makedirs(_log_dir, exist_ok=True)
+_log_file = os.path.join(_log_dir, "deklarant_pro.log")
 
 import logging
 import warnings
@@ -26,7 +28,7 @@ logging.getLogger("deklarant_pro.resize_debug").setLevel(logging.DEBUG)
 logging.basicConfig(
     level=logging.WARNING,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    datefmt='%H:%M:%S',
+    datefmt='%Y-%m-%d %H:%M:%S',
     handlers=[
         logging.StreamHandler(sys.stderr),
         logging.FileHandler(_log_file, encoding="utf-8"),

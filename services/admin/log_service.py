@@ -32,7 +32,7 @@ class LogService:
         self.log_dir = Path.home() / ".deklarant_pro" / "logs"
         self.log_dir.mkdir(parents=True, exist_ok=True)
         
-        self.log_file = self.log_dir / "asycuda.log"
+        self.log_file = self.log_dir / "deklarant_pro.log"
 
     def get_recent_logs(self, count: int = 100) -> List[Dict[str, Any]]:
         """
