@@ -983,22 +983,38 @@ class ChatWorker(QThread):
             return []
 
     def _search_knowledge_base(self, query: str) -> list:
-        """Pretražuje Knowledge Base i vraća relevantne odlomke za kontekst."""
+        """Pretražuje carinske dokumente (FTS5) i KnowledgeBase, vraća odlomke za kontekst."""
+        lines = []
+
+        # Primarni izvor: FTS5 indeks carinskih dokumenata (BiH propisi)
+        try:
+            from services.carinski_dokumenti_service import (
+                pretrazi_dokumente, dokumenti_indeksirani
+            )
+            if dokumenti_indeksirani():
+                rezultati = pretrazi_dokumente(query, max_results=3)
+                for r in rezultati:
+                    lines.append(f"  [{r['naziv']}]")
+                    lines.append(f"  {r['odlomak']}")
+                    lines.append("")
+        except Exception:
+            pass
+
+        # Sekundarni izvor: KnowledgeBase (ako postoji)
         try:
             from services.knowledge_base.kb_service import KnowledgeBaseService
             svc = KnowledgeBaseService()
             stats = svc.get_stats()
-            if stats["doc_count"] == 0:
-                return []
-            results = svc.search(query, top_k=4, use_reranking=False)
-            lines = []
-            for r in results:
-                lines.append(f"  [{r.filename}, str. {r.page_number}]")
-                lines.append(f"  {r.chunk_text[:300]}")
-                lines.append("")
-            return lines
-        except Exception as e:
-            return []
+            if stats["doc_count"] > 0:
+                results = svc.search(query, top_k=2, use_reranking=False)
+                for r in results:
+                    lines.append(f"  [{r.filename}, str. {r.page_number}]")
+                    lines.append(f"  {r.chunk_text[:300]}")
+                    lines.append("")
+        except Exception:
+            pass
+
+        return lines
 
     def _system_prompt(self, context: str) -> str:
         # ENHANCED: Dodaj info o chat memoriji
