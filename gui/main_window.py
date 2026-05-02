@@ -24,6 +24,7 @@ class MainWindow(QMainWindow):
 
         # Postavi podrazumevanu veličinu (80% Full HD 1920x1080)
         self.resize(1536, 823)
+        self.setMinimumSize(1200, 700)
 
         # Vrati geometriju prozora iz prethodne sesije
         self._restore_window_state()
@@ -261,7 +262,7 @@ class MainWindow(QMainWindow):
 
     def _restore_window_state(self) -> None:
         """Vrati geometriju i poziciju prozora iz prethodne sesije."""
-        settings = QSettings("AsycudaPro", "MainWindow")
+        settings = QSettings("DeklarantPro", "MainWindow")
 
         # Vrati geometriju (pozicija + veličina)
         geometry = settings.value("geometry")
@@ -294,14 +295,14 @@ class MainWindow(QMainWindow):
         self._first_show_done = True
 
         # Sačuvaj početnu poziciju nakon prvog prikazivanja
-        settings = QSettings("AsycudaPro", "MainWindow")
+        settings = QSettings("DeklarantPro", "MainWindow")
         if not settings.value("geometry"):
             settings.setValue("geometry", self.saveGeometry())
             settings.sync()
 
     def closeEvent(self, event) -> None:
         """Sačuvaj stanje prozora pre zatvaranja."""
-        settings = QSettings("AsycudaPro", "MainWindow")
+        settings = QSettings("DeklarantPro", "MainWindow")
         settings.setValue("geometry", self.saveGeometry())
         settings.sync()  # Prisili trenutno pisanje na disk
         super().closeEvent(event)

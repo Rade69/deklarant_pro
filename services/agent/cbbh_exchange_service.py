@@ -45,7 +45,7 @@ def get_cbbh_rate(currency_code: str, for_date: Optional[date] = None) -> Option
     url = f"{CBBH_API_URL}?date={query_date}"
 
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "AsycudaPro/1.0"})
+        req = urllib.request.Request(url, headers={"User-Agent": "DeklarantPro/1.0"})
         resp = urllib.request.urlopen(req, timeout=8)
         data = json.loads(resp.read())
 

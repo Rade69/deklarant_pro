@@ -1009,7 +1009,7 @@ class ChatWorker(QThread):
             memory_info += "Koristi kontekst ranije razgovora za bolje odgovore."
         
         return (
-            "Ti si AI asistent za carinsku deklaraciju u aplikaciji AsycudaPro (Bosna i Hercegovina).\n"
+            "Ti si AI asistent za carinsku deklaraciju u aplikaciji Deklarant Pro (Bosna i Hercegovina).\n"
             "Odgovaraš na srpskom jeziku (latinica), konkretno i korisno.\n\n"
             "POJMOVI KOJE MORAŠ RAZUMJETI:\n"
             "- FAKTURNE LINIJE (invoice_lines): Pojedinačni redovi iz uvozne fakture — svaki red je jedan proizvod.\n"
