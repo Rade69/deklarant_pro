@@ -23,6 +23,30 @@ from importers.vendors.blagic.blagic_attos_importer import parse_blagic_attos_wi
 logger = logging.getLogger("deklarant_pro.import.blagic_combined")
 
 
+_EU_COUNTRIES = {
+    "AT", "BE", "BG", "CY", "CZ", "DE", "DK", "EE", "ES", "FI",
+    "FR", "GR", "HR", "HU", "IE", "IT", "LT", "LU", "LV", "MT",
+    "NL", "PL", "PT", "RO", "SE", "SI", "SK",
+}
+
+
+def _statement_origin_matches_country(statement_origin: str, country_code: str) -> bool:
+    """
+    Provjeri da li se porijeklo iz izjave poklapa sa ISO zemljom stavke.
+
+    Pravila:
+    - EU izjava pokriva sve EU države (npr. SI, HR, DE...)
+    - U ostalim slučajevima treba tačno poklapanje koda.
+    """
+    stmt = (statement_origin or "").strip().upper()
+    cc = (country_code or "").strip().upper()
+    if not stmt or not cc:
+        return False
+    if stmt == "EU":
+        return cc in _EU_COUNTRIES
+    return stmt == cc
+
+
 def _extract_product_code_from_name(naziv: str) -> tuple[Optional[str], str]:
     """
     Ekstraktuje product_code sa početka naziva ako postoji.
@@ -265,7 +289,33 @@ def combine_blagic_excel_and_pdf(
                 # Iz Excel-a (težine - PDF ih nema po stavkama!)
                 bruto_kg=excel_item.bruto_kg if excel_item.bruto_kg > 0 else excel_item.neto_kg,
                 neto_kg=excel_item.neto_kg,
+
+                # Zadrži per-item izjavu o poreklu iz PDF-a
+                has_origin_statement=pdf_item.has_origin_statement,
+                raw=dict(pdf_item.raw) if getattr(pdf_item, "raw", None) else {},
             )
+
+            # Validacija: izjava na fakturi mora biti konzistentna sa zemljom porijekla.
+            stmt_origin = (combined_item.raw or {}).get("origin_from_statement")
+            if combined_item.has_origin_statement and stmt_origin:
+                if _statement_origin_matches_country(stmt_origin, combined_item.zemlja_porijekla):
+                    combined_item.country_confidence = "HIGH"
+                    combined_item.country_source = "PDF_IZJAVA_MATCH"
+                else:
+                    combined_item.country_confidence = "CONFLICT"
+                    combined_item.country_source = "CONFLICT"
+                    combined_item.country_conflict_details = (
+                        f"Izjava na fakturi: {stmt_origin}, Excel zemlja: "
+                        f"{combined_item.zemlja_porijekla or '(prazno)'}"
+                    )
+                    combined_item.raw["origin_conflict"] = True
+                    combined_item.raw["origin_conflict_details"] = combined_item.country_conflict_details
+                    logger.warning(
+                        "⚠️ Konflikt porijekla za line_no=%s code=%s: %s",
+                        combined_item.line_no,
+                        combined_item.product_code,
+                        combined_item.country_conflict_details,
+                    )
 
             combined_items.append(combined_item)
             matched_count += 1

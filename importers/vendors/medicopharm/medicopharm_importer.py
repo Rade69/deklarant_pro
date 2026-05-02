@@ -26,7 +26,7 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Set
 
 import pdfplumber
 
@@ -110,6 +110,12 @@ _ITEM_RANGE_RE = re.compile(
 # Pojedinačna stavka: "stavke broj 47" (bez iza nje -)
 _ITEM_SINGLE_RE = re.compile(
     r"stavk[ei]?\s+broj[a]?\s+(\d+)(?!\s*[-–]\s*\d)",
+    re.IGNORECASE,
+)
+
+# "Ova izjava se odnosi na stavke: 1-36; 38-76"
+_ORIGIN_ITEMS_SEGMENT_RE = re.compile(
+    r"izjava\s+se\s+odnosi\s+na\s+stavke\s*:\s*([0-9;\-,\s]+)",
     re.IGNORECASE,
 )
 
@@ -265,6 +271,18 @@ def parse_medicopharm_pdf(pdf_path: str) -> ImportResult:
     # --- Brand heuristika (GW → DE, itd.) ---
     _apply_brand_heuristics(raw_items)
     logger.info(f"   🏷️  Zemlja porekla (brand) dodijeljena za {sum(1 for i in raw_items if i['zemlja'])} stavki ukupno")
+
+    # --- Per-item izjava o poreklu (ako su navedeni rasponi stavki) ---
+    covered_items = _extract_origin_statement_item_set(lines, len(raw_items), has_origin_statement)
+    if covered_items:
+        for item in raw_items:
+            item["has_origin_statement"] = item.get("rbr", 0) in covered_items
+        logger.info(
+            f"   ✅ Izjava o poreklu mapirana po stavkama: {len(covered_items)}/{len(raw_items)}"
+        )
+    else:
+        for item in raw_items:
+            item["has_origin_statement"] = has_origin_statement
 
     logger.info(f"✅ Medico Pharm: {len(raw_items)} stavki | bruto={bruto_kg}kg | neto={neto_kg}kg")
 
@@ -775,6 +793,45 @@ def _apply_brand_heuristics(items: List[Dict]) -> None:
                 break
 
 
+def _extract_origin_statement_item_set(
+    lines: List[str],
+    total_items: int,
+    has_origin_statement: bool,
+) -> Set[int]:
+    """
+    Iz teksta izvuci tačne redne brojeve stavki obuhvaćenih izjavom o poreklu.
+
+    Podržava zapis poput:
+    "Ova izjava se odnosi na stavke: 1-36; 38-76"
+    """
+    if not has_origin_statement:
+        return set()
+
+    full_text = " ".join(lines)
+    m = _ORIGIN_ITEMS_SEGMENT_RE.search(full_text)
+    if not m:
+        return set()
+
+    segment = m.group(1)
+    covered: Set[int] = set()
+
+    # Rasponi: 1-36
+    for start_s, end_s in re.findall(r"(\d+)\s*[-–]\s*(\d+)", segment):
+        start = int(start_s)
+        end = int(end_s)
+        if start <= end:
+            covered.update(range(start, end + 1))
+
+    # Pojedinačni brojevi (ako postoje)
+    for num_s in re.findall(r"\b(\d+)\b", segment):
+        covered.add(int(num_s))
+
+    if total_items > 0:
+        covered = {n for n in covered if 1 <= n <= total_items}
+
+    return covered
+
+
 _MEDICO_EXPORTER = Party(name="MEDICO PHARM SERVIS")
 _MEDICO_IMPORTER = Party(name="MEDICOPHARM D.O.O.")
 
@@ -798,6 +855,7 @@ def _to_invoice_lines(items: List[Dict]) -> List[InvoiceLine]:
             valuta="EUR",
             bruto_kg=0.0,
             neto_kg=0.0,
+            has_origin_statement=bool(item.get("has_origin_statement", False)),
             exporter=_MEDICO_EXPORTER,
             importer=_MEDICO_IMPORTER,
         )

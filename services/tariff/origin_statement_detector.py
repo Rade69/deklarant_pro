@@ -56,9 +56,9 @@ class OriginStatementDetector:
             'jezik': 'serbian',
             'tip_izjave': 'standard',
             'pattern': (
-                r'\bIzvoznik\s+proizvoda\s+obuhva[ćc]enih\s+ovom\s+ispravom\s+izjavljuje'
+                r'\bIzvoznik\s+proizvoda\s+obuhva[ćc]enih\s+ovom\s+ispravom[\s,]*izjavljuje'
                 r'\s+da\s+su,?\s+osim\s+ako\s+je\s+(?:to\s+)?druga[čc]ije\s+izri[čc]ito\s+navedeno,?'
-                r'\s+ovi\s+proizvodi\s+(?P<origin>\w+)\s+preferencijalnog\s+porekla\.?'
+                r'\s+ovi\s+proizvodi\s+(?P<origin>[\w\s,\/\-]+?)\s+preferencijalnog\s+porekla\.?'
             ),
         },
         {
@@ -506,6 +506,11 @@ class OriginStatementDetector:
         }
         
         origin_lower = origin.lower().strip()
+        origin_upper = origin.upper().strip()
+
+        # Složeni EU zapisi (npr. "EU/ DE, DK, HR...") tretiraju se kao EU.
+        if "EU/" in origin_upper or origin_upper.startswith("EU "):
+            return "EU"
         
         # Direct map
         if origin_lower in country_map:
