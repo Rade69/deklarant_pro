@@ -1,13 +1,15 @@
 """
-Analytics Panel — pregled statusa sistema i baze znanja.
+Analytics Panel — upotreba AI agenta i status sistema.
 
-Prikazuje stvarno korisne informacije za admin špedicije:
-status konekcije, veličina baze znanja, carinski dokumenti, LLM status.
+Prikazuje informacije koje Database panel ne prikazuje:
+AI provider, upotreba tokena danas/sesija, instalirani parseri,
+zadnje indeksiranje carinskih dokumenata.
 """
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QPushButton, QGroupBox, QGridLayout, QScrollArea
+    QPushButton, QGroupBox, QGridLayout, QScrollArea,
+    QProgressBar
 )
 from PySide6.QtCore import Signal, Qt, QThread
 from PySide6.QtGui import QFont
@@ -15,49 +17,58 @@ import qtawesome as qta
 from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
 
 
-class _SystemStatusThread(QThread):
+class _StatsThread(QThread):
     done = Signal(dict)
 
     def run(self):
         result = {}
 
-        # PostgreSQL konekcija
+        # LLM provider
+        try:
+            from gui.tabs.agent.widgets.llm_provider import LLMProvider
+            result['llm_provider'] = LLMProvider().active_provider()
+        except Exception:
+            result['llm_provider'] = 'nepoznat'
+
+        # Upotreba danas (audit log)
+        try:
+            from services.agent.llm_audit_log import get_today_stats, get_session_stats
+            today = get_today_stats()
+            result['calls_today']   = today.get('calls_today', 0)
+            result['tokens_today']  = today.get('tokens_today', 0)
+            result['blocked_today'] = today.get('blocked_today', 0)
+
+            sess = get_session_stats()
+            result['session_tokens'] = sess.get('session_tokens_used', 0)
+            result['session_budget'] = sess.get('session_budget', 0)
+            result['session_pct']    = sess.get('session_pct', 0)
+        except Exception:
+            result['calls_today'] = result['tokens_today'] = result['blocked_today'] = 0
+            result['session_tokens'] = result['session_budget'] = result['session_pct'] = 0
+
+        # Parseri
+        try:
+            from services.plugin_service import PluginService
+            result['parseri'] = len(PluginService().get_installed_parsers())
+        except Exception:
+            result['parseri'] = None
+
+        # Carinski dokumenti — zadnje indeksiranje
         try:
             from database.db import get_db_connection
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
-                    cur.execute("SELECT COUNT(*) AS n FROM catalogs.exporter_xml_index")
-                    result['xml_deklaracije'] = cur.fetchone()['n']
-                    cur.execute("SELECT COUNT(*) AS n FROM catalogs.product_tariff_mapping")
-                    result['tarif_mapiranja'] = cur.fetchone()['n']
-                    cur.execute("SELECT COUNT(*) AS n FROM catalogs.carinski_dokumenti")
-                    result['carinski_dokumenti'] = cur.fetchone()['n']
-                    cur.execute("SELECT COUNT(*) AS n FROM catalogs.izvoznici")
-                    result['izvoznici'] = cur.fetchone()['n']
-                    cur.execute("SELECT COUNT(*) AS n FROM catalogs.uvoznici")
-                    result['uvoznici'] = cur.fetchone()['n']
-                    cur.execute("SELECT COUNT(*) AS n FROM catalogs.tarifa_nazivi")
-                    result['tarifa_nazivi'] = cur.fetchone()['n']
-            result['pg_status'] = True
-        except Exception as e:
-            result['pg_status'] = False
-            result['pg_error'] = str(e)
-
-        # LLM provider
-        try:
-            from gui.tabs.agent.widgets.llm_provider import LLMProvider
-            provider = LLMProvider()
-            result['llm_provider'] = provider.active_provider()
+                    cur.execute("""
+                        SELECT COUNT(*) AS cnt,
+                               MAX(datum_indeksa) AS zadnje
+                        FROM catalogs.carinski_dokumenti
+                    """)
+                    row = cur.fetchone()
+                    result['cd_count']  = row['cnt']
+                    result['cd_zadnje'] = row['zadnje']
         except Exception:
-            result['llm_provider'] = 'nepoznat'
-
-        # Broj instaliranih parsera
-        try:
-            from services.plugin_service import PluginService
-            ps = PluginService()
-            result['parseri'] = len(ps.get_installed_parsers())
-        except Exception:
-            result['parseri'] = None
+            result['cd_count'] = None
+            result['cd_zadnje'] = None
 
         self.done.emit(result)
 
@@ -97,7 +108,7 @@ class AnalyticsPanel(QWidget):
         ico = QLabel()
         ico.setPixmap(qta.icon('fa5s.tachometer-alt', color='#333').pixmap(28, 28))
         hdr.addWidget(ico)
-        lbl = QLabel("Status sistema")
+        lbl = QLabel("Upotreba AI agenta")
         lbl.setStyleSheet("font-size: 18px; font-weight: bold; color: #222; margin-left: 8px;")
         hdr.addWidget(lbl)
         hdr.addStretch()
@@ -106,95 +117,108 @@ class AnalyticsPanel(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QScrollArea.NoFrame)
-        scroll_w = QWidget()
-        sl = QVBoxLayout(scroll_w)
+        sw = QWidget()
+        sl = QVBoxLayout(sw)
         sl.setSpacing(14)
         sl.setContentsMargins(0, 0, 0, 0)
 
-        # ── Konekcija i LLM ────────────────────────────────────
-        sys_group = QGroupBox("⚙️ Infrastruktura")
-        sys_lay = QGridLayout(sys_group)
-        sys_lay.setSpacing(10)
-        sys_lay.setColumnStretch(1, 1)
+        # ── AI provider ────────────────────────────────────────
+        prov_group = QGroupBox("🤖 AI provider")
+        prov_lay = QGridLayout(prov_group)
+        prov_lay.setSpacing(10)
+        prov_lay.setColumnStretch(1, 1)
 
-        sys_lay.addWidget(self._ico_lbl('fa5s.server'), 0, 0)
-        sys_lay.addWidget(QLabel("PostgreSQL:"), 0, 1)
-        self.lbl_pg = QLabel("—")
-        self.lbl_pg.setFont(QFont("Arial", 12, QFont.Bold))
-        sys_lay.addWidget(self.lbl_pg, 0, 2)
+        prov_lay.addWidget(self._ico('fa5s.robot'), 0, 0)
+        prov_lay.addWidget(QLabel("Aktivni provider:"), 0, 1)
+        self.lbl_provider = QLabel("—")
+        self.lbl_provider.setFont(QFont("Arial", 13, QFont.Bold))
+        prov_lay.addWidget(self.lbl_provider, 0, 2)
 
-        sys_lay.addWidget(self._ico_lbl('fa5s.robot'), 1, 0)
-        sys_lay.addWidget(QLabel("AI provider:"), 1, 1)
-        self.lbl_llm = QLabel("—")
-        self.lbl_llm.setFont(QFont("Arial", 12, QFont.Bold))
-        sys_lay.addWidget(self.lbl_llm, 1, 2)
-
-        sys_lay.addWidget(self._ico_lbl('fa5s.puzzle-piece'), 2, 0)
-        sys_lay.addWidget(QLabel("Instaliranih parsera:"), 2, 1)
+        prov_lay.addWidget(self._ico('fa5s.puzzle-piece'), 1, 0)
+        prov_lay.addWidget(QLabel("Instaliranih parsera:"), 1, 1)
         self.lbl_parseri = QLabel("—")
-        self.lbl_parseri.setFont(QFont("Arial", 12, QFont.Bold))
-        sys_lay.addWidget(self.lbl_parseri, 2, 2)
+        self.lbl_parseri.setFont(QFont("Arial", 13, QFont.Bold))
+        self.lbl_parseri.setStyleSheet("color: #0078d4;")
+        prov_lay.addWidget(self.lbl_parseri, 1, 2)
 
-        sl.addWidget(sys_group)
+        sl.addWidget(prov_group)
 
-        # ── Baza znanja ────────────────────────────────────────
-        kb_group = QGroupBox("🧠 Baza znanja")
-        kb_lay = QGridLayout(kb_group)
-        kb_lay.setSpacing(10)
-        kb_lay.setColumnStretch(1, 1)
+        # ── Upotreba danas ─────────────────────────────────────
+        today_group = QGroupBox("📊 Upotreba danas")
+        today_lay = QGridLayout(today_group)
+        today_lay.setSpacing(10)
+        today_lay.setColumnStretch(1, 1)
 
-        self._kb_rows = [
-            ('xml_deklaracije',  'fa5s.file-code',   'XML deklaracije (istorija)',  self),
-            ('tarif_mapiranja',  'fa5s.map',          'Tarifna mapiranja',           self),
-            ('tarifa_nazivi',    'fa5s.list',         'Nazivi robe → tarifa',        self),
+        rows_today = [
+            ('lbl_calls',   'fa5s.comments',      'Upita agentu:'),
+            ('lbl_tokens',  'fa5s.coins',          'Tokena potrošeno:'),
+            ('lbl_blocked', 'fa5s.shield-alt',     'Blokiranih poruka:'),
         ]
+        for attr, ico_name, tekst in rows_today:
+            i = rows_today.index((attr, ico_name, tekst))
+            today_lay.addWidget(self._ico(ico_name), i, 0)
+            today_lay.addWidget(QLabel(tekst), i, 1)
+            lbl = QLabel("—")
+            lbl.setFont(QFont("Arial", 13, QFont.Bold))
+            lbl.setStyleSheet("color: #0078d4;")
+            lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            today_lay.addWidget(lbl, i, 2)
+            setattr(self, attr, lbl)
 
-        self._kb_labels = {}
-        for i, (key, ico_name, tekst, _) in enumerate(self._kb_rows):
-            kb_lay.addWidget(self._ico_lbl(ico_name), i, 0)
-            kb_lay.addWidget(QLabel(tekst + ":"), i, 1)
-            val = QLabel("—")
-            val.setFont(QFont("Arial", 12, QFont.Bold))
-            val.setStyleSheet("color: #0078d4;")
-            val.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-            kb_lay.addWidget(val, i, 2)
-            self._kb_labels[key] = val
+        sl.addWidget(today_group)
 
-        sl.addWidget(kb_group)
+        # ── Token budžet (sesija) ──────────────────────────────
+        budget_group = QGroupBox("💰 Token budžet — ova sesija")
+        budget_lay = QVBoxLayout(budget_group)
+        budget_lay.setSpacing(8)
+
+        info_lay = QHBoxLayout()
+        self.lbl_sess_tokens = QLabel("0 / 0 tokena")
+        self.lbl_sess_tokens.setFont(QFont("Arial", 12))
+        info_lay.addWidget(self.lbl_sess_tokens)
+        info_lay.addStretch()
+        self.lbl_sess_pct = QLabel("0%")
+        self.lbl_sess_pct.setFont(QFont("Arial", 12, QFont.Bold))
+        info_lay.addWidget(self.lbl_sess_pct)
+        budget_lay.addLayout(info_lay)
+
+        self.progress_budget = QProgressBar()
+        self.progress_budget.setRange(0, 100)
+        self.progress_budget.setValue(0)
+        self.progress_budget.setTextVisible(False)
+        self.progress_budget.setFixedHeight(12)
+        self.progress_budget.setStyleSheet("""
+            QProgressBar { border:none; border-radius:6px; background:#e9ecef; }
+            QProgressBar::chunk { border-radius:6px; background:#0078d4; }
+        """)
+        budget_lay.addWidget(self.progress_budget)
+
+        sl.addWidget(budget_group)
 
         # ── Carinski dokumenti ─────────────────────────────────
-        cd_group = QGroupBox("📋 Carinski propisi")
+        cd_group = QGroupBox("📋 Carinski propisi (indeks)")
         cd_lay = QGridLayout(cd_group)
         cd_lay.setSpacing(10)
         cd_lay.setColumnStretch(1, 1)
 
-        cd_lay.addWidget(self._ico_lbl('fa5s.book'), 0, 0)
+        cd_lay.addWidget(self._ico('fa5s.book'), 0, 0)
         cd_lay.addWidget(QLabel("Indeksiranih dokumenata:"), 0, 1)
-        self.lbl_cd = QLabel("—")
-        self.lbl_cd.setFont(QFont("Arial", 12, QFont.Bold))
-        self.lbl_cd.setStyleSheet("color: #0078d4;")
-        self.lbl_cd.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        cd_lay.addWidget(self.lbl_cd, 0, 2)
+        self.lbl_cd_count = QLabel("—")
+        self.lbl_cd_count.setFont(QFont("Arial", 13, QFont.Bold))
+        self.lbl_cd_count.setStyleSheet("color: #0078d4;")
+        self.lbl_cd_count.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        cd_lay.addWidget(self.lbl_cd_count, 0, 2)
 
-        cd_lay.addWidget(self._ico_lbl('fa5s.users'), 1, 0)
-        cd_lay.addWidget(QLabel("Izvoznici u bazi:"), 1, 1)
-        self.lbl_izvoznici = QLabel("—")
-        self.lbl_izvoznici.setFont(QFont("Arial", 12, QFont.Bold))
-        self.lbl_izvoznici.setStyleSheet("color: #0078d4;")
-        self.lbl_izvoznici.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        cd_lay.addWidget(self.lbl_izvoznici, 1, 2)
-
-        cd_lay.addWidget(self._ico_lbl('fa5s.building'), 2, 0)
-        cd_lay.addWidget(QLabel("Uvoznici u bazi:"), 2, 1)
-        self.lbl_uvoznici = QLabel("—")
-        self.lbl_uvoznici.setFont(QFont("Arial", 12, QFont.Bold))
-        self.lbl_uvoznici.setStyleSheet("color: #0078d4;")
-        self.lbl_uvoznici.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        cd_lay.addWidget(self.lbl_uvoznici, 2, 2)
+        cd_lay.addWidget(self._ico('fa5s.clock'), 1, 0)
+        cd_lay.addWidget(QLabel("Zadnje indeksiranje:"), 1, 1)
+        self.lbl_cd_zadnje = QLabel("—")
+        self.lbl_cd_zadnje.setStyleSheet("color: #666; font-size: 12px;")
+        self.lbl_cd_zadnje.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        cd_lay.addWidget(self.lbl_cd_zadnje, 1, 2)
 
         sl.addWidget(cd_group)
         sl.addStretch()
-        scroll.setWidget(scroll_w)
+        scroll.setWidget(sw)
         layout.addWidget(scroll)
 
         # Dugme
@@ -212,31 +236,54 @@ class AnalyticsPanel(QWidget):
     # ── PUBLIC API ──────────────────────────────────────────────
 
     def set_statistics(self, stats: dict):
-        pg_ok = stats.get('pg_status', False)
-        pg_err = stats.get('pg_error', '')
-
-        if pg_ok:
-            self.lbl_pg.setText("✅ Spojena")
-            self.lbl_pg.setStyleSheet("color: #28a745; font-size: 12px; font-weight: bold;")
-        else:
-            self.lbl_pg.setText(f"❌ {pg_err[:60]}" if pg_err else "❌ Greška")
-            self.lbl_pg.setStyleSheet("color: #dc3545; font-size: 12px; font-weight: bold;")
-
-        llm = stats.get('llm_provider', '—')
-        llm_boje = {'deepseek': '#6f42c1', 'groq': '#fd7e14', 'gemini': '#1a73e8', 'none': '#999'}
-        self.lbl_llm.setText(llm.capitalize() if llm != 'none' else '⚠️ Nije konfigurisan')
-        self.lbl_llm.setStyleSheet(f"color: {llm_boje.get(llm, '#333')}; font-size: 12px; font-weight: bold;")
+        # Provider
+        prov = stats.get('llm_provider', '—')
+        boje = {'deepseek': '#6f42c1', 'groq': '#fd7e14', 'gemini': '#1a73e8',
+                'none': '#dc3545', 'nepoznat': '#999'}
+        tekst = prov.capitalize() if prov not in ('none', 'nepoznat') else '⚠️ Nije konfigurisan'
+        self.lbl_provider.setText(tekst)
+        self.lbl_provider.setStyleSheet(
+            f"color: {boje.get(prov, '#333')}; font-size: 13px; font-weight: bold;"
+        )
 
         parseri = stats.get('parseri')
         self.lbl_parseri.setText(str(parseri) if parseri is not None else "—")
 
-        for key, lbl in self._kb_labels.items():
-            v = stats.get(key)
-            lbl.setText(f"{v:,}".replace(",", ".") if v is not None else "—")
+        # Danas
+        self.lbl_calls.setText(str(stats.get('calls_today', 0)))
+        tokens = stats.get('tokens_today', 0)
+        self.lbl_tokens.setText(f"{tokens:,}".replace(",", "."))
+        blocked = stats.get('blocked_today', 0)
+        self.lbl_blocked.setText(str(blocked))
+        self.lbl_blocked.setStyleSheet(
+            "color: #dc3545; font-weight: bold;" if blocked > 0 else "color: #28a745; font-weight: bold;"
+        )
 
-        self.lbl_cd.setText(str(stats.get('carinski_dokumenti', '—')))
-        self.lbl_izvoznici.setText(str(stats.get('izvoznici', '—')))
-        self.lbl_uvoznici.setText(str(stats.get('uvoznici', '—')))
+        # Sesija
+        used = stats.get('session_tokens', 0)
+        budget = stats.get('session_budget', 0)
+        pct = int(stats.get('session_pct', 0))
+        self.lbl_sess_tokens.setText(
+            f"{used:,} / {budget:,} tokena".replace(",", ".")
+        )
+        self.lbl_sess_pct.setText(f"{pct}%")
+        self.progress_budget.setValue(min(pct, 100))
+        chunk_color = "#28a745" if pct < 70 else ("#fd7e14" if pct < 90 else "#dc3545")
+        self.progress_budget.setStyleSheet(f"""
+            QProgressBar {{ border:none; border-radius:6px; background:#e9ecef; }}
+            QProgressBar::chunk {{ border-radius:6px; background:{chunk_color}; }}
+        """)
+
+        # Carinski dokumenti
+        self.lbl_cd_count.setText(str(stats.get('cd_count', '—')))
+        zadnje = stats.get('cd_zadnje')
+        if zadnje:
+            try:
+                self.lbl_cd_zadnje.setText(zadnje.strftime("%d.%m.%Y. %H:%M"))
+            except Exception:
+                self.lbl_cd_zadnje.setText(str(zadnje)[:16])
+        else:
+            self.lbl_cd_zadnje.setText("Nije indeksirano")
 
     def show_error(self, message: str):
         QMessageBox.critical(self, "Greška", message)
@@ -246,7 +293,7 @@ class AnalyticsPanel(QWidget):
     def _on_refresh(self):
         self.btn_refresh.setEnabled(False)
         self.btn_refresh.setText(" Učitavanje...")
-        self._thread = _SystemStatusThread(self)
+        self._thread = _StatsThread(self)
         self._thread.done.connect(self._on_done)
         self._thread.start()
         self.refresh_requested.emit()
@@ -256,10 +303,8 @@ class AnalyticsPanel(QWidget):
         self.btn_refresh.setText(" Osvježi")
         self.set_statistics(stats)
 
-    # ── HELPER ─────────────────────────────────────────────────
-
     @staticmethod
-    def _ico_lbl(name: str) -> QLabel:
+    def _ico(name: str) -> QLabel:
         lbl = QLabel()
         lbl.setPixmap(qta.icon(name, color='#555').pixmap(16, 16))
         return lbl
