@@ -41,11 +41,9 @@ class _LoadStatsThread(QThread):
                         ("Izvoznici",          "catalogs.izvoznici"),
                         ("Uvoznici",           "catalogs.uvoznici"),
                         ("XML deklaracije",    "catalogs.exporter_xml_index"),
-                        ("Tarifa → naziv",     "catalogs.tarifa_nazivi"),
                         ("Tarif. mapiranja",   "catalogs.product_tariff_mapping"),
                         ("Carinski dokumenti", "catalogs.carinski_dokumenti"),
                         ("Deklaranti",         "catalogs.deklaranti"),
-                        ("Partneri",           "catalogs.partneri"),
                     ]
                     for naziv, tabela in tabele:
                         try:
@@ -146,11 +144,9 @@ class DatabasePanel(QWidget):
             ("Izvoznici",          "fa5s.truck"),
             ("Uvoznici",           "fa5s.building"),
             ("XML deklaracije",    "fa5s.file-code"),
-            ("Tarifa → naziv",     "fa5s.list"),
             ("Tarif. mapiranja",   "fa5s.map"),
             ("Carinski dokumenti", "fa5s.book"),
             ("Deklaranti",         "fa5s.id-card"),
-            ("Partneri",           "fa5s.handshake"),
         ]
 
         for i, (naziv, ico_name) in enumerate(redovi):
