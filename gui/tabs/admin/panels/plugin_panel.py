@@ -253,7 +253,7 @@ class PluginPanel(QWidget):
             'blagic':       ('Blagić', 'Excel + PDF'),
             'imamoglu':     ('İmamoğlu', 'Excel + PDF'),
             'leburic':      ('Leburić / Pekabesko', 'PDF'),
-            'master_frigo': ('Master Frigo', 'PDF'),
+            'master_frigo': ('Master Frigo', 'Excel + PDF'),
             'medicopharm':  ('Medicopharm', 'PDF'),
             'sumaprom':     ('Šumaprom', 'Excel + PDF'),
         }
