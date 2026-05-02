@@ -9,7 +9,7 @@ zadnje indeksiranje carinskih dokumenata.
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QGroupBox, QGridLayout, QScrollArea,
-    QProgressBar
+    QProgressBar, QListWidget, QListWidgetItem
 )
 from PySide6.QtCore import Signal, Qt, QThread
 from PySide6.QtGui import QFont
@@ -53,22 +53,29 @@ class _StatsThread(QThread):
         except Exception:
             result['parseri'] = None
 
-        # Carinski dokumenti — zadnje indeksiranje
+        # Carinski dokumenti — lista i zadnje indeksiranje
         try:
             from database.db import get_db_connection
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
                     cur.execute("""
-                        SELECT COUNT(*) AS cnt,
-                               MAX(datum_indeksa) AS zadnje
+                        SELECT naziv, datum_indeksa
                         FROM catalogs.carinski_dokumenti
+                        ORDER BY naziv
                     """)
-                    row = cur.fetchone()
-                    result['cd_count']  = row['cnt']
-                    result['cd_zadnje'] = row['zadnje']
+                    rows = cur.fetchall()
+                    result['cd_dokumenti'] = [
+                        {'naziv': r['naziv'], 'datum': r['datum_indeksa']}
+                        for r in rows
+                    ]
+                    result['cd_count']  = len(rows)
+                    result['cd_zadnje'] = max(
+                        (r['datum_indeksa'] for r in rows), default=None
+                    )
         except Exception:
             result['cd_count'] = None
             result['cd_zadnje'] = None
+            result['cd_dokumenti'] = []
 
         self.done.emit(result)
 
@@ -196,25 +203,37 @@ class AnalyticsPanel(QWidget):
         sl.addWidget(budget_group)
 
         # ── Carinski dokumenti ─────────────────────────────────
-        cd_group = QGroupBox("📋 Carinski propisi (indeks)")
-        cd_lay = QGridLayout(cd_group)
-        cd_lay.setSpacing(10)
-        cd_lay.setColumnStretch(1, 1)
+        cd_group = QGroupBox("📋 Carinski propisi u bazi")
+        cd_lay = QVBoxLayout(cd_group)
+        cd_lay.setSpacing(8)
 
-        cd_lay.addWidget(self._ico('fa5s.book'), 0, 0)
-        cd_lay.addWidget(QLabel("Indeksiranih dokumenata:"), 0, 1)
-        self.lbl_cd_count = QLabel("—")
-        self.lbl_cd_count.setFont(QFont("Arial", 13, QFont.Bold))
+        # Info red: broj + zadnje indeksiranje
+        info_lay = QHBoxLayout()
+        self.lbl_cd_count = QLabel("— dokumenata")
+        self.lbl_cd_count.setFont(QFont("Arial", 12, QFont.Bold))
         self.lbl_cd_count.setStyleSheet("color: #0078d4;")
-        self.lbl_cd_count.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        cd_lay.addWidget(self.lbl_cd_count, 0, 2)
+        info_lay.addWidget(self.lbl_cd_count)
+        info_lay.addStretch()
+        self.lbl_cd_zadnje = QLabel("")
+        self.lbl_cd_zadnje.setStyleSheet("color: #888; font-size: 11px;")
+        info_lay.addWidget(self.lbl_cd_zadnje)
+        cd_lay.addLayout(info_lay)
 
-        cd_lay.addWidget(self._ico('fa5s.clock'), 1, 0)
-        cd_lay.addWidget(QLabel("Zadnje indeksiranje:"), 1, 1)
-        self.lbl_cd_zadnje = QLabel("—")
-        self.lbl_cd_zadnje.setStyleSheet("color: #666; font-size: 12px;")
-        self.lbl_cd_zadnje.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        cd_lay.addWidget(self.lbl_cd_zadnje, 1, 2)
+        # Lista dokumenata
+        self.cd_lista = QListWidget()
+        self.cd_lista.setMinimumHeight(220)
+        self.cd_lista.setMaximumHeight(320)
+        self.cd_lista.setStyleSheet("""
+            QListWidget {
+                border: 1px solid #e0e0e0; border-radius: 4px;
+                background: #fafafa; font-size: 12px;
+            }
+            QListWidget::item { padding: 5px 8px; border-bottom: 1px solid #f0f0f0; }
+            QListWidget::item:hover { background: #e8f0fe; }
+            QListWidget::item:selected { background: #d0e4ff; color: #000; }
+        """)
+        self.cd_lista.setSelectionMode(QListWidget.NoSelection)
+        cd_lay.addWidget(self.cd_lista)
 
         sl.addWidget(cd_group)
         sl.addStretch()
@@ -275,15 +294,38 @@ class AnalyticsPanel(QWidget):
         """)
 
         # Carinski dokumenti
-        self.lbl_cd_count.setText(str(stats.get('cd_count', '—')))
+        cd_count = stats.get('cd_count') or 0
+        self.lbl_cd_count.setText(f"{cd_count} dokumenata")
+
         zadnje = stats.get('cd_zadnje')
         if zadnje:
             try:
-                self.lbl_cd_zadnje.setText(zadnje.strftime("%d.%m.%Y. %H:%M"))
+                self.lbl_cd_zadnje.setText(
+                    "Ažurirano: " + zadnje.strftime("%d.%m.%Y. %H:%M")
+                )
             except Exception:
                 self.lbl_cd_zadnje.setText(str(zadnje)[:16])
         else:
             self.lbl_cd_zadnje.setText("Nije indeksirano")
+
+        self.cd_lista.clear()
+        dokumenti = stats.get('cd_dokumenti', [])
+        if dokumenti:
+            for d in dokumenti:
+                naziv = d.get('naziv', '')
+                datum = d.get('datum')
+                datum_str = ""
+                if datum:
+                    try:
+                        datum_str = "  —  " + datum.strftime("%d.%m.%Y.")
+                    except Exception:
+                        datum_str = ""
+                item = QListWidgetItem(f"📄 {naziv}{datum_str}")
+                self.cd_lista.addItem(item)
+        else:
+            item = QListWidgetItem("Nema indeksiranih dokumenata")
+            item.setForeground(Qt.gray)
+            self.cd_lista.addItem(item)
 
     def show_error(self, message: str):
         QMessageBox.critical(self, "Greška", message)
