@@ -55,10 +55,13 @@ class AdminController(BaseTabController):
 
         # Database panel signals
         database_panel = self.view.get_database_panel()
-        if hasattr(database_panel, 'backup_requested'):
-            database_panel.backup_requested.connect(self._on_backup_database)
-        if hasattr(database_panel, 'restore_requested'):
-            database_panel.restore_requested.connect(self._on_restore_database)
+        if hasattr(database_panel, 'refresh_requested'):
+            database_panel.refresh_requested.connect(self._on_refresh_database)
+
+        # Analytics panel signals
+        analytics_panel = self.view.get_analytics_panel()
+        if hasattr(analytics_panel, 'refresh_requested'):
+            analytics_panel.refresh_requested.connect(self._on_refresh_analytics)
 
         # Logs panel signals
         logs_panel = self.view.get_logs_panel()
@@ -279,53 +282,13 @@ class AdminController(BaseTabController):
                 f"Greška pri reset-u:\n{str(e)}"
             )
 
-    # DATABASE HANDLERS
+    # DATABASE / ANALYTICS HANDLERS
 
-    def _on_backup_database(self, backup_path: str):
-        """
-        Handler za database backup.
+    def _on_refresh_database(self):
+        pass  # Stats se učitavaju direktno u panelu putem QThread-a
 
-        Args:
-            backup_path: Put gdje sačuvati backup
-        """
-        try:
-            success = self.service.create_backup(backup_path)
-
-            if success:
-                self.view.get_database_panel().show_success(
-                    f"Backup kreiran: {backup_path}"
-                )
-            else:
-                self.view.get_database_panel().show_error(
-                    "Kreiranje backup-a nije uspjelo!"
-                )
-        except Exception as e:
-            self.view.get_database_panel().show_error(
-                f"Greška pri backup-u: {e}"
-            )
-
-    def _on_restore_database(self, backup_path: str):
-        """
-        Handler za obnovu baze.
-
-        Args:
-            backup_path: Put do backup fajla
-        """
-        try:
-            success = self.service.restore_backup(backup_path)
-
-            if success:
-                self.view.get_database_panel().show_success(
-                    "Baza uspešno obnovljena!"
-                )
-            else:
-                self.view.get_database_panel().show_error(
-                    "Obnova baze nije uspela!"
-                )
-        except Exception as e:
-            self.view.get_database_panel().show_error(
-                f"Greška pri obnovi: {e}"
-            )
+    def _on_refresh_analytics(self):
+        pass  # Stats se učitavaju direktno u panelu putem QThread-a
 
     # LOGS HANDLERS
 
