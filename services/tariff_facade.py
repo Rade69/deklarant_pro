@@ -1,4 +1,4 @@
-# Arhitektura: docs/TARIFF_FACADE_REFACTORING.md
+# Arhitektura: docs/architecture/TARIFF_FACADE_REFACTORING.md
 
 """
 TariffFacade — jedina ulazna tačka za sve tarifne operacije.
@@ -76,7 +76,7 @@ class TariffFacade:
         return self._hybrid_agent
 
     # ------------------------------------------------------------------
-    # Javni API — docs/TARIFF_FACADE_REFACTORING.md
+    # Javni API — docs/architecture/TARIFF_FACADE_REFACTORING.md
     # ------------------------------------------------------------------
 
     def suggest(

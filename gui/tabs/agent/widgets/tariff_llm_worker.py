@@ -1,4 +1,4 @@
-# Arhitektura: docs/TARIFF_FACADE_REFACTORING.md
+# Arhitektura: docs/architecture/TARIFF_FACADE_REFACTORING.md
 
 """
 TariffLLMWorker — QThread worker za batch prijedlog tarifnih brojeva putem LLM-a.
@@ -64,7 +64,7 @@ class TariffLLMWorker(QThread):
     def _process_batch(self, provider, batch: list) -> list:
         """
         Korak 1 → 2 → 3 za jedan batch stavki.
-        Korak 1 i 2 idu kroz TariffFacade — docs/TARIFF_FACADE_REFACTORING.md
+        Korak 1 i 2 idu kroz TariffFacade — docs/architecture/TARIFF_FACADE_REFACTORING.md
         """
         from services.tariff_facade import TariffFacade
         from gui.tabs.agent.agent_actions import TariffProposal

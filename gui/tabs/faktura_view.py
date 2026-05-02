@@ -2694,7 +2694,7 @@ class FakturaView(BaseTabView):
             self._sync_pe_docs_to_header()
             self._sync_inspection_docs_to_header()
 
-            # Auto-učenje: sačuvaj mappinge u bazu znanja — docs/TARIFF_FACADE_REFACTORING.md
+            # Auto-učenje: sačuvaj mappinge u bazu znanja — docs/architecture/TARIFF_FACADE_REFACTORING.md
             try:
                 from services.tariff_facade import TariffFacade
                 learned_count = TariffFacade.get_instance().learn_from_draft(
@@ -3154,7 +3154,7 @@ class FakturaView(BaseTabView):
             self.draft.invoice_lines
         )
 
-        # Auto-popuni tarifne iz baze znanja — docs/TARIFF_FACADE_REFACTORING.md
+        # Auto-popuni tarifne iz baze znanja — docs/architecture/TARIFF_FACADE_REFACTORING.md
         try:
             from services.tariff_facade import TariffFacade
 
@@ -3446,7 +3446,7 @@ class FakturaView(BaseTabView):
             return
 
         try:
-            # Uvoz XML mappinga — docs/TARIFF_FACADE_REFACTORING.md
+            # Uvoz XML mappinga — docs/architecture/TARIFF_FACADE_REFACTORING.md
             from services.tariff_facade import TariffFacade
 
             progress = QProgressDialog(

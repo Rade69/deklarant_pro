@@ -514,7 +514,7 @@ class ChatWorker(QThread):
 
         result = []
 
-        # KB prijedlozi — docs/TARIFF_FACADE_REFACTORING.md
+        # KB prijedlozi — docs/architecture/TARIFF_FACADE_REFACTORING.md
         kb_prijedlozi = []
         try:
             from services.tariff_facade import TariffFacade

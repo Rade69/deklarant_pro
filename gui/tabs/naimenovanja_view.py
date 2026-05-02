@@ -1743,7 +1743,7 @@ class NaimenovanjaView(BaseTabView):
 
         if reply == QMessageBox.Yes:
             try:
-                # Učenje — docs/TARIFF_FACADE_REFACTORING.md
+                # Učenje — docs/architecture/TARIFF_FACADE_REFACTORING.md
                 from services.tariff_facade import TariffFacade
                 product_code = invoice_line.product_code if invoice_line else ""
                 zemlja = invoice_line.zemlja_porijekla if invoice_line else (item.origin_country_code or "")
@@ -2426,7 +2426,7 @@ class NaimenovanjaView(BaseTabView):
         zemlja = invoice_line.zemlja_porijekla if invoice_line else naim_item.origin_country_code
 
         try:
-            # Učenje — docs/TARIFF_FACADE_REFACTORING.md
+            # Učenje — docs/architecture/TARIFF_FACADE_REFACTORING.md
             from services.tariff_facade import TariffFacade
 
             # Prvo izbriši STARE zapise sa pogrešnom tarifom (isti naziv ili product_code)
@@ -3434,7 +3434,7 @@ class NaimenovanjaView(BaseTabView):
         if self.on_dirty:
             self.on_dirty()
 
-        # Inkrementiraj usage_count — docs/TARIFF_FACADE_REFACTORING.md
+        # Inkrementiraj usage_count — docs/architecture/TARIFF_FACADE_REFACTORING.md
         try:
             from services.tariff_facade import TariffFacade
             TariffFacade.get_instance().increment_usage(

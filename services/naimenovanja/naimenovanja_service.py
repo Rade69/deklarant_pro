@@ -171,7 +171,7 @@ class NaimenovanjaService:
         Returns:
             Lista prijedloga sa tarifnim brojevima
         """
-        # Koristi TariffFacade — docs/TARIFF_FACADE_REFACTORING.md
+        # Koristi TariffFacade — docs/architecture/TARIFF_FACADE_REFACTORING.md
         from services.tariff_facade import TariffFacade
 
         r = TariffFacade.get_instance().suggest(goods_trade_name, zemlja=origin_country_code)
