@@ -232,6 +232,59 @@ class PluginPanel(QWidget):
 
         layout.addLayout(btn_layout)
 
+        # ── Ugrađeni importeri (read-only informacija) ──────────
+        builtin_group = QGroupBox("🏭 Ugrađeni importeri (uvijek dostupni)")
+        builtin_group.setFont(QFont("Arial", 12, QFont.Bold))
+        builtin_lay = QVBoxLayout(builtin_group)
+        builtin_lay.setContentsMargins(8, 8, 8, 8)
+        builtin_lay.setSpacing(4)
+
+        self.builtin_lista = QListWidget()
+        self.builtin_lista.setMaximumHeight(160)
+        self.builtin_lista.setSelectionMode(QListWidget.NoSelection)
+        self.builtin_lista.setStyleSheet("""
+            QListWidget {
+                background-color: #f0f4f8;
+                border: 1px solid #dde3ea;
+                border-radius: 4px;
+                font-size: 12px;
+                color: #444;
+            }
+            QListWidget::item { padding: 5px 8px; border-bottom: 1px solid #e8edf2; }
+        """)
+        self._populate_builtin_importers()
+        builtin_lay.addWidget(self.builtin_lista)
+
+        layout.addWidget(builtin_group)
+
+    def _populate_builtin_importers(self):
+        import os
+        vendor_mapa = {
+            'blagic':       'Blagić (Excel + PDF)',
+            'imamoglu':     'İmamoğlu (Excel + PDF)',
+            'leburic':      'Leburić / Pekabesko (PDF)',
+            'master_frigo': 'Master Frigo (PDF)',
+            'medicopharm':  'Medicopharm (PDF)',
+            'sumaprom':     'Šumaprom (Excel + PDF)',
+        }
+        try:
+            vendors_dir = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(
+                    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))),
+                'importers', 'vendors'
+            )
+            vendors = sorted([
+                d for d in os.listdir(vendors_dir)
+                if os.path.isdir(os.path.join(vendors_dir, d)) and not d.startswith('_')
+            ])
+        except Exception:
+            vendors = list(vendor_mapa.keys())
+
+        for v in vendors:
+            self.builtin_lista.addItem(
+                QListWidgetItem(f"⚙️  {vendor_mapa.get(v, v.replace('_', ' ').title())}")
+            )
+
     def _get_empty_info_html(self):
         """Vraća HTML za prazan info panel."""
         return """
