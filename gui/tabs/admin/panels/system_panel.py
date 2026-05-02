@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QInputDialog, QApplication,
 )
 from PySide6.QtCore import Qt
+from PySide6.QtCore import Signal
 from PySide6.QtGui import QFont
 from typing import Dict, Any
 import qtawesome as qta
@@ -21,6 +22,8 @@ from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
 
 class SystemPanel(QWidget):
     """System Info panel UI sa poboljšanim styling-om."""
+
+    refresh_requested = Signal()
 
     def __init__(self, parent=None):
         """Inicijalizacija."""
@@ -228,34 +231,6 @@ class SystemPanel(QWidget):
 
         scroll_layout.addWidget(system_group)
 
-        # ===== DATABASE & PLUGINS GROUP =====
-        db_group = QGroupBox("💾 Database & Plugin-i")
-        db_layout = QGridLayout(db_group)
-        db_layout.setVerticalSpacing(8)
-        db_layout.setHorizontalSpacing(15)
-
-        # Database size
-        self.lbl_db_size = QLabel("Veličina Baze:")
-        self.lbl_db_size.setObjectName("info_label")
-        self.lbl_db_size.setFont(QFont("Arial", 13))
-        db_layout.addWidget(self.lbl_db_size, 0, 0)
-
-        self.val_db_size = QLabel("N/A")
-        self.val_db_size.setObjectName("info_value")
-        self.val_db_size.setStyleSheet("color: #0078d4; font-weight: bold;")
-        db_layout.addWidget(self.val_db_size, 0, 1)
-
-        # Plugins count
-        self.lbl_plugins = QLabel("Plugin-ovi:")
-        self.lbl_plugins.setObjectName("info_label")
-        db_layout.addWidget(self.lbl_plugins, 1, 0)
-
-        self.val_plugins = QLabel("0")
-        self.val_plugins.setObjectName("info_value")
-        self.val_plugins.setStyleSheet("color: #28a745; font-weight: bold;")
-        db_layout.addWidget(self.val_plugins, 1, 1)
-
-        scroll_layout.addWidget(db_group)
 
         # ===== DETAILED INFO TEXT =====
         detailed_group = QGroupBox("📋 Detaljne Informacije")
@@ -351,10 +326,6 @@ class SystemPanel(QWidget):
         self.val_qt.setText(info.get('qt_version', 'N/A'))
         self.val_arch.setText(info.get('architecture', 'N/A'))
 
-        # Database & Plugins
-        self.val_db_size.setText(self._format_size(info.get('database_size', 0)))
-        self.val_plugins.setText(str(info.get('plugins_count', 0)))
-
         # Detailed info
         self._update_detailed_info(info)
 
@@ -372,29 +343,24 @@ class SystemPanel(QWidget):
         """Ažuriraj detaljne informacije u text editor-u."""
         detailed = f"""
 ═══════════════════════════════════════════════════════════
-ASYCUDA PRO - SYSTEM INFORMATION
+DEKLARANT PRO - SYSTEM INFORMATION
 ═══════════════════════════════════════════════════════════
 
-APPLICATION
------------
-  Name:        {info.get('app_name', 'N/A')}
-  Version:     {info.get('app_version', 'N/A')}
-  Build:       {info.get('build_date', 'N/A')}
+APLIKACIJA
+----------
+  Naziv:       {info.get('app_name', 'N/A')}
+  Verzija:     {info.get('app_version', 'N/A')}
+  Datum build: {info.get('build_date', 'N/A')}
 
-SYSTEM
+SISTEM
 ------
   OS:          {info.get('platform', 'N/A')}
   Python:      {info.get('python_version', 'N/A')}
   Qt:          {info.get('qt_version', 'N/A')}
-  Architecture:{info.get('architecture', 'N/A')}
-
-DATABASE & PLUGINS
-------------------
-  DB Size:     {self._format_size(info.get('database_size', 0))}
-  Plugins:     {info.get('plugins_count', 0)} installed
+  Arhitektura: {info.get('architecture', 'N/A')}
 
 ═══════════════════════════════════════════════════════════
-Generated: {info.get('generated_at', 'N/A')}
+Generisano: {info.get('generated_at', 'N/A')}
 ═══════════════════════════════════════════════════════════
 """
         self.info_text.setText(detailed)
@@ -412,48 +378,44 @@ Generated: {info.get('generated_at', 'N/A')}
         if not hasattr(self, '_current_info'):
             return ""
 
-        info = self._current_info
+        excluded_keys = {'database_size', 'plugins_count'}
+        info = {
+            key: value
+            for key, value in self._current_info.items()
+            if key not in excluded_keys
+        }
 
         if format == 'json':
             return json.dumps(info, indent=2, ensure_ascii=False)
-        
         elif format == 'markdown':
-            return f"""# Deklarant Pro - System Info
+            return f"""# Deklarant Pro — System Info
 
-## Application
-- **Name:** {info.get('app_name', 'N/A')}
-- **Version:** {info.get('app_version', 'N/A')}
-- **Build:** {info.get('build_date', 'N/A')}
+## Aplikacija
+- **Naziv:** {info.get('app_name', 'N/A')}
+- **Verzija:** {info.get('app_version', 'N/A')}
+- **Datum build:** {info.get('build_date', 'N/A')}
 
-## System
+## Sistem
 - **OS:** {info.get('platform', 'N/A')}
 - **Python:** {info.get('python_version', 'N/A')}
 - **Qt:** {info.get('qt_version', 'N/A')}
-- **Architecture:** {info.get('architecture', 'N/A')}
+- **Arhitektura:** {info.get('architecture', 'N/A')}
 
-## Database & Plugins
-- **DB Size:** {self._format_size(info.get('database_size', 0))}
-- **Plugins:** {info.get('plugins_count', 0)}
-
-Generated: {info.get('generated_at', 'N/A')}
+Generisano: {info.get('generated_at', 'N/A')}
 """
         else:  # plain text
-            return f"""Deklarant Pro - System Info
-========================
-Application: {info.get('app_name', 'N/A')} v{info.get('app_version', 'N/A')}
-Build: {info.get('build_date', 'N/A')}
+            return f"""Deklarant Pro — System Info
+===========================
+Aplikacija: {info.get('app_name', 'N/A')} v{info.get('app_version', 'N/A')}
+Datum build: {info.get('build_date', 'N/A')}
 
-System:
-  OS: {info.get('platform', 'N/A')}
-  Python: {info.get('python_version', 'N/A')}
-  Qt: {info.get('qt_version', 'N/A')}
-  Architecture: {info.get('architecture', 'N/A')}
+Sistem:
+  OS:          {info.get('platform', 'N/A')}
+  Python:      {info.get('python_version', 'N/A')}
+  Qt:          {info.get('qt_version', 'N/A')}
+  Arhitektura: {info.get('architecture', 'N/A')}
 
-Database & Plugins:
-  DB Size: {self._format_size(info.get('database_size', 0))}
-  Plugins: {info.get('plugins_count', 0)}
-
-Generated: {info.get('generated_at', 'N/A')}
+Generisano: {info.get('generated_at', 'N/A')}
 """
 
     def _on_copy_clicked(self):
@@ -509,9 +471,7 @@ Generated: {info.get('generated_at', 'N/A')}
 
     def _on_refresh_clicked(self):
         """Refresh button clicked."""
-        # Controller should refresh system info
-        # Emit signal or call controller method
-        pass
+        self.refresh_requested.emit()
 
     def _on_about_clicked(self):
         """About button clicked."""
@@ -526,29 +486,15 @@ Generated: {info.get('generated_at', 'N/A')}
             <br>
             <p><b>Admin Tab:</b> Centralni panel za administraciju</p>
             <ul>
-                <li>Plugin Manager</li>
-                <li>Settings</li>
-                <li>Database Management</li>
-                <li>Logs Viewer</li>
-                <li>System Info</li>
-                <li>Analytics</li>
+                <li>Upravljanje parserima</li>
+                <li>Baza podataka</li>
+                <li>Analitika</li>
+                <li>Logovi</li>
+                <li>Sistemske informacije</li>
+                <li>Licenca</li>
+                <li>Učenje iz XML-ova</li>
             </ul>
             <br>
             <p>© 2026 Deklarant Pro Team</p>
             """
         )
-
-    def _format_size(self, size: int) -> str:
-        """Formatiraj veličinu u ljudima čitljiv format."""
-        if size == 0:
-            return "N/A"
-
-        units = ['B', 'KB', 'MB', 'GB']
-        unit_index = 0
-        size_float = float(size)
-
-        while size_float >= 1024 and unit_index < len(units) - 1:
-            size_float /= 1024
-            unit_index += 1
-
-        return f"{size_float:.2f} {units[unit_index]}"

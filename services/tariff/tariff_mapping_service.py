@@ -296,7 +296,7 @@ class TariffMappingService:
                         line.country_confidence = "HIGH"
                         line.country_source = "PDF_IZJAVA"
                     else:
-                        line.country_confidence = "MEDIUM"
+                        line.country_confidence = "HIGH"
                         line.country_source = "PDF_OZNAKA"
                         line.country_conflict_details = "PDF nema izjavu o poreklu - potrebna intervencija za povlasticu"
                 else:

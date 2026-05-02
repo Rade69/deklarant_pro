@@ -61,6 +61,11 @@ class AdminController(BaseTabController):
         if hasattr(logs_panel, 'refresh_requested'):
             logs_panel.refresh_requested.connect(self._on_refresh_logs)
 
+        # System panel signals
+        system_panel = self.view.get_system_panel()
+        if hasattr(system_panel, 'refresh_requested'):
+            system_panel.refresh_requested.connect(self._refresh_system_info)
+
     def _load_initial_data(self):
         """Učitaj inicijalne podatke pri pokretanju."""
         # Load plugin data
@@ -201,4 +206,3 @@ class AdminController(BaseTabController):
         """Refresh system info-a."""
         system_info = self.service.get_system_info()
         self.view.get_system_panel().set_system_info(system_info)
-

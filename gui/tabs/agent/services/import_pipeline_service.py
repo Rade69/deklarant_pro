@@ -4,7 +4,7 @@ Import Pipeline Service
 Pipeline logika za sve tri procesne rute agenta:
   - Analiza mode (prikaži izvještaj, ponudi akcije)
   - Uvezi u deklaraciju mode (dijalozi, ručna potvrda)
-  - Puna automatizacija mode (end-to-end bez dijaloga)
+  - Puna automatizacija mode (auto-koraci uz obaveznu deklarantsku potvrdu)
 
 Premješteno iz agent_controller.py radi smanjenja veličine controllera.
 """
@@ -13,6 +13,8 @@ import logging
 from pathlib import Path
 
 from PySide6.QtWidgets import QApplication
+
+from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
 
 logger = logging.getLogger("deklarant_pro.agent.import_pipeline")
 
@@ -198,13 +200,36 @@ def _puna_auto_pipeline(ctrl, fw, chat, all_lines: list) -> None:
     chat.add_activity("🔍 [Auto] Validacija stavki...")
     try:
         if fw and hasattr(fw, '_on_validate_all'):
-            fw._on_validate_all()
+            fw._on_validate_all(auto=True)
             chat.add_activity("✅ Validacija završena")
     except Exception as e:
         chat.add_activity(f"⚠️ Greška pri validaciji: {e}")
     QApplication.processEvents()
 
-    # 4. Kreiraj naimenovanja
+    # 4. Deklarant mora potvrditi porijeklo i preferencijalne dokumente prije naimenovanja
+    chat.add_activity("🧾 [Auto] Čekam potvrdu deklaranta za porijeklo i EUR.1/PE dokumente...")
+    reply = QMessageBox.question(
+        ctrl.view,
+        "Potvrda prije kreiranja naimenovanja",
+        "Prije kreiranja naimenovanja deklarant mora provjeriti:\n\n"
+        "• zemlju porijekla za stavke\n"
+        "• da li postoji izjava o porijeklu na fakturi\n"
+        "• da li je potreban EUR.1 obrazac\n"
+        "• da li su PE1/PE2/PE3 dokumenti ispravno postavljeni\n\n"
+        "Da li je ova provjera završena i smije li se nastaviti sa kreiranjem naimenovanja?",
+        QMessageBox.Yes | QMessageBox.No,
+        QMessageBox.No,
+    )
+    if reply != QMessageBox.Yes:
+        chat.add_agent_message(
+            "⏸️ <b>Puna automatizacija pauzirana.</b><br>"
+            "Provjeri porijeklo i EUR.1/PE dokumente u Faktura tabu, "
+            "pa kreiraj naimenovanja kada budeš siguran."
+        )
+        chat.add_activity("⏸️ Kreiranje naimenovanja zaustavljeno — čeka se deklarantska provjera")
+        return
+
+    # 5. Kreiraj naimenovanja
     chat.add_activity("📋 [Auto] Kreiram naimenovanja...")
     try:
         if fw and hasattr(fw, '_on_create_naimenovanja'):
@@ -214,22 +239,14 @@ def _puna_auto_pipeline(ctrl, fw, chat, all_lines: list) -> None:
         chat.add_activity(f"⚠️ Greška pri kreiranju naimenovanja: {e}")
     QApplication.processEvents()
 
-    # 5. XML template za zaglavlje (tiho — bez dijaloga)
-    chat.add_activity("📂 [Auto] Tražim XML template za zaglavlje...")
-    zaglavlje_status = "⚠️ Zaglavlje nije popunjeno — popuni ručno"
-    try:
-        zaglavlje_status = ctrl._primjeni_xml_template(all_lines, chat, silent=True)
-    except Exception as e:
-        chat.add_activity(f"⚠️ Greška pri primjeni XML templatea: {e}")
-
     bez_tarife = sum(1 for l in ctrl.draft.invoice_lines if not l.tarifni_broj)
     n_naim = len(getattr(ctrl.draft, 'items', []))
     chat.add_agent_message(
         f"🎉 <b>Puna automatizacija završena!</b><br>"
         f"Stavki: {len(ctrl.draft.invoice_lines)} | Bez tarifnog: <b>{bez_tarife}</b><br>"
         f"Naimenovanja: <b>{n_naim}</b><br>"
-        f"Zaglavlje: {zaglavlje_status}<br><br>"
-        f"💡 Provjeri naimenovanja i zaglavlje, zatim izvezi XML."
+        f"Zaglavlje: <b>nije automatski popunjeno</b><br><br>"
+        f"💡 Provjeri naimenovanja, ručno provjeri/popuni zaglavlje, zatim izvezi XML."
     )
 
 

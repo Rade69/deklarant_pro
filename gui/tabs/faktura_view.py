@@ -36,6 +36,7 @@ from PySide6.QtCore import (
     Qt,
     Signal,
     QCoreApplication,
+    QSignalBlocker,
     QSize,
     QTimer,
 )
@@ -521,6 +522,7 @@ class FakturaView(BaseTabView):
         )  # Isključeno - koristimo validacione boje umjesto
         table.setSelectionBehavior(QAbstractItemView.SelectRows)
         table.setSelectionMode(QAbstractItemView.SingleSelection)
+        table.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
         table.verticalHeader().setVisible(False)
 
         # Optimalna visina redova i font za čitljivost
@@ -564,18 +566,25 @@ class FakturaView(BaseTabView):
         validation_delegate = ValidationDelegate(table)
         table.setItemDelegate(validation_delegate)
 
-        # Dodaj buffer ispod zadnjeg reda: proširuje scroll range za visinu jednog reda,
-        # tako da zadnji red može biti scrollan uz gornji rub viewporta.
-        row_h = table.verticalHeader().defaultSectionSize()  # 35px
-        table.verticalScrollBar().rangeChanged.connect(
-            lambda mn, mx: table.verticalScrollBar().setMaximum(mx + row_h)
-        )
+        self._install_bottom_scroll_buffer(table)
 
         # Connect signals
         table.itemSelectionChanged.connect(self._on_selection_changed)
         table.itemChanged.connect(self._on_item_changed)
 
         return table
+
+    def _install_bottom_scroll_buffer(self, table: QTableWidget):
+        scrollbar = table.verticalScrollBar()
+
+        def _extend_range(mn, mx):
+            row_h = max(1, table.verticalHeader().defaultSectionSize())
+            target = mx + row_h
+            blocker = QSignalBlocker(scrollbar)
+            scrollbar.setMaximum(target)
+            del blocker
+
+        scrollbar.rangeChanged.connect(_extend_range)
 
     def _create_status_bar(self) -> QWidget:
         """Create the status bar with statistics."""
@@ -791,6 +800,7 @@ class FakturaView(BaseTabView):
     def _load_data_from_draft(self):
         """Load invoice items from draft into table - OPTIMIZED bulk load."""
         self.table.blockSignals(True)
+        self.table.setUpdatesEnabled(False)
         try:
             # FIX BUG: Clear validation cache at start to avoid stale data
             self.validation_cache.clear()
@@ -810,6 +820,8 @@ class FakturaView(BaseTabView):
 
             self._update_status_bar()
         finally:
+            self.table.setUpdatesEnabled(True)
+            self.table.viewport().update()
             self.table.blockSignals(False)
 
     def _add_item_to_table_fast(self, row_number: int, item: InvoiceLine):
@@ -1031,8 +1043,12 @@ class FakturaView(BaseTabView):
         # Build tooltip
         tooltip_parts = []
         if item.country_confidence == "HIGH":
-            if item.country_source == "PDF":
-                tooltip_parts.append("✅ Podatak o poreklu iz PDF fakture (visoka pouzdanost)")
+            if item.country_source in ("PDF", "EXCEL"):
+                tooltip_parts.append("✅ Podatak o poreklu iz uvezenog dokumenta (visoka pouzdanost)")
+            elif item.country_source == "PDF_IZJAVA":
+                tooltip_parts.append("✅ Podatak o poreklu iz izjave u dokumentu (visoka pouzdanost)")
+            elif item.country_source == "PDF_OZNAKA":
+                tooltip_parts.append("✅ Podatak o poreklu iz uvezenog dokumenta; povlasticu provjerava deklarant")
             elif item.country_source == "MATCH":
                 tooltip_parts.append("✅ PDF i baza se poklapaju (visoka pouzdanost)")
             else:
@@ -2794,10 +2810,11 @@ class FakturaView(BaseTabView):
             logger.error(f"❌ [_reload_naimenovanja_tab] Error: {e}")
             pass
 
-    def _on_validate_all(self):
+    def _on_validate_all(self, auto=False):
         """Handle Validate button click."""
         if not self.draft.invoice_lines:
-            QMessageBox.information(self, "Nema stavki", "Nema stavki za validaciju.")
+            if not auto:
+                QMessageBox.information(self, "Nema stavki", "Nema stavki za validaciju.")
             return
 
         try:
@@ -2832,23 +2849,24 @@ class FakturaView(BaseTabView):
             message += f"║  🟡 Upozorenja:  {warning_count:>4}                ║\n"
             message += "╚══════════════════════════════════════╝\n"
 
-            if error_count > 0:
-                message += "\n⚠️  NAPOMENA:\nProvjerite crveno označene stavke!"
-                QMessageBox.warning(self, "Validacija", message)
-            elif warning_count > 0:
-                message += "\n💡 SAVJET:\nProvjerite žuto označene stavke."
-                QMessageBox.information(self, "Validacija", message)
-            else:
-                message += "\n🎉 SVE STAVKE SU VALIDNE!"
-                QMessageBox.information(self, "Validacija", message)
+            if not auto:
+                if error_count > 0:
+                    message += "\n⚠️  NAPOMENA:\nProvjerite crveno označene stavke!"
+                    QMessageBox.warning(self, "Validacija", message)
+                elif warning_count > 0:
+                    message += "\n💡 SAVJET:\nProvjerite žuto označene stavke."
+                    QMessageBox.information(self, "Validacija", message)
+                else:
+                    message += "\n🎉 SVE STAVKE SU VALIDNE!"
+                    QMessageBox.information(self, "Validacija", message)
 
             # Istorijska validacija tarifnih brojeva (iz XML deklaracija)
-            self._run_historical_tariff_validation()
+            self._run_historical_tariff_validation(modal=auto)
 
         except Exception as e:
             self.error_handler.handle_validation_error(e)
 
-    def _run_historical_tariff_validation(self):
+    def _run_historical_tariff_validation(self, modal=False):
         """Pokreni istorijsku validaciju tarifa i prikaži dialog ako ima prijedloga."""
         try:
             from services.agent.validation.historical_tariff_search_service import (
@@ -2885,7 +2903,10 @@ class FakturaView(BaseTabView):
                 self._update_status_bar()
 
             dlg.tariffs_accepted.connect(_on_accepted)
-            show_dialog_preserving_geometry(dlg, self)
+            if modal:
+                exec_dialog_preserving_geometry(dlg, self)
+            else:
+                show_dialog_preserving_geometry(dlg, self)
 
         except Exception as e:
             import logging
@@ -3289,6 +3310,9 @@ class FakturaView(BaseTabView):
         current = self.table.currentRow()
         has_selection = current >= 0
         self.btn_delete.setEnabled(has_selection)
+
+        if current >= 0 and current == self.table.rowCount() - 1:
+            self.table.scrollToBottom()
 
     def _on_export_excel(self):
         # docs/sections/export-pdf-excel.md — Excel izvoz, grupisanje po naimenovanjima
