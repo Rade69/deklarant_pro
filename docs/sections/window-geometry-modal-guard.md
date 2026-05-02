@@ -13,11 +13,12 @@ U praksi se problem pojavio u:
 
 `gui/utils/safe_message_box.py` centralizuje:
 - parent za poruke preko top-level `window()`
-- čuvanje i vraćanje geometrije oko `QMessageBox`
-- zaštitu oko `QDialog.exec()` i `QDialog.show()`
-- queued restore poslije Qt relayout tick-a
+- `QMessageBox` API koji ne koristi child tab kao parent
+- wrapper-e za `QDialog.exec()` i `QDialog.show()` da novi kod ima jedno mjesto za modalne tokove
 
-Guard ne smije forsirati geometriju ako je prozor minimiziran ili ako je korisnik u međuvremenu promijenio maximize state. To sprečava kvarenje normalnog maximize/minimize ponašanja.
+Top-level prozor (`MainWindow`) mora imati razuman `setMinimumSize(...)`. To je stabilniji guard od nasilnog `setGeometry()` poslije modala, jer ne kvari normalno maximize/minimize ponašanje.
+
+Ne forsirati `setGeometry()` ili `showMaximized()` poslije modala. Taj pristup može pregaziti window state ako korisnik u međuvremenu minimizira ili maksimizira prozor.
 
 ## Pravilo za novi kod
 
@@ -50,3 +51,5 @@ try:
 finally:
     restore_window_geometry_queued(state)
 ```
+
+Ovi helperi su zadržani radi postojećih poziva, ali ne smiju agresivno vraćati geometriju. Primarni guard je top-level parent za modal + minimum size glavnog prozora.

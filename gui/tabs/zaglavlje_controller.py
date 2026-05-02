@@ -191,11 +191,9 @@ class ZaglavljeController:
                 
                 # Ako je validno i korisnik želi export, pokreni export
                 if report.valid:
-                    self._on_export()
+                    self._on_export_xml()
                 
-                return True
-            
-            return False
+            return True
             
         except ImportError:
             self.logger.debug("Agent validation service nije dostupan")

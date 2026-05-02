@@ -23,7 +23,7 @@ Primjer korišćenja:
 
 from PySide6.QtWidgets import QWidget
 from PySide6.QtCore import Signal
-from typing import Callable, Dict, Any, Optional
+from typing import Dict, Any, Optional
 
 from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
 
@@ -136,21 +136,8 @@ class BaseTabView(QWidget):
         win = self.window()
         return win if win else self
 
-    def _with_preserved_window_geometry(self, callback: Callable[[QWidget], Any]) -> Any:
-        win = self._message_parent()
-        was_maximized = win.isMaximized()
-        geom = win.geometry()
-        result = callback(win)
-        if was_maximized:
-            win.showMaximized()
-        else:
-            win.setGeometry(geom)
-        return result
-
-    def _show_message(self, method: Callable[..., Any], title: str, message: str) -> Any:
-        return self._with_preserved_window_geometry(
-            lambda parent: method(parent, title, message)
-        )
+    def _show_message(self, method, title: str, message: str) -> Any:
+        return method(self._message_parent(), title, message)
 
     def ask_question(
         self,
@@ -166,7 +153,7 @@ class BaseTabView(QWidget):
                 return QMessageBox.question(parent, title, message, buttons)
             return QMessageBox.question(parent, title, message, buttons, default_button)
 
-        return self._with_preserved_window_geometry(_ask)
+        return _ask(self._message_parent())
     
     def show_success(self, message: str = "Operacija uspješna", title: str = "Uspjeh") -> None:
         """

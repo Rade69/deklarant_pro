@@ -301,6 +301,7 @@ class ZaglavljeView(BaseTabView):
 
         # Setup UI
         self._setup_ui()
+        self._auto_fill_deklarant()
         self._apply_styles()
         self._connect_signals()
 
@@ -505,6 +506,48 @@ class ZaglavljeView(BaseTabView):
 
         return column
 
+    def _auto_fill_deklarant(self):
+        """Popuni polje 14. Deklarant/Zastupnik iz baze (catalogs.deklaranti)."""
+        try:
+            from database.db import get_db_connection
+            with get_db_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        SELECT jib, naziv, adresa, grad
+                        FROM catalogs.deklaranti
+                        ORDER BY naziv
+                        LIMIT 1
+                    """)
+                    row = cur.fetchone()
+
+            if not row:
+                return
+
+            jib = (row.get("jib") or "").strip()
+            naziv = (row.get("naziv") or "").strip()
+            adresa = (row.get("adresa") or "").strip()
+            grad = (row.get("grad") or "").strip()
+
+            id_field = self.field_widgets.get("deklarant_id")
+            if id_field and jib:
+                id_field.setText(jib)
+
+            r1 = self.field_widgets.get("deklarant_r1")
+            if r1 and naziv:
+                r1.setText(naziv)
+
+            r2 = self.field_widgets.get("deklarant_r2")
+            if r2 and adresa:
+                r2.setText(adresa)
+
+            r3 = self.field_widgets.get("deklarant_r3")
+            if r3 and grad:
+                r3.setText(grad)
+
+        except Exception as e:
+            # Silent — deklarant polje nije kritično za rad
+            pass
+
     def _create_company_group(
         self, title: str, prefix: str, with_search: bool = False, auto: bool = False
     ) -> QWidget:
@@ -574,7 +617,6 @@ class ZaglavljeView(BaseTabView):
         id_field.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         if auto:
             id_field.setReadOnly(True)
-            id_field.setText("400338660009")
         title_layout.addStretch()
         title_layout.addWidget(id_field)
         title_layout.setAlignment(id_field, Qt.AlignmentFlag.AlignTop)
@@ -590,12 +632,6 @@ class ZaglavljeView(BaseTabView):
             field.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             if auto:
                 field.setReadOnly(True)
-                if i == 1:
-                    field.setText("DM-PROMET DOO")
-                elif i == 2:
-                    field.setText("TRNJAKI-BIJELJINA")
-                elif i == 3:
-                    field.setText("RAČA BB, GRANIČNI PRELAZ")
             layout.addWidget(field)
             self.field_widgets[f"{prefix}_r{i}"] = field
 
