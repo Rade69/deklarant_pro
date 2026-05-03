@@ -532,6 +532,7 @@ Generisano: {info.get('generated_at', 'N/A')}
             f"DeepSeek ključ: {'OK' if provider.has_deepseek() else 'NEDOSTAJE'}",
             f"Groq ključ:     {'OK' if provider.has_groq() else 'NEDOSTAJE'}",
             f"Gemini ključ:   {'OK' if provider.has_gemini() else 'NEDOSTAJE'}",
+            f"OpenRouter ključ: {'OK' if provider.has_openrouter() else 'NEDOSTAJE'}",
             f"Aktivni redoslijed (primarni): {provider.active_provider()}",
             "",
             "DNS provjera:",
@@ -541,6 +542,7 @@ Generisano: {info.get('generated_at', 'N/A')}
             "DeepSeek": "api.deepseek.com",
             "Groq": "api.groq.com",
             "Gemini": "generativelanguage.googleapis.com",
+            "OpenRouter": "openrouter.ai",
         }
         for name, host in host_map.items():
             try:
@@ -555,9 +557,10 @@ Generisano: {info.get('generated_at', 'N/A')}
         ])
 
         tests = [
-            ("DeepSeek", provider.has_deepseek(), "deepseek"),
             ("Groq", provider.has_groq(), "groq"),
             ("Gemini", provider.has_gemini(), "gemini"),
+            ("OpenRouter", provider.has_openrouter(), "openrouter"),
+            ("DeepSeek", provider.has_deepseek(), "deepseek"),
         ]
         messages = [
             {"role": "system", "content": "Odgovori samo sa TEST_OK."},
@@ -573,16 +576,24 @@ Generisano: {info.get('generated_at', 'N/A')}
                 prev_deepseek = provider.deepseek_key
                 prev_groq = provider.groq_key
                 prev_gemini = provider.gemini_key
+                prev_openrouter = provider.openrouter_key
                 try:
                     if forced == "deepseek":
                         provider.groq_key = ""
                         provider.gemini_key = ""
+                        provider.openrouter_key = ""
                     elif forced == "groq":
                         provider.deepseek_key = ""
                         provider.gemini_key = ""
+                        provider.openrouter_key = ""
+                    elif forced == "gemini":
+                        provider.deepseek_key = ""
+                        provider.groq_key = ""
+                        provider.openrouter_key = ""
                     else:
                         provider.deepseek_key = ""
                         provider.groq_key = ""
+                        provider.gemini_key = ""
 
                     out = (provider.complete(messages, max_tokens=16) or "").strip()
                     preview = out[:80] if out else "<prazan odgovor>"
@@ -593,6 +604,7 @@ Generisano: {info.get('generated_at', 'N/A')}
                     provider.deepseek_key = prev_deepseek
                     provider.groq_key = prev_groq
                     provider.gemini_key = prev_gemini
+                    provider.openrouter_key = prev_openrouter
         finally:
             QApplication.restoreOverrideCursor()
 

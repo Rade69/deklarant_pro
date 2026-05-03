@@ -1,10 +1,11 @@
 """
-LLMProvider — Apstrakcija nad LLM providerima (DeepSeek + Groq + Gemini).
+LLMProvider — Apstrakcija nad LLM providerima (Groq + Gemini + OpenRouter + DeepSeek).
 
 Redoslijed:
-  1. DeepSeek (deepseek-chat) — primarni, streaming
-  2. Groq (llama-3.3-70b-versatile) — fallback kad DeepSeek vrati 429
-  3. Gemini (gemini-2.5-flash-lite) — zadnji fallback
+  1. Groq (llama-3.3-70b-versatile) — primarni free provider
+  2. Gemini (gemini-2.5-flash-lite) — sekundarni fallback
+  3. OpenRouter (openrouter/free) — treći fallback
+  4. DeepSeek (deepseek-chat) — opcioni plaćeni fallback
 
 Upotreba:
     provider = LLMProvider()
@@ -53,7 +54,7 @@ def parse_llm_error(exc) -> str:
             )
         return f"⏳ AI limit dostignut. Pokušaj za: {wait_str}"
     if '401' in msg or 'invalid_api_key' in msg or 'API_KEY_INVALID' in msg:
-        return "🔑 Neispravan API ključ. Provjeri .env (DEEPSEEK_API_KEY, GROQ_API_KEY ili GEMINI_API_KEY)."
+        return "🔑 Neispravan API ključ. Provjeri .env (GROQ_API_KEY, GEMINI_API_KEY, OPENROUTER_API_KEY ili DEEPSEEK_API_KEY)."
     if 'timeout' in msg.lower() or 'connection' in msg.lower():
         return "🌐 Greška veze sa AI serverom. Provjeri internet i pokušaj ponovo."
     return f"⚠️ AI greška: {msg[:200]}"
@@ -61,7 +62,7 @@ def parse_llm_error(exc) -> str:
 
 class LLMProvider:
     """
-    Wrapper koji transparentno prebacuje između Groq i Gemini.
+    Wrapper koji transparentno prebacuje između Groq, Gemini, OpenRouter i DeepSeek.
 
     Streaming radi za Groq; Gemini vraća token po token simulacijom
     (Gemini streaming je podržan ali se ovdje koristi non-streaming radi
@@ -73,12 +74,16 @@ class LLMProvider:
     GROQ_MODEL = "llama-3.3-70b-versatile"
     GROQ_BATCH_MODEL = "llama-3.1-8b-instant"
     GEMINI_MODEL = "gemini-2.5-flash-lite"
+    OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+    OPENROUTER_MODEL = "openrouter/free"
 
     def __init__(self):
         env = _load_env()
         self.deepseek_key = env.get("DEEPSEEK_API_KEY") or os.getenv("DEEPSEEK_API_KEY") or ""
         self.groq_key = env.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY") or ""
         self.gemini_key = env.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY") or ""
+        self.openrouter_key = env.get("OPENROUTER_API_KEY") or os.getenv("OPENROUTER_API_KEY") or ""
+        self.openrouter_model = env.get("OPENROUTER_MODEL") or os.getenv("OPENROUTER_MODEL") or self.OPENROUTER_MODEL
 
     def has_deepseek(self) -> bool:
         return bool(self.deepseek_key)
@@ -89,14 +94,19 @@ class LLMProvider:
     def has_gemini(self) -> bool:
         return bool(self.gemini_key)
 
+    def has_openrouter(self) -> bool:
+        return bool(self.openrouter_key)
+
     def active_provider(self) -> str:
         """Koji provider je trenutno aktivan (primarni)."""
-        if self.has_deepseek():
-            return "deepseek"
         if self.has_groq():
             return "groq"
         if self.has_gemini():
             return "gemini"
+        if self.has_openrouter():
+            return "openrouter"
+        if self.has_deepseek():
+            return "deepseek"
         return "none"
 
     # ── DeepSeek implementacija ─────────────────────────────────────────────
@@ -130,78 +140,86 @@ class LLMProvider:
     # ── Streaming chat ────────────────────────────────────────────────
 
     def stream_chat(self, messages: list, max_tokens: int = 1500):
-        """Generator koji yield-uje tokene jedan po jedan. DeepSeek → Groq → Gemini."""
-        if self.has_deepseek():
-            try:
-                yield from self._deepseek_stream(messages, max_tokens)
-                return
-            except Exception as e:
-                logger.warning("DeepSeek greška (%s) → prelazim na fallback", e)
-                if self.has_groq():
-                    try:
-                        yield from self._groq_stream(messages, max_tokens)
-                        return
-                    except Exception as e2:
-                        logger.warning("Groq greška (%s) → prelazim na Gemini", e2)
-                if self.has_gemini():
-                    yield from self._gemini_stream(messages, max_tokens)
-                    return
-                raise  # Nema fallbacka — propagiraj originalnu grešku
-
+        """Generator koji yield-uje tokene jedan po jedan. Groq → Gemini → OpenRouter → DeepSeek."""
+        last_error = None
         if self.has_groq():
             try:
                 yield from self._groq_stream(messages, max_tokens)
                 return
             except Exception as e:
                 logger.warning("Groq greška (%s) → prelazim na Gemini", e)
-                if self.has_gemini():
-                    yield from self._gemini_stream(messages, max_tokens)
-                    return
-                raise
+                last_error = e
 
         if self.has_gemini():
-            yield from self._gemini_stream(messages, max_tokens)
-            return
+            try:
+                yield from self._gemini_stream(messages, max_tokens)
+                return
+            except Exception as e:
+                logger.warning("Gemini greška (%s) → prelazim na OpenRouter", e)
+                last_error = e
+
+        if self.has_openrouter():
+            try:
+                yield from self._openrouter_stream(messages, max_tokens)
+                return
+            except Exception as e:
+                logger.warning("OpenRouter greška (%s) → prelazim na DeepSeek", e)
+                last_error = e
+
+        if self.has_deepseek():
+            try:
+                yield from self._deepseek_stream(messages, max_tokens)
+                return
+            except Exception as e:
+                last_error = e
+
+        if last_error:
+            raise last_error
 
         raise RuntimeError(
             "Nema dostupnog AI providera. "
-            "Dodaj DEEPSEEK_API_KEY, GROQ_API_KEY ili GEMINI_API_KEY u .env."
+            "Dodaj GROQ_API_KEY, GEMINI_API_KEY, OPENROUTER_API_KEY ili DEEPSEEK_API_KEY u .env."
         )
 
     # ── Batch complete (za TariffLLMWorker) ───────────────────────────────────
 
     def complete(self, messages: list, max_tokens: int = 1200,
                  use_small_model: bool = True) -> str:
-        """Jednokratni poziv bez streaminga. DeepSeek → Groq → Gemini."""
-        if self.has_deepseek():
-            try:
-                return self._deepseek_complete(messages, max_tokens)
-            except Exception as e:
-                logger.warning("DeepSeek greška (%s) → prelazim na fallback (batch)", e)
-                if self.has_groq():
-                    try:
-                        return self._groq_complete(messages, max_tokens, use_small_model)
-                    except Exception as e2:
-                        logger.warning("Groq greška (%s) → prelazim na Gemini (batch)", e2)
-                if self.has_gemini():
-                    return self._gemini_complete(messages, max_tokens)
-                raise
-
+        """Jednokratni poziv bez streaminga. Groq → Gemini → OpenRouter → DeepSeek."""
+        last_error = None
         if self.has_groq():
             try:
                 return self._groq_complete(messages, max_tokens, use_small_model)
             except Exception as e:
                 logger.warning("Groq greška (%s) → prelazim na Gemini (batch)", e)
-                if self.has_gemini():
-                    return self._gemini_complete(messages, max_tokens)
-                raise
+                last_error = e
 
         if self.has_gemini():
-            return self._gemini_complete(messages, max_tokens)
+            try:
+                return self._gemini_complete(messages, max_tokens)
+            except Exception as e:
+                logger.warning("Gemini greška (%s) → prelazim na OpenRouter (batch)", e)
+                last_error = e
+
+        if self.has_openrouter():
+            try:
+                return self._openrouter_complete(messages, max_tokens)
+            except Exception as e:
+                logger.warning("OpenRouter greška (%s) → prelazim na DeepSeek (batch)", e)
+                last_error = e
+
+        if self.has_deepseek():
+            try:
+                return self._deepseek_complete(messages, max_tokens)
+            except Exception as e:
+                last_error = e
+
+        if last_error:
+            raise last_error
 
         raise RuntimeError(
             "Nema dostupnog AI providera. "
-            "Dodaj DEEPSEEK_API_KEY, GROQ_API_KEY ili GEMINI_API_KEY u .env."
+            "Dodaj GROQ_API_KEY, GEMINI_API_KEY, OPENROUTER_API_KEY ili DEEPSEEK_API_KEY u .env."
         )
 
     # ── Groq implementacija ───────────────────────────────────────────────────
@@ -228,6 +246,36 @@ class LLMProvider:
         client = Groq(api_key=self.groq_key)
         resp = client.chat.completions.create(
             model=model,
+            messages=messages,
+            temperature=0.1,
+            max_tokens=max_tokens,
+        )
+        return resp.choices[0].message.content or ""
+
+    # ── OpenRouter implementacija ─────────────────────────────────────────────
+
+    def _openrouter_stream(self, messages: list, max_tokens: int):
+        from openai import OpenAI
+
+        client = OpenAI(api_key=self.openrouter_key, base_url=self.OPENROUTER_BASE_URL)
+        stream = client.chat.completions.create(
+            model=self.openrouter_model,
+            messages=messages,
+            temperature=0.2,
+            max_tokens=max_tokens,
+            stream=True,
+        )
+        for chunk in stream:
+            delta = chunk.choices[0].delta.content or ""
+            if delta:
+                yield delta
+
+    def _openrouter_complete(self, messages: list, max_tokens: int) -> str:
+        from openai import OpenAI
+
+        client = OpenAI(api_key=self.openrouter_key, base_url=self.OPENROUTER_BASE_URL)
+        resp = client.chat.completions.create(
+            model=self.openrouter_model,
             messages=messages,
             temperature=0.1,
             max_tokens=max_tokens,

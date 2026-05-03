@@ -119,9 +119,10 @@ Svi servisi (`TariffMappingService`, `MassCalculator`, `OriginStatementDetector`
 
 ### Provider Redoslijed (Chain-of-Fallback)
 ```
-1. DeepSeek (deepseek-chat)  ← primarni, OpenAI-kompatibilan API
-2. Groq (llama-3.3-70b)      ← fallback na 429 rate limit
-3. Gemini (gemini-2.5-flash-lite) ← zadnji fallback
+1. Groq (llama-3.3-70b)      ← primarni free provider
+2. Gemini (gemini-2.5-flash-lite) ← sekundarni fallback
+3. OpenRouter (openrouter/free) ← treći fallback
+4. DeepSeek (deepseek-chat)  ← opcioni plaćeni fallback
 ```
 
 ### Arhitektura

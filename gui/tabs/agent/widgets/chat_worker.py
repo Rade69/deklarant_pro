@@ -108,7 +108,7 @@ class ChatWorker(QThread):
             provider = LLMProvider()
             if provider.active_provider() == "none":
                 self.error_occurred.emit(
-                    "Nema dostupnog AI ključa. Dodaj GROQ_API_KEY ili GEMINI_API_KEY u .env."
+                    "Nema dostupnog AI ključa. Dodaj GROQ_API_KEY, GEMINI_API_KEY ili OPENROUTER_API_KEY u .env."
                 )
                 return
 
