@@ -686,11 +686,13 @@ class NaimenovanjaView(BaseTabView):
 
             /* Strelica nadole - CSS triangle */
             QComboBox::down-arrow {
-                width: 0;
-                height: 0;
+                image: none;
+                width: 0px;
+                height: 0px;
+                margin-right: 6px;
                 border-left: 5px solid transparent;
                 border-right: 5px solid transparent;
-                border-top: 6px solid #666;
+                border-top: 7px solid #4a4a4a;
             }
 
             /* Stil za popup listu */
@@ -908,10 +910,32 @@ class NaimenovanjaView(BaseTabView):
         le_rubrika40_2 sa editabilnim QComboBox iz baze (tabela prethodni_dokumenti).
         Redoslijed: [X/Y/Z] [Šifra dokumenta] [Prethodni dokument tekst]
         """
-        from PySide6.QtCore import QRect
+        from PySide6.QtCore import QRect, QPoint
+        from PySide6.QtGui import QPainter, QPolygon, QColor
 
         if not hasattr(self, "ui"):
             return
+
+        class _ArrowCombo(QComboBox):
+            """QComboBox sa ručno iscrtanom strelicom (otporno na QSS override)."""
+
+            def paintEvent(self, event):
+                super().paintEvent(event)
+                painter = QPainter(self)
+                painter.setRenderHint(QPainter.Antialiasing, True)
+                r = self.rect()
+                cx = r.right() - 9
+                cy = r.center().y() + 1
+                tri = QPolygon(
+                    [
+                        QPoint(cx - 5, cy - 3),
+                        QPoint(cx + 5, cy - 3),
+                        QPoint(cx, cy + 4),
+                    ]
+                )
+                painter.setPen(QColor(74, 74, 74))
+                painter.setBrush(QColor(74, 74, 74))
+                painter.drawPolygon(tri)
 
         # ── Polje 40.1: X / Y / Z ───────────────────────────────────────────
         old1 = self.ui.findChild(QLineEdit, "le_rubrika40_1")
@@ -921,7 +945,7 @@ class NaimenovanjaView(BaseTabView):
             old1.hide()
             old1.setParent(None)
 
-            self.combo_rb40_tip = QComboBox(parent1)
+            self.combo_rb40_tip = _ArrowCombo(parent1)
             self.combo_rb40_tip.setObjectName("le_rubrika40_1")
             self.combo_rb40_tip.setEditable(False)
             self.combo_rb40_tip.addItems(["", "X", "Y", "Z"])
@@ -929,7 +953,23 @@ class NaimenovanjaView(BaseTabView):
             # Fix: widget-level stylesheet ima veći prioritet od QApplication stylesheet-a.
             FIELD1_W = 32
             self.combo_rb40_tip.setStyleSheet(
-                f"QComboBox {{ min-width: {FIELD1_W}px; max-width: {FIELD1_W}px; }}"
+                f"""
+                QComboBox#le_rubrika40_1 {{
+                    min-width: {FIELD1_W}px;
+                    max-width: {FIELD1_W}px;
+                }}
+                QComboBox#le_rubrika40_1::drop-down {{
+                    width: 14px;
+                    border: none;
+                    background: transparent;
+                }}
+                QComboBox#le_rubrika40_1::down-arrow {{
+                    image: none;
+                    width: 0px;
+                    height: 0px;
+                    border: none;
+                }}
+                """
             )
             self.combo_rb40_tip.setFixedWidth(FIELD1_W)
             self.combo_rb40_tip.setGeometry(
@@ -982,7 +1022,7 @@ class NaimenovanjaView(BaseTabView):
         #   nakon odabira u polju ostaje samo šifra "N380" (usko polje)
         # Dodatno: pri otvaranju popup-a combo se vizuelno širi, pri zatvaranju sužava.
 
-        class _ExpandCombo(QComboBox):
+        class _ExpandCombo(_ArrowCombo):
             """QComboBox koji se vizuelno širi pri otvaranju i sužava pri zatvaranju."""
 
             def __init__(self, parent, collapsed_w: int, expanded_w: int):
@@ -1326,6 +1366,15 @@ class NaimenovanjaView(BaseTabView):
             QComboBox::drop-down {
                 width: 28px;
                 border-left: 1px solid #4A7FA5;
+            }
+            QComboBox::down-arrow {
+                image: none;
+                width: 0px;
+                height: 0px;
+                margin-right: 6px;
+                border-left: 5px solid transparent;
+                border-right: 5px solid transparent;
+                border-top: 7px solid #4a4a4a;
             }
         """)
         self.combo_items.setProperty(
@@ -2684,21 +2733,32 @@ class NaimenovanjaView(BaseTabView):
 
         # Master field style
         master_combo_style = """
-            QComboBox {
+            QComboBox#le_rubrika40_2 {
                 border: 2px solid #17a2b8;
                 border-radius: 3px;
                 padding: 2px 4px;
                 background-color: #f0f9ff;
                 color: #333;
             }
-            QComboBox:focus {
+            QComboBox#le_rubrika40_2:focus {
                 border: 2px solid #138496;
                 background-color: white;
                 color: #333;
             }
-            QComboBox QLineEdit {
+            QComboBox#le_rubrika40_2 QLineEdit {
                 color: #333;
                 background-color: transparent;
+            }
+            QComboBox#le_rubrika40_2::drop-down {
+                width: 16px;
+                border: none;
+                background: transparent;
+            }
+            QComboBox#le_rubrika40_2::down-arrow {
+                image: none;
+                width: 0px;
+                height: 0px;
+                border: none;
             }
         """
         master_field_style = """
@@ -2726,8 +2786,27 @@ class NaimenovanjaView(BaseTabView):
             )
             FIELD1_W = 32
             self.combo_rb40_tip.setStyleSheet(
-                f"QComboBox {{ min-width: {FIELD1_W}px; max-width: {FIELD1_W}px; "
-                f"border: 2px solid #17a2b8; border-radius: 3px; background-color: #f0f9ff; color: #333; }}"
+                f"""
+                QComboBox#le_rubrika40_1 {{
+                    min-width: {FIELD1_W}px;
+                    max-width: {FIELD1_W}px;
+                    border: 2px solid #17a2b8;
+                    border-radius: 3px;
+                    background-color: #f0f9ff;
+                    color: #333;
+                }}
+                QComboBox#le_rubrika40_1::drop-down {{
+                    width: 14px;
+                    border: none;
+                    background: transparent;
+                }}
+                QComboBox#le_rubrika40_1::down-arrow {{
+                    image: none;
+                    width: 0px;
+                    height: 0px;
+                    border: none;
+                }}
+                """
             )
 
         # Configure rubrika 40.2 (šifra – master polje)

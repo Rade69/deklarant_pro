@@ -40,8 +40,8 @@ from PySide6.QtWidgets import (
     QStyledItemDelegate,
     QHeaderView,
 )
-from PySide6.QtCore import Qt, Signal, QSize, QObject, QEvent
-from PySide6.QtGui import QFont, QIcon, QRegularExpressionValidator, QPainter, QColor
+from PySide6.QtCore import Qt, Signal, QSize, QObject, QEvent, QPoint
+from PySide6.QtGui import QFont, QIcon, QRegularExpressionValidator, QPainter, QColor, QPolygon
 from PySide6.QtCore import QRegularExpression
 from typing import Dict, Any, Optional, List
 from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
@@ -154,6 +154,46 @@ def _load_isprave_from_db() -> dict:
 # ============================================================
 # HELPER KLASE
 # ============================================================
+
+
+class _ArrowComboBox(QComboBox):
+    """QComboBox sa ručno iscrtanom strelicom (otporno na QSS hijerarhiju)."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setStyleSheet(
+            """
+            QComboBox::drop-down {
+                width: 18px;
+                border: none;
+                background: transparent;
+            }
+            QComboBox::down-arrow {
+                image: none;
+                width: 0px;
+                height: 0px;
+                border: none;
+            }
+            """
+        )
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        r = self.rect()
+        cx = r.right() - 9
+        cy = r.center().y() + 1
+        tri = QPolygon(
+            [
+                QPoint(cx - 5, cy - 3),
+                QPoint(cx + 5, cy - 3),
+                QPoint(cx, cy + 4),
+            ]
+        )
+        painter.setPen(QColor(74, 74, 74))
+        painter.setBrush(QColor(74, 74, 74))
+        painter.drawPolygon(tri)
 
 
 class IspravaDelegate(QStyledItemDelegate):
@@ -461,6 +501,12 @@ class ZaglavljeView(BaseTabView):
     QComboBox:hover { background: #eef6ec; border-color: #7aa080; }
     QComboBox:focus { background: #e8f2e8; border-color: #5a8060; }
     QComboBox::drop-down { border: none; width: 20px; }
+    QComboBox::down-arrow {
+        image: url(/usr/share/icons/Adwaita/symbolic/ui/pan-down-symbolic.svg);
+        width: 14px;
+        height: 14px;
+        margin-right: 5px;
+    }
     QComboBox QAbstractItemView {
         background: #fafcfa;
         border: 1px solid #a0c4a0;
@@ -793,7 +839,7 @@ class ZaglavljeView(BaseTabView):
 
         # Rb.25/26 — helper: popuni combo (dropdown "30 — Cestovni prevoz", u polju samo "30")
         def _make_vid_combo(tooltip: str) -> QComboBox:
-            cb = QComboBox()
+            cb = _ArrowComboBox()
             cb.setEditable(True)
             cb.lineEdit().setReadOnly(True)
             for sifra, opis in self._vrste_prijevoza:
@@ -901,6 +947,12 @@ class ZaglavljeView(BaseTabView):
     QComboBox:hover { background: #eef6ec; border-color: #7aa080; }
     QComboBox:focus { background: #e8f2e8; border-color: #5a8060; }
     QComboBox::drop-down { border: none; width: 20px; }
+    QComboBox::down-arrow {
+        image: url(/usr/share/icons/Adwaita/symbolic/ui/pan-down-symbolic.svg);
+        width: 14px;
+        height: 14px;
+        margin-right: 5px;
+    }
     QComboBox QAbstractItemView {
         background: #fafcfa;
         border: 1px solid #a0c4a0;
@@ -971,7 +1023,7 @@ class ZaglavljeView(BaseTabView):
         row_layout.setSpacing(10)
 
         # Combo 1: Vrsta deklaracije (IM/EX) — usko polje, širok dropdown
-        cb_sifra = QComboBox()
+        cb_sifra = _ArrowComboBox()
         cb_sifra.setEditable(True)
         cb_sifra.lineEdit().setReadOnly(True)
         cb_sifra.setFixedWidth(120)
@@ -995,7 +1047,7 @@ class ZaglavljeView(BaseTabView):
         self.field_widgets["deklaracija_1"] = cb_sifra
 
         # Combo 2: Oznaka (A/Z/B)
-        cb_oznaka = QComboBox()
+        cb_oznaka = _ArrowComboBox()
         cb_oznaka.setEditable(True)
         cb_oznaka.lineEdit().setReadOnly(True)
         cb_oznaka.setFixedWidth(75)
@@ -1021,7 +1073,7 @@ class ZaglavljeView(BaseTabView):
         row_layout.addWidget(sep1)
 
         # Šifra carinske ispostave
-        ured_sifra_cb = QComboBox()
+        ured_sifra_cb = _ArrowComboBox()
         ured_sifra_cb.setEditable(True)
         ured_sifra_cb.setFixedWidth(115)
         ured_sifra_cb.view().setMinimumWidth(200)
@@ -1040,7 +1092,7 @@ class ZaglavljeView(BaseTabView):
         row_layout.addWidget(sep2)
 
         # Naziv carinske ispostave
-        ured_naziv_cb = QComboBox()
+        ured_naziv_cb = _ArrowComboBox()
         ured_naziv_cb.setEditable(True)
         ured_naziv_cb.setFixedWidth(175)
         ured_naziv_cb.view().setMinimumWidth(300)
@@ -1507,7 +1559,7 @@ class ZaglavljeView(BaseTabView):
             # Valuta dropdown — samo za trosak_1 (prevoz do granice)
             if i == 1:
                 from PySide6.QtWidgets import QComboBox
-                cb_valuta = QComboBox()
+                cb_valuta = _ArrowComboBox()
                 cb_valuta.addItems(["BAM", "EUR"])
                 cb_valuta.setFixedWidth(60)
                 cb_valuta.setObjectName("trosak_1_valuta")
@@ -1595,6 +1647,12 @@ class ZaglavljeView(BaseTabView):
     QComboBox:hover { background: #eef6ec; border-color: #7aa080; }
     QComboBox:focus { background: #e8f2e8; border-color: #5a8060; }
     QComboBox::drop-down { border: none; width: 20px; }
+    QComboBox::down-arrow {
+        image: url(/usr/share/icons/Adwaita/symbolic/ui/pan-down-symbolic.svg);
+        width: 14px;
+        height: 14px;
+        margin-right: 5px;
+    }
     QComboBox QAbstractItemView {
         background: #fafcfa;
         border: 1px solid #a0c4a0;
@@ -1869,6 +1927,12 @@ class ZaglavljeView(BaseTabView):
             QComboBox:hover { border-color: #7aa080; background: #eef6ec; }
             QComboBox:focus { background: #e8f2e8; border-color: #5a8060; }
             QComboBox::drop-down { border: none; width: 20px; }
+            QComboBox::down-arrow {
+                image: url(/usr/share/icons/Adwaita/symbolic/ui/pan-down-symbolic.svg);
+                width: 14px;
+                height: 14px;
+                margin-right: 5px;
+            }
             QComboBox QAbstractItemView {
                 background: #fafcfa;
                 border: 1px solid #a0c4a0;
