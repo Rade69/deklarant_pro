@@ -586,19 +586,6 @@ class NaimenovanjaView(BaseTabView):
             le_naziv.raise_()  # Postavi na vrh
             le_naziv.setEnabled(True)
 
-            le_naziv.setStyleSheet(
-                """
-                QLineEdit {
-                    background-color: #e3f2fd;
-                    border: 2px solid #2196f3;
-                    border-radius: 4px;
-                    padding: 3px 6px;
-                    font-weight: bold;
-                    font-size: 14px;
-                    color: #1565c0;
-                }
-            """
-            )
             le_naziv.setPlaceholderText("(auto)")
 
             # KRITIČNO: Podigni widget IZNAD combo box-a (z-order)
@@ -649,79 +636,7 @@ class NaimenovanjaView(BaseTabView):
             logger.error(f"  ❌ Error loading package codes from database: {e}")
             # Ne propagiraj - tab se kreira sa praznim dropdown-om
 
-        # Modern, professional style
-        self.combo_vrsta_pakovanja.setStyleSheet(
-            """
-            QComboBox {
-                border: 2px solid #28a745;
-                border-radius: 6px;
-                padding: 5px 15px;
-                background-color: #ffffff;
-                font-size: 14px;
-                font-weight: 500;
-                min-width: 80px;
-            }
-
-            QComboBox:hover {
-                border: 2px solid #4a90e2;
-            }
-
-            QComboBox:focus {
-                border: 2px solid #4a90e2;
-                background-color: #f8faff;
-            }
-
-            QComboBox:editable {
-                background-color: #ffffff;
-            }
-
-            QComboBox::drop-down {
-                subcontrol-origin: padding;
-                subcontrol-position: top right;
-                width: 30px;
-                border-left: 1px solid #28a745;
-                border-top-right-radius: 6px;
-                border-bottom-right-radius: 6px;
-            }
-
-            /* Strelica nadole - CSS triangle */
-            QComboBox::down-arrow {
-                image: none;
-                width: 0px;
-                height: 0px;
-                margin-right: 6px;
-                border-left: 5px solid transparent;
-                border-right: 5px solid transparent;
-                border-top: 7px solid #4a4a4a;
-            }
-
-            /* Stil za popup listu */
-            QComboBox QAbstractItemView {
-                border: 1px solid #4a90e2;
-                selection-background-color: #4a90e2;
-                selection-color: white;
-                background-color: #ffffff;
-                outline: 0px;
-                border-radius: 6px;
-                padding: 5px;
-                font-size: 14px;
-                min-width: 600px;
-            }
-
-            QComboBox QAbstractItemView::item {
-                height: 30px;
-                padding-left: 10px;
-                border-radius: 4px;
-                margin: 2px 5px;
-            }
-
-            QComboBox QAbstractItemView::item:hover {
-                background-color: #e8f0fe;
-                color: #1a73e8;
-            }
-        """
-        )
-
+        # TASK-004: inline style removed → QComboBox#le_r31_vrsta in naimenovanja_components.qss
         # Replace widget
         old_widget.setParent(None)
         old_widget.deleteLater()
@@ -842,6 +757,7 @@ class NaimenovanjaView(BaseTabView):
 
         logger.debug(f" 🔍 Pronađen le_r31_trg_naziv - pozicija: x={geometry.x()}, y={geometry.y()}, w={geometry.width()}, h={geometry.height()}")
 
+        # TASK-004: inline style removed → QTextEdit#le_r31_trg_naziv in naimenovanja_components.qss
         # Kreiraj QTextEdit na istom mjestu
         self.te_trg_naziv = QTextEdit(parent)
         self.te_trg_naziv.setObjectName("le_r31_trg_naziv")  # Zadrži isto ime
@@ -851,21 +767,6 @@ class NaimenovanjaView(BaseTabView):
         self.te_trg_naziv.setWordWrapMode(QTextOption.WrapMode.WordWrap)
         self.te_trg_naziv.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.te_trg_naziv.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-
-        # Postavi stylesheet - svijetlo plava pozadina, tekst počinje od vrha
-        self.te_trg_naziv.setStyleSheet(
-            """
-            QTextEdit {
-                background-color: #e3f2fd;
-                border: 2px solid #2196f3;
-                border-radius: 4px;
-                padding: 5px;
-                font-size: 14px;
-                font-weight: 600;
-                color: #1565c0;
-            }
-        """
-        )
 
         # Auto-expand: prilagodi visinu sadržaju (do dostupnog prostora u parent-u)
         # group_31 ima height=380, widget počinje na y=200 → max raspoloživo ~170px
@@ -916,13 +817,32 @@ class NaimenovanjaView(BaseTabView):
         if not hasattr(self, "ui"):
             return
 
+        # TASK-002: add __init__ to hide QSS arrow, see agent_reports/2026-05-03_style-refactor-task-002-004.md
         class _ArrowCombo(QComboBox):
             """QComboBox sa ručno iscrtanom strelicom (otporno na QSS override)."""
+
+            def __init__(self, parent=None):
+                super().__init__(parent)
+                self.setStyleSheet(
+                    """
+                    QComboBox::drop-down {
+                        width: 18px;
+                        border: none;
+                        background: transparent;
+                    }
+                    QComboBox::down-arrow {
+                        image: none;
+                        width: 0px;
+                        height: 0px;
+                        border: none;
+                    }
+                    """
+                )
 
             def paintEvent(self, event):
                 super().paintEvent(event)
                 painter = QPainter(self)
-                painter.setRenderHint(QPainter.Antialiasing, True)
+                painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
                 r = self.rect()
                 cx = r.right() - 9
                 cy = r.center().y() + 1
@@ -1349,34 +1269,6 @@ class NaimenovanjaView(BaseTabView):
         self.combo_items.setMinimumWidth(380)
         self.combo_items.setFixedHeight(34)
         self.combo_items.setMaxVisibleItems(99)
-        self.combo_items.setStyleSheet("""
-            QComboBox {
-                font-size: 14px;
-                font-weight: 600;
-                padding: 4px 10px;
-                border: 2px solid #4A7FA5;
-                border-radius: 5px;
-                background: white;
-                color: #1a1a2e;
-            }
-            QComboBox:focus {
-                border-color: #2563eb;
-                background: #f0f7ff;
-            }
-            QComboBox::drop-down {
-                width: 28px;
-                border-left: 1px solid #4A7FA5;
-            }
-            QComboBox::down-arrow {
-                image: none;
-                width: 0px;
-                height: 0px;
-                margin-right: 6px;
-                border-left: 5px solid transparent;
-                border-right: 5px solid transparent;
-                border-top: 7px solid #4a4a4a;
-            }
-        """)
         self.combo_items.setProperty(
             "class", "nav-combo"
         )  # CSS in naimenovanja_components.qss
@@ -1473,19 +1365,10 @@ class NaimenovanjaView(BaseTabView):
         )  # CSS in naimenovanja_components.qss
         heading_layout.addWidget(self.lbl_heading)
 
+        # TASK-004: inline style removed → QLabel#lbl_tariff_warning in naimenovanja_components.qss
         # Upozorenje o inspekcijskoj kontroli (skriveno dok nema kontrolisanog tarifnog broja)
         self.lbl_tariff_warning = QLabel()
-        self.lbl_tariff_warning.setStyleSheet("""
-            QLabel {
-                background-color: #FF8C00;
-                color: #FFFFFF;
-                font-weight: bold;
-                font-size: 14px;
-                padding: 2px 10px;
-                border-radius: 4px;
-                border: 1px solid #CC6600;
-            }
-        """)
+        self.lbl_tariff_warning.setObjectName("lbl_tariff_warning")
         self.lbl_tariff_warning.setVisible(False)
         heading_layout.addWidget(self.lbl_tariff_warning)
 
@@ -1643,7 +1526,9 @@ class NaimenovanjaView(BaseTabView):
                 w.setReadOnly(False)
                 w.setText("")
                 w.setReadOnly(True)
-                w.setStyleSheet("")
+                # Vrati widget na bazni stil iz QSS (bez inline override-a)
+                w.style().unpolish(w)
+                w.style().polish(w)
 
         # Spremi pending kod u Qt property (spremanje stanja izmedju poziva)
         self.tariff_timer.setProperty("pending_code", text.strip())
@@ -1998,13 +1883,9 @@ class NaimenovanjaView(BaseTabView):
             te_opis.setText(description_full)
             te_opis.setStyleSheet(
                 """
-                QLineEdit {
+                QLineEdit#te_r31_opis {
                     background-color: #e8f5e8;
                     border: 2px solid #4caf50;
-                    border-radius: 4px;
-                    padding: 3px 6px;
-                    font-weight: bold;
-                    font-size: 14px;
                     color: #2e7d32;
                 }
             """
@@ -2017,13 +1898,9 @@ class NaimenovanjaView(BaseTabView):
             te_opis_2.setText(description_short)
             te_opis_2.setStyleSheet(
                 """
-                QLineEdit {
+                QLineEdit#te_r31_opis_2 {
                     background-color: #e3f2fd;
                     border: 2px solid #2196f3;
-                    border-radius: 4px;
-                    padding: 3px 6px;
-                    font-weight: bold;
-                    font-size: 14px;
                     color: #1565c0;
                 }
             """
@@ -2271,9 +2148,7 @@ class NaimenovanjaView(BaseTabView):
             grid = self.ui.findChild(QFrame, "main_grid_frame")
             if grid and not grid.isVisible():
                 grid.setVisible(True)
-            # FORCE: postavi direktni stylesheet na main_grid_frame (QUiLoader bug workaround)
-            if grid:
-                grid.setStyleSheet("QFrame#main_grid_frame { background-color: #f0f0f0; border: 1px solid #999; }")
+            # Note: QFrame#main_grid_frame styling is now in naimenovanja_components.qss
 
         # Rb.40: Z i N821 combosi vidljivi samo za prvo naimenovanje
         is_first_item = (self.current_item_index == 0)

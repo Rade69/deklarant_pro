@@ -25,6 +25,8 @@ from __future__ import annotations
 
 import logging
 import re
+import subprocess
+import tempfile
 from pathlib import Path
 from typing import Optional
 from types import SimpleNamespace
@@ -353,11 +355,22 @@ def parse_leburic_pekabesko_pdf(pdf_path: str) -> ImportResult:
                 w["bottom"] += offset
             all_words.extend(words)
 
+    ocr_full_text = ""
+    if not all_words:
+        all_words = _extract_words_with_ocr(pdf_path)
+        if all_words:
+            ocr_full_text = _extract_pdf_text_with_ocr(pdf_path)
+            logger.info("  OCR fallback aktiviran (skenirani PDF bez text layer-a)")
+        else:
+            ocr_full_text = _extract_pdf_text_with_ocr(pdf_path)
+            if ocr_full_text:
+                logger.info("  OCR text fallback aktiviran (bez koordinata)")
+
     # ── 1. HEADER: invoice broj, datum ──────────────────────────────
     # Skupi text iz header zone (y < _HEADER_Y_MAX)
     header_text = " ".join(
         w["text"] for w in all_words if w["top"] < _HEADER_Y_MAX
-    )
+    ) if all_words else ocr_full_text
 
     m = _NALOG_RE.search(header_text)
     if m:
@@ -375,7 +388,7 @@ def parse_leburic_pekabesko_pdf(pdf_path: str) -> ImportResult:
 
     # ── 1b. PARTIES: izvoznik (exporter) i uvoznik (importer) ───────
     # Koristimo cijeli tekst (sve stranice, sve stranice)
-    full_text = " ".join(w["text"] for w in all_words)
+    full_text = " ".join(w["text"] for w in all_words) if all_words else ocr_full_text
     exporter, importer = _extract_parties(full_text)
     logger.info(f"  Izvoznik: {exporter.name if exporter else '—'} | "
                 f"Uvoznik: {importer.name if importer else '—'}")
@@ -564,6 +577,53 @@ def parse_leburic_pekabesko_pdf(pdf_path: str) -> ImportResult:
         f"bruto={bruto_kg:.3f}kg, neto={neto_kg:.3f}kg"
     )
 
+    text_for_line_fallback = ocr_full_text or full_text
+    if len(invoice_lines) < 8 and text_for_line_fallback:
+        text_fallback_lines = _parse_items_from_ocr_text_fallback(
+            full_text=text_for_line_fallback,
+            zemlja=zemlja,
+            has_origin_statement=has_origin_statement,
+            is_authorized_exporter=is_authorized_exporter,
+            exporter=exporter,
+            importer=importer,
+        )
+        current_sum = sum(getattr(it, "iznos", 0.0) for it in invoice_lines)
+        fallback_sum = sum(getattr(it, "iznos", 0.0) for it in text_fallback_lines)
+        should_take_fallback = (
+            len(text_fallback_lines) > len(invoice_lines)
+            or (
+                len(text_fallback_lines) == len(invoice_lines)
+                and fallback_sum > (current_sum * 1.2)
+            )
+            or (
+                len(text_fallback_lines) >= max(3, int(len(invoice_lines) * 0.6))
+                and fallback_sum > (current_sum * 2.0)
+            )
+        )
+        if should_take_fallback:
+            logger.info(
+                "  OCR text fallback: "
+                f"{len(invoice_lines)} -> {len(text_fallback_lines)} stavki, "
+                f"sum {current_sum:.3f} -> {fallback_sum:.3f}"
+            )
+            invoice_lines = text_fallback_lines
+
+    if len(invoice_lines) < 8:
+        excel_lines = _load_excel_lines_for_pdf(
+            pdf_path=pdf_path,
+            pdf_invoice_number=invoice_number,
+            zemlja=zemlja,
+            has_origin_statement=has_origin_statement,
+            is_authorized_exporter=is_authorized_exporter,
+            exporter=exporter,
+            importer=importer,
+        )
+        if len(excel_lines) > len(invoice_lines):
+            logger.info(
+                f"  Excel fallback: {len(invoice_lines)} -> {len(excel_lines)} stavki"
+            )
+            invoice_lines = excel_lines
+
     return ImportResult(
         items=invoice_lines,
         bruto_kg=bruto_kg,
@@ -577,6 +637,189 @@ def parse_leburic_pekabesko_pdf(pdf_path: str) -> ImportResult:
         exporter=exporter,
         importer=importer,
     )
+
+
+def _extract_words_with_ocr(pdf_path: str) -> list[dict]:
+    images_prefix = None
+    try:
+        with tempfile.NamedTemporaryFile(prefix="deklarant_ocr_", suffix=".png", delete=False) as tmp:
+            images_prefix = str(Path(tmp.name).with_suffix(""))
+        Path(images_prefix + ".png").unlink(missing_ok=True)
+
+        subprocess.run(
+            ["pdftoppm", "-r", "300", "-f", "1", "-singlefile", "-png", pdf_path, images_prefix],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        tsv = subprocess.check_output(
+            ["tesseract", images_prefix + ".png", "stdout", "-l", "eng", "--psm", "11", "tsv"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        )
+        rows = tsv.splitlines()[1:]
+        page_w = 0.0
+        page_h = 0.0
+        for line in rows:
+            parts = line.split("\t")
+            if len(parts) < 12:
+                continue
+            if parts[0] == "1":
+                try:
+                    page_w = float(parts[8])
+                    page_h = float(parts[9])
+                except ValueError:
+                    pass
+                break
+        scale_x = (595.0 / page_w) if page_w > 0 else 1.0
+        scale_y = (842.0 / page_h) if page_h > 0 else 1.0
+
+        words: list[dict] = []
+        for line in rows:
+            parts = line.split("\t")
+            if len(parts) < 12:
+                continue
+            text = parts[11].strip()
+            if not text:
+                continue
+            try:
+                left = float(parts[6])
+                top = float(parts[7])
+                width = float(parts[8])
+                height = float(parts[9])
+                conf = float(parts[10])
+            except ValueError:
+                continue
+            if conf < 0:
+                continue
+            words.append({
+                "text": text,
+                "x0": left * scale_x,
+                "top": top * scale_y,
+                "bottom": (top + height) * scale_y,
+            })
+        return words
+    except Exception:
+        logger.debug("  OCR words fallback nije uspio", exc_info=True)
+        return []
+    finally:
+        if images_prefix:
+            Path(images_prefix + ".png").unlink(missing_ok=True)
+
+
+def _extract_pdf_text_with_ocr(pdf_path: str) -> str:
+    images_prefix = None
+    try:
+        with tempfile.NamedTemporaryFile(prefix="deklarant_ocr_", suffix=".png", delete=False) as tmp:
+            images_prefix = str(Path(tmp.name).with_suffix(""))
+        Path(images_prefix + ".png").unlink(missing_ok=True)
+
+        subprocess.run(
+            ["pdftoppm", "-f", "1", "-singlefile", "-png", pdf_path, images_prefix],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        text = subprocess.check_output(
+            ["tesseract", images_prefix + ".png", "stdout", "-l", "eng", "--psm", "11"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        )
+        return text or ""
+    except Exception:
+        logger.debug("  OCR fallback nije uspio", exc_info=True)
+        return ""
+    finally:
+        if images_prefix:
+            Path(images_prefix + ".png").unlink(missing_ok=True)
+
+
+def _parse_items_from_ocr_text_fallback(
+    full_text: str,
+    zemlja: str,
+    has_origin_statement: bool,
+    is_authorized_exporter: bool,
+    exporter: Optional[Party],
+    importer: Optional[Party],
+) -> list[InvoiceLine]:
+    lines = [ln.strip() for ln in full_text.splitlines() if ln.strip()]
+    start_idxs: list[int] = []
+    row_start = re.compile(r"^\s*\d{1,2}\s*[/|]?\s*\d{5,6}\b|^\s*\d{7,8}\b")
+    for i, ln in enumerate(lines):
+        if row_start.search(ln):
+            start_idxs.append(i)
+
+    invoice_lines: list[InvoiceLine] = []
+    for pos, start in enumerate(start_idxs):
+        end = start_idxs[pos + 1] if pos + 1 < len(start_idxs) else len(lines)
+        chunk = " ".join(lines[start:end])
+        if re.search(r"\bVkupno\b|\bParitet\b", chunk, re.IGNORECASE):
+            continue
+
+        m2 = re.match(r"^\s*(\d{7,8})\b", chunk)
+        if m2:
+            raw = m2.group(1)
+            line_no = int(raw[0])
+            product_code = raw[1:] if len(raw) >= 7 else raw
+            after_code = chunk[m2.end():].strip()
+        else:
+            m = re.match(r"^\s*(\d{1,2})\s*[/|]\s*(\d{5,6})\b", chunk)
+            if not m:
+                continue
+            line_no = int(m.group(1))
+            product_code = m.group(2)
+            after_code = chunk[m.end():].strip()
+
+        tariff_match = re.search(r"\b(1\d{9})\b", after_code)
+        tariff = tariff_match.group(1) if tariff_match else ""
+        naziv = after_code
+        if tariff_match:
+            naziv = after_code[:tariff_match.start()].strip(" |-")
+        naziv = _normalize_product_name(naziv)
+
+        values = re.findall(r"\d[\d\s]*,\d{2,3}", chunk)
+        parsed_values = [_parse_joined_value(v) for v in values]
+        parsed_values = [v for v in parsed_values if v > 0]
+        if not parsed_values:
+            continue
+
+        iznos = parsed_values[-1]
+        kolicina = parsed_values[2] if len(parsed_values) >= 3 else parsed_values[0]
+        if kolicina <= 0:
+            continue
+        cijena_jed = (iznos / kolicina) if kolicina else 0.0
+
+        line = InvoiceLine(
+            line_no=line_no if line_no > 0 else len(invoice_lines) + 1,
+            product_code=product_code,
+            naziv_robe=naziv,
+            tarifni_broj=tariff,
+            zemlja_porijekla=zemlja,
+            povlastica="",
+            jm="kg",
+            kolicina=kolicina,
+            cijena_jed=cijena_jed,
+            iznos=iznos,
+            valuta="EUR",
+            bruto_kg=0.0,
+            neto_kg=0.0,
+            has_origin_statement=has_origin_statement,
+            is_authorized_exporter=is_authorized_exporter,
+        )
+        if exporter:
+            line.exporter = exporter
+        if importer:
+            line.importer = importer
+        invoice_lines.append(line)
+
+    deduped: list[InvoiceLine] = []
+    seen_codes: set[str] = set()
+    for line in sorted(invoice_lines, key=lambda it: it.line_no):
+        if line.product_code in seen_codes:
+            continue
+        seen_codes.add(line.product_code)
+        deduped.append(line)
+    return deduped
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -655,7 +898,7 @@ def _detect_origin_statements_robust(full_text: str) -> list:
     compact = re.sub(r"\s+", "", full_text)
     m = re.search(
         r"theexporteroftheproductscoveredbythisdocument"
-        r"\(customsauthorizationno\.?(?P<broj>[A-Z0-9/\-]+)\)"
+        r"\(customsauthorizationno[\.,:]?(?P<broj>[A-Z0-9/\-]+)\)"
         r"declaresthat,?exceptwhereotherwiseclearlyindicated,?"
         r"theseproductsareof(?P<origin>[A-Za-z]+)preferentialorigin",
         compact,
@@ -867,6 +1110,110 @@ def _load_excel_data(pdf_path: str, pdf_invoice_number: str = "") -> dict[str, d
     except Exception as e:
         logger.debug(f"Greška pri učitavanju Excel-a: {e}")
     return {}
+
+
+def _load_excel_lines_for_pdf(
+    pdf_path: str,
+    pdf_invoice_number: str,
+    zemlja: str,
+    has_origin_statement: bool,
+    is_authorized_exporter: bool,
+    exporter: Optional[Party],
+    importer: Optional[Party],
+) -> list[InvoiceLine]:
+    try:
+        import openpyxl
+
+        folder = Path(pdf_path).parent
+        pdf_inv_norm = (pdf_invoice_number or "").lower().replace(" ", "")
+        all_xlsx = sorted(folder.glob("*.xlsx"), key=lambda p: len(p.stem), reverse=True)
+
+        for xlsx in all_xlsx:
+            try:
+                xlsx_stem = xlsx.stem.lower()
+                wb = openpyxl.load_workbook(xlsx, data_only=True, read_only=True)
+                ws = wb.worksheets[0]
+                header = {
+                    str(ws.cell(1, c).value or "").strip().lower(): c
+                    for c in range(1, ws.max_column + 1)
+                    if ws.cell(1, c).value
+                }
+
+                def col(name: str, *aliases: str) -> int:
+                    for n in (name, *aliases):
+                        if n.lower() in header:
+                            return header[n.lower()]
+                    return 0
+
+                col_invoice = col("invoice")
+                col_item = col("item")
+                col_desc = col("description")
+                col_unit = col("unit")
+                col_custom = col("customid")
+                col_neto = col("neto(kgr)")
+                col_qty = col("quantity in unit")
+                col_price = col("price per unit")
+                col_total = col("total in eur")
+                if not col_item or not col_desc:
+                    wb.close()
+                    continue
+
+                lines: list[InvoiceLine] = []
+                invoice_match = False
+                for row in range(2, ws.max_row + 1):
+                    inv_cell = str(ws.cell(row, col_invoice).value or "").strip().lower().replace(" ", "") if col_invoice else ""
+                    if not invoice_match and xlsx_stem:
+                        if pdf_inv_norm and xlsx_stem in pdf_inv_norm:
+                            invoice_match = True
+                        elif not pdf_inv_norm and inv_cell and xlsx_stem in inv_cell:
+                            invoice_match = True
+
+                    item_val = ws.cell(row, col_item).value
+                    if not item_val:
+                        continue
+
+                    product_code = str(item_val).strip()
+                    naziv = str(ws.cell(row, col_desc).value or "").strip().replace("_x000D_", "").strip()
+                    tarifni = _read_tariff_code(ws.cell(row, col_custom).value if col_custom else None)
+                    jm = _normalize_jm(str(ws.cell(row, col_unit).value or "").strip()) if col_unit else "kg"
+                    neto_item = _parse_number(ws.cell(row, col_neto).value) if col_neto else 0.0
+                    qty = _parse_number(ws.cell(row, col_qty).value) if col_qty else 0.0
+                    cijena = _parse_number(ws.cell(row, col_price).value) if col_price else 0.0
+                    iznos = _parse_number(ws.cell(row, col_total).value) if col_total else 0.0
+
+                    line = InvoiceLine(
+                        line_no=len(lines) + 1,
+                        product_code=product_code,
+                        naziv_robe=naziv,
+                        tarifni_broj=tarifni,
+                        zemlja_porijekla=zemlja,
+                        povlastica="",
+                        jm=jm,
+                        kolicina=qty,
+                        cijena_jed=cijena,
+                        iznos=iznos,
+                        valuta="EUR",
+                        bruto_kg=0.0,
+                        neto_kg=neto_item,
+                        has_origin_statement=has_origin_statement,
+                        is_authorized_exporter=is_authorized_exporter,
+                    )
+                    if exporter:
+                        line.exporter = exporter
+                    if importer:
+                        line.importer = importer
+                    lines.append(line)
+
+                wb.close()
+
+                if lines and invoice_match:
+                    logger.info(f"  📋 Excel fallback source: {xlsx.name} ({len(lines)} stavki)")
+                    return lines
+            except Exception:
+                continue
+    except Exception:
+        logger.debug("Greška pri učitavanju Excel fallback stavki", exc_info=True)
+    return []
 
 
 def _parse_qty(raw: str) -> float:

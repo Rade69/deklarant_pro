@@ -371,7 +371,14 @@ def _handle_message(ctrl, message: str) -> None:
 
     def _on_error(err: str):
         logger.warning(f"[ToolUse] Error, falling back to regex: {err}")
-        chat.add_activity(f"⚠️ Tool use nedostupan, koristim fallback...")
+        err_l = (err or "").lower()
+        # Ako Tool Use padne jer DeepSeek nije podešen, idi na standardni chat
+        # (Groq/Gemini) umjesto regex fallback-a koji daje "prebrz" lokalni routing.
+        if "deepseek api ključ nije podešen" in err_l or "deepseek" in err_l and "ključ" in err_l:
+            chat.add_activity("⚠️ Tool use nedostupan, prelazim na standardni AI chat...")
+            _start_chat_worker(ctrl, message)
+            return
+        chat.add_activity("⚠️ Tool use nedostupan, koristim regex fallback...")
         _handle_message_regex_fallback(ctrl, message)
 
     dispatcher.tool_call_received.connect(_on_tool_call)

@@ -16,6 +16,7 @@ from PySide6.QtGui import QFont
 from typing import Dict, Any
 import qtawesome as qta
 import json
+import socket
 from gui.tabs.admin.panels import styles as S
 from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
 
@@ -112,12 +113,21 @@ class SystemPanel(QWidget):
             QPushButton#aboutButton:hover {
                 background-color: #138496;
             }
+            QPushButton#aiHealthButton {
+                background-color: #6f42c1;
+                color: white;
+                border-color: #6f42c1;
+            }
+            QPushButton#aiHealthButton:hover {
+                background-color: #5a32a3;
+            }
         """
         
         self.btn_copy.setStyleSheet(button_style)
         self.btn_export.setStyleSheet(button_style)
         self.btn_refresh.setStyleSheet(button_style)
         self.btn_about.setStyleSheet(button_style)
+        self.btn_ai_health.setStyleSheet(button_style)
 
     def setup_ui(self):
         """Setup UI-a sa više sekcija."""
@@ -287,6 +297,17 @@ class SystemPanel(QWidget):
         self.btn_about.setMinimumHeight(40)
         self.btn_about.setObjectName("aboutButton")
         btn_layout.addWidget(self.btn_about)
+
+        self.btn_ai_health = QPushButton(
+            qta.icon('fa5s.heartbeat', color='white'),
+            " AI Health"
+        )
+        self.btn_ai_health.setFont(QFont("Arial", 13))
+        self.btn_ai_health.setToolTip("Provjera AI providera i mreže")
+        self.btn_ai_health.clicked.connect(self._on_ai_health_clicked)
+        self.btn_ai_health.setMinimumHeight(40)
+        self.btn_ai_health.setObjectName("aiHealthButton")
+        btn_layout.addWidget(self.btn_ai_health)
 
         btn_layout.addStretch()
 
@@ -498,3 +519,81 @@ Generisano: {info.get('generated_at', 'N/A')}
             <p>© 2026 Deklarant Pro Team</p>
             """
         )
+
+    def _on_ai_health_clicked(self):
+        """AI health check: ključevi, DNS i testni odgovor providera."""
+        from gui.tabs.agent.widgets.llm_provider import LLMProvider
+
+        provider = LLMProvider()
+        lines = [
+            "AI HEALTH CHECK",
+            "===============",
+            "",
+            f"DeepSeek ključ: {'OK' if provider.has_deepseek() else 'NEDOSTAJE'}",
+            f"Groq ključ:     {'OK' if provider.has_groq() else 'NEDOSTAJE'}",
+            f"Gemini ključ:   {'OK' if provider.has_gemini() else 'NEDOSTAJE'}",
+            f"Aktivni redoslijed (primarni): {provider.active_provider()}",
+            "",
+            "DNS provjera:",
+        ]
+
+        host_map = {
+            "DeepSeek": "api.deepseek.com",
+            "Groq": "api.groq.com",
+            "Gemini": "generativelanguage.googleapis.com",
+        }
+        for name, host in host_map.items():
+            try:
+                ip = socket.gethostbyname(host)
+                lines.append(f"- {name}: OK ({host} -> {ip})")
+            except Exception as e:
+                lines.append(f"- {name}: GREŠKA ({host}) - {e}")
+
+        lines.extend([
+            "",
+            "Test upit (kratki ping):",
+        ])
+
+        tests = [
+            ("DeepSeek", provider.has_deepseek(), "deepseek"),
+            ("Groq", provider.has_groq(), "groq"),
+            ("Gemini", provider.has_gemini(), "gemini"),
+        ]
+        messages = [
+            {"role": "system", "content": "Odgovori samo sa TEST_OK."},
+            {"role": "user", "content": "TEST_OK"},
+        ]
+
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        try:
+            for name, has_key, forced in tests:
+                if not has_key:
+                    lines.append(f"- {name}: preskočeno (nema ključ)")
+                    continue
+                prev_deepseek = provider.deepseek_key
+                prev_groq = provider.groq_key
+                prev_gemini = provider.gemini_key
+                try:
+                    if forced == "deepseek":
+                        provider.groq_key = ""
+                        provider.gemini_key = ""
+                    elif forced == "groq":
+                        provider.deepseek_key = ""
+                        provider.gemini_key = ""
+                    else:
+                        provider.deepseek_key = ""
+                        provider.groq_key = ""
+
+                    out = (provider.complete(messages, max_tokens=16) or "").strip()
+                    preview = out[:80] if out else "<prazan odgovor>"
+                    lines.append(f"- {name}: OK ({preview})")
+                except Exception as e:
+                    lines.append(f"- {name}: GREŠKA ({e})")
+                finally:
+                    provider.deepseek_key = prev_deepseek
+                    provider.groq_key = prev_groq
+                    provider.gemini_key = prev_gemini
+        finally:
+            QApplication.restoreOverrideCursor()
+
+        QMessageBox.information(self, "AI Health", "\n".join(lines))
