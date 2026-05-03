@@ -300,10 +300,10 @@ class SystemPanel(QWidget):
 
         self.btn_ai_health = QPushButton(
             qta.icon('fa5s.heartbeat', color='white'),
-            " AI Health"
+            " Osvježi AI"
         )
         self.btn_ai_health.setFont(QFont("Arial", 13))
-        self.btn_ai_health.setToolTip("Provjera AI providera i mreže")
+        self.btn_ai_health.setToolTip("Provjeri AI providere i mrežu")
         self.btn_ai_health.clicked.connect(self._on_ai_health_clicked)
         self.btn_ai_health.setMinimumHeight(40)
         self.btn_ai_health.setObjectName("aiHealthButton")
@@ -596,4 +596,4 @@ Generisano: {info.get('generated_at', 'N/A')}
         finally:
             QApplication.restoreOverrideCursor()
 
-        QMessageBox.information(self, "AI Health", "\n".join(lines))
+        QMessageBox.information(self, "AI status", "\n".join(lines))
