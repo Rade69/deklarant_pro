@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # Style Audit — read-only linter za stil anti-patterne
 # Usage: bash scripts/style_audit.sh
+#
+# Style governance: docs/architecture/STYLE_GOVERNANCE.md
+# Style inventory:  docs/architecture/STYLE_INVENTORY.md
+# Inline audit:     docs/architecture/INLINE_STYLE_AUDIT.md
+# Agent izvještaj:  agent_reports/2026-05-03_style-refactor-task-001-003-005.md
 
 set -euo pipefail
 
