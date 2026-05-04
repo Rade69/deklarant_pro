@@ -32,6 +32,8 @@ Machine ID + license.dat + digitalni potpis
 
 Ovo je optimalan model za desktop B2B aplikaciju bez servera.
 
+Praktično korištenje generatora (legacy + fingerprint): `docs/licensing/license_generator_usage.md`
+
 ---
 
 ## 2. ŠTA SE NE RADI U OVOJ FAZI
