@@ -15,14 +15,21 @@ from .license_models import (
     LicenseStatus,
     LicenseValidationResult,
 )
+from .license_state import check_and_update_license_state
 from .machine_id import get_machine_id
+from .machine_fingerprint import calculate_fingerprint_match
 from .public_key import PUBLIC_KEY_PEM
 
 
 GRACE_DAYS = 7
 
 
-def validate_license_file(license_path: Path) -> LicenseValidationResult:
+def validate_license_file(
+    license_path: Path,
+    *,
+    today: date | None = None,
+    update_state: bool = True,
+) -> LicenseValidationResult:
     if not license_path.exists():
         return LicenseValidationResult(
             is_valid=False,
@@ -58,17 +65,40 @@ def validate_license_file(license_path: Path) -> LicenseValidationResult:
             message="Podaci u licenci nisu validni.",
         )
 
-    current_machine_id = get_machine_id()
+    fingerprint_match = None
+    if payload.fingerprint:
+        fingerprint_match = calculate_fingerprint_match(
+            payload.fingerprint,
+            payload.min_score,
+        )
+        machine_ok = fingerprint_match.is_match
+    else:
+        current_machine_id = get_machine_id()
+        machine_ok = payload.machine_id == current_machine_id
 
-    if payload.machine_id != current_machine_id:
+    if not machine_ok:
         return LicenseValidationResult(
             is_valid=False,
             status=LicenseStatus.MACHINE_MISMATCH,
             message="Licenca ne pripada ovom računaru.",
             payload=payload,
+            fingerprint_score=fingerprint_match.score if fingerprint_match else None,
+            fingerprint_min_score=fingerprint_match.min_score if fingerprint_match else None,
         )
 
-    today = date.today()
+    today = today or date.today()
+
+    if update_state:
+        clock_ok, clock_message = check_and_update_license_state(today)
+        if not clock_ok:
+            return LicenseValidationResult(
+                is_valid=False,
+                status=LicenseStatus.CLOCK_ROLLBACK,
+                message=clock_message or "Sistemski datum nije validan.",
+                payload=payload,
+                fingerprint_score=fingerprint_match.score if fingerprint_match else None,
+                fingerprint_min_score=fingerprint_match.min_score if fingerprint_match else None,
+            )
 
     if today < payload.valid_from:
         return LicenseValidationResult(
@@ -76,6 +106,8 @@ def validate_license_file(license_path: Path) -> LicenseValidationResult:
             status=LicenseStatus.NOT_YET_VALID,
             message="Licenca još nije aktivna.",
             payload=payload,
+            fingerprint_score=fingerprint_match.score if fingerprint_match else None,
+            fingerprint_min_score=fingerprint_match.min_score if fingerprint_match else None,
         )
 
     if payload.valid_from <= today <= payload.valid_to:
@@ -85,6 +117,8 @@ def validate_license_file(license_path: Path) -> LicenseValidationResult:
             message="Licenca je validna.",
             payload=payload,
             days_remaining=(payload.valid_to - today).days,
+            fingerprint_score=fingerprint_match.score if fingerprint_match else None,
+            fingerprint_min_score=fingerprint_match.min_score if fingerprint_match else None,
         )
 
     grace_until = payload.valid_to + timedelta(days=GRACE_DAYS)
@@ -96,6 +130,8 @@ def validate_license_file(license_path: Path) -> LicenseValidationResult:
             message="Licenca je istekla, ali je aplikacija u grace periodu.",
             payload=payload,
             grace_days_remaining=(grace_until - today).days,
+            fingerprint_score=fingerprint_match.score if fingerprint_match else None,
+            fingerprint_min_score=fingerprint_match.min_score if fingerprint_match else None,
         )
 
     return LicenseValidationResult(
@@ -103,6 +139,8 @@ def validate_license_file(license_path: Path) -> LicenseValidationResult:
         status=LicenseStatus.EXPIRED,
         message="Licenca je istekla.",
         payload=payload,
+        fingerprint_score=fingerprint_match.score if fingerprint_match else None,
+        fingerprint_min_score=fingerprint_match.min_score if fingerprint_match else None,
     )
 
 

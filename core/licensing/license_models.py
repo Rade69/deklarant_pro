@@ -14,17 +14,21 @@ class LicensePayload:
     valid_to: date
     features: list[str]
     issued_at: date
+    fingerprint: dict[str, str] | None = None
+    min_score: int = 70
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "LicensePayload":
         return cls(
             customer_name=str(data["customer_name"]),
             customer_id=str(data["customer_id"]),
-            machine_id=str(data["machine_id"]),
+            machine_id=str(data.get("machine_id", "")),
             valid_from=date.fromisoformat(str(data["valid_from"])),
             valid_to=date.fromisoformat(str(data["valid_to"])),
             features=list(data.get("features", [])),
             issued_at=date.fromisoformat(str(data["issued_at"])),
+            fingerprint=dict(data.get("fingerprint") or {}),
+            min_score=int(data.get("min_score", 70)),
         )
 
 
@@ -36,6 +40,8 @@ class LicenseValidationResult:
     payload: LicensePayload | None = None
     days_remaining: int | None = None
     grace_days_remaining: int | None = None
+    fingerprint_score: int | None = None
+    fingerprint_min_score: int | None = None
 
 
 class LicenseStatus:
@@ -44,6 +50,7 @@ class LicenseStatus:
     EXPIRED = "expired"
     INVALID_SIGNATURE = "invalid_signature"
     MACHINE_MISMATCH = "machine_mismatch"
+    CLOCK_ROLLBACK = "clock_rollback"
     NOT_FOUND = "not_found"
     INVALID_FORMAT = "invalid_format"
     NOT_YET_VALID = "not_yet_valid"

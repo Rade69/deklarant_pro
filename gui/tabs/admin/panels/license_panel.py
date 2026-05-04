@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 from core.licensing.license_importer import import_license
 from core.licensing.license_paths import get_license_path
 from core.licensing.license_validator import validate_license_file
+from core.licensing.machine_fingerprint import format_fingerprint_payload
 from core.licensing.machine_id import get_machine_id
 from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
 
@@ -30,8 +31,10 @@ class LicensePanel(QWidget):
         self.customer_label = QLabel()
         self.valid_to_label = QLabel()
         self.features_label = QLabel()
+        self.fingerprint_label = QLabel()
 
         self.copy_machine_id_button = QPushButton("Kopiraj Machine ID")
+        self.copy_fingerprint_button = QPushButton("Kopiraj fingerprint")
         self.import_license_button = QPushButton("Uvezi licencu")
         self.refresh_button = QPushButton("Osvježi status")
 
@@ -60,9 +63,11 @@ class LicensePanel(QWidget):
         card_layout.addWidget(self.customer_label)
         card_layout.addWidget(self.valid_to_label)
         card_layout.addWidget(self.features_label)
+        card_layout.addWidget(self.fingerprint_label)
 
         buttons = QHBoxLayout()
         buttons.addWidget(self.copy_machine_id_button)
+        buttons.addWidget(self.copy_fingerprint_button)
         buttons.addWidget(self.import_license_button)
         buttons.addWidget(self.refresh_button)
         buttons.addStretch(1)
@@ -73,6 +78,7 @@ class LicensePanel(QWidget):
 
     def _connect_signals(self) -> None:
         self.copy_machine_id_button.clicked.connect(self.copy_machine_id)
+        self.copy_fingerprint_button.clicked.connect(self.copy_fingerprint)
         self.import_license_button.clicked.connect(self.import_license)
         self.refresh_button.clicked.connect(self.refresh_status)
 
@@ -86,10 +92,17 @@ class LicensePanel(QWidget):
             self.customer_label.setText(f"Firma: {result.payload.customer_name}")
             self.valid_to_label.setText(f"Važi do: {result.payload.valid_to.isoformat()}")
             self.features_label.setText(f"Paket: {', '.join(result.payload.features)}")
+            if result.fingerprint_score is not None:
+                self.fingerprint_label.setText(
+                    f"Fingerprint score: {result.fingerprint_score}/{result.fingerprint_min_score}"
+                )
+            else:
+                self.fingerprint_label.setText("Fingerprint score: legacy Machine ID")
         else:
             self.customer_label.setText("Firma: —")
             self.valid_to_label.setText("Važi do: —")
             self.features_label.setText("Paket: —")
+            self.fingerprint_label.setText("Fingerprint score: —")
 
         self.status_label.setText(f"Status: {result.message}")
 
@@ -97,6 +110,10 @@ class LicensePanel(QWidget):
         machine_id = get_machine_id()
         QApplication.clipboard().setText(machine_id)
         QMessageBox.information(self, "Machine ID", "Machine ID je kopiran.")
+
+    def copy_fingerprint(self) -> None:
+        QApplication.clipboard().setText(format_fingerprint_payload())
+        QMessageBox.information(self, "Fingerprint", "Fingerprint je kopiran.")
 
     def import_license(self) -> None:
         file_path, _ = QFileDialog.getOpenFileName(
