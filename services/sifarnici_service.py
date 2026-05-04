@@ -649,10 +649,24 @@ class SifarniciService:
                     else:
                         columns = ["naziv", "sifra"]
                     
-                    # Kreiraj WHERE uslov
-                    where_conditions = " OR ".join([f"{col} ILIKE %s" for col in columns])
-                    query = f"SELECT * FROM {table_name} WHERE {where_conditions}"
-                    
+                    table_parts = table_name.split(".", 1)
+                    if len(table_parts) == 2:
+                        table_identifier = sql.SQL("{}.{}").format(
+                            sql.Identifier(table_parts[0]),
+                            sql.Identifier(table_parts[1]),
+                        )
+                    else:
+                        table_identifier = sql.Identifier(table_name)
+
+                    where_conditions = sql.SQL(" OR ").join(
+                        sql.SQL("{} ILIKE %s").format(sql.Identifier(col))
+                        for col in columns
+                    )
+                    query = sql.SQL("SELECT * FROM {} WHERE {}").format(
+                        table_identifier,
+                        where_conditions,
+                    )
+
                     cur.execute(query, [search_pattern] * len(columns))
                     results = cur.fetchall()
                     return [dict(row) for row in results]

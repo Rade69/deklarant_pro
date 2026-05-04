@@ -46,10 +46,13 @@ def _write_last_seen_date(value: date) -> None:
         "payload": payload,
         "signature": _sign_payload(payload),
     }
-    get_license_state_path().write_text(
-        json.dumps(data, sort_keys=True, separators=(",", ":")),
-        encoding="utf-8",
-    )
+    try:
+        get_license_state_path().write_text(
+            json.dumps(data, sort_keys=True, separators=(",", ":")),
+            encoding="utf-8",
+        )
+    except OSError:
+        return
 
 
 def _sign_payload(payload: dict) -> str:

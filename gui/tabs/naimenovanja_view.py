@@ -2817,7 +2817,7 @@ class NaimenovanjaView(BaseTabView):
             # Disconnect default handler first
             try:
                 le_rubrika44_4.textChanged.disconnect(self._on_field_changed)
-            except:
+            except Exception:
                 pass
             # Connect to special handler using editingFinished instead of textChanged
             le_rubrika44_4.editingFinished.connect(self._on_rubrika44_4_finished)

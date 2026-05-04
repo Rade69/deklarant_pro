@@ -373,7 +373,10 @@ class LearningPanel(QWidget):
             self.lbl_xml_count.setText("Broj XML fajlova: 0  (folder ne postoji)")
 
     def _log(self, tekst: str):
-        self.log_output.append(tekst)
+        try:
+            self.log_output.append(tekst)
+        except RuntimeError:
+            return
 
     # ── Stilovi ──────────────────────────────────────────────────────────────
 

@@ -16,7 +16,6 @@ if _script_dir not in sys.path:
 
 # Greške pri pokretanju pisati u log fajl (vidljivo i bez terminala)
 _log_dir = os.path.join(os.path.expanduser("~"), ".deklarant_pro", "logs")
-os.makedirs(_log_dir, exist_ok=True)
 _log_file = os.path.join(_log_dir, "deklarant_pro.log")
 
 import logging
@@ -25,14 +24,18 @@ import warnings
 warnings.filterwarnings('ignore', category=RuntimeWarning, message='Failed to disconnect')
 
 logging.getLogger("deklarant_pro.resize_debug").setLevel(logging.DEBUG)
+_handlers = [logging.StreamHandler(sys.stderr)]
+try:
+    os.makedirs(_log_dir, exist_ok=True)
+    _handlers.append(logging.FileHandler(_log_file, encoding="utf-8"))
+except OSError:
+    pass
+
 logging.basicConfig(
     level=logging.WARNING,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S',
-    handlers=[
-        logging.StreamHandler(sys.stderr),
-        logging.FileHandler(_log_file, encoding="utf-8"),
-    ]
+    handlers=_handlers
 )
 
 try:

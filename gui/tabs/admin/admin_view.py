@@ -224,6 +224,10 @@ class AdminView(BaseTabView):
         """Getter za system panel."""
         return self.system_panel
 
+    def get_settings_panel(self) -> SystemPanel:
+        """Backward-compatible alias za stari naziv panela."""
+        return self.system_panel
+
     def get_license_panel(self) -> LicensePanel:
         """Getter za license panel."""
         return self.license_panel
