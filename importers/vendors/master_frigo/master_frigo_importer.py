@@ -177,18 +177,30 @@ def _read_mapping_xlsx(xlsx_path: str) -> Dict[str, Dict[str, str]]:
 
         out: Dict[str, Dict[str, str]] = {}
         for r in range(2, ws.max_row + 1):
+            rbr_val = ws.cell(r, 1).value
             code = ws.cell(r, code_col).value
-            if not code:
-                continue
 
-            code_s = str(code).strip().replace("\n", "").replace("\r", "")
-            out[code_s] = {
+            row_map = {
                 "tariff": _read_tariff_code(ws.cell(r, tariff_col).value),
                 "origin": str(ws.cell(r, origin_col).value or "").strip(),
                 "preferential": _normalize_preferential(
                     str(ws.cell(r, pref_col).value or "")
                 ),
             }
+
+            # Primarno mapiranje po šifri artikla
+            if code:
+                code_s = str(code).strip().replace("\n", "").replace("\r", "")
+                if code_s:
+                    out[code_s] = row_map
+
+            # Fallback mapiranje po Rbr (za redove gdje Excel nema "Šifra")
+            try:
+                rbr = int(rbr_val)
+            except (TypeError, ValueError):
+                rbr = 0
+            if rbr > 0:
+                out[f"__RBR__{rbr}"] = row_map
 
         return out
     finally:
@@ -371,7 +383,9 @@ def parse_master_frigo_pdf(
             if tail:
                 desc = (desc + " " + tail).strip()
 
-            map_row = mapping.get(code, {})
+            map_row = mapping.get(code, {}) if code else {}
+            if not map_row:
+                map_row = mapping.get(f"__RBR__{rbr}", {})
             current = ImportedLine(
                 rbr=rbr,
                 code=code,
