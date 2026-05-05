@@ -28,7 +28,7 @@ def run_migrations():
             cur = conn.cursor()
             
             # Učitaj SQL fajl
-            migration_file = Path(__file__).parent / "migrations" / "001_declarations_history.sql"
+            migration_file = Path(__file__).parent / "migrations" / "002_declarations_history.sql"
             
             if not migration_file.exists():
                 print(f"❌ Migracioni fajl ne postoji: {migration_file}")

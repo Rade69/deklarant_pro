@@ -5,6 +5,8 @@ ENHANCED: Dodato pamćenje konteksta chat sesije.
 """
 
 import re
+import os
+import logging
 from PySide6.QtCore import QThread, Signal
 
 
@@ -614,8 +616,7 @@ class ChatWorker(QThread):
             return result
 
         # Provjeri da li je dozvoljeno slanje osjetljivih podataka eksternom LLM-u
-        import os
-        send_sensitive = os.getenv("SEND_SENSITIVE_DATA", "false").strip().lower() == "true"
+        send_sensitive = self._allow_sensitive_data()
 
         result.append("=== POŠILJALAC / UVOZNIK ===")
 
@@ -882,14 +883,18 @@ class ChatWorker(QThread):
             partner_keywords = ['dobavljač', 'izvoznik', 'primalac', 'partner',
                                  'firma', 'kompanij', 'ko nam', 'ko šalje']
             if any(k in msg for k in partner_keywords):
+                send_sensitive = self._allow_sensitive_data()
                 results = svc.search_by_partner(query, limit=6)
                 if results:
                     ctx.append(f"\nPartneri pronađeni u istorijskim deklaracijama:")
                     for r in results:
+                        jib_display = r.get('consignee_jib', '?') if send_sensitive else "[JIB skriven]"
+                        exporter_display = r.get('exporter_name', '?')[:50] if send_sensitive else "[ime skriveno]"
+                        consignee_display = r.get('consignee_name', '?')[:40] if send_sensitive else "[ime skriveno]"
                         ctx.append(
-                            f"  Izvoznik: {r.get('exporter_name','?')[:50]} | "
-                            f"Primalac: {r.get('consignee_name','?')[:40]} | "
-                            f"JIB: {r.get('consignee_jib','?')}"
+                            f"  Izvoznik: {exporter_display} | "
+                            f"Primalac: {consignee_display} | "
+                            f"JIB: {jib_display}"
                         )
 
             # Pretraga po zemlji
@@ -960,6 +965,7 @@ class ChatWorker(QThread):
 
     def _search_pg_partners(self, query: str) -> list:
         """Pretraga partnera u PostgreSQL bazi (traders, izvoznici, uvoznici)."""
+        send_sensitive = self._allow_sensitive_data()
         try:
             from database.db import get_db_connection
             words = [w for w in re.split(r'\s+', query) if len(w) >= 3]
@@ -974,10 +980,12 @@ class ChatWorker(QThread):
                         f"WHERE {or_clause} LIMIT 15",
                         patterns,
                     )
-                    results = [
-                        f"  [{row['type']}] {row['name']} (kod: {row['code']})"
-                        for row in cur.fetchall()
-                    ]
+                    results = []
+                    for row in cur.fetchall():
+                        name_display = row['name'] if send_sensitive else "[ime skriveno — SEND_SENSITIVE_DATA=false]"
+                        results.append(
+                            f"  [{row['type']}] {name_display} (kod: {row['code']})"
+                        )
             return list(dict.fromkeys(results))
         except Exception:
             return []
@@ -1085,3 +1093,20 @@ class ChatWorker(QThread):
             f"{context}"
             f"{memory_info}"
         )
+    @staticmethod
+    def _allow_sensitive_data() -> bool:
+        send_sensitive = os.getenv("SEND_SENSITIVE_DATA", "false").strip().lower() == "true"
+        if not send_sensitive:
+            return False
+        try:
+            from .llm_provider import LLMProvider
+            provider = LLMProvider().active_provider()
+            if provider not in ("none", "ollama", "local"):
+                logging.getLogger("deklarant_pro.agent.chat_worker").warning(
+                    "SEND_SENSITIVE_DATA=true sa cloud providerom '%s' -> forsirano maskiranje",
+                    provider,
+                )
+                return False
+        except Exception:
+            return False
+        return True
