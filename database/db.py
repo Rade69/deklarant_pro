@@ -1,4 +1,5 @@
 import re
+import threading
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from psycopg2.pool import ThreadedConnectionPool
@@ -13,6 +14,7 @@ from config.settings import get_db_settings
 # =========================================================
 
 _connection_pool: Optional[ThreadedConnectionPool] = None
+_pool_lock = threading.Lock()
 
 
 def get_connection_pool() -> ThreadedConnectionPool:
@@ -25,18 +27,21 @@ def get_connection_pool() -> ThreadedConnectionPool:
     global _connection_pool
     
     if _connection_pool is None:
-        settings = get_db_settings()
-        _connection_pool = ThreadedConnectionPool(
-            minconn=1,
-            maxconn=10,
-            host=settings.host,
-            port=settings.port,
-            database=settings.database,
-            user=settings.user,
-            password=settings.password,
-            cursor_factory=RealDictCursor,
-            connect_timeout=3,
-        )
+        with _pool_lock:
+            if _connection_pool is None:
+                settings = get_db_settings()
+                _connection_pool = ThreadedConnectionPool(
+                    minconn=1,
+                    maxconn=10,
+                    host=settings.host,
+                    port=settings.port,
+                    database=settings.database,
+                    user=settings.user,
+                    password=settings.password,
+                    sslmode=settings.sslmode,
+                    cursor_factory=RealDictCursor,
+                    connect_timeout=3,
+                )
     
     return _connection_pool
 
@@ -69,6 +74,9 @@ def get_db_connection():
     pool = get_connection_pool()
     conn = pool.getconn()
     try:
+        if conn.closed:
+            pool.putconn(conn, close=True)
+            conn = pool.getconn()
         yield conn
         conn.commit()
     except Exception:

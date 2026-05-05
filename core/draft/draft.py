@@ -460,7 +460,7 @@ class DeclarationDraft:
 
     def _notify_data_change(self) -> None:
         """Obavesti sve registrovane callback-ove o promeni podataka."""
-        for callback in self._data_change_callbacks:
+        for callback in list(self._data_change_callbacks):
             try:
                 callback()
             except Exception as e:
@@ -494,6 +494,17 @@ class DeclarationDraft:
         self.items.append(new_item)
         self.mark_dirty()
         return new_item
+
+    def remove_item(self, item_id: str) -> bool:
+        """Ukloni naimenovanje po item_id i renumeriši redne brojeve."""
+        before = len(self.items)
+        self.items = [it for it in self.items if it.item_id != item_id]
+        if len(self.items) == before:
+            return False
+        for i, it in enumerate(self.items, 1):
+            it.ordinal_no = i
+        self.mark_dirty()
+        return True
 
     def apply_to_all(self, field_name: str, value: Any) -> None:
         for it in self.items:
