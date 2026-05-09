@@ -84,7 +84,8 @@ def is_blagic_attos_packing_list(filepath: str) -> bool:
         with pdfplumber.open(filepath) as pdf:
             text = pdf.pages[0].extract_text() or ""
             return "LISTA PAKOVANJA" in text.upper()
-    except Exception:
+    except Exception as e:
+        logger.debug(f"Detekcija packing liste nije uspjela: {e}")
         return False
 
 

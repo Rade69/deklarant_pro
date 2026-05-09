@@ -26,7 +26,8 @@ class AnalyticsService:
         try:
             path_settings = get_path_settings()
             self.db_path = Path(path_settings.data_dir) / "asycuda.db"
-        except Exception:
+        except Exception as e:
+            logger.debug(f"PathSettings nedostupan, koristim default putanju: {e}")
             self.db_path = Path.home() / ".deklarant_pro" / "asycuda.db"
         
         # Mock podaci za demonstraciju (dok se ne doda import_log tabela)
@@ -153,8 +154,8 @@ class AnalyticsService:
             result = cursor.fetchone()
             if result:
                 stats['total_imports'] = result[0]
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Tabela 'deklaracije' nedostupna: {e}")
 
         conn.close()
         return stats
@@ -212,9 +213,8 @@ class AnalyticsService:
                     'count': row[1],
                     'percentage': round((row[1] / total) * 100, 1) if total > 0 else 0
                 })
-        except Exception:
-            # Tabela ne postoji, vrati praznu listu
-            pass
+        except Exception as e:
+            logger.debug(f"Tabela parser statistike nedostupna: {e}")
 
         conn.close()
         return usage

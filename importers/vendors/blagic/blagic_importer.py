@@ -126,7 +126,8 @@ def parse_blagic_invoice_pdf(path: str) -> Tuple[Dict[str, Any], List[ImportedLi
                                 amount=_safe_float(row_s[7]) if len(row_s) > 7 else 0.0,
                             )
                         )
-                    except Exception:
+                    except Exception as e:
+                        logger.debug(f"Preskačem red pri parsiranju stavke: {e}")
                         continue
 
     # DETEKTUJ SVE izjave o poreklu
