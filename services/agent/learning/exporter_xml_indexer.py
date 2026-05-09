@@ -36,6 +36,7 @@ FUZZY_MATCH_THRESHOLD = 0.92
 def get_db_connection():
     """Konekcija na bazu koristeći centralni config."""
     from config.settings import get_db_settings
+    from psycopg2.extras import RealDictCursor
 
     settings = get_db_settings()
     return psycopg2.connect(
@@ -44,6 +45,8 @@ def get_db_connection():
         database=settings.database,
         user=settings.user,
         password=settings.password,
+        sslmode=settings.sslmode,
+        cursor_factory=RealDictCursor,
     )
 
 

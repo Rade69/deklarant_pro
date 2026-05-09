@@ -1,10 +1,13 @@
 import re
+import time
 import threading
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from psycopg2.pool import ThreadedConnectionPool
+from psycopg2.pool import ThreadedConnectionPool, PoolError
 from contextlib import contextmanager
 from typing import Optional
+
+_POOL_WAIT_TIMEOUT = 30  # sekundi čekanja kad je pool iscrpljen
 
 from config.settings import get_db_settings
 
@@ -72,7 +75,18 @@ def get_db_connection():
                 cur.execute(...)
     """
     pool = get_connection_pool()
-    conn = pool.getconn()
+    conn = None
+    deadline = time.monotonic() + _POOL_WAIT_TIMEOUT
+    while True:
+        try:
+            conn = pool.getconn()
+            break
+        except PoolError:
+            if time.monotonic() >= deadline:
+                raise PoolError(
+                    f"Connection pool iscrpljen — konekcija nije dostupna za {_POOL_WAIT_TIMEOUT}s"
+                )
+            time.sleep(0.1)
     try:
         if conn.closed:
             pool.putconn(conn, close=True)
