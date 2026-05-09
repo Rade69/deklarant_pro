@@ -4,14 +4,11 @@
 import sqlite3
 import psycopg2
 
-# PostgreSQL config
-PG_CONFIG = {
-    "host": "localhost",
-    "port": 5432,
-    "dbname": "deklarant_pro",
-    "user": "postgres",
-    "password": "!sofija#22$jelena%25&"
-}
+def _pg_config():
+    from config.settings import get_db_settings
+    s = get_db_settings()
+    return {"host": s.host, "port": s.port, "dbname": s.database,
+            "user": s.user, "password": s.password}
 
 # SQLite path
 SQLITE_DB = "/home/radovan/Desktop/PythonProjects/deklarant_pro/database/deklarant_sistem.db"
@@ -27,7 +24,7 @@ def migrate_pakovanja():
     # 1. Konektuj se na obe baze
     print("\n1️⃣  Konektujem na baze podataka...")
     sqlite_conn = sqlite3.connect(SQLITE_DB)
-    pg_conn = psycopg2.connect(**PG_CONFIG)
+    pg_conn = psycopg2.connect(**_pg_config())
     pg_cursor = pg_conn.cursor()
 
     # 2. Kreiraj tabelu u PostgreSQL ako ne postoji
