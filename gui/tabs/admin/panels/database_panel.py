@@ -71,6 +71,13 @@ class DatabasePanel(QWidget):
         self.setup_ui()
         self._apply_styles()
 
+    def closeEvent(self, event):
+        for t in (self._conn_thread, self._stats_thread):
+            if t and t.isRunning():
+                t.quit()
+                t.wait(2000)
+        super().closeEvent(event)
+
     def _apply_styles(self):
         self.setStyleSheet("background-color: #f8f9fa;")
         for gb in self.findChildren(QGroupBox):

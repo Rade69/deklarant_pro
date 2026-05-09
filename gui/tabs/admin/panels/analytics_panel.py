@@ -82,6 +82,12 @@ class AnalyticsPanel(QWidget):
         self.setup_ui()
         self._apply_styles()
 
+    def closeEvent(self, event):
+        if self._thread and self._thread.isRunning():
+            self._thread.quit()
+            self._thread.wait(2000)
+        super().closeEvent(event)
+
     def _apply_styles(self):
         self.setStyleSheet("background-color: #f8f9fa;")
         for gb in self.findChildren(QGroupBox):
