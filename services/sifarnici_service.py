@@ -1282,10 +1282,10 @@ class SifarniciService:
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
-                    where = "WHERE is_active = TRUE" if only_active else ""
-                    cur.execute(
-                        f"SELECT COUNT(*) FROM catalogs.inspection_rules {where}"
-                    )
+                    if only_active:
+                        cur.execute("SELECT COUNT(*) FROM catalogs.inspection_rules WHERE is_active = TRUE")
+                    else:
+                        cur.execute("SELECT COUNT(*) FROM catalogs.inspection_rules")
                     row = cur.fetchone()
                     return row["count"] if row else 0
         except Exception as e:
@@ -1327,16 +1327,16 @@ class SifarniciService:
         if not filtered:
             return False
         try:
-            set_clause = ", ".join(f"{k} = %s" for k in filtered)
+            set_parts = sql.SQL(", ").join(
+                sql.SQL("{} = %s").format(sql.Identifier(k)) for k in filtered
+            )
+            query = sql.SQL(
+                "UPDATE catalogs.inspection_rules SET {}, updated_at = NOW() WHERE id = %s"
+            ).format(set_parts)
             vals = list(filtered.values()) + [rule_id]
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
-                    cur.execute(
-                        f"UPDATE catalogs.inspection_rules "
-                        f"SET {set_clause}, updated_at = NOW() "
-                        f"WHERE id = %s",
-                        vals,
-                    )
+                    cur.execute(query, vals)
                 conn.commit()
                 return True
         except Exception as e:

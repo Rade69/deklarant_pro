@@ -7,6 +7,7 @@ ENHANCED: Dodato pamćenje konteksta chat sesije.
 import re
 import os
 import logging
+from psycopg2 import sql as pg_sql
 from PySide6.QtCore import QThread, Signal
 
 
@@ -972,14 +973,15 @@ class ChatWorker(QThread):
             if not words:
                 return []
             patterns = [f"%{w}%" for w in words[:3]]
-            or_clause = " OR ".join(["name ILIKE %s"] * len(patterns))
+            or_parts = pg_sql.SQL(" OR ").join(
+                pg_sql.SQL("name ILIKE %s") for _ in patterns
+            )
+            query = pg_sql.SQL(
+                "SELECT code, name, type FROM public.traders WHERE {} LIMIT 15"
+            ).format(or_parts)
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
-                    cur.execute(
-                        f"SELECT code, name, type FROM public.traders "
-                        f"WHERE {or_clause} LIMIT 15",
-                        patterns,
-                    )
+                    cur.execute(query, patterns)
                     results = []
                     for row in cur.fetchall():
                         name_display = row['name'] if send_sensitive else "[ime skriveno — SEND_SENSITIVE_DATA=false]"

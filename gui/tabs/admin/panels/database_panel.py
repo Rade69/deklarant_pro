@@ -10,6 +10,7 @@ from PySide6.QtCore import Signal, Qt, QThread
 from PySide6.QtGui import QFont
 from typing import Dict, Any
 import qtawesome as qta
+from psycopg2 import sql as pg_sql
 from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
 
 
@@ -47,7 +48,11 @@ class _LoadStatsThread(QThread):
                     ]
                     for naziv, tabela in tabele:
                         try:
-                            cur.execute(f"SELECT COUNT(*) AS n FROM {tabela}")
+                            schema, tbl = tabela.split(".", 1)
+                            q = pg_sql.SQL("SELECT COUNT(*) AS n FROM {}.{}").format(
+                                pg_sql.Identifier(schema), pg_sql.Identifier(tbl)
+                            )
+                            cur.execute(q)
                             stats[naziv] = cur.fetchone()['n']
                         except Exception:
                             stats[naziv] = None
