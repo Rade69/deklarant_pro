@@ -2017,10 +2017,20 @@ class NaimenovanjaView(BaseTabView):
         except Exception:
             return 0.0
 
-    def _compute_pd_codes(self) -> str:
-        """Rb.44 P.D. — šifre from_rule priloženih dokumenata iz zaglavlja (N380 DIS DV1)."""
+    def _compute_pd_codes(self, item=None) -> str:
+        """Rb.44 P.D. — šifre from_rule priloženih dokumenata iz zaglavlja (N380 DIS DV1).
+
+        PE1/PE2/PE3 se prikazuju samo ako naimenovanje ima povlasticu (Rub.36),
+        jer Rub.44 ne smije biti popunjena ako Rub.36 nije.
+        """
         header_docs = getattr(self.draft, "header_attached_documents", []) or []
-        codes = [doc.code for doc in header_docs if getattr(doc, "from_rule", False) and doc.code]
+        has_pref = bool(item and (getattr(item, 'preference_code', '') or '').strip())
+        pe_codes = {"PE1", "PE2", "PE3"}
+        codes = [
+            doc.code for doc in header_docs
+            if getattr(doc, "from_rule", False) and doc.code
+            and (doc.code not in pe_codes or has_pref)
+        ]
         return " ".join(codes)
 
     def _compute_statistical_value(self, item) -> str:
@@ -2063,7 +2073,7 @@ class NaimenovanjaView(BaseTabView):
                 if field_name == "statistical_value":
                     value = self._compute_statistical_value(item)
                 elif field_name == "pd_codes":
-                    value = self._compute_pd_codes()
+                    value = self._compute_pd_codes(item)
                 else:
                     value = getattr(item, field_name, "")
 
@@ -2870,9 +2880,13 @@ class NaimenovanjaView(BaseTabView):
         self._save_current_item()
 
         # 2. Primijeni na sve ostale iteme
+        # PRAVILO: Rub.44 se ne smije postaviti ako Rub.36 nije popunjena
         if len(self.draft.items) > 1:
             for i, item in enumerate(self.draft.items):
                 if i != self.current_item_index:
+                    has_pref = bool((getattr(item, 'preference_code', '') or '').strip())
+                    if text and not has_pref:
+                        continue  # ne upisuj Rub.44 bez Rub.36
                     item.attached_document4 = text
 
         # 3. Sinhronizuj PE šifre iz rub.44.4 u header_attached_documents

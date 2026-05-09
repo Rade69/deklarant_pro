@@ -351,6 +351,9 @@ def _apply_eur1_to_naimenovanja(ctrl, eur1_data: dict, chat) -> None:
             origin = (getattr(item, 'origin_country_code', '') or '').strip()
             if pov == preference or origin.upper() == country.upper():
                 item.attached_document4 = doc44
+                # Rub.36 mora biti popunjena ako je Rub.44 popunjena
+                if not pov and preference:
+                    item.preference_code = preference
                 updated += 1
 
     if updated:
