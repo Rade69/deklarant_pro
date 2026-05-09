@@ -474,7 +474,7 @@ class ImportService:
         except Exception as e:
             self.logger.warning(f"Invoice+PackingList kombinovanje nije uspjelo: {e}")
 
-        logger.warning("   ⚠️  Nije par - nema kombinovanja")
+        logger.debug("   ℹ️  Nije par - nema kombinovanja")
         return None
 
     def can_import(self, filepath: str | Path) -> bool:
