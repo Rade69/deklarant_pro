@@ -35,7 +35,7 @@ def detect_blagic_loren_excel(filepath: str) -> bool:
     Kriteriji:
     - Extension .xlsx
     - Ima header: "RB", "Kod", "Artikal", "JM", "Kolicina", "Težina po komadu kg", "Težina ukupno kg", "Tarifni broj", "Poreklo"
-    - Sheet ime sadrži "VP-2025" ili "BLAGIC"
+    - Sheet ime sadrži "VP-20xx" ili "BLAGIC"
 
     Args:
         filepath: Putanja do Excel fajla
@@ -56,7 +56,7 @@ def detect_blagic_loren_excel(filepath: str) -> bool:
             sheet_name_upper = sheet.title.upper()
 
             # Check if sheet name contains indicators
-            if "VP-2025" in sheet_name_upper or "BLAGIC" in sheet_name_upper:
+            if re.search(r"VP-20\d{2}", sheet_name_upper) or "BLAGIC" in sheet_name_upper:
                 # Check header row (row 1)
                 header_values = []
                 for cell in sheet[1]:

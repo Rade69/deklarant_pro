@@ -110,7 +110,7 @@ def parse_blagic_loren_pdf(pdf_path: str) -> ImportResult:
         # Pattern: Num Code Description Unit Qty Price Amount
         # Unit može biti bilo koja riječ (1-10 karaktera) - fleksibilno za sve varijacije pakovanja
         item_pattern = re.compile(
-            r'^(\d+)\s+([A-Z0-9]+)\s+(.+?)\s+([a-zA-Z]{1,10})\s+([\d,\.]+)\s+([\d,\.]+)\s+([\d,\.]+)',
+            r'^(\d+)\s+([A-Z0-9][A-Z0-9./-]*)\s+(.+?)\s+([a-zA-Z]{1,10})\s+([\d,\.]+)\s+([\d,\.]+)\s+([\d,\.]+)',
             re.IGNORECASE
         )
 
@@ -169,7 +169,12 @@ def parse_blagic_loren_pdf(pdf_path: str) -> ImportResult:
                     'AMOUNT:', 'STRANA ', 'PHONE:', 'FAX:', 'WWW.',
                     'EMAIL:', 'IDN:', 'B4K-',
                 ]
-                if not any(keyword in line.upper() for keyword in _skip_kw):
+                line_upper = line.upper()
+                # "Amount:" ili "Total:" označava kraj stavki — sačuvaj i zatvori item
+                if 'AMOUNT:' in line_upper or ('TOTAL' in line_upper and ':' in line):
+                    items.append(current_item)
+                    current_item = None
+                elif not any(keyword in line_upper for keyword in _skip_kw):
                     current_item.naziv_robe += " " + line
 
         # Add last item
