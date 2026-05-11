@@ -59,18 +59,6 @@ _PROC_TO_GEN = {
 }
 
 
-def _clean_tariff_desc(text: str) -> str:
-    """Ukloni fusnote (¹)(3) i normalizuj en-dash → ASCII crtica."""
-    import re
-    if not text:
-        return text
-    # Ukloni fusnote oblika (¹), (³), (1), (23)...
-    cleaned = re.sub(r"\s*\([¹²³⁴⁵⁶⁷⁸⁹⁰\d]+\)", "", text)
-    # en-dash i em-dash → ASCII crtica
-    cleaned = cleaned.replace("–", "-").replace("—", "-").replace("‒", "-")
-    return cleaned.strip()
-
-
 def _null(parent: ET.Element, tag: str) -> ET.Element:
     """Kreira <tag><null/></tag> element."""
     elem = ET.SubElement(parent, tag)
@@ -1028,9 +1016,8 @@ class AsycudaXMLBuilder:
         # Ako je vanjska vozarina u EUR, per-item freight prikazujemo u EUR s kursom
         t1_valuta = self._g("trosak_1_valuta")
         t1_raw = _parse_cost(self._g("trosak_1"))
-        total_items_value_ref = sum(it.item_value or 0.0 for it in self.draft.items)
-        if t1_valuta and t1_valuta != "BAM" and t1_raw > 0 and total_items_value_ref > 0:
-            alpha_here = (item_value / total_items_value_ref) if total_items_value_ref > 0 else 0.0
+        if t1_valuta and t1_valuta != "BAM" and t1_raw > 0 and total_items_value > 0:
+            alpha_here = item_value / total_items_value
             item_ext_eur = t1_raw * alpha_here
             item_ext_bam = round(item_ext_eur * kurs, 2)
             self._item_cost_section_filled(val_item, "item_external_freight",
@@ -1131,8 +1118,8 @@ def export_to_xml(draft: DeclarationDraft, output_path: str) -> bool:
                     tariff = getattr(item, "tariff_code", "") or ""
                     if tariff:
                         svc.record_usage(tariff, doc_codes)
-        except Exception:
-            pass  # auto-učenje nije kritično
+        except Exception as _e:
+            logger.debug("Auto-učenje doc history preskočeno: %s", _e)
 
         return True
 

@@ -22,9 +22,12 @@ Rule-based validacija kompletne deklaracije:
 Kombinuje sve postojeće servise za kompletnu analizu.
 """
 
+import logging
 from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
+
+logger = logging.getLogger("deklarant_pro.declaration_validator")
 
 
 class ValidationSeverity(Enum):
@@ -133,7 +136,7 @@ class DeclarationValidatorService:
         # Cache za performance
         self.supplier_cache: Dict[str, Any] = {}
         
-        print("✅ DeclarationValidatorService inicijalizovan")
+        logger.debug("DeclarationValidatorService inicijalizovan")
     
     def validate_complete_declaration(
         self,
@@ -156,8 +159,8 @@ class DeclarationValidatorService:
         Returns:
             ValidationReport sa kompletnom analizom
         """
-        print(f"🔍 Agent validacija: {len(naimenovanja_data)} naimenovanja, "
-              f"{len(invoice_lines)} faktura stavki")
+        logger.debug("Agent validacija: %d naimenovanja, %d faktura stavki",
+                     len(naimenovanja_data), len(invoice_lines))
         
         all_items = []
         
@@ -223,8 +226,8 @@ class DeclarationValidatorService:
             recommendations=recommendations
         )
         
-        print(f"✅ Agent validacija završena: {error_count} grešaka, "
-              f"{warning_count} upozorenja")
+        logger.debug("Agent validacija završena: %d grešaka, %d upozorenja",
+                     error_count, warning_count)
         
         return report
     
@@ -269,9 +272,9 @@ class DeclarationValidatorService:
                 ))
             
         except ImportError:
-            print("⚠️ ZaglavljeService nije dostupan")
+            logger.debug("ZaglavljeService nije dostupan")
         except Exception as e:
-            print(f"⚠️ Greška pri validaciji zaglavlja: {e}")
+            logger.warning("Greška pri validaciji zaglavlja: %s", e)
         
         return items
     
@@ -476,9 +479,9 @@ class DeclarationValidatorService:
                         break
             
         except ImportError:
-            print("⚠️ SupplierProfilingService nije dostupan")
+            logger.debug("SupplierProfilingService nije dostupan")
         except Exception as e:
-            print(f"⚠️ Greška pri istorijskoj analizi: {e}")
+            logger.warning("Greška pri istorijskoj analizi: %s", e)
         
         return items
     
@@ -508,77 +511,6 @@ class DeclarationValidatorService:
                 ))
 
         return items
-    
-    def _validate_contextual(
-        self,
-        zaglavlje_data: Dict[str, Any],
-        naimenovanja_data: List[Dict[str, Any]],
-        invoice_lines: List[Dict[str, Any]]
-    ) -> List[ValidationItem]:
-        """Kontekstualne provjere — zadržan samo skeleton; inspekcija se dodaje zasebno."""
-        return []
-    
-    def _analyze_product_categories(
-        self,
-        naimenovanja_data: List[Dict[str, Any]]
-    ) -> Dict[str, int]:
-        """Analiziraj kategorije proizvoda u naimenovanjima."""
-        categories = {}
-        
-        for item in naimenovanja_data:
-            product_name = item.get('goods_trade_name', '')
-            if product_name:
-                category = self._detect_product_category(product_name)
-                categories[category] = categories.get(category, 0) + 1
-        
-        return categories
-    
-    def _detect_product_category(self, product_name: str) -> str:
-        """Detektuj kategoriju proizvoda."""
-        product_lower = product_name.lower()
-        
-        if any(word in product_lower for word in ['alat', 'šraf', 'čekić', 'ključ']):
-            return "ručni alati"
-        elif any(word in product_lower for word in ['elektron', 'baterij', 'kabl', 'priključ']):
-            return "elektronika"
-        elif any(word in product_lower for word in ['keram', 'ploč', 'cigl', 'cigla']):
-            return "keramički proizvodi"
-        elif any(word in product_lower for word in ['tekstil', 'pamuk', 'pamuk', 'tkanin']):
-            return "tekstil"
-        elif any(word in product_lower for word in ['hrana', 'piće', 'vino', 'brašno']):
-            return "hrana i pića"
-        
-        return "ostalo"
-    
-    def _detect_supplier_category(self, supplier_name: str) -> str:
-        """Detektuj uobičajenu kategoriju dobavljača."""
-        supplier_lower = supplier_name.lower()
-        
-        if any(word in supplier_lower for word in ['alat', 'tools', 'tool', 'alati']):
-            return "ručni alati"
-        elif any(word in supplier_lower for word in ['elektron', 'electronic', 'elektro']):
-            return "elektronika"
-        elif any(word in supplier_lower for word in ['keram', 'ceram', 'ploč', 'cigla']):
-            return "keramički proizvodi"
-        elif any(word in supplier_lower for word in ['tekstil', 'textil', 'pamuk', 'tkanin']):
-            return "tekstil"
-        elif any(word in supplier_lower for word in ['hrana', 'food', 'piće', 'drink']):
-            return "hrana i pića"
-        
-        return ""
-    
-    def _check_origin_statement(self, invoice_lines: List[Dict[str, Any]]) -> bool:
-        """Provjeri da li faktura sadrži izjavu o poreklu."""
-        # Ovo je pojednostavljena provjera
-        # U stvarnoj implementaciji bi se koristio OriginStatementDetector
-        for line in invoice_lines:
-            text = str(line).lower()
-            if any(phrase in text for phrase in [
-                'origin', 'porijeklo', 'poreklo', 'country of origin',
-                'made in', 'proizvedeno u', 'izjava o poreklu'
-            ]):
-                return True
-        return False
     
     def _calculate_similarity(self, text1: str, text2: str) -> float:
         """Izračunaj sličnost između dva teksta."""
@@ -667,7 +599,7 @@ class DeclarationValidatorService:
 
             return False
         except Exception as e:
-            print(f"⚠️ Greška pri provjeri tarife {tariff_code}: {e}")
+            logger.warning("Greška pri provjeri tarife %s: %s", tariff_code, e)
             return True  # U slučaju greške ne blokiramo
 
     # Mapiranje tipa inspekcije na šifru dokumenta u priloženim dokumentima zaglavlja
@@ -756,14 +688,14 @@ class DeclarationValidatorService:
                 ))
 
         except Exception as e:
-            print(f"⚠️ Greška pri provjeri inspekcijskih dokumenata: {e}")
+            logger.warning("Greška pri provjeri inspekcijskih dokumenata: %s", e)
 
         return items
 
     def clear_cache(self):
         """Očisti cache."""
         self.supplier_cache.clear()
-        print("🧹 Agent validation cache cleared")
+        logger.debug("Agent validation cache cleared")
 
 
 # Helper funkcija za integraciju
@@ -792,113 +724,6 @@ def validate_declaration_with_agent(
         invoice_lines=invoice_lines,
         draft=draft
     )
-
-
-# Test funkcija
-def test_agent_validation():
-    """Testiraj agent validation servis."""
-    print("🧪 Testiranje DeclarationValidatorService...")
-    
-    service = DeclarationValidatorService()
-    
-    # Test podaci
-    zaglavlje_data = {
-        'izvoznik_r1': 'MASTER TOOLS',
-        'primalac_r1': 'COMPANY DOO',
-        'deklarant_r1': 'DECLARANT DOO',
-        'transport_id': 'BG-123-AB',
-        'aktivno_transport': 'SRB-456-CD',
-        'vid_25': '1',
-        'uslovi_kod': 'CIF',
-        'uslovi_mjesto': 'BEOGRAD',
-        'valuta': 'EUR',
-        'iznos': '18500.00',
-    }
-    
-    naimenovanja_data = [
-        {
-            'tariff_code': '82052000',
-            'goods_trade_name': 'Šrafciger profesionalni',
-            'origin_country_code': 'DE',
-            'preference_code': 'EUP',
-            'gross_mass_kg': 5.0,
-            'net_mass_kg': 4.5,
-            'item_value': 1500.00
-        },
-        {
-            'tariff_code': '85061000',
-            'goods_trade_name': 'Baterija za alat',
-            'origin_country_code': 'CN',
-            'preference_code': '',
-            'gross_mass_kg': 2.0,
-            'net_mass_kg': 1.8,
-            'item_value': 250.00
-        },
-        {
-            'tariff_code': '82052000',  # Duplikat - može se grupisati
-            'goods_trade_name': 'Čekić',
-            'origin_country_code': 'DE',
-            'preference_code': 'EUP',
-            'gross_mass_kg': 3.0,
-            'net_mass_kg': 2.8,
-            'item_value': 800.00
-        }
-    ]
-    
-    invoice_lines = [
-        {'naziv_robe': 'Šrafciger profesionalni', 'iznos': 1500.00, 'valuta': 'EUR'},
-        {'naziv_robe': 'Baterija za alat', 'iznos': 250.00, 'valuta': 'EUR'},
-        {'naziv_robe': 'Čekić', 'iznos': 800.00, 'valuta': 'EUR'},
-    ]
-    
-    # Pokreni validaciju
-    report = service.validate_complete_declaration(
-        zaglavlje_data=zaglavlje_data,
-        naimenovanja_data=naimenovanja_data,
-        invoice_lines=invoice_lines
-    )
-    
-    # Prikaži rezultate
-    print(f"\n📊 REZULTAT VALIDACIJE:")
-    print(f"   Valid: {report.valid}")
-    print(f"   Greške: {report.error_count}")
-    print(f"   Upozorenja: {report.warning_count}")
-    print(f"   Informacije: {report.info_count}")
-    print(f"   Preporuke: {report.suggestion_count}")
-    print(f"   Sažetak: {report.summary}")
-    
-    # Prikaži preporuke
-    if report.recommendations:
-        print(f"\n🎯 PREPORUKE:")
-        for i, rec in enumerate(report.recommendations, 1):
-            print(f"   {i}. {rec}")
-    
-    # Prikaži po kategorijama
-    print(f"\n📋 ZAGLAVLJE ({len(report.zaglavlje_items)} stavki):")
-    for item in report.zaglavlje_items[:3]:  # Prve 3
-        print(f"   {item.severity.value.upper()}: {item.message}")
-    
-    print(f"\n📦 NAIMENOVANJA ({len(report.naimenovanja_items)} stavki):")
-    for item in report.naimenovanja_items[:3]:
-        print(f"   {item.severity.value.upper()}: {item.message}")
-    
-    print(f"\n📊 ISTORIJSKA ANALIZA ({len(report.historical_items)} stavki):")
-    for item in report.historical_items[:3]:
-        print(f"   {item.severity.value.upper()}: {item.message}")
-    
-    print(f"\n⚖️  PRAVNE PROVJERE ({len(report.legal_items)} stavki):")
-    for item in report.legal_items[:3]:
-        print(f"   {item.severity.value.upper()}: {item.message}")
-    
-    print(f"\n🔍 KONTEKSTUALNE PROVJERE ({len(report.contextual_items)} stavki):")
-    for item in report.contextual_items[:3]:
-        print(f"   {item.severity.value.upper()}: {item.message}")
-    
-    print("\n✅ Agent validation testiran!")
-
-
-if __name__ == "__main__":
-    test_agent_validation()
 
 
 # ---------------------------------------------------------------------------

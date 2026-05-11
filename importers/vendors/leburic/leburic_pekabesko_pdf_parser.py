@@ -45,6 +45,26 @@ _LEADING_TRASH = re.compile(r"^[^0-9]+")
 # Znakovi koji se na kraju OCR teksta pojavljuju kao artefakti
 _TRAILING_TRASH = re.compile(r"[^0-9.,]+$")
 
+# Predkompajlirani OCR fix-evi za nazive proizvoda na Leburic/Pekabesko fakturama
+_PRODUCT_NAME_FIXES: list[tuple[re.Pattern, str]] = [
+    (re.compile(r"(?i)\bPilecaPicasunka\b"), "Pileca Picasunka"),
+    (re.compile(r"(?i)\bPilecaekstra\b"), "Pileca ekstra"),
+    (re.compile(r"(?i)\bPilecavirsla\b"), "Pileca virsla"),
+    (re.compile(r"(?i)\bkolbaspiknik\b"), "kolbas piknik"),
+    (re.compile(r"(?i)\bslajsMAP\b"), "slajs MAP"),
+    (re.compile(r"(?i)\bumrezavakum\b"), "u mreza vakum"),
+    (re.compile(r"(?i)\buomotacu\b"), "u omotacu"),
+    (re.compile(r"(?i)\bpremiumkobasica\b"), "premium kobasica"),
+    (re.compile(r"(?i)\bDimjenapecenica\b"), "Dimljena pecenica"),
+    (re.compile(r"(?i)\bDimjenaplecka\b"), "Dimljena plecka"),
+    (re.compile(r"(?i)\bCajnikolbasrefus\b"), "Cajni kolbas refus"),
+    (re.compile(r"(?i)\bCaen\b"), "Cajni"),
+    (re.compile(r"(?i)\bGoldpilecefile\b"), "Gold pilece file"),
+    (re.compile(r"(?i)\bGoldsunka\b"), "Gold sunka"),
+    (re.compile(r"(?i)\bslajs100g\b"), "slajs 100 g"),
+    (re.compile(r"(?i)\bkolbas295grvakum\b"), "kolbas 295 gr vakum"),
+]
+
 # Zamjene OCR grešaka u tarifnim brojevima (unutar stringa)
 _TARIFF_OCR = str.maketrans({
     "r": "1", "l": "1", "I": "1", "i": "1",
@@ -865,29 +885,25 @@ def _detect_origin_statements_robust(full_text: str) -> list:
     try:
         from services.tariff.origin_statement_detector import OriginStatementDetector
         detector = OriginStatementDetector()
+
         matches = detector.detect_all_in_text(full_text)
         if matches:
             return matches
-    except Exception:
-        pass
 
-    normalized = full_text
-    replacements = {
-        "Theexporter": "The exporter",
-        "ofthe": "of the",
-        "bythis": "by this",
-        "customsauthorization": "customs authorization",
-        "exceptwhere": "except where",
-        "indicated,these": "indicated, these",
-        "Macedonianpreferential": "Macedonian preferential",
-        "appliedwithEU": "applied with EU",
-    }
-    for src, dst in replacements.items():
-        normalized = normalized.replace(src, dst)
+        replacements = {
+            "Theexporter": "The exporter",
+            "ofthe": "of the",
+            "bythis": "by this",
+            "customsauthorization": "customs authorization",
+            "exceptwhere": "except where",
+            "indicated,these": "indicated, these",
+            "Macedonianpreferential": "Macedonian preferential",
+            "appliedwithEU": "applied with EU",
+        }
+        normalized = full_text
+        for src, dst in replacements.items():
+            normalized = normalized.replace(src, dst)
 
-    try:
-        from services.tariff.origin_statement_detector import OriginStatementDetector
-        detector = OriginStatementDetector()
         matches = detector.detect_all_in_text(normalized)
         if matches:
             return matches
@@ -997,27 +1013,8 @@ def _normalize_product_name(name: str) -> str:
     s = re.sub(r"[|=]+", " ", name)
     s = re.sub(r"\s+", " ", s).strip()
 
-    # Najčešći OCR spojevi na Leburic/Pekabesko fakturama
-    fixes = [
-        (r"(?i)\bPilecaPicasunka\b", "Pileca Picasunka"),
-        (r"(?i)\bPilecaekstra\b", "Pileca ekstra"),
-        (r"(?i)\bPilecavirsla\b", "Pileca virsla"),
-        (r"(?i)\bkolbaspiknik\b", "kolbas piknik"),
-        (r"(?i)\bslajsMAP\b", "slajs MAP"),
-        (r"(?i)\bumrezavakum\b", "u mreza vakum"),
-        (r"(?i)\buomotacu\b", "u omotacu"),
-        (r"(?i)\bpremiumkobasica\b", "premium kobasica"),
-        (r"(?i)\bDimjenapecenica\b", "Dimljena pecenica"),
-        (r"(?i)\bDimjenaplecka\b", "Dimljena plecka"),
-        (r"(?i)\bCajnikolbasrefus\b", "Cajni kolbas refus"),
-        (r"(?i)\bCaen\b", "Cajni"),
-        (r"(?i)\bGoldpilecefile\b", "Gold pilece file"),
-        (r"(?i)\bGoldsunka\b", "Gold sunka"),
-        (r"(?i)\bslajs100g\b", "slajs 100 g"),
-        (r"(?i)\bkolbas295grvakum\b", "kolbas 295 gr vakum"),
-    ]
-    for pattern, repl in fixes:
-        s = re.sub(pattern, repl, s)
+    for pattern, repl in _PRODUCT_NAME_FIXES:
+        s = pattern.sub(repl, s)
 
     # Generic cleanup: spojevi slova+brojeva+jedinica
     s = re.sub(r"(?i)([A-Za-zšđčćžŠĐČĆŽ])(\d{2,4}gr)\b", r"\1 \2", s)
@@ -1105,7 +1102,8 @@ def _load_excel_data(pdf_path: str, pdf_invoice_number: str = "") -> dict[str, d
                 if data and (invoice_match or len(all_xlsx) == 1):
                     logger.info(f"  📋 Excel podaci: {xlsx.name} ({len(data)//2} stavki, match={invoice_match})")
                     return data
-            except Exception:
+            except Exception as _xe:
+                logger.debug("Preskočen xlsx %s: %s", xlsx.name, _xe)
                 continue
     except Exception as e:
         logger.debug(f"Greška pri učitavanju Excel-a: {e}")
@@ -1209,7 +1207,8 @@ def _load_excel_lines_for_pdf(
                 if lines and invoice_match:
                     logger.info(f"  📋 Excel fallback source: {xlsx.name} ({len(lines)} stavki)")
                     return lines
-            except Exception:
+            except Exception as _xe:
+                logger.debug("Preskočen xlsx fallback %s: %s", xlsx.name, _xe)
                 continue
     except Exception:
         logger.debug("Greška pri učitavanju Excel fallback stavki", exc_info=True)

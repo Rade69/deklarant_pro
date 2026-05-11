@@ -12,9 +12,12 @@ Odgovoran za:
 OVAJ FAJL NE MIJENJA GUI - samo business logic extraction.
 """
 
+import logging
 from typing import Dict, Any, List, Optional
 from database.db import get_db_connection
 from psycopg2 import sql
+
+logger = logging.getLogger("deklarant_pro.services.sifarnici")
 
 
 class SifarniciService:
@@ -206,20 +209,6 @@ class SifarniciService:
     # PRIVATE HELPERS
     # ============================================================
     
-    def _log_error(self, operation: str, error: Exception):
-        """Logging helper za error-e."""
-        import logging
-        logger = logging.getLogger("deklarant_pro.services.sifarnici")
-        self.last_error = str(error)
-        logger.error(f"❌ {operation}: {error}")
-    
-    def _log_operation(self, operation: str, success: bool, count: int = 0):
-        """Logging helper za operacije."""
-        import logging
-        logger = logging.getLogger("deklarant_pro.services.sifarnici")
-        status = "✅" if success else "❌"
-        logger.info(f"{status} {operation}: {count} records")
-
     def _ensure_deklaranti_schema(self, cur) -> None:
         """Osiguraj Rub.14 kolone za postojeće catalogs.deklaranti tabele."""
         cur.execute("CREATE SCHEMA IF NOT EXISTS catalogs")
@@ -676,8 +665,6 @@ class SifarniciService:
 
     def _log_error(self, operation: str, error: Exception):
         """Logovanje grešaka."""
-        import logging
-        logger = logging.getLogger("deklarant_pro.services.sifarnici")
         self.last_error = str(error)
         logger.error(f"Greška u {operation}: {error}")
 
@@ -1211,6 +1198,7 @@ class SifarniciService:
                     return row["count"] if row else 0
         except Exception as e:
             self._log_error("count_carinske_ispostave", e)
+            return 0
 
     # ============================================================
     # SECTION: inspection-rules-pg-service
