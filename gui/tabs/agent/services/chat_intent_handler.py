@@ -762,17 +762,9 @@ def _handle_message_regex_fallback(ctrl, message: str) -> None:
                                     'nedostaje', 'prazn', 'nepopunjene']):
             _provjeri_naimenovanja(ctrl)
             return
-        _REDNI_NAIM = {
-            'prvi': 1, 'prvog': 1, 'prvo': 1, 'prva': 1,
-            'drugi': 2, 'drugog': 2, 'drugo': 2, 'druga': 2,
-            'treći': 3, 'trećeg': 3, 'treće': 3, 'treca': 3, 'treceg': 3,
-            'četvrti': 4, 'cetvrti': 4, 'četvrtog': 4,
-            'peti': 5, 'petog': 5, 'šesti': 6, 'sedmi': 7,
-            'osmi': 8, 'deveti': 9, 'deseti': 10,
-        }
         _naim_indices = [int(m) for m in re.findall(r'\b(\d+)\b', msg)
                          if 1 <= int(m) <= len(getattr(ctrl.draft, 'items', [])) + 5]
-        _naim_ordinal = [_REDNI_NAIM.get(w) for w in msg.split() if w in _REDNI_NAIM]
+        _naim_ordinal = [_REDNI.get(w) for w in msg.split() if w in _REDNI]
         combined_indices = list(dict.fromkeys(_naim_indices + [x for x in _naim_ordinal if x]))
         if combined_indices:
             _pregledaj_naimenovanja(ctrl, combined_indices)
@@ -1153,10 +1145,10 @@ def _prikaz_tarifnih_trenutnih(ctrl) -> None:
     chat = ctrl.view.get_chat_panel()
     lines = getattr(ctrl.draft, 'invoice_lines', []) if ctrl.draft else []
     if not lines:
-        chat.add_agent_message("Nema ucitanih stavki — ucitaj fakturu prvo.")
+        chat.add_agent_message("Nema učitanih stavki — učitaj fakturu prvo.")
         return
 
-    chat.add_activity(f"Pretrazujem istoriju za {len(lines)} stavki...")
+    chat.add_activity(f"Pretražujem istoriju za {len(lines)} stavki...")
 
     try:
         from services.agent.validation.historical_tariff_search_service import (
@@ -1354,8 +1346,8 @@ def _pretrazi_porijeklo(ctrl, upit: str) -> None:
         if mcp_result.get("found") and mcp_result.get("origins"):
             _display_origin_from_mcp(ctrl, chat, upit, mcp_result)
             return
-    except Exception:
-        pass  # Silent fallback to local index
+    except Exception as e:
+        logger.debug("[MCP] find_product_origin neuspješno: %s", e)
 
     # ── Lokalni SQLite indeks (fallback) ──────────────────────────────────
     try:

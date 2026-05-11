@@ -103,65 +103,6 @@ class ZaglavljeService:
             self.logger.error(f"Greška pri čuvanju zaglavlja: {e}")
             raise
     
-    def load_zaglavlje(self, broj_deklaracije: str) -> Optional[Dict[str, Any]]:
-        """
-        Učitaj zaglavlje iz baze.
-        
-        Args:
-            broj_deklaracije: Broj deklaracije za učitavanje
-        
-        Returns:
-            Dictionary sa podacima ili None ako ne postoji
-        """
-        try:
-            with get_db_connection() as conn:
-                with conn.cursor() as cur:
-                    cur.execute("""
-                        SELECT * FROM zaglavlje
-                        WHERE broj_deklaracije = %s
-                        LIMIT 1
-                    """, (broj_deklaracije,))
-                    
-                    row = cur.fetchone()
-                    if row:
-                        return dict(row)
-                    return None
-                    
-        except Exception as e:
-            self.logger.error(f"Greška pri učitavanju zaglavlja: {e}")
-            return None
-    
-    def delete_zaglavlje(self, broj_deklaracije: str) -> bool:
-        """
-        Obriši zaglavlje iz baze.
-        
-        Args:
-            broj_deklaracije: Broj deklaracije za brisanje
-        
-        Returns:
-            True ako je uspješno, False ako ne postoji
-        """
-        try:
-            with get_db_connection() as conn:
-                with conn.cursor() as cur:
-                    cur.execute("""
-                        DELETE FROM zaglavlje
-                        WHERE broj_deklaracije = %s
-                    """, (broj_deklaracije,))
-                    
-                    deleted = cur.rowcount > 0
-                    
-                    if deleted:
-                        self.logger.info(f"Zaglavlje obrisano: {broj_deklaracije}")
-                    else:
-                        self.logger.warning(f"Zaglavlje ne postoji: {broj_deklaracije}")
-                    
-                    return deleted
-                    
-        except Exception as e:
-            self.logger.error(f"Greška pri brisanju zaglavlja: {e}")
-            return False
-    
     def load_from_xml(self, filepath: str, format_type: str = "world") -> Dict[str, Any]:
         """
         Učitaj zaglavlje iz XML fajla.
@@ -343,28 +284,6 @@ class ZaglavljeService:
         except Exception as e:
             self.logger.error(f"Greška pri učitavanju vrsta deklaracija: {e}")
             return {}
-    
-    def get_tipovi_deklaracija(self) -> List[tuple[str, str]]:
-        """
-        Dohvati tipove deklaracija iz baze.
-        
-        Returns:
-            Lista [(sifra, opis), ...]
-        """
-        try:
-            with get_db_connection() as conn:
-                with conn.cursor() as cur:
-                    cur.execute("""
-                        SELECT sifra, opis
-                        FROM catalogs.tipovi_deklaracija
-                        ORDER BY sifra
-                    """)
-                    
-                    return [(row['sifra'], row['opis']) for row in cur.fetchall()]
-                    
-        except Exception as e:
-            self.logger.error(f"Greška pri učitavanju tipova deklaracija: {e}")
-            return []
     
     def get_vid_unutra(self) -> List[tuple[str, str]]:
         """
@@ -1350,8 +1269,6 @@ class ZaglavljeService:
                     previous_document = _txt(prev_el, "Previous_category")    # X/Y/Z
                     previous_document2 = _txt(prev_el, "Previous_type")       # N821 itd.
                     previous_document3 = _txt(prev_el, "Summary_declaration") # broj
-                free_text1 = _txt(item_el, "Free_text_1")
-                free_text2 = _txt(item_el, "Free_text_2")
             else:
                 tariff_code = ""
                 tariff_suffix = ""
