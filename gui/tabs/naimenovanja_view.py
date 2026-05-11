@@ -109,6 +109,11 @@ class NaimenovanjaView(BaseTabView):
     - Layout form-a
     """
 
+    _FLOAT_FIELDS = frozenset({
+        "gross_mass_kg", "net_mass_kg", "item_value",
+        "statistical_value", "supplementary_unit_qty",
+    })
+
     # data_changed naslijeđen iz BaseTabView
     import_xml_requested = Signal(str)
     suggest_tariff_requested = Signal()
@@ -148,9 +153,6 @@ class NaimenovanjaView(BaseTabView):
 
         # Initialize widget cache AFTER loading UI
         self._init_widget_cache()
-
-        # 2. Hide old controls from .ui (keep only rubrike 31-46 form)
-        self._hide_old_ui_controls()
 
         # 2.5 Setup package dropdown (replace QLineEdit with QComboBox)
         self._setup_package_dropdown()
@@ -550,19 +552,6 @@ class NaimenovanjaView(BaseTabView):
             text_edit.clear()
             cleared += 1
 
-    def _hide_old_ui_controls(self) -> None:
-        """
-        No old controls to delete - they were already removed from .ui file!
-
-        The .ui file now contains ONLY:
-        - main_grid_frame with rubrike 31-46 input fields
-        - All old navigation buttons/labels/checkboxes were deleted from XML
-        """
-        if not hasattr(self, "ui"):
-            return
-
-        logger.info(f"  ✅ UI file is clean (no old controls to delete)")
-
     def _setup_package_dropdown(self) -> None:
         """
         Replace le_r31_vrsta QLineEdit with QComboBox for package type selection.
@@ -687,36 +676,6 @@ class NaimenovanjaView(BaseTabView):
                 if not self.is_loading and self.draft.items:
                     item = self.draft.items[self.current_item_index]
                     item.package_name = naziv
-
-    def _on_package_selection_changed(self, index: int) -> None:
-        """
-        Handle package selection from dropdown - ensure only code is displayed.
-        """
-        if self.is_loading:
-            return
-
-        # Get the selected code from the combo box data
-        code = self.combo_vrsta_pakovanja.currentData()
-        if code:
-            # Set only the code in the edit field
-            self.combo_vrsta_pakovanja.setEditText(str(code))
-            # Update the associated name field
-            self._update_package_naziv(str(code))
-
-    def _on_package_manual_entry(self) -> None:
-        """
-        Handle manual package entry - ensure only code is displayed.
-        """
-        if self.is_loading:
-            return
-
-        text = self.combo_vrsta_pakovanja.currentText()
-        # Parse "PK - Description" → "PK" format if entered that way
-        code = text.split(" - ")[0].strip() if " - " in text else text.strip()
-        # Set only the code in the edit field
-        self.combo_vrsta_pakovanja.setEditText(code)
-        # Update the associated name field
-        self._update_package_naziv(code)
 
     def _update_package_naziv(self, code: str) -> None:
         """
@@ -2126,13 +2085,7 @@ class NaimenovanjaView(BaseTabView):
                         else:
                             widget.setText("")
                     # Format float fields to 2 decimal places
-                    elif field_name in [
-                        "gross_mass_kg",
-                        "net_mass_kg",
-                        "item_value",
-                        "statistical_value",
-                        "supplementary_unit_qty",
-                    ]:
+                    elif field_name in self._FLOAT_FIELDS:
                         # Format as float with 2 decimals, but only if value is not empty/zero
                         if value and float(value) != 0:
                             widget.setText(f"{float(value):.2f}")
@@ -2269,13 +2222,7 @@ class NaimenovanjaView(BaseTabView):
                         value = int(float(value)) if value else 0
                     except ValueError:
                         value = 0
-                elif field_name in [
-                    "gross_mass_kg",
-                    "net_mass_kg",
-                    "item_value",
-                    "statistical_value",
-                    "supplementary_unit_qty",
-                ]:
+                elif field_name in self._FLOAT_FIELDS:
                     try:
                         value = float(value) if value else 0.0
                     except ValueError:
@@ -2442,21 +2389,17 @@ class NaimenovanjaView(BaseTabView):
         if not hasattr(self, "lbl_status_total"):
             return
 
-        # Ukupna cijena
-        total = sum(item.item_value or 0 for item in self.draft.items)
+        total = total_qty = bruto = netto = 0.0
+        for item in self.draft.items:
+            total += item.item_value or 0
+            total_qty += item.package_qty or 0
+            bruto += item.gross_mass_kg or 0
+            netto += item.net_mass_kg or 0
         currency = self.draft.items[0].currency if self.draft.items else "EUR"
+
         self.lbl_status_total.setText(f"💰 Ukupno: {total:,.2f} {currency}")
-
-        # Ukupan broj komada (suma količina svih naimenovanja)
-        total_qty = sum(item.package_qty or 0 for item in self.draft.items)
         self.lbl_status_items.setText(f"📦 Broj komada: {total_qty:,.0f}")
-
-        # Ukupna bruto masa
-        bruto = sum(item.gross_mass_kg or 0 for item in self.draft.items)
         self.lbl_status_bruto.setText(f"⚖️ Bruto: {bruto:.2f} kg")
-
-        # Ukupna neto masa
-        netto = sum(item.net_mass_kg or 0 for item in self.draft.items)
         self.lbl_status_netto.setText(f"📊 Netto: {netto:.2f} kg")
 
         # Validacija statusa
@@ -2952,20 +2895,14 @@ class NaimenovanjaView(BaseTabView):
         
         Automatski dodaje OST u header_attached_documents — vidi docs/sections/ost-rb40.md
         """
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.debug(f"🔍 DIAG: _on_rubrika40_3_finished POZVAN, is_loading={self.is_loading}")
-
         if self.is_loading:
             return
 
         le_rubrika40_3 = self._get_widget("le_rubrika40_3")
         if not le_rubrika40_3:
-            logger.debug(f"🔍 DIAG: le_rubrika40_3 widget nije pronađen!")
             return
 
         text = le_rubrika40_3.text().strip()
-        logger.debug(f"🔍 DIAG: text='{text}', draft.header_attached_documents postoji? {hasattr(self.draft, 'header_attached_documents')}")
 
         # 1. Sacuvaj trenutni item
         self._save_current_item()
@@ -2976,17 +2913,13 @@ class NaimenovanjaView(BaseTabView):
                 if i != self.current_item_index:
                     item.previous_document3 = text
 
-        # 3. Azuriraj OST (ostali prateći dokument) u header_attached_documents
-        #    da bi se prikazao u zaglavlju u tabeli priloženih dokumenata
+        # 3. Azuriraj OST u header_attached_documents
         if text:
             header_docs = getattr(self.draft, "header_attached_documents", None)
-            logger.debug(f"🔍 DIAG: header_docs={header_docs}")
             if header_docs is not None:
                 ost = next((d for d in header_docs if d.code == "OST"), None)
-                logger.debug(f"🔍 DIAG: postojeci OST={ost}")
                 if ost:
                     ost.number = text
-                    logger.debug(f"🔍 DIAG: OST azuriran: number={text}")
                 else:
                     from core.draft.draft import AttachedDocument
                     header_docs.append(AttachedDocument(
@@ -2995,14 +2928,7 @@ class NaimenovanjaView(BaseTabView):
                         number=text,
                         from_rule=False,
                     ))
-                    logger.debug(f"🔍 DIAG: OST DODAT: code=OST, number={text}")
-                # Obavijesti zaglavlje da se podaci promijenili
-                logger.debug(f"🔍 DIAG: pozivam draft.mark_dirty()")
                 self.draft.mark_dirty()
-            else:
-                logger.debug(f"🔍 DIAG: header_docs je None!")
-        else:
-            logger.debug(f"🔍 DIAG: text je prazan, preskacem OST")
 
         # 4. Azuriraj summary i validaciju
         self._update_summary()
@@ -3281,15 +3207,11 @@ class NaimenovanjaView(BaseTabView):
             self._show_tariff_suggestion_dialog(valid_mappings, current_item)
 
         except Exception as e:
-            import traceback
-
-            traceback.print_exc()
-
+            logger.exception("Greška pri traženju prijedloga tarife")
             QMessageBox.critical(
                 self,
                 "Greška",
-                f"❌ Greška pri traženju prijedloga:\n\n{str(e)}\n\n"
-                "Provjerite konzolu za detalje.",
+                f"❌ Greška pri traženju prijedloga:\n\n{str(e)}",
             )
 
     def _validate_mappings(
@@ -3357,18 +3279,8 @@ class NaimenovanjaView(BaseTabView):
         Args:
             result: Dictionary sa {tarifni_broj, povlastica, zemlja_porijekla, similarity, usage_count}
         """
-        logger.debug(f"\n{'=' * 70}")
-        logger.debug(f"🎯 _on_tariff_suggestion_accepted() POZVANA!")
-        logger.debug(f"   Result: {result}")
-        logger.debug(f"{'=' * 70}")
-
         current_item = self.draft.items[self.current_item_index]
-
-        logger.info(f"\n✅ Prijedlog prihvaćen:")
-        logger.debug(f"   Tarifni broj: {result.get('tarifni_broj')}")
-        logger.debug(f"   Povlastica: {result.get('povlastica')}")
-        logger.debug(f"   Zemlja: {result.get('zemlja_porijekla')}")
-        logger.debug(f"   Similarity: {result.get('similarity'):.0%}")
+        logger.info("✅ Prijedlog prihvaćen: %s (%.0f%%)", result.get('tarifni_broj'), (result.get('similarity') or 0) * 100)
 
         # Track original value za Edge Case 7 (ručna izmjena nakon prihvatanja)
         self._auto_filled_tariff = result.get("tarifni_broj")
@@ -3516,12 +3428,8 @@ class NaimenovanjaView(BaseTabView):
 
         self._load_current_item()
         self._update_all_ui()
-        if hasattr(self, "ui") and self.ui:
-            self.ui.update()
-            self.ui.repaint()
         self.update()
-        self.repaint()
-        logger.info(f"  ✅ Naimenovanja Tab reloaded: {len(self.draft.items)} items")
+        logger.info("  ✅ Naimenovanja Tab reloaded: %d items", len(self.draft.items))
 
     def eventFilter(self, obj, event):
         """Intercept Enter na le_rubrika33 — okida _on_tariff_enter."""
