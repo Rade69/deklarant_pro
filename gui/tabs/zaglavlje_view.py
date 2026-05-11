@@ -16,6 +16,10 @@ GUI je identičan originalu (zaglavlje_tab_original.py):
 """
 
 import sys
+import logging
+from datetime import date
+
+logger = logging.getLogger(__name__)
 from database.db import get_db_connection
 from gui.tabs.base_view import BaseTabView
 
@@ -34,6 +38,7 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
     QMessageBox,
     QFileDialog,
+    QMenu,
     QSizePolicy,
     QScrollArea,
     QCompleter,
@@ -137,8 +142,6 @@ def _load_ured_odredista_from_db() -> tuple[str, str]:
 
 
 def _load_isprave_from_db() -> dict:
-    from database.db import get_db_connection
-
     try:
         with get_db_connection() as conn:
             with conn.cursor() as cur:
@@ -147,7 +150,8 @@ def _load_isprave_from_db() -> dict:
                 )
                 rows = cur.fetchall()
         return {r["sifra"]: r["opis"] for r in rows}
-    except Exception:
+    except Exception as e:
+        sys.stderr.write(f"⚠️ [ZaglavljeView] isprave DB greška: {e}\n")
         return {}
 
 
@@ -294,6 +298,8 @@ class ZaglavljeView(BaseTabView):
 
     Nema business logike.
     """
+
+    _PRESERVE_REFS = frozenset({"DIS", "N380", "OST", "PE1", "PE2", "PE3"})
 
     # ============================================================
     # SIGNALS
@@ -555,7 +561,6 @@ class ZaglavljeView(BaseTabView):
     def _auto_fill_deklarant(self):
         """Popuni polje 14. Deklarant/Zastupnik iz baze (catalogs.deklaranti)."""
         try:
-            from database.db import get_db_connection
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
                     cur.execute("""
@@ -591,8 +596,7 @@ class ZaglavljeView(BaseTabView):
                 r3.setText(grad)
 
         except Exception as e:
-            # Silent — deklarant polje nije kritično za rad
-            pass
+            logger.warning("auto_fill_deklarant: %s", e)
 
     def _create_company_group(
         self, title: str, prefix: str, with_search: bool = False, auto: bool = False
@@ -1232,7 +1236,6 @@ class ZaglavljeView(BaseTabView):
         ref_row_l.setContentsMargins(0, 0, 0, 0)
         ref_row_l.setSpacing(6)
 
-        from datetime import date
         field7_godina = QLineEdit(str(date.today().year))
         field7_godina.setFixedWidth(65)
         field7_godina.setReadOnly(True)
@@ -1332,7 +1335,6 @@ class ZaglavljeView(BaseTabView):
         field15 = QLineEdit()
         field15.setPlaceholderText("Naziv")
         field15.setMinimumWidth(160)
-        from PySide6.QtWidgets import QSizePolicy
         field15.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         col15_layout.addWidget(field15)
         self.field_widgets["drzava_izvoza_naziv"] = field15
@@ -1558,7 +1560,6 @@ class ZaglavljeView(BaseTabView):
 
             # Valuta dropdown — samo za trosak_1 (prevoz do granice)
             if i == 1:
-                from PySide6.QtWidgets import QComboBox
                 cb_valuta = _ArrowComboBox()
                 cb_valuta.addItems(["BAM", "EUR"])
                 cb_valuta.setFixedWidth(60)
@@ -1751,8 +1752,6 @@ class ZaglavljeView(BaseTabView):
 
     def eventFilter(self, obj, event):
         """Delete tipka na tabeli priloženih dokumenata briše sadržaj reda."""
-        from PySide6.QtCore import QEvent
-        from PySide6.QtGui import QKeyEvent, QKeySequence
         if obj is self.table and event.type() == QEvent.Type.KeyPress:
             if event.key() == Qt.Key.Key_Delete:
                 self._clear_selected_doc_rows()
@@ -1761,7 +1760,6 @@ class ZaglavljeView(BaseTabView):
 
     def _on_docs_table_context_menu(self, pos):
         """Desni klik na tabeli priloženih dokumenata — kontekstni meni."""
-        from PySide6.QtWidgets import QMenu
         menu = QMenu(self)
         act_clear = menu.addAction("Obriši red")
         act_clear_all = menu.addAction("Obriši sve redove")
@@ -2022,21 +2020,6 @@ class ZaglavljeView(BaseTabView):
     # HELPER METHODS
     # ============================================================
 
-    def _add_carinska_ispostava_autocomplete(self, line_edit: QLineEdit, is_sifra: bool = True):
-        """Dodaj auto-complete za carinske ispostave (placeholder za buduću implementaciju).
-        
-        Args:
-            line_edit: QLineEdit widget
-            is_sifra: True za šifre, False za nazive
-        """
-        # OVO JE PLACEHOLDER ZA BUDUĆU IMPLEMENTACIJU
-        # Kad bude potrebno, implementiraj:
-        # 1. Učitaj sve carinske ispostave iz baze
-        # 2. Ekstraktuj šifre ili nazive
-        # 3. Kreiraj QCompleter
-        # 4. Poveži sa line_edit
-        pass
-
     # ============================================================
     # DATA METHODS
     # ============================================================
@@ -2199,29 +2182,7 @@ class ZaglavljeView(BaseTabView):
 
         self.data_changed.emit()
 
-    def _clear_all_fields(self):
-        """Očisti sva polja (alias za clear_data)."""
-        self.clear_data()
-
     def clear_form(self):
         """Implementacija BaseTabView.clear_form() - delegira na clear_data()."""
         self.clear_data()
 
-    # ============================================================
-    # MESSAGE METHODS
-    # ============================================================
-
-    def show_success(self, message: str):
-        super().show_success(message)
-
-    def show_error(self, message: str):
-        super().show_error(message)
-
-    def show_warning(self, message: str):
-        super().show_warning(message)
-
-    def show_info(self, message: str):
-        super().show_info(message)
-
-    def confirm(self, message: str, title: str = "Potvrda") -> bool:
-        return super().confirm(message, title)
