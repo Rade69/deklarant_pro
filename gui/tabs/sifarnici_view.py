@@ -6,7 +6,6 @@ import traceback
 # Čisti sufiks s tarifnim stopama iz opisa (npr. "kd 0 0 0 0 0 0 0 0")
 _TAIL_RATES_RE = re.compile(r'(?:\s+\w{1,3})?(?:\s+\d+){4,}\s*$')
 from typing import Optional, Callable, Dict, Any, List, Tuple, Union
-from dataclasses import dataclass
 from datetime import datetime
 
 from PySide6.QtWidgets import (
@@ -60,28 +59,22 @@ from core.utils import FormValidator, ValidationRule, UIHelper
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class PosiljalacData:
-    """Data class za pošiljaoca"""
-
-    jib: str
-    naziv: str
-    adresa: str = ""
-    grad: str = ""
-    postanski_broj: str = ""
-    zemlja: str = ""
-    telefon: str = ""
-    email: str = ""
-    kontakt: str = ""
-    pdv: str = ""
-    maticni: str = ""
-
-
 class SifarniciView(BaseTabView):
     """
     Šifrarnici Tab - Production Version
     Tačan layout kao na slici sa 2-column detail form
     """
+
+    _CATEGORY_PLURAL = {
+        "Pošiljaoci": "pošiljalaca",
+        "Uvoznici": "uvoznika",
+        "Primaoci": "primalaca",
+        "Carinske tarife": "tarifa",
+        "Deklaranti": "deklaranata",
+        "Carinarnice": "carinarnica",
+        "Carinski postupci": "postupaka",
+        "Zemlje": "zemalja",
+    }
 
     def __init__(
         self, draft: Optional[DeclarationDraft] = None, on_dirty: Optional[Callable] = None
@@ -259,7 +252,6 @@ class SifarniciView(BaseTabView):
 
             # Tabela BEZ scroll area
             self.table = QTableWidget()
-            self.table.cellClicked.connect(self._on_table_cell_clicked)
             self.table.setSelectionBehavior(QTableWidget.SelectRows)
             self.table.setSelectionMode(QTableWidget.SingleSelection)
             self.table.setAlternatingRowColors(True)
@@ -644,28 +636,10 @@ class SifarniciView(BaseTabView):
         """Ažuriraj prikaz ukupnog broja zapisa"""
         try:
             if hasattr(self, 'lbl_totals') and self.lbl_totals:
-                # Pronađi trenutnu kategoriju za prikaz
-                category = self.current_category or "zapisa"
-                if category == "Pošiljaoci":
-                    category_text = "pošiljalaca"
-                elif category == "Uvoznici":
-                    category_text = "uvoznika"
-                elif category == "Carinske tarife":
-                    category_text = "tarifa"
-                elif category == "Deklaranti":
-                    category_text = "deklaranta"
-                elif category == "Carinarnice":
-                    category_text = "carinarnica"
-                elif category == "Carinski postupci":
-                    category_text = "postupaka"
-                elif category == "Zemlje":
-                    category_text = "zemalja"
-                else:
-                    category_text = "zapisa"
-                
+                category_text = self._CATEGORY_PLURAL.get(self.current_category, "zapisa")
                 self.lbl_totals.setText(f"Ukupno: {total} {category_text} | Prikazano: {displayed}")
             else:
-                logger.warning(f"⚠️ WARNING: lbl_totals ne postoji ili nije inicijalizovan")
+                logger.warning("⚠️ WARNING: lbl_totals ne postoji ili nije inicijalizovan")
         except Exception as e:
             logger.error(f"Greška pri ažuriranju totals: {str(e)}")
 
@@ -848,23 +822,6 @@ class SifarniciView(BaseTabView):
         try:
             logger.info("Podešavanje Pošiljalaca kategorije")
 
-            # Proveri da li je self.table QTreeWidget i vrati ga u QTableWidget ako jeste
-            if hasattr(self, "tree_widget") and self.table == self.tree_widget:
-                logger.debug("Vraćanje sa QTreeWidget na QTableWidget za Pošiljaoce")
-                # Sakrij tree widget
-                self.tree_widget.hide()
-                # Kreiraj novu tabelu ako ne postoji
-                if not hasattr(self, "_original_table"):
-                    # Sačuvaj referencu na originalnu tabelu
-                    self._original_table = self._create_table_widget()
-                # Vrati originalnu tabelu
-                self.table = self._original_table
-                self.table.show()
-                # Osveži layout
-                layout = self.table.parent().layout()
-                if layout:
-                    layout.replaceWidget(self.tree_widget, self.table)
-
             # Table columns — JIB je u koloni 0 ali skrivena (koristi se za delete/edit)
             # Pošiljaoci su strani partneri — nemaju BiH JIB, prikazujemo samo poslovne podatke
             self.table.setColumnCount(5)
@@ -935,23 +892,6 @@ class SifarniciView(BaseTabView):
         """Setup Uvoznici - INFO STRIP LAYOUT"""
         try:
             logger.info("Podešavanje Uvoznika kategorije")
-
-            # Proveri da li je self.table QTreeWidget i vrati ga u QTableWidget ako jeste
-            if hasattr(self, "tree_widget") and self.table == self.tree_widget:
-                logger.debug("Vraćanje sa QTreeWidget na QTableWidget za Uvoznike")
-                # Sakrij tree widget
-                self.tree_widget.hide()
-                # Kreiraj novu tabelu ako ne postoji
-                if not hasattr(self, "_original_table"):
-                    # Sačuvaj referencu na originalnu tabelu
-                    self._original_table = self._create_table_widget()
-                # Vrati originalnu tabelu
-                self.table = self._original_table
-                self.table.show()
-                # Osveži layout
-                layout = self.table.parent().layout()
-                if layout:
-                    layout.replaceWidget(self.tree_widget, self.table)
 
             # Table columns (BEZ ACTION kolone)
             self.table.setColumnCount(5)
@@ -2083,20 +2023,6 @@ class SifarniciView(BaseTabView):
             logger.error(f"Greška pri pretrazi zemalja: {str(e)}")
             raise
 
-    def _on_table_cell_clicked(self, row: int, col: int):
-        """Handle clicks on table cells.
-
-        NOTE: Akcije kolona je uklonjena za Pošiljaoci i Uvoznici.
-        Ova funkcija sada ne radi ništa jer nema Akcije kolone.
-        Koristite toolbar dugmad za uređivanje i brisanje.
-        """
-        try:
-            # Akcije kolona je uklonjena - ne radimo ništa pri kliku
-            # Koristite toolbar dugmad (+ Novi, ✏ Uredi, 🗑 Obriši)
-            return
-        except Exception as e:
-            logger.error(f"Greška u akcijama tabele: {e}")
-
     def _edit_row(self, row: int):
         """Handle edit action for a row"""
         try:
@@ -2306,58 +2232,18 @@ class SifarniciView(BaseTabView):
             logger.error(f"Greška pri brisanju iz baze: {str(e)}")
             raise
 
-    def _create_action_buttons(self, row: int) -> QWidget:
-        """Create edit/delete buttons za red"""
-        widget = QWidget()
-        layout = QHBoxLayout(widget)
-        layout.setContentsMargins(4, 2, 4, 2)
-        layout.setSpacing(4)
-
-        # Edit button
-        btn_edit = QToolButton()
-        btn_edit.setText("✏️")
-        btn_edit.setToolTip("Uredi")
-        btn_edit.setStyleSheet(
-            """
-            QToolButton {
-                background: #007bff;
-                color: white;
-                border: none;
-                border-radius: 3px;
-                padding: 4px 8px;
-            }
-            QToolButton:hover {
-                background: #0056b3;
-            }
-        """
-        )
-        btn_edit.clicked.connect(lambda: self._edit_row(row))
-
-        # Delete button
-        btn_delete = QToolButton()
-        btn_delete.setText("🗑️")
-        btn_delete.setToolTip("Obriši")
-        btn_delete.setStyleSheet(
-            """
-        QToolButton {
-            background: #dc3545;
-            color: white;
-            border: none;
-            border-radius: 3px;
-            padding: 4px 8px;
+    def _reload_current_category(self):
+        """Ponovo učitaj podatke za trenutnu kategoriju."""
+        reload_map = {
+            "Pošiljaoci": self._load_posiljaoci_data,
+            "Uvoznici": self._load_uvoznici_data,
+            "Deklaranti": self._load_deklaranti_data,
+            "Carinske tarife": self._load_trgovacki_nazivi_data,
+            "Carinarnice": self._load_carinarnice_data,
         }
-        QToolButton:hover {
-            background: #bd2130;
-        }
-    """
-        )
-        btn_delete.clicked.connect(lambda: self._delete_row(row))
-
-        layout.addWidget(btn_edit)
-        layout.addWidget(btn_delete)
-        layout.addStretch()
-
-        return widget
+        fn = reload_map.get(self.current_category)
+        if fn:
+            fn()
 
     def _validate_form_data(self, category_data):
         """Centralizovana validacija forme"""
@@ -2462,39 +2348,6 @@ class SifarniciView(BaseTabView):
             else:
                 # Carinarnice, Carinski postupci - read-only
                 self._filter_table(query)
-
-            # EKSTREMNO FORSIRANJE PRIKAZA TABELE
-            logger.info("=== FORSIRANJE PRIKAZA TABELE ===")
-
-            # 1. Forsiraj vidljivost
-            self.table.show()
-            self.table.setVisible(True)
-            self.table.raise_()
-            self.table.activateWindow()
-
-            # 2. Forsiraj osvežavanje na svim nivoima
-            self.table.viewport().update()
-            self.table.update()
-            self.table.repaint()
-
-            # 3. Forsiraj parent komponente
-            if self.table.parent():
-                parent = self.table.parent()
-                parent.show()
-                parent.update()
-                parent.repaint()
-                if hasattr(parent, "parent") and parent.parent():
-                    grandparent = parent.parent()
-                    grandparent.show()
-                    grandparent.update()
-                    grandparent.repaint()
-
-            # 4. Forsiraj celu formu
-            self.show()
-            self.update()
-            self.repaint()
-
-            logger.info("=== KRAJ FORSIRANJA PRIKAZA ===")
 
             self._update_status()
 
@@ -2778,33 +2631,20 @@ class SifarniciView(BaseTabView):
                 total = 0
                 visible = 0
 
-            category_plural = {
-                "Pošiljaoci": "pošiljalaca",
-                "Uvoznici": "uvoznika",
-                "Primaoci": "primalaca",
-                "Carinske tarife": "tarifa",
-                "Deklaranti": "deklaranata",
-                "Carinarnice": "carinarnica",
-                "Zemlje": "zemalja",
+            _db_counts = {
+                "Pošiljaoci": (self.service.count_izvoznici, "pošiljalaca"),
+                "Uvoznici": (self.service.count_uvoznici, "uvoznika"),
+                "Carinske tarife": (self.service.count_zvanicna_tarifa, "carinskih tarifa"),
+                "Carinarnice": (self.service.count_carinske_ispostave, "carinarnica"),
             }
 
-            if self.current_category == "Pošiljaoci":
-                total = self.service.count_izvoznici()
-                self.lbl_totals.setText(f"Ukupno: {total} pošiljalaca | Prikazano: {total}")
-            elif self.current_category == "Uvoznici":
-                total = self.service.count_uvoznici()
-                self.lbl_totals.setText(f"Ukupno: {total} uvoznika | Prikazano: {total}")
-            elif self.current_category == "Carinske tarife":
-                total = self.service.count_zvanicna_tarifa()
-                self.lbl_totals.setText(f"Ukupno: {total} carinskih tarifa | Prikazano: {total}")
-            elif self.current_category == "Carinarnice":
-                total = self.service.count_carinske_ispostave()
-                self.lbl_totals.setText(f"Ukupno: {total} carinarnica | Prikazano: {total}")
+            if self.current_category in _db_counts:
+                count_fn, label = _db_counts[self.current_category]
+                total = count_fn()
+                self.lbl_totals.setText(f"Ukupno: {total} {label} | Prikazano: {total}")
             else:
-                name = category_plural.get(self.current_category, "stavki")
-                self.lbl_totals.setText(
-                    f"Ukupno: {total} {name} | Prikazano: {visible}"
-                )
+                name = self._CATEGORY_PLURAL.get(self.current_category, "stavki")
+                self.lbl_totals.setText(f"Ukupno: {total} {name} | Prikazano: {visible}")
                 logger.debug(f"Ažuriran status: {total} {name}, prikazano: {visible}")
 
         except Exception as e:
@@ -3421,18 +3261,7 @@ class SifarniciView(BaseTabView):
                         )
                         return
 
-                    # Reload data
-                    if self.current_category == "Pošiljaoci":
-                        self._load_posiljaoci_data()
-                    elif self.current_category == "Uvoznici":
-                        self._load_uvoznici_data()
-                    elif self.current_category == "Deklaranti":
-                        self._load_deklaranti_data()
-                    elif self.current_category == "Carinske tarife":
-                        self._load_trgovacki_nazivi_data()
-                    elif self.current_category == "Carinarnice":
-                        self._load_carinarnice_data()
-
+                    self._reload_current_category()
                     QMessageBox.information(self, "Uspeh", success_message)
 
                     # Return to readonly mode after deletion
