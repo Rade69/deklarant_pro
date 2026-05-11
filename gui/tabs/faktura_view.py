@@ -99,6 +99,13 @@ class FakturaView(BaseTabView):
     # Cache za ikone i tamnjenje boja (dijele sve instance)
     _icon_cache: Dict[str, Any] = {}
     _darken_cache: Dict[str, str] = {}
+    _CONFIDENCE_COLORS = {
+        "HIGH": "#d4edda",
+        "MEDIUM": "#fff3cd",
+        "LOW": "#ffe5d0",
+        "CONFLICT": "#f8d7da",
+    }
+    _CONFIDENCE_ICONS = {"HIGH": "✅", "MEDIUM": "📋", "LOW": "⚠️", "CONFLICT": "🚨"}
 
     def __init__(self, draft: DeclarationDraft, on_dirty: Optional[Callable] = None):
         super().__init__()
@@ -824,107 +831,44 @@ class FakturaView(BaseTabView):
             self.table.viewport().update()
             self.table.blockSignals(False)
 
-    def _add_item_to_table_fast(self, row_number: int, item: InvoiceLine):
-        """FAST bulk insert - no validation, no color (called from _load_data_from_draft)."""
-        # Set data WITHOUT validation - much faster for bulk load
-        self._set_table_item(row_number, 0, str(row_number + 1), align=Qt.AlignCenter)
-        
-        # Faktura - prikaži broj fakture
-        self._set_table_item(row_number, 1, item.invoice_number or "", align=Qt.AlignCenter)
-
-        # Naimenovanje - show ordinal number if assigned
-        naimenovanje_text = (
-            str(item.assigned_naimenovanje_ordinal)
-            if item.assigned_naimenovanje_ordinal > 0
-            else ""
-        )
-        self._set_table_item(row_number, 2, naimenovanje_text, align=Qt.AlignCenter)
-
-        # Naziv robe - ukloni product_code sa početka ako postoji
+    def _populate_row_cells(self, row: int, row_number: int, item: InvoiceLine):
+        """Popuni ćelije reda tabele iz InvoiceLine objekta (bez insertRow ili validacije)."""
         naziv_display = item.naziv_robe or ""
-
         if item.product_code and naziv_display.startswith(item.product_code):
-            naziv_display = naziv_display[len(item.product_code) :].strip()
+            naziv_display = naziv_display[len(item.product_code):].strip()
         elif not item.product_code or not item.product_code.strip():
             match = self._RE_CODE_PREFIX.match(naziv_display)
             if match:
                 naziv_display = match.group(2)
 
-        self._set_table_item(row_number, 3, naziv_display)
-        self._set_table_item(
-            row_number, 4, item.tarifni_broj or "", align=Qt.AlignCenter
-        )
-        self._set_table_item(
-            row_number, 5, self._format_number(item.kolicina), align=Qt.AlignRight
-        )
-        self._set_table_item(
-            row_number, 6, self._format_number(item.iznos), align=Qt.AlignRight
-        )
-        self._set_table_item(
-            row_number, 7, self._format_number(item.bruto_kg), align=Qt.AlignRight
-        )
-        self._set_table_item(
-            row_number, 8, self._format_number(item.neto_kg), align=Qt.AlignRight
-        )
-        self._set_table_item(
-            row_number, 9, item.zemlja_porijekla or "", align=Qt.AlignCenter
-        )
-        self._set_table_item(row_number, 10, item.povlastica or "", align=Qt.AlignCenter)
-        self._set_table_item(row_number, 11, item.valuta or "", align=Qt.AlignCenter)
-
-    def _add_item_to_table(self, row_number: int, item: InvoiceLine):
-        """Add a single item to the table (with validation for single adds)."""
-        row = self.table.rowCount()
-        self.table.insertRow(row)
-
-        # Set data
-        self._set_table_item(row, 0, str(row_number + 1), align=Qt.AlignCenter)
-        # Faktura - prikaži broj fakture
-        self._set_table_item(row, 1, item.invoice_number or "", align=Qt.AlignCenter)
-        # Naimenovanje - show ordinal number if assigned
         naimenovanje_text = (
             str(item.assigned_naimenovanje_ordinal)
             if item.assigned_naimenovanje_ordinal > 0
             else ""
         )
+
+        self._set_table_item(row, 0, str(row_number + 1), align=Qt.AlignCenter)
+        self._set_table_item(row, 1, item.invoice_number or "", align=Qt.AlignCenter)
         self._set_table_item(row, 2, naimenovanje_text, align=Qt.AlignCenter)
-
-        # Naziv robe - ukloni product_code sa početka ako postoji
-        # VAŽNO: Ne mijenjamo original item.naziv_robe, samo display verziju
-        naziv_display = item.naziv_robe or ""
-
-        # SLUČAJ 1: Ako item ima product_code, ukloni ga sa početka
-        if item.product_code and naziv_display.startswith(item.product_code):
-            naziv_display = naziv_display[len(item.product_code) :].strip()
-
-        # SLUČAJ 2: Ako nema product_code ALI naziv počinje sa šifrom (npr. "301SA010 TUNEL...")
-        # Detektuj i ukloni alfanumeričku šifru sa početka (tipično 6-10 karaktera)
-        elif not item.product_code or not item.product_code.strip():
-            match = self._RE_CODE_PREFIX.match(naziv_display)
-            if match:
-                # Našli smo šifru na početku - ukloni je
-                naziv_display = match.group(2)  # Samo naziv bez šifre
-
         self._set_table_item(row, 3, naziv_display)
-
         self._set_table_item(row, 4, item.tarifni_broj or "", align=Qt.AlignCenter)
-        self._set_table_item(
-            row, 5, self._format_number(item.kolicina), align=Qt.AlignRight
-        )
-        self._set_table_item(
-            row, 6, self._format_number(item.iznos), align=Qt.AlignRight
-        )  # UKUPAN IZNOS, ne cijena po komadu!
-        self._set_table_item(
-            row, 7, self._format_number(item.bruto_kg), align=Qt.AlignRight
-        )
-        self._set_table_item(
-            row, 8, self._format_number(item.neto_kg), align=Qt.AlignRight
-        )
+        self._set_table_item(row, 5, self._format_number(item.kolicina), align=Qt.AlignRight)
+        self._set_table_item(row, 6, self._format_number(item.iznos), align=Qt.AlignRight)
+        self._set_table_item(row, 7, self._format_number(item.bruto_kg), align=Qt.AlignRight)
+        self._set_table_item(row, 8, self._format_number(item.neto_kg), align=Qt.AlignRight)
         self._set_table_item(row, 9, item.zemlja_porijekla or "", align=Qt.AlignCenter)
         self._set_table_item(row, 10, item.povlastica or "", align=Qt.AlignCenter)
         self._set_table_item(row, 11, item.valuta or "", align=Qt.AlignCenter)
 
-        # Validate and set row color
+    def _add_item_to_table_fast(self, row_number: int, item: InvoiceLine):
+        """FAST bulk insert - no validation, no color (called from _load_data_from_draft)."""
+        self._populate_row_cells(row_number, row_number, item)
+
+    def _add_item_to_table(self, row_number: int, item: InvoiceLine):
+        """Add a single item to the table (with validation for single adds)."""
+        row = self.table.rowCount()
+        self.table.insertRow(row)
+        self._populate_row_cells(row, row_number, item)
         self._validate_and_color_row(row, item)
 
     def _set_table_item(
@@ -1021,24 +965,8 @@ class FakturaView(BaseTabView):
         if not item.country_confidence:
             return  # No confidence data
         
-        # Map confidence to colors
-        confidence_colors = {
-            "HIGH": "#d4edda",        # 🟢 Light green
-            "MEDIUM": "#fff3cd",      # 🟡 Light yellow  
-            "LOW": "#ffe5d0",         # 🟠 Light orange
-            "CONFLICT": "#f8d7da",    # 🔴 Light red
-        }
-        
-        # Map confidence to icons
-        confidence_icons = {
-            "HIGH": "✅",
-            "MEDIUM": "📋",
-            "LOW": "⚠️",
-            "CONFLICT": "🚨",
-        }
-        
-        color_hex = confidence_colors.get(item.country_confidence, "#ffffff")
-        icon = confidence_icons.get(item.country_confidence, "")
+        color_hex = self._CONFIDENCE_COLORS.get(item.country_confidence, "#ffffff")
+        icon = self._CONFIDENCE_ICONS.get(item.country_confidence, "")
         
         # Build tooltip
         tooltip_parts = []
@@ -1067,8 +995,7 @@ class FakturaView(BaseTabView):
             cell_item.setData(ValidationDelegate.ValidationColorRole, color_hex)
             if item.zemlja_porijekla:
                 # Čisti kod u UserRole (čita se pri sync), emoji samo u displayu
-                from PySide6.QtCore import Qt as _Qt
-                cell_item.setData(_Qt.UserRole, item.zemlja_porijekla)
+                cell_item.setData(Qt.UserRole, item.zemlja_porijekla)
                 cell_item.setText(f"{icon} {item.zemlja_porijekla}" if icon else item.zemlja_porijekla)
             if tooltip_parts:
                 existing_tooltip = cell_item.toolTip()
@@ -1346,39 +1273,25 @@ class FakturaView(BaseTabView):
     # Button Handlers
     # ============================================================
 
+    def _on_import_files(self, title: str, file_filter: str):
+        filepaths, _ = QFileDialog.getOpenFileNames(self, title, "", file_filter)
+        if filepaths:
+            if len(filepaths) == 1:
+                self._start_import(filepaths[0])
+            else:
+                self._import_multiple_files(filepaths)
+
     def _on_import_pdf(self):
-        """Handle Import PDF button click - supports multiple files."""
-        filepaths, _ = QFileDialog.getOpenFileNames(
-            self,
+        self._on_import_files(
             "Odaberi PDF fakture (Ctrl/Shift za više fajlova)",
-            "",
             "PDF Files (*.pdf);;All Files (*)",
         )
 
-        if filepaths:
-            if len(filepaths) == 1:
-                # Single file - use existing import
-                self._start_import(filepaths[0])
-            else:
-                # Multiple files - use batch import
-                self._import_multiple_files(filepaths)
-
     def _on_import_excel(self):
-        """Handle Import Excel button click - supports multiple files."""
-        filepaths, _ = QFileDialog.getOpenFileNames(
-            self,
+        self._on_import_files(
             "Odaberi Excel fakture (Ctrl/Shift za više fajlova)",
-            "",
             "Excel Files (*.xlsx *.xls);;All Files (*)",
         )
-
-        if filepaths:
-            if len(filepaths) == 1:
-                # Single file - use existing import
-                self._start_import(filepaths[0])
-            else:
-                # Multiple files - use batch import
-                self._import_multiple_files(filepaths)
 
     def _on_import_xml(self):
         """Handle Import XML button click."""
@@ -1434,8 +1347,6 @@ class FakturaView(BaseTabView):
                             if hasattr(self.draft, key):
                                 setattr(self.draft, key, value)
                                 updated_count += 1
-                            else:
-                                pass  # Skip fields that don't exist in draft
 
                     # Reload table
                     self._load_data_from_draft()
@@ -2713,13 +2624,9 @@ class FakturaView(BaseTabView):
             # Auto-učenje: sačuvaj mappinge u bazu znanja — docs/architecture/TARIFF_FACADE_REFACTORING.md
             try:
                 from services.tariff_facade import TariffFacade
-                learned_count = TariffFacade.get_instance().learn_from_draft(
-                    self.draft.invoice_lines
-                )
-                if learned_count > 0:
-                    pass
+                TariffFacade.get_instance().learn_from_draft(self.draft.invoice_lines)
             except Exception as e:
-                pass
+                logger.warning("Auto-učenje tarifa nije uspjelo: %s", e)
 
             # Reload table to show assigned naimenovanje numbers in column
             logger.debug(f"🔍 [_on_create_naimenovanja] Pozivanje _load_data_from_draft()...")
@@ -3048,7 +2955,7 @@ class FakturaView(BaseTabView):
             logger.debug(f"   Ukupna količina: {total_qty}")
 
             if total_qty > 0:
-                for i, item in enumerate(items_without_both[:3]):  # Prikaži prvih 3
+                for i, item in enumerate(items_without_both):
                     qty = item.kolicina or 0.0
                     if qty > 0:
                         proportion = qty / total_qty
@@ -3058,36 +2965,20 @@ class FakturaView(BaseTabView):
                             item.neto_kg = round(neto_total * proportion, 3)
                         elif item.bruto_kg:
                             item.neto_kg = round(item.bruto_kg * neto_bruto_ratio, 3)
-                        # Ako imamo neto ali ne bruto (samo neto unesen u toolbar), izračunaj bruto
                         if item.neto_kg and item.neto_kg > 0 and (not item.bruto_kg or item.bruto_kg <= 0):
                             item.bruto_kg = round(item.neto_kg / neto_bruto_ratio, 3)
-                        logger.debug(f" [{i}] Količina={qty} → bruto={item.bruto_kg:.2f}, neto={item.neto_kg:.2f}")
-
-                # Procesuj ostatak bez debug ispisa
-                for item in items_without_both[3:]:
-                    qty = item.kolicina or 0.0
-                    if qty > 0:
-                        proportion = qty / total_qty
-                        if bruto_total > 0:
-                            item.bruto_kg = round(bruto_total * proportion, 3)
-                        if neto_total > 0:
-                            item.neto_kg = round(neto_total * proportion, 3)
-                        elif item.bruto_kg:
-                            item.neto_kg = round(item.bruto_kg * neto_bruto_ratio, 3)
-                        # Ako imamo neto ali ne bruto (samo neto unesen u toolbar), izračunaj bruto
-                        if item.neto_kg and item.neto_kg > 0 and (not item.bruto_kg or item.bruto_kg <= 0):
-                            item.bruto_kg = round(item.neto_kg / neto_bruto_ratio, 3)
+                        if i < 3:
+                            logger.debug(" [%d] Količina=%s → bruto=%s, neto=%s", i, qty, item.bruto_kg, item.neto_kg)
 
         # Izračun neto za stavke SA bruto ALI BEZ neto
         if items_with_partial and neto_bruto_ratio > 0:
             logger.debug(f"\n🧮 Izračunavam neto za stavke sa bruto, bez neto:")
-            for i, item in enumerate(items_with_partial[:3]):
+            for i, item in enumerate(items_with_partial):
                 old_neto = item.neto_kg
                 item.neto_kg = round(item.bruto_kg * neto_bruto_ratio, 3)
-                logger.debug(f" [{i}] bruto={item.bruto_kg:.2f} → neto={item.neto_kg:.2f} (bilo {old_neto})")
-            for item in items_with_partial[3:]:
-                item.neto_kg = round(item.bruto_kg * neto_bruto_ratio, 3)
-            logger.debug(f" Ukupno obrađeno: {len(items_with_partial)} stavki")
+                if i < 3:
+                    logger.debug(" [%d] bruto=%s → neto=%s (bilo %s)", i, item.bruto_kg, item.neto_kg, old_neto)
+            logger.debug(" Ukupno obrađeno: %d stavki", len(items_with_partial))
 
         # Izračun BRUTA za stavke SA neto ALI BEZ bruta (Leburic Excel)
         # Distribuira ukupni bruto proporcionalno po individualnom netu
@@ -3098,14 +2989,12 @@ class FakturaView(BaseTabView):
             logger.debug(f"   Ukupan bruto za distribuciju: {bruto_total:.3f} kg")
 
             if total_neto_items > 0:
-                for i, item in enumerate(items_neto_only[:3]):
+                for i, item in enumerate(items_neto_only):
                     proportion = (item.neto_kg or 0.0) / total_neto_items
                     item.bruto_kg = round(bruto_total * proportion, 3)
-                    logger.debug(f" [{i}] neto={item.neto_kg:.3f} → bruto={item.bruto_kg:.3f}")
-                for item in items_neto_only[3:]:
-                    proportion = (item.neto_kg or 0.0) / total_neto_items
-                    item.bruto_kg = round(bruto_total * proportion, 3)
-                logger.debug(f" Ukupno obrađeno: {len(items_neto_only)} stavki")
+                    if i < 3:
+                        logger.debug(" [%d] neto=%s → bruto=%s", i, item.neto_kg, item.bruto_kg)
+                logger.debug(" Ukupno obrađeno: %d stavki", len(items_neto_only))
         elif items_neto_only and bruto_total <= 0:
             logger.warning("⚠️  Leburic stavke imaju neto ali nema ukupnog bruta u toolbar polju")
             # Fallback: izračunaj bruto iz neta koristeći default odnos (0.95)
