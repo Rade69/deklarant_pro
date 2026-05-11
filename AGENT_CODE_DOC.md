@@ -180,6 +180,16 @@ DOKUMENTACIJA:
 
 ---
 
+## Pravila za # DOC: putanje
+
+- Putanja relativna na project root: `docs/decisions/001-naziv.md`
+- Nema specijalnih znakova: zabranjen em-dash (—), plus (+), razmaci
+- Fajl mora postojati u trenutku commita
+- Template za novi fajl: `.claude/DECISION_RECORD_TEMPLATE.md`
+- Hook automatski detektuje broken i stale linkove pri svakom editu
+
+---
+
 ## Jedna rečenica za pamćenje
 
 Kod pokazuje **šta** sistem radi.  

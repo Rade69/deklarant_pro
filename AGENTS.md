@@ -134,10 +134,21 @@ PITANJA: (ako postoje)
 - [ ] Testovi prolaze: `cd /home/radovan/Desktop/deklarant_pro && python -m pytest tests/ -q`
 - [ ] Output format je popunjen (STATUS, IZMIJENJENI FAJLOVI, itd.)
 
+## DOC Guard
+
+Kada hook injektuje `[DOC-GUARD]` poruku:
+
+- **BROKEN** → zaustavi se, ispravi putanju ili kreiraj MD fajl prema
+  `.claude/DECISION_RECORD_TEMPLATE.md` — ne commitaj sa broken linkom
+- **STALE** → procijeni: logička izmjena = ažuriraj MD; kozmetička = nastavi
+- Ručna provjera: `bash scripts/doc_link_checker.sh .`
+
+---
+
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **deklarant_pro** (15049 symbols, 24405 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **deklarant_pro** (15085 symbols, 22651 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

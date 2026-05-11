@@ -1,2 +1,15 @@
+# QWEN.md — Qwen Code standardi
+
+## DOC Guard
+
+Kada hook injektuje `[DOC-GUARD]` poruku:
+
+- **BROKEN** → zaustavi se, ispravi putanju ili kreiraj MD fajl prema
+  `.claude/DECISION_RECORD_TEMPLATE.md` — ne commitaj sa broken linkom
+- **STALE** → procijeni: logička izmjena = ažuriraj MD; kozmetička = nastavi
+- Ručna provjera: `bash scripts/doc_link_checker.sh .`
+
+---
+
 ## Qwen Added Memories
 - AGENT_CODE_DOC.md definiše pravila za pisanje razumljivog koda: 1) Za svaku funkcionalnu cjelinu dodaj SECTION header u kodu (SECTION, PURPOSE, DOC) i .md dokumentaciju. 2) Dokumentacija mora odgovoriti na: svrha, zavisnosti/pretpostavke, pravila/granice, zašto ovako (trade-off-i, alternative). 3) Struktura: docs/sections/ (tehničke cjeline), docs/features/ (feature-i), docs/workflows/ (procesi). 4) Strogo pravilo: promjena ponašanja = promjena dokumentacije. 5) Ne primjenjuje se za helper funkcije, kozmetičke izmjene, jednostavne bugfix-ove. 6) Suština: kod pokazuje ŠTA, dokumentacija objašnjava ZAŠTO.
