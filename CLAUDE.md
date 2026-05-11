@@ -21,14 +21,14 @@
 
 ### Protokol na početku sesije:
 
-**1. Pozovi `get_project_overview`:**
+**1. Pozovi `get_project_context`:**
 ```
-project: "deklarant_pro"
+project_id: "deklarant_pro"
 ```
 
-**2. Pozovi `query_memory` sa relevantnim query-ima:**
+**2. Pozovi `search_project_memory` sa relevantnim query-ima:**
 ```
-project: "deklarant_pro"
+project_id: "deklarant_pro"
 query: "arhitektura tabovi refactor status"
 ```
 
@@ -190,7 +190,7 @@ Kada hook injektuje `[DOC-GUARD]` poruku:
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **deklarant_pro** (15085 symbols, 22651 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **deklarant_pro** (15115 symbols, 22680 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
