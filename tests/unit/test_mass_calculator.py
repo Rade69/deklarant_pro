@@ -59,10 +59,27 @@ class TestMassCalculatorScenario1:
         assert result["updated"] == 2
         assert result["skipped"] == 0
 
-    def test_zero_total_uses_fallback(self):
+    def test_zero_total_no_update(self):
         items = [make_item(kolicina=100.0)]
         MassCalculator.calculate_masses(items, bruto_total=0.0, neto_total=0.0)
-        # Bez ukupnih masa ne može rasporediti — bruto ostaje None/0
+        # Bez ukupnih masa ne može rasporediti — bruto ostaje 0
+        assert items[0].bruto_kg == 0.0
+
+    def test_zero_kolicina_ravnomjerna_raspodjela(self):
+        # Stavke bez količine → ravnomjerna raspodjela
+        items = [make_item(kolicina=0.0), make_item(kolicina=0.0)]
+        MassCalculator.calculate_masses(items, bruto_total=100.0, neto_total=95.0)
+        assert items[0].bruto_kg == pytest.approx(50.0, abs=0.01)
+        assert items[1].bruto_kg == pytest.approx(50.0, abs=0.01)
+        assert items[0].neto_kg == pytest.approx(47.5, abs=0.01)
+
+    def test_mixed_kolicina_nula_i_pozitivna(self):
+        # Jedna stavka ima količinu, druga nema → stavka bez kolicine dobija ravnomjerni udio
+        items = [make_item(kolicina=100.0), make_item(kolicina=0.0)]
+        MassCalculator.calculate_masses(items, bruto_total=100.0, neto_total=95.0)
+        # Ukupna qty = 100, stavka[0] dobija 100% (kolicina=100), stavka[1] dobija prosjek (1/2)
+        assert items[0].bruto_kg == pytest.approx(100.0, abs=0.01)
+        assert items[1].bruto_kg == pytest.approx(50.0, abs=0.01)
 
 
 class TestMassCalculatorScenario2:

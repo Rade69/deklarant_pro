@@ -422,47 +422,16 @@ def _izracunaj_tezine_interno(ctrl, invoice_lines: list, chat) -> int:
             bruto_total = 0.0
             neto_total = 0.0
 
-    items_to_update = [
-        line for line in invoice_lines
-        if (not line.bruto_kg or line.bruto_kg == 0)
-        or (not line.neto_kg or line.neto_kg == 0)
-    ]
+    from services.faktura.mass_calculator import MassCalculator
+    result = MassCalculator.calculate_masses(invoice_lines, bruto_total, neto_total)
+    izracunato = result["updated"]
+    preskoceno = result["skipped"]
 
-    if not items_to_update:
+    if izracunato == 0:
         print("[WeightCalc] Sve stavke već imaju težine - preskačem izračun")
-        return 0
+    else:
+        print(f"[WeightCalc] ✅ Izračunato {izracunato} težina, preskočeno {preskoceno}")
 
-    print(f"[WeightCalc] {len(items_to_update)} stavki za izračun težina")
-
-    neto_bruto_ratio = neto_total / bruto_total if (bruto_total > 0 and neto_total > 0) else 0.95
-    print(f"[WeightCalc] Odnos neto/bruto: {neto_bruto_ratio:.6f}")
-
-    total_qty = sum(line.kolicina or 0.0 for line in items_to_update if not (line.bruto_kg and line.bruto_kg > 0))
-
-    izracunato = 0
-    for line in items_to_update:
-        has_bruto = line.bruto_kg and line.bruto_kg > 0
-        has_neto = line.neto_kg and line.neto_kg > 0
-
-        if not has_bruto and not has_neto:
-            qty = line.kolicina or 0.0
-            if qty > 0 and total_qty > 0:
-                proportion = qty / total_qty
-                line.bruto_kg = round(bruto_total * proportion, 3) if bruto_total > 0 else 0.0
-                line.neto_kg = round(neto_total * proportion, 3) if neto_total > 0 else round(line.bruto_kg * neto_bruto_ratio, 3)
-            else:
-                avg_weight = (bruto_total / len(invoice_lines)) if bruto_total > 0 else 0.0
-                line.bruto_kg = round(avg_weight, 3)
-                line.neto_kg = round(avg_weight * neto_bruto_ratio, 3)
-            izracunato += 1
-            print(f"  [PDF] {line.naziv_robe[:30]}: bruto={line.bruto_kg:.3f}, neto={line.neto_kg:.3f}")
-
-        elif has_bruto and not has_neto:
-            line.neto_kg = round(line.bruto_kg * neto_bruto_ratio, 3)
-            izracunato += 1
-            print(f"  [Excel] {line.naziv_robe[:30]}: bruto={line.bruto_kg:.3f} → neto={line.neto_kg:.3f}")
-
-    print(f"[WeightCalc] ✅ Izračunato {izracunato} težina")
     return izracunato
 
 

@@ -60,6 +60,7 @@ class MassCalculator:
         # SCENARIJ 1: Stavke BEZ obe težine (PDF stavke) → proporcionalna distribucija po količini
         if items_without_both:
             total_qty = sum(item.kolicina or 0.0 for item in items_without_both)
+            n = len(items_without_both)
 
             if total_qty > 0:
                 for item in items_without_both:
@@ -75,6 +76,17 @@ class MassCalculator:
                         # Ako imamo neto ali ne bruto (samo neto unesen), izračunaj bruto
                         if item.neto_kg and item.neto_kg > 0 and (not item.bruto_kg or item.bruto_kg <= 0):
                             item.bruto_kg = round(item.neto_kg / neto_bruto_ratio, 3)
+                    else:
+                        # Stavka nema količinu unutar grupe — ravnomjerna raspodjela
+                        item.bruto_kg = round(bruto_total / n, 3) if bruto_total > 0 else 0.0
+                        item.neto_kg = round(neto_total / n, 3) if neto_total > 0 else round(item.bruto_kg * neto_bruto_ratio, 3)
+            else:
+                # Nijedna stavka nema količinu — ravnomjerna raspodjela na sve
+                avg_bruto = round(bruto_total / n, 3) if bruto_total > 0 else 0.0
+                avg_neto = round(neto_total / n, 3) if neto_total > 0 else round(avg_bruto * neto_bruto_ratio, 3)
+                for item in items_without_both:
+                    item.bruto_kg = avg_bruto
+                    item.neto_kg = avg_neto
 
         # SCENARIJ 2: Stavke SA bruto ALI BEZ neto → izračunaj neto iz bruto
         if items_with_bruto_only and neto_bruto_ratio > 0:
