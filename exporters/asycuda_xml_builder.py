@@ -782,14 +782,15 @@ class AsycudaXMLBuilder:
         _val(goods, "Country_of_origin_code", item.origin_country_code or "")
         _null(goods, "Country_of_origin_region")
 
-        # Description_of_goods = VIDLJIVO u ASYCUDA Rb.31 — limit 280 karaktera
-        # Rebuilda iz drafa: heading + nazivi proizvoda + faktura info
+        # Description_of_goods = kratki zvanični tarifni heading (ASYCUDA standard)
         _DESC_MAX = 280
         desc_of_goods = self._build_description_of_goods(item, _DESC_MAX)
         _val(goods, "Description_of_goods", desc_of_goods)
 
-        # Commercial_Description — tariff_description1/2 su interni GUI podaci, ne idu u XML
-        _val(goods, "Commercial_Description", "")
+        # Commercial_Description = nazivi proizvoda + faktura info
+        # ASYCUDA World prikazuje ovo polje u Rub.31 — mora biti popunjeno
+        commercial_desc = self._build_commercial_description(item, _DESC_MAX)
+        _val(goods, "Commercial_Description", commercial_desc)
 
         # Previous_doc — Rub.40 (category/type/broj)
         # Exportuje se SAMO ono što korisnik unese — bez automatskih defaulta
@@ -856,43 +857,52 @@ class AsycudaXMLBuilder:
 
         self._fill_item_valuation(val_item, item, total_items_value, t1, t2, t3, t4, t5)
 
-    def _build_description_of_goods(self, item: "NaimenovanjeDraft", max_chars: int = 280) -> str:
-        """Gradi Description_of_goods: tariff_description2 + nazivi proizvoda + faktura info.
-
-        Isti prioritet truncationa kao u naimenovanja_view._format_trading_names():
-        nazivi i faktura su puni, heading se skraćuje ako nema mjesta.
-        """
-        from collections import OrderedDict
-
-        ordinal_no = getattr(item, "ordinal_no", None)
-        invoice_lines = getattr(self.draft, "invoice_lines", None) or []
-
-        # Assignovane faktura linije za ovo naimenovanje
-        assigned = [
-            l for l in invoice_lines
-            if getattr(l, "assigned_naimenovanje_ordinal", None) == ordinal_no
-        ] if ordinal_no is not None else []
-
-        tariff_heading = (getattr(item, "tariff_description2", "") or "").strip()
-
-        # Fallback: ako tariff_description2 nije učitan u draft, traži u SQLite
-        if not tariff_heading:
+    def _tariff_heading(self, item: "NaimenovanjeDraft") -> str:
+        """Vraća kratki zvanični tarifni heading za ovo naimenovanje."""
+        heading = (getattr(item, "tariff_description2", "") or "").strip()
+        if not heading:
             tariff_code = (getattr(item, "tariff_code", "") or "").strip()
             if len(tariff_code) >= 4:
                 try:
                     from services.tariff.tarifa_service import trazi_po_kodu
                     row = trazi_po_kodu(tariff_code[:4])
                     if row:
-                        tariff_heading = (row.get("naziv") or "").strip()
+                        heading = (row.get("naziv") or "").strip()
                 except Exception as e:
                     logger.debug(f"Fallback tariff heading neuspješan za {tariff_code}: {e}")
+        return heading
+
+    def _build_description_of_goods(self, item: "NaimenovanjeDraft", max_chars: int = 280) -> str:
+        """Gradi Description_of_goods: kratki zvanični tarifni heading (ASYCUDA standard).
+
+        ASYCUDA World prikazuje ovaj field kao interni tarifni naziv;
+        Commercial_Description nosi komercijalni opis koji se prikazuje u Rub.31.
+        """
+        result = " ".join(self._tariff_heading(item).splitlines()).strip()
+        if len(result) > max_chars:
+            result = result[:max_chars - 3] + "..."
+        return result or "."
+
+    def _build_commercial_description(self, item: "NaimenovanjeDraft", max_chars: int = 280) -> str:
+        """Gradi Commercial_Description: nazivi proizvoda + faktura info.
+
+        ASYCUDA World prikazuje ovaj field u Rub.31 — mora biti popunjen.
+        Format: "NAZIV1, NAZIV2, Faktura: X (rb. 1, 3)"
+        """
+        from collections import OrderedDict
+
+        ordinal_no = getattr(item, "ordinal_no", None)
+        invoice_lines = getattr(self.draft, "invoice_lines", None) or []
+
+        assigned = [
+            l for l in invoice_lines
+            if getattr(l, "assigned_naimenovanje_ordinal", None) == ordinal_no
+        ] if ordinal_no is not None else []
 
         if assigned:
-            # Nazivi proizvoda
             product_names = [l.naziv_robe for l in assigned if getattr(l, "naziv_robe", "")]
             nazivi_dio = ", ".join(product_names) if product_names else ""
 
-            # Faktura info
             fakture: dict = OrderedDict()
             for l in assigned:
                 inv = getattr(l, "invoice_number", "") or "?"
@@ -903,23 +913,7 @@ class AsycudaXMLBuilder:
                 f"{inv} (rb. {', '.join(rb_list)})" for inv, rb_list in fakture.items()
             )
 
-            # Prioritet: nazivi > faktura > heading
-            core = ", ".join(p for p in [nazivi_dio, fakture_dio] if p)
-            if tariff_heading:
-                budget = max_chars - len(core) - 2
-                if budget >= len(tariff_heading):
-                    final_heading = tariff_heading
-                elif budget > 6:
-                    cut = tariff_heading[:budget - 3]
-                    last_space = cut.rfind(" ")
-                    final_heading = (cut[:last_space] if last_space > 0 else cut) + "..."
-                else:
-                    final_heading = ""
-                parts = [p for p in [final_heading, nazivi_dio, fakture_dio] if p]
-            else:
-                parts = [p for p in [nazivi_dio, fakture_dio] if p]
-
-            result = ", ".join(parts)
+            result = ", ".join(p for p in [nazivi_dio, fakture_dio] if p)
             if len(result) > max_chars:
                 fakture_len = len(fakture_dio) + 2
                 nazivi_max = max_chars - fakture_len - 3
@@ -929,13 +923,10 @@ class AsycudaXMLBuilder:
                     truncated = truncated[:last_comma]
                 result = ", ".join([p for p in [truncated + "...", fakture_dio] if p])
         else:
-            # Nema assignovanih linija — koristi goods_trade_name sa headingom
             trade_name = (getattr(item, "goods_trade_name", "") or
                           getattr(item, "goods_description", "") or "").strip()
-            parts = [p for p in [tariff_heading, trade_name] if p]
-            result = ", ".join(parts) if parts else "."
+            result = trade_name or self._tariff_heading(item)
 
-        # ASYCUDA World odbija višeredni tekst
         result = " ".join(result.splitlines()).strip()
         if len(result) > max_chars:
             result = result[:max_chars - 3] + "..."
