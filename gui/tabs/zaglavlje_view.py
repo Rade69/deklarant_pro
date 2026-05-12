@@ -2018,6 +2018,25 @@ class ZaglavljeView(BaseTabView):
     # HELPER METHODS
     # ============================================================
 
+    def _with_line_edit_writable(self, widget: QLineEdit, action) -> None:
+        was_readonly = widget.isReadOnly()
+        if was_readonly:
+            widget.setReadOnly(False)
+        try:
+            action()
+        finally:
+            if was_readonly:
+                widget.setReadOnly(True)
+
+    def _set_line_edit_text(self, widget: QLineEdit, value: Any) -> None:
+        self._with_line_edit_writable(
+            widget,
+            lambda: widget.setText(str(value) if value is not None else ""),
+        )
+
+    def _clear_line_edit(self, widget: QLineEdit) -> None:
+        self._with_line_edit_writable(widget, widget.clear)
+
     # ============================================================
     # DATA METHODS
     # ============================================================
@@ -2071,14 +2090,7 @@ class ZaglavljeView(BaseTabView):
             if widget is None:
                 continue
             if isinstance(widget, QLineEdit):
-                # KRITIČNO: setReadOnly(False) prije setText() jer Qt ne ažurira
-                # prikaz za readOnly polja (isto kao u naimenovanja_tab.py)
-                was_readonly = widget.isReadOnly()
-                if was_readonly:
-                    widget.setReadOnly(False)
-                widget.setText(str(value) if value is not None else "")
-                if was_readonly:
-                    widget.setReadOnly(True)
+                self._set_line_edit_text(widget, value)
             elif isinstance(widget, QComboBox):
                 idx = widget.findData(value)
                 if idx >= 0:
@@ -2161,13 +2173,7 @@ class ZaglavljeView(BaseTabView):
         """Očisti sve podatke iz widgeta."""
         for widget in self.field_widgets.values():
             if isinstance(widget, QLineEdit):
-                # KRITIČNO: setReadOnly(False) prije clear() — isti razlog kao set_data
-                was_readonly = widget.isReadOnly()
-                if was_readonly:
-                    widget.setReadOnly(False)
-                widget.clear()
-                if was_readonly:
-                    widget.setReadOnly(True)
+                self._clear_line_edit(widget)
             elif isinstance(widget, QComboBox):
                 widget.setCurrentIndex(0)
             elif isinstance(widget, QCheckBox):
@@ -2181,4 +2187,3 @@ class ZaglavljeView(BaseTabView):
     def clear_form(self):
         """Implementacija BaseTabView.clear_form() - delegira na clear_data()."""
         self.clear_data()
-
