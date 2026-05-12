@@ -78,6 +78,9 @@ test_*.py
 check_*.py
 fix_*.py
 reimport_*.py
+# Izuzetak: unit testovi u tests/ folderu su dio projekta
+!tests/**/test_*.py
+!tests/test_*.py
 
 # Kiro IDE
 .kiro/
