@@ -441,6 +441,7 @@ class DeclarationDraft:
     header_attached_documents: List[AttachedDocument] = field(default_factory=list)
 
     source_files: List[str] = field(default_factory=list)
+    invoice_weights: Dict[str, Tuple[float, float]] = field(default_factory=dict)
     warnings: List[str] = field(default_factory=list)
 
     dirty: bool = False

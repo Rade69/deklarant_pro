@@ -1552,6 +1552,14 @@ class FakturaView(BaseTabView):
                 self._normalize_item_tariffs(items)
                 # Rasporedi težinu fakture na stavke (ako parser nije dao per-line težine)
                 self._distribute_invoice_weights(items, bruto_kg, neto_kg)
+                # Zapamti per-invoice težinu za dugme 'Izračunaj mase'
+                if bruto_kg > 0 or neto_kg > 0:
+                    _inv_key = (
+                        result.invoice_name
+                        if isinstance(result, ImportResult) and result.invoice_name
+                        else None
+                    ) or Path(filepath).stem
+                    self.draft.invoice_weights[_inv_key] = (bruto_kg, neto_kg)
 
                 # Agreguj rezultate
                 all_items.extend(items)
@@ -2204,6 +2212,9 @@ class FakturaView(BaseTabView):
             self._normalize_item_tariffs(items)
             # Rasporedi težinu fakture na stavke (ako parser nije dao per-line težine)
             self._distribute_invoice_weights(items, bruto_kg, neto_kg)
+            # Zapamti per-invoice težinu za dugme 'Izračunaj mase'
+            if (bruto_kg > 0 or neto_kg > 0) and invoice_name:
+                self.draft.invoice_weights[invoice_name] = (bruto_kg, neto_kg)
 
             # Check: Da li je Assembly sistem aktivan (korisnik učitao Master Listu)?
             using_assembly = self.assembly.master_list_loaded
@@ -2943,12 +2954,58 @@ class FakturaView(BaseTabView):
 
         logger.debug(f"\n🔍 Ukupno stavki u draft-u: {len(self.draft.invoice_lines)}")
 
+        from collections import defaultdict
         from services.faktura.mass_calculator import MassCalculator
-        stats = MassCalculator.calculate_masses(self.draft.invoice_lines, bruto_total, neto_total)
-        updated_count = stats["updated"]
-        skipped_count = stats["skipped"]
+
+        # Grupiši stavke po fakturi
+        invoice_groups: dict = defaultdict(list)
+        no_invoice_lines = []
+        for line in self.draft.invoice_lines:
+            key = (line.invoice_number or "").strip()
+            if key:
+                invoice_groups[key].append(line)
+            else:
+                no_invoice_lines.append(line)
+
+        total_updated = 0
+        total_skipped = 0
+        no_weight_invoices = []
+
+        # Per-invoice raspodjela težine
+        for inv_key, lines in invoice_groups.items():
+            if inv_key in self.draft.invoice_weights:
+                inv_bruto, inv_neto = self.draft.invoice_weights[inv_key]
+                stats = MassCalculator.calculate_masses(lines, inv_bruto, inv_neto)
+                total_updated += stats["updated"]
+                total_skipped += stats["skipped"]
+                logger.debug(f"   ⚖️ [{inv_key}]: {stats['updated']} ažurirano, {stats['skipped']} preskočeno ({inv_bruto:.3f}/{inv_neto:.3f} kg)")
+            else:
+                no_weight_invoices.append(inv_key)
+                total_skipped += len(lines)
+                logger.debug(f"   ⚠️ [{inv_key}]: nema sačuvane težine — preskočeno")
+
+        # Fallback: stavke bez invoice_number → koristi toolbar total
+        if no_invoice_lines:
+            stats = MassCalculator.calculate_masses(no_invoice_lines, bruto_total, neto_total)
+            total_updated += stats["updated"]
+            total_skipped += stats["skipped"]
+            logger.debug(f"   ⚖️ [bez fakture]: {stats['updated']} ažurirano koristeći toolbar total")
+
+        updated_count = total_updated
+        skipped_count = total_skipped
 
         if updated_count == 0:
+            if no_weight_invoices and not no_invoice_lines:
+                # Sve fakture nemaju sačuvane težine (stari draft ili ručni unos)
+                logger.debug("   ❌ Nema sačuvanih težina ni za jednu fakturu")
+                if not auto:
+                    names = "\n".join(f"  - {inv}" for inv in no_weight_invoices)
+                    QMessageBox.warning(
+                        self,
+                        "Nema sačuvanih težina",
+                        f"Nijedna faktura nema sačuvanu težinu. Uvezite fakture ponovo ili ručno unesite težine.\n\nFakture:\n{names}",
+                    )
+                return
             logger.debug("   ❌ Nema stavki za update - sve imaju obe težine")
             if not auto:
                 QMessageBox.information(
@@ -2966,12 +3023,13 @@ class FakturaView(BaseTabView):
 
         # Show success message
         message = f"Težine raspoređene na {updated_count} stavki.\n\n"
-        if bruto_total > 0:
-            message += f"Ukupna bruto: {bruto_total:.3f} kg\n"
-        if neto_total > 0:
-            message += f"Ukupna neto: {neto_total:.3f} kg\n"
         if skipped_count > 0:
-            message += f"\n⚠️ Preskočeno {skipped_count} stavki koje već imaju obe težine."
+            message += f"⚠️ Preskočeno {skipped_count} stavki koje već imaju obe težine.\n"
+        if no_weight_invoices:
+            message += f"\n⚠️ Fakture bez sačuvanih težina (preskočene):\n"
+            for inv in no_weight_invoices:
+                message += f"  - {inv}\n"
+            message += "\nZa ove fakture uvezite ih ponovo ili ručno unesite težine."
 
         if not auto:
             QMessageBox.information(self, "Težine raspoređene", message)
