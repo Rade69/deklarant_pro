@@ -768,46 +768,43 @@ class NaimenovanjaView(BaseTabView):
         """
         Handle package code change - auto-populate package name field.
         """
-
         if self.is_loading:
             return
 
-        # Extract code from combo (might be "PK" or just the code)
-        code = text.strip()
-
-        # Find the naziv field using cached access
-        le_naziv = self._get_widget("le_r31_vrsta_naziv")
-
-        if le_naziv:
-            if hasattr(self, "package_names"):
-                naziv = self.package_names.get(code, "")
-
-                if naziv:
-                    le_naziv.setText(naziv)
-
-                # Also save to model
-                if not self.is_loading and self.draft.items:
-                    item = self.draft.items[self.current_item_index]
-                    item.package_name = naziv
+        self._set_package_name_from_code(text, clear_missing=False)
 
     def _update_package_naziv(self, code: str) -> None:
         """
         Update the package name field based on the selected code.
         """
-        if hasattr(self, "package_names") and code:
-            le_naziv = self._get_widget("le_r31_vrsta_naziv")
-            if le_naziv:
-                naziv = self.package_names.get(code, "")
-                le_naziv.setText(naziv)
+        if code:
+            self._set_package_name_from_code(code)
 
-                # Also save to model if we have items
-                if (
-                    not self.is_loading
-                    and self.draft.items
-                    and hasattr(self, "current_item_index")
-                ):
-                    item = self.draft.items[self.current_item_index]
-                    item.package_name = naziv
+    def _set_package_name_from_code(
+        self,
+        code: str,
+        update_model: bool = True,
+        clear_missing: bool = True,
+    ) -> None:
+        if not hasattr(self, "package_names"):
+            return
+
+        le_naziv = self._get_widget("le_r31_vrsta_naziv")
+        if not le_naziv:
+            return
+
+        naziv = self.package_names.get((code or "").strip(), "")
+        if naziv or clear_missing:
+            le_naziv.setText(naziv)
+
+        if (
+            update_model
+            and not self.is_loading
+            and self.draft.items
+            and hasattr(self, "current_item_index")
+        ):
+            item = self.draft.items[self.current_item_index]
+            item.package_name = naziv
 
     def _setup_trading_name_field(self) -> None:
         """
@@ -2173,11 +2170,9 @@ class NaimenovanjaView(BaseTabView):
         if hasattr(self, "combo_vrsta_pakovanja"):
             package_code = self.combo_vrsta_pakovanja.currentText().strip()
             if package_code and hasattr(self, "package_names"):
+                self._set_package_name_from_code(package_code, update_model=False)
                 le_naziv = self._get_widget("le_r31_vrsta_naziv")
                 if le_naziv:
-                    naziv = self.package_names.get(package_code, "")
-                    le_naziv.setText(naziv)
-
                     # DETALJNA DIJAGNOSTIKA
                     logger.debug(f"  🔍 WIDGET DIAGNOSTICS:")
                     logger.debug(f"     - text(): '{le_naziv.text()}'")
