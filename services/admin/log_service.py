@@ -376,8 +376,8 @@ class LogService:
                     'level': parts[1].strip().upper(),
                     'message': parts[2].strip(),
                 }
-        except Exception:
-            pass
+        except Exception as _e:
+            logger.debug("Parsiranje log linije: %s", _e)
 
         # Ako ništa ne radi, vrati cijelu liniju kao message
         return {

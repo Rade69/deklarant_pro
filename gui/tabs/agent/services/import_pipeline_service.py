@@ -485,8 +485,8 @@ def _validiraj_prije_uvoza(invoice_lines: list, chat) -> tuple:
                 errors.append(f"❌ Faktura br. '{broj}' već postoji u bazi!")
             else:
                 chat.add_activity(f"  ✅ Faktura {broj}: Nije duplikat")
-    except Exception:
-        pass
+    except Exception as _e:
+        logger.warning("Provjera duplikata fakture neuspješna: %s", _e)
 
     # 2. Provjera partnera
     try:
@@ -504,8 +504,8 @@ def _validiraj_prije_uvoza(invoice_lines: list, chat) -> tuple:
                 warnings.append(f"⚠️ Partner '{partner}' nije u šifrarniku")
             else:
                 chat.add_activity(f"  ✅ Partner {partner}: Nađen u šifrarniku")
-    except Exception:
-        pass
+    except Exception as _e:
+        logger.warning("Provjera partnera u šifrarniku neuspješna: %s", _e)
 
     # 3. Provjera formata tarifnih
     try:
@@ -514,8 +514,8 @@ def _validiraj_prije_uvoza(invoice_lines: list, chat) -> tuple:
                 tarif = line.tarifni_broj.strip()
                 if len(tarif) >= 4 and '.' in tarif:
                     chat.add_activity(f"  ✅ Tarifni {tarif}: Format ispravan")
-    except Exception:
-        pass
+    except Exception as _e:
+        logger.warning("Provjera formata tarifnih neuspješna: %s", _e)
 
     for w in warnings:
         chat.add_activity(w)
@@ -552,8 +552,8 @@ def _generisi_izvjestaj(ctrl, chat) -> bool:
                 if not tariff_svc.validate_tariff(line.tarifni_broj):
                     errors.append(f"Stavka {row_num}: Nevažeći tarifni '{line.tarifni_broj}'")
                     suggestions.append(f"  → Ručno provjeri tarifni za stavku {row_num}")
-            except Exception:
-                pass
+            except Exception as _e:
+                logger.debug("Validacija tarifnog broja stavke %s: %s", row_num, _e)
 
         if not line.zemlja_porijekla:
             warnings.append(f"Stavka {row_num}: Nema zemlju porijekla")

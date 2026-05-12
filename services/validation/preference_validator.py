@@ -144,9 +144,8 @@ class PreferenceValidator:
                 warning_msg = f"Istorijski podaci: {exporter_name} obično koristi {historical_pref} za {item.zemlja_porijekla}."
                 result.warnings.append(warning_msg)
                 
-        except Exception:
-            # Silent fallback - vrati originalni result
-            pass
+        except Exception as _e:
+            logger.debug("Historijska preferencija fallback: %s", _e)
         
         return result
         

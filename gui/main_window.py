@@ -7,6 +7,8 @@ from PySide6.QtCore import QFile, QTextStream, QIODevice, QSettings
 
 import logging
 
+logger = logging.getLogger("deklarant_pro.main_window")
+
 from config.settings import get_path_settings
 
 from core.draft import DeclarationDraft
@@ -147,8 +149,8 @@ class MainWindow(QMainWindow):
                 if hasattr(view, "_set_weight_inputs_from_draft"):
                     view._set_weight_inputs_from_draft()
                 view._load_data_from_draft()
-        except Exception:
-            pass
+        except Exception as _e:
+            logger.debug("Reload faktura taba: %s", _e)
 
         try:
             if hasattr(self.naimenovanje_tab, "ensure_initialized"):
@@ -157,14 +159,14 @@ class MainWindow(QMainWindow):
                 naim_tab = self.naimenovanje_tab
             if hasattr(naim_tab, "reload_data"):
                 naim_tab.reload_data()
-        except Exception:
-            pass
+        except Exception as _e:
+            logger.debug("Reload naimenovanja taba: %s", _e)
 
         try:
             if hasattr(self.zaglavlje_tab, "load_from_draft"):
                 self.zaglavlje_tab.load_from_draft(self.draft)
-        except Exception:
-            pass
+        except Exception as _e:
+            logger.debug("Reload zaglavlje taba: %s", _e)
 
     def load_stylesheet(self):
         """
@@ -249,8 +251,8 @@ class MainWindow(QMainWindow):
                             number=d.get('number', ''),
                             from_rule=d.get('from_rule', False),
                         ))
-        except Exception:
-            pass
+        except Exception as _e:
+            logger.debug("Rebuild priloženih dokumenata: %s", _e)
         # Ažuriraj zaglavlje tab da odrazi promene u draft-u
         self.zaglavlje_tab.load_from_draft(self.draft)
 
