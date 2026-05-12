@@ -561,24 +561,11 @@ class AgentController:
     def _apply_eur1_to_naimenovanja(self, eur1_data: dict, chat) -> None:
         self.import_pipeline_svc.apply_eur1_to_naimenovanja(eur1_data, chat)
 
-    def _izracunaj_težine_interno(self, invoice_lines: list, chat) -> int:
-        return self.import_pipeline_svc.izracunaj_tezine_interno(invoice_lines, chat)
-
     def _validiraj_prije_uvoza(self, invoice_lines: list, chat) -> tuple:
         return self.import_pipeline_svc.validiraj_prije_uvoza(invoice_lines, chat)
 
     def _generisi_izvjestaj(self, chat):
         return self.import_pipeline_svc.generisi_izvjestaj(chat)
-
-    def _uvezi_u_deklaraciju(self, invoice_lines: list, chat,
-                              total_bruto: float = 0.0, total_neto: float = 0.0,
-                              has_origin_statement: bool = False,
-                              is_authorized_exporter: bool = False,
-                              completed: list = None):
-        self.import_pipeline_svc.uvezi_u_deklaraciju(
-            invoice_lines, chat, total_bruto, total_neto,
-            has_origin_statement, is_authorized_exporter, completed
-        )
 
     def _otvori_faktura_tab_nakon_uvoza(self, chat):
         self.import_pipeline_svc.otvori_faktura_tab_nakon_uvoza(chat)

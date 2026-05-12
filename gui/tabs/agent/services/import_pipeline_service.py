@@ -82,23 +82,13 @@ class ImportPipelineService:
     def apply_eur1_to_naimenovanja(self, eur1_data: dict, chat) -> None:
         _apply_eur1_to_naimenovanja(self._ctrl, eur1_data, chat)
 
-    def izracunaj_tezine_interno(self, invoice_lines: list, chat) -> int:
-        return _izracunaj_tezine_interno(self._ctrl, invoice_lines, chat)
-
     def validiraj_prije_uvoza(self, invoice_lines: list, chat) -> tuple:
         return _validiraj_prije_uvoza(invoice_lines, chat)
 
     def generisi_izvjestaj(self, chat) -> bool:
         return _generisi_izvjestaj(self._ctrl, chat)
 
-    def uvezi_u_deklaraciju(self, invoice_lines: list, chat,
-                             total_bruto: float = 0.0, total_neto: float = 0.0,
-                             has_origin_statement: bool = False,
-                             is_authorized_exporter: bool = False,
-                             completed: list = None) -> None:
-        _uvezi_u_deklaraciju(self._ctrl, invoice_lines, chat,
-                             total_bruto, total_neto, has_origin_statement,
-                             is_authorized_exporter, completed)
+
 
     def otvori_faktura_tab_nakon_uvoza(self, chat) -> None:
         _otvori_faktura_tab_nakon_uvoza(self._ctrl, chat)
@@ -406,35 +396,6 @@ def _sync_pe_docs_to_header(ctrl) -> None:
         ctrl.draft.mark_dirty()
 
 
-def _izracunaj_tezine_interno(ctrl, invoice_lines: list, chat) -> int:
-    bruto_total = 0.0
-    neto_total = 0.0
-
-    if ctrl.faktura_tab:
-        try:
-            bruto_text = ctrl.faktura_tab.input_bruto.text().strip()
-            neto_text = ctrl.faktura_tab.input_neto.text().strip()
-            bruto_total = float(bruto_text.replace(",", "") or "0")
-            neto_total = float(neto_text.replace(",", "") or "0")
-            print(f"[WeightCalc] Toolbar težine: bruto={bruto_total:.2f} kg, neto={neto_total:.2f} kg")
-        except Exception as e:
-            print(f"[WeightCalc] Greška pri čitanju težina: {e}")
-            bruto_total = 0.0
-            neto_total = 0.0
-
-    from services.faktura.mass_calculator import MassCalculator
-    result = MassCalculator.calculate_masses(invoice_lines, bruto_total, neto_total)
-    izracunato = result["updated"]
-    preskoceno = result["skipped"]
-
-    if izracunato == 0:
-        print("[WeightCalc] Sve stavke već imaju težine - preskačem izračun")
-    else:
-        print(f"[WeightCalc] ✅ Izračunato {izracunato} težina, preskočeno {preskoceno}")
-
-    return izracunato
-
-
 def _validiraj_prije_uvoza(invoice_lines: list, chat) -> tuple:
     errors = []
     warnings = []
@@ -559,160 +520,6 @@ def _generisi_izvjestaj(ctrl, chat) -> bool:
         )
 
     return len(errors) == 0
-
-
-def _uvezi_u_deklaraciju(ctrl, invoice_lines: list, chat,
-                          total_bruto: float = 0.0, total_neto: float = 0.0,
-                          has_origin_statement: bool = False,
-                          is_authorized_exporter: bool = False,
-                          completed: list = None) -> None:
-    print(f"[ImportPipeline] _uvezi_u_deklaraciju: {len(invoice_lines)} stavki")
-
-    if not ctrl.draft:
-        chat.add_activity("⚠️ Draft nije dostupan")
-        return
-
-    # 0. Validacija PRIJE uvoza
-    chat.add_activity("🔍 Validacija prije uvoza...")
-    valid, greske = _validiraj_prije_uvoza(invoice_lines, chat)
-    if not valid:
-        chat.add_agent_message(
-            f"❌ <b>Validacija nije uspješna!</b><br><br>"
-            f"{'<br>'.join(greske)}<br><br>"
-            f"Uvoz je obustavljen."
-        )
-        return
-
-    # 1. Uvezi podatke u draft
-    # Važno: ne prepisuj globalno invoice_number sa "prvim" fajlom.
-    # Svaka stavka mora zadržati broj fakture koji je parser već postavio.
-    
-    chat.add_activity(f"📥 Uvoz {len(invoice_lines)} stavki...")
-    ctrl.draft.invoice_lines.clear()
-    ctrl.draft.invoice_lines.extend(invoice_lines)
-    chat.add_activity(f"✅ Uvezeno {len(invoice_lines)} stavki")
-
-    QApplication.processEvents()
-
-    # 2. Otvori Faktura tab
-    faktura_widget = ctrl.faktura_tab
-    if hasattr(ctrl.faktura_tab, 'view'):
-        faktura_widget = ctrl.faktura_tab.view
-
-    if faktura_widget:
-        if total_bruto > 0 or total_neto > 0:
-            if hasattr(faktura_widget, 'weight_manager') and hasattr(faktura_widget, '_accumulate_weights'):
-                faktura_widget.weight_manager.accumulated_bruto_kg = 0.0
-                faktura_widget.weight_manager.accumulated_neto_kg = 0.0
-                faktura_widget._accumulate_weights(total_bruto, total_neto)
-                chat.add_activity(f"⚖️ Težine postavljene: Bruto={total_bruto:.2f}kg, Neto={total_neto:.2f}kg")
-
-        if hasattr(faktura_widget, '_load_data_from_draft'):
-            faktura_widget._load_data_from_draft()
-
-        chat.add_activity("🤖 Izračunavam mase...")
-        try:
-            from services.faktura.mass_calculator import MassCalculator
-            mass_calc = MassCalculator()
-            if hasattr(faktura_widget, 'input_bruto') and hasattr(faktura_widget, 'input_neto'):
-                bruto_total = float(faktura_widget.input_bruto.text().replace(",", "") or "0")
-                neto_total = float(faktura_widget.input_neto.text().replace(",", "") or "0")
-                if bruto_total > 0 or neto_total > 0:
-                    result = mass_calc.calculate_masses(ctrl.draft.invoice_lines, bruto_total, neto_total)
-                    chat.add_activity(f"✅ Mase izračunate: {result['updated']} stavki ažurirano")
-                else:
-                    chat.add_activity("ℹ️ Nema težina za izračun")
-        except Exception as e:
-            chat.add_activity(f"⚠️ Greška pri izračunu masa: {e}")
-
-        if hasattr(faktura_widget, '_load_data_from_draft'):
-            faktura_widget._load_data_from_draft()
-
-    # 3. Broj fakture za dijalog i za N380 u zaglavlju
-    # Skupljamo SVE eksplicitno parsirane brojeve (bez stem fallbacka)
-    brojevi_faktura = []
-    if completed:
-        for f in completed:
-            if f.status == 'Completed' and f.invoice_number:
-                if f.invoice_number not in brojevi_faktura:
-                    brojevi_faktura.append(f.invoice_number)
-    invoice_number = " | ".join(brojevi_faktura) if brojevi_faktura else ""
-
-    # 4. Dijalog za porijeklo (PE2 / PE3 / EUR.1)
-    dialog_tip = _origin_dialog_type(ctrl.draft.invoice_lines, has_origin_statement,
-                                     is_authorized_exporter)
-
-    if dialog_tip in ('pe2', 'pe3'):
-        doc_code = 'PE3' if dialog_tip == 'pe3' else 'PE2'
-        lbl = "PE3 (ovlašteni izvoznik)" if dialog_tip == 'pe3' else "PE2 (izjava na fakturi)"
-        chat.add_activity(f"📄 Faktura ima izjavu o porijeklu — otvaram {lbl} dijalog...")
-        chat.add_agent_message(
-            f"📄 <b>Faktura ima izjavu o preferencijalnom porijeklu ({doc_code}).</b><br>"
-            + (f"Ovlašteni izvoznik — EUR.1 nije potreban.<br>" if dialog_tip == 'pe3' else
-               f"Vrijednost je ispod 6.000 EUR — EUR.1 nije potreban.<br>")
-            + f"<br>⚠️ <b>Ništa se ne upisuje automatski — ti odlučuješ.</b>"
-        )
-        try:
-            from gui.dialogs.pe2_quick_dialog import PE2QuickDialog
-            dialog = PE2QuickDialog(ctrl.draft.invoice_lines, ctrl.view,
-                                    invoice_number=invoice_number, doc_code=doc_code)
-            result_dlg = dialog.exec()
-            if result_dlg == 1:
-                pe2_data = dialog.get_data()
-                if pe2_data:
-                    updated_count = PE2QuickDialog.apply_pe2_data(ctrl.draft.invoice_lines, pe2_data)
-                    chat.add_activity(f"✅ {doc_code} primijenjen na {updated_count} stavki")
-                    if faktura_widget and hasattr(faktura_widget, '_load_data_from_draft'):
-                        faktura_widget._load_data_from_draft()
-            else:
-                chat.add_activity(f"ℹ️ {doc_code} dijalog preskočen — uredi ručno u Faktura tabu")
-        except Exception as e:
-            chat.add_activity(f"⚠️ {doc_code} dijalog greška: {e}")
-
-    elif dialog_tip == 'eur1':
-        razlog = ("Standardna izjava na fakturi, ali vrijednost prelazi 6.000 EUR"
-                  if has_origin_statement else "Faktura nema izjavu o porijeklu")
-        chat.add_activity(f"📋 EUR.1 obrazac potreban — otvaram dijalog...")
-        chat.add_agent_message(
-            f"⚠️ <b>Potreban EUR.1 obrazac.</b><br>"
-            f"{razlog}.<br><br>"
-            f"📄 <b>Unesi EUR.1 broj za svaku zemlju.</b><br>"
-            f"Ako nemaš EUR.1, ostavi prazno i uredi kasnije ručno."
-        )
-        try:
-            from gui.dialogs.eur1_quick_dialog import Eur1QuickDialog
-            dialog = Eur1QuickDialog(ctrl.draft.invoice_lines, ctrl.view, invoice_number=invoice_number)
-            result_dlg = dialog.exec()
-            if result_dlg == 1:
-                eur1_data = dialog.get_data()
-                if eur1_data:
-                    updated_count = Eur1QuickDialog.apply_eur1_data(ctrl.draft.invoice_lines, eur1_data)
-                    chat.add_activity(f"✅ EUR.1 primijenjen na {updated_count} stavki")
-                    _apply_eur1_to_naimenovanja(ctrl, eur1_data, chat)
-                    if faktura_widget and hasattr(faktura_widget, '_load_data_from_draft'):
-                        faktura_widget._load_data_from_draft()
-            else:
-                chat.add_activity("ℹ️ EUR.1 dijalog preskočen — unesi broj ručno u Faktura tabu")
-        except Exception as e:
-            chat.add_activity(f"⚠️ EUR.1 dijalog greška: {e}")
-
-    else:
-        chat.add_activity("ℹ️ Nema stavki koje zahtijevaju EUR.1 — nastavi ručno uređivanje")
-
-    # 5. Rezime
-    bez_tarife = sum(1 for l in ctrl.draft.invoice_lines if not l.tarifni_broj)
-    chat.add_agent_message(
-        f"✅ <b>Uvoz završen!</b><br>"
-        f"Uvezeno <b>{len(invoice_lines)}</b> stavki.<br><br>"
-        f"📊 <b>Stanje:</b><br>"
-        f"  • Bez tarifnog broja: <b>{bez_tarife}</b><br>"
-        f"  • Mase: izračunate<br>"
-        f"  • Povlastice: {'PE2/EUR.1 potvrđeno' if has_origin_statement else 'Čeka unos'}<br><br>"
-        f"💡 <b>Šta dalje?</b><br>"
-        f"  • Reci <i>'popuni tarifne'</i> za prijedloge tarifnih brojeva<br>"
-        f"  • Pregledaj tablicu i ručno dopuni podatke<br>"
-        f"  • Kad si spreman, reci <i>'kreiraj naimenovanja'</i>"
-    )
 
 
 def _otvori_faktura_tab_nakon_uvoza(ctrl, chat) -> None:
