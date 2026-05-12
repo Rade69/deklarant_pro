@@ -115,6 +115,11 @@ logs/
 tools/licensing/keys/
 licenses/
 
+# Generisani docs fajlovi (HTML, PDF, LibreOffice lock)
+docs/*.html
+docs/*.pdf
+docs/.~lock.*
+
 # Veliki fajlovi — lokalno samo
 docs/NOVA ASIKUDA/
 docs/Carinska_tarifa_za_2026_-_bosanski.pdf
