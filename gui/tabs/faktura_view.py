@@ -2943,18 +2943,13 @@ class FakturaView(BaseTabView):
 
         logger.debug(f"\n🔍 Ukupno stavki u draft-u: {len(self.draft.invoice_lines)}")
 
-        # LOGIKA: Filtriraj stavke koje nemaju BAR JEDNU težinu
-        items_to_update = [
-            item
-            for item in self.draft.invoice_lines
-            if (not item.bruto_kg or item.bruto_kg == 0)
-            or (not item.neto_kg or item.neto_kg == 0)
-        ]
+        from services.faktura.mass_calculator import MassCalculator
+        stats = MassCalculator.calculate_masses(self.draft.invoice_lines, bruto_total, neto_total)
+        updated_count = stats["updated"]
+        skipped_count = stats["skipped"]
 
-        logger.debug(f"   Stavki za update: {len(items_to_update)}")
-
-        if not items_to_update:
-            logger.error("   ❌ Nema stavki za update - sve imaju obe težine")
+        if updated_count == 0:
+            logger.debug("   ❌ Nema stavki za update - sve imaju obe težine")
             if not auto:
                 QMessageBox.information(
                     self,
@@ -2963,91 +2958,7 @@ class FakturaView(BaseTabView):
                 )
             return
 
-        # Izračunaj odnos neto/bruto iz toolbar polja (default 0.95 ako neto nije poznat)
-        neto_bruto_ratio = neto_total / bruto_total if (bruto_total > 0 and neto_total > 0) else 0.95
-        logger.debug(f"\n⚖️  Odnos neto/bruto = {neto_bruto_ratio:.6f}")
-
-        # Razdvoji stavke po scenariju
-        items_without_both = []   # Nemaju ni bruto ni neto (PDF stavke)
-        items_with_partial = []   # Imaju bruto ALI ne neto (Excel stavke)
-        items_neto_only = []      # Imaju neto ALI ne bruto (Leburic Excel stavke)
-
-        for item in items_to_update:
-            has_bruto = item.bruto_kg and item.bruto_kg > 0
-            has_neto = item.neto_kg and item.neto_kg > 0
-
-            if not has_bruto and not has_neto:
-                items_without_both.append(item)
-            elif has_bruto and not has_neto:
-                items_with_partial.append(item)
-            elif has_neto and not has_bruto:
-                items_neto_only.append(item)
-
-        logger.debug(f"\n📋 Kategorizacija:")
-        logger.debug(f" Bez obe težine (PDF): {len(items_without_both)} stavki")
-        logger.debug(f" Sa bruto, bez neto: {len(items_with_partial)} stavki")
-        logger.debug(f" Sa neto, bez bruto (Leburic): {len(items_neto_only)} stavki")
-
-        # Distribucija za stavke BEZ obe težine (PDF stavke)
-        if items_without_both:
-            logger.debug(f"\n🔄 Distribuiram na PDF stavke (bez obe težine):")
-            total_qty = sum(item.kolicina or 0.0 for item in items_without_both)
-            logger.debug(f"   Ukupna količina: {total_qty}")
-
-            if total_qty > 0:
-                for i, item in enumerate(items_without_both):
-                    qty = item.kolicina or 0.0
-                    if qty > 0:
-                        proportion = qty / total_qty
-                        if bruto_total > 0:
-                            item.bruto_kg = round(bruto_total * proportion, 3)
-                        if neto_total > 0:
-                            item.neto_kg = round(neto_total * proportion, 3)
-                        elif item.bruto_kg:
-                            item.neto_kg = round(item.bruto_kg * neto_bruto_ratio, 3)
-                        if item.neto_kg and item.neto_kg > 0 and (not item.bruto_kg or item.bruto_kg <= 0):
-                            item.bruto_kg = round(item.neto_kg / neto_bruto_ratio, 3)
-                        if i < 3:
-                            logger.debug(" [%d] Količina=%s → bruto=%s, neto=%s", i, qty, item.bruto_kg, item.neto_kg)
-
-        # Izračun neto za stavke SA bruto ALI BEZ neto
-        if items_with_partial and neto_bruto_ratio > 0:
-            logger.debug(f"\n🧮 Izračunavam neto za stavke sa bruto, bez neto:")
-            for i, item in enumerate(items_with_partial):
-                old_neto = item.neto_kg
-                item.neto_kg = round(item.bruto_kg * neto_bruto_ratio, 3)
-                if i < 3:
-                    logger.debug(" [%d] bruto=%s → neto=%s (bilo %s)", i, item.bruto_kg, item.neto_kg, old_neto)
-            logger.debug(" Ukupno obrađeno: %d stavki", len(items_with_partial))
-
-        # Izračun BRUTA za stavke SA neto ALI BEZ bruta (Leburic Excel)
-        # Distribuira ukupni bruto proporcionalno po individualnom netu
-        if items_neto_only and bruto_total > 0:
-            logger.debug(f"\n🧮 Izračunavam bruto za Leburic stavke (imaju neto, nemaju bruto):")
-            total_neto_items = sum(item.neto_kg or 0.0 for item in items_neto_only)
-            logger.debug(f"   Ukupan neto stavki: {total_neto_items:.3f} kg")
-            logger.debug(f"   Ukupan bruto za distribuciju: {bruto_total:.3f} kg")
-
-            if total_neto_items > 0:
-                for i, item in enumerate(items_neto_only):
-                    proportion = (item.neto_kg or 0.0) / total_neto_items
-                    item.bruto_kg = round(bruto_total * proportion, 3)
-                    if i < 3:
-                        logger.debug(" [%d] neto=%s → bruto=%s", i, item.neto_kg, item.bruto_kg)
-                logger.debug(" Ukupno obrađeno: %d stavki", len(items_neto_only))
-        elif items_neto_only and bruto_total <= 0:
-            logger.warning("⚠️  Leburic stavke imaju neto ali nema ukupnog bruta u toolbar polju")
-            # Fallback: izračunaj bruto iz neta koristeći default odnos (0.95)
-            for item in items_neto_only:
-                if item.neto_kg and item.neto_kg > 0:
-                    item.bruto_kg = round(item.neto_kg / neto_bruto_ratio, 3)
-
-        updated_count = len(items_without_both) + len(items_with_partial) + len(items_neto_only)
-        skipped_count = len(self.draft.invoice_lines) - updated_count
-
-        logger.info(f"\n✅ ZAVRŠENO:")
-        logger.debug(f"   Ažurirano: {updated_count} stavki")
-        logger.debug(f"   Preskočeno: {skipped_count} stavki")
+        logger.info(f"\n✅ ZAVRŠENO: ažurirano {updated_count}, preskočeno {skipped_count}")
         logger.debug("=" * 80 + "\n")
 
         # Reload table
@@ -3059,11 +2970,6 @@ class FakturaView(BaseTabView):
             message += f"Ukupna bruto: {bruto_total:.3f} kg\n"
         if neto_total > 0:
             message += f"Ukupna neto: {neto_total:.3f} kg\n"
-        if items_neto_only and bruto_total > 0:
-            message += f"\n✅ Bruto raspoređen proporcionalno po netu ({len(items_neto_only)} stavki)."
-        elif items_neto_only and bruto_total <= 0:
-            message += f"\n⚠️ {len(items_neto_only)} stavki ima neto ali nedostaje ukupni bruto u polju iznad."
-
         if skipped_count > 0:
             message += f"\n⚠️ Preskočeno {skipped_count} stavki koje već imaju obe težine."
 
