@@ -231,6 +231,23 @@ class ZaglavljeService:
             if found is not None and found.text:
                 return found.text.strip()
         return ""
+
+    def _attached_doc_dict(
+        self,
+        code: str,
+        name: str,
+        number: str,
+        from_rule: bool,
+    ) -> Dict[str, Any]:
+        return {
+            'code': code,
+            'name': name,
+            'number': number,
+            'from_rule': from_rule,
+        }
+
+    def _has_attached_doc_code(self, docs: List[Dict[str, Any]], code: str) -> bool:
+        return any(d.get('code') == code for d in docs)
     
     def export_to_xml(self, data: Dict[str, Any], filepath: str, format_type: str = "world") -> bool:
         """
@@ -590,12 +607,14 @@ class ZaglavljeService:
         data['attached_documents'] = []
         if hasattr(draft, 'header_attached_documents') and draft.header_attached_documents:
             for doc in draft.header_attached_documents:
-                data['attached_documents'].append({
-                    'code': getattr(doc, 'code', ''),
-                    'name': getattr(doc, 'name', ''),
-                    'number': getattr(doc, 'number', ''),
-                    'from_rule': True,  # Svaki upisani dokument je fizički priložen
-                })
+                data['attached_documents'].append(
+                    self._attached_doc_dict(
+                        getattr(doc, 'code', ''),
+                        getattr(doc, 'name', ''),
+                        getattr(doc, 'number', ''),
+                        True,
+                    )
+                )
 
         # Automatski dodaj N380 (faktura) ako postoje brojevi faktura u draft-u
         # Skupljamo SVE brojeve (može ih biti više u tabeli faktura)
@@ -623,24 +642,17 @@ class ZaglavljeService:
                 brojevi.append(ref)
         
         if brojevi:
-            has_n380 = any(d.get('code') == 'N380' for d in data['attached_documents'])
-            if not has_n380:
-                data['attached_documents'].append({
-                    'code': 'N380',
-                    'name': 'Faktura',
-                    'number': ' | '.join(brojevi),
-                    'from_rule': True,
-                })
+            if not self._has_attached_doc_code(data['attached_documents'], 'N380'):
+                data['attached_documents'].append(
+                    self._attached_doc_dict('N380', 'Faktura', ' | '.join(brojevi), True)
+                )
 
         # Auto-dodaj PZT i N730 ako nisu prisutni — obavezne isprave u svakoj deklaraciji
         for _code, _name in [('PZT', 'Zavisni troškovi'), ('N730', 'Tovarni list')]:
-            if not any(d.get('code') == _code for d in data['attached_documents']):
-                data['attached_documents'].append({
-                    'code': _code,
-                    'name': _name,
-                    'number': '',
-                    'from_rule': True,
-                })
+            if not self._has_attached_doc_code(data['attached_documents'], _code):
+                data['attached_documents'].append(
+                    self._attached_doc_dict(_code, _name, '', True)
+                )
 
         self._log_operation(f"Učitavanje iz Draft-a: {getattr(draft, 'broj_deklaracije', 'N/A')}")
 
@@ -838,12 +850,14 @@ class ZaglavljeService:
                 prev = previous_map.get(code)
                 cur = data_map.get(code)
                 if prev and not cur:
-                    docs_in.append({
-                        'code': prev.code,
-                        'name': prev.name,
-                        'number': prev.number,
-                        'from_rule': prev.from_rule,
-                    })
+                    docs_in.append(
+                        self._attached_doc_dict(
+                            prev.code,
+                            prev.name,
+                            prev.number,
+                            prev.from_rule,
+                        )
+                    )
                 elif prev and cur:
                     if prev.number and not (cur.get('number') or '').strip():
                         cur['number'] = prev.number
