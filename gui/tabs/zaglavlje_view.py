@@ -1777,8 +1777,6 @@ class ZaglavljeView(BaseTabView):
                 item = self.table.item(row, col)
                 if item:
                     item.setText("")
-        # Vrati visinu reda
-        for row in rows:
             self.table.setRowHeight(row, 32)
 
     def _clear_all_doc_rows(self):
@@ -2127,8 +2125,6 @@ class ZaglavljeView(BaseTabView):
         if not attached_docs:
             return
 
-        _PRESERVE_REFS = {"DIS", "N380", "OST", "PE1", "PE2", "PE3"}
-
         # Očisti sadržaj bez mijenjanja broja redova — sprečava skupljanje prozora
         for row in range(self.table.rowCount()):
             for col in range(self.table.columnCount()):
@@ -2154,7 +2150,7 @@ class ZaglavljeView(BaseTabView):
             # Kolona 2 — Referenca
             # Pri XML uvozu: brišemo stale ref-ove osim za DIS/N380/OST/PE
             # Pri load_from_draft: uvijek čuvamo što je u draftu
-            if clear_refs_on_import and code not in _PRESERVE_REFS:
+            if clear_refs_on_import and code not in self._PRESERVE_REFS:
                 ref_item = QTableWidgetItem("")
             else:
                 ref_item = QTableWidgetItem(number)
