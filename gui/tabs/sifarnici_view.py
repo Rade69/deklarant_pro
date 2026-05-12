@@ -251,11 +251,7 @@ class SifarniciView(BaseTabView):
             content_layout.addWidget(self.inspection_filter_panel)
 
             # Tabela BEZ scroll area
-            self.table = QTableWidget()
-            self.table.setSelectionBehavior(QTableWidget.SelectRows)
-            self.table.setSelectionMode(QTableWidget.SingleSelection)
-            self.table.setAlternatingRowColors(True)
-            self.table.setStyleSheet(
+            self.table = self._create_configured_table(
                 """
                 QTableWidget {
                     border: 2px solid #5a8060;
@@ -284,10 +280,6 @@ class SifarniciView(BaseTabView):
                 }
             """
             )
-            # Povećaj visinu redova
-            self.table.verticalHeader().setDefaultSectionSize(45)
-            self.table.itemSelectionChanged.connect(self._on_row_selected)
-            self.table.itemDoubleClicked.connect(self._on_uredi)
 
             # VAŽNO - forsiraj minimalnu veličinu
             self.table.setMinimumHeight(400)
@@ -1165,11 +1157,7 @@ class SifarniciView(BaseTabView):
 
     def _create_table_widget(self) -> QTableWidget:
         """Kreira novu instancu QTableWidget sa osnovnim podešavanjima"""
-        table = QTableWidget()
-        table.setSelectionBehavior(QTableWidget.SelectRows)
-        table.setSelectionMode(QTableWidget.SingleSelection)
-        table.setAlternatingRowColors(True)
-        table.setStyleSheet(
+        return self._create_configured_table(
             """
             QTableWidget {
                 border: 1px solid #ddd;
@@ -1189,7 +1177,13 @@ class SifarniciView(BaseTabView):
             }
         """
         )
-        # Povećaj visinu redova
+
+    def _create_configured_table(self, stylesheet: str) -> QTableWidget:
+        table = QTableWidget()
+        table.setSelectionBehavior(QTableWidget.SelectRows)
+        table.setSelectionMode(QTableWidget.SingleSelection)
+        table.setAlternatingRowColors(True)
+        table.setStyleSheet(stylesheet)
         table.verticalHeader().setDefaultSectionSize(45)
         table.itemSelectionChanged.connect(self._on_row_selected)
         table.itemDoubleClicked.connect(self._on_uredi)
