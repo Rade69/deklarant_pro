@@ -1512,7 +1512,8 @@ class FakturaView(BaseTabView):
                     items = result.items
                     bruto_kg = result.bruto_kg or 0.0
                     neto_kg = result.neto_kg or 0.0
-                    if getattr(result, 'is_authorized_exporter', False):
+                    is_auth_file = getattr(result, 'is_authorized_exporter', False)
+                    if is_auth_file:
                         any_authorized_exporter = True
                     # Postavi invoice_number na stavke — samo ako ga parser eksplicitno izvukao
                     explicit_inv = result.invoice_name or ""
@@ -1520,6 +1521,27 @@ class FakturaView(BaseTabView):
                         for item in items:
                             if not item.invoice_number:
                                 item.invoice_number = explicit_inv
+                    # EUR.1 / PE2 / PE3 dialog — zasebno za svaku fakturu (kao kod agenta)
+                    if items:
+                        has_origin_file = getattr(result, 'has_origin_statement', False)
+                        if has_origin_file or self._should_show_eur1_dialog(items):
+                            invoice_name_file = result.invoice_name or Path(filepath).stem
+                            # Privremeno dodaj u draft — dijalog radi na draft.invoice_lines
+                            self.draft.invoice_lines.extend(items)
+                            from gui.tabs.agent.services.import_pipeline_service import _origin_dialog_type
+                            dialog_tip = _origin_dialog_type(items, has_origin_file, is_auth_file)
+                            if dialog_tip == 'pe3':
+                                logger.info(f"📦 [{invoice_name_file}] → PE3 dialog")
+                                self._show_pe2_dialog(invoice_name_file, doc_code='PE3')
+                            elif dialog_tip == 'pe2':
+                                logger.info(f"📦 [{invoice_name_file}] → PE2 dialog")
+                                self._show_pe2_dialog(invoice_name_file, doc_code='PE2')
+                            else:
+                                val = sum(getattr(it, 'iznos', 0.0) for it in items)
+                                logger.info(f"📦 [{invoice_name_file}] iznos={val:.2f}€ → EUR.1 dialog")
+                                self._show_eur1_dialog()
+                            # Ukloni privremene stavke — biće dodane na kraju iz all_items
+                            del self.draft.invoice_lines[-len(items):]
                 else:
                     # Backward compatibility
                     items = result
@@ -1578,26 +1600,6 @@ class FakturaView(BaseTabView):
 
             # Enable buttons
             self._set_buttons_enabled(True)
-
-            # EUR.1 / PE2 / PE3 DIALOG — prikaži korisniku i za grupni uvoz
-            has_origin = any(getattr(item, 'has_origin_statement', False) for item in all_items)
-            if has_origin:
-                from gui.tabs.agent.services.import_pipeline_service import _origin_dialog_type
-                first_invoice = Path(filepaths[0]).stem if filepaths else "Grupni uvoz"
-                dialog_tip = _origin_dialog_type(all_items, has_origin, any_authorized_exporter)
-                if dialog_tip == 'pe3':
-                    logger.info("📦 [grupni uvoz] → ovlašteni izvoznik → PE3 dialog")
-                    self._show_pe2_dialog(first_invoice, doc_code='PE3')
-                elif dialog_tip == 'pe2':
-                    logger.info("📦 [grupni uvoz] → PE2 dialog")
-                    self._show_pe2_dialog(first_invoice, doc_code='PE2')
-                else:
-                    val = sum(getattr(i, 'iznos', 0.0) for i in all_items)
-                    logger.info(f"📦 [grupni uvoz] → iznos={val:.2f}€ > 6000 → EUR.1 dialog")
-                    self._show_eur1_dialog()
-            elif self._should_show_eur1_dialog(all_items):
-                logger.info("📦 [grupni uvoz] → EUR.1 dialog")
-                self._show_eur1_dialog()
 
             # Prikaži statistiku
             message = f"📦 Grupni uvoz završen!\n\n"
