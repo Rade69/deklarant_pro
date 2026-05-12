@@ -656,20 +656,18 @@ class AsycudaXMLBuilder:
         alpha = item_val / total_items_value if total_items_value > 0 else 0.0
 
         # Priložene isprave
-        from_rule_codes: list[str] = []
+        # Sve šifre header dokumenata — idu u Attached_doc_item na prvoj stavci
+        all_header_codes: list[str] = []
 
         # 1. Header dokumenti (samo za prvu stavku)
         for doc in header_docs:
             self._add_attached_doc(item_elem, doc)
-            if doc.from_rule:
-                from_rule_codes.append(doc.code)
+            all_header_codes.append(doc.code)
 
         # 2. Strukturirani dokumenti stavke (bez pref_doc — ti su prebačeni na prvu stavku)
         if item.attached_documents:
             for doc in item.attached_documents:
                 self._add_attached_doc(item_elem, doc)
-                if doc.from_rule:
-                    from_rule_codes.append(doc.code)
 
         # Packages
         packages = ET.SubElement(item_elem, "Packages")
@@ -766,11 +764,12 @@ class AsycudaXMLBuilder:
             f"-{_fmt_thousands(_vi_ded)}"
         )
 
-        # Attached_doc_item — na prvoj stavci: space-separated from_rule kodovi
-        # Na ostalim stavkama: null (ASYCUDA World standard)
-        if is_first and from_rule_codes:
+        # Attached_doc_item — na prvoj stavci: sve šifre header dokumenata
+        # ASYCUDA standard: globalni dokumenti deklaracije se navode na prvoj stavci
+        # Na ostalim stavkama: null
+        if is_first and all_header_codes:
             adi = ET.SubElement(tarif, "Attached_doc_item")
-            adi.text = " ".join(from_rule_codes) + " "
+            adi.text = " ".join(all_header_codes) + " "
         else:
             _null(tarif, "Attached_doc_item")
 
