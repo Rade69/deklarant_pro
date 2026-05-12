@@ -1548,6 +1548,9 @@ class FakturaView(BaseTabView):
                     bruto_kg = 0.0
                     neto_kg = 0.0
 
+                # Normalizuj tarifne brojeve na 8 cifara
+                self._normalize_item_tariffs(items)
+
                 # Agreguj rezultate
                 all_items.extend(items)
                 total_bruto_kg += bruto_kg
@@ -1700,6 +1703,18 @@ class FakturaView(BaseTabView):
     def _assign_invoice_name(self, items, invoice_name: str) -> None:
         for item in items:
             item.invoice_number = invoice_name
+
+    def _normalize_item_tariffs(self, items) -> None:
+        from importers.invoice_line_utils import normalize_tariff_number
+        for item in items:
+            code = item.tarifni_broj or ""
+            if not code:
+                continue
+            normalized = normalize_tariff_number(code)
+            # Excel gubi vodeće nule (npr. "03824999" → "3824999") — zfill vraća ih za 4-7 cifara
+            if normalized and normalized.isdigit() and 4 <= len(normalized) < 8:
+                normalized = normalized.zfill(8)
+            item.tarifni_broj = normalized
 
     def _is_same_combined_invoice(self, invoice_name: str, is_combined: bool) -> bool:
         if not (self.last_invoice_name and invoice_name and is_combined):
@@ -2168,6 +2183,9 @@ class FakturaView(BaseTabView):
             # NOVI PRISTUP: NE koristiti Assembly sistem za obične importe!
             # Assembly se koristi SAMO kada korisnik eksplicitno učita Master Listu preko menija.
             # Za Blagić i druge kompletne fakture, direktno dodaj u draft i održi redoslijed.
+
+            # Normalizuj tarifne brojeve na 8 cifara (Excel može izgubiti vodeće nule)
+            self._normalize_item_tariffs(items)
 
             # Check: Da li je Assembly sistem aktivan (korisnik učitao Master Listu)?
             using_assembly = self.assembly.master_list_loaded
