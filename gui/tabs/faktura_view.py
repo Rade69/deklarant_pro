@@ -1055,6 +1055,9 @@ class FakturaView(BaseTabView):
             if row < len(self.draft.invoice_lines):
                 self._validate_and_color_row(row, self.draft.invoice_lines[row])
         self._pending_validate_rows.clear()
+        self._notify_data_changed()
+
+    def _notify_data_changed(self):
         self.data_changed.emit()
         if self.on_dirty:
             self.on_dirty()
@@ -1359,9 +1362,7 @@ class FakturaView(BaseTabView):
                         self.draft.mark_dirty()
 
                     # Mark as dirty
-                    self.data_changed.emit()
-                    if self.on_dirty:
-                        self.on_dirty()
+                    self._notify_data_changed()
 
                     QMessageBox.information(
                         self,
@@ -1688,10 +1689,50 @@ class FakturaView(BaseTabView):
         elif filepath.lower().endswith(".pdf"):
             self.imported_pdf_count += 1
 
+    def _assign_invoice_name(self, items, invoice_name: str) -> None:
+        for item in items:
+            item.invoice_number = invoice_name
+
+    def _is_same_combined_invoice(self, invoice_name: str, is_combined: bool) -> bool:
+        if not (self.last_invoice_name and invoice_name and is_combined):
+            return False
+
+        last_normalized = self.last_invoice_name.replace(" ", "").replace("-", "").lower()
+        current_normalized = invoice_name.replace(" ", "").replace("-", "").lower()
+        min_len = min(len(last_normalized), len(current_normalized))
+
+        if min_len < 5:
+            return False
+
+        prefix_match = last_normalized[:min_len] == current_normalized[:min_len]
+        substring_match = (
+            last_normalized in current_normalized
+            or current_normalized in last_normalized
+        )
+        return prefix_match or substring_match
+
+    def _append_imported_files_message(self, message: str, min_files: int = 1) -> str:
+        total_files = self.imported_excel_count + self.imported_pdf_count
+        if total_files < min_files:
+            return message
+
+        message += f"📁 Uvezeni fajlovi:\n"
+        if self.imported_excel_count > 0:
+            message += f"- Excel: {self.imported_excel_count}\n"
+        if self.imported_pdf_count > 0:
+            message += f"- PDF: {self.imported_pdf_count}\n"
+        if min_files > 1:
+            message += f"- Ukupno: {total_files} fajlova\n\n"
+        return message
+
+    def _show_no_export_items(self, title: str) -> None:
+        QMessageBox.information(
+            self, title, "Nema stavki za export.\n\nPrvo učitajte fakturu."
+        )
+
     @staticmethod
     def _normalize_partner(name: str) -> str:
         """Normalizuj naziv partnera za poređenje (mala slova, bez interpunkcije)."""
-        import re
         name = name.lower().strip()
         name = re.sub(r"[.\-,;:'/\\()]", " ", name)
         name = re.sub(r"\b(doo|d\.o\.o|dd|a\.d|ad|llc|ltd|gmbh|srl)\b", "", name)
@@ -2041,9 +2082,7 @@ class FakturaView(BaseTabView):
                 )
                 
                 # Mark dirty
-                self.data_changed.emit()
-                if self.on_dirty:
-                    self.on_dirty()
+                self._notify_data_changed()
     
     def _show_pe2_dialog(self, invoice_number: str = "", doc_code: str = "PE2"):
         """Prikaži PE2 ili PE3 quick dialog (za fakture SA izjavom)."""
@@ -2076,9 +2115,7 @@ class FakturaView(BaseTabView):
                        "Za sve stavke je postavljena šifra PE2 (izjava o poreklu na fakturi).")
                 )
 
-                self.data_changed.emit()
-                if self.on_dirty:
-                    self.on_dirty()
+                self._notify_data_changed()
 
     def _on_import_finished(self, result):
         """Handle successful import.
@@ -2131,8 +2168,7 @@ class FakturaView(BaseTabView):
                 # Assembly sistem je aktivan - matchuj sa master listom
                 # (Ovo se dešava SAMO ako je korisnik eksplicitno učitao Master Listu preko menija)
                 # Postavi invoice_number za svaku stavku
-                for item in items:
-                    item.invoice_number = invoice_name
+                self._assign_invoice_name(items, invoice_name)
                 
                 matched, unmatched, unmatched_names = self.assembly.add_invoice(
                     items, invoice_name
@@ -2190,14 +2226,7 @@ class FakturaView(BaseTabView):
                 message += f"- Kompletno: {status['complete']} ({status['completion_percentage']:.1f}%)\n"
                 message += f"- Uvezene fakture: {status['imported_invoices_count']}\n\n"
 
-                # Add file count information
-                total_files = self.imported_excel_count + self.imported_pdf_count
-                if total_files > 0:
-                    message += f"📁 Uvezeni fajlovi:\n"
-                    if self.imported_excel_count > 0:
-                        message += f"- Excel: {self.imported_excel_count}\n"
-                    if self.imported_pdf_count > 0:
-                        message += f"- PDF: {self.imported_pdf_count}\n"
+                message = self._append_imported_files_message(message)
 
                 # Show message box (warning if unmatched, info otherwise)
                 if unmatched > 0:
@@ -2217,33 +2246,14 @@ class FakturaView(BaseTabView):
                 # === JEDNOSTAVNA LOGIKA: Matching se dešava u import_service.py ===
                 # GUI samo provjerava da li je is_combined=True i zamijenjuje posljednji import
 
-                # Provjerida li je ovo ISTI invoice (kombinovani par)
-                is_same_invoice = False
-                if self.last_invoice_name and invoice_name and is_combined:
-                    # Fuzzy match
-                    last_normalized = (
-                        self.last_invoice_name.replace(" ", "").replace("-", "").lower()
-                    )
-                    current_normalized = (
-                        invoice_name.replace(" ", "").replace("-", "").lower()
-                    )
-                    min_len = min(len(last_normalized), len(current_normalized))
-
-                    if min_len >= 5:
-                        prefix_match = (
-                            last_normalized[:min_len] == current_normalized[:min_len]
-                        )
-                        substring_match = (
-                            last_normalized in current_normalized
-                            or current_normalized in last_normalized
-                        )
-                        is_same_invoice = prefix_match or substring_match
+                is_same_invoice = self._is_same_combined_invoice(
+                    invoice_name, is_combined
+                )
 
                 if is_combined and previous_count > 0 and is_same_invoice:
                     # REPLACE posljednji import (isti par, već kombіnovano u import_service)
                     # Postavi invoice_number za nove stavke
-                    for item in items:
-                        item.invoice_number = invoice_name
+                    self._assign_invoice_name(items, invoice_name)
                     
                     keep_count = previous_count - self.last_import_count
                     self.draft.invoice_lines = (
@@ -2255,8 +2265,7 @@ class FakturaView(BaseTabView):
                 else:
                     # EXTEND - dodaj na kraj (novi import ili nekombіnovani)
                     # Postavi invoice_number za svaku stavku
-                    for item in items:
-                        item.invoice_number = invoice_name
+                    self._assign_invoice_name(items, invoice_name)
                     
                     self.draft.invoice_lines.extend(items)
                     if is_combined:
@@ -2362,15 +2371,7 @@ class FakturaView(BaseTabView):
                         f"- Neto: {self.weight_manager.accumulated_neto_kg:.3f} kg\n\n"
                     )
 
-                # Add file count information
-                total_files = self.imported_excel_count + self.imported_pdf_count
-                if total_files > 1:
-                    message += f"📁 Uvezeni fajlovi:\n"
-                    if self.imported_excel_count > 0:
-                        message += f"- Excel: {self.imported_excel_count}\n"
-                    if self.imported_pdf_count > 0:
-                        message += f"- PDF: {self.imported_pdf_count}\n"
-                    message += f"- Ukupno: {total_files} fajlova\n\n"
+                message = self._append_imported_files_message(message, min_files=2)
 
                 # Dodaj info poruku o redoslijedu
                 if is_combined:
@@ -2428,9 +2429,7 @@ class FakturaView(BaseTabView):
                 self._update_status_bar()
 
                 # Mark as dirty
-                self.data_changed.emit()
-                if self.on_dirty:
-                    self.on_dirty()
+                self._notify_data_changed()
 
     def _on_delete_item(self):
         """Handle Delete button click."""
@@ -2816,10 +2815,7 @@ class FakturaView(BaseTabView):
                 show_dialog_preserving_geometry(dlg, self)
 
         except Exception as e:
-            import logging
-            logging.getLogger("deklarant_pro.faktura").warning(
-                "Istorijska validacija greška: %s", e
-            )
+            logger.warning("Istorijska validacija greška: %s", e)
 
     def _update_weight_totals(self):
         """
@@ -3207,11 +3203,7 @@ class FakturaView(BaseTabView):
         # docs/sections/export-pdf-excel.md — Excel izvoz, grupisanje po naimenovanjima
         """Export fakturnih stavki u Excel."""
         if not self.draft.invoice_lines:
-            QMessageBox.information(
-                self,
-                "Export u Excel",
-                "Nema stavki za export.\n\nPrvo učitajte fakturu.",
-            )
+            self._show_no_export_items("Export u Excel")
             return
 
         # File dialog
@@ -3241,9 +3233,7 @@ class FakturaView(BaseTabView):
     def _on_export_pdf(self):
         """Export fakturnih stavki u PDF sa grupisanjem po naimenovanjima."""
         if not self.draft.invoice_lines:
-            QMessageBox.information(
-                self, "Export u PDF", "Nema stavki za export.\n\nPrvo učitajte fakturu."
-            )
+            self._show_no_export_items("Export u PDF")
             return
 
         # Provjeri da li su naimenovanja kreirana
@@ -3299,9 +3289,7 @@ class FakturaView(BaseTabView):
     def _on_export_pregled_faktura(self):
         """Export pregled faktura u PDF — grupisanje po fakturi za carinika."""
         if not self.draft.invoice_lines:
-            QMessageBox.information(
-                self, "Pregled faktura", "Nema stavki za export.\n\nPrvo učitajte fakturu."
-            )
+            self._show_no_export_items("Pregled faktura")
             return
 
         if not self.draft.items:
@@ -3397,10 +3385,7 @@ class FakturaView(BaseTabView):
                 QMessageBox.warning(self, "Učitavanje završeno", message)
 
         except Exception as e:
-            logger.error(f"❌ Greška pri učitavanju mappinga: {e}")
-            import traceback
-
-            traceback.print_exc()
+            logger.exception("❌ Greška pri učitavanju mappinga")
 
             QMessageBox.critical(
                 self,
