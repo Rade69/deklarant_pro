@@ -184,6 +184,7 @@ def parse_blagic_loren_excel(filepath: str, _skip_pdf_lookup: bool = False) -> I
             excel_neto = total_weight_kg
 
         # PDF lookup samo kad Excel stoji samostalno (nije par u combine-u)
+        consumed: list[str] = []
         if not _skip_pdf_lookup:
             bruto_kg, neto_kg = _find_and_extract_weights_from_pdf(filepath)
             # PDF ima samo zaokružene vrijednosti — koristi Excel sum ako je precizniji
@@ -193,6 +194,10 @@ def parse_blagic_loren_excel(filepath: str, _skip_pdf_lookup: bool = False) -> I
                 bruto_kg = excel_bruto
             if excel_neto > 0:
                 neto_kg = excel_neto
+            # Ako je PDF pronađen i potrošen, bilježimo ga da ga agent ne obradi ponovo
+            matching_pdf = Path(filepath).with_suffix('.pdf')
+            if matching_pdf.exists():
+                consumed.append(str(matching_pdf))
         else:
             bruto_kg = excel_bruto
             neto_kg  = excel_neto
@@ -212,6 +217,7 @@ def parse_blagic_loren_excel(filepath: str, _skip_pdf_lookup: bool = False) -> I
             import_type="loren_excel",
             exporter=_exp,
             importer=_imp,
+            consumed_paths=consumed,
         )
 
     except Exception as e:
