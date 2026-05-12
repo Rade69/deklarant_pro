@@ -1721,22 +1721,16 @@ class FakturaView(BaseTabView):
     def _distribute_invoice_weights(self, items: list, bruto_kg: float, neto_kg: float) -> None:
         """Rasporedi ukupnu težinu fakture na stavke koje nemaju individualne težine.
 
-        Poziva se odmah nakon uvoza svake fakture (i single i multi-file put).
-        Ako parser vratio ukupnu težinu ali ne i per-line težine, raspodjeljuje
-        proporcionalno po vrijednosti stavke (iznos). Ako stavke već imaju težine
-        (parser ih ekstraktovao per-line), ne diramo ih.
+        Delegira MassCalculator.calculate_masses — jedina centralna logika za raspodjelu.
+        Raspodijela ide proporcionalno po kolicina; pokriva scenarije:
+          - stavka bez obe težine → proporcionalno po kolicina
+          - stavka sa bruto ali bez neto → izračunaj neto iz neto/bruto omjera
+          - stavka sa neto ali bez bruto → izračunaj bruto iz bruto/neto omjera
         """
         if not items or (bruto_kg <= 0 and neto_kg <= 0):
             return
-        # Ako stavke već imaju težine — parser ih je postavio, ne diramo
-        if sum(item.bruto_kg or 0.0 for item in items) > 0:
-            return
-        total_value = sum(item.iznos or 0.0 for item in items)
-        n = len(items)
-        for item in items:
-            ratio = ((item.iznos or 0.0) / total_value) if total_value > 0 else (1.0 / n)
-            item.bruto_kg = round(bruto_kg * ratio, 3)
-            item.neto_kg = round(neto_kg * ratio, 3)
+        from services.faktura.mass_calculator import MassCalculator
+        MassCalculator.calculate_masses(items, bruto_kg, neto_kg)
 
     def _is_same_combined_invoice(self, invoice_name: str, is_combined: bool) -> bool:
         if not (self.last_invoice_name and invoice_name and is_combined):
