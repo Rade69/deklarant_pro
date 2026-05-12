@@ -427,6 +427,9 @@ class AgentController:
             # Akumuliraj težine za sve fakture
             total_bruto_kg += bruto
             total_neto_kg += neto
+            # Zapamti per-invoice težinu — koristi se u _on_calculate_masses
+            if (bruto > 0 or neto > 0) and explicit_invoice_number:
+                self.draft.invoice_weights[explicit_invoice_number] = (bruto, neto)
 
             # Refresh tabele
             fw = self.faktura_tab.view if hasattr(self.faktura_tab, 'view') else self.faktura_tab
