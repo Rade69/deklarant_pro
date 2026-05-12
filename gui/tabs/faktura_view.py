@@ -1514,6 +1514,12 @@ class FakturaView(BaseTabView):
                     neto_kg = result.neto_kg or 0.0
                     if getattr(result, 'is_authorized_exporter', False):
                         any_authorized_exporter = True
+                    # Postavi invoice_number na stavke — samo ako ga parser eksplicitno izvukao
+                    explicit_inv = result.invoice_name or ""
+                    if explicit_inv:
+                        for item in items:
+                            if not item.invoice_number:
+                                item.invoice_number = explicit_inv
                 else:
                     # Backward compatibility
                     items = result
