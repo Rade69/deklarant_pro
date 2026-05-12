@@ -59,6 +59,15 @@ class TestMassCalculatorScenario1:
         assert result["updated"] == 2
         assert result["skipped"] == 0
 
+    def test_rounding_remainder_keeps_invoice_total(self):
+        items = [make_item(1.0), make_item(1.0), make_item(1.0)]
+
+        MassCalculator.calculate_masses(items, bruto_total=1.0, neto_total=0.8)
+
+        assert sum(item.bruto_kg for item in items) == pytest.approx(1.0, abs=0.001)
+        assert sum(item.neto_kg for item in items) == pytest.approx(0.8, abs=0.001)
+        assert items[-1].bruto_kg == pytest.approx(0.34, abs=0.001)
+
     def test_zero_total_no_update(self):
         items = [make_item(kolicina=100.0)]
         MassCalculator.calculate_masses(items, bruto_total=0.0, neto_total=0.0)
@@ -128,3 +137,14 @@ class TestMassCalculatorMixed:
         result = MassCalculator.calculate_masses(items, bruto_total=20.0, neto_total=19.0)
         assert result["updated"] == 1
         assert result["skipped"] == 1
+
+    def test_rounding_remainder_not_applied_to_partial_updates(self):
+        items = [
+            make_item(kolicina=100.0, bruto_kg=10.0, neto_kg=9.5),
+            make_item(kolicina=100.0),
+            make_item(kolicina=100.0),
+        ]
+
+        MassCalculator.calculate_masses(items, bruto_total=20.0, neto_total=19.0)
+
+        assert sum(item.bruto_kg for item in items) != pytest.approx(20.0, abs=0.001)
