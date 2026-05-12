@@ -361,6 +361,119 @@ class NaimenovanjaView(BaseTabView):
                 pass
         return None
 
+    def _get_item_field_value(self, item, field_name: str):
+        if field_name == "statistical_value":
+            return self._compute_statistical_value(item)
+        if field_name == "pd_codes":
+            return self._compute_pd_codes(item)
+        return getattr(item, field_name, "")
+
+    def _set_widget_value(
+        self, widget: QWidget, widget_name: str, field_name: str, value
+    ) -> bool:
+        if isinstance(widget, QComboBox):
+            self._set_combo_value(widget, widget_name, value)
+        elif isinstance(widget, QLineEdit):
+            widget.setText(self._format_line_edit_value(field_name, value))
+            if not widget.isVisible():
+                widget.setVisible(True)
+        elif isinstance(widget, QTextEdit):
+            widget.setPlainText(str(value) if value else "")
+            if not widget.isVisible():
+                widget.setVisible(True)
+        else:
+            return False
+        return True
+
+    def _set_combo_value(self, widget: QComboBox, widget_name: str, value) -> None:
+        if not value:
+            widget.setCurrentIndex(0)
+            return
+
+        if widget_name == "le_rubrika40_2":
+            code = self._extract_display_code(str(value))
+            found_idx = self._find_combo_index_by_code(widget, code)
+            if found_idx >= 0:
+                widget.setCurrentIndex(found_idx)
+                if widget.lineEdit():
+                    widget.lineEdit().setToolTip(widget.itemText(found_idx))
+            widget.setEditText(code)
+            return
+
+        index = widget.findText(str(value))
+        if index >= 0:
+            widget.setCurrentIndex(index)
+        else:
+            widget.setCurrentText(str(value))
+
+    def _extract_display_code(self, value: str) -> str:
+        return value.split(" –")[0].strip() if " –" in value else value
+
+    def _find_combo_index_by_code(self, widget: QComboBox, code: str) -> int:
+        for i in range(widget.count()):
+            if self._extract_display_code(widget.itemText(i)) == code:
+                return i
+        return -1
+
+    def _format_line_edit_value(self, field_name: str, value) -> str:
+        if field_name == "package_qty":
+            if value and float(value) != 0:
+                return str(int(float(value)))
+            return ""
+        if field_name in self._FLOAT_FIELDS:
+            if value and float(value) != 0:
+                return f"{float(value):.2f}"
+            return ""
+        return str(value) if value else ""
+
+    def _read_widget_value(self, widget: QWidget):
+        if isinstance(widget, QComboBox):
+            return widget.currentText().strip()
+        if isinstance(widget, QLineEdit):
+            return widget.text().strip()
+        if isinstance(widget, QTextEdit):
+            return widget.toPlainText().strip()
+        return None
+
+    def _normalize_field_value(self, field_name: str, value):
+        if field_name == "package_qty":
+            try:
+                return int(float(value)) if value else 0
+            except ValueError:
+                return 0
+        if field_name in self._FLOAT_FIELDS:
+            try:
+                return float(value) if value else 0.0
+            except ValueError:
+                return 0.0
+        if field_name == "ordinal_no":
+            try:
+                return int(value) if value else 0
+            except ValueError:
+                return 0
+        if field_name == "tariff_code" and value:
+            digits = re.sub(r"\D", "", value)
+            if len(digits) > 10:
+                digits = digits[:10]
+            if len(digits) == 10 and digits[8:] == "00":
+                digits = digits[:8]
+            return digits
+        return value
+
+    def _apply_to_other_items(self, field_name: str, value) -> None:
+        for i, item in enumerate(self.draft.items):
+            if i != self.current_item_index:
+                setattr(item, field_name, value)
+
+    def _mark_dirty(self) -> None:
+        self.draft.mark_dirty()
+        if self.on_dirty:
+            self.on_dirty()
+
+    def _refresh_summary_and_status(self) -> None:
+        self._update_summary()
+        self._update_status_bar()
+
     def _load_ui_from_file(self) -> None:
         """Load existing .ui file - NE mijenjamo strukturu!"""
         # Try multiple paths
@@ -2024,84 +2137,11 @@ class NaimenovanjaView(BaseTabView):
             if not field_name:
                 continue
 
-            # Use cached widget access
             widget = self._get_widget(widget_name)
 
             if widget:
-                # Virtuelna polja — dinamički izračun, ne čitaju se iz drafta
-                if field_name == "statistical_value":
-                    value = self._compute_statistical_value(item)
-                elif field_name == "pd_codes":
-                    value = self._compute_pd_codes(item)
-                else:
-                    value = getattr(item, field_name, "")
-
-                if isinstance(widget, QComboBox):
-                    if value:
-                        # Special handling for rubrika40_2 - show only code
-                        if widget_name == "le_rubrika40_2":
-                            value_str = str(value)
-                            # Extract only code if full text "CODE – Description" is saved
-                            code = (
-                                value_str.split(" –")[0].strip()
-                                if " –" in value_str
-                                else value_str
-                            )
-                            # Find matching item by code
-                            found_idx = -1
-                            for i in range(widget.count()):
-                                item_txt = widget.itemText(i)
-                                item_code = (
-                                    item_txt.split(" –")[0].strip()
-                                    if " –" in item_txt
-                                    else item_txt
-                                )
-                                if item_code == code:
-                                    found_idx = i
-                                    break
-                            if found_idx >= 0:
-                                widget.setCurrentIndex(found_idx)
-                                full_tooltip = widget.itemText(found_idx)
-                                if widget.lineEdit():
-                                    widget.lineEdit().setToolTip(full_tooltip)
-                            # Always show only code in the field (not full text)
-                            widget.setEditText(code)
-                        else:
-                            # Standard handling for other combos
-                            index = widget.findText(str(value))
-                            if index >= 0:
-                                widget.setCurrentIndex(index)
-                            else:
-                                # Fallback: set current text directly
-                                widget.setCurrentText(str(value))
-                    else:
-                        widget.setCurrentIndex(0)
-                    loaded += 1
-                elif isinstance(widget, QLineEdit):
-                    # Broj paketa — cijeli broj
-                    if field_name == "package_qty":
-                        if value and float(value) != 0:
-                            widget.setText(str(int(float(value))))
-                        else:
-                            widget.setText("")
-                    # Format float fields to 2 decimal places
-                    elif field_name in self._FLOAT_FIELDS:
-                        # Format as float with 2 decimals, but only if value is not empty/zero
-                        if value and float(value) != 0:
-                            widget.setText(f"{float(value):.2f}")
-                        else:
-                            widget.setText("")
-                    else:
-                        widget.setText(str(value) if value else "")
-                    # FORCE: osiguraj da je vidljiv (QUiLoader bug)
-                    if not widget.isVisible():
-                        widget.setVisible(True)
-                    loaded += 1
-                elif isinstance(widget, QTextEdit):
-                    widget.setPlainText(str(value) if value else "")
-                    # FORCE: osiguraj da je vidljiv (QUiLoader bug)
-                    if not widget.isVisible():
-                        widget.setVisible(True)
+                value = self._get_item_field_value(item, field_name)
+                if self._set_widget_value(widget, widget_name, field_name, value):
                     loaded += 1
             else:
                 not_found += 1
@@ -2202,51 +2242,14 @@ class NaimenovanjaView(BaseTabView):
             if not field_name or field_name in _READONLY_VIRTUAL_FIELDS:
                 continue
 
-            # Use cached widget access
             widget = self._get_widget(widget_name)
 
             if widget:
-                value = None
+                value = self._read_widget_value(widget)
+                normalized = self._normalize_field_value(field_name, value)
+                setattr(item, field_name, normalized)
 
-                if isinstance(widget, QComboBox):
-                    # For QComboBox, use currentText() to get selected value
-                    value = widget.currentText().strip()
-                elif isinstance(widget, QLineEdit):
-                    value = widget.text().strip()
-                elif isinstance(widget, QTextEdit):
-                    value = widget.toPlainText().strip()
-
-                # Type conversion
-                if field_name == "package_qty":
-                    try:
-                        value = int(float(value)) if value else 0
-                    except ValueError:
-                        value = 0
-                elif field_name in self._FLOAT_FIELDS:
-                    try:
-                        value = float(value) if value else 0.0
-                    except ValueError:
-                        value = 0.0
-                elif field_name == "ordinal_no":
-                    try:
-                        value = int(value) if value else 0
-                    except ValueError:
-                        value = 0
-                elif field_name == "tariff_code" and value:
-                    # Normalizuj "ex" unose: "ex 8511 80 00 10" → "8511800010"
-                    # 10 cifara s posljednjim 2 = "00" → skrati na 8; ≠ "00" → čuvaj 10
-                    _d = re.sub(r"\D", "", value)
-                    if len(_d) > 10:
-                        _d = _d[:10]
-                    if len(_d) == 10 and _d[8:] == "00":
-                        _d = _d[:8]
-                    value = _d
-
-                setattr(item, field_name, value)
-
-        self.draft.mark_dirty()
-        if self.on_dirty:
-            self.on_dirty()
+        self._mark_dirty()
 
         # ── Sinhronizacija tarifnog broja ako je promijenjen ──────────────
         new_tariff = item.tariff_code or ""
@@ -2527,9 +2530,7 @@ class NaimenovanjaView(BaseTabView):
         text = self.combo_rb40_tip.currentText().strip()
         for item in self.draft.items:
             item.previous_document = text
-        self.draft.mark_dirty()
-        if self.on_dirty:
-            self.on_dirty()
+        self._mark_dirty()
 
     def _on_rubrika40_1_finished(self, idx: int = 0) -> None:
         """Poziva puni _save_current_item() on activated (za ostale rubrike 40 i bočne efekte)."""
@@ -2793,15 +2794,10 @@ class NaimenovanjaView(BaseTabView):
         # 1. Sacuvaj trenutni item
         self._save_current_item()
 
-        # 2. Primijeni na sve ostale iteme
         if len(self.draft.items) > 1:
-            for i, item in enumerate(self.draft.items):
-                if i != self.current_item_index:
-                    item.previous_document2 = text
+            self._apply_to_other_items("previous_document2", text)
 
-        # 3. Azuriraj summary i validaciju
-        self._update_summary()
-        self._update_status_bar()
+        self._refresh_summary_and_status()
 
     def _on_rubrika44_4_finished(self) -> None:
         """Primijeni rubrika44_4 na sve iteme NAKON zavrsetka uredivanja (Enter/blur).
@@ -2835,7 +2831,6 @@ class NaimenovanjaView(BaseTabView):
         # 3. Sinhronizuj PE šifre iz rub.44.4 u header_attached_documents
         self._sync_pe_docs_to_header()
 
-        # 4. Azuriraj summary
         self._update_summary()
 
     def _sync_pe_docs_to_header(self) -> None:
@@ -2907,11 +2902,8 @@ class NaimenovanjaView(BaseTabView):
         # 1. Sacuvaj trenutni item
         self._save_current_item()
 
-        # 2. Primijeni na sve ostale iteme
         if len(self.draft.items) > 1:
-            for i, item in enumerate(self.draft.items):
-                if i != self.current_item_index:
-                    item.previous_document3 = text
+            self._apply_to_other_items("previous_document3", text)
 
         # 3. Azuriraj OST u header_attached_documents
         if text:
@@ -2930,9 +2922,7 @@ class NaimenovanjaView(BaseTabView):
                     ))
                 self.draft.mark_dirty()
 
-        # 4. Azuriraj summary i validaciju
-        self._update_summary()
-        self._update_status_bar()
+        self._refresh_summary_and_status()
 
     def _flash_field_border(self, widget: QWidget, color: str = "#28a745") -> None:
         """
