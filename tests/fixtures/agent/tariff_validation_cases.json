@@ -1,0 +1,228 @@
+[
+  {
+    "name": "weak_cross_chapter_is_suppressed",
+    "invoice_lines": [
+      {
+        "line_no": 58,
+        "naziv_robe": "BORT 112900 B.R.Z.palac lev XL",
+        "tarifni_broj": "63079099"
+      }
+    ],
+    "history_matches": [
+      {
+        "naziv_robe": "BORT 112900 B.R.Z.palac lev XL",
+        "tarifni_broj": "11010015",
+        "usage_count": 1,
+        "source": "",
+        "confidence": 0.6
+      }
+    ],
+    "expected": {
+      "action": "suppress"
+    }
+  },
+  {
+    "name": "strong_cross_chapter_is_shown",
+    "invoice_lines": [
+      {
+        "line_no": 52,
+        "naziv_robe": "DIXI dekstroza 7vit bomb a40",
+        "tarifni_broj": "21069092"
+      }
+    ],
+    "history_matches": [
+      {
+        "naziv_robe": "DIXI dekstroza 7vit bomb a40",
+        "tarifni_broj": "17049081",
+        "usage_count": 10,
+        "source": "MEDIKO",
+        "confidence": 0.68
+      }
+    ],
+    "expected": {
+      "action": "show",
+      "tarifni_broj": "17049081",
+      "reason_contains": "Promjena poglavlja"
+    }
+  },
+  {
+    "name": "invoice_profile_suppresses_out_of_profile_noise",
+    "invoice_lines": [
+      {
+        "line_no": 1,
+        "naziv_robe": "GW krema",
+        "tarifni_broj": "33049900"
+      },
+      {
+        "line_no": 2,
+        "naziv_robe": "GW puder",
+        "tarifni_broj": "33049900"
+      },
+      {
+        "line_no": 3,
+        "naziv_robe": "VITIX gel",
+        "tarifni_broj": "33049900"
+      },
+      {
+        "line_no": 4,
+        "naziv_robe": "OHP cepovi",
+        "tarifni_broj": "39269097"
+      },
+      {
+        "line_no": 5,
+        "naziv_robe": "BORT 112900 B.R.Z.palac lev XL",
+        "tarifni_broj": "63079099"
+      }
+    ],
+    "history_matches": [
+      {
+        "naziv_robe": "BORT 112900 B.R.Z.palac lev XL",
+        "tarifni_broj": "11010015",
+        "usage_count": 5,
+        "source": "MEDIKO",
+        "confidence": 0.68
+      }
+    ],
+    "expected": {
+      "action": "suppress"
+    }
+  },
+  {
+    "name": "very_strong_out_of_profile_evidence_is_shown",
+    "invoice_lines": [
+      {
+        "line_no": 1,
+        "naziv_robe": "GW krema",
+        "tarifni_broj": "33049900"
+      },
+      {
+        "line_no": 2,
+        "naziv_robe": "GW puder",
+        "tarifni_broj": "33049900"
+      },
+      {
+        "line_no": 3,
+        "naziv_robe": "VITIX gel",
+        "tarifni_broj": "33049900"
+      },
+      {
+        "line_no": 4,
+        "naziv_robe": "OHP cepovi",
+        "tarifni_broj": "39269097"
+      },
+      {
+        "line_no": 5,
+        "naziv_robe": "DIXI dekstroza 7vit bomb a40",
+        "tarifni_broj": "21069092"
+      }
+    ],
+    "history_matches": [
+      {
+        "naziv_robe": "DIXI dekstroza 7vit bomb a40",
+        "tarifni_broj": "17049081",
+        "usage_count": 12,
+        "source": "MEDIKO",
+        "confidence": 0.7
+      }
+    ],
+    "expected": {
+      "action": "show",
+      "tarifni_broj": "17049081",
+      "reason_contains": "Promjena poglavlja"
+    }
+  },
+  {
+    "name": "same_heading_precision_is_shown",
+    "invoice_lines": [
+      {
+        "line_no": 1,
+        "naziv_robe": "kozmeticka krema",
+        "tarifni_broj": "33049900"
+      }
+    ],
+    "history_matches": [
+      {
+        "naziv_robe": "kozmeticka krema",
+        "tarifni_broj": "33049910",
+        "usage_count": 1,
+        "source": "",
+        "confidence": 0.6
+      }
+    ],
+    "expected": {
+      "action": "show",
+      "tarifni_broj": "33049910",
+      "reason_contains": "Ista tarifna glava"
+    }
+  },
+  {
+    "name": "same_chapter_different_heading_with_repetition_is_shown",
+    "invoice_lines": [
+      {
+        "line_no": 1,
+        "naziv_robe": "sampon za kosu",
+        "tarifni_broj": "33049900"
+      }
+    ],
+    "history_matches": [
+      {
+        "naziv_robe": "sampon za kosu",
+        "tarifni_broj": "33051000",
+        "usage_count": 2,
+        "source": "",
+        "confidence": 0.6
+      }
+    ],
+    "expected": {
+      "action": "show",
+      "tarifni_broj": "33051000",
+      "reason_contains": "Isto poglavlje"
+    }
+  },
+  {
+    "name": "missing_current_tariff_with_source_is_shown",
+    "invoice_lines": [
+      {
+        "line_no": 1,
+        "naziv_robe": "medicinski zavoj",
+        "tarifni_broj": ""
+      }
+    ],
+    "history_matches": [
+      {
+        "naziv_robe": "medicinski zavoj",
+        "tarifni_broj": "30059099",
+        "usage_count": 1,
+        "source": "MEDIKO",
+        "confidence": 0.6
+      }
+    ],
+    "expected": {
+      "action": "show",
+      "tarifni_broj": "30059099",
+      "reason_contains": "Nema trenutne tarife"
+    }
+  },
+  {
+    "name": "missing_current_tariff_without_evidence_is_suppressed",
+    "invoice_lines": [
+      {
+        "line_no": 1,
+        "naziv_robe": "nepoznat artikal",
+        "tarifni_broj": ""
+      }
+    ],
+    "history_matches": [
+      {
+        "naziv_robe": "nepoznat artikal",
+        "tarifni_broj": "99999999",
+        "usage_count": 1,
+        "source": "",
+        "confidence": 0.6
+      }
+    ],
+    "expected": {
+      "action": "suppress"
+    }
+  }
+]
