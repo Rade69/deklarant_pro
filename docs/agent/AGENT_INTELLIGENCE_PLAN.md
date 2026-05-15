@@ -1,7 +1,7 @@
 # Plan unapređenja inteligencije agenta
 
 **Datum:** 2026-05-15  
-**Status:** 2 faze implementirane, Faza 3 započeta  
+**Status:** Faza 3 započeta, Faza 4 započeta strukturnim izdvajanjem odluke
 **Scope:** istorijska validacija tarifa, objašnjivi prijedlozi, evaluacija kvaliteta i učenje iz odluka korisnika
 
 ---
@@ -162,7 +162,7 @@ Ovo je temelj za svaku dalju inteligenciju. Ako se odmah uvede složeniji scorin
 
 ### Faza 4 — Scoring model i učenje iz korisničkih odluka
 
-**Status:** nije implementirano  
+**Status:** započeto; postojeća odluka izdvojena u `tariff_decision_model.py`, bez promjene scoring ponašanja
 **Procjena kompleksnosti:** visoka  
 **Procjena trajanja:** 3 do 6 radnih dana za konzervativnu verziju; više ako se uvodi trajno učenje i administracija  
 **Rizik:** srednji do visok
@@ -219,17 +219,19 @@ Ovo ne treba odmah koristiti kao automatsku istinu. U prvoj verziji korisničke 
 
 #### Predložena implementacija
 
-Dodati mali interni model odluke, npr:
+Interni model odluke je započet u:
 
 ```text
 services/agent/validation/tariff_decision_model.py
 ```
 
-Odgovornost tog modula:
+Trenutna odgovornost tog modula:
 
 - prima `TariffHistoryMatch`, trenutni tarifni broj i profil fakture
-- računa score
-- vraća odluku i razloge
+- primjenjuje postojeće pragove bez promjene ponašanja
+- vraća boolean odluku i puni `decision_reason`
+
+Sljedeći korak Faze 4 je proširiti ga na eksplicitne ishode `SHOW_STRONG`, `SHOW_WEAK` i `SUPPRESS`, ali tek nakon dodatnih realnih evaluacionih slučajeva.
 
 `HistoricalTariffSearchService` ostaje zadužen za pretragu i orkestraciju, ali ne treba beskonačno širiti `_is_actionable_match`.
 
@@ -251,14 +253,14 @@ Zato Faza 4 ne treba početi prije Faze 3.
 | 1. Filter slabih prijedloga | završeno | niska-srednja | nizak | završeno |
 | 2. Profil fakture + razlog | završeno | srednja | srednji | završeno |
 | 3. Evaluacioni set | započeto | srednja | nizak/srednji | fixture + metrike + CLI izvještaj dodani; proširiti realnim slučajevima |
-| 4. Scoring + učenje | nije početo | visoka | srednji/visok | 3-6 dana |
+| 4. Scoring + učenje | započeto | visoka | srednji/visok | strukturno izdvajanje urađeno; scoring još nije uveden |
 
 ---
 
 ## Preporučeni redoslijed
 
 1. Proširiti evaluacioni fixture set realnim fakturama i poznatim odlukama.
-2. Izvući odluku iz `_is_actionable_match` u zaseban model tek kada evaluacija pokriva dovoljno slučajeva.
+2. Proširiti `tariff_decision_model.py` na eksplicitne odluke tek kada evaluacija pokriva dovoljno slučajeva.
 3. Uvesti scoring bez trajnog učenja.
 4. Tek nakon stabilnog scoring-a dodati pamćenje korisničkih odluka.
 
@@ -269,7 +271,7 @@ Zato Faza 4 ne treba početi prije Faze 3.
 Ako se želi najkorisniji sljedeći korak bez velikog rizika:
 
 1. Dodati još 6-10 ručno odabranih slučajeva iz realnih faktura.
-2. Tek onda početi Fazu 4.
+2. Tek onda širiti Fazu 4 na scoring.
 
 Ova iteracija ne mijenja ponašanje aplikacije, ali daje osnovu da sljedeće promjene budu kontrolisane.
 

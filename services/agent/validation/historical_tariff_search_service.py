@@ -20,6 +20,12 @@ from collections import Counter
 from dataclasses import dataclass
 from typing import Dict, List
 
+from services.agent.validation.tariff_decision_model import (
+    TariffDecisionThresholds,
+    is_actionable_tariff_match,
+    tariff_digits,
+)
+
 logger = logging.getLogger("deklarant_pro.historical_tariff_search")
 
 # Bosanske/srpske stopper-riječi koje ne doprinose pretrazi
@@ -205,68 +211,20 @@ class HistoricalTariffSearchService:
         trenutni: str,
         invoice_profile: Dict | None = None,
     ) -> bool:
-        current = self._digits(trenutni)
-        historical = self._digits(match.tarifni_broj_historijski)
-        if not historical:
-            return False
-        if current and current == historical:
-            return False
-
-        has_source = self._has_meaningful_source(match.source)
-        profile = invoice_profile or {}
-        profile_chapters = profile.get("chapters", set())
-        if not current:
-            if match.usage_count >= self.MIN_USAGE_FOR_WEAK_SOURCE or has_source:
-                match.decision_reason = "Nema trenutne tarife; istorijski zapis ima dovoljno izvora/ponavljanja."
-                return True
-            return False
-
-        current_chapter = current[:2]
-        historical_chapter = historical[:2]
-        current_heading = current[:4]
-        historical_heading = historical[:4]
-
-        if (
-            profile.get("item_count", 0) >= 5
-            and current_chapter in profile_chapters
-            and historical_chapter not in profile_chapters
-            and current_chapter != historical_chapter
-        ):
-            if not (
-                match.usage_count >= self.MIN_USAGE_FOR_OUT_OF_PROFILE_CHAPTER
-                and has_source
-                and match.confidence >= 0.68
-            ):
-                return False
-
-        if current_chapter != historical_chapter:
-            if (
-                match.usage_count >= self.MIN_USAGE_FOR_CROSS_CHAPTER
-                and (has_source or match.confidence >= 0.68)
-            ):
-                match.decision_reason = (
-                    "Promjena poglavlja dozvoljena samo zbog jačeg istorijskog dokaza."
-                )
-                return True
-            return False
-
-        if current_heading != historical_heading:
-            if match.usage_count >= self.MIN_USAGE_FOR_WEAK_SOURCE or has_source:
-                match.decision_reason = "Isto poglavlje, drugi tarifni heading iz istorije."
-                return True
-            return False
-
-        match.decision_reason = "Ista tarifna glava; istorija ukazuje na precizniji broj."
-        return True
+        return is_actionable_tariff_match(
+            match,
+            trenutni,
+            invoice_profile,
+            TariffDecisionThresholds(
+                min_usage_for_cross_chapter=self.MIN_USAGE_FOR_CROSS_CHAPTER,
+                min_usage_for_out_of_profile_chapter=self.MIN_USAGE_FOR_OUT_OF_PROFILE_CHAPTER,
+                min_usage_for_weak_source=self.MIN_USAGE_FOR_WEAK_SOURCE,
+            ),
+        )
 
     @staticmethod
     def _digits(value: str) -> str:
-        return re.sub(r"\D", "", value or "")
-
-    @staticmethod
-    def _has_meaningful_source(value: str) -> bool:
-        source = (value or "").strip()
-        return bool(source and source not in {"-", "—", "+", "A", "HISTORIJA"})
+        return tariff_digits(value)
 
     def _to_matches(self, rows: list, naziv_original: str) -> List[TariffHistoryMatch]:
         results = []
