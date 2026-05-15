@@ -165,6 +165,13 @@ class TariffValidationDialog(QDialog):
         reason_label.setTextFormat(Qt.RichText)
         reason_label.setWordWrap(True)
 
+        weak_label = None
+        if self._is_weak_match(match):
+            weak_label = QLabel(
+                "<span style='color:#9a6700; font-size:13px;'>Oprez: slabiji prijedlog</span>"
+            )
+            weak_label.setTextFormat(Qt.RichText)
+
         hist_naziv = match.naziv_robe_historijski[:70]
         hist_label = QLabel(f"<span style='color:#888; font-size:13px;'>Naziv u bazi: {hist_naziv}</span>")
         hist_label.setTextFormat(Qt.RichText)
@@ -174,6 +181,8 @@ class TariffValidationDialog(QDialog):
         info.addWidget(tarif_label)
         info.addWidget(meta_label)
         info.addWidget(reason_label)
+        if weak_label is not None:
+            info.addWidget(weak_label)
         info.addWidget(hist_label)
 
         # Desna kolona — dugme Prihvati
@@ -213,11 +222,13 @@ class TariffValidationDialog(QDialog):
         copy_btn.setStyleSheet(self._btn_style(secondary=True))
         copy_btn.clicked.connect(self._copy_report)
 
-        accept_all_btn = QPushButton(f"Prihvati sve ({len(self._matches)})")
+        strong_count = self._accept_all_pending_count()
+        accept_all_btn = QPushButton(f"Prihvati jake ({strong_count})")
         accept_all_btn.setCursor(Qt.PointingHandCursor)
         accept_all_btn.setStyleSheet(self._btn_style(secondary=False))
         accept_all_btn.clicked.connect(self._accept_all)
         self._accept_all_btn = accept_all_btn
+        self._update_accept_all_btn()
 
         close_btn = QPushButton("Zatvori")
         close_btn.setCursor(Qt.PointingHandCursor)
@@ -243,22 +254,34 @@ class TariffValidationDialog(QDialog):
     def _accept_all(self):
         changes = []
         for line_index, (match, btn) in self._checkboxes.items():
-            if btn.isEnabled():
+            if btn.isEnabled() and self._can_accept_all(match):
                 btn.setText("✓ Prihvaceno")
                 btn.setEnabled(False)
                 changes.append((line_index, match.tarifni_broj_historijski))
         if changes:
             self.tariffs_accepted.emit(changes)
-        self._accept_all_btn.setEnabled(False)
-        self._accept_all_btn.setText("Sve prihvaceno")
+        self._update_accept_all_btn()
 
     def _update_accept_all_btn(self):
-        pending = sum(1 for _, btn in self._checkboxes.values() if btn.isEnabled())
+        pending = self._accept_all_pending_count()
         if pending == 0:
             self._accept_all_btn.setEnabled(False)
-            self._accept_all_btn.setText("Sve prihvaceno")
+            self._accept_all_btn.setText("Svi jaki prihvaceni")
         else:
-            self._accept_all_btn.setText(f"Prihvati sve ({pending})")
+            self._accept_all_btn.setText(f"Prihvati jake ({pending})")
+
+    def _accept_all_pending_count(self) -> int:
+        return sum(
+            1 for match, btn in self._checkboxes.values()
+            if btn.isEnabled() and self._can_accept_all(match)
+        )
+
+    @staticmethod
+    def _is_weak_match(match) -> bool:
+        return getattr(match, "decision_outcome", "") == "show_weak"
+
+    def _can_accept_all(self, match) -> bool:
+        return not self._is_weak_match(match)
 
     def _copy_report(self):
         lines = []

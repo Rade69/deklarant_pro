@@ -49,6 +49,8 @@ class TariffHistoryMatch:
     source: str                    # supplier iz baze (xml fajl ili ime dobavljača)
     confidence: float              # 0.0–1.0
     decision_reason: str = ""      # kratak razlog zašto je prijedlog prošao filter
+    decision_outcome: str = ""     # show_strong/show_weak/suppress
+    decision_score: int = 0
 
 
 class HistoricalTariffSearchService:
@@ -222,6 +224,8 @@ class HistoricalTariffSearchService:
             ),
         )
         match.decision_reason = decision.reason
+        match.decision_outcome = decision.outcome.value
+        match.decision_score = decision.score
         return decision.should_show
 
     @staticmethod
