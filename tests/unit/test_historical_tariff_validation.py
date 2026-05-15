@@ -12,6 +12,11 @@ from services.agent.validation.historical_tariff_search_service import (
     HistoricalTariffSearchService,
     TariffHistoryMatch,
 )
+from services.agent.validation.tariff_decision_model import (
+    TariffDecisionOutcome,
+    TariffDecisionThresholds,
+    decide_tariff_match,
+)
 
 
 CASES_PATH = Path(__file__).parents[1] / "fixtures" / "agent" / "tariff_validation_cases.json"
@@ -41,6 +46,14 @@ def _load_cases():
         return json.load(fh)
 
 
+def _thresholds() -> TariffDecisionThresholds:
+    return TariffDecisionThresholds(
+        min_usage_for_cross_chapter=5,
+        min_usage_for_out_of_profile_chapter=10,
+        min_usage_for_weak_source=2,
+    )
+
+
 @pytest.mark.parametrize("case", _load_cases(), ids=_case_ids())
 def test_historical_validation_evaluation_cases(case):
     matches = evaluate_case(case)
@@ -66,6 +79,51 @@ def test_historical_validation_evaluation_metrics():
         "wrong_tariff": 0,
         "explanation_missing": 0,
     }
+
+
+def test_tariff_decision_model_returns_explicit_show_strong():
+    match = _match(
+        "DIXI dekstroza 7vit bomb a40",
+        "17049081",
+        usage=10,
+        source="MEDIKO",
+        confidence=0.68,
+    )
+
+    decision = decide_tariff_match(match, "21069092", {}, _thresholds())
+
+    assert decision.outcome is TariffDecisionOutcome.SHOW_STRONG
+    assert "Promjena poglavlja" in decision.reason
+
+
+def test_tariff_decision_model_returns_explicit_show_weak():
+    match = _match(
+        "OHP SILICON CEPOVI TUBA A2",
+        "39269097",
+        usage=3,
+        source="MEDIKO",
+        confidence=0.66,
+    )
+
+    decision = decide_tariff_match(match, "3926909710", {}, _thresholds())
+
+    assert decision.outcome is TariffDecisionOutcome.SHOW_WEAK
+    assert "Ista tarifna glava" in decision.reason
+
+
+def test_tariff_decision_model_returns_explicit_suppress():
+    match = _match(
+        "BORT 112900 B.R.Z.palac lev XL",
+        "11010015",
+        usage=1,
+        source="",
+        confidence=0.60,
+    )
+
+    decision = decide_tariff_match(match, "63079099", {}, _thresholds())
+
+    assert decision.outcome is TariffDecisionOutcome.SUPPRESS
+    assert decision.reason == ""
 
 
 def test_historical_validation_filters_single_weak_cross_chapter_match(monkeypatch):

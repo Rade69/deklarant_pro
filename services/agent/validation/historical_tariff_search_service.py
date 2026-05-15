@@ -22,7 +22,7 @@ from typing import Dict, List
 
 from services.agent.validation.tariff_decision_model import (
     TariffDecisionThresholds,
-    is_actionable_tariff_match,
+    decide_tariff_match,
     tariff_digits,
 )
 
@@ -211,7 +211,7 @@ class HistoricalTariffSearchService:
         trenutni: str,
         invoice_profile: Dict | None = None,
     ) -> bool:
-        return is_actionable_tariff_match(
+        decision = decide_tariff_match(
             match,
             trenutni,
             invoice_profile,
@@ -221,6 +221,8 @@ class HistoricalTariffSearchService:
                 min_usage_for_weak_source=self.MIN_USAGE_FOR_WEAK_SOURCE,
             ),
         )
+        match.decision_reason = decision.reason
+        return decision.should_show
 
     @staticmethod
     def _digits(value: str) -> str:

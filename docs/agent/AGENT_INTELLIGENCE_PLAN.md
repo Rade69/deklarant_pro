@@ -1,7 +1,7 @@
 # Plan unapređenja inteligencije agenta
 
 **Datum:** 2026-05-15  
-**Status:** Faza 3 započeta, Faza 4 započeta strukturnim izdvajanjem odluke
+**Status:** Faza 3 započeta, Faza 4 ima eksplicitne odluke bez scoring-a
 **Scope:** istorijska validacija tarifa, objašnjivi prijedlozi, evaluacija kvaliteta i učenje iz odluka korisnika
 
 ---
@@ -162,7 +162,7 @@ Ovo je temelj za svaku dalju inteligenciju. Ako se odmah uvede složeniji scorin
 
 ### Faza 4 — Scoring model i učenje iz korisničkih odluka
 
-**Status:** započeto; postojeća odluka izdvojena u `tariff_decision_model.py`, bez promjene scoring ponašanja
+**Status:** započeto; postojeća odluka izdvojena u `tariff_decision_model.py`, dodani ishodi `SHOW_STRONG`, `SHOW_WEAK` i `SUPPRESS`, bez promjene scoring ponašanja
 **Procjena kompleksnosti:** visoka  
 **Procjena trajanja:** 3 do 6 radnih dana za konzervativnu verziju; više ako se uvodi trajno učenje i administracija  
 **Rizik:** srednji do visok
@@ -229,9 +229,15 @@ Trenutna odgovornost tog modula:
 
 - prima `TariffHistoryMatch`, trenutni tarifni broj i profil fakture
 - primjenjuje postojeće pragove bez promjene ponašanja
-- vraća boolean odluku i puni `decision_reason`
+- vraća strukturisanu odluku i puni `decision_reason`
 
-Sljedeći korak Faze 4 je proširiti ga na eksplicitne ishode `SHOW_STRONG`, `SHOW_WEAK` i `SUPPRESS`, ali tek nakon dodatnih realnih evaluacionih slučajeva.
+Implementirani ishodi:
+
+- `SHOW_STRONG` — jak prijedlog koji postojeći UI prikazuje kao ranije
+- `SHOW_WEAK` — slabiji, ali još prihvatljiv prijedlog; UI ga za sada prikazuje kao ranije
+- `SUPPRESS` — prijedlog se sakriva
+
+Sljedeći korak Faze 4 je dodati score i razdvojene razloge za/protiv prijedloga, ali tek nakon još realnih evaluacionih slučajeva.
 
 `HistoricalTariffSearchService` ostaje zadužen za pretragu i orkestraciju, ali ne treba beskonačno širiti `_is_actionable_match`.
 
@@ -253,14 +259,14 @@ Zato Faza 4 ne treba početi prije Faze 3.
 | 1. Filter slabih prijedloga | završeno | niska-srednja | nizak | završeno |
 | 2. Profil fakture + razlog | završeno | srednja | srednji | završeno |
 | 3. Evaluacioni set | započeto | srednja | nizak/srednji | fixture + metrike + CLI izvještaj dodani; proširiti realnim slučajevima |
-| 4. Scoring + učenje | započeto | visoka | srednji/visok | strukturno izdvajanje urađeno; scoring još nije uveden |
+| 4. Scoring + učenje | započeto | visoka | srednji/visok | eksplicitni ishodi uvedeni; scoring još nije uveden |
 
 ---
 
 ## Preporučeni redoslijed
 
 1. Proširiti evaluacioni fixture set realnim fakturama i poznatim odlukama.
-2. Proširiti `tariff_decision_model.py` na eksplicitne odluke tek kada evaluacija pokriva dovoljno slučajeva.
+2. Dodati još realnih evaluacionih slučajeva za `SHOW_WEAK` granice.
 3. Uvesti scoring bez trajnog učenja.
 4. Tek nakon stabilnog scoring-a dodati pamćenje korisničkih odluka.
 
