@@ -136,8 +136,8 @@ Prva verzija ne treba biti akademska. Implementirane su ove metrike:
 Trenutni fixture set ima očekivani zbir:
 
 ```text
-true_positive: 5
-true_negative: 3
+true_positive: 7
+true_negative: 6
 false_positive: 0
 false_negative: 0
 wrong_tariff: 0
@@ -270,7 +270,7 @@ Zato Faza 4 ne treba početi prije Faze 3.
 
 Ako se želi najkorisniji sljedeći korak bez velikog rizika:
 
-1. Dodati još 6-10 ručno odabranih slučajeva iz realnih faktura.
+1. Dodati još 3-5 ručno odabranih slučajeva iz realnih faktura.
 2. Tek onda širiti Fazu 4 na scoring.
 
 Ova iteracija ne mijenja ponašanje aplikacije, ali daje osnovu da sljedeće promjene budu kontrolisane.

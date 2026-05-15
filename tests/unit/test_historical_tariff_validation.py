@@ -59,8 +59,8 @@ def test_historical_validation_evaluation_metrics():
     metrics = metrics_for_cases(_load_cases())
 
     assert metrics == {
-        "true_positive": 5,
-        "true_negative": 3,
+        "true_positive": 7,
+        "true_negative": 6,
         "false_positive": 0,
         "false_negative": 0,
         "wrong_tariff": 0,
