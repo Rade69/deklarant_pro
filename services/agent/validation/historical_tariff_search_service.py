@@ -16,8 +16,9 @@ from __future__ import annotations
 
 import re
 import logging
+from collections import Counter
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Dict, List
 
 logger = logging.getLogger("deklarant_pro.historical_tariff_search")
 
@@ -41,6 +42,7 @@ class TariffHistoryMatch:
     usage_count: int
     source: str                    # supplier iz baze (xml fajl ili ime dobavljača)
     confidence: float              # 0.0–1.0
+    decision_reason: str = ""      # kratak razlog zašto je prijedlog prošao filter
 
 
 class HistoricalTariffSearchService:
@@ -52,6 +54,7 @@ class HistoricalTariffSearchService:
     MAX_RESULTS_PER_LINE = 3
     MIN_WORD_LEN = 3
     MIN_USAGE_FOR_CROSS_CHAPTER = 5
+    MIN_USAGE_FOR_OUT_OF_PROFILE_CHAPTER = 10
     MIN_USAGE_FOR_WEAK_SOURCE = 2
 
     def validate_lines(
@@ -70,6 +73,7 @@ class HistoricalTariffSearchService:
             uvoznik_naziv: ime uvoznika iz Zaglavlja (boost)
         """
         results = []
+        invoice_profile = self._build_invoice_profile(invoice_lines)
         for idx, line in enumerate(invoice_lines):
             naziv = (getattr(line, 'naziv_robe', '') or '').strip()
             if not naziv:
@@ -86,7 +90,7 @@ class HistoricalTariffSearchService:
 
             actionable = [
                 match for match in matches
-                if self._is_actionable_match(match, trenutni)
+                if self._is_actionable_match(match, trenutni, invoice_profile)
             ]
             if not actionable:
                 continue
@@ -178,7 +182,29 @@ class HistoricalTariffSearchService:
         words_sorted = sorted(set(words), key=len, reverse=True)
         return words_sorted[:3]
 
-    def _is_actionable_match(self, match: TariffHistoryMatch, trenutni: str) -> bool:
+    def _build_invoice_profile(self, invoice_lines: list) -> Dict:
+        chapters = Counter()
+        headings = Counter()
+        for line in invoice_lines:
+            digits = self._digits(getattr(line, 'tarifni_broj', '') or '')
+            if len(digits) >= 2:
+                chapters[digits[:2]] += 1
+            if len(digits) >= 4:
+                headings[digits[:4]] += 1
+        return {
+            "item_count": len(invoice_lines),
+            "chapters": set(chapters),
+            "headings": set(headings),
+            "chapter_counts": chapters,
+            "heading_counts": headings,
+        }
+
+    def _is_actionable_match(
+        self,
+        match: TariffHistoryMatch,
+        trenutni: str,
+        invoice_profile: Dict | None = None,
+    ) -> bool:
         current = self._digits(trenutni)
         historical = self._digits(match.tarifni_broj_historijski)
         if not historical:
@@ -187,18 +213,50 @@ class HistoricalTariffSearchService:
             return False
 
         has_source = self._has_meaningful_source(match.source)
+        profile = invoice_profile or {}
+        profile_chapters = profile.get("chapters", set())
         if not current:
-            return match.usage_count >= self.MIN_USAGE_FOR_WEAK_SOURCE or has_source
+            if match.usage_count >= self.MIN_USAGE_FOR_WEAK_SOURCE or has_source:
+                match.decision_reason = "Nema trenutne tarife; istorijski zapis ima dovoljno izvora/ponavljanja."
+                return True
+            return False
 
-        if current[:2] != historical[:2]:
-            return (
+        current_chapter = current[:2]
+        historical_chapter = historical[:2]
+        current_heading = current[:4]
+        historical_heading = historical[:4]
+
+        if (
+            profile.get("item_count", 0) >= 5
+            and current_chapter in profile_chapters
+            and historical_chapter not in profile_chapters
+            and current_chapter != historical_chapter
+        ):
+            if not (
+                match.usage_count >= self.MIN_USAGE_FOR_OUT_OF_PROFILE_CHAPTER
+                and has_source
+                and match.confidence >= 0.68
+            ):
+                return False
+
+        if current_chapter != historical_chapter:
+            if (
                 match.usage_count >= self.MIN_USAGE_FOR_CROSS_CHAPTER
                 and (has_source or match.confidence >= 0.68)
-            )
+            ):
+                match.decision_reason = (
+                    "Promjena poglavlja dozvoljena samo zbog jačeg istorijskog dokaza."
+                )
+                return True
+            return False
 
-        if current[:4] != historical[:4]:
-            return match.usage_count >= self.MIN_USAGE_FOR_WEAK_SOURCE or has_source
+        if current_heading != historical_heading:
+            if match.usage_count >= self.MIN_USAGE_FOR_WEAK_SOURCE or has_source:
+                match.decision_reason = "Isto poglavlje, drugi tarifni heading iz istorije."
+                return True
+            return False
 
+        match.decision_reason = "Ista tarifna glava; istorija ukazuje na precizniji broj."
         return True
 
     @staticmethod

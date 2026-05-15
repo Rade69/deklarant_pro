@@ -160,6 +160,11 @@ class TariffValidationDialog(QDialog):
         )
         meta_label.setTextFormat(Qt.RichText)
 
+        reason = getattr(match, "decision_reason", "") or "Istorijski zapis prosao filter pouzdanosti."
+        reason_label = QLabel(f"<span style='color:#6b7280; font-size:13px;'>Razlog: {reason[:90]}</span>")
+        reason_label.setTextFormat(Qt.RichText)
+        reason_label.setWordWrap(True)
+
         hist_naziv = match.naziv_robe_historijski[:70]
         hist_label = QLabel(f"<span style='color:#888; font-size:13px;'>Naziv u bazi: {hist_naziv}</span>")
         hist_label.setTextFormat(Qt.RichText)
@@ -168,6 +173,7 @@ class TariffValidationDialog(QDialog):
         info.addWidget(naziv_label)
         info.addWidget(tarif_label)
         info.addWidget(meta_label)
+        info.addWidget(reason_label)
         info.addWidget(hist_label)
 
         # Desna kolona — dugme Prihvati
@@ -262,7 +268,8 @@ class TariffValidationDialog(QDialog):
                 f"Rb.{rb} — {match.naziv_robe_original[:50]}\n"
                 f"  Trenutni: {match.tarifni_broj_trenutni or '—'} → "
                 f"Istorijski: {match.tarifni_broj_historijski} "
-                f"(korišten {match.usage_count}×, {int(match.confidence*100)}%)"
+                f"(korišten {match.usage_count}×, {int(match.confidence*100)}%)\n"
+                f"  Razlog: {getattr(match, 'decision_reason', '') or 'prosao filter pouzdanosti'}"
             )
         QGuiApplication.clipboard().setText("\n\n".join(lines))
 
