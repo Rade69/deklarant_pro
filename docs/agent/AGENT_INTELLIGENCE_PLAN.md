@@ -1,7 +1,7 @@
 # Plan unapređenja inteligencije agenta
 
 **Datum:** 2026-05-15  
-**Status:** Faza 3 započeta, Faza 4 ima eksplicitne odluke bez scoring-a
+**Status:** Faza 3 započeta, Faza 4 ima eksplicitne odluke i objašnjivi score
 **Scope:** istorijska validacija tarifa, objašnjivi prijedlozi, evaluacija kvaliteta i učenje iz odluka korisnika
 
 ---
@@ -162,7 +162,7 @@ Ovo je temelj za svaku dalju inteligenciju. Ako se odmah uvede složeniji scorin
 
 ### Faza 4 — Scoring model i učenje iz korisničkih odluka
 
-**Status:** započeto; postojeća odluka izdvojena u `tariff_decision_model.py`, dodani ishodi `SHOW_STRONG`, `SHOW_WEAK` i `SUPPRESS`, bez promjene scoring ponašanja
+**Status:** započeto; postojeća odluka izdvojena u `tariff_decision_model.py`, dodani ishodi `SHOW_STRONG`, `SHOW_WEAK` i `SUPPRESS`, te objašnjivi score bez promjene vidljivosti prijedloga
 **Procjena kompleksnosti:** visoka  
 **Procjena trajanja:** 3 do 6 radnih dana za konzervativnu verziju; više ako se uvodi trajno učenje i administracija  
 **Rizik:** srednji do visok
@@ -237,7 +237,14 @@ Implementirani ishodi:
 - `SHOW_WEAK` — slabiji, ali još prihvatljiv prijedlog; UI ga za sada prikazuje kao ranije
 - `SUPPRESS` — prijedlog se sakriva
 
-Sljedeći korak Faze 4 je dodati score i razdvojene razloge za/protiv prijedloga, ali tek nakon još realnih evaluacionih slučajeva.
+Svaka odluka sada nosi:
+
+- `score`
+- `positive_reasons`
+- `negative_reasons`
+- kratki `reason` za postojeći UI
+
+Sljedeći korak Faze 4 je povezati `SHOW_WEAK` sa UI pravilom da ne ulazi u masovno prihvatanje.
 
 `HistoricalTariffSearchService` ostaje zadužen za pretragu i orkestraciju, ali ne treba beskonačno širiti `_is_actionable_match`.
 
@@ -259,14 +266,14 @@ Zato Faza 4 ne treba početi prije Faze 3.
 | 1. Filter slabih prijedloga | završeno | niska-srednja | nizak | završeno |
 | 2. Profil fakture + razlog | završeno | srednja | srednji | završeno |
 | 3. Evaluacioni set | započeto | srednja | nizak/srednji | fixture + metrike + CLI izvještaj dodani; proširiti realnim slučajevima |
-| 4. Scoring + učenje | započeto | visoka | srednji/visok | eksplicitni ishodi uvedeni; scoring još nije uveden |
+| 4. Scoring + učenje | započeto | visoka | srednji/visok | eksplicitni ishodi i score uvedeni; UI još ne razlikuje SHOW_WEAK |
 
 ---
 
 ## Preporučeni redoslijed
 
-1. Uvesti scoring bez trajnog učenja.
-2. Prilagoditi UI da `SHOW_WEAK` ne ulazi u masovno prihvatanje.
+1. Prilagoditi UI da `SHOW_WEAK` ne ulazi u masovno prihvatanje.
+2. Po potrebi fino podesiti score na realnim slučajevima.
 3. Tek nakon stabilnog scoring-a dodati pamćenje korisničkih odluka.
 
 ---
@@ -275,8 +282,8 @@ Zato Faza 4 ne treba početi prije Faze 3.
 
 Ako se želi najkorisniji sljedeći korak bez velikog rizika:
 
-1. Uvesti score i razdvojene razloge za/protiv prijedloga.
-2. Ostaviti postojeće pragove kao početnu scoring mapu.
+1. Prikazati ili interno označiti `SHOW_WEAK` tako da ne ide kroz masovno prihvatanje.
+2. Dodati test za UI/servisni tok koji potvrđuje razliku između `SHOW_STRONG` i `SHOW_WEAK`.
 
 Ova iteracija ne mijenja ponašanje aplikacije, ali daje osnovu da sljedeće promjene budu kontrolisane.
 

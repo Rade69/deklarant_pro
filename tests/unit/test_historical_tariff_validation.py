@@ -94,6 +94,9 @@ def test_tariff_decision_model_returns_explicit_show_strong():
 
     assert decision.outcome is TariffDecisionOutcome.SHOW_STRONG
     assert "Promjena poglavlja" in decision.reason
+    assert decision.score > 0
+    assert decision.positive_reasons
+    assert decision.negative_reasons
 
 
 def test_tariff_decision_model_returns_explicit_show_weak():
@@ -109,6 +112,8 @@ def test_tariff_decision_model_returns_explicit_show_weak():
 
     assert decision.outcome is TariffDecisionOutcome.SHOW_WEAK
     assert "Ista tarifna glava" in decision.reason
+    assert decision.score > 0
+    assert "Prijedlog ostaje u istoj tarifnoj glavi." in decision.positive_reasons
 
 
 def test_tariff_decision_model_returns_explicit_suppress():
@@ -124,6 +129,24 @@ def test_tariff_decision_model_returns_explicit_suppress():
 
     assert decision.outcome is TariffDecisionOutcome.SUPPRESS
     assert decision.reason == ""
+    assert decision.score <= 0
+    assert decision.negative_reasons
+
+
+def test_tariff_decision_model_score_explains_missing_current_tariff():
+    match = _match(
+        "CICASTIM GEL15 ML. (5+1)PROMO",
+        "33049900",
+        usage=1,
+        source="MEDIKO",
+        confidence=0.60,
+    )
+
+    decision = decide_tariff_match(match, "", {}, _thresholds())
+
+    assert decision.outcome is TariffDecisionOutcome.SHOW_STRONG
+    assert decision.score > 0
+    assert "Trenutna tarifa nije popunjena." in decision.positive_reasons
 
 
 def test_historical_validation_filters_single_weak_cross_chapter_match(monkeypatch):
