@@ -58,7 +58,7 @@ Dodano je i polje `decision_reason`, koje objašnjava zašto je prijedlog proša
 
 ### Faza 3 — Evaluacioni set za kvalitet prijedloga
 
-**Status:** započeto; dodana prva JSON fixture verzija, parametrizovani unit test i metrički test  
+**Status:** započeto; dodana prva JSON fixture verzija, parametrizovani unit test, metrički test i CLI izvještaj
 **Procjena kompleksnosti:** srednja  
 **Procjena trajanja:** 1 do 2 radna dana za prvu korisnu verziju  
 **Rizik:** nizak za aplikaciju, visok za zaključke ako se set loše napravi
@@ -142,6 +142,12 @@ false_positive: 0
 false_negative: 0
 wrong_tariff: 0
 explanation_missing: 0
+```
+
+Metrike se mogu provjeriti i bez pytest detalja:
+
+```bash
+python scripts/agent_tariff_eval_report.py
 ```
 
 #### Testovi
@@ -244,7 +250,7 @@ Zato Faza 4 ne treba početi prije Faze 3.
 |------|--------|--------------|-------|----------|
 | 1. Filter slabih prijedloga | završeno | niska-srednja | nizak | završeno |
 | 2. Profil fakture + razlog | završeno | srednja | srednji | završeno |
-| 3. Evaluacioni set | započeto | srednja | nizak/srednji | fixture + metrike dodani; proširiti realnim slučajevima |
+| 3. Evaluacioni set | započeto | srednja | nizak/srednji | fixture + metrike + CLI izvještaj dodani; proširiti realnim slučajevima |
 | 4. Scoring + učenje | nije početo | visoka | srednji/visok | 3-6 dana |
 
 ---
@@ -263,8 +269,7 @@ Zato Faza 4 ne treba početi prije Faze 3.
 Ako se želi najkorisniji sljedeći korak bez velikog rizika:
 
 1. Dodati još 6-10 ručno odabranih slučajeva iz realnih faktura.
-2. Po potrebi dodati CLI/helper izvještaj koji metrike prikazuje bez pokretanja pytest-a.
-3. Tek onda početi Fazu 4.
+2. Tek onda početi Fazu 4.
 
 Ova iteracija ne mijenja ponašanje aplikacije, ali daje osnovu da sljedeće promjene budu kontrolisane.
 

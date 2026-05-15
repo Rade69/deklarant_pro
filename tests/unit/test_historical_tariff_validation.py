@@ -4,6 +4,10 @@ from pathlib import Path
 import pytest
 
 from core.draft.draft import InvoiceLine
+from scripts.agent_tariff_eval_report import (
+    evaluate_case,
+    metrics_for_cases,
+)
 from services.agent.validation.historical_tariff_search_service import (
     HistoricalTariffSearchService,
     TariffHistoryMatch,
@@ -37,78 +41,9 @@ def _load_cases():
         return json.load(fh)
 
 
-def _invoice_line(data: dict) -> InvoiceLine:
-    return InvoiceLine(
-        line_no=data["line_no"],
-        naziv_robe=data["naziv_robe"],
-        tarifni_broj=data.get("tarifni_broj", ""),
-    )
-
-
-def _history_match(data: dict) -> TariffHistoryMatch:
-    return _match(
-        data["naziv_robe"],
-        data["tarifni_broj"],
-        usage=data["usage_count"],
-        source=data["source"],
-        confidence=data["confidence"],
-    )
-
-
-def _evaluate_case(case: dict) -> list[TariffHistoryMatch]:
-    svc = HistoricalTariffSearchService()
-    lines = [_invoice_line(line) for line in case["invoice_lines"]]
-    history_matches = [_history_match(match) for match in case["history_matches"]]
-
-    def fake_search(naziv, *_):
-        return [
-            match for match in history_matches
-            if match.naziv_robe_original == naziv
-        ]
-
-    svc._search_one = fake_search
-
-    return svc.validate_lines(lines)
-
-
-def _metrics_for_cases(cases: list[dict]) -> dict:
-    metrics = {
-        "true_positive": 0,
-        "true_negative": 0,
-        "false_positive": 0,
-        "false_negative": 0,
-        "wrong_tariff": 0,
-        "explanation_missing": 0,
-    }
-
-    for case in cases:
-        matches = _evaluate_case(case)
-        expected = case["expected"]
-        expected_show = expected["action"] == "show"
-
-        if expected_show:
-            expected_tariff = expected["tarifni_broj"]
-            if not matches:
-                metrics["false_negative"] += 1
-            elif matches[0].tarifni_broj_historijski == expected_tariff:
-                metrics["true_positive"] += 1
-            else:
-                metrics["wrong_tariff"] += 1
-        elif matches:
-            metrics["false_positive"] += 1
-        else:
-            metrics["true_negative"] += 1
-
-        metrics["explanation_missing"] += sum(
-            1 for match in matches if not match.decision_reason
-        )
-
-    return metrics
-
-
 @pytest.mark.parametrize("case", _load_cases(), ids=_case_ids())
 def test_historical_validation_evaluation_cases(case):
-    matches = _evaluate_case(case)
+    matches = evaluate_case(case)
     expected = case["expected"]
 
     if expected["action"] == "suppress":
@@ -121,7 +56,7 @@ def test_historical_validation_evaluation_cases(case):
 
 
 def test_historical_validation_evaluation_metrics():
-    metrics = _metrics_for_cases(_load_cases())
+    metrics = metrics_for_cases(_load_cases())
 
     assert metrics == {
         "true_positive": 5,
