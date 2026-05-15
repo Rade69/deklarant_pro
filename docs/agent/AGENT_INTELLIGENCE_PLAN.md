@@ -136,8 +136,8 @@ Prva verzija ne treba biti akademska. Implementirane su ove metrike:
 Trenutni fixture set ima očekivani zbir:
 
 ```text
-true_positive: 7
-true_negative: 6
+true_positive: 10
+true_negative: 7
 false_positive: 0
 false_negative: 0
 wrong_tariff: 0
@@ -265,10 +265,9 @@ Zato Faza 4 ne treba početi prije Faze 3.
 
 ## Preporučeni redoslijed
 
-1. Proširiti evaluacioni fixture set realnim fakturama i poznatim odlukama.
-2. Dodati još realnih evaluacionih slučajeva za `SHOW_WEAK` granice.
-3. Uvesti scoring bez trajnog učenja.
-4. Tek nakon stabilnog scoring-a dodati pamćenje korisničkih odluka.
+1. Uvesti scoring bez trajnog učenja.
+2. Prilagoditi UI da `SHOW_WEAK` ne ulazi u masovno prihvatanje.
+3. Tek nakon stabilnog scoring-a dodati pamćenje korisničkih odluka.
 
 ---
 
@@ -276,8 +275,8 @@ Zato Faza 4 ne treba početi prije Faze 3.
 
 Ako se želi najkorisniji sljedeći korak bez velikog rizika:
 
-1. Dodati još 3-5 ručno odabranih slučajeva iz realnih faktura.
-2. Tek onda širiti Fazu 4 na scoring.
+1. Uvesti score i razdvojene razloge za/protiv prijedloga.
+2. Ostaviti postojeće pragove kao početnu scoring mapu.
 
 Ova iteracija ne mijenja ponašanje aplikacije, ali daje osnovu da sljedeće promjene budu kontrolisane.
 

@@ -322,6 +322,104 @@
     }
   },
   {
+    "name": "bih_893_gw_podupirac_8_digit_to_10_digit_same_heading_is_shown",
+    "source_invoice": "najavauvoza/BIH 893.pdf",
+    "invoice_lines": [
+      {
+        "line_no": 12,
+        "naziv_robe": "GW GEL PODUPIRAC PRST. DESNI a1 102691500",
+        "tarifni_broj": "39269097"
+      }
+    ],
+    "history_matches": [
+      {
+        "naziv_robe": "GW GEL PODUPIRAC PRST. DESNI a1 102691500",
+        "tarifni_broj": "3926909710",
+        "usage_count": 3,
+        "source": "MEDIKO",
+        "confidence": 0.66
+      }
+    ],
+    "expected": {
+      "action": "show",
+      "tarifni_broj": "3926909710",
+      "reason_contains": "Ista tarifna glava"
+    }
+  },
+  {
+    "name": "bih_893_gw_brace_same_heading_is_shown",
+    "source_invoice": "najavauvoza/BIH 893.pdf",
+    "invoice_lines": [
+      {
+        "line_no": 41,
+        "naziv_robe": "GW BRACE PLAST.VEL.16 10 KOM 313211600",
+        "tarifni_broj": "82149000"
+      }
+    ],
+    "history_matches": [
+      {
+        "naziv_robe": "GW BRACE PLAST.VEL.16 10 KOM 313211600",
+        "tarifni_broj": "82142000",
+        "usage_count": 2,
+        "source": "MEDIKO",
+        "confidence": 0.64
+      }
+    ],
+    "expected": {
+      "action": "show",
+      "tarifni_broj": "82142000",
+      "reason_contains": "Ista tarifna glava"
+    }
+  },
+  {
+    "name": "bih_893_gw_nozici_same_heading_is_shown",
+    "source_invoice": "najavauvoza/BIH 893.pdf",
+    "invoice_lines": [
+      {
+        "line_no": 46,
+        "naziv_robe": "GW NOZICI ZA CAPRON VEL.2 311140200",
+        "tarifni_broj": "82142000"
+      }
+    ],
+    "history_matches": [
+      {
+        "naziv_robe": "GW NOZICI ZA CAPRON VEL.2 311140200",
+        "tarifni_broj": "82149000",
+        "usage_count": 2,
+        "source": "MEDIKO",
+        "confidence": 0.64
+      }
+    ],
+    "expected": {
+      "action": "show",
+      "tarifni_broj": "82149000",
+      "reason_contains": "Ista tarifna glava"
+    }
+  },
+  {
+    "name": "bih_893_bort_same_tariff_is_suppressed",
+    "source_invoice": "najavauvoza/BIH 893.pdf",
+    "invoice_lines": [
+      {
+        "line_no": 58,
+        "naziv_robe": "BORT 112900 B.R.Z.palac lev XL",
+        "tarifni_broj": "63079099"
+      }
+    ],
+    "history_matches": [
+      {
+        "naziv_robe": "BORT 112900 B.R.Z.palac lev XL",
+        "tarifni_broj": "63079099",
+        "usage_count": 6,
+        "source": "MEDIKO",
+        "confidence": 0.68
+      }
+    ],
+    "expected": {
+      "action": "suppress"
+    }
+  },
+  {
     "name": "bih_893_full_profile_bort_noise_is_suppressed",
     "source_invoice": "najavauvoza/BIH 893.pdf",
     "invoice_lines": [
