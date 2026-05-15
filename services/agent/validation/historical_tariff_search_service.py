@@ -51,6 +51,8 @@ class HistoricalTariffSearchService:
 
     MAX_RESULTS_PER_LINE = 3
     MIN_WORD_LEN = 3
+    MIN_USAGE_FOR_CROSS_CHAPTER = 5
+    MIN_USAGE_FOR_WEAK_SOURCE = 2
 
     def validate_lines(
         self,
@@ -82,11 +84,14 @@ class HistoricalTariffSearchService:
             if not matches:
                 continue
 
-            best = matches[0]
-            # Prikaži samo ako je prijedlog drugačiji ili nema tarife
-            if best.tarifni_broj_historijski == trenutni and trenutni:
+            actionable = [
+                match for match in matches
+                if self._is_actionable_match(match, trenutni)
+            ]
+            if not actionable:
                 continue
 
+            best = actionable[0]
             best.line_index = idx
             best.tarifni_broj_trenutni = trenutni
             results.append(best)
@@ -172,6 +177,38 @@ class HistoricalTariffSearchService:
         # Uzmi najspecifičnije (najdulje) — max 3 riječi
         words_sorted = sorted(set(words), key=len, reverse=True)
         return words_sorted[:3]
+
+    def _is_actionable_match(self, match: TariffHistoryMatch, trenutni: str) -> bool:
+        current = self._digits(trenutni)
+        historical = self._digits(match.tarifni_broj_historijski)
+        if not historical:
+            return False
+        if current and current == historical:
+            return False
+
+        has_source = self._has_meaningful_source(match.source)
+        if not current:
+            return match.usage_count >= self.MIN_USAGE_FOR_WEAK_SOURCE or has_source
+
+        if current[:2] != historical[:2]:
+            return (
+                match.usage_count >= self.MIN_USAGE_FOR_CROSS_CHAPTER
+                and (has_source or match.confidence >= 0.68)
+            )
+
+        if current[:4] != historical[:4]:
+            return match.usage_count >= self.MIN_USAGE_FOR_WEAK_SOURCE or has_source
+
+        return True
+
+    @staticmethod
+    def _digits(value: str) -> str:
+        return re.sub(r"\D", "", value or "")
+
+    @staticmethod
+    def _has_meaningful_source(value: str) -> bool:
+        source = (value or "").strip()
+        return bool(source and source not in {"-", "—", "+", "A", "HISTORIJA"})
 
     def _to_matches(self, rows: list, naziv_original: str) -> List[TariffHistoryMatch]:
         results = []
