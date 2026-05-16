@@ -1,5 +1,7 @@
 from types import SimpleNamespace
 
+from PySide6.QtGui import QGuiApplication
+
 from gui.tabs.agent.widgets.tariff_validation_dialog import TariffValidationDialog
 
 
@@ -47,3 +49,16 @@ def test_manual_accept_still_allows_show_weak_match(qtbot):
 
     assert accepted == [[(1, "33049901")]]
     assert btn.isEnabled() is False
+
+
+def test_copy_report_includes_decision_outcome_and_score(qtbot):
+    weak = _match(1, "show_weak")
+    dialog = TariffValidationDialog([weak])
+    qtbot.addWidget(dialog)
+
+    dialog._copy_report()
+
+    report = QGuiApplication.clipboard().text()
+    assert "Odluka: show_weak" in report
+    assert "Score: 50" in report
+    assert "Razlog: Ista tarifna glava; istorija ukazuje na precizniji broj." in report

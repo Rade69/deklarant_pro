@@ -292,6 +292,8 @@ class TariffValidationDialog(QDialog):
                 f"  Trenutni: {match.tarifni_broj_trenutni or '—'} → "
                 f"Istorijski: {match.tarifni_broj_historijski} "
                 f"(korišten {match.usage_count}×, {int(match.confidence*100)}%)\n"
+                f"  Odluka: {getattr(match, 'decision_outcome', '') or 'nepoznato'} | "
+                f"Score: {getattr(match, 'decision_score', '—')}\n"
                 f"  Razlog: {getattr(match, 'decision_reason', '') or 'prosao filter pouzdanosti'}"
             )
         QGuiApplication.clipboard().setText("\n\n".join(lines))
