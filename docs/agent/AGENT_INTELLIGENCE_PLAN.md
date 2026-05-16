@@ -1,7 +1,7 @@
 # Plan unapređenja inteligencije agenta
 
 **Datum:** 2026-05-15  
-**Status:** Faza 3 započeta, Faza 4 ima eksplicitne odluke, objašnjivi score i UI razlikovanje slabih prijedloga
+**Status:** Faza 3 započeta, Faza 4 ima eksplicitne odluke, objašnjivi score, UI razlikovanje slabih prijedloga i PostgreSQL feedback zapis
 **Scope:** istorijska validacija tarifa, objašnjivi prijedlozi, evaluacija kvaliteta i učenje iz odluka korisnika
 
 ---
@@ -162,7 +162,7 @@ Ovo je temelj za svaku dalju inteligenciju. Ako se odmah uvede složeniji scorin
 
 ### Faza 4 — Scoring model i učenje iz korisničkih odluka
 
-**Status:** započeto; postojeća odluka izdvojena u `tariff_decision_model.py`, dodani ishodi `SHOW_STRONG`, `SHOW_WEAK` i `SUPPRESS`, objašnjivi score i UI pravilo da `SHOW_WEAK` ne ulazi u masovno prihvatanje
+**Status:** započeto; postojeća odluka izdvojena u `tariff_decision_model.py`, dodani ishodi `SHOW_STRONG`, `SHOW_WEAK` i `SUPPRESS`, objašnjivi score, UI pravilo da `SHOW_WEAK` ne ulazi u masovno prihvatanje i zapis korisničkog feedbacka u PostgreSQL
 **Procjena kompleksnosti:** visoka  
 **Procjena trajanja:** 3 do 6 radnih dana za konzervativnu verziju; više ako se uvodi trajno učenje i administracija  
 **Rizik:** srednji do visok
@@ -244,7 +244,7 @@ Svaka odluka sada nosi:
 - `negative_reasons`
 - kratki `reason` za postojeći UI
 
-Sljedeći korak Faze 4 je eventualno prikazati score/razloge u izvještaju ili dodati pamćenje korisničkih odluka.
+Pamćenje korisničkih odluka započeto je kroz `catalogs.user_feedback`: prihvatanje i eksplicitno odbijanje prijedloga iz `TariffValidationDialog` snima se kao audit signal, ali još ne mijenja scoring.
 
 `HistoricalTariffSearchService` ostaje zadužen za pretragu i orkestraciju, ali ne treba beskonačno širiti `_is_actionable_match`.
 
@@ -266,7 +266,7 @@ Zato Faza 4 ne treba početi prije Faze 3.
 | 1. Filter slabih prijedloga | završeno | niska-srednja | nizak | završeno |
 | 2. Profil fakture + razlog | završeno | srednja | srednji | završeno |
 | 3. Evaluacioni set | započeto | srednja | nizak/srednji | fixture + metrike + CLI izvještaj dodani; proširiti realnim slučajevima |
-| 4. Scoring + učenje | započeto | visoka | srednji/visok | eksplicitni ishodi, score i UI razlikovanje SHOW_WEAK uvedeni |
+| 4. Scoring + učenje | započeto | visoka | srednji/visok | eksplicitni ishodi, score, UI razlikovanje SHOW_WEAK i PostgreSQL feedback zapis uvedeni |
 
 ---
 
@@ -274,7 +274,7 @@ Zato Faza 4 ne treba početi prije Faze 3.
 
 1. Po potrebi prikazati score/razloge u kopiranom izvještaju.
 2. Po potrebi fino podesiti score na realnim slučajevima.
-3. Tek nakon stabilnog scoring-a dodati pamćenje korisničkih odluka.
+3. Nakon dovoljno feedback zapisa, dodati konzervativan signal iz korisničkih odluka u scoring.
 
 ---
 

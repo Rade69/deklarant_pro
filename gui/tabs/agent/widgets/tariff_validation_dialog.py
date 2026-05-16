@@ -185,7 +185,10 @@ class TariffValidationDialog(QDialog):
             info.addWidget(weak_label)
         info.addWidget(hist_label)
 
-        # Desna kolona — dugme Prihvati
+        # Desna kolona — akcije
+        actions = QVBoxLayout()
+        actions.setSpacing(6)
+
         accept_btn = QPushButton("Prihvati")
         accept_btn.setCursor(Qt.PointingHandCursor)
         accept_btn.setFixedWidth(110)
@@ -205,10 +208,21 @@ class TariffValidationDialog(QDialog):
             lambda _, m=match, b=accept_btn: self._accept_one(m, b)
         )
 
-        self._checkboxes[match.line_index] = (match, accept_btn)
+        reject_btn = QPushButton("Odbij")
+        reject_btn.setCursor(Qt.PointingHandCursor)
+        reject_btn.setFixedWidth(110)
+        reject_btn.setStyleSheet(self._btn_style(secondary=True))
+        reject_btn.clicked.connect(
+            lambda _, m=match, a=accept_btn, r=reject_btn: self._reject_one(m, a, r)
+        )
+
+        actions.addWidget(accept_btn)
+        actions.addWidget(reject_btn)
+
+        self._checkboxes[match.line_index] = (match, accept_btn, reject_btn)
 
         layout.addLayout(info, stretch=1)
-        layout.addWidget(accept_btn, alignment=Qt.AlignVCenter)
+        layout.addLayout(actions)
         return card
 
     def _make_buttons(self) -> QWidget:
@@ -246,17 +260,30 @@ class TariffValidationDialog(QDialog):
     # ------------------------------------------------------------------
 
     def _accept_one(self, match, btn: QPushButton):
+        self._record_feedback(match, "accept", "manual")
         btn.setText("✓ Prihvaceno")
         btn.setEnabled(False)
+        reject_btn = self._checkboxes.get(match.line_index, (None, None, None))[2]
+        if reject_btn is not None:
+            reject_btn.setEnabled(False)
         self.tariffs_accepted.emit([(match.line_index, match.tarifni_broj_historijski)])
+        self._update_accept_all_btn()
+
+    def _reject_one(self, match, accept_btn: QPushButton, reject_btn: QPushButton):
+        self._record_feedback(match, "reject", "manual")
+        accept_btn.setEnabled(False)
+        reject_btn.setText("Odbijeno")
+        reject_btn.setEnabled(False)
         self._update_accept_all_btn()
 
     def _accept_all(self):
         changes = []
-        for line_index, (match, btn) in self._checkboxes.items():
+        for line_index, (match, btn, reject_btn) in self._checkboxes.items():
             if btn.isEnabled() and self._can_accept_all(match):
+                self._record_feedback(match, "accept", "bulk")
                 btn.setText("✓ Prihvaceno")
                 btn.setEnabled(False)
+                reject_btn.setEnabled(False)
                 changes.append((line_index, match.tarifni_broj_historijski))
         if changes:
             self.tariffs_accepted.emit(changes)
@@ -272,7 +299,7 @@ class TariffValidationDialog(QDialog):
 
     def _accept_all_pending_count(self) -> int:
         return sum(
-            1 for match, btn in self._checkboxes.values()
+            1 for match, btn, _ in self._checkboxes.values()
             if btn.isEnabled() and self._can_accept_all(match)
         )
 
@@ -297,6 +324,14 @@ class TariffValidationDialog(QDialog):
                 f"  Razlog: {getattr(match, 'decision_reason', '') or 'prosao filter pouzdanosti'}"
             )
         QGuiApplication.clipboard().setText("\n\n".join(lines))
+
+    @staticmethod
+    def _record_feedback(match, action_type: str, accept_mode: str):
+        from services.agent.validation.tariff_feedback_service import (
+            record_tariff_validation_feedback,
+        )
+
+        record_tariff_validation_feedback(match, action_type, accept_mode)
 
     @staticmethod
     def _btn_style(secondary: bool) -> str:
