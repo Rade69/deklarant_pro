@@ -12,6 +12,36 @@ from database.db import get_db_connection
 logger = logging.getLogger("deklarant_pro.tariff_feedback")
 
 
+def get_tariff_validation_feedback_summary(
+    match: Any,
+    user_id: str = "default",
+) -> dict[str, int]:
+    item_key = _item_key(match)
+    summary = {"accept": 0, "reject": 0}
+
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT action_type, COUNT(*) AS cnt
+                    FROM catalogs.user_feedback
+                    WHERE user_id = %s
+                      AND item_type = 'tariff_validation'
+                      AND item_key = %s
+                      AND action_type IN ('accept', 'reject')
+                    GROUP BY action_type
+                    """,
+                    (user_id, item_key),
+                )
+                for row in cur.fetchall():
+                    summary[row["action_type"]] = int(row["cnt"] or 0)
+    except Exception as exc:
+        logger.warning("Tariff feedback summary nije učitan: %s", exc)
+
+    return summary
+
+
 def record_tariff_validation_feedback(
     match: Any,
     action_type: str,

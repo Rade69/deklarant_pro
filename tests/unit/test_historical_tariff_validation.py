@@ -260,3 +260,69 @@ def test_historical_validation_allows_out_of_profile_with_very_strong_evidence(m
 
     assert len(matches) == 1
     assert matches[0].tarifni_broj_historijski == "17049081"
+
+
+def test_historical_validation_auto_applies_previously_accepted_feedback(monkeypatch):
+    svc = HistoricalTariffSearchService()
+    line = InvoiceLine(
+        line_no=1,
+        naziv_robe="SUSSINA 650 tbl.",
+        tarifni_broj="38249993",
+    )
+
+    monkeypatch.setattr(
+        svc,
+        "_search_one",
+        lambda *_: [
+            _match(
+                "SUSSINA 650 tbl.",
+                "21069098",
+                usage=25,
+                source="MED",
+                confidence=0.72,
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        "services.agent.validation.tariff_feedback_service.get_tariff_validation_feedback_summary",
+        lambda *_: {"accept": 1, "reject": 0},
+    )
+
+    matches = svc.validate_lines([line])
+
+    assert matches == []
+    assert line.tarifni_broj == "21069098"
+    assert svc.last_auto_applied == [(0, "21069098")]
+
+
+def test_historical_validation_suppresses_previously_rejected_feedback(monkeypatch):
+    svc = HistoricalTariffSearchService()
+    line = InvoiceLine(
+        line_no=1,
+        naziv_robe="OHP SILICON CEPOVI ZA USI a6",
+        tarifni_broj="3926909710",
+    )
+
+    monkeypatch.setattr(
+        svc,
+        "_search_one",
+        lambda *_: [
+            _match(
+                "OHP SILICON CEPOVI ZA USI a6",
+                "39269097",
+                usage=16,
+                source="",
+                confidence=0.65,
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        "services.agent.validation.tariff_feedback_service.get_tariff_validation_feedback_summary",
+        lambda *_: {"accept": 0, "reject": 1},
+    )
+
+    matches = svc.validate_lines([line])
+
+    assert matches == []
+    assert line.tarifni_broj == "3926909710"
+    assert svc.last_auto_applied == []

@@ -1161,6 +1161,9 @@ def _prikaz_tarifnih_trenutnih(ctrl) -> None:
 
         svc = HistoricalTariffSearchService()
         matches = svc.validate_lines(lines, izvoznik_naziv=izvoznik, uvoznik_naziv=primalac)
+        auto_applied = getattr(svc, 'last_auto_applied', [])
+        if auto_applied and hasattr(ctrl, '_refresh_faktura_tab'):
+            ctrl._refresh_faktura_tab()
 
         if not matches:
             chat.add_agent_message(

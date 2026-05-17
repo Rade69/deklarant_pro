@@ -65,6 +65,9 @@ class HistoricalTariffSearchService:
     MIN_USAGE_FOR_OUT_OF_PROFILE_CHAPTER = 10
     MIN_USAGE_FOR_WEAK_SOURCE = 2
 
+    def __init__(self):
+        self.last_auto_applied: list[tuple[int, str]] = []
+
     def validate_lines(
         self,
         invoice_lines: list,
@@ -81,6 +84,7 @@ class HistoricalTariffSearchService:
             uvoznik_naziv: ime uvoznika iz Zaglavlja (boost)
         """
         results = []
+        self.last_auto_applied = []
         invoice_profile = self._build_invoice_profile(invoice_lines)
         for idx, line in enumerate(invoice_lines):
             naziv = (getattr(line, 'naziv_robe', '') or '').strip()
@@ -106,6 +110,15 @@ class HistoricalTariffSearchService:
             best = actionable[0]
             best.line_index = idx
             best.tarifni_broj_trenutni = trenutni
+
+            feedback_action = self._feedback_action(best)
+            if feedback_action == "reject":
+                continue
+            if feedback_action == "accept":
+                line.tarifni_broj = best.tarifni_broj_historijski
+                self.last_auto_applied.append((idx, best.tarifni_broj_historijski))
+                continue
+
             results.append(best)
 
         return results
@@ -231,6 +244,23 @@ class HistoricalTariffSearchService:
     @staticmethod
     def _digits(value: str) -> str:
         return tariff_digits(value)
+
+    def _feedback_action(self, match: TariffHistoryMatch) -> str:
+        try:
+            from services.agent.validation.tariff_feedback_service import (
+                get_tariff_validation_feedback_summary,
+            )
+
+            summary = get_tariff_validation_feedback_summary(match)
+        except Exception as exc:
+            logger.warning("HistoricalTariffSearch feedback lookup greška: %s", exc)
+            return ""
+
+        if summary.get("reject", 0) > 0:
+            return "reject"
+        if summary.get("accept", 0) > 0:
+            return "accept"
+        return ""
 
     def _to_matches(self, rows: list, naziv_original: str) -> List[TariffHistoryMatch]:
         results = []
