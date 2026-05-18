@@ -75,6 +75,28 @@ def test_commercial_description_truncates_to_max_chars():
     assert len(desc) <= 90
 
 
+def test_commercial_description_never_exceeds_3_lines_or_55_chars_per_line():
+    # ASYCUDA World odbaci polje pri kliku ako ima >3 linije ili >55 karaktera po liniji
+    draft = DeclarationDraft()
+    item = NaimenovanjeDraft(
+        item_id="1",
+        ordinal_no=1,
+        tariff_description2="Ostali gotovi tekstilni i odjevni predmeti raznih vrsta",
+    )
+    draft.items = [item]
+    draft.invoice_lines = [
+        InvoiceLine(line_no=i, invoice_number="893/26", naziv_robe=f"Proizvod dugi naziv {i} extra tekst", assigned_naimenovanje_ordinal=1)
+        for i in range(1, 8)
+    ]
+
+    desc = AsycudaXMLBuilder(draft)._build_commercial_description(item, 280)
+
+    lines = desc.split("\n")
+    assert len(lines) <= 3, f"Previše linija: {len(lines)}"
+    for line in lines:
+        assert len(line) <= 55, f"Linija predugačka ({len(line)}): {line!r}"
+
+
 def test_commercial_description_preserves_heading_and_invoice_when_names_are_long():
     draft = DeclarationDraft()
     item = NaimenovanjeDraft(
@@ -121,6 +143,7 @@ def test_commercial_description_preserves_heading_and_invoice_when_names_are_lon
 
 
 def test_commercial_description_includes_all_names_when_they_fit():
+    # ASYCUDA format: tačno 3 linije — nazivi se spajaju comma-separated na jednoj liniji
     draft = DeclarationDraft()
     item = NaimenovanjeDraft(
         item_id="1",
@@ -145,7 +168,7 @@ def test_commercial_description_includes_all_names_when_they_fit():
 
     desc = AsycudaXMLBuilder(draft)._build_commercial_description(item, 120)
 
-    assert desc == "- - ostalo\nRoba A\nRoba B\nFaktura: 893/26 (rb. 1, 2)"
+    assert desc == "- - ostalo\nRoba A, Roba B\nFaktura: 893/26 (rb. 1, 2)"
 
 
 def test_description_of_goods_returns_dot_not_tariff_code_when_no_heading():

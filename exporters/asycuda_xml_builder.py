@@ -973,61 +973,24 @@ class AsycudaXMLBuilder:
         return result or "."
 
     def _build_commercial_description(self, item: "NaimenovanjeDraft", max_chars: int = 280) -> str:
-        """Gradi Commercial_Description: tarifni heading + nazivi proizvoda + faktura ref (multi-line).
+        """Gradi Commercial_Description za Rub.31 u ASYCUDA World formatu.
 
-        ASYCUDA World prikazuje ovaj field u Rub.31 — mora biti popunjen.
-        Format: newline-separated (ASYCUDA standard):
-            heading
-            naziv1
-            naziv2
-            Faktura: X/26 (rb. 1, 2, 3)
+        ASYCUDA World ima fiksni 3-linijski widget od ~55 karaktera po liniji.
+        Sadržaj s više od 3 linije ili linijama >55 karaktera ASYCUDA odbaci pri kliku na polje.
+
+        Format — tačno 3 linije, svaka max 55 karaktera:
+            1. Tarifni heading (skraćen na 55 ako je duži)
+            2. Nazivi proizvoda (comma-separated, skraćeni na 55)
+            3. Faktura: X/26 (rb. N)
         """
         from collections import OrderedDict
 
-        def _join(parts: list[str]) -> str:
-            return "\n".join(p for p in parts if p)
+        _MAX_LINE = 55  # ASYCUDA World fiksna širina po liniji
 
-        def _truncate(text: str, limit: int) -> str:
-            if limit <= 0:
-                return ""
-            if len(text) <= limit:
+        def _clip(text: str) -> str:
+            if len(text) <= _MAX_LINE:
                 return text
-            if limit <= 3:
-                return text[:limit]
-            return text[:limit - 3].rstrip() + "..."
-
-        def _fit_parts(heading: str, names: list[str], invoice_ref: str) -> str:
-            essential = [p for p in (heading, invoice_ref) if p]
-            essential_text = _join(essential)
-            if len(essential_text) > max_chars:
-                if invoice_ref and len(invoice_ref) < max_chars:
-                    heading_limit = max_chars - len(invoice_ref) - 1
-                    return _join([_truncate(heading, heading_limit), invoice_ref])
-                return _truncate(essential_text, max_chars)
-
-            selected: list[str] = []
-            for idx, name in enumerate(names):
-                remaining = len(names) - idx - 1
-                candidate = [heading, *selected, name]
-                if remaining:
-                    candidate.append("...")
-                candidate.append(invoice_ref)
-                if len(_join(candidate)) <= max_chars:
-                    selected.append(name)
-                    continue
-                break
-
-            omitted = len(selected) < len(names)
-            parts = [heading, *selected]
-            if omitted:
-                candidate_with_ellipsis = [*parts, "...", invoice_ref]
-                if len(_join(candidate_with_ellipsis)) <= max_chars:
-                    parts.append("...")
-            parts.append(invoice_ref)
-            result = _join(parts)
-            if len(result) <= max_chars:
-                return result
-            return _truncate(result, max_chars)
+            return text[:_MAX_LINE - 3].rstrip() + "..."
 
         ordinal_no = getattr(item, "ordinal_no", None)
         invoice_lines = getattr(self.draft, "invoice_lines", None) or []
@@ -1039,11 +1002,10 @@ class AsycudaXMLBuilder:
         ] if ordinal_no is not None else []
 
         if assigned:
-            # Deduplikovani nazivi (zadržava redosljed)
             seen: set = set()
             product_names = []
             for l in assigned:
-                name = getattr(l, "naziv_robe", "") or ""
+                name = (getattr(l, "naziv_robe", "") or "").strip()
                 if name and name not in seen:
                     seen.add(name)
                     product_names.append(name)
@@ -1058,16 +1020,20 @@ class AsycudaXMLBuilder:
                 f"{inv} (rb. {', '.join(rb_list)})" for inv, rb_list in fakture.items()
             )
 
-            # ASYCUDA format: svaki dio na svojoj liniji
-            result = _fit_parts(tariff_heading, product_names, fakture_dio)
+            line1 = _clip(tariff_heading) if tariff_heading else ""
+            line2 = _clip(", ".join(product_names)) if product_names else ""
+            line3 = _clip(fakture_dio)
+
+            parts = [p for p in (line1, line2, line3) if p]
+            result = "\n".join(parts)
         else:
             trade_name = (getattr(item, "goods_trade_name", "") or
                           getattr(item, "goods_description", "") or "").strip()
-            result = trade_name or tariff_heading
+            raw = trade_name or tariff_heading
+            result = _clip(raw) if raw else ""
 
-        # Zadržavamo newline-ove — ASYCUDA World ih koristi u Commercial_Description (Rub.31)
         if len(result) > max_chars:
-            result = result[:max_chars - 3] + "..."
+            result = result[:max_chars - 3].rstrip() + "..."
         return result or "."
 
     def _fill_item_valuation(
