@@ -50,6 +50,7 @@ _CHAPTERS_KGM = set(range(1, 25))
 
 _TARIFF_CODE_CORRECTIONS = {
     "40199090": "39269097",
+    "63079099": "63079098",
 }
 
 # Mapiranje Rb.37 (Extended_customs_procedure) → Declaration_gen_procedure_code
@@ -982,6 +983,51 @@ class AsycudaXMLBuilder:
         """
         from collections import OrderedDict
 
+        def _join(parts: list[str]) -> str:
+            return "\n".join(p for p in parts if p)
+
+        def _truncate(text: str, limit: int) -> str:
+            if limit <= 0:
+                return ""
+            if len(text) <= limit:
+                return text
+            if limit <= 3:
+                return text[:limit]
+            return text[:limit - 3].rstrip() + "..."
+
+        def _fit_parts(heading: str, names: list[str], invoice_ref: str) -> str:
+            essential = [p for p in (heading, invoice_ref) if p]
+            essential_text = _join(essential)
+            if len(essential_text) > max_chars:
+                if invoice_ref and len(invoice_ref) < max_chars:
+                    heading_limit = max_chars - len(invoice_ref) - 1
+                    return _join([_truncate(heading, heading_limit), invoice_ref])
+                return _truncate(essential_text, max_chars)
+
+            selected: list[str] = []
+            for idx, name in enumerate(names):
+                remaining = len(names) - idx - 1
+                candidate = [heading, *selected, name]
+                if remaining:
+                    candidate.append("...")
+                candidate.append(invoice_ref)
+                if len(_join(candidate)) <= max_chars:
+                    selected.append(name)
+                    continue
+                break
+
+            omitted = len(selected) < len(names)
+            parts = [heading, *selected]
+            if omitted:
+                candidate_with_ellipsis = [*parts, "...", invoice_ref]
+                if len(_join(candidate_with_ellipsis)) <= max_chars:
+                    parts.append("...")
+            parts.append(invoice_ref)
+            result = _join(parts)
+            if len(result) <= max_chars:
+                return result
+            return _truncate(result, max_chars)
+
         ordinal_no = getattr(item, "ordinal_no", None)
         invoice_lines = getattr(self.draft, "invoice_lines", None) or []
         tariff_heading = " ".join(self._tariff_heading(item).splitlines()).strip()
@@ -1012,12 +1058,7 @@ class AsycudaXMLBuilder:
             )
 
             # ASYCUDA format: svaki dio na svojoj liniji
-            parts = []
-            if tariff_heading:
-                parts.append(tariff_heading)
-            parts.extend(product_names)
-            parts.append(fakture_dio)
-            result = "\n".join(parts)
+            result = _fit_parts(tariff_heading, product_names, fakture_dio)
         else:
             trade_name = (getattr(item, "goods_trade_name", "") or
                           getattr(item, "goods_description", "") or "").strip()

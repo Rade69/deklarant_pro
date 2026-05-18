@@ -75,6 +75,79 @@ def test_commercial_description_truncates_to_max_chars():
     assert len(desc) <= 90
 
 
+def test_commercial_description_preserves_heading_and_invoice_when_names_are_long():
+    draft = DeclarationDraft()
+    item = NaimenovanjeDraft(
+        item_id="1",
+        ordinal_no=4,
+        tariff_code="39269097",
+        tariff_description2="- - ostalo",
+    )
+    draft.items = [item]
+    draft.invoice_lines = [
+        InvoiceLine(
+            line_no=12,
+            invoice_number="893/26",
+            naziv_robe="GW GEL PODUPIRAC PRST. DESNI a1 102691500",
+            assigned_naimenovanje_ordinal=4,
+        ),
+        InvoiceLine(
+            line_no=13,
+            invoice_number="893/26",
+            naziv_robe="GW GEL STITNIK CUKLJEVA MALI PRST G 102693500",
+            assigned_naimenovanje_ordinal=4,
+        ),
+        InvoiceLine(
+            line_no=15,
+            invoice_number="893/26",
+            naziv_robe="GW GEL RASTAVLJAC a3 Mali 102680900",
+            assigned_naimenovanje_ordinal=4,
+        ),
+        InvoiceLine(
+            line_no=20,
+            invoice_number="893/26",
+            naziv_robe="OHP SOFT CEPOVI ZA USI a10",
+            assigned_naimenovanje_ordinal=4,
+        ),
+    ]
+
+    desc = AsycudaXMLBuilder(draft)._build_commercial_description(item, 150)
+
+    assert len(desc) <= 150
+    assert desc.startswith("- - ostalo")
+    assert "Faktura: 893/26 (rb. 12, 13, 15, 20)" in desc
+    assert "..." in desc
+    assert desc.endswith("Faktura: 893/26 (rb. 12, 13, 15, 20)")
+
+
+def test_commercial_description_includes_all_names_when_they_fit():
+    draft = DeclarationDraft()
+    item = NaimenovanjeDraft(
+        item_id="1",
+        ordinal_no=1,
+        tariff_description2="- - ostalo",
+    )
+    draft.items = [item]
+    draft.invoice_lines = [
+        InvoiceLine(
+            line_no=1,
+            invoice_number="893/26",
+            naziv_robe="Roba A",
+            assigned_naimenovanje_ordinal=1,
+        ),
+        InvoiceLine(
+            line_no=2,
+            invoice_number="893/26",
+            naziv_robe="Roba B",
+            assigned_naimenovanje_ordinal=1,
+        ),
+    ]
+
+    desc = AsycudaXMLBuilder(draft)._build_commercial_description(item, 120)
+
+    assert desc == "- - ostalo\nRoba A\nRoba B\nFaktura: 893/26 (rb. 1, 2)"
+
+
 def test_description_of_goods_returns_dot_not_tariff_code_when_no_heading():
     # Kada nema opisa, vraća "." — ne tarifni kod koji ASYCUDA ne prepoznaje kao tekst
     draft = DeclarationDraft()
@@ -156,6 +229,23 @@ def test_export_replaces_known_invalid_tariff_code():
     assert root.findtext("./Item/Tarification/HScode/Commodity_code") == "39269097"
     assert draft.items[0].tariff_code == "39269097"
     assert any("40199090" in warning and "39269097" in warning for warning in draft.warnings)
+
+
+def test_export_replaces_known_invalid_bort_tariff_code():
+    draft = DeclarationDraft()
+    draft.items = [
+        NaimenovanjeDraft(
+            item_id="1",
+            ordinal_no=16,
+            tariff_code="63079099",
+        )
+    ]
+
+    root = AsycudaXMLBuilder(draft).build()
+
+    assert root.findtext("./Item/Tarification/HScode/Commodity_code") == "63079098"
+    assert draft.items[0].tariff_code == "63079098"
+    assert any("63079099" in warning and "63079098" in warning for warning in draft.warnings)
 
 
 def test_export_warns_but_does_not_block_attached_document_without_reference():
