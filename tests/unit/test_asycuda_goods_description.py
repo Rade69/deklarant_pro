@@ -141,7 +141,7 @@ def test_from_rule_attached_document_exports_flag():
     assert doc.findtext("Attached_document_from_rule") == "1"
 
 
-def test_export_warns_but_does_not_block_unknown_tariff_code():
+def test_export_replaces_known_invalid_tariff_code():
     draft = DeclarationDraft()
     draft.items = [
         NaimenovanjeDraft(
@@ -153,8 +153,9 @@ def test_export_warns_but_does_not_block_unknown_tariff_code():
 
     root = AsycudaXMLBuilder(draft).build()
 
-    assert root.findtext("./Item/Tarification/HScode/Commodity_code") == "40199090"
-    assert any("40199090" in warning for warning in draft.warnings)
+    assert root.findtext("./Item/Tarification/HScode/Commodity_code") == "39269097"
+    assert draft.items[0].tariff_code == "39269097"
+    assert any("40199090" in warning and "39269097" in warning for warning in draft.warnings)
 
 
 def test_export_warns_but_does_not_block_attached_document_without_reference():

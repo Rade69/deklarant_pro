@@ -48,6 +48,10 @@ _SU_NAMES = {
 # Tarifna poglavlja (1-24) koja u BiH ASYCUDA uvijek zahtijevaju KGM+KGD
 _CHAPTERS_KGM = set(range(1, 25))
 
+_TARIFF_CODE_CORRECTIONS = {
+    "40199090": "39269097",
+}
+
 # Mapiranje Rb.37 (Extended_customs_procedure) → Declaration_gen_procedure_code
 _PROC_TO_GEN = {
     "4000": "H", "4200": "H",
@@ -159,6 +163,7 @@ class AsycudaXMLBuilder:
 
     def build(self) -> ET.Element:
         """Kreira kompletan XML tree."""
+        self._apply_known_tariff_corrections()
         self._record_export_warnings()
         self._add_assessment_notice()
         self._add_global_taxes()
@@ -175,6 +180,30 @@ class AsycudaXMLBuilder:
         self._add_valuation()
         self._add_items()
         return self.root
+
+    def _apply_known_tariff_corrections(self) -> None:
+        corrections: list[str] = []
+        for item in self.draft.items:
+            code = (item.tariff_code or "").strip()
+            corrected = _TARIFF_CODE_CORRECTIONS.get(code[:8])
+            if not corrected:
+                continue
+
+            old = code[:8]
+            suffix = code[8:] if len(code) > 8 else ""
+            item.tariff_code = corrected + suffix
+            rb = item.ordinal_no or "?"
+            corrections.append(
+                f"Rb.{rb}: Tarifni broj '{old}' zamijenjen je validnim brojem '{corrected}'."
+            )
+
+        if corrections:
+            existing = list(getattr(self.draft, "warnings", []) or [])
+            for correction in corrections:
+                if correction not in existing:
+                    existing.append(correction)
+                logger.warning("ASYCUDA export korekcija: %s", correction)
+            self.draft.warnings = existing
 
     def _record_export_warnings(self) -> None:
         warnings: list[str] = []
