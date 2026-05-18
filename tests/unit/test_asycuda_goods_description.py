@@ -24,14 +24,16 @@ def _builder_with_assigned_line() -> tuple[AsycudaXMLBuilder, NaimenovanjeDraft]
     return AsycudaXMLBuilder(draft), item
 
 
-def test_commercial_description_starts_with_tariff_heading_for_asycuda_rb31():
+def test_commercial_description_multiline_format_for_asycuda_rb31():
     builder, item = _builder_with_assigned_line()
 
     desc = builder._build_commercial_description(item, 280)
 
+    # ASYCUDA format: heading\nnaziv — newline-separated, bez "Faktura:" info
     assert desc.startswith("Ostali gotovi tekstilni proizvodi")
     assert "BORT 112900 B.R.Z.palac lev XL" in desc
-    assert "Faktura: 893/26 (rb. 58)" in desc
+    assert "\n" in desc
+    assert "Faktura:" not in desc
 
 
 def test_tariff_heading_uses_description1_when_description2_is_empty():
@@ -46,17 +48,18 @@ def test_tariff_heading_uses_description1_when_description2_is_empty():
     assert AsycudaXMLBuilder(draft)._tariff_heading(item) == "Ostali proizvodi od vulkanizovane gume"
 
 
-def test_commercial_description_truncates_without_losing_invoice_reference():
+def test_commercial_description_truncates_to_max_chars():
     builder, item = _builder_with_assigned_line()
     item.tariff_description2 = "Vrlo dug tarifni opis " * 10
 
     desc = builder._build_commercial_description(item, 90)
 
     assert len(desc) <= 90
-    assert "Faktura: 893/26 (rb. 58)" in desc
+    assert "Faktura:" not in desc
 
 
-def test_description_of_goods_never_falls_back_to_dot():
+def test_description_of_goods_returns_dot_not_tariff_code_when_no_heading():
+    # Kada nema opisa, vraća "." — ne tarifni kod koji ASYCUDA ne prepoznaje kao tekst
     draft = DeclarationDraft()
     item = NaimenovanjeDraft(
         item_id="1",
@@ -67,7 +70,7 @@ def test_description_of_goods_never_falls_back_to_dot():
     desc = AsycudaXMLBuilder(draft)._build_description_of_goods(item)
 
     assert desc
-    assert desc != "."
+    assert desc != "40199090"  # Nikada ne upisati sam tarifni kod kao opis
 
 
 def test_valuation_total_invoice_uses_foreign_currency_and_total_weight_uses_gross():

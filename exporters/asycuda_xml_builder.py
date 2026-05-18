@@ -928,16 +928,16 @@ class AsycudaXMLBuilder:
         result = " ".join(self._tariff_heading(item).splitlines()).strip()
         if len(result) > max_chars:
             result = result[:max_chars - 3] + "..."
-        return result or (getattr(item, "tariff_code", "") or "").strip()
+        # Ne vraćati tarifni kod kao fallback — ASYCUDA to ne prepoznaje kao opis
+        return result or "."
 
     def _build_commercial_description(self, item: "NaimenovanjeDraft", max_chars: int = 280) -> str:
-        """Gradi Commercial_Description: tarifni heading + nazivi proizvoda + faktura info.
+        """Gradi Commercial_Description: tarifni heading + nazivi proizvoda (multi-line).
 
         ASYCUDA World prikazuje ovaj field u Rub.31 — mora biti popunjen.
-        Format: "TARIFNI OPIS, NAZIV1, NAZIV2, Faktura: X (rb. 1, 3)"
+        Format: newline-separated (ASYCUDA standard) — heading na prvoj liniji, nazivi ispod.
+        Bez "Faktura:" info — ASYCUDA to ne prepoznaje i može ignorisati cijelo polje.
         """
-        from collections import OrderedDict
-
         ordinal_no = getattr(item, "ordinal_no", None)
         invoice_lines = getattr(self.draft, "invoice_lines", None) or []
         tariff_heading = " ".join(self._tariff_heading(item).splitlines()).strip()
@@ -948,48 +948,27 @@ class AsycudaXMLBuilder:
         ] if ordinal_no is not None else []
 
         if assigned:
-            product_names = [l.naziv_robe for l in assigned if getattr(l, "naziv_robe", "")]
-            nazivi_dio = ", ".join(product_names) if product_names else ""
-
-            fakture: dict = OrderedDict()
+            # Deduplikovani nazivi (zadržava redosljed)
+            seen: set = set()
+            product_names = []
             for l in assigned:
-                inv = getattr(l, "invoice_number", "") or "?"
-                if inv not in fakture:
-                    fakture[inv] = []
-                fakture[inv].append(str(getattr(l, "line_no", "")))
-            fakture_dio = "Faktura: " + ", ".join(
-                f"{inv} (rb. {', '.join(rb_list)})" for inv, rb_list in fakture.items()
-            )
+                name = getattr(l, "naziv_robe", "") or ""
+                if name and name not in seen:
+                    seen.add(name)
+                    product_names.append(name)
 
-            base_parts = [nazivi_dio, fakture_dio]
-            base_result = ", ".join(p for p in base_parts if p)
-            heading_part = tariff_heading
-
-            if heading_part and base_result:
-                heading_max = max_chars - len(base_result) - 2
-                if heading_max < len(heading_part):
-                    if heading_max > 6:
-                        heading_part = heading_part[:heading_max - 3].rstrip() + "..."
-                    else:
-                        heading_part = ""
-
-            result = ", ".join(p for p in [heading_part, *base_parts] if p)
-            if len(result) > max_chars:
-                fakture_len = len(fakture_dio) + 2
-                heading_len = len(heading_part) + 2 if heading_part else 0
-                nazivi_max = max(0, max_chars - fakture_len - heading_len - 3)
-                truncated = nazivi_dio[:nazivi_max]
-                last_comma = truncated.rfind(", ")
-                if last_comma > 0:
-                    truncated = truncated[:last_comma]
-                truncated_part = truncated + "..." if truncated else ""
-                result = ", ".join([p for p in [heading_part, truncated_part, fakture_dio] if p])
+            # ASYCUDA format: heading\nnaziv1\nnaziv2 (newline-separated, bez "Faktura:")
+            parts = []
+            if tariff_heading:
+                parts.append(tariff_heading)
+            parts.extend(product_names)
+            result = "\n".join(parts)
         else:
             trade_name = (getattr(item, "goods_trade_name", "") or
                           getattr(item, "goods_description", "") or "").strip()
-            result = trade_name or self._tariff_heading(item)
+            result = trade_name or tariff_heading
 
-        result = " ".join(result.splitlines()).strip()
+        # Zadržavamo newline-ove — ASYCUDA World ih koristi u Commercial_Description (Rub.31)
         if len(result) > max_chars:
             result = result[:max_chars - 3] + "..."
         return result or "."
