@@ -70,7 +70,23 @@ ASYCUDA World je Java aplikacija koja koristi vlastiti XML parser. Testiranjem u
 
 ---
 
+## Bug 3: "Nestane sve" pri kliku na opis robe (naknadni)
+
+**Simptom:** Kolega testira importovani XML — čim klikne na "opis robe" u ASYCUDA World, sadržaj nestane.
+
+**Korijen problema:** ASYCUDA World ima fiksni 3-linijski widget (~55 karaktera po liniji) za `Commercial_Description`. Stara implementacija (`_fit_parts`) stavljala je svaki naziv proizvoda na zasebnu liniju — za naimenovanje s 3+ artikla to je 5-6 linija. ASYCUDA odbacuje sadržaj koji ne stane u 3×55 pri prelasku u edit mode.
+
+**Fix:** `_build_commercial_description()` repisana da uvijek gradi tačno 3 linije:
+
+1. Tarifni heading (clipovan na 55 char)
+2. Svi nazivi proizvoda comma-separated (clipovani na 55 char)
+3. Faktura: X/26 (rb. N) (clipovana na 55 char)
+
+Dodat novi test: `test_commercial_description_never_exceeds_3_lines_or_55_chars_per_line`
+
+---
+
 ## Fajlovi promijenjeni
 
 - `exporters/asycuda_xml_builder.py` — `_normalize_tariff_text()`, `_tariff_heading()`, `_build_commercial_description()`, `_build_description_of_goods()`
-- `tests/unit/test_asycuda_goods_description.py` — 10 testova, svi prolaze
+- `tests/unit/test_asycuda_goods_description.py` — 17 testova, svi prolaze
