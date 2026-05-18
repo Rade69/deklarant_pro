@@ -214,6 +214,51 @@ def test_from_rule_attached_document_exports_flag():
     assert doc.findtext("Attached_document_from_rule") == "1"
 
 
+def test_free_text_1_keeps_pe_document_code_and_reference():
+    draft = DeclarationDraft()
+    draft.items = [
+        NaimenovanjeDraft(
+            item_id="1",
+            ordinal_no=1,
+            attached_document4="PE1 A",
+            attached_document2="N380 893/26",
+        )
+    ]
+
+    root = AsycudaXMLBuilder(draft).build()
+
+    assert root.findtext("./Item/Free_text_1") == "PE1 A"
+
+
+def test_free_text_1_keeps_pe2_and_pe3_references():
+    draft = DeclarationDraft()
+    draft.items = [
+        NaimenovanjeDraft(item_id="1", ordinal_no=1, attached_document4="PE2 893/26"),
+        NaimenovanjeDraft(item_id="2", ordinal_no=2, attached_document4="PE3 AUTH-1"),
+    ]
+
+    root = AsycudaXMLBuilder(draft).build()
+
+    assert root.findtext("./Item[1]/Free_text_1") == "PE2 893/26"
+    assert root.findtext("./Item[2]/Free_text_1") == "PE3 AUTH-1"
+
+
+def test_pe_attached_document_exports_code_and_number_as_name():
+    draft = DeclarationDraft()
+    draft.header_attached_documents = [
+        AttachedDocument(code="PE1", name="EUR.1 obrazac", number="A", from_rule=True)
+    ]
+    draft.items = [NaimenovanjeDraft(item_id="1", ordinal_no=1)]
+
+    root = AsycudaXMLBuilder(draft).build()
+    doc = root.find("./Item/Attached_documents")
+
+    assert doc is not None
+    assert doc.findtext("Attached_document_code") == "PE1"
+    assert doc.findtext("Attached_document_name") == "A"
+    assert doc.findtext("Attached_document_reference") == "A"
+
+
 def test_export_replaces_known_invalid_tariff_code():
     draft = DeclarationDraft()
     draft.items = [

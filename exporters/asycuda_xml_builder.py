@@ -53,6 +53,8 @@ _TARIFF_CODE_CORRECTIONS = {
     "63079099": "63079098",
 }
 
+_ORIGIN_DOC_CODES = {"PE1", "PE2", "PE3"}
+
 # Mapiranje Rb.37 (Extended_customs_procedure) → Declaration_gen_procedure_code
 _PROC_TO_GEN = {
     "4000": "H", "4200": "H",
@@ -885,7 +887,6 @@ class AsycudaXMLBuilder:
         ET.SubElement(item_elem, "Amount_deducted_from_licence")
         ET.SubElement(item_elem, "Quantity_deducted_from_licence")
 
-        # Free_text_1 — PE1/PE2 referenca iz le_rubrika44_4 (attached_document4)
         ft1_val = item.attached_document4 or item.attached_document2 or ""
         if ft1_val:
             _val(item_elem, "Free_text_1", ft1_val)
@@ -1197,10 +1198,13 @@ class AsycudaXMLBuilder:
         """Dodaje <Attached_documents> element."""
         attached = ET.SubElement(item_elem, "Attached_documents")
         _val(attached, "Attached_document_code", doc.code)
-        if doc.name:
-            _val(attached, "Attached_document_name", doc.name)
+        doc_code = (doc.code or "").strip().upper()
+        doc_number = (doc.number or "").strip()
+        doc_name = doc_number if doc_code in _ORIGIN_DOC_CODES and doc_number else doc.name
+        if doc_name:
+            _val(attached, "Attached_document_name", doc_name)
         ref = ET.SubElement(attached, "Attached_document_reference")
-        ref.text = doc.number or ""
+        ref.text = doc_number
         if doc.from_rule:
             _val(attached, "Attached_document_from_rule", "1")
 
