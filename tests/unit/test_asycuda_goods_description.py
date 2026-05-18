@@ -29,11 +29,11 @@ def test_commercial_description_multiline_format_for_asycuda_rb31():
 
     desc = builder._build_commercial_description(item, 280)
 
-    # ASYCUDA format: heading\nnaziv — newline-separated, bez "Faktura:" info
+    # ASYCUDA format: heading\nnaziv\nFaktura: — newline-separated
     assert desc.startswith("Ostali gotovi tekstilni proizvodi")
     assert "BORT 112900 B.R.Z.palac lev XL" in desc
+    assert "Faktura: 893/26 (rb. 58)" in desc
     assert "\n" in desc
-    assert "Faktura:" not in desc
 
 
 def test_tariff_heading_uses_description1_when_description2_is_empty():
@@ -55,7 +55,6 @@ def test_commercial_description_truncates_to_max_chars():
     desc = builder._build_commercial_description(item, 90)
 
     assert len(desc) <= 90
-    assert "Faktura:" not in desc
 
 
 def test_description_of_goods_returns_dot_not_tariff_code_when_no_heading():

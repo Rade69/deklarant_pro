@@ -932,12 +932,17 @@ class AsycudaXMLBuilder:
         return result or "."
 
     def _build_commercial_description(self, item: "NaimenovanjeDraft", max_chars: int = 280) -> str:
-        """Gradi Commercial_Description: tarifni heading + nazivi proizvoda (multi-line).
+        """Gradi Commercial_Description: tarifni heading + nazivi proizvoda + faktura ref (multi-line).
 
         ASYCUDA World prikazuje ovaj field u Rub.31 — mora biti popunjen.
-        Format: newline-separated (ASYCUDA standard) — heading na prvoj liniji, nazivi ispod.
-        Bez "Faktura:" info — ASYCUDA to ne prepoznaje i može ignorisati cijelo polje.
+        Format: newline-separated (ASYCUDA standard):
+            heading
+            naziv1
+            naziv2
+            Faktura: X/26 (rb. 1, 2, 3)
         """
+        from collections import OrderedDict
+
         ordinal_no = getattr(item, "ordinal_no", None)
         invoice_lines = getattr(self.draft, "invoice_lines", None) or []
         tariff_heading = " ".join(self._tariff_heading(item).splitlines()).strip()
@@ -957,11 +962,22 @@ class AsycudaXMLBuilder:
                     seen.add(name)
                     product_names.append(name)
 
-            # ASYCUDA format: heading\nnaziv1\nnaziv2 (newline-separated, bez "Faktura:")
+            fakture: dict = OrderedDict()
+            for l in assigned:
+                inv = getattr(l, "invoice_number", "") or "?"
+                if inv not in fakture:
+                    fakture[inv] = []
+                fakture[inv].append(str(getattr(l, "line_no", "")))
+            fakture_dio = "Faktura: " + ", ".join(
+                f"{inv} (rb. {', '.join(rb_list)})" for inv, rb_list in fakture.items()
+            )
+
+            # ASYCUDA format: svaki dio na svojoj liniji
             parts = []
             if tariff_heading:
                 parts.append(tariff_heading)
             parts.extend(product_names)
+            parts.append(fakture_dio)
             result = "\n".join(parts)
         else:
             trade_name = (getattr(item, "goods_trade_name", "") or
