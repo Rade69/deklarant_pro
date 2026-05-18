@@ -858,15 +858,21 @@ class AsycudaXMLBuilder:
 
     def _tariff_heading(self, item: "NaimenovanjeDraft") -> str:
         """Vraća kratki zvanični tarifni heading za ovo naimenovanje."""
-        heading = (getattr(item, "tariff_description2", "") or "").strip()
+        heading = (
+            (getattr(item, "tariff_description2", "") or "").strip()
+            or (getattr(item, "tariff_description1", "") or "").strip()
+        )
         if not heading:
             tariff_code = (getattr(item, "tariff_code", "") or "").strip()
             if len(tariff_code) >= 4:
                 try:
                     from services.tariff.tarifa_service import trazi_po_kodu
-                    row = trazi_po_kodu(tariff_code[:4])
-                    if row:
-                        heading = (row.get("naziv") or "").strip()
+                    for code in (tariff_code, tariff_code[:4]):
+                        row = trazi_po_kodu(code)
+                        if row:
+                            heading = (row.get("naziv") or "").strip()
+                            if heading:
+                                break
                 except Exception as e:
                     logger.debug(f"Fallback tariff heading neuspješan za {tariff_code}: {e}")
         return heading
@@ -883,15 +889,16 @@ class AsycudaXMLBuilder:
         return result or "."
 
     def _build_commercial_description(self, item: "NaimenovanjeDraft", max_chars: int = 280) -> str:
-        """Gradi Commercial_Description: nazivi proizvoda + faktura info.
+        """Gradi Commercial_Description: tarifni heading + nazivi proizvoda + faktura info.
 
         ASYCUDA World prikazuje ovaj field u Rub.31 — mora biti popunjen.
-        Format: "NAZIV1, NAZIV2, Faktura: X (rb. 1, 3)"
+        Format: "TARIFNI OPIS, NAZIV1, NAZIV2, Faktura: X (rb. 1, 3)"
         """
         from collections import OrderedDict
 
         ordinal_no = getattr(item, "ordinal_no", None)
         invoice_lines = getattr(self.draft, "invoice_lines", None) or []
+        tariff_heading = " ".join(self._tariff_heading(item).splitlines()).strip()
 
         assigned = [
             l for l in invoice_lines
@@ -912,15 +919,29 @@ class AsycudaXMLBuilder:
                 f"{inv} (rb. {', '.join(rb_list)})" for inv, rb_list in fakture.items()
             )
 
-            result = ", ".join(p for p in [nazivi_dio, fakture_dio] if p)
+            base_parts = [nazivi_dio, fakture_dio]
+            base_result = ", ".join(p for p in base_parts if p)
+            heading_part = tariff_heading
+
+            if heading_part and base_result:
+                heading_max = max_chars - len(base_result) - 2
+                if heading_max < len(heading_part):
+                    if heading_max > 6:
+                        heading_part = heading_part[:heading_max - 3].rstrip() + "..."
+                    else:
+                        heading_part = ""
+
+            result = ", ".join(p for p in [heading_part, *base_parts] if p)
             if len(result) > max_chars:
                 fakture_len = len(fakture_dio) + 2
-                nazivi_max = max_chars - fakture_len - 3
+                heading_len = len(heading_part) + 2 if heading_part else 0
+                nazivi_max = max(0, max_chars - fakture_len - heading_len - 3)
                 truncated = nazivi_dio[:nazivi_max]
                 last_comma = truncated.rfind(", ")
                 if last_comma > 0:
                     truncated = truncated[:last_comma]
-                result = ", ".join([p for p in [truncated + "...", fakture_dio] if p])
+                truncated_part = truncated + "..." if truncated else ""
+                result = ", ".join([p for p in [heading_part, truncated_part, fakture_dio] if p])
         else:
             trade_name = (getattr(item, "goods_trade_name", "") or
                           getattr(item, "goods_description", "") or "").strip()
