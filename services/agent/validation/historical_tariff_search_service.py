@@ -272,6 +272,13 @@ class HistoricalTariffSearchService:
             source   = (row['source'] or '').strip()
             if not tarif:
                 continue
+            if not self._tariff_exists(tarif):
+                logger.warning(
+                    "Preskačem historijsku tarifu koja nije u zvaničnoj tarifi: %s (%s)",
+                    tarif,
+                    naziv_h[:80],
+                )
+                continue
             # Pouzdanost: bazirana na usage_count i ima li supplier
             conf = min(0.95, 0.60 + min(usage, 100) * 0.003)
             if supplier and supplier not in ('HISTORIJA', '+', ' ', 'A'):
@@ -288,3 +295,16 @@ class HistoricalTariffSearchService:
                 confidence=round(conf, 2),
             ))
         return results
+
+    @staticmethod
+    def _tariff_exists(tarifni_broj: str) -> bool:
+        digits = tariff_digits(tarifni_broj)
+        if not digits:
+            return False
+        try:
+            from services.tariff.tarifa_service import trazi_po_kodu
+
+            return bool(trazi_po_kodu(digits[:8]))
+        except Exception as exc:
+            logger.warning("Provjera zvanične tarife nije uspjela za %s: %s", tarifni_broj, exc)
+            return True

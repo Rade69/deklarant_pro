@@ -22,7 +22,7 @@ class MassCalculator:
         field_name: str,
         expected_total: float,
     ) -> None:
-        if expected_total <= 0 or len(updated_items) != len(all_items):
+        if expected_total <= 0 or not updated_items:
             return
 
         current_total = sum(
@@ -94,23 +94,78 @@ class MassCalculator:
             elif has_neto and not has_bruto:
                 items_with_neto_only.append(item)
 
+        if items_with_neto_only and items_without_both and neto_total > 0:
+            neto_only_sum = sum(item.neto_kg or 0.0 for item in items_with_neto_only)
+            max_total_leak_diff = max(0.05, neto_total * 0.005)
+            if abs(neto_only_sum - neto_total) <= max_total_leak_diff:
+                for item in items_with_neto_only:
+                    item.neto_kg = 0.0
+                items_without_both.extend(items_with_neto_only)
+                items_with_neto_only = []
+
+        # SCENARIJ 2: Stavke SA bruto ALI BEZ neto → izračunaj neto iz bruto
+        if items_with_bruto_only and neto_bruto_ratio > 0:
+            for item in items_with_bruto_only:
+                item.neto_kg = MassCalculator._round_mass(
+                    item.bruto_kg * neto_bruto_ratio
+                )
+
+        # SCENARIJ 3: Stavke SA neto ALI BEZ bruto (npr. Leburic/Pekabesko) → izračunaj bruto iz neto
+        if items_with_neto_only and neto_total > 0 and bruto_total > 0:
+            bruto_neto_ratio = bruto_total / neto_total
+            neto_sum = sum(item.neto_kg for item in items_with_neto_only)
+            neto_only_ids = {id(item) for item in items_with_neto_only}
+            without_both_ids = {id(item) for item in items_without_both}
+            existing_bruto = sum(
+                item.bruto_kg or 0.0 for item in items
+                if id(item) not in neto_only_ids and id(item) not in without_both_ids
+            )
+            available_bruto = max(0.0, bruto_total - existing_bruto)
+            if neto_sum > 0 and available_bruto > 0:
+                group_bruto = min(
+                    available_bruto,
+                    bruto_total * (min(neto_sum, neto_total) / neto_total),
+                )
+                for item in items_with_neto_only:
+                    item.bruto_kg = MassCalculator._round_mass(
+                        item.neto_kg * (group_bruto / neto_sum)
+                    )
+        elif items_with_neto_only and bruto_total <= 0:
+            for item in items_with_neto_only:
+                if item.neto_kg and item.neto_kg > 0:
+                    item.bruto_kg = MassCalculator._round_mass(
+                        item.neto_kg / neto_bruto_ratio
+                    )
+
         # SCENARIJ 1: Stavke BEZ obe težine (PDF stavke) → proporcionalna distribucija po količini
         if items_without_both:
             total_qty = sum(item.kolicina or 0.0 for item in items_without_both)
             n = len(items_without_both)
+            current_bruto = sum(item.bruto_kg or 0.0 for item in items)
+            current_neto = sum(item.neto_kg or 0.0 for item in items)
+            distribute_bruto = (
+                max(0.0, bruto_total - current_bruto)
+                if bruto_total > 0
+                else 0.0
+            )
+            distribute_neto = (
+                max(0.0, neto_total - current_neto)
+                if neto_total > 0
+                else 0.0
+            )
 
             if total_qty > 0:
                 for item in items_without_both:
                     qty = item.kolicina or 0.0
                     if qty > 0:
                         proportion = qty / total_qty
-                        if bruto_total > 0:
+                        if distribute_bruto > 0:
                             item.bruto_kg = MassCalculator._round_mass(
-                                bruto_total * proportion
+                                distribute_bruto * proportion
                             )
-                        if neto_total > 0:
+                        if distribute_neto > 0:
                             item.neto_kg = MassCalculator._round_mass(
-                                neto_total * proportion
+                                distribute_neto * proportion
                             )
                         elif item.bruto_kg:
                             item.neto_kg = MassCalculator._round_mass(
@@ -124,13 +179,13 @@ class MassCalculator:
                     else:
                         # Stavka nema količinu unutar grupe — ravnomjerna raspodjela
                         item.bruto_kg = (
-                            MassCalculator._round_mass(bruto_total / n)
-                            if bruto_total > 0
+                            MassCalculator._round_mass(distribute_bruto / n)
+                            if distribute_bruto > 0
                             else 0.0
                         )
                         item.neto_kg = (
-                            MassCalculator._round_mass(neto_total / n)
-                            if neto_total > 0
+                            MassCalculator._round_mass(distribute_neto / n)
+                            if distribute_neto > 0
                             else MassCalculator._round_mass(
                                 item.bruto_kg * neto_bruto_ratio
                             )
@@ -138,46 +193,18 @@ class MassCalculator:
             else:
                 # Nijedna stavka nema količinu — ravnomjerna raspodjela na sve
                 avg_bruto = (
-                    MassCalculator._round_mass(bruto_total / n)
-                    if bruto_total > 0
+                    MassCalculator._round_mass(distribute_bruto / n)
+                    if distribute_bruto > 0
                     else 0.0
                 )
                 avg_neto = (
-                    MassCalculator._round_mass(neto_total / n)
-                    if neto_total > 0
+                    MassCalculator._round_mass(distribute_neto / n)
+                    if distribute_neto > 0
                     else MassCalculator._round_mass(avg_bruto * neto_bruto_ratio)
                 )
                 for item in items_without_both:
                     item.bruto_kg = avg_bruto
                     item.neto_kg = avg_neto
-
-        # SCENARIJ 2: Stavke SA bruto ALI BEZ neto → izračunaj neto iz bruto
-        if items_with_bruto_only and neto_bruto_ratio > 0:
-            for item in items_with_bruto_only:
-                item.neto_kg = MassCalculator._round_mass(
-                    item.bruto_kg * neto_bruto_ratio
-                )
-
-        # SCENARIJ 3: Stavke SA neto ALI BEZ bruto (npr. Leburic/Pekabesko) → izračunaj bruto iz neto
-        if items_with_neto_only and neto_total > 0 and bruto_total > 0:
-            bruto_neto_ratio = bruto_total / neto_total
-            # Provjeri da li suma neto stavki odgovara neto_total (iste stavke vs. subset)
-            neto_sum = sum(item.neto_kg for item in items_with_neto_only)
-            if neto_sum > 0:
-                # Proporcionalni bruto: bruto_stavke = neto_stavke × (bruto_total / neto_total)
-                # Ali koristimo samo udio ove grupe u ukupnom neto
-                group_bruto = bruto_total * (neto_sum / neto_total)
-                for item in items_with_neto_only:
-                    item.bruto_kg = MassCalculator._round_mass(
-                        item.neto_kg * (group_bruto / neto_sum)
-                    )
-        elif items_with_neto_only and bruto_total <= 0:
-            # Fallback: nema ukupnog bruta → procijeni bruto iz neta (neto = bruto × 0.95)
-            for item in items_with_neto_only:
-                if item.neto_kg and item.neto_kg > 0:
-                    item.bruto_kg = MassCalculator._round_mass(
-                        item.neto_kg / neto_bruto_ratio
-                    )
 
         MassCalculator._fix_rounding_remainder(
             items, items_to_update, "bruto_kg", bruto_total

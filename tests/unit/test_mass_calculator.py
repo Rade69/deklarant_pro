@@ -147,4 +147,23 @@ class TestMassCalculatorMixed:
 
         MassCalculator.calculate_masses(items, bruto_total=20.0, neto_total=19.0)
 
-        assert sum(item.bruto_kg for item in items) != pytest.approx(20.0, abs=0.001)
+        assert sum(item.bruto_kg for item in items) == pytest.approx(20.0, abs=0.001)
+        assert sum(item.neto_kg for item in items) == pytest.approx(19.0, abs=0.001)
+
+    def test_suspicious_existing_neto_total_is_redistributed_with_empty_items(self):
+        items = [
+            make_item(kolicina=1.0, neto_kg=154.91),
+            make_item(kolicina=10.0),
+            make_item(kolicina=20.0),
+        ]
+
+        MassCalculator.calculate_masses(items, bruto_total=170.0, neto_total=154.91)
+
+        assert items[0].bruto_kg == pytest.approx(5.48, abs=0.01)
+        assert items[0].neto_kg == pytest.approx(5.00, abs=0.01)
+        assert items[1].bruto_kg == pytest.approx(54.84, abs=0.01)
+        assert items[1].neto_kg == pytest.approx(49.97, abs=0.01)
+        assert items[2].bruto_kg == pytest.approx(109.68, abs=0.01)
+        assert items[2].neto_kg == pytest.approx(99.94, abs=0.01)
+        assert sum(item.bruto_kg for item in items) == pytest.approx(170.0, abs=0.001)
+        assert sum(item.neto_kg for item in items) == pytest.approx(154.91, abs=0.001)

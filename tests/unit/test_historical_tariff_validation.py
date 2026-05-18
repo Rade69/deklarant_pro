@@ -326,3 +326,30 @@ def test_historical_validation_suppresses_previously_rejected_feedback(monkeypat
     assert matches == []
     assert line.tarifni_broj == "3926909710"
     assert svc.last_auto_applied == []
+
+
+def test_historical_validation_drops_tariff_missing_from_official_tariff(monkeypatch):
+    svc = HistoricalTariffSearchService()
+
+    monkeypatch.setattr(svc, "_tariff_exists", lambda code: code != "40199090")
+
+    rows = [
+        {
+            "commodity_code": "40199090",
+            "naziv_robe": "GW GEL STITNIK CUKLJEVA MALI PRST",
+            "supplier": "MEDIKO",
+            "usage_count": 10,
+            "source": "xml",
+        },
+        {
+            "commodity_code": "40149000",
+            "naziv_robe": "GW STITNIK MALI PRST",
+            "supplier": "MEDIKO",
+            "usage_count": 8,
+            "source": "xml",
+        },
+    ]
+
+    matches = svc._to_matches(rows, "GW GEL STITNIK CUKLJEVA MALI PRST")
+
+    assert [match.tarifni_broj_historijski for match in matches] == ["40149000"]

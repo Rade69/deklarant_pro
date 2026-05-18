@@ -159,6 +159,7 @@ class AsycudaXMLBuilder:
 
     def build(self) -> ET.Element:
         """Kreira kompletan XML tree."""
+        self._record_export_warnings()
         self._add_assessment_notice()
         self._add_global_taxes()
         self._add_property()
@@ -174,6 +175,41 @@ class AsycudaXMLBuilder:
         self._add_valuation()
         self._add_items()
         return self.root
+
+    def _record_export_warnings(self) -> None:
+        warnings: list[str] = []
+
+        try:
+            from services.tariff.tarifa_service import trazi_po_kodu
+        except Exception:
+            trazi_po_kodu = None
+
+        if trazi_po_kodu:
+            for item in self.draft.items:
+                code = (item.tariff_code or "").strip()
+                if not code:
+                    continue
+                code8 = code[:8]
+                if not trazi_po_kodu(code8):
+                    rb = item.ordinal_no or "?"
+                    warnings.append(
+                        f"Rb.{rb}: Tarifni broj '{code8}' nije pronađen u Carinskoj tarifi 2026."
+                    )
+
+        docs = list(getattr(self.draft, "header_attached_documents", []) or [])
+        for item in self.draft.items:
+            docs.extend(getattr(item, "attached_documents", []) or [])
+        for doc in docs:
+            if (doc.code or "").strip() and not (doc.number or "").strip():
+                warnings.append(f"Priloženi dokument '{doc.code}' nema broj/reference.")
+
+        if warnings:
+            existing = list(getattr(self.draft, "warnings", []) or [])
+            for warning in warnings:
+                if warning not in existing:
+                    existing.append(warning)
+                logger.warning("ASYCUDA export upozorenje: %s", warning)
+            self.draft.warnings = existing
 
     # ─────────────────────────────────────────────────────────────
     # Sekcije zaglavlja
@@ -361,15 +397,18 @@ class AsycudaXMLBuilder:
         _null(destination, "Destination_country_name")
         _null(destination, "Destination_country_region")
 
-        # Zemlja porijekla na nivou zaglavlja — naziv (ne šifra)
+        origin_codes = {
+            (item.origin_country_code or "").strip().upper()
+            for item in self.draft.items
+            if (item.origin_country_code or "").strip()
+        }
         origin_code = self._g("drzava_porijekla")
-        origin_name = ""
-        if origin_code:
+        origin_name = "MNOGO" if len(origin_codes) > 1 else ""
+        if origin_code and not origin_name:
             from sifrarnici.zemlje import get_zemlja_by_kod
             z = get_zemlja_by_kod(origin_code.upper())
             origin_name = z.naziv if z else origin_code
         if not origin_name and self.draft.items:
-            # Fallback: uzmi naziv iz prvog naimenovanja
             from sifrarnici.zemlje import get_zemlja_by_kod
             c = self.draft.items[0].origin_country_code or ""
             z = get_zemlja_by_kod(c.upper())
@@ -593,12 +632,11 @@ class AsycudaXMLBuilder:
 
         total = ET.SubElement(val, "Total")
         ti = ET.SubElement(total, "Total_invoice")
-        if iznos_bam:
-            ti.text = f"{iznos_bam:.2f}"
-        total_net = sum(item.net_mass_kg or 0.0 for item in self.draft.items)
+        if iznos:
+            ti.text = f"{iznos:.2f}"
         tw = ET.SubElement(total, "Total_weight")
-        if total_net:
-            tw.text = f"{total_net:.2f}"
+        if total_gross:
+            tw.text = f"{total_gross:.2f}"
 
     # ─────────────────────────────────────────────────────────────
     # Item sekcije
@@ -867,7 +905,11 @@ class AsycudaXMLBuilder:
             if len(tariff_code) >= 4:
                 try:
                     from services.tariff.tarifa_service import trazi_po_kodu
-                    for code in (tariff_code, tariff_code[:4]):
+                    lookup_codes = []
+                    for n in (len(tariff_code), 10, 8, 6, 4):
+                        if len(tariff_code) >= n:
+                            lookup_codes.append(tariff_code[:n])
+                    for code in dict.fromkeys(lookup_codes):
                         row = trazi_po_kodu(code)
                         if row:
                             heading = (row.get("naziv") or "").strip()
@@ -886,7 +928,7 @@ class AsycudaXMLBuilder:
         result = " ".join(self._tariff_heading(item).splitlines()).strip()
         if len(result) > max_chars:
             result = result[:max_chars - 3] + "..."
-        return result or "."
+        return result or (getattr(item, "tariff_code", "") or "").strip()
 
     def _build_commercial_description(self, item: "NaimenovanjeDraft", max_chars: int = 280) -> str:
         """Gradi Commercial_Description: tarifni heading + nazivi proizvoda + faktura info.
@@ -1084,6 +1126,8 @@ class AsycudaXMLBuilder:
             _val(attached, "Attached_document_name", doc.name)
         ref = ET.SubElement(attached, "Attached_document_reference")
         ref.text = doc.number or ""
+        if doc.from_rule:
+            _val(attached, "Attached_document_from_rule", "1")
 
 
 # ─────────────────────────────────────────────────────────────────────────────

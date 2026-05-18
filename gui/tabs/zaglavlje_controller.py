@@ -531,6 +531,7 @@ class ZaglavljeController:
                 rb40_broj_draft = (getattr(draft, 'rb40_broj', '') or '').strip()
                 if rb40_broj_draft:
                     data['rb40_broj'] = rb40_broj_draft
+                    self._sync_ost_doc_from_rb40(draft, rb40_broj_draft)
 
                 # Osiguraj da su PE1/PE2/PE3 iz Rub.44.4 sinhronizovani u header docs
                 self._sync_pe_docs_from_items_to_header(draft)
@@ -626,6 +627,28 @@ class ZaglavljeController:
                 )
             )
 
+    def _sync_ost_doc_from_rb40(self, draft, rb40_broj: str) -> None:
+        header_docs = getattr(draft, "header_attached_documents", None)
+        if header_docs is None or not rb40_broj:
+            return
+
+        ost = next((d for d in header_docs if getattr(d, "code", "") == "OST"), None)
+        if ost:
+            ost.number = rb40_broj
+            if not getattr(ost, "name", ""):
+                ost.name = "Ostali prateći dokumenti"
+            return
+
+        from core.draft.draft import AttachedDocument
+        header_docs.append(
+            AttachedDocument(
+                code="OST",
+                name="Ostali prateći dokumenti",
+                number=rb40_broj,
+                from_rule=False,
+            )
+        )
+
     def _merge_import_docs_add_only_missing(
         self,
         existing_docs: List[Dict[str, Any]],
@@ -668,6 +691,8 @@ class ZaglavljeController:
                 continue
             code = (d.get("code") or "").strip()
             if not code:
+                continue
+            if code.upper() == "OST":
                 continue
             if code.upper() in existing_codes:
                 continue
