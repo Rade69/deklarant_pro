@@ -1293,14 +1293,14 @@ class FakturaView(BaseTabView):
 
     def _on_import_pdf(self):
         self._on_import_files(
-            "Odaberi PDF fakture (Ctrl/Shift za više fajlova)",
-            "PDF Files (*.pdf);;All Files (*)",
+            "Odaberi fakture (PDF/Excel, Ctrl/Shift za više fajlova)",
+            "Fakture (*.pdf *.xlsx *.xls);;PDF Files (*.pdf);;Excel Files (*.xlsx *.xls);;All Files (*)",
         )
 
     def _on_import_excel(self):
         self._on_import_files(
-            "Odaberi Excel fakture (Ctrl/Shift za više fajlova)",
-            "Excel Files (*.xlsx *.xls);;All Files (*)",
+            "Odaberi fakture (Excel/PDF, Ctrl/Shift za više fajlova)",
+            "Fakture (*.xlsx *.xls *.pdf);;Excel Files (*.xlsx *.xls);;PDF Files (*.pdf);;All Files (*)",
         )
 
     def _on_import_xml(self):
@@ -1477,37 +1477,47 @@ class FakturaView(BaseTabView):
             filepaths: Lista putanja do fajlova za uvoz
         """
         from services.import_service import ImportService
+        from gui.tabs.agent.models.file_item import FileItem
+        from gui.tabs.agent.widgets.processing_worker import ProcessingWorker
 
         # Kreiraj progress dialog
+        sorted_filepaths = [
+            f.filepath
+            for f in sorted(
+                (FileItem.from_filepath(path) for path in filepaths),
+                key=ProcessingWorker._pair_sort_key,
+            )
+        ]
         progress = QProgressDialog(
-            f"Uvoz {len(filepaths)} faktura...", "Otkaži", 0, len(filepaths), self
+            f"Uvoz {len(sorted_filepaths)} faktura...", "Otkaži", 0, len(sorted_filepaths), self
         )
         progress.setWindowTitle("Grupni uvoz")
         progress.setWindowModality(Qt.WindowModal)
         progress.setMinimumDuration(0)  # Prikaži odmah
 
         # Agregatori za rezultate
-        all_items = []
-        total_bruto_kg = 0.0
-        total_neto_kg = 0.0
-        successful_imports = 0
+        imported_records = []
+        consumed_paths = set()
         failed_imports = []
-        excel_count = 0
-        pdf_count = 0
         any_authorized_exporter = False
 
         import_service = ImportService()
 
         # Uvezi svaki fajl
-        for i, filepath in enumerate(filepaths):
+        for i, filepath in enumerate(sorted_filepaths):
             # Proveri da li je korisnik otkazao
             if progress.wasCanceled():
                 break
 
+            if filepath in consumed_paths:
+                logger.info("⏭️ Preskačem već kombinovani fajl: %s", Path(filepath).name)
+                progress.setValue(i + 1)
+                continue
+
             try:
                 # Update progress
                 progress.setLabelText(
-                    f"Uvoz {i+1}/{len(filepaths)}: {Path(filepath).name}"
+                    f"Uvoz {i+1}/{len(sorted_filepaths)}: {Path(filepath).name}"
                 )
                 progress.setValue(i)
 
@@ -1559,34 +1569,64 @@ class FakturaView(BaseTabView):
                 self._normalize_item_tariffs(items)
                 # Rasporedi težinu fakture na stavke (ako parser nije dao per-line težine)
                 self._distribute_invoice_weights(items, bruto_kg, neto_kg)
-                # Zapamti per-invoice težinu za dugme 'Izračunaj mase'
-                if bruto_kg > 0 or neto_kg > 0:
-                    _inv_key = (
+
+                consumed_from_result = (
+                    list(getattr(result, "consumed_paths", []) or [])
+                    if isinstance(result, ImportResult)
+                    else []
+                )
+                for consumed_path in consumed_from_result:
+                    consumed_paths.add(consumed_path)
+                    for record in imported_records:
+                        if record["filepath"] == consumed_path:
+                            record["skipped"] = True
+                            record["items"] = []
+                            logger.info(
+                                "🔗 Kombinovani par — izbacujem prethodni rezultat: %s",
+                                Path(consumed_path).name,
+                            )
+
+                imported_records.append({
+                    "filepath": filepath,
+                    "items": items,
+                    "bruto_kg": bruto_kg,
+                    "neto_kg": neto_kg,
+                    "invoice_name": (
                         result.invoice_name
                         if isinstance(result, ImportResult) and result.invoice_name
-                        else None
-                    ) or Path(filepath).stem
-                    self.draft.invoice_weights[normalize_invoice_key(_inv_key)] = (
-                        bruto_kg,
-                        neto_kg,
-                    )
-
-                # Agreguj rezultate
-                all_items.extend(items)
-                total_bruto_kg += bruto_kg
-                total_neto_kg += neto_kg
-                successful_imports += 1
-
-                # Track file type
-                if filepath.lower().endswith((".xlsx", ".xls")):
-                    excel_count += 1
-                elif filepath.lower().endswith(".pdf"):
-                    pdf_count += 1
+                        else Path(filepath).stem
+                    ),
+                    "skipped": False,
+                })
 
             except Exception as e:
                 failed_imports.append((Path(filepath).name, str(e)))
 
-        progress.setValue(len(filepaths))
+        progress.setValue(len(sorted_filepaths))
+
+        final_records = [
+            record for record in imported_records
+            if not record["skipped"] and record["items"]
+        ]
+        all_items = []
+        total_bruto_kg = 0.0
+        total_neto_kg = 0.0
+        excel_count = 0
+        pdf_count = 0
+        for record in final_records:
+            all_items.extend(record["items"])
+            total_bruto_kg += record["bruto_kg"]
+            total_neto_kg += record["neto_kg"]
+            if record["bruto_kg"] > 0 or record["neto_kg"] > 0:
+                self.draft.invoice_weights[normalize_invoice_key(record["invoice_name"])] = (
+                    record["bruto_kg"],
+                    record["neto_kg"],
+                )
+            suffix = Path(record["filepath"]).suffix.lower()
+            if suffix in (".xlsx", ".xls"):
+                excel_count += 1
+            elif suffix == ".pdf":
+                pdf_count += 1
 
         # Prikaži rezultate
         if all_items:
@@ -1595,7 +1635,7 @@ class FakturaView(BaseTabView):
             if not self.assembly.master_list_loaded:
                 # Ako nema master liste, kreiraj je od svih stavki
                 self.assembly.load_master_list_from_lines(
-                    all_items, f"Grupni uvoz ({successful_imports} faktura)"
+                    all_items, f"Grupni uvoz ({len(final_records)} faktura)"
                 )
                 draft = self.assembly.create_draft()
                 self.draft.invoice_lines = draft.invoice_lines
@@ -1626,7 +1666,11 @@ class FakturaView(BaseTabView):
 
             # Prikaži statistiku
             message = f"📦 Grupni uvoz završen!\n\n"
-            message += f"✅ Uspješno: {successful_imports}/{len(filepaths)} faktura\n"
+            skipped_count = len(imported_records) - len(final_records)
+            message += f"✅ Uspješno faktura: {len(final_records)}\n"
+            message += f"📁 Obrađeno fajlova: {len(imported_records)}/{len(sorted_filepaths)}\n"
+            if skipped_count:
+                message += f"🔗 Spojeno/preskočeno parova: {skipped_count}\n"
             message += f"📋 Ukupno stavki: {len(all_items)}\n"
             message += f"⚖️  Ukupno bruto: {self._format_weight(total_bruto_kg)} kg\n"
             message += f"⚖️  Ukupno neto: {self._format_weight(total_neto_kg)} kg\n"
