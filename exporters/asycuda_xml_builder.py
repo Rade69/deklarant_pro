@@ -567,7 +567,7 @@ class AsycudaXMLBuilder:
         """<Valuation> — vrijednosti na nivou zaglavlja."""
         val = ET.SubElement(self.root, "Valuation")
 
-        ET.SubElement(val, "Calculation_working_mode")  # prazno — ASYCUDA popunjava
+        ET.SubElement(val, "Calculation_working_mode").text = "0"
 
         weight = ET.SubElement(val, "Weight")
         total_gross = sum(item.gross_mass_kg or 0.0 for item in self.draft.items)
@@ -592,7 +592,7 @@ class AsycudaXMLBuilder:
 
         total_cost = t1 + t2 + t3 + t4 + t5
         cost_elem = ET.SubElement(val, "Total_cost")
-        cost_elem.text = f"{total_cost:.1f}" if total_cost else ""
+        cost_elem.text = f"{total_cost:.2f}" if total_cost else ""
 
         iznos_bam = round(iznos * kurs, 2)
 
@@ -807,7 +807,7 @@ class AsycudaXMLBuilder:
         # Na ostalim stavkama: null
         if is_first and all_header_codes:
             adi = ET.SubElement(tarif, "Attached_doc_item")
-            adi.text = " ".join(all_header_codes) + " "
+            adi.text = " ".join(all_header_codes)
         else:
             _null(tarif, "Attached_doc_item")
 
