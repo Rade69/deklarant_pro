@@ -894,6 +894,16 @@ class AsycudaXMLBuilder:
 
         self._fill_item_valuation(val_item, item, total_items_value, t1, t2, t3, t4, t5)
 
+    @staticmethod
+    def _normalize_tariff_text(text: str) -> str:
+        """Zamijeni tarifne hijerarhijske separatore (en-dash, minus-sign) sa obicom crticom.
+
+        Tarifna baza koristi U+2013 (–) i U+2212 (−) kao indentatore.
+        ASYCUDA World očekuje običnu crticu-minus (U+002D).
+        Bez ove normalizacije XML sadrži â artefakte.
+        """
+        return text.replace("–", "-").replace("−", "-")
+
     def _tariff_heading(self, item: "NaimenovanjeDraft") -> str:
         """Vraća kratki zvanični tarifni heading za ovo naimenovanje."""
         heading = (
@@ -917,7 +927,7 @@ class AsycudaXMLBuilder:
                                 break
                 except Exception as e:
                     logger.debug(f"Fallback tariff heading neuspješan za {tariff_code}: {e}")
-        return heading
+        return self._normalize_tariff_text(heading)
 
     def _build_description_of_goods(self, item: "NaimenovanjeDraft", max_chars: int = 280) -> str:
         """Gradi Description_of_goods: kratki zvanični tarifni heading (ASYCUDA standard).

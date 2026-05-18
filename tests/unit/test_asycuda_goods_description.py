@@ -48,6 +48,24 @@ def test_tariff_heading_uses_description1_when_description2_is_empty():
     assert AsycudaXMLBuilder(draft)._tariff_heading(item) == "Ostali proizvodi od vulkanizovane gume"
 
 
+def test_tariff_heading_normalizes_en_dash_to_hyphen():
+    # Tarifna baza čuva – (U+2013) i − (U+2212) kao hijerarhijske indentatore.
+    # ASYCUDA World ne prikazuje ih ispravno — u XML-u se pojavljuju kao â artefakti.
+    draft = DeclarationDraft()
+    item = NaimenovanjeDraft(
+        item_id="1",
+        ordinal_no=1,
+        tariff_code="3005100000",
+        tariff_description2="– – ljepljivi zavoji i ostali proizvodi",
+    )
+
+    heading = AsycudaXMLBuilder(draft)._tariff_heading(item)
+
+    assert "–" not in heading
+    assert "−" not in heading
+    assert "- - ljepljivi zavoji" in heading
+
+
 def test_commercial_description_truncates_to_max_chars():
     builder, item = _builder_with_assigned_line()
     item.tariff_description2 = "Vrlo dug tarifni opis " * 10
