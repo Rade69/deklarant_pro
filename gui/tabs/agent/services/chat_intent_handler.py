@@ -239,6 +239,46 @@ def _remember_subject(ctrl, subject: str) -> None:
         _get_conversation_context(ctrl)["last_subject"] = subject
 
 
+def _clean_tariff_code(value: str) -> str:
+    digits = re.sub(r'\D', '', value or "")
+    return digits[:10] if len(digits) >= 8 else ""
+
+
+def _remember_tariff_context(
+    ctrl,
+    tariff_code: str = "",
+    *,
+    naim_ordinal: int | None = None,
+    product_name: str = "",
+) -> None:
+    ctx = _get_conversation_context(ctrl)
+    code = _clean_tariff_code(tariff_code)
+    if code:
+        ctx["last_tariff_code"] = code
+    if naim_ordinal:
+        ctx["last_naimenovanje_ordinal"] = naim_ordinal
+    product_name = (product_name or "").strip()
+    if product_name:
+        ctx["last_product_name"] = product_name
+        ctx["last_subject"] = product_name
+
+
+def _remember_naimenovanje_context(ctrl, item) -> None:
+    if not item:
+        return
+    opis = (
+        getattr(item, "goods_description", "")
+        or getattr(item, "goods_trade_name", "")
+        or ""
+    )
+    _remember_tariff_context(
+        ctrl,
+        getattr(item, "tariff_code", "") or "",
+        naim_ordinal=getattr(item, "ordinal_no", None),
+        product_name=opis,
+    )
+
+
 def _set_offered_action(ctrl, action: str, subject: str, label: str = "") -> None:
     ctx = _get_conversation_context(ctrl)
     ctx["last_offered_action"] = {
@@ -310,6 +350,161 @@ def _resolve_followup(ctrl, message: str) -> bool:
     return False
 
 
+def _extract_specific_naimenovanje_request(message: str) -> int | None:
+    msg = (message or "").lower()
+    if not re.search(r'\b(naim|naimenovanj)\w*', msg):
+        return None
+    match = re.search(
+        r'\b(?:naim\w*|naimenovanj\w*)\s*(?:broj|br\.?|rb\.?)?\s*(\d+)\b',
+        msg,
+    )
+    if match:
+        return int(match.group(1))
+    for word, ordinal in _REDNI.items():
+        if ordinal > 0 and word in msg:
+            return ordinal
+    return None
+
+
+def _is_tariff_usage_question(message: str) -> bool:
+    msg = (message or "").lower()
+    if "tarif" not in msg:
+        return False
+    usage_words = (
+        "koliko puta", "korišten", "koristen", "korišćen", "koriscen",
+        "upotrebljen", "usage", "istorij", "historij", "ranije",
+    )
+    return any(word in msg for word in usage_words)
+
+
+def _resolve_tariff_code_from_context(ctrl, message: str) -> str:
+    explicit = _clean_tariff_code(message)
+    if explicit:
+        return explicit
+    msg = (message or "").lower()
+    if re.search(r'\b(taj|tog|tom|ovaj|ovog|njemu|njega)\b', msg):
+        return _get_conversation_context(ctrl).get("last_tariff_code", "")
+    return ""
+
+
+def _tariff_usage_stats(tariff_code: str) -> dict:
+    code = _clean_tariff_code(tariff_code)
+    if not code:
+        return {"total_usage": 0, "rows": 0, "examples": []}
+
+    from database.db import get_db_connection
+
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT COALESCE(SUM(usage_count), 0) AS total_usage,
+                       COUNT(*) AS rows,
+                       COUNT(DISTINCT NULLIF(supplier, '')) AS suppliers
+                FROM catalogs.product_tariff_mapping
+                WHERE regexp_replace(COALESCE(commodity_code, ''), '\\D', '', 'g')
+                      LIKE %s
+                """,
+                [f"{code[:8]}%"],
+            )
+            summary = cur.fetchone() or {}
+
+            cur.execute(
+                """
+                SELECT naziv_robe, supplier, zemlja_porijekla, povlastica,
+                       usage_count, source
+                FROM catalogs.product_tariff_mapping
+                WHERE regexp_replace(COALESCE(commodity_code, ''), '\\D', '', 'g')
+                      LIKE %s
+                ORDER BY usage_count DESC, naziv_robe
+                LIMIT 5
+                """,
+                [f"{code[:8]}%"],
+            )
+            examples = cur.fetchall() or []
+
+    return {
+        "total_usage": int(summary.get("total_usage") or 0),
+        "rows": int(summary.get("rows") or 0),
+        "suppliers": int(summary.get("suppliers") or 0),
+        "examples": examples,
+    }
+
+
+def _prikazi_statistiku_tarife(ctrl, tariff_code: str) -> None:
+    chat = ctrl.view.get_chat_panel()
+    code = _clean_tariff_code(tariff_code)
+    if not code:
+        chat.add_agent_message("Molim Vas, navedite tarifni broj.")
+        return
+
+    _remember_tariff_context(ctrl, code)
+    chat.add_activity(f"📚 Provjeravam istoriju za tarifni broj {code[:8]}...")
+
+    try:
+        stats = _tariff_usage_stats(code)
+        from services.tarifa_service import validiraj_tarifni_broj
+
+        valid = validiraj_tarifni_broj(code[:8])
+        opis = valid.get("naziv", "") if valid.get("valid") else ""
+        status = "u zvaničnoj tarifi" if valid.get("valid") else "nije pronađen u zvaničnoj tarifi"
+
+        examples = []
+        for row in stats["examples"]:
+            naziv = escape((row.get("naziv_robe") or "")[:70])
+            supplier = escape(row.get("supplier") or row.get("source") or "—")
+            zemlja = escape(row.get("zemlja_porijekla") or "—")
+            usage = int(row.get("usage_count") or 0)
+            examples.append(
+                f"• {naziv} <small>({usage}x, izvor {supplier}, zemlja {zemlja})</small>"
+            )
+
+        examples_html = "<br>".join(examples) if examples else "Nema primjera u bazi znanja."
+        chat.add_agent_message(
+            f"<b>Istorija tarifnog broja {escape(code[:8])}</b><br>"
+            f"Status: <b>{escape(status)}</b>"
+            f"{('<br>Zvanični opis: ' + escape(opis[:140])) if opis else ''}<br>"
+            f"Korištenje u bazi znanja: <b>{stats['total_usage']}x</b> "
+            f"({stats['rows']} zapisa"
+            f"{', ' + str(stats['suppliers']) + ' dobavljača' if stats['suppliers'] else ''}).<br><br>"
+            f"{examples_html}"
+        )
+    except Exception as e:
+        chat.add_agent_message(f"❌ Greška pri provjeri istorije tarife {escape(code[:8])}: {escape(str(e))}")
+
+
+def _resolve_contextual_request(ctrl, message: str) -> bool:
+    naim_ordinal = _extract_specific_naimenovanje_request(message)
+    if naim_ordinal is not None:
+        _pregledaj_naimenovanja(ctrl, [naim_ordinal])
+        return True
+
+    if _is_tariff_usage_question(message):
+        code = _resolve_tariff_code_from_context(ctrl, message)
+        if not code:
+            _set_offered_action(ctrl, "tariff_usage", "", "Provjeri istoriju tarife")
+            ctrl.view.get_chat_panel().add_agent_message(
+                "Molim Vas, navedite tarifni broj ili prvo otvorite konkretno naimenovanje."
+            )
+            return True
+        _prikazi_statistiku_tarife(ctrl, code)
+        return True
+
+    msg = (message or "").strip()
+    if re.fullmatch(r'\d[\d\s\.]{7,12}', msg):
+        code = _clean_tariff_code(msg)
+        if code:
+            offered = _get_conversation_context(ctrl).get("last_offered_action") or {}
+            if offered.get("action") == "tariff_usage":
+                _clear_offered_action(ctrl)
+                _prikazi_statistiku_tarife(ctrl, code)
+                return True
+            _pretrazi_tarifu_po_kodu(ctrl, code)
+            return True
+
+    return False
+
+
 def _handle_message(ctrl, message: str) -> None:
     """
     Primarni entry point za chat poruke.
@@ -330,6 +525,9 @@ def _handle_message(ctrl, message: str) -> None:
     msg_lower = message.lower().strip()
 
     if _resolve_followup(ctrl, message):
+        return
+
+    if _resolve_contextual_request(ctrl, message):
         return
 
     origin_query = _extract_origin_product_query(message)
@@ -1210,7 +1408,16 @@ def _pregledaj_naimenovanja(ctrl, indeksi=None) -> None:
     naim_items = ctrl.draft.items
 
     if indeksi:
-        items_to_show = [naim_items[i - 1] for i in indeksi if 0 < i <= len(naim_items)]
+        items_to_show = []
+        for i in indeksi:
+            by_ordinal = next(
+                (item for item in naim_items if getattr(item, "ordinal_no", None) == i),
+                None,
+            )
+            if by_ordinal is not None:
+                items_to_show.append(by_ordinal)
+            elif 0 < i <= len(naim_items):
+                items_to_show.append(naim_items[i - 1])
         naziv = f"Rb. {', '.join(str(i) for i in indeksi)}"
     else:
         items_to_show = naim_items
@@ -1224,6 +1431,8 @@ def _pregledaj_naimenovanja(ctrl, indeksi=None) -> None:
 
     linije = []
     for item in items_to_show:
+        if len(items_to_show) == 1:
+            _remember_naimenovanje_context(ctrl, item)
         pregled = NaimenovanjaReviewService.pregledaj_naimenovanje(item)
         rb = pregled.ordinal_no
         tarif = pregled.tariff_code or '⚠️ NEMA'
@@ -1454,6 +1663,7 @@ def _pretrazi_arhiv_za_proizvod(ctrl, upit: str) -> None:
 
 def _pretrazi_tarifu_po_kodu(ctrl, kod: str) -> None:
     chat = ctrl.view.get_chat_panel()
+    _remember_tariff_context(ctrl, kod)
     chat.add_activity(f"🔍 Provjeravam tarifni kod: {kod}")
     try:
         from services.tarifa_service import validiraj_tarifni_broj, naziv_poglavlja
