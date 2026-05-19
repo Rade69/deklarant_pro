@@ -59,12 +59,16 @@ class ImportResult:
         """Return item at index or slice (for indexing/slicing support)."""
         return self.items[index]
 
-    def validate(self) -> tuple[bool, list[str], list[str]]:
+    def validate(self, allow_empty: bool = False) -> tuple[bool, list[str], list[str]]:
         """
         Parser-level validacija — provjera da su podaci fizički ispravni.
 
         Ne radi poslovnu logiku (duplikati, šifrarnici) — samo provjerava
         da parser nije vratio neispravne ili nepotpune podatke.
+
+        Args:
+            allow_empty: Ako True, 0 stavki nije greška (koristi se za packing listu
+                         koja čeka par). Negativne težine i dalje blokiraju.
 
         Returns:
             (ok, errors, warnings)
@@ -76,7 +80,7 @@ class ImportResult:
         _KNOWN_CURRENCIES = {"EUR", "USD", "BAM", "CHF", "GBP", "SEK", "NOK", "DKK", "HRK", "RSD"}
 
         # --- razina ImportResult ---
-        if not self.items:
+        if not self.items and not allow_empty:
             errors.append("Parser nije pronašao nijednu stavku (0 stavki)")
 
         if self.currency and self.currency.upper() not in _KNOWN_CURRENCIES:

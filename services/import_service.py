@@ -129,11 +129,12 @@ class ImportService:
             if ext == ".pdf":
                 packing_result = self._try_import_as_packing_list(filepath)
                 if packing_result is not None:
+                    self._validate_or_raise(packing_result, filepath.name, allow_empty=True)
                     self.last_import_result = packing_result
                     self.last_import_path = str(filepath)
                     self.last_import_type = "packing_list"
                     self.logger.info("💡 Packing lista sačuvana - čeka Invoice sa istim brojem")
-                    return packing_result  # SKIP validacije — 0 stavki je namjerno
+                    return packing_result
 
             # 2b. Za Excel: provjeri specijalizovane formate PRIJE registry-a
             if ext in (".xlsx", ".xls", ".xlsm"):
@@ -172,15 +173,14 @@ class ImportService:
             self.logger.exception(f"❌ Neočekivana greška tokom importa")
             raise ImportException(f"Import failed: {e}") from e
 
-    def _validate_or_raise(self, result, filename: str) -> None:
+    def _validate_or_raise(self, result, filename: str, allow_empty: bool = False) -> None:
         """Baci ImportException ako parser vratio fizički neispravan rezultat."""
         if not isinstance(result, ImportResult):
             return
-        from services.import_validator import validate_import_result
-        vr = validate_import_result(result, filename)
-        if not vr.ok:
+        ok, errors, _ = result.validate(allow_empty=allow_empty)
+        if not ok:
             raise ImportException(
-                f"Parsiranje '{filename}' nije uspješno: {'; '.join(vr.errors)}"
+                f"Parsiranje '{filename}' nije uspješno: {'; '.join(errors)}"
             )
 
     # SECTION: packing_list_gate

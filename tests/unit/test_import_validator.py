@@ -233,3 +233,35 @@ def test_import_service_raises_on_zero_items(tmp_path, monkeypatch):
 
     with pytest.raises(ImportException, match="0 stavki"):
         svc.import_file(str(fake_file))
+
+
+def test_import_service_packing_list_allows_empty_but_blocks_negative_weight(tmp_path, monkeypatch):
+    """Packing lista sa 0 stavki prolazi, ali negativna težina i dalje blokira."""
+    from importers.import_result import ImportResult
+    from importers.exceptions import ImportError as ImportException
+    from services.import_service import ImportService
+
+    fake_file = tmp_path / "packing.pdf"
+    fake_file.write_bytes(b"%PDF-1.4 fake")
+
+    bad_packing = ImportResult(items=[], bruto_kg=-10.0, neto_kg=0.0)
+
+    svc = ImportService()
+    monkeypatch.setattr(svc, "_try_combine_with_previous", lambda fp: None)
+    monkeypatch.setattr(svc, "_try_import_as_packing_list", lambda fp: bad_packing)
+
+    with pytest.raises(ImportException, match="bruto"):
+        svc.import_file(str(fake_file))
+
+
+def test_validate_allow_empty_skips_zero_items_error():
+    """validate(allow_empty=True) ne baca grešku za 0 stavki, ali hvata negativnu težinu."""
+    r_empty = _result(bruto=0.0, neto=0.0)
+    ok, errors, _ = r_empty.validate(allow_empty=True)
+    assert ok
+    assert not errors
+
+    r_neg = _result(bruto=-5.0, neto=0.0)
+    ok2, errors2, _ = r_neg.validate(allow_empty=True)
+    assert not ok2
+    assert any("bruto" in e.lower() for e in errors2)
