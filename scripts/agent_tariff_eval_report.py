@@ -34,6 +34,10 @@ def evaluate_case(case: dict) -> list[TariffHistoryMatch]:
     svc = HistoricalTariffSearchService()
     lines = [_invoice_line(line) for line in case["invoice_lines"]]
     history_matches = [_history_match(match) for match in case["history_matches"]]
+    feedback_map = {
+        (fb["naziv_robe"], fb["tarifni_broj"]): fb["action"]
+        for fb in case.get("feedback", [])
+    }
 
     def fake_search(naziv, *_):
         return [
@@ -41,7 +45,13 @@ def evaluate_case(case: dict) -> list[TariffHistoryMatch]:
             if match.naziv_robe_original == naziv
         ]
 
+    def fake_feedback(match):
+        return feedback_map.get(
+            (match.naziv_robe_original, match.tarifni_broj_historijski), ""
+        )
+
     svc._search_one = fake_search
+    svc._feedback_action = fake_feedback
 
     return svc.validate_lines(lines)
 

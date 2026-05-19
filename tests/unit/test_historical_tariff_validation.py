@@ -195,6 +195,7 @@ def test_historical_validation_allows_strong_cross_chapter_match(monkeypatch):
             )
         ],
     )
+    monkeypatch.setattr(svc, "_feedback_action", lambda m: "")
 
     matches = svc.validate_lines([line])
 
@@ -255,6 +256,7 @@ def test_historical_validation_allows_out_of_profile_with_very_strong_evidence(m
         return []
 
     monkeypatch.setattr(svc, "_search_one", fake_search)
+    monkeypatch.setattr(svc, "_feedback_action", lambda m: "")
 
     matches = svc.validate_lines(lines)
 
