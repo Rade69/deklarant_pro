@@ -423,6 +423,7 @@ def import_blagic_combined(
         currency=stats.get("currency", "EUR"),
         has_origin_statement=stats.get("has_origin_statement", False),
         exporter=Party(name=stats.get("exporter_name", "LOREN")),
+        consumed_paths=[excel_path],
     )
 
 
@@ -434,12 +435,9 @@ if __name__ == "__main__":
     import sys
     from pathlib import Path
 
-    # Add project root to path
-    project_root = Path(__file__).parent.parent
+    # Add project root to path (vendors/blagic → vendors → importers → project_root)
+    project_root = Path(__file__).parent.parent.parent.parent
     sys.path.insert(0, str(project_root))
-
-    # Re-import after adding to path
-    from importers.blagic_combined_importer import combine_blagic_excel_and_pdf
 
     # Test sa pravim fajlovima
     excel_file = "najavauvoza/blagic-loren/702VP-2025 BLAGIC.xlsx"
