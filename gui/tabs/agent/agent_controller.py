@@ -321,6 +321,9 @@ class AgentController:
     def _on_file_started(self, filepath: str):
         """Ažuriraj tabelu - fajl počeo sa procesiranjem."""
         doc = self.view.get_document_panel()
+        current = getattr(doc.file_table, "_files", {}).get(filepath)
+        if current and current.status in {"Completed", "Skipped", "Error"}:
+            return
         doc.file_table.update_file_status(filepath, 'Processing', 0.0)
 
     def _on_progress(self, message: str):
