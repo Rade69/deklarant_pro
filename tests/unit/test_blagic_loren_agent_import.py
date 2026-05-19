@@ -4,6 +4,7 @@ from importers.blagic_loren_importer import parse_blagic_loren_excel
 
 EXCEL_46 = "najavauvoza/loren-fakture/46VP-2026 BLAGIC.xlsx"
 PDF_46 = "najavauvoza/loren-fakture/46VP-2026 BLAGIC.pdf"
+EXCEL_267 = "najavauvoza/LOREN/fwrauniipakingliste/267VP-2026 SRETO BLAGIC.xlsx"
 
 
 def test_blagic_loren_excel_does_not_consume_matching_pdf():
@@ -25,3 +26,10 @@ def test_blagic_loren_import_service_combines_pdf_after_excel():
     assert pdf_result.consumed_paths == [EXCEL_46]
     assert len(pdf_result.items) == 31
     assert round(sum(line.iznos or 0 for line in pdf_result.items), 2) == 3853.57
+
+
+def test_blagic_loren_excel_infers_origin_when_header_is_wrong():
+    result = parse_blagic_loren_excel(EXCEL_267, _skip_pdf_lookup=True)
+
+    assert len(result.items) == 22
+    assert {line.zemlja_porijekla for line in result.items} == {"CN"}

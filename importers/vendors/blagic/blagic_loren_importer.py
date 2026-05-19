@@ -267,6 +267,17 @@ def _parse_header(sheet: Worksheet) -> Dict[str, int]:
         elif "poreklo" in header_value or "porijeklo" in header_value:
             column_map["poreklo"] = idx
 
+    if "poreklo" not in column_map:
+        inferred_idx = _infer_poreklo_column(sheet, column_map)
+        if inferred_idx is not None:
+            column_map["poreklo"] = inferred_idx
+            logger.warning(
+                "Blagic-Loren: kolona porijekla detektovana po vrijednostima "
+                "(header='%s', index=%s)",
+                sheet.cell(1, inferred_idx + 1).value,
+                inferred_idx,
+            )
+
     # Validate required columns
     required = ["artikal", "kolicina", "tezina_ukupno"]
     missing = [col for col in required if col not in column_map]
@@ -275,6 +286,44 @@ def _parse_header(sheet: Worksheet) -> Dict[str, int]:
         raise ValueError(f"Nedostaju obavezne kolone u header-u: {missing}")
 
     return column_map
+
+
+def _infer_poreklo_column(sheet: Worksheet, column_map: Dict[str, int]) -> Optional[int]:
+    tariff_idx = column_map.get("tarifni_broj")
+    if tariff_idx is None:
+        return None
+
+    best_idx = None
+    best_hits = 0
+    max_row = min(sheet.max_row, 30)
+
+    for idx in range(tariff_idx + 1, sheet.max_column):
+        hits = 0
+        checked = 0
+        for row_idx in range(2, max_row + 1):
+            artikal_idx = column_map.get("artikal", 2)
+            artikal = sheet.cell(row_idx, artikal_idx + 1).value
+            if not artikal:
+                continue
+
+            value = sheet.cell(row_idx, idx + 1).value
+            if value is None:
+                continue
+
+            checked += 1
+            value_text = str(value).strip()
+            normalized = normalize_country_name(value_text)
+            if normalized and (
+                normalized != value_text.upper()
+                or bool(re.match(r"^[A-Z]{2}$", value_text.upper()))
+            ):
+                hits += 1
+
+        if hits > best_hits and hits >= max(1, checked // 2):
+            best_idx = idx
+            best_hits = hits
+
+    return best_idx
 
 
 def _parse_items(
