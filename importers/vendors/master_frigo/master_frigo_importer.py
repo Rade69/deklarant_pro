@@ -172,7 +172,19 @@ def _read_mapping_xlsx(xlsx_path: str) -> Dict[str, Dict[str, str]]:
 
         code_col = find_col("Šifra", "Sifra") or 2
         tariff_col = find_col("Tarifni br", "Tarifni broj") or 6
-        origin_col = find_col("Zemlja porekla", "Zemlja porijekla", "Zemlja por") or 7
+        origin_col = find_col("Zemlja porekla", "Zemlja porijekla", "Zemlja por")
+        if origin_col is None:
+            from importers.excel_column_utils import infer_origin_column
+            origin_col = infer_origin_column(ws, after_col=tariff_col, anchor_col=code_col)
+            if origin_col is not None:
+                logger.warning(
+                    "Master Frigo: kolona porijekla detektovana po vrijednostima "
+                    "(header='%s', col=%s)",
+                    ws.cell(1, origin_col).value,
+                    origin_col,
+                )
+            else:
+                origin_col = 7  # posljednji fallback
         pref_col = find_col("Preferencijal", "Povlastica", "Povlašćica") or 8
 
         out: Dict[str, Dict[str, str]] = {}
