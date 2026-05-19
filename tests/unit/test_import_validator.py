@@ -209,3 +209,27 @@ def test_format_validation_summary_with_error():
     summary = format_validation_summary(vr_list)
     assert "❌" in summary
     assert "bad.pdf" in summary
+
+
+# ---------------------------------------------------------------------------
+# ImportService — validacija u import_file() pokriva sve tokove
+# ---------------------------------------------------------------------------
+
+def test_import_service_raises_on_zero_items(tmp_path, monkeypatch):
+    """ImportService.import_file() mora baciti ImportException ako parser vrati 0 stavki."""
+    from importers.import_result import ImportResult
+    from importers.exceptions import ImportError as ImportException
+    from services.import_service import ImportService
+
+    fake_file = tmp_path / "faktura.pdf"
+    fake_file.write_bytes(b"%PDF-1.4 fake")
+
+    empty_result = ImportResult(items=[], bruto_kg=0.0, neto_kg=0.0)
+
+    svc = ImportService()
+    monkeypatch.setattr(svc, "_try_combine_with_previous", lambda fp: None)
+    monkeypatch.setattr(svc, "_try_import_as_packing_list", lambda fp: None)
+    monkeypatch.setattr(svc.registry, "import_file", lambda fp, **kw: empty_result)
+
+    with pytest.raises(ImportException, match="0 stavki"):
+        svc.import_file(str(fake_file))

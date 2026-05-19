@@ -119,6 +119,7 @@ class ImportService:
             # 1. Pokušaj kombinovanje sa prethodnim importom
             combined = self._try_combine_with_previous(filepath)
             if combined is not None:
+                self._validate_or_raise(combined, filepath.name)
                 self.logger.info(f"✅ Kombinovani import: {filepath.name}")
                 return combined
 
@@ -132,7 +133,7 @@ class ImportService:
                     self.last_import_path = str(filepath)
                     self.last_import_type = "packing_list"
                     self.logger.info("💡 Packing lista sačuvana - čeka Invoice sa istim brojem")
-                    return packing_result
+                    return packing_result  # SKIP validacije — 0 stavki je namjerno
 
             # 2b. Za Excel: provjeri specijalizovane formate PRIJE registry-a
             if ext in (".xlsx", ".xls", ".xlsm"):
@@ -141,15 +142,19 @@ class ImportService:
                     if detect_medicopharm_excel(str(filepath)):
                         self.logger.info("📊 Medicopharm Excel — direktan import")
                         med_result = parse_medicopharm_excel(str(filepath))
+                        self._validate_or_raise(med_result, filepath.name)
                         self.last_import_result = med_result
                         self.last_import_path = str(filepath)
                         self.last_import_type = "medicopharm_excel"
                         return med_result
+                except ImportException:
+                    raise
                 except Exception as e:
                     self.logger.warning(f"⚠️ Medicopharm Excel detekcija greška: {e}")
 
             # 3. Delegiraj registry-u za parsiranje
             result = self.registry.import_file(filepath, progress_callback=progress_callback)
+            self._validate_or_raise(result, filepath.name)
 
             # 4. Sačuvaj stanje za sljedeći import
             self._save_import_state(filepath, result)
@@ -166,6 +171,17 @@ class ImportService:
         except Exception as e:
             self.logger.exception(f"❌ Neočekivana greška tokom importa")
             raise ImportException(f"Import failed: {e}") from e
+
+    def _validate_or_raise(self, result, filename: str) -> None:
+        """Baci ImportException ako parser vratio fizički neispravan rezultat."""
+        if not isinstance(result, ImportResult):
+            return
+        from services.import_validator import validate_import_result
+        vr = validate_import_result(result, filename)
+        if not vr.ok:
+            raise ImportException(
+                f"Parsiranje '{filename}' nije uspješno: {'; '.join(vr.errors)}"
+            )
 
     # SECTION: packing_list_gate
     # PURPOSE: Kapija koja odlučuje da li je PDF packing lista PRIJE slanja u registry

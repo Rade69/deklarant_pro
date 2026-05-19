@@ -100,16 +100,6 @@ class ProcessingWorker(QThread):
                 result = svc.import_file(str(file_item.filepath))
 
                 if isinstance(result, ImportResult):
-                    # Parser-level validacija — blokira uvoz ako su podaci fizički neispravni
-                    from services.import_validator import validate_import_result
-                    _vr = validate_import_result(result, file_item.filename)
-                    if not _vr.ok:
-                        file_item.status = 'Error'
-                        file_item.error_message = "; ".join(_vr.errors)
-                        self.progress.emit(f"   ❌ Validacija neuspješna: {file_item.error_message}")
-                        self.file_completed.emit(file_item)
-                        continue
-
                     invoice_lines = result.items
 
                     # ⭐ Sačuvaj SVE podatke iz ImportResult

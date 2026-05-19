@@ -1521,20 +1521,8 @@ class FakturaView(BaseTabView):
                 )
                 progress.setValue(i)
 
-                # Import fajla
+                # Import fajla (validacija je ugrađena u ImportService)
                 result = import_service.import_file(filepath)
-
-                # Parser-level validacija
-                if isinstance(result, ImportResult):
-                    from services.import_validator import validate_import_result
-                    _vr = validate_import_result(result, Path(filepath).name)
-                    if not _vr.ok:
-                        failed_imports.append((
-                            Path(filepath).name,
-                            "; ".join(_vr.errors),
-                        ))
-                        progress.setValue(i + 1)
-                        continue
 
                 # Ekstrakcija podataka
                 if isinstance(result, ImportResult):
