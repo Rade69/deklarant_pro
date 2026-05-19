@@ -348,6 +348,22 @@ def combine_blagic_excel_and_pdf(
     _validate_weights(combined_items, pdf_result.bruto_kg, pdf_result.neto_kg)
 
     # ========================================
+    # STEP 3.6: Raspodjela neto težine iz PDF-a
+    # ========================================
+    # Excel "Težina ukupno" = bruto (suma = PDF gross). Neto po stavci
+    # nije u Excelu → raspodijeliti PDF ukupni neto proporcionalno po bruto udjelu.
+    if pdf_result.neto_kg > 0:
+        item_bruto_sum = sum(item.bruto_kg or 0.0 for item in combined_items)
+        if item_bruto_sum > 0:
+            neto_ratio = pdf_result.neto_kg / item_bruto_sum
+            for item in combined_items:
+                item.neto_kg = round((item.bruto_kg or 0.0) * neto_ratio, 3)
+            logger.info(
+                f"⚖️  Neto raspodijeljen proporcionalno: ratio={neto_ratio:.4f} "
+                f"(PDF neto={pdf_result.neto_kg:.2f} / excel bruto suma={item_bruto_sum:.3f})"
+            )
+
+    # ========================================
     # STEP 4: Stats
     # ========================================
     excel_bruto_sum = sum(item.bruto_kg for item in combined_items)

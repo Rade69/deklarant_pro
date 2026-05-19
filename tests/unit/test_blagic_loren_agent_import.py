@@ -51,6 +51,19 @@ def test_blagic_loren_combined_uses_pdf_total_weights():
     assert round(sum(item.bruto_kg for item in _items), 2) == 565.58
 
 
+def test_blagic_loren_per_item_neto_distributed_from_pdf():
+    """Neto po stavci mora biti < bruto (raspodijeljen iz PDF ukupnog neto)."""
+    _items, stats = combine_blagic_excel_and_pdf(EXCEL_268, PDF_268)
+
+    assert stats["neto_kg"] < stats["bruto_kg"], "Ukupni neto mora biti manji od bruta"
+    assert all(item.neto_kg < item.bruto_kg for item in _items if item.bruto_kg > 0), (
+        "Svaka stavka mora imati neto < bruto"
+    )
+    assert round(sum(item.neto_kg for item in _items), 2) == stats["neto_kg"], (
+        "Suma neto stavki mora biti jednaka PDF ukupnom netu"
+    )
+
+
 def test_blagic_loren_pdf_invoice_name_comes_from_pdf_text():
     result = parse_blagic_loren_pdf(PDF_268)
 
