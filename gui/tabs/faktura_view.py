@@ -1524,6 +1524,18 @@ class FakturaView(BaseTabView):
                 # Import fajla
                 result = import_service.import_file(filepath)
 
+                # Parser-level validacija
+                if isinstance(result, ImportResult):
+                    from services.import_validator import validate_import_result
+                    _vr = validate_import_result(result, Path(filepath).name)
+                    if not _vr.ok:
+                        failed_imports.append((
+                            Path(filepath).name,
+                            "; ".join(_vr.errors),
+                        ))
+                        progress.setValue(i + 1)
+                        continue
+
                 # Ekstrakcija podataka
                 if isinstance(result, ImportResult):
                     items = result.items
@@ -1595,6 +1607,11 @@ class FakturaView(BaseTabView):
                         result.invoice_name
                         if isinstance(result, ImportResult) and result.invoice_name
                         else Path(filepath).stem
+                    ),
+                    "parser_warnings": (
+                        list(result.warnings)
+                        if isinstance(result, ImportResult)
+                        else []
                     ),
                     "skipped": False,
                 })
@@ -1677,8 +1694,21 @@ class FakturaView(BaseTabView):
 
             if failed_imports:
                 message += f"\n❌ Neuspješno: {len(failed_imports)} faktura\n"
-                for filename, error in failed_imports[:3]:  # Prikaži prvih 3
-                    message += f"   • {filename}: {error[:50]}...\n"
+                for filename, error in failed_imports[:3]:
+                    message += f"   • {filename}: {error[:80]}\n"
+                if len(failed_imports) > 3:
+                    message += f"   ... i još {len(failed_imports) - 3}\n"
+
+            # Parser warnings iz svih uvezenih rezultata
+            all_warnings = []
+            for record in final_records:
+                all_warnings.extend(record.get("parser_warnings", []))
+            if all_warnings:
+                message += f"\n⚠️ Upozorenja parsera ({len(all_warnings)}):\n"
+                for w in all_warnings[:5]:
+                    message += f"   • {w}\n"
+                if len(all_warnings) > 5:
+                    message += f"   ... i još {len(all_warnings) - 5}\n"
 
             QMessageBox.information(self, "Grupni uvoz", message)
 
