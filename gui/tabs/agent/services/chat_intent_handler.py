@@ -668,6 +668,9 @@ def _execute_tool(ctrl, name: str, args: dict) -> None:
     elif name == "spoji_naimenovanja":
         ctrl._predlozi_spajanje_naimenovanja()
 
+    elif name == "analiziraj_tarifne":
+        _analiziraj_tarifne_historiju(ctrl)
+
     else:
         logger.warning(f"[ToolUse] Nepoznat alat: {name}")
         chat.add_agent_message(f"⚠️ Nepoznata akcija: {name}")
@@ -790,6 +793,16 @@ def _handle_message_regex_fallback(ctrl, message: str) -> None:
         if keyword not in _skip and len(keyword) >= 3:
             ctrl._predlozi_tarifne_po_filteru(keyword)
             return
+
+    # --- ANALIZA TARIFNIH vs HISTORIJA ---
+    _analiza_kw = ('analiziraj tarif', 'analiza tarif', 'historij tarif', 'historija tarif',
+                   'istorij tarif', 'uporedi tarif', 'uporeди tarif', 'konzistentni tarif',
+                   'provjeri tarif.*historij', 'tarif.*istorij', 'tarif.*ranij')
+    if any(kw in msg for kw in _analiza_kw) or (
+        'tarif' in msg and any(w in msg for w in ('historij', 'istorij', 'ranij', 'analiz', 'konzistent'))
+    ):
+        _analiziraj_tarifne_historiju(ctrl)
+        return
 
     # --- PROVJERI TARIF ZA KONKRETAN NAZIV ---
     _provjeri_tarif_match = re.search(
@@ -1394,6 +1407,21 @@ def _prikaz_tarifnih_trenutnih(ctrl) -> None:
 
     except Exception as e:
         chat.add_agent_message(f"Greska pri istorijskoj validaciji: {e}")
+
+
+def _analiziraj_tarifne_historiju(ctrl) -> None:
+    """Uporedi tarifne kodove u aktivnom draftu sa historijskim podacima."""
+    chat = ctrl.view.get_chat_panel()
+    chat.add_activity("📊 Analiziram tarifne brojeve u odnosu na istoriju...")
+    try:
+        from services.agent.chat.tariff_history_analysis_service import (
+            analiziraj_tarifne_historiju,
+        )
+        html = analiziraj_tarifne_historiju(ctrl.draft)
+        chat.add_agent_message(html)
+    except Exception as e:
+        logger.exception("Greška pri analizi tarifne historije")
+        chat.add_agent_message(f"❌ Greška pri analizi: {escape(str(e))}")
 
 
 def _pregledaj_naimenovanja(ctrl, indeksi=None) -> None:

@@ -33,6 +33,7 @@ PRAVILA:
 12. Za "predloži tarifu za X" (specifičan proizvod) → pretrazi_tarifu (NE predlozi_tarife)
 13. Za "predloži tarife" ili "popuni sve" (bez specifičnog proizvoda) → predlozi_tarife
 14. Za "porijeklo proizvoda X" ili "zemlja porijekla za X" → pretrazi_porijeklo
+15. Za "analiziraj tarifne", "uporedi tarifne sa istorijom", "historija tarifa", "jesu li ovi tarifni konzistentni" → analiziraj_tarifne
 """
 
 # ── Alati ────────────────────────────────────────────────────────────
@@ -213,6 +214,25 @@ TOOLS = [
                 "Spoji naimenovanja sa istim tarifnim brojem, zemljom porijekla "
                 "i povlasticom. Koristi za 'spoji naimenovanja', 'merge', "
                 "'grupiši', 'objedini naimenovanja'."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": False
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "analiziraj_tarifne",
+            "description": (
+                "Analizira tarifne brojeve u aktivnoj deklaraciji i poredi ih sa "
+                "istorijskim podacima o korištenju (koliko puta je svaki kod korišćen u "
+                "prethodnim deklaracijama). Označava nove/nepoznate kodove koji se nikad "
+                "ranije nisu pojavili. Koristi za: 'analiziraj tarifne', 'uporedi tarifne "
+                "sa istorijom', 'historija tarifa', 'jesu li ovi tarifni konzistentni', "
+                "'provjeri tarifne u odnosu na ranije deklaracije'."
             ),
             "parameters": {
                 "type": "object",
