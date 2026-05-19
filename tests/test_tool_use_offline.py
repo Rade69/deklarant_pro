@@ -72,10 +72,10 @@ class TestToolSchema:
                     assert len(prop["enum"]) > 0, \
                         f"{func['name']}.{prop_name}: enum ne smije biti prazan"
 
-    def test_ima_tacno_9_alata(self):
-        """Trenutno imamo 9 definisanih alata."""
-        assert len(self.TOOLS) == 9, \
-            f"Očekivano 9 alata, dobijeno {len(self.TOOLS)}. Ako dodaješ alat, ažuriraj ovaj test."
+    def test_ima_tacno_10_alata(self):
+        """Trenutno imamo 10 definisanih alata."""
+        assert len(self.TOOLS) == 10, \
+            f"Očekivano 10 alata, dobijeno {len(self.TOOLS)}. Ako dodaješ alat, ažuriraj ovaj test."
 
     def test_system_prompt_pominje_sve_alate(self):
         """System prompt treba da sadrži instrukcije za svaki alat."""

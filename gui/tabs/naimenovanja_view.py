@@ -70,6 +70,31 @@ from gui.dialogs.inspection_dialog import InspectionDialog
 
 from core.draft import DeclarationDraft, NaimenovanjeDraft
 
+_PE_DOC_CODES = {"PE1", "PE2", "PE3"}
+
+
+def _pe_doc_code(value: str) -> str:
+    code = (value or "").strip().split(" ", 1)[0].upper()
+    return code if code in _PE_DOC_CODES else ""
+
+
+def _clear_secondary_pe_documents(item) -> bool:
+    if not _pe_doc_code(getattr(item, "attached_document4", "") or ""):
+        return False
+
+    changed = False
+    for field_name in (
+        "attached_document1",
+        "attached_document2",
+        "attached_document3",
+        "attached_document5",
+    ):
+        if _pe_doc_code(getattr(item, field_name, "") or ""):
+            setattr(item, field_name, "")
+            changed = True
+    return changed
+
+
 try:
     import qtawesome as qta
 
@@ -2094,11 +2119,14 @@ class NaimenovanjaView(BaseTabView):
         """
         header_docs = getattr(self.draft, "header_attached_documents", []) or []
         has_pref = bool(item and (getattr(item, 'preference_code', '') or '').strip())
-        pe_codes = {"PE1", "PE2", "PE3"}
+        current_pe_code = _pe_doc_code(getattr(item, "attached_document4", "") or "")
         codes = [
             doc.code for doc in header_docs
             if getattr(doc, "from_rule", False) and doc.code
-            and (doc.code not in pe_codes or has_pref)
+            and (
+                doc.code not in _PE_DOC_CODES
+                or (has_pref and doc.code == current_pe_code)
+            )
         ]
         return " ".join(codes)
 
@@ -2126,6 +2154,8 @@ class NaimenovanjaView(BaseTabView):
 
         self.is_loading = True
         item = self.draft.items[self.current_item_index]
+        if _clear_secondary_pe_documents(item):
+            self.draft.mark_dirty()
 
         loaded = 0
         not_found = 0
@@ -2244,6 +2274,7 @@ class NaimenovanjaView(BaseTabView):
                 normalized = self._normalize_field_value(field_name, value)
                 setattr(item, field_name, normalized)
 
+        _clear_secondary_pe_documents(item)
         self._mark_dirty()
 
         # ── Sinhronizacija tarifnog broja ako je promijenjen ──────────────
@@ -2850,14 +2881,14 @@ class NaimenovanjaView(BaseTabView):
             parts = doc4.split(' ', 1)
             sifra = parts[0].strip()
             broj = parts[1].strip() if len(parts) > 1 else ''
-            if sifra in ("PE1", "PE2", "PE3"):
+            if sifra in _PE_DOC_CODES:
                 key = (sifra, broj)
                 if key not in seen:
                     seen.add(key)
                     pe_entries.append(key)
 
         # 2. Ukloni postojeće PE1/PE2/PE3 unose iz header_attached_documents
-        header_docs[:] = [d for d in header_docs if d.code not in ("PE1", "PE2", "PE3")]
+        header_docs[:] = [d for d in header_docs if d.code not in _PE_DOC_CODES]
 
         # 3. Dodaj nove unose
         if pe_entries:

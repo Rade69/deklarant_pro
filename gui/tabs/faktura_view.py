@@ -81,6 +81,18 @@ from services.faktura.weight_guards import (
 # Docs: docs/sections/window-geometry-modal-guard.md
 
 
+def _manual_invoice_record_sort_key(record: dict) -> tuple:
+    from gui.tabs.agent.widgets.processing_worker import ProcessingWorker
+
+    invoice_name = record.get("invoice_name") or record.get("filepath") or ""
+    filepath = record.get("filepath") or ""
+    return (
+        ProcessingWorker._natural_invoice_parts(invoice_name or filepath),
+        ProcessingWorker._normalized_invoice_token(invoice_name or filepath),
+        Path(filepath).name.lower(),
+    )
+
+
 class FakturaView(BaseTabView):
     """
     Faktura Tab V2 - Modern design with validation states.
@@ -1613,6 +1625,7 @@ class FakturaView(BaseTabView):
             record for record in imported_records
             if not record["skipped"] and record["items"]
         ]
+        final_records = sorted(final_records, key=_manual_invoice_record_sort_key)
         all_items = []
         total_bruto_kg = 0.0
         total_neto_kg = 0.0

@@ -7,9 +7,26 @@ Agent Controller - business logic za tri pipeline moda.
 
 from PySide6.QtWidgets import QFileDialog, QApplication
 from pathlib import Path
+import re
 from .agent_view import AgentView
 from .widgets.processing_worker import ProcessingWorker
 from services.faktura.weight_guards import normalize_invoice_key
+
+
+def _agent_invoice_token(value: str) -> str:
+    stem = Path(value or "").stem.lower()
+    stem = stem.replace("-", "").replace("_", "").replace(" ", "")
+    for keyword in ("sreto", "blagic", "blagić", "loren"):
+        stem = stem.replace(keyword, "")
+    return re.sub(r"[^a-z0-9]", "", stem)
+
+
+def _agent_invoice_sort_key(file_item) -> tuple:
+    raw = getattr(file_item, "invoice_number", "") or getattr(file_item, "filepath", "")
+    token = _agent_invoice_token(raw)
+    parts = re.findall(r"\d+|[a-z]+", token)
+    natural = tuple(int(part) if part.isdigit() else part for part in parts)
+    return (natural, token, Path(getattr(file_item, "filepath", "")).name.lower())
 
 
 class AgentController:
@@ -368,6 +385,38 @@ class AgentController:
                     file_item.detected_parser or file_item.parser
                 )
 
+    def _dedupe_completed_import_files(self, completed: list) -> list:
+        combined = [f for f in completed if getattr(f, "is_combined", False)]
+        if not combined:
+            return completed
+
+        consumed = {
+            str(Path(path).resolve())
+            for f in combined
+            for path in (getattr(f, "consumed_paths", []) or [])
+        }
+        combined_tokens = {
+            _agent_invoice_token(getattr(f, "invoice_number", "") or getattr(f, "filepath", ""))
+            for f in combined
+        }
+        filtered = []
+        for file_item in completed:
+            resolved = str(Path(file_item.filepath).resolve())
+            token = _agent_invoice_token(getattr(file_item, "invoice_number", "") or file_item.filepath)
+            is_excel_pair = file_item.file_type == "Excel" and token in combined_tokens
+            if file_item not in combined and (resolved in consumed or is_excel_pair):
+                file_item.status = "Skipped"
+                file_item.invoice_lines = []
+                self.view.get_document_panel().file_table.update_file_status(
+                    file_item.filepath,
+                    file_item.status,
+                    file_item.confidence,
+                    file_item.detected_parser or file_item.parser,
+                )
+                continue
+            filtered.append(file_item)
+        return filtered
+
     def _on_all_completed(self, files: list):
         """Svi fajlovi završeni - izvrši pipeline logiku prema modu."""
         # ⭐ ODMAH ukloni loading state — pre bilo čega drugog
@@ -377,6 +426,8 @@ class AgentController:
         chat = self.view.get_chat_panel()
         self._normalize_finished_file_statuses(files)
         completed = [f for f in files if f.status == 'Completed']
+        completed = self._dedupe_completed_import_files(completed)
+        completed = sorted(completed, key=_agent_invoice_sort_key)
         errors = [f for f in files if f.status == 'Error']
 
         print(f"[AgentController] _on_all_completed: mode='{self._current_mode}', completed={len(completed)}, errors={len(errors)}")

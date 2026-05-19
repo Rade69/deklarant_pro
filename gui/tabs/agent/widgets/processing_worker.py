@@ -117,6 +117,7 @@ class ProcessingWorker(QThread):
                         for s in (result.origin_statements or [])
                     )
                     file_item.is_combined = result.is_combined  # ⭐ KLJUČNO za duplikat detekciju
+                    file_item.consumed_paths = list(getattr(result, "consumed_paths", []) or [])
                     file_item.invoice_lines = invoice_lines
                     file_item.status = 'Completed'
                     file_item.detected_parser = getattr(result, '_detected_format', 'auto') or 'auto'
@@ -214,7 +215,7 @@ class ProcessingWorker(QThread):
         self.progress.emit(f"📊 Prosjek: {total_elapsed/len(self.files):.1f}s po fajlu")
         self.progress.emit(f"{'='*60}\n")
 
-        self.all_completed.emit(self.files)
+        self.all_completed.emit(sorted_files)
 
     @staticmethod
     def _normalize_code(value: str) -> str:
@@ -326,6 +327,12 @@ class ProcessingWorker(QThread):
         return stem
 
     @staticmethod
+    def _natural_invoice_parts(value: str) -> tuple:
+        token = ProcessingWorker._normalized_invoice_token(value)
+        parts = re.findall(r"\d+|[a-z]+", token)
+        return tuple(int(part) if part.isdigit() else part for part in parts)
+
+    @staticmethod
     def _is_mapping_xlsx(filepath: str) -> bool:
         """Da li je ovo globalni mapping excel (Master Frigo i slični)."""
         p = Path(filepath)
@@ -363,7 +370,7 @@ class ProcessingWorker(QThread):
             priority = 3
 
         # Mapping fajlovi idu globalno na kraj reda da ne kvare sequence previous+current.
-        return (1 if is_mapping else 0, token, priority, p.name.lower())
+        return (1 if is_mapping else 0, cls._natural_invoice_parts(file_item.filepath), priority, token, p.name.lower())
 
     def _parse_xml(self, file_item: FileItem, filepath: Path) -> list:
         """Parsira XML fajl."""

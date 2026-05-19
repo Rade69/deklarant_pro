@@ -29,6 +29,13 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("deklarant_pro.gui.zaglavlje_controller")
 
+_PE_DOC_CODES = {"PE1", "PE2", "PE3"}
+
+
+def _pe_doc_code(value: str) -> str:
+    code = (value or "").strip().split(" ", 1)[0].upper()
+    return code if code in _PE_DOC_CODES else ""
+
 
 class ZaglavljeController:
     """
@@ -589,8 +596,8 @@ class ZaglavljeController:
         pe_entries: list[tuple[str, str]] = []
         seen: set[tuple[str, str]] = set()
         for item in items:
-            candidates = [
-                (getattr(item, "attached_document4", "") or "").strip(),
+            doc4 = (getattr(item, "attached_document4", "") or "").strip()
+            candidates = [doc4] if _pe_doc_code(doc4) else [
                 (getattr(item, "attached_document3", "") or "").strip(),
                 (getattr(item, "attached_document1", "") or "").strip(),
             ]
@@ -600,7 +607,7 @@ class ZaglavljeController:
                 parts = raw.split(" ", 1)
                 sifra = parts[0].strip().upper()
                 broj = parts[1].strip() if len(parts) > 1 else ""
-                if sifra in {"PE1", "PE2", "PE3"}:
+                if sifra in _PE_DOC_CODES:
                     key = (sifra, broj)
                     if key not in seen:
                         seen.add(key)
@@ -609,7 +616,7 @@ class ZaglavljeController:
         if not pe_entries:
             return
 
-        header_docs[:] = [d for d in header_docs if getattr(d, "code", "") not in {"PE1", "PE2", "PE3"}]
+        header_docs[:] = [d for d in header_docs if getattr(d, "code", "") not in _PE_DOC_CODES]
 
         from core.draft.draft import AttachedDocument
         naziv_map = {
