@@ -580,8 +580,8 @@ class DeclarationValidatorService:
         """Provjeri da li tarifni broj postoji u tarifa_2026 (SQLite).
 
         ASYCUDA koristi 8-cifrene kodove (heading 4 + subheading 2 + nacionalni 2).
-        Baza tarife ima 10-cifrene kodove. Prvih 6 cifara (heading + subheading)
-        su pouzdane — provjera se radi na nivou 6-cifrenog podbroja.
+        Baza tarife ima 10-cifrene kodove, ali dio XML/import tokova moze dati
+        8-cifreni ASYCUDA kod ili 10-cifreni kod ciji 8-cifreni nivo postoji.
         """
         try:
             from services.tarifa_service import trazi_po_kodu
@@ -593,7 +593,9 @@ class DeclarationValidatorService:
             if trazi_po_kodu(norm):
                 return True
 
-            # Za 8-cifrene ASYCUDA kodove: provjeri 6-cifreni podbrojnik (heading+subheading)
+            if len(norm) == 10:
+                return bool(trazi_po_kodu(norm[:8]))
+
             if len(norm) == 8:
                 return bool(trazi_po_kodu(norm[:6]))
 
