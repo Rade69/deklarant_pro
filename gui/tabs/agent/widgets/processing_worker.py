@@ -1,10 +1,11 @@
 """
 ProcessingWorker - background thread za procesiranje fajlova.
 
-Koristi import_service (isti kao ručni uvoz kroz Faktura Tab):
-- import_service SAM detektuje parove (Excel + PDF)
-- import_service SAM kombinuje podatke
-- import_service SAM popunjava težine, zemlje, izjave o porijeklu
+Koristi PRIVATNU ImportService instancu (ne singleton) da izbjegne
+race condition sa main threadom oko last_import_type stanja:
+- ImportService SAM detektuje parove (Excel + PDF)
+- ImportService SAM kombinuje podatke
+- ImportService SAM popunjava težine, zemlje, izjave o porijeklu
 """
 from PySide6.QtCore import QThread, Signal
 from pathlib import Path
@@ -32,7 +33,7 @@ class ProcessingWorker(QThread):
 
     def run(self):
         """
-        Glavni thread loop - koristi import_service (ISTI KAO RUČNI UVOZ!).
+        Glavni thread loop — koristi PRIVATNU ImportService instancu.
 
         FIX: Preskače packing listove ako je odgovarajuća faktura već
         parsirana sa automatskom kombinacijom (Blagić-Attos).
@@ -41,13 +42,16 @@ class ProcessingWorker(QThread):
         import gc
         total_start = time.time()
 
-        from services.import_service import get_import_service
+        from services.import_service import ImportService
         from importers.import_result import ImportResult
         from importers.blagic_attos_importer import find_matching_packing_list, is_blagic_attos_packing_list
 
-        # ⭐ KLJUČNO: Koristi singleton import_service (isti kao Faktura Tab!)
-        svc = get_import_service()
-        svc.clear_memory()  # Resetuj memoriju za detekciju parova
+        # ⭐ PRIVATNA instanca ImportService-a za worker thread.
+        # NIKAD ne koristiti singleton (get_import_service) ovdje — singleton dijeli
+        # last_import_type/path/result stanje sa main threadom → race condition koji
+        # razbija Excel+PDF par kombinovanje za 2.+ fakturu u isti batch.
+        svc = ImportService()
+        svc.clear_memory()
 
         # DOC: scripts/master_frigo_agent_import_2026-04-26.md
         # ⭐ Sortiranje po normalizovanom broju fakture:
@@ -95,7 +99,7 @@ class ProcessingWorker(QThread):
             self.progress.emit(f"   📍 Tip: {file_item.file_type}")
 
             try:
-                # ⭐ KORISTI IMPORT_SERVICE (ISTI KAO RUČNI UVOZ!)
+                # ⭐ KORISTI PRIVATNU ImportService INSTANCU
                 self.progress.emit(f"   🔄 import_service.import_file()...")
                 result = svc.import_file(str(file_item.filepath))
 

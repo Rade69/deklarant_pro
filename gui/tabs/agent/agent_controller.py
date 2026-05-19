@@ -344,10 +344,6 @@ class AgentController:
                 if match:
                     stavki = match.group(1)
                     chat.add_agent_message(f"✅ <b>Uvezeno {stavki} stavki</b>")
-        elif "⚖️" in message:
-            # Prikaži težine
-            chat.add_activity(message)  # Samo u Aktivnosti tabu
-
     def _on_file_completed(self, file_item):
         """Ažuriraj tabelu - fajl završio procesiranje."""
         doc = self.view.get_document_panel()
@@ -358,6 +354,20 @@ class AgentController:
             file_item.detected_parser or file_item.parser
         )
 
+    def _normalize_finished_file_statuses(self, files: list):
+        doc = self.view.get_document_panel()
+        for file_item in files:
+            if file_item.status == 'Processing' and file_item.invoice_lines:
+                file_item.status = 'Completed'
+                if file_item.confidence <= 0:
+                    file_item.confidence = 1.0
+                doc.file_table.update_file_status(
+                    file_item.filepath,
+                    file_item.status,
+                    file_item.confidence,
+                    file_item.detected_parser or file_item.parser
+                )
+
     def _on_all_completed(self, files: list):
         """Svi fajlovi završeni - izvrši pipeline logiku prema modu."""
         # ⭐ ODMAH ukloni loading state — pre bilo čega drugog
@@ -365,6 +375,7 @@ class AgentController:
         doc.upload_area.set_loading(False)
 
         chat = self.view.get_chat_panel()
+        self._normalize_finished_file_statuses(files)
         completed = [f for f in files if f.status == 'Completed']
         errors = [f for f in files if f.status == 'Error']
 
