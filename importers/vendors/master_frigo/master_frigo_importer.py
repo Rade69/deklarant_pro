@@ -522,7 +522,7 @@ def import_master_frigo(
         items=invoice_lines,
         bruto_kg=header.get("gross_kg", 0.0),
         neto_kg=header.get("net_kg", 0.0),
-        invoice_name=header.get("invoice_no") or Path(pdf_path).stem,
+        invoice_name=header.get("invoice_no", ""),
         currency=currency,
         import_type="master_frigo",
         exporter=_exp,

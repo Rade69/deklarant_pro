@@ -350,19 +350,16 @@ def combine_blagic_excel_and_pdf(
     # ========================================
     # STEP 4: Stats
     # ========================================
-    # Koristimo sumu Excel stavki jer je preciznija od zaokruženih PDF vrijednosti.
-    # PDF ima cijele kg (npr. 451 kg), Excel ima decimale po stavkama (npr. 463.52 kg).
     excel_bruto_sum = sum(item.bruto_kg for item in combined_items)
     excel_neto_sum  = sum(item.neto_kg  for item in combined_items)
 
-    # Ako Excel nema neto po stavkama, padni na PDF vrijednost
-    final_bruto = excel_bruto_sum if excel_bruto_sum > 0 else pdf_result.bruto_kg
-    final_neto  = excel_neto_sum  if excel_neto_sum  > 0 else pdf_result.neto_kg
+    final_bruto = pdf_result.bruto_kg if pdf_result.bruto_kg > 0 else excel_bruto_sum
+    final_neto  = pdf_result.neto_kg  if pdf_result.neto_kg  > 0 else excel_neto_sum
 
     if pdf_result.bruto_kg > 0 and abs(excel_bruto_sum - pdf_result.bruto_kg) > 0.5:
         logger.info(
-            f"ℹ️  Težine: Excel suma ({excel_bruto_sum:.3f} kg bruto) korišćena umjesto "
-            f"zaokružene PDF vrijednosti ({pdf_result.bruto_kg:.2f} kg)"
+            f"ℹ️  Težine: ukupna bruto masa uzeta iz PDF-a ({pdf_result.bruto_kg:.2f} kg); "
+            f"Excel suma stavki je {excel_bruto_sum:.3f} kg"
         )
 
     stats = {
@@ -419,7 +416,7 @@ def import_blagic_combined(
         items=combined_items,
         bruto_kg=stats.get("bruto_kg", 0.0),
         neto_kg=stats.get("neto_kg", 0.0),
-        invoice_name=Path(pdf_path).stem,
+        invoice_name=stats.get("invoice_name", ""),
         currency=stats.get("currency", "EUR"),
         has_origin_statement=stats.get("has_origin_statement", False),
         exporter=Party(name=stats.get("exporter_name", "LOREN")),

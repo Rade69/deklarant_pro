@@ -18,6 +18,18 @@ from importers.import_result import ImportResult
 logger = logging.getLogger("deklarant_pro.import.blagic_loren_pdf")
 
 
+def _extract_invoice_number(full_text: str) -> str:
+    patterns = [
+        r"\bInvoice\s*(?:[A-Z]{3})?\s*:\s*([A-Z0-9][A-Z0-9./-]*)",
+        r"\bInvoice\s+No\.?\s*:\s*([A-Z0-9][A-Z0-9./-]*)",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, full_text, re.IGNORECASE)
+        if match:
+            return match.group(1).strip()
+    return ""
+
+
 def _extract_statement_item_numbers(context_text: str) -> Set[int]:
     """
     Izvuci redne brojeve stavki iz teksta izjave.
@@ -87,10 +99,8 @@ def parse_blagic_loren_pdf(pdf_path: str) -> ImportResult:
             text = page.extract_text() or ""
             full_text += text + "\n"
 
-        # Extract invoice number
-        invoice_match = re.search(r'Invoice:\s*(\S+)', full_text)
-        if invoice_match:
-            invoice_number = invoice_match.group(1)
+        invoice_number = _extract_invoice_number(full_text)
+        if invoice_number:
             logger.debug(f"Invoice number: {invoice_number}")
 
         # Extract invoice date
@@ -274,7 +284,7 @@ def parse_blagic_loren_pdf(pdf_path: str) -> ImportResult:
         items=items,
         bruto_kg=bruto_kg,
         neto_kg=neto_kg,
-        invoice_name=invoice_number or pdf_path.split('/')[-1].replace('.pdf', ''),
+        invoice_name=invoice_number,
         currency="EUR",
         import_type='loren_pdf',
         has_origin_statement=has_origin_statement,

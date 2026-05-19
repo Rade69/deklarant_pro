@@ -571,7 +571,7 @@ def parse_blagic_attos_with_auto_combine(invoice_pdf_path: str) -> ImportResult:
             items=items,
             bruto_kg=sum(i.bruto_kg for i in items),
             neto_kg=sum(i.neto_kg for i in items),
-            invoice_name=Path(invoice_pdf_path).stem,
+            invoice_name="",
             currency="EUR",
             exporter=Party(name="ATTOS"),
             importer=_imp,
