@@ -1007,7 +1007,11 @@ class AsycudaXMLBuilder:
             normalized = re.sub(r"[^a-zA-ZčćžšđČĆŽŠĐ]", "", text or "").lower()
             return normalized in {"ostalo", "ostali"}
 
-        def _commercial_tariff_summary() -> str:
+        def _normalized_key(text: str) -> str:
+            return re.sub(r"\s+", " ", text or "").strip().casefold()
+
+        def _commercial_tariff_summary(product_keys: set[str] | None = None) -> str:
+            product_keys = product_keys or set()
             normalized_candidates = []
             for candidate in (
                 getattr(item, "tariff_description1", "") or "",
@@ -1016,6 +1020,8 @@ class AsycudaXMLBuilder:
                 tariff_heading,
             ):
                 text = " ".join(self._normalize_tariff_text(candidate).split()).strip()
+                if text and _normalized_key(text) in product_keys:
+                    continue
                 if text:
                     normalized_candidates.append(text)
                 if text and not _is_generic_tariff_text(text):
@@ -1053,7 +1059,6 @@ class AsycudaXMLBuilder:
         ordinal_no = getattr(item, "ordinal_no", None)
         invoice_lines = getattr(self.draft, "invoice_lines", None) or []
         tariff_heading = " ".join(self._tariff_heading(item).splitlines()).strip()
-        commercial_summary = _commercial_tariff_summary()
 
         assigned = [
             l for l in invoice_lines
@@ -1064,10 +1069,12 @@ class AsycudaXMLBuilder:
             seen: set = set()
             product_names = []
             for l in assigned:
-                name = (getattr(l, "naziv_robe", "") or "").strip()
-                if name and name not in seen:
-                    seen.add(name)
+                name = " ".join((getattr(l, "naziv_robe", "") or "").split()).strip()
+                key = _normalized_key(name)
+                if name and key not in seen:
+                    seen.add(key)
                     product_names.append(name)
+            commercial_summary = _commercial_tariff_summary(seen)
 
             fakture: dict = OrderedDict()
             for l in assigned:
@@ -1086,6 +1093,7 @@ class AsycudaXMLBuilder:
             parts = [p for p in (line1, line2, line3) if p]
             result = "\n".join(parts)
         else:
+            commercial_summary = _commercial_tariff_summary()
             trade_name = (getattr(item, "goods_trade_name", "") or
                           getattr(item, "goods_description", "") or "").strip()
             raw = trade_name or tariff_heading

@@ -267,6 +267,66 @@ def test_commercial_description_uses_goods_description_when_tariff_heading_is_ge
     )
 
 
+def test_commercial_description_does_not_use_product_name_as_tariff_summary():
+    draft = DeclarationDraft()
+    item = NaimenovanjeDraft(
+        item_id="1",
+        ordinal_no=9,
+        tariff_description1="GREJAC RERNE GORENJE 1100W PERLA 616021 (GP1127) UZI",
+        tariff_description2="- - ostali",
+    )
+    draft.items = [item]
+    draft.invoice_lines = [
+        InvoiceLine(
+            line_no=2,
+            invoice_number="266VP-2026",
+            naziv_robe="GREJAC RERNE GORENJE 1100W PERLA 616021 (GP1127) UZI",
+            assigned_naimenovanje_ordinal=9,
+        )
+    ]
+
+    desc = AsycudaXMLBuilder(draft)._build_commercial_description(item, 280)
+
+    assert desc == (
+        "- - ostali\n"
+        "GREJAC RERNE GORENJE 1100W PERLA 616021 (GP1127) UZI\n"
+        "Faktura: 266VP-2026 (rb. 2)"
+    )
+
+
+def test_commercial_description_deduplicates_product_names_by_normalized_text():
+    draft = DeclarationDraft()
+    item = NaimenovanjeDraft(
+        item_id="1",
+        ordinal_no=12,
+        tariff_description1="TUNEL GUMA GORENJE 576363 PS-15 OEM",
+        tariff_description2="- - zaptivci, podlošci i ostali proizvodi za zaptivanje",
+    )
+    draft.items = [item]
+    draft.invoice_lines = [
+        InvoiceLine(
+            line_no=9,
+            invoice_number="266VP-2026",
+            naziv_robe="TUNEL GUMA GORENJE 576363 PS-15 OEM",
+            assigned_naimenovanje_ordinal=12,
+        ),
+        InvoiceLine(
+            line_no=10,
+            invoice_number="266VP-2026",
+            naziv_robe="TUNEL  GUMA GORENJE 576363 PS-15 OEM",
+            assigned_naimenovanje_ordinal=12,
+        ),
+    ]
+
+    desc = AsycudaXMLBuilder(draft)._build_commercial_description(item, 280)
+
+    assert desc == (
+        "- - zaptivci, podlošci i ostali proizvodi za zaptivanje\n"
+        "TUNEL GUMA GORENJE 576363 PS-15 OEM\n"
+        "Faktura: 266VP-2026 (rb. 9, 10)"
+    )
+
+
 def test_description_of_goods_returns_dot_not_tariff_code_when_no_heading():
     # Kada nema opisa, vraća "." — ne tarifni kod koji ASYCUDA ne prepoznaje kao tekst
     draft = DeclarationDraft()
