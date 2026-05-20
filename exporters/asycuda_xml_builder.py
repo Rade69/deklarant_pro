@@ -946,6 +946,11 @@ class AsycudaXMLBuilder:
         """
         return text.replace("–", "-").replace("−", "-")
 
+    @staticmethod
+    def _is_generic_tariff_text(text: str) -> bool:
+        normalized = re.sub(r"[^a-zA-ZčćžšđČĆŽŠĐ]", "", text or "").lower()
+        return normalized in {"ostalo", "ostali"}
+
     def _tariff_heading(self, item: "NaimenovanjeDraft") -> str:
         """Vraća kratki zvanični tarifni heading za ovo naimenovanje."""
         heading = (
@@ -977,7 +982,34 @@ class AsycudaXMLBuilder:
         ASYCUDA World prikazuje ovaj field kao interni tarifni naziv;
         Commercial_Description nosi komercijalni opis koji se prikazuje u Rub.31.
         """
-        result = " ".join(self._tariff_heading(item).splitlines()).strip()
+        def _heading_from_trade_name() -> str:
+            trade_name = " ".join((getattr(item, "goods_trade_name", "") or "").split()).strip()
+            if not trade_name:
+                return ""
+            faktura_pos = trade_name.lower().find("faktura:")
+            if faktura_pos > 0:
+                trade_name = trade_name[:faktura_pos].rstrip(" ,;")
+            if ";" in trade_name:
+                return trade_name.split(";", 1)[0].strip()
+            return ""
+
+        candidates = (
+            getattr(item, "tariff_description1", "") or "",
+            getattr(item, "goods_description", "") or "",
+            _heading_from_trade_name(),
+            getattr(item, "tariff_description2", "") or "",
+            self._tariff_heading(item),
+        )
+        normalized_candidates = []
+        for candidate in candidates:
+            text = " ".join(self._normalize_tariff_text(candidate).split()).strip()
+            if text:
+                normalized_candidates.append(text)
+            if text and not self._is_generic_tariff_text(text):
+                result = text
+                break
+        else:
+            result = normalized_candidates[0] if normalized_candidates else ""
         if len(result) > max_chars:
             result = result[:max_chars - 3] + "..."
         # Ne vraćati tarifni kod kao fallback — ASYCUDA to ne prepoznaje kao opis
@@ -1004,8 +1036,7 @@ class AsycudaXMLBuilder:
             return text[:_MAX_LINE - 3].rstrip() + "..."
 
         def _is_generic_tariff_text(text: str) -> bool:
-            normalized = re.sub(r"[^a-zA-ZčćžšđČĆŽŠĐ]", "", text or "").lower()
-            return normalized in {"ostalo", "ostali"}
+            return self._is_generic_tariff_text(text)
 
         def _normalized_key(text: str) -> str:
             return re.sub(r"\s+", " ", text or "").strip().casefold()
@@ -1029,7 +1060,28 @@ class AsycudaXMLBuilder:
             return normalized_candidates[0] if normalized_candidates else ""
 
         def _compact_existing_description(raw: str, tariff_heading: str) -> str:
-            lines = [" ".join(line.split()).strip() for line in raw.splitlines()]
+            split_lines = []
+            for line in raw.splitlines():
+                normalized_line = " ".join(line.split()).strip()
+                if not normalized_line:
+                    continue
+                faktura_pos = normalized_line.lower().find("faktura:")
+                if faktura_pos > 0:
+                    before = normalized_line[:faktura_pos].rstrip(" ,;")
+                    after = normalized_line[faktura_pos:].strip()
+                    if before:
+                        if ";" in before:
+                            for part in before.split(";"):
+                                cleaned_part = part.strip(" ,;")
+                                if cleaned_part:
+                                    split_lines.append(cleaned_part)
+                        else:
+                            split_lines.append(before)
+                    if after:
+                        split_lines.append(after)
+                else:
+                    split_lines.append(normalized_line)
+            lines = split_lines
             lines = [line for line in lines if line]
             if not lines:
                 return ""
@@ -1041,6 +1093,13 @@ class AsycudaXMLBuilder:
             goods_description = " ".join(
                 (getattr(item, "goods_description", "") or "").split()
             ).strip()
+            if (
+                content_lines
+                and _is_generic_tariff_text(heading)
+                and not _is_generic_tariff_text(content_lines[0])
+            ):
+                heading = content_lines[0]
+                content_lines = content_lines[1:]
             first_content = content_lines[0].lower() if content_lines else ""
             if first_content and first_content in {
                 heading.lower(),
@@ -1048,10 +1107,28 @@ class AsycudaXMLBuilder:
             }:
                 content_lines = content_lines[1:]
 
-            product_line = ", ".join(content_lines)
-            result_lines = [_clip(heading)]
-            if product_line:
-                result_lines.append(_clip(product_line))
+            result_lines = []
+            description_of_goods = self._build_description_of_goods(item, max_chars)
+            if _normalized_key(heading) != _normalized_key(description_of_goods):
+                result_lines.append(_clip(heading))
+            content_slots = 3 - len(result_lines) - (1 if faktura_lines else 0)
+            if content_slots > 0 and content_lines:
+                if content_slots == 1:
+                    result_lines.append(_clip(", ".join(content_lines)))
+                else:
+                    if (
+                        len(content_lines) > content_slots
+                        and re.search(r"\d", content_lines[-1])
+                        and not re.search(r"\d", content_lines[0])
+                    ):
+                        preserved = content_lines[:content_slots - 1] + [content_lines[-1]]
+                    elif len(content_lines) > content_slots:
+                        preserved = content_lines[:content_slots - 1]
+                        preserved.append(", ".join(content_lines[content_slots - 1:]))
+                    else:
+                        preserved = content_lines
+                    for line in preserved[:content_slots]:
+                        result_lines.append(_clip(line))
             if faktura_lines:
                 result_lines.append(_clip(" ".join(faktura_lines)))
             return "\n".join(line for line in result_lines[:3] if line)
