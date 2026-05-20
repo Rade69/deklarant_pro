@@ -11,7 +11,11 @@ from pathlib import Path
 from typing import Optional
 
 from core.draft.draft import AttachedDocument, DeclarationDraft, NaimenovanjeDraft
-from services.naimenovanja.rub31_builder import build_asycuda_rub31, normalize_tariff_text
+from services.naimenovanja.rub31_builder import (
+    build_asycuda_rub31,
+    is_generic_tariff_text,
+    normalize_tariff_text,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -947,28 +951,42 @@ class AsycudaXMLBuilder:
         return normalize_tariff_text(text)
 
     def _tariff_heading(self, item: "NaimenovanjeDraft") -> str:
-        """Vraća kratki zvanični tarifni heading za ovo naimenovanje."""
+        """Vraća kratki zvanični tarifni heading za ovo naimenovanje.
+
+        Kada je specifičan opis generički ("ostali/ostale"), probava skratiti
+        na 4-cifreni heading koji je uvijek bogatiji.
+        """
         heading = (
             (getattr(item, "tariff_description2", "") or "").strip()
             or (getattr(item, "tariff_description1", "") or "").strip()
         )
-        if not heading:
-            tariff_code = (getattr(item, "tariff_code", "") or "").strip()
-            if len(tariff_code) >= 4:
-                try:
-                    from services.tariff.tarifa_service import trazi_po_kodu
-                    lookup_codes = []
-                    for n in (len(tariff_code), 10, 8, 6, 4):
-                        if len(tariff_code) >= n:
-                            lookup_codes.append(tariff_code[:n])
-                    for code in dict.fromkeys(lookup_codes):
-                        row = trazi_po_kodu(code)
-                        if row:
-                            heading = (row.get("naziv") or "").strip()
-                            if heading:
-                                break
-                except Exception as e:
-                    logger.debug(f"Fallback tariff heading neuspješan za {tariff_code}: {e}")
+        if heading and not is_generic_tariff_text(heading):
+            return self._normalize_tariff_text(heading)
+
+        tariff_code = (getattr(item, "tariff_code", "") or "").strip()
+        if len(tariff_code) >= 4:
+            try:
+                from services.tariff.tarifa_service import trazi_po_kodu
+                lookup_codes = []
+                for n in (len(tariff_code), 10, 8, 6, 4):
+                    if len(tariff_code) >= n:
+                        lookup_codes.append(tariff_code[:n])
+                last_generic = heading
+                for code in dict.fromkeys(lookup_codes):
+                    row = trazi_po_kodu(code)
+                    if row:
+                        candidate = (row.get("naziv") or "").strip()
+                        if not candidate:
+                            continue
+                        if not is_generic_tariff_text(candidate):
+                            heading = candidate
+                            break
+                        last_generic = candidate  # shorter = broader; last = 4-digit
+                else:
+                    # Svi DB kandidati su generički — koristi 4-cifreni heading
+                    heading = last_generic
+            except Exception as e:
+                logger.debug(f"Fallback tariff heading neuspješan za {tariff_code}: {e}")
         return self._normalize_tariff_text(heading)
 
     def _build_description_of_goods(self, item: "NaimenovanjeDraft", max_chars: int = 280) -> str:

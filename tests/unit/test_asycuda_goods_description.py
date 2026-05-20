@@ -1,4 +1,5 @@
 import xml.etree.ElementTree as ET
+from unittest.mock import patch
 
 from core.draft import AttachedDocument, DeclarationDraft, InvoiceLine, NaimenovanjeDraft
 from exporters.asycuda_xml_builder import AsycudaXMLBuilder
@@ -471,3 +472,85 @@ def test_export_warns_but_does_not_block_attached_document_without_reference():
 
     assert root.findtext("./Item/Attached_documents/Attached_document_code") == "N380"
     assert any("N380" in warning for warning in draft.warnings)
+
+
+def test_tariff_heading_falls_back_to_4digit_when_specific_is_generic():
+    # Specifičan pod-tarifni opis je "-- ostali" (generički).
+    # 4-cifreni heading (8516) treba biti korišten kao fallback.
+    draft = DeclarationDraft()
+    item = NaimenovanjeDraft(
+        item_id="1",
+        ordinal_no=1,
+        tariff_code="85168080",
+    )
+
+    db_responses = {
+        "85168080": {"naziv": "-- ostali"},
+        "851680": {"naziv": "- ostali"},
+        "8516": {"naziv": "Električni bojleri, grijači prostorija i tla"},
+    }
+
+    with patch("services.tariff.tarifa_service.trazi_po_kodu", side_effect=lambda k: db_responses.get(k)):
+        heading = AsycudaXMLBuilder(draft)._tariff_heading(item)
+
+    assert heading == "Električni bojleri, grijači prostorija i tla"
+
+
+def test_tariff_heading_prefers_non_generic_over_4digit():
+    # Ako postoji specifičan non-generički opis, ne smiješmo ga zamijeniti 4-cifrenim.
+    draft = DeclarationDraft()
+    item = NaimenovanjeDraft(
+        item_id="1",
+        ordinal_no=1,
+        tariff_code="85164000",
+    )
+
+    db_responses = {
+        "85164000": {"naziv": "Pegle na struju"},
+        "851640": {"naziv": "Pegle na struju"},
+        "8516": {"naziv": "Električni bojleri, grijači prostorija i tla"},
+    }
+
+    with patch("services.tariff.tarifa_service.trazi_po_kodu", side_effect=lambda k: db_responses.get(k)):
+        heading = AsycudaXMLBuilder(draft)._tariff_heading(item)
+
+    assert heading == "Pegle na struju"
+
+
+def test_tariff_heading_uses_non_generic_from_item_fields_without_db():
+    # tariff_description2 je non-generički → nema DB lookup-a
+    draft = DeclarationDraft()
+    item = NaimenovanjeDraft(
+        item_id="1",
+        ordinal_no=1,
+        tariff_code="85168080",
+        tariff_description2="Električni grijači za vodu",
+    )
+
+    with patch("services.tariff.tarifa_service.trazi_po_kodu") as mock_db:
+        heading = AsycudaXMLBuilder(draft)._tariff_heading(item)
+        mock_db.assert_not_called()
+
+    assert heading == "Električni grijači za vodu"
+
+
+def test_tariff_heading_triggers_db_lookup_when_item_field_is_generic():
+    # tariff_description2 je generički ("-- ostali") → mora pokušati DB lookup
+    draft = DeclarationDraft()
+    item = NaimenovanjeDraft(
+        item_id="1",
+        ordinal_no=1,
+        tariff_code="85168080",
+        tariff_description2="-- ostali",
+    )
+
+    db_responses = {
+        "85168080": {"naziv": "-- ostali"},
+        "851680": {"naziv": "- ostali"},
+        "8516": {"naziv": "Električni bojleri, grijači prostorija i tla"},
+    }
+
+    with patch("services.tariff.tarifa_service.trazi_po_kodu", side_effect=lambda k: db_responses.get(k)):
+        heading = AsycudaXMLBuilder(draft)._tariff_heading(item)
+
+    assert heading == "Električni bojleri, grijači prostorija i tla"
