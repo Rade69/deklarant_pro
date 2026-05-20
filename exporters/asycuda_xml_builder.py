@@ -1044,6 +1044,18 @@ class AsycudaXMLBuilder:
         def _commercial_tariff_summary(product_keys: set[str] | None = None) -> str:
             product_keys = product_keys or set()
             normalized_candidates = []
+
+            def _is_product_text(text: str) -> bool:
+                key = _normalized_key(text)
+                if key in product_keys:
+                    return True
+                parts = [
+                    _normalized_key(part.strip(" ,;"))
+                    for part in re.split(r"[;\n]+", text)
+                    if part.strip(" ,;")
+                ]
+                return bool(parts) and all(part in product_keys for part in parts)
+
             for candidate in (
                 getattr(item, "tariff_description1", "") or "",
                 getattr(item, "goods_description", "") or "",
@@ -1051,7 +1063,7 @@ class AsycudaXMLBuilder:
                 tariff_heading,
             ):
                 text = " ".join(self._normalize_tariff_text(candidate).split()).strip()
-                if text and _normalized_key(text) in product_keys:
+                if text and _is_product_text(text):
                     continue
                 if text:
                     normalized_candidates.append(text)
