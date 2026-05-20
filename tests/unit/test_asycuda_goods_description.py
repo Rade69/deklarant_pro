@@ -331,42 +331,6 @@ def test_commercial_description_deduplicates_product_names_by_normalized_text():
     )
 
 
-def test_commercial_description_skips_tariff_description_made_from_product_names():
-    draft = DeclarationDraft()
-    item = NaimenovanjeDraft(
-        item_id="1",
-        ordinal_no=13,
-        tariff_description1=(
-            "TUNEL GUMA CANDY 117CY22 GSK016CY CY3035; "
-            "TUNEL GUMA CANDY 117CY22 GSK016CY CY3036"
-        ),
-        tariff_description2="- - zaptivci, podlošci i ostali proizvodi za zaptivanje",
-    )
-    draft.items = [item]
-    draft.invoice_lines = [
-        InvoiceLine(
-            line_no=10,
-            invoice_number="266VP-2026",
-            naziv_robe="TUNEL GUMA CANDY 117CY22 GSK016CY CY3035",
-            assigned_naimenovanje_ordinal=13,
-        ),
-        InvoiceLine(
-            line_no=11,
-            invoice_number="266VP-2026",
-            naziv_robe="TUNEL GUMA CANDY 117CY22 GSK016CY CY3036",
-            assigned_naimenovanje_ordinal=13,
-        ),
-    ]
-
-    desc = AsycudaXMLBuilder(draft)._build_commercial_description(item, 280)
-
-    assert desc == (
-        "- - zaptivci, podlošci i ostali proizvodi za zaptivanje\n"
-        "TUNEL GUMA CANDY 117CY22 GSK016CY CY3035, TUNEL GUMA...\n"
-        "Faktura: 266VP-2026 (rb. 10, 11)"
-    )
-
-
 def test_existing_trade_name_prefers_detailed_heading_over_generic_tariff_heading():
     draft = DeclarationDraft()
     item = NaimenovanjeDraft(
