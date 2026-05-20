@@ -111,10 +111,11 @@ def _fmt_thousands(v: float) -> str:
 
 
 def _fmt_weight(v: float) -> str:
-    """Formatira težinu: cijeli broj bez decimala (23316), ostalo sa 2 dec. (23316.50)."""
-    if v == int(v):
-        return str(int(v))
-    return f"{v:.2f}"
+    """Formatira težinu bez trailing nula: 23316.0→'23316', 7171.2→'7171.2', 8283.34→'8283.34'."""
+    rounded = round(v, 2)
+    if rounded == int(rounded):
+        return str(int(rounded))
+    return f"{rounded:.2f}".rstrip("0")
 
 
 def _gs_cost_section(
@@ -812,7 +813,7 @@ class AsycudaXMLBuilder:
                 code, qty = su_pairs[i]
                 _val(su_el, "Suppplementary_unit_code", code)
                 _val(su_el, "Suppplementary_unit_name", _SU_NAMES.get(code, code))
-                ET.SubElement(su_el, "Suppplementary_unit_quantity").text = f"{qty:.2f}"
+                ET.SubElement(su_el, "Suppplementary_unit_quantity").text = _fmt_weight(qty)
             else:
                 _null(su_el, "Suppplementary_unit_code")
                 _null(su_el, "Suppplementary_unit_name")
@@ -896,6 +897,11 @@ class AsycudaXMLBuilder:
         ET.SubElement(item_elem, "Quantity_deducted_from_licence")
 
         ft1_val = item.attached_document4 or item.attached_document2 or ""
+        if not ft1_val and item.preference_code:
+            pref_doc_code = _PREF_TO_DOC_CODE.get(item.preference_code, "")
+            origin_ref = item.attached_document1 or ""
+            if pref_doc_code and origin_ref:
+                ft1_val = f"{pref_doc_code} {origin_ref}"
         if ft1_val:
             _val(item_elem, "Free_text_1", ft1_val)
         else:
