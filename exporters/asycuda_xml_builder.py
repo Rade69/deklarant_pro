@@ -5,13 +5,13 @@ Format uskladen sa referentnim XML fajlovima generisanim od strane Asycuda aplik
 """
 
 import logging
-import re
 import xml.etree.ElementTree as ET
 from math import ceil
 from pathlib import Path
 from typing import Optional
 
 from core.draft.draft import AttachedDocument, DeclarationDraft, NaimenovanjeDraft
+from services.naimenovanja.rub31_builder import build_asycuda_rub31, normalize_tariff_text
 
 logger = logging.getLogger(__name__)
 
@@ -944,7 +944,7 @@ class AsycudaXMLBuilder:
         ASYCUDA World očekuje običnu crticu-minus (U+002D).
         Bez ove normalizacije XML sadrži â artefakte.
         """
-        return text.replace("–", "-").replace("−", "-")
+        return normalize_tariff_text(text)
 
     def _tariff_heading(self, item: "NaimenovanjeDraft") -> str:
         """Vraća kratki zvanični tarifni heading za ovo naimenovanje."""
@@ -977,11 +977,12 @@ class AsycudaXMLBuilder:
         ASYCUDA World prikazuje ovaj field kao interni tarifni naziv;
         Commercial_Description nosi komercijalni opis koji se prikazuje u Rub.31.
         """
-        result = " ".join(self._tariff_heading(item).splitlines()).strip()
-        if len(result) > max_chars:
-            result = result[:max_chars - 3] + "..."
-        # Ne vraćati tarifni kod kao fallback — ASYCUDA to ne prepoznaje kao opis
-        return result or "."
+        return build_asycuda_rub31(
+            item=item,
+            invoice_lines=getattr(self.draft, "invoice_lines", None) or [],
+            tariff_heading=self._tariff_heading(item),
+            max_description_chars=max_chars,
+        ).description_of_goods
 
     def _build_commercial_description(self, item: "NaimenovanjeDraft", max_chars: int = 280) -> str:
         """Gradi Commercial_Description za Rub.31 u ASYCUDA World formatu.
@@ -989,111 +990,14 @@ class AsycudaXMLBuilder:
         ASYCUDA World ima fiksni 3-linijski widget od ~55 karaktera po liniji.
         Sadržaj s više od 3 linije ili linijama >55 karaktera ASYCUDA odbaci pri kliku na polje.
 
-        Format — tačno 3 linije, svaka max 55 karaktera:
-            1. Tarifni heading (skraćen na 55 ako je duži)
-            2. Nazivi proizvoda (comma-separated, skraćeni na 55)
-            3. Faktura: X/26 (rb. N)
+        Tarifni opis ide u Description_of_goods, a ovdje idu komercijalni nazivi i faktura.
         """
-        from collections import OrderedDict
-
-        _MAX_LINE = 55  # ASYCUDA World fiksna širina po liniji
-
-        def _clip(text: str) -> str:
-            if len(text) <= _MAX_LINE:
-                return text
-            return text[:_MAX_LINE - 3].rstrip() + "..."
-
-        def _is_generic_tariff_text(text: str) -> bool:
-            normalized = re.sub(r"[^a-zA-ZčćžšđČĆŽŠĐ]", "", text or "").lower()
-            return normalized in {"ostalo", "ostali"}
-
-        def _commercial_tariff_summary() -> str:
-            normalized_candidates = []
-            for candidate in (
-                getattr(item, "tariff_description1", "") or "",
-                getattr(item, "goods_description", "") or "",
-                getattr(item, "tariff_description2", "") or "",
-                tariff_heading,
-            ):
-                text = " ".join(self._normalize_tariff_text(candidate).split()).strip()
-                if text:
-                    normalized_candidates.append(text)
-                if text and not _is_generic_tariff_text(text):
-                    return text
-            return normalized_candidates[0] if normalized_candidates else ""
-
-        def _compact_existing_description(raw: str, tariff_heading: str) -> str:
-            lines = [" ".join(line.split()).strip() for line in raw.splitlines()]
-            lines = [line for line in lines if line]
-            if not lines:
-                return ""
-
-            faktura_lines = [line for line in lines if line.lower().startswith("faktura:")]
-            content_lines = [line for line in lines if not line.lower().startswith("faktura:")]
-
-            heading = tariff_heading or content_lines[0]
-            goods_description = " ".join(
-                (getattr(item, "goods_description", "") or "").split()
-            ).strip()
-            first_content = content_lines[0].lower() if content_lines else ""
-            if first_content and first_content in {
-                heading.lower(),
-                goods_description.lower(),
-            }:
-                content_lines = content_lines[1:]
-
-            product_line = ", ".join(content_lines)
-            result_lines = [_clip(heading)]
-            if product_line:
-                result_lines.append(_clip(product_line))
-            if faktura_lines:
-                result_lines.append(_clip(" ".join(faktura_lines)))
-            return "\n".join(line for line in result_lines[:3] if line)
-
-        ordinal_no = getattr(item, "ordinal_no", None)
-        invoice_lines = getattr(self.draft, "invoice_lines", None) or []
-        tariff_heading = " ".join(self._tariff_heading(item).splitlines()).strip()
-        commercial_summary = _commercial_tariff_summary()
-
-        assigned = [
-            l for l in invoice_lines
-            if getattr(l, "assigned_naimenovanje_ordinal", None) == ordinal_no
-        ] if ordinal_no is not None else []
-
-        if assigned:
-            seen: set = set()
-            product_names = []
-            for l in assigned:
-                name = (getattr(l, "naziv_robe", "") or "").strip()
-                if name and name not in seen:
-                    seen.add(name)
-                    product_names.append(name)
-
-            fakture: dict = OrderedDict()
-            for l in assigned:
-                inv = getattr(l, "invoice_number", "") or "?"
-                if inv not in fakture:
-                    fakture[inv] = []
-                fakture[inv].append(str(getattr(l, "line_no", "")))
-            fakture_dio = "Faktura: " + ", ".join(
-                f"{inv} (rb. {', '.join(rb_list)})" for inv, rb_list in fakture.items()
-            )
-
-            line1 = _clip(commercial_summary) if commercial_summary else ""
-            line2 = _clip(", ".join(product_names)) if product_names else ""
-            line3 = _clip(fakture_dio)
-
-            parts = [p for p in (line1, line2, line3) if p]
-            result = "\n".join(parts)
-        else:
-            trade_name = (getattr(item, "goods_trade_name", "") or
-                          getattr(item, "goods_description", "") or "").strip()
-            raw = trade_name or tariff_heading
-            result = _compact_existing_description(raw, commercial_summary) if raw else ""
-
-        if len(result) > max_chars:
-            result = result[:max_chars - 3].rstrip() + "..."
-        return result or "."
+        return build_asycuda_rub31(
+            item=item,
+            invoice_lines=getattr(self.draft, "invoice_lines", None) or [],
+            tariff_heading=self._tariff_heading(item),
+            max_description_chars=max_chars,
+        ).commercial_description
 
     def _fill_item_valuation(
         self,
