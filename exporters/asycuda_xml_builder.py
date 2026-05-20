@@ -111,11 +111,8 @@ def _fmt_thousands(v: float) -> str:
 
 
 def _fmt_weight(v: float) -> str:
-    """Formatira težinu bez trailing nula: 23316.0→'23316', 7171.2→'7171.2', 8283.34→'8283.34'."""
-    rounded = round(v, 2)
-    if rounded == int(rounded):
-        return str(int(rounded))
-    return f"{rounded:.2f}".rstrip("0")
+    """Formatira težinu sa 2 decimale: 516.0→'516.00', 6.28→'6.28', 7171.2→'7171.20'."""
+    return f"{round(v, 2):.2f}"
 
 
 def _gs_cost_section(

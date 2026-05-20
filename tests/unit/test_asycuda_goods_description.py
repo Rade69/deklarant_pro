@@ -301,8 +301,8 @@ def test_valuation_total_invoice_uses_foreign_currency_and_total_weight_uses_gro
 
     assert root.findtext("./Valuation/Total/Total_invoice") == "9521.50"
     assert root.findtext("./Valuation/Gs_Invoice/Amount_national_currency") == "18622.44"
-    assert root.findtext("./Valuation/Total/Total_weight") == "170"
-    assert root.findtext("./Valuation/Weight/Gross_weight") == "170"
+    assert root.findtext("./Valuation/Total/Total_weight") == "170.00"
+    assert root.findtext("./Valuation/Weight/Gross_weight") == "170.00"
 
 
 def test_multiple_origin_header_exports_many_marker():
