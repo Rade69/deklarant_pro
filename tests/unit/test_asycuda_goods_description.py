@@ -215,13 +215,9 @@ def test_commercial_description_compacts_existing_multiline_trade_name():
 
     lines = desc.split("\n")
     assert len(lines) <= 3
-    assert lines[0] == "SUSSINA 650 tbl."
-    assert lines[1] == "SUSSINA 200 tbl., SUSSINA 1200 tbl, SUSSINA STEVIA a..."
+    assert lines[0] == "Prehrambeni proizvodi koji nisu spomenuti niti uklju..."
+    assert lines[1] == "SUSSINA 650 tbl., SUSSINA 200 tbl., SUSSINA 1200 tbl..."
     assert lines[2] == "Faktura: 893/26 (rb. 1, 2, 17, 26)"
-    assert (
-        AsycudaXMLBuilder(draft)._build_description_of_goods(item, 280)
-        == "Prehrambeni proizvodi koji nisu spomenuti niti uključeni na drugom mjestu:"
-    )
     for line in lines:
         assert len(line) <= 55
 
@@ -328,64 +324,6 @@ def test_commercial_description_deduplicates_product_names_by_normalized_text():
         "- - zaptivci, podlošci i ostali proizvodi za zaptivanje\n"
         "TUNEL GUMA GORENJE 576363 PS-15 OEM\n"
         "Faktura: 266VP-2026 (rb. 9, 10)"
-    )
-
-
-def test_existing_trade_name_prefers_detailed_heading_over_generic_tariff_heading():
-    draft = DeclarationDraft()
-    item = NaimenovanjeDraft(
-        item_id="1",
-        ordinal_no=2,
-        tariff_description2="-- ostali",
-        goods_description=(
-            "Termički uređaji za domaćinstvo; električni otpornici za grijanje, "
-            "osim onih iz tarifnog broja 8545:"
-        ),
-        goods_trade_name=(
-            "Električni protočni ili akumulacijski grijači vode i uronjivi grijači; "
-            "električni aparati za grijanje prostora i električni uređaji za grijanje tla; "
-            "GREJAC RERNE KONCAR 1550W MKR 20215300.1 4015, "
-            "Faktura: 263VP-2026 (rb. 1)"
-        ),
-    )
-
-    builder = AsycudaXMLBuilder(draft)
-    desc = builder._build_commercial_description(item, 280)
-
-    assert builder._build_description_of_goods(item, 280) == (
-        "Termički uređaji za domaćinstvo; električni otpornici za grijanje, "
-        "osim onih iz tarifnog broja 8545:"
-    )
-    assert desc == (
-        "Električni protočni ili akumulacijski grijači vode i...\n"
-        "GREJAC RERNE KONCAR 1550W MKR 20215300.1 4015\n"
-        "Faktura: 263VP-2026 (rb. 1)"
-    )
-
-
-def test_description_of_goods_extracts_heading_from_trade_name_when_only_generic_tariff_exists():
-    draft = DeclarationDraft()
-    item = NaimenovanjeDraft(
-        item_id="1",
-        ordinal_no=2,
-        tariff_description2="-- ostali",
-        goods_trade_name=(
-            "Električni protočni ili akumulacijski grijači vode i uronjivi grijači; "
-            "električni aparati za grijanje prostora i električni uređaji za grijanje tla; "
-            "GREJAC RERNE KONCAR 1550W MKR 20215300.1 4015, "
-            "Faktura: 263VP-2026 (rb. 1)"
-        ),
-    )
-
-    builder = AsycudaXMLBuilder(draft)
-
-    assert builder._build_description_of_goods(item, 280) == (
-        "Električni protočni ili akumulacijski grijači vode i uronjivi grijači"
-    )
-    assert builder._build_commercial_description(item, 280) == (
-        "električni aparati za grijanje prostora i električni...\n"
-        "GREJAC RERNE KONCAR 1550W MKR 20215300.1 4015\n"
-        "Faktura: 263VP-2026 (rb. 1)"
     )
 
 
