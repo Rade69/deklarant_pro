@@ -5,6 +5,7 @@ Format uskladen sa referentnim XML fajlovima generisanim od strane Asycuda aplik
 """
 
 import logging
+import re
 import xml.etree.ElementTree as ET
 from math import ceil
 from pathlib import Path
@@ -992,9 +993,57 @@ class AsycudaXMLBuilder:
                 return text
             return text[:_MAX_LINE - 3].rstrip() + "..."
 
+        def _is_generic_tariff_text(text: str) -> bool:
+            normalized = re.sub(r"[^a-zA-ZčćžšđČĆŽŠĐ]", "", text or "").lower()
+            return normalized in {"ostalo", "ostali"}
+
+        def _commercial_tariff_summary() -> str:
+            normalized_candidates = []
+            for candidate in (
+                getattr(item, "tariff_description1", "") or "",
+                getattr(item, "goods_description", "") or "",
+                getattr(item, "tariff_description2", "") or "",
+                tariff_heading,
+            ):
+                text = " ".join(self._normalize_tariff_text(candidate).split()).strip()
+                if text:
+                    normalized_candidates.append(text)
+                if text and not _is_generic_tariff_text(text):
+                    return text
+            return normalized_candidates[0] if normalized_candidates else ""
+
+        def _compact_existing_description(raw: str, tariff_heading: str) -> str:
+            lines = [" ".join(line.split()).strip() for line in raw.splitlines()]
+            lines = [line for line in lines if line]
+            if not lines:
+                return ""
+
+            faktura_lines = [line for line in lines if line.lower().startswith("faktura:")]
+            content_lines = [line for line in lines if not line.lower().startswith("faktura:")]
+
+            heading = tariff_heading or content_lines[0]
+            goods_description = " ".join(
+                (getattr(item, "goods_description", "") or "").split()
+            ).strip()
+            first_content = content_lines[0].lower() if content_lines else ""
+            if first_content and first_content in {
+                heading.lower(),
+                goods_description.lower(),
+            }:
+                content_lines = content_lines[1:]
+
+            product_line = ", ".join(content_lines)
+            result_lines = [_clip(heading)]
+            if product_line:
+                result_lines.append(_clip(product_line))
+            if faktura_lines:
+                result_lines.append(_clip(" ".join(faktura_lines)))
+            return "\n".join(line for line in result_lines[:3] if line)
+
         ordinal_no = getattr(item, "ordinal_no", None)
         invoice_lines = getattr(self.draft, "invoice_lines", None) or []
         tariff_heading = " ".join(self._tariff_heading(item).splitlines()).strip()
+        commercial_summary = _commercial_tariff_summary()
 
         assigned = [
             l for l in invoice_lines
@@ -1020,7 +1069,7 @@ class AsycudaXMLBuilder:
                 f"{inv} (rb. {', '.join(rb_list)})" for inv, rb_list in fakture.items()
             )
 
-            line1 = _clip(tariff_heading) if tariff_heading else ""
+            line1 = _clip(commercial_summary) if commercial_summary else ""
             line2 = _clip(", ".join(product_names)) if product_names else ""
             line3 = _clip(fakture_dio)
 
@@ -1030,7 +1079,7 @@ class AsycudaXMLBuilder:
             trade_name = (getattr(item, "goods_trade_name", "") or
                           getattr(item, "goods_description", "") or "").strip()
             raw = trade_name or tariff_heading
-            result = _clip(raw) if raw else ""
+            result = _compact_existing_description(raw, commercial_summary) if raw else ""
 
         if len(result) > max_chars:
             result = result[:max_chars - 3].rstrip() + "..."

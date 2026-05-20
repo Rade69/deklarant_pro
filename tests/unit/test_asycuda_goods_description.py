@@ -171,6 +171,102 @@ def test_commercial_description_includes_all_names_when_they_fit():
     assert desc == "- - ostalo\nRoba A, Roba B\nFaktura: 893/26 (rb. 1, 2)"
 
 
+def test_commercial_description_prefers_precise_tariff_summary():
+    draft = DeclarationDraft()
+    item = NaimenovanjeDraft(
+        item_id="1",
+        ordinal_no=1,
+        tariff_description1="Kobasice i sl.proizvodi od mesa;ostalo,ostalo",
+        tariff_description2="- - ostalo",
+    )
+    draft.items = [item]
+    draft.invoice_lines = [
+        InvoiceLine(
+            line_no=1,
+            invoice_number="0504-3-2000-00016",
+            naziv_robe="ŠUNKA,PICA ŠUNKA",
+            assigned_naimenovanje_ordinal=1,
+        ),
+    ]
+
+    desc = AsycudaXMLBuilder(draft)._build_commercial_description(item, 280)
+
+    assert desc.splitlines()[0] == "Kobasice i sl.proizvodi od mesa;ostalo,ostalo"
+
+
+def test_commercial_description_compacts_existing_multiline_trade_name():
+    draft = DeclarationDraft()
+    item = NaimenovanjeDraft(
+        item_id="1",
+        ordinal_no=1,
+        goods_description="Prehrambeni proizvodi koji nisu spomenuti niti uključeni na drugom mjestu:",
+        tariff_description2="- - - ostali",
+        goods_trade_name=(
+            "Prehrambeni proizvodi koji nisu spomenuti niti uključeni na drugom mjestu:\n"
+            "SUSSINA 650 tbl.\n"
+            "SUSSINA 200 tbl.\n"
+            "SUSSINA 1200 tbl\n"
+            "SUSSINA STEVIA a200 tbl\n"
+            "Faktura: 893/26 (rb. 1, 2, 17, 26)"
+        ),
+    )
+
+    desc = AsycudaXMLBuilder(draft)._build_commercial_description(item, 280)
+
+    lines = desc.split("\n")
+    assert len(lines) <= 3
+    assert lines[0] == "Prehrambeni proizvodi koji nisu spomenuti niti uklju..."
+    assert lines[1] == "SUSSINA 650 tbl., SUSSINA 200 tbl., SUSSINA 1200 tbl..."
+    assert lines[2] == "Faktura: 893/26 (rb. 1, 2, 17, 26)"
+    for line in lines:
+        assert len(line) <= 55
+
+
+def test_commercial_description_uses_goods_description_when_tariff_heading_is_generic():
+    draft = DeclarationDraft()
+    item = NaimenovanjeDraft(
+        item_id="1",
+        ordinal_no=1,
+        goods_description="Prehrambeni proizvodi koji nisu spomenuti niti uključeni na drugom mjestu:",
+        tariff_description2="- - - ostali",
+    )
+    draft.items = [item]
+    draft.invoice_lines = [
+        InvoiceLine(
+            line_no=1,
+            invoice_number="893/26",
+            naziv_robe="SUSSINA 650 tbl.",
+            assigned_naimenovanje_ordinal=1,
+        ),
+        InvoiceLine(
+            line_no=2,
+            invoice_number="893/26",
+            naziv_robe="SUSSINA 200 tbl.",
+            assigned_naimenovanje_ordinal=1,
+        ),
+        InvoiceLine(
+            line_no=17,
+            invoice_number="893/26",
+            naziv_robe="SUSSINA 1200 tbl",
+            assigned_naimenovanje_ordinal=1,
+        ),
+        InvoiceLine(
+            line_no=26,
+            invoice_number="893/26",
+            naziv_robe="SUSSINA STEVIA a200 tbl",
+            assigned_naimenovanje_ordinal=1,
+        ),
+    ]
+
+    desc = AsycudaXMLBuilder(draft)._build_commercial_description(item, 280)
+
+    assert desc == (
+        "Prehrambeni proizvodi koji nisu spomenuti niti uklju...\n"
+        "SUSSINA 650 tbl., SUSSINA 200 tbl., SUSSINA 1200 tbl...\n"
+        "Faktura: 893/26 (rb. 1, 2, 17, 26)"
+    )
+
+
 def test_description_of_goods_returns_dot_not_tariff_code_when_no_heading():
     # Kada nema opisa, vraća "." — ne tarifni kod koji ASYCUDA ne prepoznaje kao tekst
     draft = DeclarationDraft()

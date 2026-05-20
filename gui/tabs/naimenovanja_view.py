@@ -68,7 +68,7 @@ from services.tariff_controls_service import check_tariff_controls, get_required
 from gui.tabs.base_view import BaseTabView
 from gui.dialogs.inspection_dialog import InspectionDialog
 
-from core.draft import DeclarationDraft, NaimenovanjeDraft
+from core.draft import AttachedDocument, DeclarationDraft, NaimenovanjeDraft
 
 _PE_DOC_CODES = {"PE1", "PE2", "PE3"}
 
@@ -243,6 +243,7 @@ class NaimenovanjaView(BaseTabView):
 
         # 6.5 Setup "apply to all" visual indicators and signals
         self._setup_apply_to_all_indicators()
+        self._setup_rb44_pd_codes_field()
         self._connect_special_field_signals()
 
         # 6.6 Postavi redosljed Tab navigacije
@@ -349,8 +350,7 @@ class NaimenovanjaView(BaseTabView):
             # Rubrika 43 M.V. — šifra dopunske mjerne jedinice
             "le_rubrika43": "supplementary_unit_code",
             # Rubrika 44 – P.D. kodovi + priložene isprave + formula troškova
-            "le_rubrika44_1": "pd_codes",             # P.D. šifre iz zaglavlja (from_rule, auto, read-only)
-            "le_rubrika44_3": "attached_document1",   # dokument porijekla (ref. br.)
+            "le_rubrika44_1": "pd_codes",             # P.D. šifre iz priloženih dokumenata (auto, read-only)
             "le_rubrika44_4": "attached_document4",   # master polje (PE1/PE2 + broj)
             "le_rubrika44_5": "attached_document5",   # slobodno polje (nije auto-obračun)
             # Rubrika 45
@@ -404,6 +404,8 @@ class NaimenovanjaView(BaseTabView):
 
     def _get_item_field_value(self, item, field_name: str):
         if field_name == "statistical_value":
+            if float(item.statistical_value or 0) > 0:
+                return item.statistical_value
             return self._compute_statistical_value(item)
         if field_name == "pd_codes":
             return self._compute_pd_codes(item)
@@ -889,6 +891,7 @@ class NaimenovanjaView(BaseTabView):
         self.te_trg_naziv.setVisible(True)
         self.te_trg_naziv.show()
         self.te_trg_naziv.raise_()
+        self.widget_cache["le_r31_trg_naziv"] = self.te_trg_naziv
 
         # Ukloni stari widget
         old_widget.setParent(None)
@@ -2018,12 +2021,10 @@ class NaimenovanjaView(BaseTabView):
 
         # Novo: Popuni trgovački naziv sa svim stavkama koje pripadaju naimenovanju
         if hasattr(self, "te_trg_naziv"):
-            self.te_trg_naziv.clear()  # Obriši postojeći sadržaj
             # Formatuj sve nazive proizvoda iz fakture koji pripadaju ovom naimenovanju
             trading_names = self._format_trading_names()
-            self.te_trg_naziv.setPlainText(
-                trading_names
-            )  # QTextEdit koristi setPlainText
+            if trading_names:
+                self.te_trg_naziv.setPlainText(trading_names)
 
     def _format_trading_names(self, max_chars: int = 280) -> str:
         # docs/sections/export-pdf-excel.md — dodaje footer sa Faktura: info
@@ -2128,22 +2129,27 @@ class NaimenovanjaView(BaseTabView):
             return 0.0
 
     def _compute_pd_codes(self, item=None) -> str:
-        """Rb.44 P.D. — šifre from_rule priloženih dokumenata iz zaglavlja (N380 DIS DV1).
+        """Rb.44 P.D. — objedinjene šifre from_rule priloženih dokumenata.
 
         PE1/PE2/PE3 se prikazuju samo ako naimenovanje ima povlasticu (Rub.36),
         jer Rub.44 ne smije biti popunjena ako Rub.36 nije.
         """
-        header_docs = getattr(self.draft, "header_attached_documents", []) or []
-        has_pref = bool(item and (getattr(item, 'preference_code', '') or '').strip())
-        current_pe_code = _pe_doc_code(getattr(item, "attached_document4", "") or "")
-        codes = [
-            doc.code for doc in header_docs
-            if getattr(doc, "from_rule", False) and doc.code
-            and (
-                doc.code not in _PE_DOC_CODES
-                or (has_pref and doc.code == current_pe_code)
-            )
-        ]
+        docs = []
+        docs.extend(getattr(self.draft, "header_attached_documents", []) or [])
+        if item is not None:
+            docs.extend(getattr(item, "attached_documents", []) or [])
+
+        codes = []
+        seen = set()
+        for doc in docs:
+            code = (getattr(doc, "code", "") or "").strip().upper()
+            if not code or not getattr(doc, "from_rule", False):
+                continue
+            if code in _PE_DOC_CODES:
+                continue
+            if code not in seen:
+                seen.add(code)
+                codes.append(code)
         return " ".join(codes)
 
     def _compute_statistical_value(self, item) -> str:
@@ -2158,6 +2164,60 @@ class NaimenovanjaView(BaseTabView):
         ext_freight = t1 * alpha
         stat_val = round(item_value * kurs, 2) + ext_freight
         return f"{stat_val:.2f}"
+
+    def _setup_rb44_pd_codes_field(self) -> None:
+        field = self._get_widget("le_rubrika44_1")
+        obsolete = self._get_widget("le_rubrika44_3")
+        if not field:
+            return
+
+        if obsolete:
+            left = min(field.x(), obsolete.x())
+            top = min(field.y(), obsolete.y())
+            right = max(field.x() + field.width(), obsolete.x() + obsolete.width())
+            height = max(field.height(), obsolete.height())
+            field.setGeometry(left, top, right - left, height)
+            obsolete.hide()
+            obsolete.setEnabled(False)
+
+        field.setReadOnly(True)
+        field.setPlaceholderText("Šifre priloženih dokumenata")
+        field.setToolTip("Rb.44 — šifre priloženih dokumenata koje ASYCUDA prikazuje u jednoj liniji.")
+
+    def _apply_xml_import_global_documents(self, items: list[NaimenovanjeDraft]) -> None:
+        global_docs = []
+        seen = set()
+        master_pe = ""
+
+        for item in items:
+            for doc in getattr(item, "attached_documents", []) or []:
+                code = (getattr(doc, "code", "") or "").strip().upper()
+                number = (getattr(doc, "number", "") or "").strip()
+                if not code:
+                    continue
+                key = (code, number)
+                if key not in seen:
+                    seen.add(key)
+                    global_docs.append(
+                        AttachedDocument(
+                            code=code,
+                            name=getattr(doc, "name", "") or "",
+                            number=number,
+                            from_rule=getattr(doc, "from_rule", False),
+                        )
+                    )
+                if code in _PE_DOC_CODES and not master_pe:
+                    master_pe = _normalize_pe_document_text(f"{code} {number}".strip())
+
+        if global_docs:
+            self.draft.header_attached_documents = global_docs
+
+        if master_pe:
+            for item in items:
+                if (getattr(item, "preference_code", "") or "").strip() and not (
+                    getattr(item, "attached_document4", "") or ""
+                ).strip():
+                    item.attached_document4 = master_pe
 
     def _load_current_item(self) -> None:
         """Load current item from draft into form fields"""
@@ -2757,7 +2817,6 @@ class NaimenovanjaView(BaseTabView):
             w("le_rubrika42"),
             w("le_rubrika43"),
             # Rb.44
-            w("le_rubrika44_3"),
             w("le_rubrika44_4"),
             w("le_rubrika44_5"),
             # Rb.45/46
@@ -3078,6 +3137,7 @@ class NaimenovanjaView(BaseTabView):
                 return
 
             # 3. Zamijeni draft.items
+            self._apply_xml_import_global_documents(items)
             self.draft.items = items
             self.draft.mark_dirty()
 

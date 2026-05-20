@@ -1200,6 +1200,38 @@ class ZaglavljeService:
                 return el.text.strip()
             return ""
 
+        def _compact_imported_commercial_description(raw: str, goods_description: str) -> str:
+            lines = [" ".join(line.split()).strip() for line in (raw or "").splitlines()]
+            lines = [line for line in lines if line]
+            if len(lines) <= 3:
+                return raw
+
+            max_line = 55
+
+            def _clip(text: str) -> str:
+                if len(text) <= max_line:
+                    return text
+                return text[:max_line - 3].rstrip() + "..."
+
+            faktura_lines = [line for line in lines if line.lower().startswith("faktura:")]
+            content_lines = [line for line in lines if not line.lower().startswith("faktura:")]
+            goods_summary = " ".join((goods_description or "").split()).strip()
+            heading = goods_summary or content_lines[0]
+            first_content = content_lines[0].lower() if content_lines else ""
+            if first_content and first_content == goods_summary.lower():
+                content_lines = content_lines[1:]
+            elif content_lines:
+                heading = content_lines[0]
+                content_lines = content_lines[1:]
+
+            result_lines = [_clip(heading)]
+            product_line = ", ".join(content_lines)
+            if product_line:
+                result_lines.append(_clip(product_line))
+            if faktura_lines:
+                result_lines.append(_clip(" ".join(faktura_lines)))
+            return "\n".join(line for line in result_lines[:3] if line)
+
         items = []
         item_tag = f"{{{ns.get('n', '')}}}Item" if ns else "Item"
 
@@ -1229,6 +1261,13 @@ class ZaglavljeService:
             if gd_el is not None:
                 goods_description = _txt(gd_el, "Description_of_goods")
                 goods_trade_name = _txt(gd_el, "Commercial_Description")
+                if not goods_trade_name:
+                    goods_trade_name = goods_description
+                else:
+                    goods_trade_name = _compact_imported_commercial_description(
+                        goods_trade_name,
+                        goods_description,
+                    )
                 origin_country_code = _txt(gd_el, "Country_of_origin_code")
                 origin_country_name = _txt(gd_el, "Country_of_origin_name")
             else:
@@ -1331,26 +1370,42 @@ class ZaglavljeService:
                 item_value = 0.0
 
             # ── Rb.44 — Priloženi dokumenti ────────────────
+            attached_doc_item_codes = {
+                code.strip().upper()
+                for code in (_txt(tarif_el, "Attached_doc_item") if tarif_el is not None else "").split()
+                if code.strip()
+            }
             attached_documents = []
             attached_doc_fields = [""] * 5
-            doc_idx = 0
+            non_pe_slots = [0, 1, 2, 4]
+            pe_codes = {"PE1", "PE2", "PE3"}
+
+            def _format_item_doc(code: str, ref: str) -> str:
+                return f"{code} ({ref})" if ref else code
+
+            def _format_pe_doc(code: str, ref: str) -> str:
+                if ref.upper().startswith(f"{code} "):
+                    return ref
+                return f"{code} {ref}".strip()
+
             for att_el in item_el.iter(
                 f"{{{ns.get('n', '')}}}Attached_documents" if ns else "Attached_documents"
             ):
-                code = _txt(att_el, "Attached_document_code")
+                code = _txt(att_el, "Attached_document_code").upper()
                 name = _txt(att_el, "Attached_document_name")
                 ref = _txt(att_el, "Attached_document_reference")
                 from_rule_str = _txt(att_el, "Attached_document_from_rule")
-                from_rule = from_rule_str == "1" if from_rule_str else False
+                from_rule = from_rule_str == "1" if from_rule_str else code in attached_doc_item_codes
                 if code:
                     attached_documents.append(
                         AttachedDocument(
                             code=code, name=name, number=ref, from_rule=from_rule
                         )
                     )
-                    if doc_idx < 5:
-                        attached_doc_fields[doc_idx] = f"{code} ({ref})" if ref else code
-                        doc_idx += 1
+                    if code in pe_codes:
+                        attached_doc_fields[3] = _format_pe_doc(code, ref)
+                    elif non_pe_slots:
+                        attached_doc_fields[non_pe_slots.pop(0)] = _format_item_doc(code, ref)
 
             # ── Valuta — iz Item_Invoice ili header Financial ────────────────
             currency = ""

@@ -165,3 +165,155 @@ def test_parse_naimenovanja_empty_xml():
         assert items == []
     finally:
         os.unlink(filepath)
+
+
+def test_parse_naimenovanja_uses_description_as_trade_name_when_commercial_missing():
+    service = ZaglavljeService()
+
+    xml = """<?xml version="1.0"?>
+<Declaration>
+    <Item>
+        <Goods_description>
+            <Description_of_goods>Opis robe iz XML-a</Description_of_goods>
+            <Country_of_origin_code>AT</Country_of_origin_code>
+        </Goods_description>
+        <Tarification>
+            <Commodity_code>21069098</Commodity_code>
+        </Tarification>
+    </Item>
+</Declaration>
+"""
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.xml', delete=False) as f:
+        f.write(xml)
+        f.flush()
+        filepath = f.name
+
+    try:
+        items = service.parse_naimenovanja_from_xml(filepath)
+
+        assert len(items) == 1
+        assert items[0].goods_description == "Opis robe iz XML-a"
+        assert items[0].goods_trade_name == "Opis robe iz XML-a"
+    finally:
+        os.unlink(filepath)
+
+
+def test_parse_naimenovanja_maps_pe_document_to_master_rub44_field():
+    service = ZaglavljeService()
+
+    xml = """<?xml version="1.0"?>
+<Declaration>
+    <Item>
+        <Goods_description>
+            <Description_of_goods>Opis robe</Description_of_goods>
+        </Goods_description>
+        <Attached_documents>
+            <Attached_document_code>N003</Attached_document_code>
+            <Attached_document_name>Kontrola</Attached_document_name>
+            <Attached_document_reference>1</Attached_document_reference>
+        </Attached_documents>
+        <Attached_documents>
+            <Attached_document_code>PE1</Attached_document_code>
+            <Attached_document_name>EUR.1 obrazac</Attached_document_name>
+            <Attached_document_reference>123</Attached_document_reference>
+        </Attached_documents>
+        <Attached_documents>
+            <Attached_document_code>AGL</Attached_document_code>
+            <Attached_document_name>Dozvola</Attached_document_name>
+            <Attached_document_reference>1</Attached_document_reference>
+        </Attached_documents>
+    </Item>
+</Declaration>
+"""
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.xml', delete=False) as f:
+        f.write(xml)
+        f.flush()
+        filepath = f.name
+
+    try:
+        items = service.parse_naimenovanja_from_xml(filepath)
+        item = items[0]
+
+        assert item.attached_document1 == "N003 (1)"
+        assert item.attached_document2 == "AGL (1)"
+        assert item.attached_document4 == "PE1 123"
+    finally:
+        os.unlink(filepath)
+
+
+def test_parse_naimenovanja_marks_attached_doc_item_codes_as_from_rule():
+    service = ZaglavljeService()
+
+    xml = """<?xml version="1.0"?>
+<Declaration>
+    <Item>
+        <Tarification>
+            <Attached_doc_item>N380 DIS N853</Attached_doc_item>
+        </Tarification>
+        <Attached_documents>
+            <Attached_document_code>N380</Attached_document_code>
+            <Attached_document_name>Faktura</Attached_document_name>
+            <Attached_document_reference>893/26</Attached_document_reference>
+        </Attached_documents>
+        <Attached_documents>
+            <Attached_document_code>OST</Attached_document_code>
+            <Attached_document_name>Prethodni dokument</Attached_document_name>
+            <Attached_document_reference>SP1</Attached_document_reference>
+        </Attached_documents>
+    </Item>
+</Declaration>
+"""
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.xml', delete=False) as f:
+        f.write(xml)
+        f.flush()
+        filepath = f.name
+
+    try:
+        item = service.parse_naimenovanja_from_xml(filepath)[0]
+
+        docs = {doc.code: doc.from_rule for doc in item.attached_documents}
+        assert docs["N380"] is True
+        assert docs["OST"] is False
+    finally:
+        os.unlink(filepath)
+
+
+def test_parse_naimenovanja_compacts_multiline_commercial_description_for_rb31():
+    service = ZaglavljeService()
+
+    xml = """<?xml version="1.0"?>
+<Declaration>
+    <Item>
+        <Goods_description>
+            <Description_of_goods>- - - ostali</Description_of_goods>
+            <Commercial_Description>Prehrambeni proizvodi koji nisu spomenuti niti uključeni na drugom mjestu:
+SUSSINA 650 tbl.
+SUSSINA 200 tbl.
+SUSSINA 1200 tbl
+SUSSINA STEVIA a200 tbl
+Faktura: 893/26 (rb. 1, 2, 17, 26)</Commercial_Description>
+        </Goods_description>
+        <Tarification>
+            <Commodity_code>21069098</Commodity_code>
+        </Tarification>
+    </Item>
+</Declaration>
+"""
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.xml', delete=False) as f:
+        f.write(xml)
+        f.flush()
+        filepath = f.name
+
+    try:
+        item = service.parse_naimenovanja_from_xml(filepath)[0]
+
+        lines = item.goods_trade_name.splitlines()
+        assert lines == [
+            "Prehrambeni proizvodi koji nisu spomenuti niti uklju...",
+            "SUSSINA 650 tbl., SUSSINA 200 tbl., SUSSINA 1200 tbl...",
+            "Faktura: 893/26 (rb. 1, 2, 17, 26)",
+        ]
+        for line in lines:
+            assert len(line) <= 55
+    finally:
+        os.unlink(filepath)

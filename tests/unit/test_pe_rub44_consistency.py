@@ -63,6 +63,44 @@ def test_pd_codes_does_not_show_pe1_when_item_has_pe2_master_doc():
     assert view._compute_pd_codes(item) == "N380"
 
 
+def test_pd_codes_uses_item_attached_documents_in_single_rb44_line():
+    view = NaimenovanjaView.__new__(NaimenovanjaView)
+    view.draft = DeclarationDraft()
+    item = NaimenovanjeDraft(item_id="1", ordinal_no=1)
+    item.attached_documents = [
+        AttachedDocument(code="OST", name="Prethodni dokument", number="SP1", from_rule=False),
+        AttachedDocument(code="N380", name="Faktura", number="1", from_rule=True),
+        AttachedDocument(code="DIS", name="Dispozicija", number="D1", from_rule=True),
+        AttachedDocument(code="PE1", name="EUR.1", number="A", from_rule=True),
+        AttachedDocument(code="N853", name="Uvjerenje", number="U1", from_rule=True),
+    ]
+
+    assert view._compute_pd_codes(item) == "N380 DIS N853"
+
+
+def test_xml_import_global_documents_apply_to_all_preferential_items():
+    view = NaimenovanjaView.__new__(NaimenovanjaView)
+    view.draft = DeclarationDraft()
+    items = [
+        NaimenovanjeDraft(
+            item_id="1",
+            ordinal_no=1,
+            preference_code="EUPR",
+            attached_document4="PE1 A",
+            attached_documents=[
+                AttachedDocument(code="PE1", name="EUR.1", number="A", from_rule=True),
+                AttachedDocument(code="N853", name="Uvjerenje", number="1", from_rule=True),
+            ],
+        ),
+        NaimenovanjeDraft(item_id="2", ordinal_no=2, preference_code="EUPR"),
+    ]
+
+    view._apply_xml_import_global_documents(items)
+
+    assert items[1].attached_document4 == "PE1 A"
+    assert view._compute_pd_codes(items[1]) == "N853"
+
+
 def test_zaglavlje_sync_prefers_master_pe_doc_over_stale_secondary_pe():
     controller = ZaglavljeController.__new__(ZaglavljeController)
     draft = DeclarationDraft()
