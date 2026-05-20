@@ -110,6 +110,13 @@ def _fmt_thousands(v: float) -> str:
     return f"{v:.2f}"
 
 
+def _fmt_weight(v: float) -> str:
+    """Formatira težinu: cijeli broj bez decimala (23316), ostalo sa 2 dec. (23316.50)."""
+    if v == int(v):
+        return str(int(v))
+    return f"{v:.2f}"
+
+
 def _gs_cost_section(
     parent: ET.Element,
     tag: str,
@@ -606,7 +613,7 @@ class AsycudaXMLBuilder:
         total_gross = sum(item.gross_mass_kg or 0.0 for item in self.draft.items)
         gross_w = ET.SubElement(weight, "Gross_weight")
         if total_gross:
-            gross_w.text = f"{total_gross:.2f}"
+            gross_w.text = _fmt_weight(total_gross)
 
         t1_eur = _parse_cost(self._g("trosak_1"))  # unesen iznos (EUR ili BAM)
         t2 = _parse_cost(self._g("trosak_2"))
@@ -669,7 +676,7 @@ class AsycudaXMLBuilder:
             ti.text = f"{iznos:.2f}"
         tw = ET.SubElement(total, "Total_weight")
         if total_gross:
-            tw.text = f"{total_gross:.2f}"
+            tw.text = _fmt_weight(total_gross)
 
     # ─────────────────────────────────────────────────────────────
     # Item sekcije
@@ -693,7 +700,7 @@ class AsycudaXMLBuilder:
                         code=pref_doc_code,
                         name=_PREF_TO_DOC_NAME.get(pref_doc_code, ""),
                         number=origin_ref,
-                        from_rule=True,
+                        from_rule=False,  # PE/EUR.1 nisu from_rule — dolaze prije N380/DIS/DV1
                     ))
 
         # Sortiraj: non-from_rule dokumenti idu prije from_rule (ASYCUDA standard)
@@ -835,12 +842,12 @@ class AsycudaXMLBuilder:
             f"-{_fmt_thousands(_vi_ded)}"
         )
 
-        # Attached_doc_item — na prvoj stavci: sve šifre header dokumenata
-        # ASYCUDA standard: globalni dokumenti deklaracije se navode na prvoj stavci
-        # Na ostalim stavkama: null
-        if is_first and all_header_codes:
+        # Attached_doc_item — samo from_rule šifre (N380, DIS, DV1...)
+        # ASYCUDA standard: PE/EUR.1 i ostali ne-from_rule dokumenti se NE navode ovdje
+        from_rule_codes = [doc.code for doc in header_docs if doc.from_rule]
+        if is_first and from_rule_codes:
             adi = ET.SubElement(tarif, "Attached_doc_item")
-            adi.text = " ".join(all_header_codes)
+            adi.text = " ".join(from_rule_codes) + " "
         else:
             _null(tarif, "Attached_doc_item")
 
@@ -919,10 +926,10 @@ class AsycudaXMLBuilder:
         wi = ET.SubElement(val_item, "Weight_itm")
         gw = ET.SubElement(wi, "Gross_weight_itm")
         if item.gross_mass_kg:
-            gw.text = f"{item.gross_mass_kg:.2f}"
+            gw.text = _fmt_weight(item.gross_mass_kg)
         nw = ET.SubElement(wi, "Net_weight_itm")
         if item.net_mass_kg:
-            nw.text = f"{item.net_mass_kg:.2f}"
+            nw.text = _fmt_weight(item.net_mass_kg)
 
         self._fill_item_valuation(val_item, item, total_items_value, t1, t2, t3, t4, t5)
 
