@@ -129,7 +129,16 @@ class IntentClassifier:
             return ""
         lines = getattr(draft, "invoice_lines", [])
         if not lines:
-            return ""
+            naim_items = getattr(draft, "items", [])
+            items = []
+            for i, item in enumerate(naim_items[:20], 1):
+                opis = (getattr(item, "goods_description", "") or "")[:30]
+                tarifa = getattr(item, "tariff_code", "") or "?"
+                items.append(f"Naim {i}. {opis} [{tarifa}]")
+            summary = "; ".join(items)
+            if len(naim_items) > 20:
+                summary += f"; ... ({len(naim_items)} ukupno)"
+            return summary[:400]
         items = []
         for i, l in enumerate(lines[:20], 1):
             naziv = (getattr(l, "naziv_robe", "") or "")[:30]

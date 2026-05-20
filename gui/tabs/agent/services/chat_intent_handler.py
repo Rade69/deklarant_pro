@@ -377,6 +377,35 @@ def _is_tariff_usage_question(message: str) -> bool:
     return any(word in msg for word in usage_words)
 
 
+def _normalize_naim_message(message: str) -> str:
+    msg = (message or "").lower()
+    msg = re.sub(r'\bn\s+aimenovanj', 'naimenovanj', msg)
+    return re.sub(r'\s+', ' ', msg).strip()
+
+
+def _is_naimenovanja_review_request(message: str) -> bool:
+    msg = _normalize_naim_message(message)
+    if not re.search(r'\b(naim|naimenovanj)\w*', msg):
+        return False
+    return any(
+        kw in msg for kw in (
+            "pregled", "pregledaj", "pogledaj", "pokaži", "pokazi",
+            "prikaži", "prikazi", "detalj", "tabu naimenovanja",
+            "tab naimenovanja", "u naimenovanja",
+        )
+    )
+
+
+def _is_naimenovanja_validation_request(message: str) -> bool:
+    msg = _normalize_naim_message(message)
+    return any(
+        kw in msg for kw in (
+            "provjer", "valid", "da li su", "šta fali", "sta fali",
+            "nedostaje", "prazn", "nepopunjene",
+        )
+    )
+
+
 def _resolve_tariff_code_from_context(ctrl, message: str) -> str:
     explicit = _clean_tariff_code(message)
     if explicit:
@@ -528,6 +557,13 @@ def _handle_message(ctrl, message: str) -> None:
         return
 
     if _resolve_contextual_request(ctrl, message):
+        return
+
+    if _is_naimenovanja_review_request(message):
+        if _is_naimenovanja_validation_request(message):
+            _provjeri_naimenovanja(ctrl)
+        else:
+            _pregledaj_naimenovanja(ctrl)
         return
 
     origin_query = _extract_origin_product_query(message)

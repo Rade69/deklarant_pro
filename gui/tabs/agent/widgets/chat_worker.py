@@ -190,8 +190,9 @@ class ChatWorker(QThread):
             return "Draft je prazan — nisu uvezene fakture."
 
         lines = getattr(self.draft, 'invoice_lines', [])
-        if not lines:
-            return "Draft postoji ali nema uvezenih stavki."
+        naim_items = getattr(self.draft, 'items', [])
+        if not lines and not naim_items:
+            return "Draft postoji ali nema uvezenih stavki ni naimenovanja."
 
         total = len(lines)
         bez_tarife_list = [l for l in lines if not getattr(l, 'tarifni_broj', None)]
@@ -305,7 +306,6 @@ class ChatWorker(QThread):
                 ctx.extend(knowledge_lines)
 
         # === NAIMENOVANJA (draft.items) — grupisane stavke za deklaraciju ===
-        naim_items = getattr(self.draft, 'items', [])
         naim_pg_desc: dict = {}  # zvanični opisi tarifa za naimenovanja
         if naim_items:
             # Dohvati zvanične opise tarifa za sva naimenovanja odjednom

@@ -1,5 +1,9 @@
 from core.draft.draft import AttachedDocument, DeclarationDraft, NaimenovanjeDraft
-from gui.tabs.naimenovanja_view import NaimenovanjaView, _clear_secondary_pe_documents
+from gui.tabs.naimenovanja_view import (
+    NaimenovanjaView,
+    _clear_secondary_pe_documents,
+    _normalize_pe_document_text,
+)
 from gui.tabs.zaglavlje_controller import ZaglavljeController
 
 
@@ -17,6 +21,29 @@ def test_clears_stale_secondary_pe_when_master_has_pe2():
     assert changed is True
     assert item.attached_document1 == ""
     assert item.attached_document4 == "PE2 266VP-2026"
+
+
+def test_normalizes_duplicate_pe_prefix_in_master_doc():
+    assert _normalize_pe_document_text("PE1 PE1 A") == "PE1 A"
+    assert _normalize_pe_document_text("PE2 PE2 266VP-2026") == "PE2 266VP-2026"
+    assert _normalize_pe_document_text("PE1 PE1") == "PE1"
+    assert _normalize_pe_document_text("N380 268VP-2026") == "N380 268VP-2026"
+
+
+def test_clears_stale_secondary_pe_and_normalizes_master_doc():
+    item = NaimenovanjeDraft(
+        item_id="1",
+        ordinal_no=1,
+        preference_code="EUPR",
+        attached_document1="PE1",
+        attached_document4="PE1 PE1 A",
+    )
+
+    changed = _clear_secondary_pe_documents(item)
+
+    assert changed is True
+    assert item.attached_document1 == ""
+    assert item.attached_document4 == "PE1 A"
 
 
 def test_pd_codes_does_not_show_pe1_when_item_has_pe2_master_doc():

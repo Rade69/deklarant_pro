@@ -78,6 +78,49 @@ from services.faktura.weight_guards import (
     normalize_invoice_key,
     normalized_invoice_weights,
 )
+
+_PE_DOC_CODES = {"PE1", "PE2", "PE3"}
+
+
+def _normalize_pe_document_text(value: str) -> str:
+    text = re.sub(r"\s+", " ", (value or "").strip())
+    parts = text.split(" ", 1)
+    code = parts[0].upper() if parts else ""
+    if code not in _PE_DOC_CODES:
+        return text
+    rest = parts[1].strip() if len(parts) > 1 else ""
+    while rest.upper().startswith(f"{code} "):
+        rest = rest[len(code):].strip()
+    if rest.upper() == code:
+        rest = ""
+    return f"{code} {rest}".strip()
+
+
+def _pe_doc_code(value: str) -> str:
+    code = (value or "").strip().split(" ", 1)[0].upper()
+    return code if code in _PE_DOC_CODES else ""
+
+
+def _clear_secondary_pe_documents(item) -> bool:
+    doc4 = _normalize_pe_document_text(getattr(item, "attached_document4", "") or "")
+    if doc4 != (getattr(item, "attached_document4", "") or "").strip():
+        item.attached_document4 = doc4
+    if not _pe_doc_code(doc4):
+        return False
+
+    changed = False
+    for field_name in (
+        "attached_document1",
+        "attached_document2",
+        "attached_document3",
+        "attached_document5",
+    ):
+        if _pe_doc_code(getattr(item, field_name, "") or ""):
+            setattr(item, field_name, "")
+            changed = True
+    return changed
+
+
 # Docs: docs/sections/window-geometry-modal-guard.md
 
 
@@ -3615,20 +3658,24 @@ class FakturaView(BaseTabView):
         pe_entries: list[tuple[str, str]] = []
         seen: set[tuple[str, str]] = set()
         for item in self.draft.items:
-            doc4 = (getattr(item, 'attached_document4', '') or '').strip()
+            _clear_secondary_pe_documents(item)
+            raw_doc4 = (getattr(item, 'attached_document4', '') or '').strip()
+            doc4 = _normalize_pe_document_text(raw_doc4)
+            if doc4 != raw_doc4:
+                item.attached_document4 = doc4
             if not doc4:
                 continue
             parts = doc4.split(' ', 1)
             sifra = parts[0].strip()
             broj = parts[1].strip() if len(parts) > 1 else ''
-            if sifra in ("PE1", "PE2", "PE3"):
+            if sifra in _PE_DOC_CODES:
                 key = (sifra, broj)
                 if key not in seen:
                     seen.add(key)
                     pe_entries.append(key)
 
         # 2. Ukloni postojeće PE1/PE2/PE3 unose iz header_attached_documents
-        header_docs[:] = [d for d in header_docs if d.code not in ("PE1", "PE2", "PE3")]
+        header_docs[:] = [d for d in header_docs if d.code not in _PE_DOC_CODES]
 
         # 3. Dodaj nove unose
         if pe_entries:

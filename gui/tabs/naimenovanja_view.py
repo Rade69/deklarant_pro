@@ -78,8 +78,24 @@ def _pe_doc_code(value: str) -> str:
     return code if code in _PE_DOC_CODES else ""
 
 
+def _normalize_pe_document_text(value: str) -> str:
+    text = re.sub(r"\s+", " ", (value or "").strip())
+    code = _pe_doc_code(text)
+    if not code:
+        return text
+    rest = text.split(" ", 1)[1].strip() if " " in text else ""
+    while rest.upper().startswith(f"{code} "):
+        rest = rest[len(code):].strip()
+    if rest.upper() == code:
+        rest = ""
+    return f"{code} {rest}".strip()
+
+
 def _clear_secondary_pe_documents(item) -> bool:
-    if not _pe_doc_code(getattr(item, "attached_document4", "") or ""):
+    doc4 = _normalize_pe_document_text(getattr(item, "attached_document4", "") or "")
+    if doc4 != (getattr(item, "attached_document4", "") or "").strip():
+        item.attached_document4 = doc4
+    if not _pe_doc_code(doc4):
         return False
 
     changed = False
@@ -2839,10 +2855,23 @@ class NaimenovanjaView(BaseTabView):
         if not le_rubrika44_4:
             return
 
-        text = le_rubrika44_4.text().strip()
+        text = _normalize_pe_document_text(le_rubrika44_4.text())
+        if text != le_rubrika44_4.text().strip():
+            le_rubrika44_4.setText(text)
 
         # 1. Sacuvaj trenutni item
         self._save_current_item()
+        current_item = self.draft.items[self.current_item_index]
+        for widget_name, field_name in self.field_map.items():
+            if field_name in (
+                "attached_document1",
+                "attached_document2",
+                "attached_document3",
+                "attached_document5",
+            ):
+                widget = self._get_widget(widget_name)
+                if widget:
+                    widget.setText(getattr(current_item, field_name, "") or "")
 
         # 2. Primijeni na sve ostale iteme
         # PRAVILO: Rub.44 se ne smije postaviti ako Rub.36 nije popunjena
@@ -2853,6 +2882,7 @@ class NaimenovanjaView(BaseTabView):
                     if text and not has_pref:
                         continue  # ne upisuj Rub.44 bez Rub.36
                     item.attached_document4 = text
+                    _clear_secondary_pe_documents(item)
 
         # 3. Sinhronizuj PE šifre iz rub.44.4 u header_attached_documents
         self._sync_pe_docs_to_header()
@@ -2874,7 +2904,10 @@ class NaimenovanjaView(BaseTabView):
         pe_entries: list[tuple[str, str]] = []
         seen: set[tuple[str, str]] = set()
         for item in self.draft.items:
-            doc4 = (getattr(item, 'attached_document4', '') or '').strip()
+            _clear_secondary_pe_documents(item)
+            doc4 = _normalize_pe_document_text(getattr(item, 'attached_document4', '') or '')
+            if doc4 != (getattr(item, 'attached_document4', '') or '').strip():
+                item.attached_document4 = doc4
             if not doc4:
                 continue
             # Format: "ŠIFRA broj" (npr. "PE1 12345", "PE2 INV-001")

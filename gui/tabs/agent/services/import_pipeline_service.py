@@ -10,6 +10,7 @@ Premješteno iz agent_controller.py radi smanjenja veličine controllera.
 """
 
 import logging
+import re
 from pathlib import Path
 
 from PySide6.QtWidgets import QApplication
@@ -19,6 +20,46 @@ from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
 logger = logging.getLogger("deklarant_pro.agent.import_pipeline")
 
 EUR1_THRESHOLD = 6000.0  # EUR — iznad ovog iznosa standardna izjava ne važi
+_PE_DOC_CODES = {"PE1", "PE2", "PE3"}
+
+
+def _normalize_pe_document_text(value: str) -> str:
+    text = re.sub(r"\s+", " ", (value or "").strip())
+    parts = text.split(" ", 1)
+    code = parts[0].upper() if parts else ""
+    if code not in _PE_DOC_CODES:
+        return text
+    rest = parts[1].strip() if len(parts) > 1 else ""
+    while rest.upper().startswith(f"{code} "):
+        rest = rest[len(code):].strip()
+    if rest.upper() == code:
+        rest = ""
+    return f"{code} {rest}".strip()
+
+
+def _pe_doc_code(value: str) -> str:
+    code = (value or "").strip().split(" ", 1)[0].upper()
+    return code if code in _PE_DOC_CODES else ""
+
+
+def _clear_secondary_pe_documents(item) -> bool:
+    doc4 = _normalize_pe_document_text(getattr(item, "attached_document4", "") or "")
+    if doc4 != (getattr(item, "attached_document4", "") or "").strip():
+        item.attached_document4 = doc4
+    if not _pe_doc_code(doc4):
+        return False
+
+    changed = False
+    for field_name in (
+        "attached_document1",
+        "attached_document2",
+        "attached_document3",
+        "attached_document5",
+    ):
+        if _pe_doc_code(getattr(item, field_name, "") or ""):
+            setattr(item, field_name, "")
+            changed = True
+    return changed
 
 
 def _origin_dialog_type(lines: list, has_origin_statement: bool,
@@ -334,7 +375,7 @@ def _apply_eur1_to_naimenovanja(ctrl, eur1_data: dict, chat) -> None:
         doc_code = (data.get('code') or '').strip().upper()
         if doc_code not in {"PE1", "PE2", "PE3"}:
             doc_code = "PE2" if has_stmt else "PE1"
-        doc44 = f"{doc_code} {eur1_num}".strip()
+        doc44 = _normalize_pe_document_text(f"{doc_code} {eur1_num}".strip())
 
         for item in ctrl.draft.items:
             pov = (getattr(item, 'preference_code', '') or '').strip()
@@ -363,19 +404,23 @@ def _sync_pe_docs_to_header(ctrl) -> None:
     pe_entries: list[tuple[str, str]] = []
     seen: set[tuple[str, str]] = set()
     for item in ctrl.draft.items:
-        doc4 = (getattr(item, 'attached_document4', '') or '').strip()
+        _clear_secondary_pe_documents(item)
+        raw_doc4 = (getattr(item, 'attached_document4', '') or '').strip()
+        doc4 = _normalize_pe_document_text(raw_doc4)
+        if doc4 != raw_doc4:
+            item.attached_document4 = doc4
         if not doc4:
             continue
         parts = doc4.split(' ', 1)
         sifra = parts[0].strip()
         broj = parts[1].strip() if len(parts) > 1 else ''
-        if sifra in ("PE1", "PE2", "PE3"):
+        if sifra in _PE_DOC_CODES:
             key = (sifra, broj)
             if key not in seen:
                 seen.add(key)
                 pe_entries.append(key)
 
-    header_docs[:] = [d for d in header_docs if d.code not in ("PE1", "PE2", "PE3")]
+    header_docs[:] = [d for d in header_docs if d.code not in _PE_DOC_CODES]
 
     if pe_entries:
         from core.draft.draft import AttachedDocument

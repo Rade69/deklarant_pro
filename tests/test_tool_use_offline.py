@@ -15,6 +15,8 @@ import json
 import pytest
 from unittest.mock import MagicMock, patch, PropertyMock
 
+from core.draft.draft import DeclarationDraft, NaimenovanjeDraft
+
 
 # ── TOOLS schema validacija ──────────────────────────────────────────
 
@@ -194,6 +196,46 @@ class TestExecuteToolMapping:
     def test_nepoznat_alat(self, mock_ctrl):
         self._call_execute(mock_ctrl, "nepostojeci_alat", {})
         mock_ctrl.view.get_chat_panel().add_agent_message.assert_called()
+
+
+class TestNaimenovanjaChatContext:
+    """XML import može imati draft.items bez draft.invoice_lines."""
+
+    def test_naimenovanja_review_request_tolerise_typo_space(self):
+        from gui.tabs.agent.services.chat_intent_handler import _is_naimenovanja_review_request
+
+        assert _is_naimenovanja_review_request("Pregledaj n aimenovanja")
+        assert _is_naimenovanja_review_request("U tabu naimenovanja pogledaj")
+
+    def test_chat_worker_context_includes_naimenovanja_without_invoice_lines(self, monkeypatch):
+        from gui.tabs.agent.widgets.chat_worker import ChatWorker
+
+        draft = DeclarationDraft()
+        draft.items = [
+            NaimenovanjeDraft(
+                item_id="1",
+                ordinal_no=1,
+                tariff_code="63079099",
+                goods_description="BORT 112900 B.R.Z.palac lev XL",
+                origin_country_code="DE",
+                gross_mass_kg=170.0,
+                net_mass_kg=154.91,
+            )
+        ]
+
+        worker = ChatWorker.__new__(ChatWorker)
+        worker.draft = draft
+        worker.message = "Pregledaj naimenovanja"
+        monkeypatch.setattr(worker, "_determine_context_zones", lambda _: set())
+        monkeypatch.setattr(worker, "_build_session_zone", lambda _: [])
+        monkeypatch.setattr(worker, "_fetch_pg_tariff_descriptions", lambda _: {})
+        monkeypatch.setattr(worker, "_is_regulatory_question", lambda _: False)
+
+        context = worker._build_context()
+
+        assert "NAIMENOVANJA (1 stavki u deklaraciji)" in context
+        assert "63079099" in context
+        assert "BORT 112900" in context
 
 
 # ── ToolDispatcher._dispatch offline test ────────────────────────────
