@@ -15,7 +15,7 @@ class Rub31Result:
 
 
 _MAX_LINE = 55
-_MAX_LINES = 4
+_MAX_LINES = 3
 _MAX_DESC = 280
 
 

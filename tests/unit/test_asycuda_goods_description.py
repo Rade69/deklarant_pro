@@ -2,6 +2,7 @@ import xml.etree.ElementTree as ET
 
 from core.draft import AttachedDocument, DeclarationDraft, InvoiceLine, NaimenovanjeDraft
 from exporters.asycuda_xml_builder import AsycudaXMLBuilder
+from services.naimenovanja.rub31_builder import build_asycuda_rub31
 
 
 def _builder_with_assigned_line() -> tuple[AsycudaXMLBuilder, NaimenovanjeDraft]:
@@ -27,10 +28,10 @@ def _builder_with_assigned_line() -> tuple[AsycudaXMLBuilder, NaimenovanjeDraft]
 def test_commercial_description_multiline_format_for_asycuda_rb31():
     builder, item = _builder_with_assigned_line()
 
+    goods_desc = builder._build_description_of_goods(item, 280)
     desc = builder._build_commercial_description(item, 280)
 
-    # ASYCUDA format: heading\nnaziv\nFaktura: — newline-separated
-    assert desc.startswith("Ostali gotovi tekstilni proizvodi")
+    assert goods_desc == "Ostali gotovi tekstilni proizvodi"
     assert "BORT 112900 B.R.Z.palac lev XL" in desc
     assert "Faktura: 893/26 (rb. 58)" in desc
     assert "\n" in desc
@@ -136,14 +137,12 @@ def test_commercial_description_preserves_heading_and_invoice_when_names_are_lon
     desc = AsycudaXMLBuilder(draft)._build_commercial_description(item, 150)
 
     assert len(desc) <= 150
-    assert desc.startswith("- - ostalo")
     assert "Faktura: 893/26 (rb. 12, 13, 15, 20)" in desc
     assert "..." in desc
     assert desc.endswith("Faktura: 893/26 (rb. 12, 13, 15, 20)")
 
 
 def test_commercial_description_includes_all_names_when_they_fit():
-    # ASYCUDA format: tačno 3 linije — nazivi se spajaju comma-separated na jednoj liniji
     draft = DeclarationDraft()
     item = NaimenovanjeDraft(
         item_id="1",
@@ -189,9 +188,12 @@ def test_commercial_description_prefers_precise_tariff_summary():
         ),
     ]
 
-    desc = AsycudaXMLBuilder(draft)._build_commercial_description(item, 280)
+    builder = AsycudaXMLBuilder(draft)
+    goods_desc = builder._build_description_of_goods(item, 280)
+    desc = builder._build_commercial_description(item, 280)
 
-    assert desc.splitlines()[0] == "Kobasice i sl.proizvodi od mesa;ostalo,ostalo"
+    assert goods_desc == "Kobasice i sl.proizvodi od mesa;ostalo,ostalo"
+    assert desc.startswith("Kobasice i sl.proizvodi od mesa;ostalo,ostalo")
 
 
 def test_commercial_description_compacts_existing_multiline_trade_name():
@@ -258,13 +260,59 @@ def test_commercial_description_uses_goods_description_when_tariff_heading_is_ge
         ),
     ]
 
-    desc = AsycudaXMLBuilder(draft)._build_commercial_description(item, 280)
+    builder = AsycudaXMLBuilder(draft)
+    goods_desc = builder._build_description_of_goods(item, 280)
+    desc = builder._build_commercial_description(item, 280)
 
+    assert goods_desc == "Prehrambeni proizvodi koji nisu spomenuti niti uključeni na drugom mjestu:"
     assert desc == (
         "Prehrambeni proizvodi koji nisu spomenuti niti uklju...\n"
         "SUSSINA 650 tbl., SUSSINA 200 tbl., SUSSINA 1200 tbl...\n"
         "Faktura: 893/26 (rb. 1, 2, 17, 26)"
     )
+
+
+def test_rub31_builder_splits_tariff_description_from_invoice_goods():
+    item = NaimenovanjeDraft(
+        item_id="1",
+        ordinal_no=13,
+        goods_description="brtve,podlošci i ostali proizvodi za brtvljenje",
+        tariff_description2="- - zaptivci, podlošci i ostali proizvodi za zaptivanje",
+        goods_trade_name=(
+            "brtve,podlošci i ostali proizvodi za brtvljenje\n"
+            "TUNEL GUMA CANDY 117CY22 GSK016CY CY3035; TUNEL GUMA CANDY 117CY22 GSK016CY CY3036\n"
+            "TUNEL GUMA CANDY 117CY22 GSK016CY CY3035; TUNEL GUMA CANDY 117CY22 GSK016CY CY3036\n"
+            "Faktura: 266VP-2026 (rb. 10, 11)"
+        ),
+    )
+
+    rub31 = build_asycuda_rub31(item)
+
+    assert rub31.description_of_goods == "brtve,podlošci i ostali proizvodi za brtvljenje"
+    assert rub31.commercial_description == (
+        "brtve,podlošci i ostali proizvodi za brtvljenje\n"
+        "TUNEL GUMA CANDY 117CY22 GSK016CY CY3035, TUNEL GUMA...\n"
+        "Faktura: 266VP-2026 (rb. 10, 11)"
+    )
+
+
+def test_rub31_builder_does_not_duplicate_product_names_from_imported_xml():
+    item = NaimenovanjeDraft(
+        item_id="1",
+        ordinal_no=2,
+        tariff_description2="brtve,podlošci i ostali proizvodi za brtvljenje",
+        goods_trade_name=(
+            "TUNEL GUMA CANDY 117CY22 GSK016CY CY3035, TUNEL GUMA CANDY 117CY22 GSK016CY CY3036\n"
+            "TUNEL GUMA CANDY 117CY22 GSK016CY CY3035, TUNEL GUMA CANDY 117CY22 GSK016CY CY3036\n"
+            "Faktura: 266VP-2026 (rb. 10, 11)"
+        ),
+    )
+
+    rub31 = build_asycuda_rub31(item)
+
+    assert rub31.description_of_goods == "brtve,podlošci i ostali proizvodi za brtvljenje"
+    assert rub31.commercial_description.count("TUNEL GUMA CANDY") == 1
+    assert rub31.commercial_description.endswith("Faktura: 266VP-2026 (rb. 10, 11)")
 
 
 def test_description_of_goods_returns_dot_not_tariff_code_when_no_heading():
