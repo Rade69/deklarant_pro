@@ -554,3 +554,71 @@ def test_tariff_heading_triggers_db_lookup_when_item_field_is_generic():
         heading = AsycudaXMLBuilder(draft)._tariff_heading(item)
 
     assert heading == "Električni bojleri, grijači prostorija i tla"
+
+
+# ── _choose_tariff_description: autorizovana tarifna polja ──────────────────
+
+
+def test_choose_tariff_description_not_filtered_when_contains_numbers():
+    """tariff_description2 s brojevima ne smije biti filtriran kao naziv proizvoda.
+    Primjer: kod 39173100 → "savitljive cijevi...27,6 Mpa" sadrži cifre,
+    ali to je tarifni opis, ne naziv proizvoda."""
+    item = NaimenovanjeDraft(
+        item_id="1",
+        ordinal_no=10,
+        tariff_code="39173100",
+        tariff_description2=(
+            "– – savitljive cijevi i crijeva, koji mogu podnijeti "
+            "pritisak od 27,6 Mpa ili veći"
+        ),
+        goods_trade_name=(
+            "– – savitljive cijevi i crijeva, koji mogu podnijeti pritisak od 27,6 Mpa ili veći\n"
+            "POLIETILENSKA SAVITLJIVA CIJEV 63mm; POLIETILENSKA SAVITLJIVA CIJEV 90mm\n"
+            "Faktura: F-2026/45 (rb. 10)"
+        ),
+    )
+
+    rub31 = build_asycuda_rub31(item)
+
+    assert "27,6" in rub31.description_of_goods
+    assert rub31.description_of_goods != "."
+
+
+def test_choose_tariff_description_not_filtered_when_description1_contains_numbers():
+    """tariff_description1 s brojevima ne smije biti filtriran."""
+    item = NaimenovanjeDraft(
+        item_id="1",
+        ordinal_no=22,
+        tariff_code="73102990",
+        tariff_description1="– – – debljine zida od 0,5 mm ili veće",
+        goods_trade_name=(
+            "– – – debljine zida od 0,5 mm ili veće\n"
+            "ČELIČNA CIJEV DN50; ČELIČNA CIJEV DN100\n"
+            "Faktura: F-2026/22 (rb. 22)"
+        ),
+    )
+
+    rub31 = build_asycuda_rub31(item)
+
+    assert "0,5 mm" in rub31.description_of_goods
+    assert rub31.description_of_goods != "."
+
+
+def test_choose_tariff_description_returns_description2_when_description1_absent():
+    """tariff_description2 s brojevima se koristi kad tariff_description1 nije postavljen."""
+    item = NaimenovanjeDraft(
+        item_id="1",
+        ordinal_no=25,
+        tariff_code="85322500",
+        tariff_description2="– – dielektrični, od papira ili plastične mase",
+        goods_trade_name=(
+            "– – dielektrični, od papira ili plastične mase\n"
+            "KONDENZATOR 470uF 25V; KONDENZATOR 100uF 16V\n"
+            "Faktura: F-2026/25 (rb. 25)"
+        ),
+    )
+
+    rub31 = build_asycuda_rub31(item)
+
+    assert "dielektrični" in rub31.description_of_goods
+    assert rub31.description_of_goods != "."

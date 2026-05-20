@@ -167,6 +167,11 @@ def _dedupe(values: Iterable[str]) -> list[str]:
         text = _norm(value)
         key = _key(text)
         if text and key not in seen:
+            # Skip "A, B" composite when individual parts A and B are already present
+            # (eliminates old-format duplicates: "A; B\nA, B" → keeps only ["A", "B"])
+            comma_parts = [_key(p) for p in text.split(",") if p.strip()]
+            if len(comma_parts) > 1 and all(k in seen for k in comma_parts):
+                continue
             seen.add(key)
             result.append(text)
     return result
@@ -188,19 +193,23 @@ def _choose_tariff_description(
     trade_parts: Sequence[str],
     max_chars: int,
 ) -> str:
-    candidates = [
-        getattr(item, "tariff_description1", "") or "",
-        getattr(item, "goods_description", "") or "",
-        *_trade_description_candidates(trade_parts),
-        getattr(item, "tariff_description2", "") or "",
-        tariff_heading or "",
+    # tariff_description1/2 dolaze iz tarifne baze — nikad nisu nazivi proizvoda,
+    # čak i kad sadrže brojeve (npr. "27,6 MPa", "0,5 mm"). Isključiti iz filtera.
+    _TARIFF_FIELDS = frozenset({"tariff_description1", "tariff_description2"})
+
+    candidate_sources: list[tuple[str, str]] = [
+        ("tariff_description1", getattr(item, "tariff_description1", "") or ""),
+        ("goods_description", getattr(item, "goods_description", "") or ""),
+        *[("trade", c) for c in _trade_description_candidates(trade_parts)],
+        ("tariff_description2", getattr(item, "tariff_description2", "") or ""),
+        ("tariff_heading", tariff_heading or ""),
     ]
     normalized_candidates: list[str] = []
-    for candidate in candidates:
+    for source, candidate in candidate_sources:
         text = _norm(normalize_tariff_text(candidate))
         if not text:
             continue
-        if _candidate_is_product_text(text, product_names):
+        if source not in _TARIFF_FIELDS and _candidate_is_product_text(text, product_names):
             continue
         normalized_candidates.append(text)
         if not is_generic_tariff_text(text):
