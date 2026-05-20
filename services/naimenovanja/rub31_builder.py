@@ -35,6 +35,9 @@ def build_asycuda_rub31(
     if not invoice_text:
         invoice_text = trade_invoice_text
 
+    # Kad postoje invoice_lines, trade_parts se koriste samo za opis (ne za sadržaj)
+    content_trade_parts = [] if assigned_lines else trade_parts
+
     description = _choose_tariff_description(
         item=item,
         tariff_heading=tariff_heading,
@@ -46,7 +49,7 @@ def build_asycuda_rub31(
     commercial_lines = _commercial_lines(
         description=description,
         product_names=product_names,
-        trade_parts=trade_parts,
+        trade_parts=content_trade_parts,
         invoice_text=invoice_text,
         max_chars=max_description_chars,
     )
