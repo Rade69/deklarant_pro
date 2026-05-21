@@ -34,6 +34,7 @@ PRAVILA:
 13. Za "predloži tarife" ili "popuni sve" (bez specifičnog proizvoda) → predlozi_tarife
 14. Za "porijeklo proizvoda X" ili "zemlja porijekla za X" → pretrazi_porijeklo
 15. Za "analiziraj tarifne", "uporedi tarifne sa istorijom", "historija tarifa", "jesu li ovi tarifni konzistentni" → analiziraj_tarifne
+16. Za "slični proizvodi", "raniji slični slučajevi", "šta istorijski liči na X" → pronadji_slicne_proizvode
 """
 
 # ── Alati ────────────────────────────────────────────────────────────
@@ -237,6 +238,30 @@ TOOLS = [
             "parameters": {
                 "type": "object",
                 "properties": {},
+                "additionalProperties": False
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "pronadji_slicne_proizvode",
+            "description": (
+                "Pronađi slične ranije proizvode iz lokalne product similarity memorije "
+                "i grupiši rezultate po tarifnom broju. Koristi kada korisnik pita za "
+                "slične ranije slučajeve, istorijski slične proizvode, ili želi provjeriti "
+                "koje su tarife korištene za proizvod sličnog naziva. Ne koristi za "
+                "automatsko mijenjanje tarife."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "naziv": {
+                        "type": "string",
+                        "description": "Naziv ili opis robe za pretragu sličnih ranijih proizvoda"
+                    }
+                },
+                "required": ["naziv"],
                 "additionalProperties": False
             }
         }

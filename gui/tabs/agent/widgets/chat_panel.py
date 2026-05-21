@@ -389,7 +389,7 @@ class ChatPanel(QWidget):
             <td width="5%" valign="top" style="padding-top:4px;">
               <span style="font-size:18px;">🌿</span>
             </td>
-            <td width="72%" style="background-color:#ffffff;
+            <td width="84%" style="background-color:#ffffff;
                     border-radius:4px 16px 16px 16px;
                     padding: 10px 14px;
                     border: 1px solid {COLOR_SAGE_PALE};">
@@ -400,7 +400,7 @@ class ChatPanel(QWidget):
                 {body}
               </div>
             </td>
-            <td width="23%"></td>
+            <td width="11%"></td>
           </tr>
         </table>"""
 
@@ -408,8 +408,8 @@ class ChatPanel(QWidget):
         return f"""
         <table width="100%" cellpadding="0" cellspacing="0" style="margin: 6px 0;">
           <tr>
-            <td width="23%"></td>
-            <td width="72%" align="right"
+            <td width="19%"></td>
+            <td width="76%" align="right"
                 style="background-color:{COLOR_SECONDARY};
                        border-radius:16px 4px 16px 16px;
                        padding: 10px 14px;">

@@ -585,6 +585,12 @@ def _handle_message(ctrl, message: str) -> None:
             chat.add_agent_message("❌ Akcija otkazana.")
             return
 
+    similar_query = _extract_similar_product_query(message)
+    if similar_query:
+        _remember_subject(ctrl, similar_query)
+        _pronadji_slicne_proizvode(ctrl, similar_query)
+        return
+
     # ═══════════════════════════════════════════════════════════════
     # Faza 2: Tool Use routing (PRIMARNI) — DeepSeek bira alat
     # Ako uspije → izvrši alat i gotovo
@@ -633,6 +639,37 @@ def _handle_message(ctrl, message: str) -> None:
     dispatcher.start()
     # Kraj Tool Use bloka — ostatak _handle_message se NE izvršava
     return
+
+
+def _extract_similar_product_query(message: str) -> str:
+    text = str(message or "").strip()
+    if not text:
+        return ""
+
+    msg = text.lower()
+    triggers = (
+        "sličn", "slicn", "historij", "istorij", "ranij",
+        "korišten", "koristen", "korišćen", "koriscen", "koliko puta",
+        "upit o",
+    )
+    if not any(trigger in msg for trigger in triggers):
+        return ""
+    if re.fullmatch(r"\d[\d\s\.]{7,12}", msg):
+        return ""
+
+    patterns = (
+        r"\b(?:za|o|na)\b\s+(.+)$",
+        r"\b(?:proizvod|robu|naziv)\b\s+(.+)$",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, text, flags=re.IGNORECASE)
+        if not match:
+            continue
+        query = re.sub(r"[?.!,;:]+$", "", match.group(1).strip())
+        query = re.sub(r"^(?:taj|ovu|ove|ovaj|proizvod|robu)\s+", "", query, flags=re.IGNORECASE)
+        if query and len(query) >= 3 and "tarifni broj" not in query.lower():
+            return query
+    return ""
 
 
 # ── Tool execution (mapira tool → servis) ────────────────────────────
@@ -706,6 +743,13 @@ def _execute_tool(ctrl, name: str, args: dict) -> None:
 
     elif name == "analiziraj_tarifne":
         _analiziraj_tarifne_historiju(ctrl)
+
+    elif name == "pronadji_slicne_proizvode":
+        naziv = args.get("naziv", "")
+        if naziv:
+            _pronadji_slicne_proizvode(ctrl, naziv)
+        else:
+            chat.add_agent_message("⚠️ Navedi naziv robe za pretragu sličnih proizvoda.")
 
     else:
         logger.warning(f"[ToolUse] Nepoznat alat: {name}")
@@ -838,6 +882,11 @@ def _handle_message_regex_fallback(ctrl, message: str) -> None:
         'tarif' in msg and any(w in msg for w in ('historij', 'istorij', 'ranij', 'analiz', 'konzistent'))
     ):
         _analiziraj_tarifne_historiju(ctrl)
+        return
+
+    similar_query = _extract_similar_product_query(message)
+    if similar_query:
+        _pronadji_slicne_proizvode(ctrl, similar_query)
         return
 
     # --- PROVJERI TARIF ZA KONKRETAN NAZIV ---
@@ -1458,6 +1507,26 @@ def _analiziraj_tarifne_historiju(ctrl) -> None:
     except Exception as e:
         logger.exception("Greška pri analizi tarifne historije")
         chat.add_agent_message(f"❌ Greška pri analizi: {escape(str(e))}")
+
+
+def _pronadji_slicne_proizvode(ctrl, naziv: str) -> None:
+    chat = ctrl.view.get_chat_panel()
+    query = str(naziv or "").strip()
+    if not query:
+        chat.add_agent_message("⚠️ Navedi naziv robe za pretragu sličnih proizvoda.")
+        return
+
+    chat.add_activity("🔎 Tražim slične ranije proizvode u lokalnoj memoriji...")
+    try:
+        from services.agent.chat.similar_products_analysis_service import (
+            render_similar_products_for_query,
+        )
+
+        html = render_similar_products_for_query(query)
+        chat.add_agent_message(html)
+    except Exception as e:
+        logger.exception("Greška pri pretrazi sličnih proizvoda")
+        chat.add_agent_message(f"❌ Greška pri pretrazi sličnih proizvoda: {escape(str(e))}")
 
 
 def _pregledaj_naimenovanja(ctrl, indeksi=None) -> None:

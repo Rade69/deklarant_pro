@@ -36,6 +36,7 @@ MIGRATIONS = [
     "migrate_tariff_kb.py",
     "migrate_knowledge_base.py",
     "migrate_mappings.py",
+    "migrate_product_similarity_memory.py",
     # Složene tabele
     "migrate_inspection_rules_to_pg.py",
 ]
