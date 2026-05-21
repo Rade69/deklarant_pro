@@ -331,7 +331,8 @@ class CreateNaimenovanjaService:
             statistical_value=line.iznos or 0.0,
             currency=line.valuta or 'EUR',
             # Pakovanje (InvoiceLine nema ove, koristi podrazumevane)
-            package_code='PK',
+            package_code='PP',
+            package_name='Komadi',
             package_qty=line.kolicina or 0.0,
             package_marks='X',  # Podrazumevano: "X" (Oznake i broj)
             # Procedura (podrazumevano 4000 = definitivni uvoz)
@@ -398,7 +399,8 @@ class CreateNaimenovanjaService:
             tariff_suffix=first_line.tariff_suffix or '000',
             origin_country_code=first_line.zemlja_porijekla or '',
             currency=first_line.valuta or 'EUR',
-            package_code='PK',  # Podrazumevano
+            package_code='PP',  # Podrazumevano
+            package_name='Komadi',
             procedure_code='4000',  # Podrazumevano
             procedure_prev_code='000',
             preference_code=first_line.povlastica or '',  # Povlastica (EUP/CEFTAP/TRP)

@@ -1,8 +1,9 @@
-"""Test za parse_naimenovanja_from_xml() metodu."""
+"""Test za parse_naimenovanja_from_xml() metodu i rub31_builder pomoćne funkcije."""
 
 import tempfile
 import os
 from services.zaglavlje_service import ZaglavljeService
+from services.naimenovanja.rub31_builder import _dedupe, _parse_trade_text
 
 
 # ASYCUDA World XML format — nested struktura sa Packages, Goods_description,
@@ -276,6 +277,47 @@ def test_parse_naimenovanja_marks_attached_doc_item_codes_as_from_rule():
         assert docs["OST"] is False
     finally:
         os.unlink(filepath)
+
+
+def test_dedupe_skips_comma_composite_when_parts_already_seen():
+    """Stari format 'A; B\nA, B' → _dedupe vraća ['A', 'B'], preskače 'A, B'."""
+    result = _dedupe(["CREVO A", "CREVO B", "CREVO A, CREVO B"])
+    assert result == ["CREVO A", "CREVO B"]
+
+
+def test_dedupe_keeps_composite_when_parts_not_all_seen():
+    """'A, B' se zadržava ako B još nije viđen."""
+    result = _dedupe(["CREVO A", "CREVO A, CREVO B"])
+    assert result == ["CREVO A", "CREVO A, CREVO B"]
+
+
+def test_dedupe_normal_no_duplicates():
+    """Normalan slučaj bez duplikata — sve vrijednosti se čuvaju."""
+    result = _dedupe(["A", "B", "C"])
+    assert result == ["A", "B", "C"]
+
+
+def test_dedupe_exact_duplicate_removed():
+    """Tačan duplikat se uvijek uklanja."""
+    result = _dedupe(["KONDENZATOR 14mf", "KONDENZATOR 14mf", "KONDENZATOR 40mf"])
+    assert result == ["KONDENZATOR 14mf", "KONDENZATOR 40mf"]
+
+
+def test_parse_trade_text_old_format_eliminates_comma_line():
+    """Stari goods_trade_name format (tačka-zarez linija + zarez linija) → bez duplikata u trade_parts."""
+    old_format = (
+        "DOVODNO CREVO VES MASINE 1.5m; CREVO 4x6mm 4m\n"
+        "DOVODNO CREVO VES MASINE 1.5m, CREVO 4x6mm 4m\n"
+        "Faktura: 266VP-2026 (rb. 3, 6)"
+    )
+    trade_parts, invoice_text = _parse_trade_text(old_format)
+
+    assert "DOVODNO CREVO VES MASINE 1.5m" in trade_parts
+    assert "CREVO 4x6mm 4m" in trade_parts
+    # Kompozitna zarez-linija mora biti eliminisana
+    assert not any("," in p for p in trade_parts), \
+        f"Kompozitna linija nije eliminisana: {trade_parts}"
+    assert "Faktura:" in invoice_text
 
 
 def test_parse_naimenovanja_compacts_multiline_commercial_description_for_rb31():
