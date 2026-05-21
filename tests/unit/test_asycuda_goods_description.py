@@ -622,3 +622,110 @@ def test_choose_tariff_description_returns_description2_when_description1_absent
 
     assert "dielektrični" in rub31.description_of_goods
     assert rub31.description_of_goods != "."
+
+
+# ── Bug: goods_description s "(+N više)" prolazi product filter ──────────────
+
+def test_overflow_marker_in_goods_description_is_filtered_as_product():
+    """goods_description s '; ... (+2 više)' sufiksom treba biti prepoznat kao
+    produkt tekst i filtriran iz opisa — čak i kad overflow marker 'kvari' listu."""
+    item = NaimenovanjeDraft(
+        item_id="1",
+        ordinal_no=6,
+        tariff_code="40169300",
+        tariff_description2="- - zaptivci, podlošci i ostali proizvodi za zaptivanje",
+        goods_description=(
+            "TUNEL GUMA HISENSE HK1913550; TUNEL GUMA HISENSE HK1913551; "
+            "TUNEL GUMA HISENSE HK2080355; ... (+2 više)"
+        ),
+    )
+    invoice_lines = [
+        InvoiceLine(
+            line_no=i,
+            invoice_number="264VP-2026",
+            naziv_robe=naziv,
+            assigned_naimenovanje_ordinal=6,
+        )
+        for i, naziv in enumerate(
+            [
+                "TUNEL GUMA HISENSE HK1913550",
+                "TUNEL GUMA HISENSE HK1913551",
+                "TUNEL GUMA HISENSE HK2080355",
+                "TUNEL GUMA HISENSE HK4567890",
+                "TUNEL GUMA HISENSE HK3456789",
+            ],
+            start=1,
+        )
+    ]
+
+    rub31 = build_asycuda_rub31(item, invoice_lines=invoice_lines)
+
+    assert "zaptivci" in rub31.description_of_goods
+    assert "TUNEL GUMA" not in rub31.description_of_goods
+
+
+# ── Bug: kratki fragment opisi bez parent heading konteksta ───────────────────
+
+def test_heading_fragment_yields_to_richer_tariff_heading():
+    """'- šarke' je fragment bez konteksta — kad postoji bogatiji tariff_heading,
+    taj treba biti vraćen kao opis."""
+    item = NaimenovanjeDraft(
+        item_id="1",
+        ordinal_no=8,
+        tariff_code="83021000",
+        tariff_description2="- šarke",
+        goods_description="SARKA VRATA RERNE GORENJE 166670",
+    )
+    invoice_lines = [
+        InvoiceLine(
+            line_no=1,
+            invoice_number="266VP-2026",
+            naziv_robe="SARKA VRATA RERNE GORENJE 166670",
+            assigned_naimenovanje_ordinal=8,
+        )
+    ]
+
+    rub31 = build_asycuda_rub31(
+        item,
+        invoice_lines=invoice_lines,
+        tariff_heading="Šarke, zglobovi i sl. pribor od prostih metala",
+    )
+
+    assert "Šarke, zglobovi" in rub31.description_of_goods
+    assert rub31.description_of_goods != "- šarke"
+
+
+def test_long_specific_description_not_treated_as_fragment():
+    """'- - savitljive cijevi...' je dugačak specifičan opis — ne smije biti
+    zamijenjen kraćim tariff_heading čak i kad postoji."""
+    item = NaimenovanjeDraft(
+        item_id="1",
+        ordinal_no=3,
+        tariff_code="39173100",
+        tariff_description2=(
+            "- - savitljive cijevi i crijeva, koji mogu podnijeti "
+            "pritisak od 27,6 Mpa ili veće"
+        ),
+    )
+
+    rub31 = build_asycuda_rub31(
+        item,
+        tariff_heading="Cijevi i crijeva od polimera etilena",
+    )
+
+    assert "savitljive cijevi" in rub31.description_of_goods
+    assert "polimera etilena" not in rub31.description_of_goods
+
+
+def test_fragment_fallback_when_no_tariff_heading():
+    """Kad nema bogatijeg headinga, fragment se ipak vraća kao fallback."""
+    item = NaimenovanjeDraft(
+        item_id="1",
+        ordinal_no=8,
+        tariff_code="83021000",
+        tariff_description2="- šarke",
+    )
+
+    rub31 = build_asycuda_rub31(item, tariff_heading="")
+
+    assert rub31.description_of_goods == "- šarke"

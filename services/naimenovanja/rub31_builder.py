@@ -177,13 +177,31 @@ def _dedupe(values: Iterable[str]) -> list[str]:
     return result
 
 
+_OVERFLOW_MARKER = re.compile(r"^\.\.\.")
+
+
 def _candidate_is_product_text(candidate: str, product_names: Sequence[str]) -> bool:
     candidate_key = _key(candidate)
     product_keys = {_key(name) for name in product_names if name}
     if candidate_key in product_keys:
         return True
-    parts = [_key(part.strip(" ,;")) for part in re.split(r"[;\n]+", candidate) if part.strip(" ,;")]
+    raw_parts = [p.strip(" ,;") for p in re.split(r"[;\n]+", candidate) if p.strip(" ,;")]
+    # Skip display-only overflow markers like "... (+2 više)" from create_naimenovanja_service
+    parts = [_key(p) for p in raw_parts if not _OVERFLOW_MARKER.match(p)]
     return bool(parts) and all(part in product_keys for part in parts)
+
+
+def is_heading_fragment(text: str) -> bool:
+    """True if text is a short sub-item fragment without parent heading context.
+
+    Examples: '- šarke', '- - dijelovi', '- - bez pribora'.
+    These are valid sub-item descriptors but too short to stand alone in Rub.31.
+    When available, a richer description (e.g. 4-digit heading) should be preferred.
+    """
+    if not re.match(r"^[\s–-]", text):
+        return False
+    content = re.sub(r"^[\s–-]+", "", text).strip()
+    return len(content) <= 25
 
 
 def _choose_tariff_description(
@@ -212,7 +230,7 @@ def _choose_tariff_description(
         if source not in _TARIFF_FIELDS and _candidate_is_product_text(text, product_names):
             continue
         normalized_candidates.append(text)
-        if not is_generic_tariff_text(text):
+        if not is_generic_tariff_text(text) and not is_heading_fragment(text):
             return _clip(text, max_chars)
     return _clip(normalized_candidates[0], max_chars) if normalized_candidates else "."
 

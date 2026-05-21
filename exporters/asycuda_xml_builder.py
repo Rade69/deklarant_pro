@@ -14,6 +14,7 @@ from core.draft.draft import AttachedDocument, DeclarationDraft, NaimenovanjeDra
 from services.naimenovanja.rub31_builder import (
     build_asycuda_rub31,
     is_generic_tariff_text,
+    is_heading_fragment,
     normalize_tariff_text,
 )
 
@@ -960,7 +961,7 @@ class AsycudaXMLBuilder:
             (getattr(item, "tariff_description2", "") or "").strip()
             or (getattr(item, "tariff_description1", "") or "").strip()
         )
-        if heading and not is_generic_tariff_text(heading):
+        if heading and not is_generic_tariff_text(heading) and not is_heading_fragment(heading):
             return self._normalize_tariff_text(heading)
 
         tariff_code = (getattr(item, "tariff_code", "") or "").strip()
