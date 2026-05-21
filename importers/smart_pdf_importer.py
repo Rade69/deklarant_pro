@@ -46,6 +46,10 @@ def parse_smart_pdf(pdf_path: str) -> ImportResult:
             logger.info("   📋 Koristim Leburic/Pekabesko specijalizovanu funkciju")
             result = _parse_leburic_pekabesko(pdf_path)
 
+        elif pdf_format == "pip_food":
+            logger.info("   📋 Koristim PIP Food Group specijalizovanu funkciju")
+            result = _parse_pip_food(pdf_path)
+
         elif pdf_format == "invoice_improved":
             logger.info("   📋 Koristim Invoice-Improved specijalizovanu funkciju")
             result = _parse_invoice_improved(pdf_path)
@@ -225,6 +229,11 @@ def _detect_pdf_format(pdf_path: str) -> str:
             if "PEKABESKO" in text_upper:
                 return "leburic_pekabesko"
 
+            # PIP FOOD GROUP
+            if "PIP FOOD GROUP" in text_upper or "PIP FOOD" in text_upper:
+                if "FAKTURA" in text_upper or "INVOICE" in text_upper:
+                    return "pip_food"
+
             # Nepoznat format - generička extraction
             return "generic"
 
@@ -357,6 +366,12 @@ def _parse_leburic_pekabesko(pdf_path: str) -> ImportResult:
     """Parsira Leburic/Pekabesko PDF format (skenirani OCR dokumenti)."""
     from importers.leburic_pekabesko_importer import parse_leburic_pekabesko_pdf
     return parse_leburic_pekabesko_pdf(pdf_path)
+
+
+def _parse_pip_food(pdf_path: str) -> ImportResult:
+    """Parsira PIP Food Group PDF format."""
+    from importers.vendors.pip_food.pip_food_parser import parse_pip_food_pdf
+    return parse_pip_food_pdf(pdf_path)
 
 
 # Alias za kompatibilnost
