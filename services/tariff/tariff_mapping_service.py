@@ -343,16 +343,20 @@ class TariffMappingService:
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
 
-                # 1. Pokušaj tačan match po product_code
+                # 1. Pokušaj tačan match ili prefix match po product_code
+                # Prefix match: DB kod je prefiks traženog koda (npr. "26WG0703" ↔ "26WG0703-TAUPE")
                 if product_code and product_code.strip():
                     cursor.execute("""
                         SELECT product_code, naziv_robe, commodity_code, precision_1,
                                zemlja_porijekla, povlastica, usage_count
                         FROM catalogs.product_tariff_mapping
                         WHERE product_code ILIKE %s
-                        ORDER BY usage_count DESC
+                           OR (%s ILIKE product_code || '%%' AND product_code != '')
+                        ORDER BY
+                            CASE WHEN product_code ILIKE %s THEN 0 ELSE 1 END,
+                            usage_count DESC
                         LIMIT 1
-                    """, (product_code.strip(),))
+                    """, (product_code.strip(), product_code.strip(), product_code.strip()))
 
                     row = cursor.fetchone()
                     if row:
