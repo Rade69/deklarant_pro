@@ -585,6 +585,10 @@ class AgentController:
             if tabs_widgets:
                 tabs_widgets[0].setCurrentWidget(self.faktura_tab)
 
+        # ⭐ Ponudi podjelu po zemljama ako ima više od jedne grupe
+        if fw and hasattr(fw, '_offer_split_by_country'):
+            fw._offer_split_by_country(all_processed_lines)
+
         # ⭐ KONAČNI REZIME SVIH FAKTURA
         total_bez = sum(1 for l in self.draft.invoice_lines if not l.tarifni_broj)
 

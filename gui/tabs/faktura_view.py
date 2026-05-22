@@ -2814,6 +2814,12 @@ class FakturaView(BaseTabView):
             logger.debug(f"\n{'='*80}")
             logger.debug(f"🔍 [_on_create_naimenovanja] START (auto={auto})")
 
+            # Ako split još nije urađen, provjeri da li treba podjelu po zemljama
+            if len(self._multi_drafts) <= 1 and self.draft.invoice_lines and not auto:
+                from services.faktura.declaration_split_service import count_declaration_groups
+                if count_declaration_groups(self.draft.invoice_lines) > 1:
+                    self._offer_split_by_country(self.draft.invoice_lines)
+
             # Odaberi koje draftove obraditi: sve split draftove ili samo trenutni
             drafts_to_process = self._multi_drafts if len(self._multi_drafts) > 1 else [self.draft]
 
