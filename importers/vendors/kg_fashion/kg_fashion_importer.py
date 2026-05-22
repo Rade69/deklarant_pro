@@ -28,6 +28,7 @@ logger = logging.getLogger("deklarant_pro.import.kg_fashion")
 
 _EXPORTER = Party(name='"K... G... FASHION" D.O.O.', address="Bulevar Oslobodjenja 41", city="Cacak", country="RS")
 _IMPORTER = Party(name='"PRET A PORTER" D.O.O.', city="Banja Luka", country="BA")
+_HISTORICAL_TARIFF_MIN_SIMILARITY = 0.92
 
 # ---------------------------------------------------------------------------
 # Regex paterni
@@ -341,8 +342,10 @@ def import_kg_fashion(pdf_path: str) -> ImportResult:
 
     # --- Ucitaj XLS manifest ako postoji ---
     manifest_data: Optional[Dict[str, Any]] = None
+    consumed_paths: List[str] = []
     xls_path = _find_kg_manifest_xls(pdf_path)
     if xls_path:
+        consumed_paths.append(xls_path)
         manifest = _parse_manifest_xls(xls_path)
         racun_num = _extract_racun_num(header.get("invoice_no", ""))
         if racun_num is not None and racun_num in manifest:
@@ -376,15 +379,35 @@ def import_kg_fashion(pdf_path: str) -> ImportResult:
             neto_kg=0.0,
             exporter=_EXPORTER,
             importer=_IMPORTER,
+            raw={"eur1_suggested": has_eur1} if has_eur1 else {},
         )
         invoice_lines.append(line)
+
+    historical_filled, historical_lookup_failed = _apply_historical_tariff_suggestions(invoice_lines)
 
     # Tezine: PDF ima prednost, manifest kao fallback
     gross_kg = header.get("gross_kg", 0.0) or (manifest_data["bruto"] if manifest_data else 0.0)
     net_kg   = header.get("net_kg",   0.0) or (manifest_data["neto"]  if manifest_data else 0.0)
 
     if has_eur1:
-        logger.info(f"  EUR1 potvrden iz manifesta — has_origin_statement=True")
+        logger.info("  EUR1 pronađen u manifestu — šaljem kao prijedlog za EUR.1 dijalog")
+
+    missing_tariffs = sum(1 for line in invoice_lines if not (line.tarifni_broj or "").strip())
+    warnings: List[str] = []
+    if missing_tariffs:
+        warnings.append(
+            f"KG Fashion: {missing_tariffs}/{len(invoice_lines)} stavki nema tarifni broj u PDF fakturi; "
+            "tarifu treba unijeti ručno ili iz istorije."
+        )
+    if historical_filled:
+        warnings.append(
+            f"KG Fashion: {historical_filled} tarifnih brojeva popunjeno je iz baze znanja "
+            "jer nisu bili upisani u PDF fakturi; provjeriti prije formiranja naimenovanja."
+        )
+    if historical_lookup_failed:
+        warnings.append(
+            "KG Fashion: baza znanja za istorijske tarife nije bila dostupna tokom importa."
+        )
 
     logger.info(f"  Parsirano {len(invoice_lines)} stavki, valuta={currency}, EUR1={has_eur1}")
 
@@ -395,9 +418,11 @@ def import_kg_fashion(pdf_path: str) -> ImportResult:
         invoice_name=header.get("invoice_no", ""),
         currency=currency,
         import_type="kg_fashion",
-        has_origin_statement=has_eur1,
+        has_origin_statement=False,
+        warnings=warnings,
         exporter=_EXPORTER,
         importer=_IMPORTER,
+        consumed_paths=consumed_paths,
     )
 
 
@@ -405,6 +430,46 @@ def detect_kg_fashion(text_sample: str) -> bool:
     """Detekcija KG Fashion formata iz uzorka teksta."""
     upper = text_sample.upper()
     return "K... G... FASHION" in upper or "KGFASHION.DOO" in upper
+
+
+def _apply_historical_tariff_suggestions(invoice_lines: List[InvoiceLine]) -> Tuple[int, bool]:
+    filled = 0
+    lookup_failed = False
+    try:
+        from services.tariff.tariff_mapping_service import TariffMappingService
+        mapping_service = TariffMappingService()
+    except Exception as e:
+        logger.warning("KG Fashion: baza znanja za istorijske tarife nije dostupna: %s", e)
+        return 0, True
+
+    for line in invoice_lines:
+        if (line.tarifni_broj or "").strip():
+            continue
+        try:
+            mapping = mapping_service.find_mapping(
+                product_code=line.product_code,
+                naziv_robe=line.naziv_robe,
+                min_similarity=_HISTORICAL_TARIFF_MIN_SIMILARITY,
+                zemlja_porijekla=line.zemlja_porijekla,
+                supplier=_EXPORTER.name,
+            )
+        except Exception as e:
+            lookup_failed = True
+            logger.warning("KG Fashion: istorijska tarifa nije provjerena za stavku %s: %s", line.line_no, e)
+            continue
+
+        if not mapping or not (mapping.tarifni_broj or "").strip():
+            continue
+
+        line.tarifni_broj = mapping.tarifni_broj
+        line.tariff_suffix = mapping.precision_1 or line.tariff_suffix
+        line.tariff_similarity = float(getattr(mapping, "similarity", 0.0) or 0.0)
+        line.raw["tariff_source"] = "historical_suggestion"
+        line.raw["tariff_suggestion_name"] = mapping.naziv_robe
+        line.raw["tariff_suggestion_usage_count"] = mapping.usage_count
+        filled += 1
+
+    return filled, lookup_failed
 
 
 # ---------------------------------------------------------------------------
@@ -470,10 +535,20 @@ def _parse_manifest_xls(xls_path: str) -> Dict[int, Dict[str, Any]]:
     for r in range(2, ws.nrows):
         try:
             racun_val = ws.cell_value(r, _XLS_COL_RACUN)
+            status_val = str(ws.cell_value(r, 0)).strip() if ws.ncols > 0 else ""
+            reserved_val = str(ws.cell_value(r, 7)).strip() if ws.ncols > 7 else ""
+            brand_val = str(ws.cell_value(r, _XLS_COL_BREND)).strip()
             co_val    = str(ws.cell_value(r, _XLS_COL_CO)).strip()
             eur1_val  = str(ws.cell_value(r, _XLS_COL_EUR1)).strip()
             bruto_val = ws.cell_value(r, _XLS_COL_BRUTO)
             neto_val  = ws.cell_value(r, _XLS_COL_NETO)
+
+            has_row_identity = any(
+                str(v).strip()
+                for v in (racun_val, status_val, reserved_val, brand_val, co_val, eur1_val)
+            )
+            if not has_row_identity:
+                continue
 
             # Novi blok fakture kada je RACUN kolona popunjena
             if racun_val and racun_val != "":

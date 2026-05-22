@@ -72,6 +72,11 @@ def test_mapping_detection_accepts_poreklu_variant():
     assert ProcessingWorker._is_mapping_xlsx("/tmp/Podela po poreklu.xlsx 18,12,2025.xlsx")
 
 
+def test_mapping_detection_accepts_kg_fashion_manifest_names():
+    assert ProcessingWorker._is_mapping_xlsx("/tmp/15467- PTP 11.05.2026..xls")
+    assert ProcessingWorker._is_mapping_xlsx("/tmp/transport PTP manifest.xlsx")
+
+
 def test_agent_invoice_token_ignores_blagic_suffix():
     assert _agent_invoice_token("268VP-2026 SRETO BLAGIC") == _agent_invoice_token("268VP-2026")
 

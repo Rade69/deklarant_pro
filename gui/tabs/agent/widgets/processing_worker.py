@@ -349,6 +349,8 @@ class ProcessingWorker(QThread):
                 "poreklo",
                 "porijekla",
                 "porijeklu",
+                "ptp",
+                "15467",
             )
         )
 

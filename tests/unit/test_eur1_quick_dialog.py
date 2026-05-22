@@ -73,6 +73,28 @@ def test_eur1_dialog_applies_only_selected_invoice_country_group(monkeypatch):
     assert not_selected_other_country.povlastica == ""
 
 
+def test_eur1_dialog_preselects_manifest_suggestion(monkeypatch):
+    _app()
+    monkeypatch.setattr(Eur1QuickDialog, "_create_country_combo", _fake_country_combo)
+    monkeypatch.setattr(Eur1QuickDialog, "_get_country_name", lambda _self, key: key.split(" - ")[-1])
+
+    lines = [
+        InvoiceLine(
+            invoice_number="25-296/2026",
+            zemlja_porijekla="TR",
+            naziv_robe="BUENO CIPELE",
+            raw={"eur1_suggested": True},
+        )
+    ]
+
+    dialog = Eur1QuickDialog(lines)
+    group = dialog.country_inputs["25-296/2026 - TR"]
+
+    assert group["checkbox"].isChecked() is True
+    assert group["eur1_number"].isEnabled() is True
+    assert dialog.ok_button.isEnabled() is False
+
+
 @pytest.mark.skipif(not PIP92_PATH.exists(), reason="PIP92.pdf nije dostupan u lokalnom workspace-u")
 def test_eur1_dialog_groups_real_pip92_invoices(monkeypatch):
     _app()

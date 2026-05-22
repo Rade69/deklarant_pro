@@ -106,6 +106,7 @@ class Eur1QuickDialog(QDialog):
         button_layout.addWidget(self.ok_button)
         button_layout.addWidget(cancel_button)
         layout.addLayout(button_layout)
+        self._update_info()
 
 
     def _group_by_country(self) -> Dict[str, List[InvoiceLine]]:
@@ -259,6 +260,11 @@ class Eur1QuickDialog(QDialog):
             'combo': country_combo,
         }
         self._row_by_key[key] = row
+        if any(getattr(item, "raw", {}).get("eur1_suggested") for item in items):
+            checkbox.blockSignals(True)
+            checkbox.setChecked(True)
+            checkbox.blockSignals(False)
+            eur1_number.setEnabled(True)
 
     def _create_manual_country_input(self) -> QFrame:
         """Fallback kad stavke nemaju zemlja_porijekla - ručni unos šifre zemlje."""
