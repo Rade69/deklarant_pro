@@ -1593,10 +1593,9 @@ class FakturaView(BaseTabView):
                         for item in items:
                             if not item.invoice_number:
                                 item.invoice_number = explicit_inv
-                    # EUR.1 / PE2 / PE3 dialog — zasebno za svaku fakturu (kao kod agenta)
                     if items:
                         has_origin_file = getattr(result, 'has_origin_statement', False)
-                        if has_origin_file or self._should_show_eur1_dialog(items):
+                        if has_origin_file:
                             invoice_name_file = result.invoice_name or Path(filepath).stem
                             # Privremeno dodaj u draft — dijalog radi na draft.invoice_lines
                             self.draft.invoice_lines.extend(items)
@@ -1609,9 +1608,10 @@ class FakturaView(BaseTabView):
                                 logger.info(f"📦 [{invoice_name_file}] → PE2 dialog")
                                 self._show_pe2_dialog(invoice_name_file, doc_code='PE2')
                             else:
-                                val = sum(getattr(it, 'iznos', 0.0) for it in items)
-                                logger.info(f"📦 [{invoice_name_file}] iznos={val:.2f}€ → EUR.1 dialog")
-                                self._show_eur1_dialog()
+                                logger.info(
+                                    "📦 [%s] → EUR.1 potrebno, odgađam do kraja grupnog uvoza",
+                                    invoice_name_file,
+                                )
                             # Ukloni privremene stavke — biće dodane na kraju iz all_items
                             del self.draft.invoice_lines[-len(items):]
                 else:
@@ -1707,6 +1707,10 @@ class FakturaView(BaseTabView):
 
             # Update display
             self._load_data_from_draft()
+
+            if self._should_show_eur1_dialog(self.draft.invoice_lines):
+                logger.info("📦 Grupni uvoz → otvaram jedan EUR.1 dialog za sve fakture")
+                self._show_eur1_dialog()
 
             # Update weights koristeći istu metodu kao pojedinačni uvoz
             # Prvo resetuj akumulirane težine

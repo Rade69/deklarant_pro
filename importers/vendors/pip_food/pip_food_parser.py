@@ -177,7 +177,7 @@ def parse_pip_food_pdf(pdf_path: str) -> ImportResult:
                     iznos=iznos,
                     valuta="EUR",
                     tarifni_broj=tarifni_broj,
-                    zemlja_porijekla="",  # Izjave o poreklu se nalaze u posebnom tekstu
+                    zemlja_porijekla="RS",  # PIP Food Group doo Novi Sad je srpska firma
                     bruto_kg=0.0,
                     neto_kg=0.0,
                 )
