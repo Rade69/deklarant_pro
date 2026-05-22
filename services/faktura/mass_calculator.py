@@ -137,9 +137,14 @@ class MassCalculator:
                         item.neto_kg / neto_bruto_ratio
                     )
 
-        # SCENARIJ 1: Stavke BEZ obe težine (PDF stavke) → proporcionalna distribucija po količini
+        # SCENARIJ 1: Stavke BEZ obe težine (PDF stavke) → proporcionalna distribucija
+        # Prioritet: po vrijednosti (iznos) — tačnije od količine jer skuplje stavke
+        # obično imaju više materijala. Fallback na kolicina ako iznos nije dostupan.
         if items_without_both:
+            total_iznos = sum(item.iznos or 0.0 for item in items_without_both)
             total_qty = sum(item.kolicina or 0.0 for item in items_without_both)
+            use_value_dist = total_iznos > 0
+            denom = total_iznos if use_value_dist else total_qty
             n = len(items_without_both)
             current_bruto = sum(item.bruto_kg or 0.0 for item in items)
             current_neto = sum(item.neto_kg or 0.0 for item in items)
@@ -154,11 +159,11 @@ class MassCalculator:
                 else 0.0
             )
 
-            if total_qty > 0:
+            if denom > 0:
                 for item in items_without_both:
-                    qty = item.kolicina or 0.0
-                    if qty > 0:
-                        proportion = qty / total_qty
+                    weight = (item.iznos or 0.0) if use_value_dist else (item.kolicina or 0.0)
+                    if weight > 0:
+                        proportion = weight / denom
                         if distribute_bruto > 0:
                             item.bruto_kg = MassCalculator._round_mass(
                                 distribute_bruto * proportion
@@ -177,7 +182,7 @@ class MassCalculator:
                                 item.neto_kg / neto_bruto_ratio
                             )
                     else:
-                        # Stavka nema količinu unutar grupe — ravnomjerna raspodjela
+                        # Stavka nema ni iznos ni količinu — ravnomjerna raspodjela
                         item.bruto_kg = (
                             MassCalculator._round_mass(distribute_bruto / n)
                             if distribute_bruto > 0
@@ -191,7 +196,7 @@ class MassCalculator:
                             )
                         )
             else:
-                # Nijedna stavka nema količinu — ravnomjerna raspodjela na sve
+                # Nema ni iznosa ni količine — ravnomjerna raspodjela na sve
                 avg_bruto = (
                     MassCalculator._round_mass(distribute_bruto / n)
                     if distribute_bruto > 0

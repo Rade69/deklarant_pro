@@ -8,13 +8,14 @@ from services.faktura.mass_calculator import MassCalculator
 from core.draft.draft import InvoiceLine
 
 
-def make_item(kolicina=1.0, bruto_kg=0.0, neto_kg=0.0) -> InvoiceLine:
+def make_item(kolicina=1.0, bruto_kg=0.0, neto_kg=0.0, iznos=0.0) -> InvoiceLine:
     return InvoiceLine(
         naziv_robe="Test stavka",
         product_code="TEST",
         kolicina=kolicina,
         bruto_kg=bruto_kg or 0.0,
         neto_kg=neto_kg or 0.0,
+        iznos=iznos,
     )
 
 
@@ -89,6 +90,52 @@ class TestMassCalculatorScenario1:
         # Ukupna qty = 100, stavka[0] dobija 100% (kolicina=100), stavka[1] dobija prosjek (1/2)
         assert items[0].bruto_kg == pytest.approx(100.0, abs=0.01)
         assert items[1].bruto_kg == pytest.approx(50.0, abs=0.01)
+
+
+class TestMassCalculatorValueDistribution:
+    """Distribucija po vrijednosti (iznos) — ima prioritet nad količinom."""
+
+    def test_value_distribution_preferred_over_qty(self):
+        # Dvije stavke: ista količina ali različita vrijednost
+        # Po količini: 50/50. Po vrijednosti: 75/25.
+        items = [
+            make_item(kolicina=100.0, iznos=300.0),
+            make_item(kolicina=100.0, iznos=100.0),
+        ]
+        MassCalculator.calculate_masses(items, bruto_total=400.0, neto_total=380.0)
+        assert items[0].bruto_kg == pytest.approx(300.0, abs=0.01)
+        assert items[1].bruto_kg == pytest.approx(100.0, abs=0.01)
+
+    def test_value_distribution_kg_fashion_scenario(self):
+        # Turska (cipele 100€) vs Kina (torbe 50€) — ista količina, različita vrijednost
+        items = [
+            make_item(kolicina=12.0, iznos=1200.0),   # cipele
+            make_item(kolicina=12.0, iznos=600.0),    # torbe
+        ]
+        MassCalculator.calculate_masses(items, bruto_total=90.0, neto_total=85.0)
+        # 1200/(1200+600) = 2/3 → cipele 60kg, torbe 30kg
+        assert items[0].bruto_kg == pytest.approx(60.0, abs=0.01)
+        assert items[1].bruto_kg == pytest.approx(30.0, abs=0.01)
+
+    def test_fallback_to_qty_when_no_iznos(self):
+        # Ako iznos nije postavljen (=0), padamo na kolicina
+        items = [
+            make_item(kolicina=300.0, iznos=0.0),
+            make_item(kolicina=100.0, iznos=0.0),
+        ]
+        MassCalculator.calculate_masses(items, bruto_total=400.0, neto_total=380.0)
+        assert items[0].bruto_kg == pytest.approx(300.0, abs=0.01)
+        assert items[1].bruto_kg == pytest.approx(100.0, abs=0.01)
+
+    def test_value_sum_preserved(self):
+        items = [
+            make_item(kolicina=10.0, iznos=250.0),
+            make_item(kolicina=20.0, iznos=500.0),
+            make_item(kolicina=5.0, iznos=750.0),
+        ]
+        MassCalculator.calculate_masses(items, bruto_total=150.0, neto_total=142.0)
+        assert sum(i.bruto_kg for i in items) == pytest.approx(150.0, abs=0.01)
+        assert sum(i.neto_kg for i in items) == pytest.approx(142.0, abs=0.01)
 
 
 class TestMassCalculatorScenario2:
