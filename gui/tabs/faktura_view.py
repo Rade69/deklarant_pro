@@ -2808,13 +2808,18 @@ class FakturaView(BaseTabView):
         """
         geometry_state = capture_window_geometry(self) if not auto else None
         from services.create_naimenovanja_service import CreateNaimenovanjaService
+        from services.faktura.declaration_split_service import group_label as _group_label
 
         try:
             logger.debug(f"\n{'='*80}")
             logger.debug(f"🔍 [_on_create_naimenovanja] START (auto={auto})")
-            logger.debug(f"🔍 [_on_create_naimenovanja] Broj invoice_lines: {len(self.draft.invoice_lines)}")
 
-            if not self.draft.invoice_lines:
+            # Odaberi koje draftove obraditi: sve split draftove ili samo trenutni
+            drafts_to_process = self._multi_drafts if len(self._multi_drafts) > 1 else [self.draft]
+
+            # Provjera: mora biti bar jedna stavka u svim draftovima
+            all_lines = [ln for d in drafts_to_process for ln in d.invoice_lines]
+            if not all_lines:
                 if not auto:
                     QMessageBox.warning(
                         self,
@@ -2823,17 +2828,19 @@ class FakturaView(BaseTabView):
                     )
                 return
 
-            # Upozori ako ima stavki bez tarifnog broja (samo u interaktivnom modu)
-            bez_tarife = [l for l in self.draft.invoice_lines if not getattr(l, 'tarifni_broj', None)]
+            logger.debug(f"🔍 [_on_create_naimenovanja] Draftovi za obradu: {len(drafts_to_process)}, ukupno stavki: {len(all_lines)}")
+
+            # Upozori ako ima stavki bez tarifnog broja
+            bez_tarife = [l for l in all_lines if not getattr(l, 'tarifni_broj', None)]
             if bez_tarife and not auto:
                 odgovor = QMessageBox.warning(
                     self,
                     "Upozorenje — nedostaje tarifni broj",
-                    f"⚠️ {len(bez_tarife)} od {len(self.draft.invoice_lines)} stavki nema tarifni broj!\n\n"
-                    f"Grupiranje naimensovnja neće biti tačno — stavke bez tarife bit će "
-                    f"spojene u JEDNO naimensovnje bez obzira na vrstu robe.\n\n"
+                    f"⚠️ {len(bez_tarife)} od {len(all_lines)} stavki nema tarifni broj!\n\n"
+                    f"Grupiranje naimenovanja neće biti tačno — stavke bez tarife bit će "
+                    f"spojene u JEDNO naimenovanje bez obzira na vrstu robe.\n\n"
                     f"Preporučuje se prvo popuniti sve tarifne brojeve (dugme 'Auto-popuni tarifne'), "
-                    f"pa tek onda kreirati naimensovnja.\n\n"
+                    f"pa tek onda kreirati naimenovanja.\n\n"
                     f"Nastavi svejedno?",
                     QMessageBox.Yes | QMessageBox.No,
                     QMessageBox.No,
@@ -2843,43 +2850,85 @@ class FakturaView(BaseTabView):
 
             # Potvrda (samo u interaktivnom modu)
             if not auto:
-                reply = QMessageBox.question(
-                    self,
-                    "Kreiraj Naimenovanja",
-                    f"Kreirati naimenovanja iz {len(self.draft.invoice_lines)} stavki?\n\n"
-                    f"Naimenovanja će biti grupisana po:\n"
-                    f"  • Tarifa (33)\n"
-                    f"  • Zemlja porijekla (34)\n"
-                    f"  • Povlastica (36)\n\n"
-                    f"Postojeća naimenovanja će biti obrisana!",
-                    QMessageBox.Yes | QMessageBox.No,
-                )
+                if len(drafts_to_process) > 1:
+                    deklaracije_info = "\n".join(
+                        f"  • {_group_label(getattr(d, '_country_group', ''), getattr(d, '_currency_group', ''))}"
+                        f" — {len(d.invoice_lines)} stavki"
+                        for d in drafts_to_process
+                    )
+                    reply = QMessageBox.question(
+                        self,
+                        "Kreiraj Naimenovanja",
+                        f"Kreirati naimenovanja za <b>{len(drafts_to_process)} deklaracije</b>?\n\n"
+                        f"{deklaracije_info}\n\n"
+                        f"Grupisanje po: Tarifa • Zemlja porijekla • Povlastica\n"
+                        f"Postojeća naimenovanja će biti obrisana!",
+                        QMessageBox.Yes | QMessageBox.No,
+                    )
+                else:
+                    reply = QMessageBox.question(
+                        self,
+                        "Kreiraj Naimenovanja",
+                        f"Kreirati naimenovanja iz {len(self.draft.invoice_lines)} stavki?\n\n"
+                        f"Naimenovanja će biti grupisana po:\n"
+                        f"  • Tarifa (33)\n"
+                        f"  • Zemlja porijekla (34)\n"
+                        f"  • Povlastica (36)\n\n"
+                        f"Postojeća naimenovanja će biti obrisana!",
+                        QMessageBox.Yes | QMessageBox.No,
+                    )
                 if reply == QMessageBox.No:
                     logger.debug(f"🔍 [_on_create_naimenovanja] Korisnik odustao")
                     return
 
-            # Create service
-            service = CreateNaimenovanjaService(self.draft)
+            # Kreiraj naimenovanja za svaki draft
+            results = []  # [(draft, count, split_info)]
+            for draft in drafts_to_process:
+                svc = CreateNaimenovanjaService(draft)
+                cnt = svc.create_smart_group()
+                si = getattr(svc, "last_split_info", None)
+                results.append((draft, cnt, si))
+                logger.info(
+                    f"✅ [_on_create_naimenovanja] {_group_label(getattr(draft, '_country_group', ''), getattr(draft, '_currency_group', ''))}"
+                    f": {cnt} naimenovanja"
+                    if len(drafts_to_process) > 1
+                    else f"✅ [_on_create_naimenovanja] Kreirano {cnt} naimenovanja"
+                )
+                # Auto-učenje za svaki draft
+                try:
+                    from services.tariff_facade import TariffFacade
+                    TariffFacade.get_instance().learn_from_draft(draft.invoice_lines)
+                except Exception as e:
+                    logger.warning("Auto-učenje tarifa nije uspjelo: %s", e)
 
-            # Use SMART_GROUP strategy (recommended)
-            logger.debug(f"🔍 [_on_create_naimenovanja] Pozivanje create_smart_group()...")
-            count = service.create_smart_group()
-            split_info = getattr(service, "last_split_info", None)
-            logger.info(f"✅ [_on_create_naimenovanja] Kreirano {count} naimenovanja")
-
-            # Show success message (samo u interaktivnom modu)
+            # Prikaz rezultata (samo u interaktivnom modu)
             if not auto:
-                if split_info and split_info.overflow_count > 0:
+                overflow_drafts = [(d, cnt, si) for d, cnt, si in results if si and si.overflow_count > 0]
+                if overflow_drafts:
+                    _, cnt, si = overflow_drafts[0]
                     QMessageBox.warning(
                         self,
                         "ASYCUDA limit — 99 naimenovanja",
                         f"ASYCUDA World u BiH podržava najviše 99 naimenovanja po deklaraciji.\n\n"
-                        f"Ukupno je formirano {split_info.total_count} naimenovanja.\n"
-                        f"Trenutna deklaracija je ograničena na prvih {split_info.current_count}.\n"
-                        f"Preostalih {split_info.overflow_count} naimenovanja je pripremljeno za sljedeću deklaraciju.\n\n"
+                        f"Ukupno je formirano {si.total_count} naimenovanja.\n"
+                        f"Trenutna deklaracija je ograničena na prvih {si.current_count}.\n"
+                        f"Preostalih {si.overflow_count} naimenovanja je pripremljeno za sljedeću deklaraciju.\n\n"
                         f"Završite i izvezite ovu deklaraciju, pa će aplikacija ponuditi nastavak sa ostatkom.",
                     )
+                elif len(results) > 1:
+                    linije = "\n".join(
+                        f"  • {_group_label(getattr(d, '_country_group', ''), getattr(d, '_currency_group', ''))}: {cnt} naimenovanja"
+                        for d, cnt, _ in results
+                    )
+                    QMessageBox.information(
+                        self,
+                        "Uspjeh!",
+                        f"✅ Kreirano naimenovanja za {len(results)} deklaracije:\n\n"
+                        f"{linije}\n\n"
+                        f"Koristite navigator ◀ ▶ za pregled svake deklaracije.",
+                    )
                 else:
+                    _, count, _ = results[0]
                     QMessageBox.information(
                         self,
                         "Uspjeh!",
@@ -2895,16 +2944,8 @@ class FakturaView(BaseTabView):
             self.data_changed.emit()
 
             # Sinhronizuj PE1/PE2/PE3 iz attached_document4 u header_attached_documents
-            # Vidi docs/sections/pe-rub44-4.md
             self._sync_pe_docs_to_header()
             self._sync_inspection_docs_to_header()
-
-            # Auto-učenje: sačuvaj mappinge u bazu znanja — docs/architecture/TARIFF_FACADE_REFACTORING.md
-            try:
-                from services.tariff_facade import TariffFacade
-                TariffFacade.get_instance().learn_from_draft(self.draft.invoice_lines)
-            except Exception as e:
-                logger.warning("Auto-učenje tarifa nije uspjelo: %s", e)
 
             # Reload table to show assigned naimenovanje numbers in column
             logger.debug(f"🔍 [_on_create_naimenovanja] Pozivanje _load_data_from_draft()...")
@@ -2913,25 +2954,18 @@ class FakturaView(BaseTabView):
             logger.info(f"✅ [_on_create_naimenovanja] Faktura tab ažuriran")
 
             # Notify Naimenovanja Tab to reload data
-            # Ovo takođe ažurira Zaglavlje tab (rubrika 6 - broj paketa)
             logger.debug(f"🔍 [_on_create_naimenovanja] Pozivanje _reload_naimenovanja_tab()...")
             self._reload_naimenovanja_tab()
             logger.info(f"✅ [_on_create_naimenovanja] Naimenovanja i Zaglavlje tab ažurirani")
 
-            # Automatska provjera popunjenosti naimenovanja u agent panelu
-            # Emituje signal — agent_tab controller ga sluša i poziva
-            # auto_provjeri_naimenovanja() sa kratkim rezimeom.
-            # Vidi: docs/decisions/002-tool-dispatcher-integration.md
             try:
                 self.naimenovanja_created.emit()
             except Exception as e:
                 logger.warning(f"⚠️ [_on_create_naimenovanja] Signal naimenovanja_created nije uspio: {e}")
 
             # Clear import service memory (za auto-kombinovanje Loren parova)
-            # Ovo osigurava da sljedeći import počinje sa čistom memorijom
             try:
                 from services.import_service import get_import_service
-
                 service = get_import_service()
                 service.clear_memory()
             except Exception as e:
