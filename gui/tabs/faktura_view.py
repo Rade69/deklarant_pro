@@ -1788,11 +1788,11 @@ class FakturaView(BaseTabView):
         korisniku automatsku podjelu na zasebne deklaracije.
         """
         from services.faktura.declaration_split_service import (
-            count_country_groups,
+            count_declaration_groups,
             split_draft_by_country,
         )
 
-        n_groups = count_country_groups(all_items)
+        n_groups = count_declaration_groups(all_items)
         if n_groups <= 1:
             return
 
@@ -1822,10 +1822,11 @@ class FakturaView(BaseTabView):
         info_lines = []
         for d in drafts:
             from services.faktura.declaration_split_service import group_label
-            g = getattr(d, "_country_group", "")
+            cg = getattr(d, "_country_group", "")
+            cv = getattr(d, "_currency_group", "")
             bruto = sum(v[0] for v in d.invoice_weights.values())
             info_lines.append(
-                f"• {group_label(g)}: {len(d.invoice_lines)} stavki, bruto ≈ {bruto:.1f} kg"
+                f"• {group_label(cg, cv)}: {len(d.invoice_lines)} stavki, bruto ≈ {bruto:.1f} kg"
             )
         QMessageBox.information(
             self,

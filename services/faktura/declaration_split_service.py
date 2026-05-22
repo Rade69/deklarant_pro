@@ -1,8 +1,11 @@
 """
-Dijeli jedan DeclarationDraft na više draftova po grupama zemalja porijekla.
+Dijeli jedan DeclarationDraft na više draftova po grupama zemalja i valuta.
 
-Poslovni razlog: Carinska praksa zahtijeva zasebnu deklaraciju po zemlji
-porijekla robe. EU zemlja idu zajedno kao jedna grupa ("EU").
+Poslovni razlog:
+  - Carinska praksa zahtijeva zasebnu deklaraciju po zemlji porijekla.
+  - EU zemlja idu zajedno kao jedna grupa ("EU").
+  - Roba iste zemlje ali različite valute ide u zasebne deklaracije
+    (ASYCUDA deklaracija ima jednu valutu za cijelu deklaraciju).
 """
 
 from __future__ import annotations
@@ -27,6 +30,8 @@ _GROUP_LABELS: Dict[str, str] = {
     "TR": "Turska (TR)",
     "CN": "Kina (CN)",
     "BR": "Brazil (BR)",
+    "IN": "Indija (IN)",
+    "VN": "Vijetnam (VN)",
     "BA": "BiH (BA)",
     "ME": "Crna Gora (ME)",
     "MK": "S. Makedonija (MK)",
@@ -34,6 +39,9 @@ _GROUP_LABELS: Dict[str, str] = {
     "XK": "Kosovo (XK)",
     "": "Nepoznato",
 }
+
+# Tip ključa grupe: (country_group, currency)
+SplitKey = Tuple[str, str]
 
 
 def declaration_country_group(zemlja: str) -> str:
@@ -44,53 +52,81 @@ def declaration_country_group(zemlja: str) -> str:
     return z
 
 
-def group_label(group_key: str) -> str:
+def declaration_split_key(line: InvoiceLine) -> SplitKey:
+    """
+    Vraća ključ za grupisanje u deklaraciju: (country_group, valuta).
+
+    Primjeri:
+      line(zemlja="TR", valuta="EUR") → ("TR", "EUR")
+      line(zemlja="BR", valuta="USD") → ("BR", "USD")
+      line(zemlja="PT", valuta="EUR") → ("EU", "EUR")  ← EU merge
+    """
+    country = declaration_country_group(line.zemlja_porijekla)
+    currency = (line.valuta or "EUR").strip().upper()
+    return (country, currency)
+
+
+def group_label(country_group: str, currency: str = "") -> str:
     """Čitljivi naziv grupe za prikaz u navigatoru."""
-    return _GROUP_LABELS.get(group_key, group_key or "Nepoznato")
+    country_part = _GROUP_LABELS.get(country_group, country_group or "Nepoznato")
+    if currency:
+        return f"{country_part} • {currency}"
+    return country_part
 
 
 def split_draft_by_country(draft: DeclarationDraft) -> List[DeclarationDraft]:
     """
-    Dijeli draft po grupama zemalja porijekla.
+    Dijeli draft po kombinaciji (zemlja porijekla, valuta).
 
-    Vraća listu draftova sortiranih po ključu grupe.
-    Ako sve stavke imaju istu grupu, vraća [draft] (bez kopiranja).
+    Vraća listu draftova sortiranih po ključu.
+    Ako sve stavke imaju isti ključ, vraća [draft] (bez kopiranja).
 
     Svaki rezultujući draft:
       - ima isto zaglavlje kao original
+      - ima postavljenu valutu (draft.valuta) na valutu grupe
       - sadrži samo invoice_lines za svoju grupu
       - sadrži samo invoice_weights za fakture te grupe
-      - ima _country_group attr setovan na ključ grupe
+      - ima _country_group i _currency_group attr setovane
     """
     if not draft.invoice_lines:
         return [draft]
 
-    # Grupiši linije po grupi zemalja
-    buckets: Dict[str, List[InvoiceLine]] = defaultdict(list)
+    # Grupiši linije po (zemlja, valuta)
+    buckets: Dict[SplitKey, List[InvoiceLine]] = defaultdict(list)
     for line in draft.invoice_lines:
-        group = declaration_country_group(line.zemlja_porijekla)
-        buckets[group].append(line)
+        key = declaration_split_key(line)
+        buckets[key].append(line)
 
     if len(buckets) == 1:
-        # Samo jedna grupa — nema smisla dijeliti
         only_key = next(iter(buckets))
-        draft._country_group = only_key  # type: ignore[attr-defined]
+        draft._country_group = only_key[0]   # type: ignore[attr-defined]
+        draft._currency_group = only_key[1]  # type: ignore[attr-defined]
         return [draft]
 
-    # Izračunaj invoice_weights po grupi (faktura može biti u više grupa ako
-    # ima mixed C/O — tada se težina dijeli proporcionalno po vrijednosti)
     group_weights = _split_invoice_weights(draft, buckets)
 
     result: List[DeclarationDraft] = []
-    for group_key in sorted(buckets.keys()):
-        lines = buckets[group_key]
+    for split_key in sorted(buckets.keys()):
+        country, currency = split_key
+        lines = buckets[split_key]
         new_draft = _copy_header(draft)
         new_draft.invoice_lines = lines
-        new_draft.invoice_weights = group_weights.get(group_key, {})
-        new_draft._country_group = group_key  # type: ignore[attr-defined]
+        new_draft.invoice_weights = group_weights.get(split_key, {})
+        new_draft.valuta = currency
+        new_draft._country_group = country   # type: ignore[attr-defined]
+        new_draft._currency_group = currency  # type: ignore[attr-defined]
         result.append(new_draft)
 
     return result
+
+
+def count_declaration_groups(invoice_lines: List[InvoiceLine]) -> int:
+    """Brzo prebrojava koliko bi deklaracija nastalo iz datih stavki."""
+    return len({declaration_split_key(ln) for ln in invoice_lines})
+
+
+# Backwards-compatible alias
+count_country_groups = count_declaration_groups
 
 
 def _copy_header(draft: DeclarationDraft) -> DeclarationDraft:
@@ -107,8 +143,8 @@ def _copy_header(draft: DeclarationDraft) -> DeclarationDraft:
 
 def _split_invoice_weights(
     draft: DeclarationDraft,
-    buckets: Dict[str, List[InvoiceLine]],
-) -> Dict[str, Dict[str, Tuple[float, float]]]:
+    buckets: Dict[SplitKey, List[InvoiceLine]],
+) -> Dict[SplitKey, Dict[str, Tuple[float, float]]]:
     """
     Raspodjeljuje invoice_weights iz drafta na grupe.
 
@@ -117,16 +153,16 @@ def _split_invoice_weights(
     """
     from services.faktura.weight_guards import normalize_invoice_key
 
-    # Mapa: normalized_inv_key → {group → [lines]}
-    inv_group_lines: Dict[str, Dict[str, List[InvoiceLine]]] = defaultdict(
+    # Mapa: normalized_inv_key → {split_key → [lines]}
+    inv_group_lines: Dict[str, Dict[SplitKey, List[InvoiceLine]]] = defaultdict(
         lambda: defaultdict(list)
     )
-    for group_key, lines in buckets.items():
+    for split_key, lines in buckets.items():
         for ln in lines:
             inv_key = normalize_invoice_key(ln.invoice_number)
-            inv_group_lines[inv_key][group_key].append(ln)
+            inv_group_lines[inv_key][split_key].append(ln)
 
-    result: Dict[str, Dict[str, Tuple[float, float]]] = defaultdict(dict)
+    result: Dict[SplitKey, Dict[str, Tuple[float, float]]] = defaultdict(dict)
 
     for inv_key, (bruto, neto) in draft.invoice_weights.items():
         if inv_key not in inv_group_lines:
@@ -135,25 +171,19 @@ def _split_invoice_weights(
         groups_for_inv = inv_group_lines[inv_key]
 
         if len(groups_for_inv) == 1:
-            # Cijela faktura ide u jednu grupu
-            only_group = next(iter(groups_for_inv))
-            result[only_group][inv_key] = (bruto, neto)
+            only_key = next(iter(groups_for_inv))
+            result[only_key][inv_key] = (bruto, neto)
         else:
             # Mixed faktura — raspodijeli po vrijednosti
             total_val = sum(
                 sum(ln.iznos for ln in lns)
                 for lns in groups_for_inv.values()
             ) or 1.0
-            for group_key, lns in groups_for_inv.items():
+            for split_key, lns in groups_for_inv.items():
                 share = sum(ln.iznos for ln in lns) / total_val
-                result[group_key][inv_key] = (
+                result[split_key][inv_key] = (
                     round(bruto * share, 3),
                     round(neto * share, 3),
                 )
 
     return dict(result)
-
-
-def count_country_groups(invoice_lines: List[InvoiceLine]) -> int:
-    """Brzo prebrojava koliko bi deklaracija nastalo iz datih stavki."""
-    return len({declaration_country_group(ln.zemlja_porijekla) for ln in invoice_lines})

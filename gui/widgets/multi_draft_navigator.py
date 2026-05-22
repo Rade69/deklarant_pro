@@ -124,18 +124,20 @@ class MultiDraftNavigator(QWidget):
         total = len(self._drafts)
         draft = self._drafts[self._index]
         country_group = getattr(draft, "_country_group", "")
+        currency_group = getattr(draft, "_currency_group", "")
         stavki = len(draft.invoice_lines)
 
         self._lbl_info.setText(
-            f"<b>{self._index + 1} od {total}</b>  —  {group_label(country_group)}  •  {stavki} stavki"
+            f"<b>{self._index + 1} od {total}</b>  —  {group_label(country_group, currency_group)}  •  {stavki} stavki"
         )
 
         # Summary svih deklaracija
         parts = []
         for i, d in enumerate(self._drafts):
-            g = getattr(d, "_country_group", "")
+            cg = getattr(d, "_country_group", "")
+            cv = getattr(d, "_currency_group", "")
             marker = "●" if i == self._index else "○"
-            parts.append(f"{marker} {group_label(g)} ({len(d.invoice_lines)})")
+            parts.append(f"{marker} {group_label(cg, cv)} ({len(d.invoice_lines)})")
         self._lbl_summary.setText("  ".join(parts))
 
         self._btn_prev.setEnabled(self._index > 0)
