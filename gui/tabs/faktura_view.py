@@ -195,6 +195,10 @@ class FakturaView(BaseTabView):
         self.error_handler = ErrorHandler(self)
         self.theme_manager = ThemeManager()
 
+        # Multi-draft navigator state (podjela po zemljama porijekla)
+        self._multi_drafts: List[DeclarationDraft] = []
+        self._multi_draft_navigator: Optional["MultiDraftNavigator"] = None  # noqa: F821
+
         # Track imported file counts
         self.imported_excel_count: int = 0
         self.imported_pdf_count: int = 0
@@ -238,6 +242,12 @@ class FakturaView(BaseTabView):
         # Controls section
         controls_widget = self._create_controls_section()
         main_layout.addWidget(controls_widget)
+
+        # Multi-draft navigator (skriven dok nema podjele)
+        from gui.widgets.multi_draft_navigator import MultiDraftNavigator
+        self._multi_draft_navigator = MultiDraftNavigator(self)
+        self._multi_draft_navigator.draft_changed.connect(self._switch_to_draft)
+        main_layout.addWidget(self._multi_draft_navigator)
 
         # Table section
         self.table = self._create_table()
@@ -1729,6 +1739,9 @@ class FakturaView(BaseTabView):
             # Enable buttons
             self._set_buttons_enabled(True)
 
+            # Ponudi podjelu po zemljama porijekla (ako ima više od jedne grupe)
+            self._offer_split_by_country(all_items)
+
             # Prikaži statistiku
             message = f"📦 Grupni uvoz završen!\n\n"
             skipped_count = len(imported_records) - len(final_records)
@@ -1768,6 +1781,80 @@ class FakturaView(BaseTabView):
                 "Grupni uvoz",
                 "Nije uvezena nijedna stavka.\n\nProvjerite da li su fajlovi ispravni.",
             )
+
+    def _offer_split_by_country(self, all_items: list) -> None:
+        """
+        Ako stavke imaju više od jedne grupe zemalja porijekla, ponudi
+        korisniku automatsku podjelu na zasebne deklaracije.
+        """
+        from services.faktura.declaration_split_service import (
+            count_country_groups,
+            split_draft_by_country,
+        )
+
+        n_groups = count_country_groups(all_items)
+        if n_groups <= 1:
+            return
+
+        odgovor = QMessageBox.question(
+            self,
+            "Podjela po zemljama porijekla",
+            f"Detektovano <b>{n_groups} različite grupe zemalja</b> porijekla.\n\n"
+            "Podijeliti uvoz na zasebne deklaracije po zemljama?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.Yes,
+        )
+        if odgovor != QMessageBox.Yes:
+            return
+
+        drafts = split_draft_by_country(self.draft)
+        if len(drafts) <= 1:
+            return
+
+        self._multi_drafts = drafts
+        if self._multi_draft_navigator:
+            self._multi_draft_navigator.load_drafts(drafts, start_index=0)
+
+        # Učitaj prvi draft
+        self._switch_to_draft(0)
+
+        # Informiši korisnika
+        info_lines = []
+        for d in drafts:
+            from services.faktura.declaration_split_service import group_label
+            g = getattr(d, "_country_group", "")
+            bruto = sum(v[0] for v in d.invoice_weights.values())
+            info_lines.append(
+                f"• {group_label(g)}: {len(d.invoice_lines)} stavki, bruto ≈ {bruto:.1f} kg"
+            )
+        QMessageBox.information(
+            self,
+            "Podjela završena",
+            f"Uvoz je podijeljen na {len(drafts)} deklaracije:\n\n"
+            + "\n".join(info_lines)
+            + "\n\nKoristi ◀ ▶ navigator iznad tabele za prelaz između deklaracija.",
+        )
+
+    def _switch_to_draft(self, index: int) -> None:
+        """Prebaci aktivni draft na draft na datom indeksu i osvježi prikaz."""
+        if not self._multi_drafts or index >= len(self._multi_drafts):
+            return
+
+        self.draft = self._multi_drafts[index]
+
+        # Osvježi težine u WeightManager-u
+        total_bruto = sum(v[0] for v in self.draft.invoice_weights.values())
+        total_neto = sum(v[1] for v in self.draft.invoice_weights.values())
+        self.weight_manager.reset_weights()
+        self._accumulate_weights(total_bruto, total_neto)
+
+        # Osvježi tabelu i status
+        self._load_data_from_draft()
+        self._update_status_bar()
+
+        # Ažuriraj navigator (ako je navigacija pokrenuta programski, ne klikovima)
+        if self._multi_draft_navigator and self._multi_draft_navigator.current_index != index:
+            self._multi_draft_navigator.load_drafts(self._multi_drafts, start_index=index)
 
     def _on_import_progress(self, percentage: int):
         """Handle import progress update."""
