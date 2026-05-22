@@ -1844,7 +1844,8 @@ class FakturaView(BaseTabView):
 
     def _assign_invoice_name(self, items, invoice_name: str) -> None:
         for item in items:
-            item.invoice_number = invoice_name
+            if not getattr(item, "invoice_number", ""):
+                item.invoice_number = invoice_name
 
     def _normalize_item_tariffs(self, items) -> None:
         from importers.invoice_line_utils import normalize_tariff_number

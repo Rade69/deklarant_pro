@@ -12,17 +12,15 @@ Sve stavke iste zemlje idu pod isti EUR.1 obrazac.
 """
 
 from typing import Dict, List
-import sys
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel,
     QCheckBox, QLineEdit, QPushButton, QScrollArea,
-    QWidget, QFrame, QMessageBox
+    QWidget, QFrame, QTableWidget, QTableWidgetItem,
+    QHeaderView, QAbstractItemView
 )
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont
 
 from core.draft.draft import InvoiceLine
-from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
 
 
 class Eur1QuickDialog(QDialog):
@@ -40,20 +38,23 @@ class Eur1QuickDialog(QDialog):
         self.invoice_lines = invoice_lines
         self.invoice_number = invoice_number
         self.country_inputs = {}
+        self._row_by_key = {}
         self._prefill_invoice_number = invoice_number
         self.setup_ui()
 
     def setup_ui(self):
         """Postavi UI elemente dialoga."""
         self.setWindowTitle("EUR.1 obrazac po fakturi")
-        self.setMinimumWidth(600)
-        self.setMinimumHeight(500)
+        self.setMinimumWidth(820)
+        self.setMinimumHeight(360)
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(18, 14, 18, 14)
+        layout.setSpacing(10)
 
         # HEADER - Objašnjenje
         header = QLabel("PDF nema izjavu o preferencijalnom porijeklu.")
-        header.setStyleSheet("font-size: 14px; font-weight: bold; color: #856404; "
+        header.setStyleSheet("font-size: 15px; font-weight: bold; color: #856404; "
                            "background: #fff3cd; padding: 10px; border-radius: 5px;")
         layout.addWidget(header)
 
@@ -61,83 +62,44 @@ class Eur1QuickDialog(QDialog):
             "Označi samo fakture i zemlje za koje stvarno postoji EUR.1 obrazac.\n"
             "Stavke koje ne označiš ostaju bez povlastice."
         )
-        subheader.setStyleSheet("color: #666; padding: 5px;")
+        subheader.setStyleSheet("color: #666; font-size: 12px; padding: 2px;")
         layout.addWidget(subheader)
 
-        # BROJ FAKTURE / IZJAVE
-        global_group = QFrame()
-        global_group.setStyleSheet("""
-            QFrame {
-                background: #e7f3ff;
-                border: 1px solid #b8daff;
-                border-radius: 5px;
-                padding: 10px;
-            }
-        """)
-        global_layout = QHBoxLayout(global_group)
-
-        global_label = QLabel("Broj fakture:")
-        global_label.setStyleSheet("font-weight: bold;")
-        global_layout.addWidget(global_label)
-
-        self.global_invoice_number = QLineEdit()
-        self.global_invoice_number.setPlaceholderText("npr. 3940/2025")
-        self.global_invoice_number.setMaximumWidth(200)
-        global_layout.addWidget(self.global_invoice_number)
-
-        # Prefill ako je broj fakture pročitan iz PDF-a
-        if self._prefill_invoice_number:
-            self.global_invoice_number.blockSignals(True)
-            self.global_invoice_number.setText(self._prefill_invoice_number)
-            self.global_invoice_number.blockSignals(False)
-            auto_label = QLabel("automatski pročitan")
-            auto_label.setStyleSheet("color: #28a745; font-size: 11px; font-style: italic;")
-            global_layout.addWidget(auto_label)
-
-        global_layout.addStretch()
-        layout.addWidget(global_group)
-
-        # SCROLL AREA - Zemlje
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameStyle(QFrame.NoFrame)
-
-        scroll_content = QWidget()
-        self.scroll_layout = QVBoxLayout(scroll_content)
-        self.scroll_layout.setAlignment(Qt.AlignTop)
-        self.scroll_layout.setSpacing(5)
-
-        # Grupiši stavke po zemlji
         countries = self._group_by_country()
 
         if countries:
-            for key, items in sorted(countries.items()):
-                group = self._create_country_group(key, items)
-                self.scroll_layout.addWidget(group)
+            self.groups_table = self._create_groups_table(countries)
+            layout.addWidget(self.groups_table)
         else:
-            # Nema zemlja_porijekla na stavkama - prikaži ručni unos (kao kod Blagić-Loren)
+            scroll = QScrollArea()
+            scroll.setWidgetResizable(True)
+            scroll.setFrameStyle(QFrame.NoFrame)
+            scroll_content = QWidget()
+            self.scroll_layout = QVBoxLayout(scroll_content)
+            self.scroll_layout.setAlignment(Qt.AlignTop)
             self._manual_country_row = self._create_manual_country_input()
             self.scroll_layout.addWidget(self._manual_country_row)
-
-        self.scroll_layout.addStretch()
-        scroll.setWidget(scroll_content)
-        layout.addWidget(scroll)
+            self.scroll_layout.addStretch()
+            scroll.setWidget(scroll_content)
+            layout.addWidget(scroll)
 
         # INFO LABEL - Broj stavki
         self.info_label = QLabel("Unesi EUR.1 broj za svaku označenu grupu")
-        self.info_label.setStyleSheet("font-weight: bold; color: #0c5460; "
-                                     "background: #d1ecf1; padding: 10px; border-radius: 5px;")
+        self.info_label.setStyleSheet("font-size: 12px; font-weight: bold; color: #0c5460; "
+                                     "background: #d1ecf1; padding: 9px; border-radius: 5px;")
         layout.addWidget(self.info_label)
 
         # BUTTONS
         self.ok_button = QPushButton("Primijeni označene")
         self.ok_button.clicked.connect(self._on_accept)
         self.ok_button.setEnabled(False)  # Disabled until valid input
-        self.ok_button.setMinimumHeight(40)
+        self.ok_button.setMinimumHeight(42)
+        self.ok_button.setMinimumWidth(150)
 
         cancel_button = QPushButton("Nema EUR.1 / preskoči")
         cancel_button.clicked.connect(self.reject)
-        cancel_button.setMinimumHeight(40)
+        cancel_button.setMinimumHeight(42)
+        cancel_button.setMinimumWidth(160)
 
         button_layout = QHBoxLayout()
         button_layout.addStretch()
@@ -197,101 +159,106 @@ class Eur1QuickDialog(QDialog):
             return key.split(' - ')[0].strip()
         return key
 
-    def _create_country_group(self, key: str, items: List[InvoiceLine]) -> QFrame:
-        """Kreiraj grupu (red) za jednu kombinaciju faktura + zemlja."""
-        # Parse ključ da dobije invoice_number i country_code
+    def _create_groups_table(self, countries: Dict[str, List[InvoiceLine]]) -> QTableWidget:
+        headers = [
+            "Broj fakture", "Zemlja porijekla", "Povlastica",
+            "Ima EUR1", "EUR1 obrazac"
+        ]
+        table = QTableWidget(len(countries), len(headers), self)
+        table.setHorizontalHeaderLabels(headers)
+        table.setSelectionMode(QAbstractItemView.NoSelection)
+        table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        table.verticalHeader().setVisible(False)
+        table.setAlternatingRowColors(True)
+        table.setStyleSheet("""
+            QTableWidget {
+                background: #ffffff;
+                gridline-color: #d7dee8;
+                border: 1px solid #b8c7d8;
+                border-radius: 4px;
+                font-size: 14px;
+            }
+            QHeaderView::section {
+                background: #eef3f8;
+                color: #27384a;
+                font-weight: bold;
+                font-size: 13px;
+                padding: 8px;
+                border: 0;
+                border-right: 1px solid #d7dee8;
+            }
+            QComboBox, QLineEdit {
+                min-height: 34px;
+                font-size: 14px;
+                padding-left: 8px;
+            }
+            QCheckBox::indicator {
+                width: 24px;
+                height: 24px;
+            }
+        """)
+
+        for row, (key, items) in enumerate(sorted(countries.items())):
+            self._populate_group_row(table, row, key, items)
+
+        header = table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(4, QHeaderView.Stretch)
+        table.verticalHeader().setDefaultSectionSize(48)
+        table.setMinimumHeight(min(240, 46 + len(countries) * 48))
+        table.setMaximumHeight(min(300, 46 + len(countries) * 48))
+        return table
+
+    def _populate_group_row(self, table: QTableWidget, row: int, key: str, items: List[InvoiceLine]) -> None:
         invoice_number = self._get_invoice_number(key)
         country_code = key.split(' - ')[-1].strip() if ' - ' in key else key
         country_name = self._get_country_name(key)
-        
-        frame = QFrame()
-        frame.setFrameStyle(QFrame.StyledPanel)
-        frame.setStyleSheet("""
-            QFrame {
-                background: #f8f9fa;
-                border: 1px solid #dee2e6;
-                border-radius: 5px;
-                padding: 5px;
-            }
-            QFrame:hover {
-                background: #e9ecef;
-            }
-        """)
-        
-        layout = QVBoxLayout(frame)
-        
-        # Header sa invoice_number i zemljom
-        header_layout = QHBoxLayout()
-        header_layout.setContentsMargins(0, 0, 0, 0)
-        
-        invoice_label = QLabel(f"Faktura: {invoice_number}")
-        invoice_label.setStyleSheet("font-weight: bold; font-size: 12px; color: #495057;")
-        header_layout.addWidget(invoice_label)
-        
-        header_layout.addSpacing(10)
-        
-        country_label = QLabel(f"Zemlja: {country_code} - {country_name}")
-        country_label.setStyleSheet("font-weight: bold; font-size: 13px; color: #28a745;")
-        header_layout.addWidget(country_label)
-        
-        layout.addLayout(header_layout)
-        
-        # ComboBox za izbor zemlje (ako korisnik želi da promeni zemlju)
-        country_select_layout = QHBoxLayout()
-        country_label = QLabel("Zemlja:")
-        country_label.setStyleSheet("font-size: 11px; color: #555;")
-        country_select_layout.addWidget(country_label)
-        
-        self._country_combo = self._create_country_combo(country_code)
-        country_select_layout.addWidget(self._country_combo)
-        country_select_layout.addStretch()
-        layout.addLayout(country_select_layout)
-        
-        # Checkbox
-        checkbox = QCheckBox("Ova faktura/zemlja ima EUR.1 obrazac")
-        checkbox.setStyleSheet("font-size: 12px; margin-top: 5px;")
-        checkbox.stateChanged.connect(self._on_checkbox_changed)
-        layout.addWidget(checkbox)
-        
-        # Broj stavki
-        count_label = QLabel(f"({len(items)} stavki)")
-        count_label.setStyleSheet("color: #666; font-size: 11px;")
-        layout.addWidget(count_label)
+        preference = self._suggest_preference(country_code)
 
-        layout.addSpacing(10)
-        
-        # EUR.1 input
-        eur1_label = QLabel("EUR.1 broj:")
-        eur1_label.setStyleSheet("font-weight: bold; font-size: 12px;")
-        layout.addWidget(eur1_label)
+        table.setItem(row, 0, QTableWidgetItem(invoice_number))
+
+        country_combo = self._create_country_combo(country_code)
+        country_combo.setMinimumWidth(190)
+        table.setCellWidget(row, 1, country_combo)
+
+        pref_label = QLabel(preference if preference else "(bez povlastice)")
+        pref_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #155724;")
+        table.setCellWidget(row, 2, pref_label)
+
+        checkbox = QCheckBox()
+        checkbox.setToolTip("Označi samo ako za ovu fakturu i zemlju postoji EUR1 obrazac.")
+        checkbox.stateChanged.connect(lambda _state, group_key=key: self._on_checkbox_changed(group_key))
+        checkbox_holder = QWidget()
+        checkbox_layout = QHBoxLayout(checkbox_holder)
+        checkbox_layout.setContentsMargins(0, 0, 0, 0)
+        checkbox_layout.setAlignment(Qt.AlignCenter)
+        checkbox_layout.addWidget(checkbox)
+        table.setCellWidget(row, 3, checkbox_holder)
 
         eur1_number = QLineEdit()
         eur1_number.setPlaceholderText("npr. 000456/2025")
-        eur1_number.setMaximumWidth(200)
+        eur1_number.setMinimumWidth(260)
+        eur1_number.setEnabled(False)
         eur1_number.textChanged.connect(lambda _text: self._update_info())
-        layout.addWidget(eur1_number)
+        table.setCellWidget(row, 4, eur1_number)
 
-        layout.addSpacing(10)
-        
-        # Povlastica (read-only)
-        preference = self._suggest_preference(country_code)
-        pref_label = QLabel(f"→ Povlastica: {preference if preference else '(automatski)'}")
-        pref_label.setStyleSheet("color: #155724; font-weight: bold; font-size: 12px;")
-        layout.addWidget(pref_label)
-        
-        layout.addStretch()
-        
-        # Sačuvaj reference
+        country_combo.currentIndexChanged.connect(
+            lambda _idx, group_key=key: self._on_country_changed_for_group(group_key)
+        )
+
         self.country_inputs[key] = {
             'checkbox': checkbox,
             'eur1_number': eur1_number,
             'preference': preference,
+            'preference_label': pref_label,
             'items': items,
             'invoice_number': invoice_number,
-            'combo': self._country_combo,  # Ref na combobox za izbor zemlje
+            'combo': country_combo,
         }
-        
-        return frame
+        self._row_by_key[key] = row
 
     def _create_manual_country_input(self) -> QFrame:
         """Fallback kad stavke nemaju zemlja_porijekla - ručni unos šifre zemlje."""
@@ -339,13 +306,18 @@ class Eur1QuickDialog(QDialog):
             self._manual_pref_label.setText(pref or ("(nepoznata zemlja)" if code else ""))
         self._update_info()
     
-    def _on_checkbox_changed(self):
+    def _on_checkbox_changed(self, key: str = ""):
         """Ažuriraj dugme kada se checkbox promeni."""
+        if key and key in self.country_inputs:
+            data = self.country_inputs[key]
+            checked = data['checkbox'].isChecked()
+            data['eur1_number'].setEnabled(checked)
+            if not checked:
+                data['eur1_number'].clear()
         self._update_info()
 
     def _on_accept(self):
         """Handle accept button click."""
-        import sys
         logger.info(f"✅ [_on_accept] Dugme Primijeni kliknuto!")
         eur1_data = self.get_data()
         logger.info(f"✅ [_on_accept] eur1_data={eur1_data}")
@@ -355,11 +327,14 @@ class Eur1QuickDialog(QDialog):
         """Ažuriraj info label sa brojem stavki za ažuriranje."""
         ready_countries = []
 
+        checked_missing = 0
         for country, data in self.country_inputs.items():
             if data['checkbox'].isChecked():
                 eur1_number = data['eur1_number'].text().strip()
                 if eur1_number:
                     ready_countries.append(country)
+                else:
+                    checked_missing += 1
         
         # Proveri i manualni unos (kada nema zemlja_na_stavkama)
         manual_ok = False
@@ -369,7 +344,7 @@ class Eur1QuickDialog(QDialog):
                 manual_ok = True
                 ready_countries = [code]  # Pretvori manualni unos u ready_countries
 
-        if ready_countries:
+        if ready_countries and not checked_missing:
             if manual_ok:
                 total_items = len(self.invoice_lines)
                 self.info_label.setText(
@@ -387,6 +362,13 @@ class Eur1QuickDialog(QDialog):
                 "background: #d4edda; padding: 10px; border-radius: 5px;"
             )
             self.ok_button.setEnabled(True)
+        elif checked_missing:
+            self.info_label.setText(f"{checked_missing} označena grupa nema unesen EUR.1 broj")
+            self.info_label.setStyleSheet(
+                "font-weight: bold; color: #856404; "
+                "background: #fff3cd; padding: 10px; border-radius: 5px;"
+            )
+            self.ok_button.setEnabled(False)
         else:
             self.info_label.setText("Unesi EUR.1 broj za svaku označenu grupu")
             self.info_label.setStyleSheet(
@@ -421,27 +403,24 @@ class Eur1QuickDialog(QDialog):
                 if idx >= 0:
                     combo.setCurrentIndex(idx)
                 
-                # Event handler za promenu zemlje
-                combo.currentIndexChanged.connect(self._on_country_changed)
-                
         except Exception as e:
             print(f"Greška pri učitavanju zemalja: {e}")
             combo.addItem(f"{current_country} - {current_country}", current_country)
         
         return combo
     
-    def _on_country_changed(self, index: int):
-        """Ažuriraj preference kada se promeni zemlja u comboboxu."""
-        combo = self.sender()
-        if combo and hasattr(combo, 'currentData'):
-            country_code = combo.currentData()
-            if country_code:
-                pref = self._suggest_preference(country_code)
-                # Pronađi ovu kombinaciju u country_inputs i ažuriraj preference
-                # Ovo je komplikovano jer treba da se zna koji combo pripada kojoj grupi
-                # Za sada samo osveži UI
-                self._update_info()
-    
+    def _on_country_changed_for_group(self, key: str):
+        data = self.country_inputs.get(key)
+        if not data:
+            return
+        country_code = self._get_selected_country(key)
+        pref = self._suggest_preference(country_code)
+        data['preference'] = pref
+        label = data.get('preference_label')
+        if label:
+            label.setText(pref if pref else "(automatski)")
+        self._update_info()
+
     def _suggest_preference(self, country_code: str) -> str:
         """
         Predloži povlasticu (Rub.36) na osnovu zemlje.
@@ -551,7 +530,7 @@ class Eur1QuickDialog(QDialog):
                     ln.zemlja_porijekla = code
                 result[code] = {
                     'eur1_number': '',  # Prazan EUR.1 broj - korisnik može da unese kasnije
-                    'invoice_number': self.global_invoice_number.text().strip(),
+                    'invoice_number': self.invoice_number,
                     'preference': self._suggest_preference(code),
                     'items': self.invoice_lines,
                 }
@@ -561,7 +540,7 @@ class Eur1QuickDialog(QDialog):
     def _get_selected_country(self, key: str) -> str:
         """Dobavi trenutno izabranu zemlju iz comboboxa za dati ključ."""
         data = self.country_inputs.get(key)
-        if data and hasattr(self, '_country_combo') and data.get('combo'):
+        if data and data.get('combo'):
             combo = data['combo']
             if hasattr(combo, 'currentData'):
                 return combo.currentData() or key.split(' - ')[-1].strip()

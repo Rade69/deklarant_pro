@@ -35,6 +35,7 @@ PRAVILA:
 14. Za "porijeklo proizvoda X" ili "zemlja porijekla za X" → pretrazi_porijeklo
 15. Za "analiziraj tarifne", "uporedi tarifne sa istorijom", "historija tarifa", "jesu li ovi tarifni konzistentni" → analiziraj_tarifne
 16. Za "slični proizvodi", "raniji slični slučajevi", "šta istorijski liči na X" → pronadji_slicne_proizvode
+17. Za "pogledaj tab faktura", "šta je u zaglavlju", "stanje aplikacije", "šta je učitano" → pregled_stanja_aplikacije
 """
 
 # ── Alati ────────────────────────────────────────────────────────────
@@ -56,6 +57,29 @@ TOOLS = [
                     "filter": {
                         "type": "string",
                         "description": "Filter keyword za stavke (npr. naziv robe). Opciono."
+                    }
+                },
+                "additionalProperties": False
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "pregled_stanja_aplikacije",
+            "description": (
+                "Prikaži trenutno stanje aplikacije iz aktivnog drafta: tab Faktura, "
+                "tab Naimenovanja i Zaglavlje. Koristi kada korisnik kaže 'pogledaj tab faktura', "
+                "'šta je učitano', 'pregled stanja aplikacije', 'pogledaj zaglavlje', "
+                "'šta ima u naimenovanjima' ili traži uvid u trenutno formirane tabele."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "scope": {
+                        "type": "string",
+                        "enum": ["all", "faktura", "naimenovanja", "zaglavlje"],
+                        "description": "Koji dio aplikacije prikazati. Default: all."
                     }
                 },
                 "additionalProperties": False

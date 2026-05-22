@@ -113,8 +113,12 @@ _REDNI = {
     'drugi': 2, 'drugog': 2, 'drugo': 2, 'druga': 2,
     'treći': 3, 'trećeg': 3, 'treće': 3, 'treca': 3, 'treceg': 3,
     'četvrti': 4, 'cetvrti': 4, 'četvrtog': 4,
-    'peti': 5, 'petog': 5, 'šesti': 6, 'sedmi': 7,
-    'osmi': 8, 'deveti': 9, 'deseti': 10,
+    'peti': 5, 'peto': 5, 'petog': 5,
+    'šesti': 6, 'sesti': 6, 'šesto': 6, 'sesto': 6, 'šestog': 6, 'sestog': 6,
+    'sedmi': 7, 'sedmo': 7, 'sedmog': 7,
+    'osmi': 8, 'osmo': 8, 'osmog': 8,
+    'deveti': 9, 'deveto': 9, 'devetog': 9,
+    'deseti': 10, 'deseto': 10, 'desetog': 10,
     'posljednji': -1, 'zadnji': -1,
 }
 
@@ -360,10 +364,192 @@ def _extract_specific_naimenovanje_request(message: str) -> int | None:
     )
     if match:
         return int(match.group(1))
+    match = re.search(
+        r'\b(\d+)\.?\s*(?:naim\w*|naimenovanj\w*)\b',
+        msg,
+    )
+    if match:
+        return int(match.group(1))
     for word, ordinal in _REDNI.items():
         if ordinal > 0 and word in msg:
             return ordinal
     return None
+
+
+def _extract_specific_invoice_line_request(message: str) -> int | None:
+    msg = _normalize_naim_message(message)
+    if not re.search(r'\b(faktur|tabu faktura|tab faktura)\w*', msg):
+        return None
+    if not re.search(r'\b(stavk|red|linij)\w*', msg):
+        return None
+
+    patterns = (
+        r'\b(?:stavk\w*|red\w*|linij\w*)\s*(?:broj|br\.?|rb\.?)?\s*(\d+)\b',
+        r'\b(\d+)\.?\s*(?:stavk\w*|red\w*|linij\w*)\b',
+    )
+    for pattern in patterns:
+        match = re.search(pattern, msg)
+        if match:
+            return int(match.group(1))
+    for word, ordinal in _REDNI.items():
+        if ordinal > 0 and word in msg:
+            return ordinal
+    return None
+
+
+def _find_invoice_line_by_ordinal(ctrl, ordinal: int):
+    if not ordinal or not ctrl.draft:
+        return None
+    lines = list(getattr(ctrl.draft, "invoice_lines", []) or [])
+    if 0 < ordinal <= len(lines):
+        return lines[ordinal - 1]
+    return None
+
+
+def _invoice_line_product_name(line) -> str:
+    if not line:
+        return ""
+    return (
+        getattr(line, "naziv_robe", "")
+        or getattr(line, "product_code", "")
+        or ""
+    ).strip()
+
+
+def _find_naimenovanje_by_ordinal(ctrl, ordinal: int):
+    if not ordinal or not ctrl.draft:
+        return None
+    for item in getattr(ctrl.draft, "items", []) or []:
+        if getattr(item, "ordinal_no", None) == ordinal:
+            return item
+    items = list(getattr(ctrl.draft, "items", []) or [])
+    if 0 < ordinal <= len(items):
+        return items[ordinal - 1]
+    return None
+
+
+def _naimenovanje_product_name(item) -> str:
+    if not item:
+        return ""
+    return (
+        getattr(item, "goods_trade_name", "")
+        or getattr(item, "goods_description", "")
+        or getattr(item, "tariff_description3", "")
+        or getattr(item, "tariff_description2", "")
+        or getattr(item, "tariff_description1", "")
+        or ""
+    ).strip()
+
+
+def _is_tariff_suggestion_for_naimenovanje(message: str) -> bool:
+    msg = _normalize_naim_message(message)
+    if not re.search(r'\b(naim|naimenovanj)\w*', msg):
+        return False
+    if "tarif" not in msg:
+        return False
+    return any(
+        kw in msg for kw in (
+            "predlo", "provjer", "prona", "nađi", "nadji",
+            "alternativ", "ispravn", "pogrešan", "pogresan",
+            "koji", "koja",
+        )
+    )
+
+
+def _is_tariff_suggestion_for_current_item(message: str) -> bool:
+    msg = _normalize_naim_message(message)
+    if "tarif" not in msg:
+        return False
+    if not any(
+        kw in msg for kw in (
+            "predlo", "provjer", "prona", "nađi", "nadji",
+            "alternativ", "ispravn", "koji", "koja",
+        )
+    ):
+        return False
+    return bool(
+        re.search(
+            r'\b(ovu|ove|ovoj|ovaj|ovog|taj|tog|tu|ta|za nju|za njega)\s+'
+            r'(stavk\w*|robu|proizvod\w*)\b',
+            msg,
+        )
+    )
+
+
+def _is_current_item_reference(message: str) -> bool:
+    msg = _normalize_naim_message(message)
+    return bool(
+        re.search(
+            r'\b(ovu|ove|ovoj|ovaj|ovog|taj|tog|tu|ta|za nju|za njega)\s+'
+            r'(stavk\w*|robu|proizvod\w*|broj)\b',
+            msg,
+        )
+    )
+
+
+def _is_tariff_insert_request(message: str) -> bool:
+    msg = _normalize_naim_message(message)
+    if not any(kw in msg for kw in ("ubac", "upiš", "upis", "unes", "postav", "stavi")):
+        return False
+    if not any(kw in msg for kw in ("tarif", "broj", "faktur", "faktir")):
+        return False
+    return True
+
+
+def _should_save_tariff_mapping(message: str) -> bool:
+    msg = _normalize_naim_message(message)
+    return any(
+        kw in msg for kw in (
+            "sačuv", "sacuv", "zapam", "upam", "nauči", "nauci",
+            "u bazi", "bazu podataka", "za ubuduće", "za ubuduce",
+        )
+    )
+
+
+def _is_database_lookup_request(message: str) -> bool:
+    msg = _normalize_naim_message(message)
+    return any(
+        kw in msg for kw in (
+            "bazi podataka", "baza podataka", "u bazi", "iz baze",
+            "istorij", "historij", "ranije", "sličn", "slicn",
+            "korišten", "koristen", "korišćen", "koriscen",
+        )
+    ) and any(
+        kw in msg for kw in (
+            "pogled", "provjer", "pretra", "prona", "nađi", "nadji",
+            "šta", "sta", "koliko",
+        )
+    )
+
+
+def _database_lookup_from_context(ctrl, message: str) -> bool:
+    if not _is_database_lookup_request(message):
+        return False
+
+    naim_ordinal = _extract_specific_naimenovanje_request(message)
+    if naim_ordinal is not None:
+        item = _find_naimenovanje_by_ordinal(ctrl, naim_ordinal)
+        product_name = _naimenovanje_product_name(item)
+        if product_name:
+            _remember_naimenovanje_context(ctrl, item)
+            _pronadji_slicne_proizvode(ctrl, product_name)
+            return True
+
+    ctx = _get_conversation_context(ctrl)
+    product_name = (ctx.get("last_product_name") or ctx.get("last_subject") or "").strip()
+    if product_name and re.search(r'\b(taj|tog|tom|taj proizvod|za njega|iz tog)\b', message.lower()):
+        _pronadji_slicne_proizvode(ctrl, product_name)
+        return True
+
+    if re.search(r'\b(taj|tog|tom|proizvod|stavk|naimenovanj)\b', message.lower()):
+        _set_offered_action(ctrl, "similar_product_lookup", "", "Pretraži bazu za proizvod")
+        ctrl.view.get_chat_panel().add_agent_message(
+            "Molim Vas, navedite redni broj naimenovanja ili naziv proizvoda "
+            "(npr. <b>iz sedmog naimenovanja</b>)."
+        )
+        return True
+
+    return False
 
 
 def _is_tariff_usage_question(message: str) -> bool:
@@ -404,6 +590,36 @@ def _is_naimenovanja_validation_request(message: str) -> bool:
             "nedostaje", "prazn", "nepopunjene",
         )
     )
+
+
+def _application_context_scope(message: str) -> str:
+    msg = _normalize_naim_message(message)
+    if not msg:
+        return ""
+
+    wants_view = any(
+        kw in msg for kw in (
+            "pogledaj", "pregledaj", "pokaži", "pokazi", "prikaži", "prikazi",
+            "šta ima", "sta ima", "šta je učitano", "sta je ucitano",
+            "stanje aplikacije", "stanje draft", "trenutno stanje",
+        )
+    )
+    has_app_area = any(
+        kw in msg for kw in (
+            "tab", "tabu", "faktura", "naimenov", "naim",
+            "zaglav", "učitano", "ucitano", "aplikacij", "draft",
+        )
+    )
+    if not (wants_view and has_app_area):
+        return ""
+
+    if any(kw in msg for kw in ("faktura", "tab faktura", "tabu faktura")):
+        return "faktura"
+    if any(kw in msg for kw in ("naimenov", "naim")):
+        return "naimenovanja"
+    if "zaglav" in msg:
+        return "zaglavlje"
+    return "all"
 
 
 def _resolve_tariff_code_from_context(ctrl, message: str) -> str:
@@ -503,9 +719,66 @@ def _prikazi_statistiku_tarife(ctrl, tariff_code: str) -> None:
 
 
 def _resolve_contextual_request(ctrl, message: str) -> bool:
+    invoice_line_ordinal = _extract_specific_invoice_line_request(message)
+    if invoice_line_ordinal is not None:
+        _pregledaj_faktura_stavku(ctrl, invoice_line_ordinal)
+        return True
+
     naim_ordinal = _extract_specific_naimenovanje_request(message)
-    if naim_ordinal is not None:
-        _pregledaj_naimenovanja(ctrl, [naim_ordinal])
+
+    if _is_tariff_insert_request(message):
+        explicit_code = _clean_tariff_code(message)
+        ctx_code = _get_conversation_context(ctrl).get("last_tariff_code", "")
+        code = explicit_code or ctx_code
+        if code and _upisi_tarifu_u_trenutnu_faktura_stavku(
+            ctrl,
+            code,
+            save_mapping=_should_save_tariff_mapping(message),
+        ):
+            return True
+
+    if _is_tariff_suggestion_for_current_item(message):
+        ctx = _get_conversation_context(ctrl)
+        invoice_ordinal = ctx.get("last_invoice_line_ordinal")
+        if invoice_ordinal:
+            line = _find_invoice_line_by_ordinal(ctrl, int(invoice_ordinal))
+            product_name = _invoice_line_product_name(line)
+            if product_name:
+                _remember_tariff_context(
+                    ctrl,
+                    getattr(line, "tarifni_broj", "") or "",
+                    product_name=product_name,
+                )
+                _alternativni_tarifni_za_stavku(ctrl, item_query=product_name)
+                return True
+
+    offered = _get_conversation_context(ctrl).get("last_offered_action") or {}
+    if offered.get("action") == "similar_product_lookup" and naim_ordinal is not None:
+        item = _find_naimenovanje_by_ordinal(ctrl, naim_ordinal)
+        product_name = _naimenovanje_product_name(item)
+        if product_name:
+            _clear_offered_action(ctrl)
+            _remember_naimenovanje_context(ctrl, item)
+            _pronadji_slicne_proizvode(ctrl, product_name)
+            return True
+
+    if naim_ordinal is not None and _is_tariff_suggestion_for_naimenovanje(message):
+        item = _find_naimenovanje_by_ordinal(ctrl, naim_ordinal)
+        if item:
+            _remember_naimenovanje_context(ctrl, item)
+        _alternativni_tarifni_za_stavku(ctrl, item_ordinal=naim_ordinal)
+        return True
+
+    if naim_ordinal is not None and _is_tariff_usage_question(message):
+        item = _find_naimenovanje_by_ordinal(ctrl, naim_ordinal)
+        code = _clean_tariff_code(getattr(item, "tariff_code", "") if item else "")
+        if not code:
+            ctrl.view.get_chat_panel().add_agent_message(
+                f"⚠️ Naimenovanje broj <b>{naim_ordinal}</b> nema tarifni broj."
+            )
+            return True
+        _remember_naimenovanje_context(ctrl, item)
+        _prikazi_statistiku_tarife(ctrl, code)
         return True
 
     if _is_tariff_usage_question(message):
@@ -517,6 +790,17 @@ def _resolve_contextual_request(ctrl, message: str) -> bool:
             )
             return True
         _prikazi_statistiku_tarife(ctrl, code)
+        return True
+
+    if _database_lookup_from_context(ctrl, message):
+        return True
+
+    if naim_ordinal is not None and _is_naimenovanja_validation_request(message):
+        _provjeri_jedno_naimenovanje(ctrl, naim_ordinal)
+        return True
+
+    if naim_ordinal is not None:
+        _pregledaj_naimenovanja(ctrl, [naim_ordinal])
         return True
 
     msg = (message or "").strip()
@@ -557,6 +841,11 @@ def _handle_message(ctrl, message: str) -> None:
         return
 
     if _resolve_contextual_request(ctrl, message):
+        return
+
+    scope = _application_context_scope(message)
+    if scope:
+        _pregled_stanja_aplikacije(ctrl, scope)
         return
 
     if _is_naimenovanja_review_request(message):
@@ -689,6 +978,9 @@ def _execute_tool(ctrl, name: str, args: dict) -> None:
             ctrl.tariff_svc.propose_by_keyword(filter_kw)
         else:
             ctrl._predlozi_tarifne_brojeve()
+
+    elif name == "pregled_stanja_aplikacije":
+        _pregled_stanja_aplikacije(ctrl, args.get("scope", "all"))
 
     elif name == "provjeri_tarife":
         _prikaz_tarifnih_trenutnih(ctrl)
@@ -1527,6 +1819,133 @@ def _pronadji_slicne_proizvode(ctrl, naziv: str) -> None:
     except Exception as e:
         logger.exception("Greška pri pretrazi sličnih proizvoda")
         chat.add_agent_message(f"❌ Greška pri pretrazi sličnih proizvoda: {escape(str(e))}")
+
+
+def _pregled_stanja_aplikacije(ctrl, scope: str = "all") -> None:
+    chat = ctrl.view.get_chat_panel()
+    try:
+        from services.agent.application_context_service import ApplicationContextService
+
+        html = ApplicationContextService(ctrl.draft).format_html(scope)
+        chat.add_agent_message(html)
+    except Exception as e:
+        logger.exception("Greška pri pregledu stanja aplikacije")
+        chat.add_agent_message(f"❌ Greška pri pregledu stanja aplikacije: {escape(str(e))}")
+
+
+def _provjeri_jedno_naimenovanje(ctrl, ordinal: int) -> None:
+    from services.agent.naimenovanja_review_service import NaimenovanjaReviewService
+
+    chat = ctrl.view.get_chat_panel()
+    item = _find_naimenovanje_by_ordinal(ctrl, ordinal)
+    if not item:
+        chat.add_agent_message(f"⚠️ Naimenovanje broj <b>{ordinal}</b> nije pronađeno.")
+        return
+
+    result = NaimenovanjaReviewService.provjeri_naimenovanja([item])
+    problemi = result.get("problemi", [])
+    problem = problemi[0] if problemi else None
+
+    _remember_naimenovanje_context(ctrl, item)
+
+    if not problem or not problem.prazne_obavezne:
+        opcione = len(problem.prazne_opcione) if problem else 0
+        suffix = (
+            f"<br><small style='color:grey'>{opcione} opcionih polja je prazno.</small>"
+            if opcione else ""
+        )
+        chat.add_agent_message(
+            f"✅ <b>Naimenovanje Rb.{ordinal} nema praznih obaveznih rubrika.</b>{suffix}"
+        )
+        return
+
+    missing = "<br>".join(f"• {escape(value)}" for value in problem.prazne_obavezne)
+    chat.add_agent_message(
+        f"⚠️ <b>Naimenovanje Rb.{ordinal} nije kompletno.</b><br>"
+        f"Nedostaju obavezne rubrike:<br>{missing}"
+    )
+
+
+def _pregledaj_faktura_stavku(ctrl, ordinal: int) -> None:
+    chat = ctrl.view.get_chat_panel()
+    line = _find_invoice_line_by_ordinal(ctrl, ordinal)
+    if not line:
+        total = len(getattr(ctrl.draft, "invoice_lines", []) or []) if ctrl.draft else 0
+        chat.add_agent_message(
+            f"⚠️ Stavka broj <b>{ordinal}</b> ne postoji u Faktura tabu "
+            f"(ukupno stavki: <b>{total}</b>)."
+        )
+        return
+
+    naziv = getattr(line, "naziv_robe", "") or ""
+    tariff = getattr(line, "tarifni_broj", "") or "—"
+    country = getattr(line, "zemlja_porijekla", "") or "—"
+    preference = getattr(line, "povlastica", "") or "—"
+    invoice = getattr(line, "invoice_number", "") or "—"
+    qty = getattr(line, "kolicina", 0) or 0
+    unit = getattr(line, "jm", "") or ""
+    amount = getattr(line, "iznos", 0) or 0
+    currency = getattr(line, "valuta", "") or "EUR"
+    gross = getattr(line, "bruto_kg", 0) or 0
+    net = getattr(line, "neto_kg", 0) or 0
+    assigned = getattr(line, "assigned_naimenovanje_ordinal", 0) or 0
+
+    _remember_tariff_context(ctrl, tariff, product_name=naziv)
+    _get_conversation_context(ctrl)["last_invoice_line_ordinal"] = ordinal
+
+    chat.add_agent_message(
+        f"<b>Faktura tab — stavka {ordinal}</b><br>"
+        f"<b>Faktura:</b> {escape(str(invoice))}<br>"
+        f"<b>Naziv robe:</b> {escape(str(naziv) or '—')}<br>"
+        f"<b>Tarifni broj:</b> <code>{escape(str(tariff))}</code><br>"
+        f"<b>Zemlja porijekla:</b> {escape(str(country))}<br>"
+        f"<b>Povlastica:</b> {escape(str(preference))}<br>"
+        f"<b>Količina:</b> {qty:g} {escape(str(unit))}<br>"
+        f"<b>Iznos:</b> {amount:.2f} {escape(str(currency))}<br>"
+        f"<b>Bruto/Neto:</b> {gross:.2f}/{net:.2f} kg"
+        + (f"<br><b>Naimenovanje:</b> Rb.{assigned}" if assigned else "")
+    )
+
+
+def _upisi_tarifu_u_trenutnu_faktura_stavku(ctrl, tariff_code: str, save_mapping: bool = False) -> bool:
+    chat = ctrl.view.get_chat_panel()
+    code = _clean_tariff_code(tariff_code)
+    if not code:
+        return False
+
+    ctx = _get_conversation_context(ctrl)
+    ordinal = ctx.get("last_invoice_line_ordinal")
+    if not ordinal:
+        return False
+
+    line = _find_invoice_line_by_ordinal(ctrl, int(ordinal))
+    if not line:
+        chat.add_agent_message(
+            f"⚠️ Ne mogu upisati tarifni broj jer prethodno otvorena stavka {ordinal} više ne postoji."
+        )
+        return True
+
+    product_name = _invoice_line_product_name(line) or f"stavka {ordinal}"
+    line.tarifni_broj = code
+    _remember_tariff_context(ctrl, code, product_name=product_name)
+
+    if hasattr(ctrl, "_refresh_faktura_tab"):
+        ctrl._refresh_faktura_tab()
+    elif getattr(ctrl, "tariff_svc", None) and getattr(ctrl.tariff_svc, "on_refresh_faktura", None):
+        ctrl.tariff_svc.on_refresh_faktura()
+
+    if save_mapping and getattr(ctrl, "tariff_svc", None):
+        ctrl.tariff_svc.learn_tariff(product_name, code)
+        chat.add_agent_message(
+            f"✅ Tarifni broj <code>{escape(code)}</code> upisan je u Faktura tab, "
+            f"stavka <b>{ordinal}</b>."
+        )
+    else:
+        chat.add_agent_message(
+            f"✅ Tarifni broj <code>{escape(code)}</code> upisan je u Faktura tab, "
+            f"stavka <b>{ordinal}</b> — {escape(product_name)}."
+        )
+    return True
 
 
 def _pregledaj_naimenovanja(ctrl, indeksi=None) -> None:
