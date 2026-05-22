@@ -82,6 +82,10 @@ def parse_smart_pdf(pdf_path: str) -> ImportResult:
             logger.info("   📋 Koristim ŠUMAPROM specijalizovanu funkciju")
             result = _parse_sumaprom(pdf_path)
 
+        elif pdf_format == "kg_fashion":
+            logger.info("   📋 Koristim KG Fashion specijalizovanu funkciju")
+            result = _parse_kg_fashion(pdf_path)
+
         else:
             logger.info("   🔍 Nepoznat format - koristim generičku tabular extraction")
             result = parse_generic_pdf(pdf_path)
@@ -234,6 +238,11 @@ def _detect_pdf_format(pdf_path: str) -> str:
                 if "FAKTURA" in text_upper or "INVOICE" in text_upper:
                     return "pip_food"
 
+            # KG FASHION - fakture od "K... G... FASHION" D.O.O. Cacak
+            # Brendovi: Petite Jolie, Vizzano, Benetton, Sisley, Ambitious, Bueno, Jagger itd.
+            if "K... G... FASHION" in text_upper or "KGFASHION" in text_upper:
+                return "kg_fashion"
+
             # Nepoznat format - generička extraction
             return "generic"
 
@@ -372,6 +381,12 @@ def _parse_pip_food(pdf_path: str) -> ImportResult:
     """Parsira PIP Food Group PDF format."""
     from importers.vendors.pip_food.pip_food_parser import parse_pip_food_pdf
     return parse_pip_food_pdf(pdf_path)
+
+
+def _parse_kg_fashion(pdf_path: str) -> ImportResult:
+    """Parsira KG Fashion D.O.O. format (Petite Jolie, Vizzano, Benetton, Sisley, Ambitious, Bueno, Jagger itd.)."""
+    from importers.vendors.kg_fashion.kg_fashion_importer import import_kg_fashion
+    return import_kg_fashion(pdf_path)
 
 
 # Alias za kompatibilnost
