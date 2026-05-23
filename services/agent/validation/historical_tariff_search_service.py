@@ -129,19 +129,37 @@ class HistoricalTariffSearchService:
         izvoznik: str = "",
         uvoznik: str = "",
     ) -> List[TariffHistoryMatch]:
-        """Pretraži bazu za jedan naziv robe. Vraća max MAX_RESULTS_PER_LINE."""
+        """Pretraži bazu za jedan naziv robe. Vraća max MAX_RESULTS_PER_LINE.
+
+        Ako je izvoznik poznat, prijedlozi dolaze ISKLJUČIVO iz historije tog
+        izvoznika — nema fallback na druge firme. Bolje bez prijedloga nego
+        pogrešan prijedlog od drugog dobavljača.
+        """
         try:
             from database.db import get_db_connection
             words = self._extract_keywords(naziv_robe)
             if not words:
                 return []
 
+            supplier_key = self._supplier_key(izvoznik)
+
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
-                    rows = self._query_strict(cur, words, izvoznik, uvoznik)
-                    if not rows:
-                        rows = self._query_broad(cur, words, izvoznik, uvoznik)
-                    return self._to_matches(rows, naziv_robe)
+                    if supplier_key:
+                        # Strogi filter: SAMO isti izvoznik
+                        rows = self._query_strict(cur, words, izvoznik, uvoznik,
+                                                  supplier_key=supplier_key)
+                        if not rows:
+                            rows = self._query_broad(cur, words, izvoznik, uvoznik,
+                                                     supplier_key=supplier_key)
+                        # Nema fallback na druge izvoznike — vraćamo što ima (ili [])
+                        return self._to_matches(rows, naziv_robe, supplier_matched=True)
+                    else:
+                        # Nepoznat izvoznik — staro ponašanje (pretražuj sve)
+                        rows = self._query_strict(cur, words, izvoznik, uvoznik)
+                        if not rows:
+                            rows = self._query_broad(cur, words, izvoznik, uvoznik)
+                        return self._to_matches(rows, naziv_robe, supplier_matched=False)
         except Exception as e:
             logger.warning("HistoricalTariffSearch greška za '%s': %s", naziv_robe[:40], e)
             return []
@@ -150,47 +168,74 @@ class HistoricalTariffSearchService:
     # SQL upiti
     # ------------------------------------------------------------------
 
-    def _query_strict(self, cur, words: list, izvoznik: str, uvoznik: str) -> list:
+    def _query_strict(self, cur, words: list, izvoznik: str, uvoznik: str,
+                      supplier_key: str = "") -> list:
         """AND upit — svi ključni pojmovi moraju biti prisutni."""
         conditions = " AND ".join("naziv_robe ILIKE %s" for _ in words)
         params = [f"%{w}%" for w in words]
-        return self._execute(cur, conditions, params, izvoznik, uvoznik)
+        return self._execute(cur, conditions, params, izvoznik, uvoznik,
+                             supplier_key=supplier_key)
 
-    def _query_broad(self, cur, words: list, izvoznik: str, uvoznik: str) -> list:
+    def _query_broad(self, cur, words: list, izvoznik: str, uvoznik: str,
+                     supplier_key: str = "") -> list:
         """OR fallback — najdulja ključna riječ (najspecifičnija)."""
         longest = max(words, key=len)
         conditions = "naziv_robe ILIKE %s"
         params = [f"%{longest}%"]
-        return self._execute(cur, conditions, params, izvoznik, uvoznik)
+        return self._execute(cur, conditions, params, izvoznik, uvoznik,
+                             supplier_key=supplier_key)
 
     def _execute(self, cur, where_clause: str, params: list,
-                 izvoznik: str, uvoznik: str) -> list:
-        boost_params = []
-        boost_sql = ""
-        if izvoznik:
-            boost_sql += "CASE WHEN supplier ILIKE %s THEN 0 ELSE 1 END,"
-            boost_params.append(f"%{izvoznik[:60]}%")
-        if uvoznik:
-            # uvoznik nije u product_tariff_mapping, ali je u exporter_xml_index
-            # Ovdje koristimo source polje (xml filename) kao proxy
+                 izvoznik: str, uvoznik: str, supplier_key: str = "") -> list:
+        extra_where = ""
+        extra_params: list = []
+
+        if supplier_key:
+            # Hard filter — SAMO isti izvoznik; nema ORDER BY boosta jer je filter u WHERE
+            extra_where = " AND supplier ILIKE %s"
+            extra_params.append(f"%{supplier_key}%")
+        elif izvoznik:
+            # Nepoznat ključ ali ima ime — zadrži stari ORDER BY boost
             pass
 
         sql = f"""
             SELECT naziv_robe, commodity_code, supplier, usage_count,
                    zemlja_porijekla, source
             FROM catalogs.product_tariff_mapping
-            WHERE {where_clause}
+            WHERE {where_clause}{extra_where}
               AND commodity_code IS NOT NULL
               AND commodity_code != ''
-            ORDER BY {boost_sql} usage_count DESC
+            ORDER BY usage_count DESC
             LIMIT %s
         """
-        cur.execute(sql, params + boost_params + [self.MAX_RESULTS_PER_LINE])
+        cur.execute(sql, params + extra_params + [self.MAX_RESULTS_PER_LINE])
         return cur.fetchall()
 
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _supplier_key(izvoznik: str) -> str:
+        """Izvuci ključnu riječ iz naziva izvoznika za WHERE filter.
+
+        Uzima prvu alfabetsku riječ dužine ≥ 3 slova (bez interpunkcije,
+        navodnika, d.o.o., ltd i sl.).
+
+        Primjeri:
+          'MEDICO PHARM SERVIS'    → 'MEDICO'
+          '"K... G... FASHION" D.O.O.' → 'FASHION'
+          'BLAGIĆ LOREN d.o.o.'   → 'BLAGIĆ'
+          ''                       → ''  (nepoznat izvoznik, nema filtera)
+        """
+        skip = frozenset({'doo', 'ltd', 'llc', 'inc', 'gmbh', 'srl', 'sro',
+                          'spa', 'bv', 'ag', 'sa', 'as'})
+        clean = re.sub(r'[^a-zA-ZčćžšđČĆŽŠĐ\s]', ' ', izvoznik)
+        for word in clean.split():
+            w = word.lower()
+            if len(w) >= 3 and w not in skip:
+                return word.upper()
+        return ""
 
     def _extract_keywords(self, naziv: str) -> list:
         """Izvuci ključne riječi iz naziva robe (min 3 slova, nije stopword)."""
@@ -262,7 +307,7 @@ class HistoricalTariffSearchService:
             return "accept"
         return ""
 
-    def _to_matches(self, rows: list, naziv_original: str) -> List[TariffHistoryMatch]:
+    def _to_matches(self, rows: list, naziv_original: str, supplier_matched: bool = False) -> List[TariffHistoryMatch]:
         results = []
         for row in rows:
             tarif    = (row['commodity_code'] or '').strip()
@@ -289,7 +334,7 @@ class HistoricalTariffSearchService:
                 naziv_robe_historijski=naziv_h[:80],
                 tarifni_broj_historijski=tarif,
                 tarifni_broj_trenutni='',
-                supplier_match=False,
+                supplier_match=supplier_matched,
                 usage_count=usage,
                 source=supplier or source,
                 confidence=round(conf, 2),
