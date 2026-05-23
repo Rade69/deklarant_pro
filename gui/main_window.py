@@ -227,6 +227,15 @@ class MainWindow(QMainWindow):
             if naim_view and hasattr(naim_view, "_load_current_item"):
                 naim_view._load_current_item()
 
+        elif current_widget is self.zaglavlje_tab:
+            # Uzmi aktivni draft iz FakturaView (može biti split draft, ne nužno self.draft)
+            active_draft = self.draft
+            faktura_view = getattr(self.faktura_tab, "view", self.faktura_tab)
+            if faktura_view and hasattr(faktura_view, "draft"):
+                active_draft = faktura_view.draft
+            if hasattr(self.zaglavlje_tab, "load_from_draft"):
+                self.zaglavlje_tab.load_from_draft(active_draft)
+
     def _on_draft_data_changed(self) -> None:
         """Poziva se kada se draft podaci promene - ažurira sve tabove koji treba da se osveže."""
         # Sačuvaj samo ref-ove iz UI tabele u draft (ne zamjenjuje listu — čuva programatski dodane doc-ove)
