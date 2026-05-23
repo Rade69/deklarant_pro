@@ -940,8 +940,12 @@ class FakturaView(BaseTabView):
         """Add a single item to the table (with validation for single adds)."""
         row = self.table.rowCount()
         self.table.insertRow(row)
-        self._populate_row_cells(row, row_number, item)
-        self._validate_and_color_row(row, item)
+        self.table.blockSignals(True)
+        try:
+            self._populate_row_cells(row, row_number, item)
+            self._validate_and_color_row(row, item)
+        finally:
+            self.table.blockSignals(False)
 
     def _set_table_item(
         self, row: int, col: int, value: str, align: Qt.AlignmentFlag = Qt.AlignLeft
@@ -1123,9 +1127,15 @@ class FakturaView(BaseTabView):
 
     def _flush_pending_validation(self):
         """Poziva se nakon debounce timera - validuje redove i emituje dirty signal."""
-        for row in sorted(self._pending_validate_rows):
-            if row < len(self.draft.invoice_lines):
-                self._validate_and_color_row(row, self.draft.invoice_lines[row])
+        # Blokiramo signale tokom vizualnog bojenja da setData/setText ne okida
+        # itemChanged ponovo → beskonačna petlja debounce timera
+        self.table.blockSignals(True)
+        try:
+            for row in sorted(self._pending_validate_rows):
+                if row < len(self.draft.invoice_lines):
+                    self._validate_and_color_row(row, self.draft.invoice_lines[row])
+        finally:
+            self.table.blockSignals(False)
         self._pending_validate_rows.clear()
         self._notify_data_changed()
 
@@ -3047,9 +3057,13 @@ class FakturaView(BaseTabView):
             self._sync_table_to_draft()
 
             # Revalidate all rows
-            for row in range(self.table.rowCount()):
-                item = self.draft.invoice_lines[row]
-                self._validate_and_color_row(row, item)
+            self.table.blockSignals(True)
+            try:
+                for row in range(self.table.rowCount()):
+                    item = self.draft.invoice_lines[row]
+                    self._validate_and_color_row(row, item)
+            finally:
+                self.table.blockSignals(False)
 
             # Force table repaint to show updated colors
             self.table.viewport().update()
