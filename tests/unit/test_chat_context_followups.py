@@ -357,3 +357,37 @@ def test_insert_that_number_uses_last_tariff_and_last_invoice_line():
 
     assert handled
     assert draft.invoice_lines[24].tarifni_broj == "21021000"
+
+
+def test_origin_lookup_uses_last_invoice_line_with_typo(monkeypatch):
+    draft = DeclarationDraft()
+    draft.invoice_lines = [
+        InvoiceLine(invoice_number="639/26", naziv_robe="DEPIWHITE ADV.KREM 40 ml", tarifni_broj="33049900")
+    ]
+    ctrl = _Ctrl(draft)
+    looked_up = []
+    monkeypatch.setattr(handler, "_pretrazi_porijeklo", lambda _, naziv: looked_up.append(naziv))
+
+    first = handler._resolve_contextual_request(ctrl, "pogledaj stavku 1 u tabu faktura")
+    second = handler._resolve_contextual_request(
+        ctrl,
+        "Potraži u bazi znanja zemlju porijkla za zaj proizvod",
+    )
+
+    assert first
+    assert second
+    assert looked_up == ["DEPIWHITE ADV.KREM 40 ml"]
+
+
+def test_origin_lookup_extracts_product_before_misspelled_origin(monkeypatch):
+    ctrl = _Ctrl(DeclarationDraft())
+    looked_up = []
+    monkeypatch.setattr(handler, "_pretrazi_porijeklo", lambda _, naziv: looked_up.append(naziv))
+
+    handled = handler._resolve_contextual_request(
+        ctrl,
+        "Potraći za DEPIWHITE ADV.KREM 40 ml kojeg je prijekla u ranijim deklaracijama",
+    )
+
+    assert handled
+    assert looked_up == ["DEPIWHITE ADV.KREM 40 ml"]

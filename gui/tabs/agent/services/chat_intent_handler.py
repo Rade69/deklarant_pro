@@ -190,11 +190,50 @@ class ChatIntentHandler:
 # ── Implementacija (slobodne funkcije) ────────────────────────────────
 
 
+_ORIGIN_KEYWORD_RE = r'porijek\w*|porijk\w*|porekl\w*|prijek\w*|zemlj\w*\s+por'
+
+
+def _has_origin_keyword(message: str) -> bool:
+    return bool(re.search(_ORIGIN_KEYWORD_RE, message or "", flags=re.IGNORECASE))
+
+
+def _clean_origin_query(query: str) -> str:
+    query = (query or "").strip().rstrip("?! .")
+    query = re.sub(
+        r'^(?:potra[žzćc]i|pretra[žz]i|prona[đd]i|na[đd]i|tra[žz]i|trazi)\s+(?:mi\s+)?(?:za\s+)?',
+        '',
+        query,
+        flags=re.IGNORECASE,
+    )
+    query = re.sub(
+        rf'\b(?:koj\w*|kakv\w*)\s+je\s+(?:{_ORIGIN_KEYWORD_RE}).*$',
+        '',
+        query,
+        flags=re.IGNORECASE,
+    )
+    query = re.sub(r'\b(ovog|ovaj|tog|taj|zaj|proizvoda|proizvod)\b', '', query, flags=re.IGNORECASE)
+    return re.sub(r'\s+', ' ', query).strip()
+
+
+def _is_weak_origin_query(query: str) -> bool:
+    msg = (query or "").lower().strip()
+    if not msg:
+        return True
+    if any(part in msg for part in ("bazi znanja", "ranijim deklaracijama", "prethodnim deklaracijama")):
+        return True
+    weak_parts = (
+        "deklaracijama", "zemlju", "zemlja", "porijekla", "porijkla", "prijekla",
+    )
+    if any(part in msg for part in weak_parts) and not re.search(r'[a-zšđčćž]{4,}\s+[a-z0-9]', msg, flags=re.IGNORECASE):
+        return True
+    return msg in {"za", "u", "iz", "ovaj", "zaj", "taj", "proizvod"}
+
+
 def _extract_origin_product_query(message: str) -> str:
     # Docs: docs/sections/agent-origin-query-routing.md
     msg = (message or "").strip()
     lower = msg.lower()
-    if not any(k in lower for k in ("porijekl", "porekl", "origin", "zemlja por")):
+    if not (_has_origin_keyword(msg) or "origin" in lower):
         return ""
     if re.search(r'\b(upiši|upisi|upišite|upisite|postavi|unesi|unesite|stavi)\b', lower):
         return ""
@@ -206,24 +245,25 @@ def _extract_origin_product_query(message: str) -> str:
     parts = [p.strip() for p in re.split(r'[,;\n]+', msg) if p.strip()]
     non_origin_parts = [
         p for p in parts
-        if not re.search(r'porijekl|porekl|origin|zemlja por', p, flags=re.IGNORECASE)
+        if not re.search(_ORIGIN_KEYWORD_RE + r'|origin', p, flags=re.IGNORECASE)
     ]
     if non_origin_parts:
-        return max(non_origin_parts, key=len).strip().rstrip("?! .")
+        query = _clean_origin_query(max(non_origin_parts, key=len))
+        if len(query) >= 3:
+            return query
 
     patterns = [
-        r'(?:potra[žz]i|pretra[žz]i|prona[đd]i|na[đd]i|tra[žz]i|trazi)\s+(?:mi\s+)?(?:porijekl\w*|porekl\w*|origin|zemlju\s+porijekla|zemlja\s+porijekla)\s+(?:za\s+)?(.+)',
-        r'(?:porijekl\w*|porekl\w*|origin|zemlja\s+porijekla)\s+(?:ovog\s+proizvoda\s+)?(?:za\s+)?(.+)',
-        r'(?:koja|koje|koji)\s+je\s+(?:zemlja\s+porijekla|porijeklo|poreklo|origin)\s+(?:za\s+)?(.+)',
+        rf'(?:potra[žzćc]i|pretra[žz]i|prona[đd]i|na[đd]i|tra[žz]i|trazi)\s+(?:mi\s+)?(?:{_ORIGIN_KEYWORD_RE}|origin)\s+(?:za\s+)?(.+)',
+        rf'(?:{_ORIGIN_KEYWORD_RE}|origin)\s+(?:ovog\s+proizvoda\s+)?(?:za\s+)?(.+)',
+        rf'(?:koja|koje|koji)\s+je\s+(?:{_ORIGIN_KEYWORD_RE}|origin)\s+(?:za\s+)?(.+)',
+        rf'(.+?)\s+(?:koj\w*\s+je\s+)?(?:{_ORIGIN_KEYWORD_RE}|origin)\b.*$',
         r'odakle\s+je\s+(?:proizvod\s+)?(.+)',
     ]
     for pattern in patterns:
         match = re.search(pattern, msg, flags=re.IGNORECASE)
         if match:
-            query = match.group(1).strip().rstrip("?! .")
-            query = re.sub(r'\b(ovog|ovaj|tog|taj|proizvoda|proizvod)\b', '', query, flags=re.IGNORECASE)
-            query = re.sub(r'\s+', ' ', query).strip()
-            if len(query) >= 3:
+            query = _clean_origin_query(match.group(1))
+            if len(query) >= 3 and not _is_weak_origin_query(query):
                 return query
 
     return ""
@@ -552,6 +592,38 @@ def _database_lookup_from_context(ctrl, message: str) -> bool:
     return False
 
 
+def _origin_lookup_from_context(ctrl, message: str) -> bool:
+    if not _has_origin_keyword(message) and "origin" not in (message or "").lower():
+        return False
+
+    query = _extract_origin_product_query(message)
+    if query:
+        _remember_subject(ctrl, query)
+        _pretrazi_porijeklo(ctrl, query)
+        return True
+
+    ctx = _get_conversation_context(ctrl)
+    product_name = (ctx.get("last_product_name") or ctx.get("last_subject") or "").strip()
+    if product_name:
+        _pretrazi_porijeklo(ctrl, product_name)
+        return True
+
+    invoice_ordinal = ctx.get("last_invoice_line_ordinal")
+    if invoice_ordinal:
+        line = _find_invoice_line_by_ordinal(ctrl, int(invoice_ordinal))
+        product_name = _invoice_line_product_name(line)
+        if product_name:
+            _remember_tariff_context(
+                ctrl,
+                getattr(line, "tarifni_broj", "") or "",
+                product_name=product_name,
+            )
+            _pretrazi_porijeklo(ctrl, product_name)
+            return True
+
+    return False
+
+
 def _is_tariff_usage_question(message: str) -> bool:
     msg = (message or "").lower()
     if "tarif" not in msg:
@@ -790,6 +862,9 @@ def _resolve_contextual_request(ctrl, message: str) -> bool:
             )
             return True
         _prikazi_statistiku_tarife(ctrl, code)
+        return True
+
+    if _origin_lookup_from_context(ctrl, message):
         return True
 
     if _database_lookup_from_context(ctrl, message):
