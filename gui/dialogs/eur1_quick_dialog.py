@@ -209,8 +209,11 @@ class Eur1QuickDialog(QDialog):
         header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(4, QHeaderView.Stretch)
         table.verticalHeader().setDefaultSectionSize(48)
-        table.setMinimumHeight(min(240, 46 + len(countries) * 48))
-        table.setMaximumHeight(min(300, 46 + len(countries) * 48))
+        row_height = 48
+        header_height = 46
+        total_h = header_height + len(countries) * row_height
+        table.setMinimumHeight(min(total_h, 300))
+        table.setMaximumHeight(min(total_h, 480))
         return table
 
     def _populate_group_row(self, table: QTableWidget, row: int, key: str, items: List[InvoiceLine]) -> None:

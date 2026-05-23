@@ -1628,10 +1628,10 @@ class FakturaView(BaseTabView):
                                 logger.info(f"📦 [{invoice_name_file}] → PE2 dialog")
                                 self._show_pe2_dialog(invoice_name_file, doc_code='PE2')
                             else:
-                                logger.info(
-                                    "📦 [%s] → EUR.1 potrebno, odgađam do kraja grupnog uvoza",
-                                    invoice_name_file,
-                                )
+                                # EUR.1 — prikaži odmah za ovu fakturu (ne odgađaj)
+                                # Stavke su već privremeno u draftu (extend gore)
+                                logger.info(f"📦 [{invoice_name_file}] → EUR.1 dialog")
+                                self._show_eur1_dialog()
                             # Ukloni privremene stavke — biće dodane na kraju iz all_items
                             del self.draft.invoice_lines[-len(items):]
                 else:
