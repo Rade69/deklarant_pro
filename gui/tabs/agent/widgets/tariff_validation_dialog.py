@@ -177,10 +177,21 @@ class TariffValidationDialog(QDialog):
         hist_label.setTextFormat(Qt.RichText)
         hist_label.setWordWrap(True)
 
+        # Badge: isti izvoznik (pouzdanost prijedloga)
+        supplier_badge = None
+        if getattr(match, "supplier_match", False):
+            supplier_badge = QLabel(
+                "<span style='background:#d1fae5; color:#065f46; font-size:12px; "
+                "padding:2px 8px; border-radius:4px;'>&#10003; Isti izvoznik</span>"
+            )
+            supplier_badge.setTextFormat(Qt.RichText)
+
         info.addWidget(naziv_label)
         info.addWidget(tarif_label)
         info.addWidget(meta_label)
         info.addWidget(reason_label)
+        if supplier_badge is not None:
+            info.addWidget(supplier_badge)
         if weak_label is not None:
             info.addWidget(weak_label)
         info.addWidget(hist_label)

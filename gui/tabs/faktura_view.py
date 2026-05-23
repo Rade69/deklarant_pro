@@ -220,6 +220,11 @@ class FakturaView(BaseTabView):
         self._debounce_timer.setInterval(200)  # 200ms
         self._debounce_timer.timeout.connect(self._flush_pending_validation)
         self._pending_validate_rows: set = set()
+        self._pending_learn_rows: set = set()   # redovi gdje je tarifni_broj ručno izmijenjen
+        self._learn_notify_timer = QTimer(self)
+        self._learn_notify_timer.setSingleShot(True)
+        self._learn_notify_timer.setInterval(3000)
+        self._learn_notify_timer.timeout.connect(self._restore_validation_label)
 
         # Set object name for styling
         self.setObjectName("FakturaTabV2")
@@ -1100,6 +1105,8 @@ class FakturaView(BaseTabView):
                 invoice_item.naziv_robe = value
             elif col == 4:  # Tarifni broj (pomjereno za +1)
                 invoice_item.tarifni_broj = value
+                if value:
+                    self._pending_learn_rows.add(row)
             elif col == 5:  # Količina (pomjereno za +1)
                 invoice_item.kolicina = self._parse_number(value) if value else 0.0
             elif col == 6:  # IZNOS (ukupan iznos, NE cijena po komadu!) (pomjereno za +1)
@@ -1137,12 +1144,53 @@ class FakturaView(BaseTabView):
         finally:
             self.table.blockSignals(False)
         self._pending_validate_rows.clear()
+        if self._pending_learn_rows:
+            self._auto_learn_edits()
         self._notify_data_changed()
 
     def _notify_data_changed(self):
         self.data_changed.emit()
         if self.on_dirty:
             self.on_dirty()
+
+    def _auto_learn_edits(self):
+        """Automatski snimi ručno izmijenjene tarifne brojeve u bazu znanja."""
+        rows = set(self._pending_learn_rows)
+        self._pending_learn_rows.clear()
+        learned = []
+        try:
+            from services.tariff.tariff_mapping_service import TariffMappingService
+            svc = TariffMappingService()
+            for row in rows:
+                if row >= len(self.draft.invoice_lines):
+                    continue
+                line = self.draft.invoice_lines[row]
+                tarifa = (getattr(line, 'tarifni_broj', '') or '').strip()
+                naziv = (getattr(line, 'naziv_robe', '') or '').strip()
+                if not tarifa or not naziv:
+                    continue
+                product_code = (getattr(line, 'product_code', '') or '').strip()
+                zemlja = (getattr(line, 'zemlja_porijekla', '') or '').strip()
+                ok = svc.save_mapping(product_code, naziv, tarifa, zemlja)
+                if ok:
+                    kratko = naziv[:30] + ('…' if len(naziv) > 30 else '')
+                    learned.append(f"{kratko} → {tarifa}")
+        except Exception as exc:
+            logger.warning("auto_learn_edits greška: %s", exc)
+
+        if learned:
+            msg = "💾 Naučeno: " + " | ".join(learned[:2])
+            if len(learned) > 2:
+                msg += f" (+{len(learned)-2})"
+            self.lbl_validation.setText(msg)
+            self.lbl_validation.setProperty("status", "success")
+            self.lbl_validation.style().unpolish(self.lbl_validation)
+            self.lbl_validation.style().polish(self.lbl_validation)
+            self._learn_notify_timer.start()
+
+    def _restore_validation_label(self):
+        """Vrati lbl_validation na normalan prikaz validacije."""
+        self._update_status_bar()
 
     def _parse_number(self, value_str: str) -> float:
         """Parse European format number (10.258,23) to float."""
@@ -2453,12 +2501,23 @@ class FakturaView(BaseTabView):
             # VAŽNO: NE akumuliraj težine ovdje - preuranjeno!
             # Težine će biti akumulirane kasnije, nakon što se utvrdi da li je isti invoice
 
+            # DEBUG: Logiraj tarifne brojeve odmah nakon importa
+            logger.debug(f"[DEBUG] Import items received: {len(items)} items")
+            for i, item in enumerate(items):
+                tariff = getattr(item, 'tarifni_broj', 'MISSING')
+                logger.debug(f"  Item {i}: code={item.product_code}, tariff={tariff}, name={item.naziv_robe[:30]}...")
+
             # NOVI PRISTUP: NE koristiti Assembly sistem za obične importe!
             # Assembly se koristi SAMO kada korisnik eksplicitno učita Master Listu preko menija.
             # Za Blagić i druge kompletne fakture, direktno dodaj u draft i održi redoslijed.
 
             # Normalizuj tarifne brojeve na 8 cifara (Excel može izgubiti vodeće nule)
             self._normalize_item_tariffs(items)
+            # DEBUG: Logiraj nakon normalizacije
+            logger.debug(f"[DEBUG] Items after _normalize_item_tariffs:")
+            for i, item in enumerate(items):
+                tariff = getattr(item, 'tarifni_broj', 'MISSING')
+                logger.debug(f"  Item {i}: code={item.product_code}, tariff={tariff}")
             # Rasporedi težinu fakture na stavke (ako parser nije dao per-line težine)
             self._distribute_invoice_weights(items, bruto_kg, neto_kg)
             # Zapamti per-invoice težinu za dugme 'Izračunaj mase'
@@ -2864,55 +2923,16 @@ class FakturaView(BaseTabView):
 
             logger.debug(f"🔍 [_on_create_naimenovanja] Draftovi za obradu: {len(drafts_to_process)}, ukupno stavki: {len(all_lines)}")
 
-            # Upozori ako ima stavki bez tarifnog broja
-            bez_tarife = [l for l in all_lines if not getattr(l, 'tarifni_broj', None)]
-            if bez_tarife and not auto:
-                odgovor = QMessageBox.warning(
-                    self,
-                    "Upozorenje — nedostaje tarifni broj",
-                    f"⚠️ {len(bez_tarife)} od {len(all_lines)} stavki nema tarifni broj!\n\n"
-                    f"Grupiranje naimenovanja neće biti tačno — stavke bez tarife bit će "
-                    f"spojene u JEDNO naimenovanje bez obzira na vrstu robe.\n\n"
-                    f"Preporučuje se prvo popuniti sve tarifne brojeve (dugme 'Auto-popuni tarifne'), "
-                    f"pa tek onda kreirati naimenovanja.\n\n"
-                    f"Nastavi svejedno?",
-                    QMessageBox.Yes | QMessageBox.No,
-                    QMessageBox.No,
-                )
-                if odgovor == QMessageBox.No:
-                    return
-
-            # Potvrda (samo u interaktivnom modu)
+            # Pre-flight provjera (zamjenjuje stare fragmetnarne QMessageBox poruke)
             if not auto:
-                if len(drafts_to_process) > 1:
-                    deklaracije_info = "\n".join(
-                        f"  • {_group_label(getattr(d, '_country_group', ''), getattr(d, '_currency_group', ''))}"
-                        f" — {len(d.invoice_lines)} stavki"
-                        for d in drafts_to_process
-                    )
-                    reply = QMessageBox.question(
-                        self,
-                        "Kreiraj Naimenovanja",
-                        f"Kreirati naimenovanja za <b>{len(drafts_to_process)} deklaracije</b>?\n\n"
-                        f"{deklaracije_info}\n\n"
-                        f"Grupisanje po: Tarifa • Zemlja porijekla • Povlastica\n"
-                        f"Postojeća naimenovanja će biti obrisana!",
-                        QMessageBox.Yes | QMessageBox.No,
-                    )
-                else:
-                    reply = QMessageBox.question(
-                        self,
-                        "Kreiraj Naimenovanja",
-                        f"Kreirati naimenovanja iz {len(self.draft.invoice_lines)} stavki?\n\n"
-                        f"Naimenovanja će biti grupisana po:\n"
-                        f"  • Tarifa (33)\n"
-                        f"  • Zemlja porijekla (34)\n"
-                        f"  • Povlastica (36)\n\n"
-                        f"Postojeća naimenovanja će biti obrisana!",
-                        QMessageBox.Yes | QMessageBox.No,
-                    )
-                if reply == QMessageBox.No:
-                    logger.debug(f"🔍 [_on_create_naimenovanja] Korisnik odustao")
+                from gui.dialogs.preflight_naimenovanja_dialog import (
+                    PreFlightNaimenovanjaDialog,
+                    analyse_preflight,
+                )
+                pf = analyse_preflight(all_lines)
+                dlg = PreFlightNaimenovanjaDialog(pf, parent=self)
+                if dlg.exec() != PreFlightNaimenovanjaDialog.Accepted:
+                    logger.debug("🔍 [_on_create_naimenovanja] Korisnik odustao na pre-flight")
                     return
 
             # Kreiraj naimenovanja za svaki draft
