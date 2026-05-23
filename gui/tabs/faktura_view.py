@@ -1867,6 +1867,9 @@ class FakturaView(BaseTabView):
         if self._multi_draft_navigator and self._multi_draft_navigator.current_index != index:
             self._multi_draft_navigator.load_drafts(self._multi_drafts, start_index=index)
 
+        # Osvježi Naimenovanja i Zaglavlje tab za novi draft
+        self._reload_naimenovanja_tab()
+
     def _on_import_progress(self, percentage: int):
         """Handle import progress update."""
         # Show progress bar if hidden
