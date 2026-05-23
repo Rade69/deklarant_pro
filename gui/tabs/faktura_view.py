@@ -3022,6 +3022,10 @@ class FakturaView(BaseTabView):
             # Find Naimenovanja Tab by attribute name
             if hasattr(main_window, "naimenovanje_tab"):
                 logger.debug(f"🔍 [_reload_naimenovanja_tab] Found naimenovanje_tab, calling reload_data()")
+                # Ažuriraj draft u NaimenovanjaView na trenutno aktivni draft
+                naim_view = getattr(main_window.naimenovanje_tab, "view", None)
+                if naim_view and hasattr(naim_view, "draft"):
+                    naim_view.draft = self.draft
                 main_window.naimenovanje_tab.reload_data()
                 
                 # 🔍 Debug: log reload success
