@@ -1792,17 +1792,32 @@ class FakturaView(BaseTabView):
                 "Nije uvezena nijedna stavka.\n\nProvjerite da li su fajlovi ispravni.",
             )
 
+    _KG_FASHION_EXPORTER = '"K... G... FASHION" D.O.O.'
+
     def _offer_split_by_country(self, all_items: list) -> None:
         """
         Ako stavke imaju više od jedne grupe zemalja porijekla, ponudi
         korisniku automatsku podjelu na zasebne deklaracije.
+
+        Podjela se nudi SAMO za KG Fashion ("PRET A PORTER") uvoz.
+        Za sve ostale importere (Master Frigo, Blagić, itd.) sve ostaje
+        u jednoj deklaraciji bez obzira na različite zemlje porijekla.
         """
         from services.faktura.declaration_split_service import (
             count_declaration_groups,
             split_draft_by_country,
         )
 
-        n_groups = count_declaration_groups(all_items)
+        # Provjeri da li je draft označen za split ILI da li stavke dolaze od KG Fashion
+        draft_allows = getattr(self.draft, 'allow_country_split', False)
+        kg_items = [
+            it for it in all_items
+            if getattr(getattr(it, 'exporter', None), 'name', '') == self._KG_FASHION_EXPORTER
+        ]
+        if not draft_allows and not kg_items:
+            return  # Nije KG Fashion — ne nudimo podjelu
+
+        n_groups = count_declaration_groups(all_items if not kg_items else kg_items)
         if n_groups <= 1:
             return
 

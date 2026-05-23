@@ -444,6 +444,9 @@ class DeclarationDraft:
     invoice_weights: Dict[str, Tuple[float, float]] = field(default_factory=dict)
     warnings: List[str] = field(default_factory=list)
 
+    # True samo za importere koji zahtijevaju podjelu po zemljama (KG Fashion / PRET A PORTER)
+    allow_country_split: bool = False
+
     dirty: bool = False
     created_at: str = field(
         default_factory=lambda: datetime.now().isoformat(timespec="seconds")
