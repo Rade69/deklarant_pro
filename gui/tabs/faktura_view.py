@@ -3592,7 +3592,11 @@ class FakturaView(BaseTabView):
         self.btn_delete.setEnabled(has_selection)
 
         if current >= 0 and current == self.table.rowCount() - 1:
-            self.table.scrollToBottom()
+            # EnsureVisible skroluje minimum potrebno — ne koristi scrollToBottom()
+            # jer _install_bottom_scroll_buffer proširuje max za jedan row_h,
+            # pa scrollToBottom() skroluje past sadržaja i sakriva redove.
+            from PySide6.QtWidgets import QAbstractItemView
+            self.table.scrollTo(self.table.currentIndex(), QAbstractItemView.EnsureVisible)
 
     def _on_export_excel(self):
         # docs/sections/export-pdf-excel.md — Excel izvoz, grupisanje po naimenovanjima
