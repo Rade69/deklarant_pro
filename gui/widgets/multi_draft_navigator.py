@@ -115,7 +115,7 @@ class MultiDraftNavigator(QWidget):
 
         # Kratki pregled svih deklaracija
         self._lbl_summary = QLabel()
-        self._lbl_summary.setStyleSheet("color: #E1BEE7; font-size: 11px;")
+        self._lbl_summary.setStyleSheet("color: #FFFFFF; font-size: 12px; font-weight: bold;")
         self._lbl_summary.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         frame_layout.addWidget(self._lbl_summary)
 
