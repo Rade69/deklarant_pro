@@ -86,6 +86,10 @@ def parse_smart_pdf(pdf_path: str) -> ImportResult:
             logger.info("   📋 Koristim KG Fashion specijalizovanu funkciju")
             result = _parse_kg_fashion(pdf_path)
 
+        elif pdf_format == "cmana":
+            logger.info("   📋 Koristim CMANA specijalizovanu funkciju")
+            result = _parse_cmana(pdf_path)
+
         else:
             logger.info("   🔍 Nepoznat format - koristim generičku tabular extraction")
             result = parse_generic_pdf(pdf_path)
@@ -243,6 +247,10 @@ def _detect_pdf_format(pdf_path: str) -> str:
             if "K... G... FASHION" in text_upper or "KGFASHION" in text_upper:
                 return "kg_fashion"
 
+            # CMANA - Račun ino kupcu
+            if "CMANA" in text_upper and ("RAČUN" in text_upper or "RACUN" in text_upper):
+                return "cmana"
+
             # Nepoznat format - generička extraction
             return "generic"
 
@@ -387,6 +395,12 @@ def _parse_kg_fashion(pdf_path: str) -> ImportResult:
     """Parsira KG Fashion D.O.O. format (Petite Jolie, Vizzano, Benetton, Sisley, Ambitious, Bueno, Jagger itd.)."""
     from importers.vendors.kg_fashion.kg_fashion_importer import import_kg_fashion
     return import_kg_fashion(pdf_path)
+
+
+def _parse_cmana(pdf_path: str) -> ImportResult:
+    """Parsira CMANA DOO Krnjevo format."""
+    from importers.vendors.cmana.cmana_pdf_parser import parse_cmana_pdf
+    return parse_cmana_pdf(pdf_path)
 
 
 # Alias za kompatibilnost

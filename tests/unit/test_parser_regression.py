@@ -203,6 +203,38 @@ class TestMedicopharmPdf:
 
 
 # ---------------------------------------------------------------------------
+# CMANA — PDF
+# ---------------------------------------------------------------------------
+
+class TestCmanaPdf:
+    PDF = FIXTURES_ROOT / "CMANA" / "fwdfw21_5_2026_" / "leburic otp..pdf"
+
+    def test_item_count(self):
+        _skip_if_missing(self.PDF)
+        from importers.vendors.cmana.cmana_pdf_parser import parse_cmana_pdf
+        r = parse_cmana_pdf(str(self.PDF))
+        assert len(r.items) == 7, f"Očekivano 7 stavki, dobijeno {len(r.items)}"
+
+    def test_tariffs_and_origin(self):
+        _skip_if_missing(self.PDF)
+        from importers.vendors.cmana.cmana_pdf_parser import parse_cmana_pdf
+        r = parse_cmana_pdf(str(self.PDF))
+        tariffs = {item.product_code: item.tarifni_broj for item in r.items}
+        assert tariffs["120002"] == "02071450"
+        assert tariffs["120009"] == "02071360"
+        assert tariffs["120052"] == "02071360"
+        assert all(item.zemlja_porijekla == "RS" for item in r.items)
+        assert all(item.raw.get("eur1_suggested") for item in r.items)
+
+    def test_total_iznos(self):
+        _skip_if_missing(self.PDF)
+        from importers.vendors.cmana.cmana_pdf_parser import parse_cmana_pdf
+        r = parse_cmana_pdf(str(self.PDF))
+        total = sum(x.iznos for x in r.items)
+        assert total == pytest.approx(21005.09, abs=0.01)
+
+
+# ---------------------------------------------------------------------------
 # Sumaprom — mock test (nema realni fajl u fixtures)
 # ---------------------------------------------------------------------------
 

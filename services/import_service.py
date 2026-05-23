@@ -26,7 +26,7 @@ logger = logging.getLogger("deklarant_pro.import")
 _KNOWN_VENDOR_FORMATS = {
     "invoice_improved", "blagic_loren", "blagic_attos",
     "imamoglu", "master_frigo", "medicopharm", "leburic_pekabesko",
-    "proton_system", "sumaprom",
+    "proton_system", "sumaprom", "cmana",
 }
 
 
