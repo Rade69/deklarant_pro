@@ -58,36 +58,38 @@ class MultiDraftNavigator(QWidget):
 
     def _build_ui(self) -> None:
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(8, 4, 8, 4)
-        layout.setSpacing(8)
+        layout.setContentsMargins(6, 3, 6, 3)
+        layout.setSpacing(0)
 
         # Frame koji vizuelno ograničava traku
         frame = QFrame()
         frame.setFrameShape(QFrame.StyledPanel)
+        frame.setMinimumHeight(38)
         frame.setStyleSheet(
-            "QFrame { background: #EDE4F5; border: 1px solid #C4A8E8; border-radius: 6px; }"
+            "QFrame { background: #6A1B9A; border: 2px solid #4A148C; border-radius: 6px; }"
         )
         frame_layout = QHBoxLayout(frame)
-        frame_layout.setContentsMargins(10, 4, 10, 4)
+        frame_layout.setContentsMargins(12, 4, 12, 4)
         frame_layout.setSpacing(10)
 
         # Ikona razdvajanja
-        icon_label = QLabel("📂")
-        icon_label.setFixedWidth(24)
+        icon_label = QLabel("🗂")
+        icon_label.setFixedWidth(26)
+        icon_label.setStyleSheet("font-size: 16px;")
         frame_layout.addWidget(icon_label)
 
         # Labela "Deklaracija po zemljama:"
         prefix = QLabel("Deklaracija po zemljama:")
-        prefix.setStyleSheet("color: #4A2E6B; font-weight: bold;")
+        prefix.setStyleSheet("color: #F3E5F5; font-weight: bold; font-size: 13px;")
         frame_layout.addWidget(prefix)
 
         # Dugme nazad
         self._btn_prev = QPushButton("◀")
-        self._btn_prev.setFixedSize(28, 28)
+        self._btn_prev.setFixedSize(32, 28)
         self._btn_prev.setStyleSheet(
-            "QPushButton { background: #C4A8E8; border-radius: 4px; font-weight: bold; }"
-            "QPushButton:hover { background: #A87ED8; }"
-            "QPushButton:disabled { background: #E0D0F5; color: #AAA; }"
+            "QPushButton { background: #CE93D8; color: #1A0030; border-radius: 4px; font-weight: bold; font-size: 14px; }"
+            "QPushButton:hover { background: #FFFFFF; color: #4A148C; }"
+            "QPushButton:disabled { background: #4A2E6B; color: #7B5EA7; }"
         )
         self._btn_prev.clicked.connect(self._on_prev)
         frame_layout.addWidget(self._btn_prev)
@@ -95,23 +97,25 @@ class MultiDraftNavigator(QWidget):
         # Centralna labela sa informacijom
         self._lbl_info = QLabel()
         self._lbl_info.setAlignment(Qt.AlignCenter)
-        self._lbl_info.setStyleSheet("color: #4A2E6B; font-size: 13px; min-width: 280px;")
+        self._lbl_info.setStyleSheet(
+            "color: #FFFFFF; font-size: 14px; font-weight: bold; min-width: 300px;"
+        )
         frame_layout.addWidget(self._lbl_info, stretch=1)
 
         # Dugme naprijed
         self._btn_next = QPushButton("▶")
-        self._btn_next.setFixedSize(28, 28)
+        self._btn_next.setFixedSize(32, 28)
         self._btn_next.setStyleSheet(
-            "QPushButton { background: #C4A8E8; border-radius: 4px; font-weight: bold; }"
-            "QPushButton:hover { background: #A87ED8; }"
-            "QPushButton:disabled { background: #E0D0F5; color: #AAA; }"
+            "QPushButton { background: #CE93D8; color: #1A0030; border-radius: 4px; font-weight: bold; font-size: 14px; }"
+            "QPushButton:hover { background: #FFFFFF; color: #4A148C; }"
+            "QPushButton:disabled { background: #4A2E6B; color: #7B5EA7; }"
         )
         self._btn_next.clicked.connect(self._on_next)
         frame_layout.addWidget(self._btn_next)
 
         # Kratki pregled svih deklaracija
         self._lbl_summary = QLabel()
-        self._lbl_summary.setStyleSheet("color: #7A5A9B; font-size: 11px;")
+        self._lbl_summary.setStyleSheet("color: #E1BEE7; font-size: 11px;")
         self._lbl_summary.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         frame_layout.addWidget(self._lbl_summary)
 
