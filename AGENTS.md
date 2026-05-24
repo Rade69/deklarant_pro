@@ -7,18 +7,21 @@ MiniMax, CLI agenti i drugi. Dopunjuje globalni `~/.claude/AGENTS.md` — ne zam
 
 ## Kontekst projekta — pročitaj prije kodiranja
 
-Memorija projekta (ne-trivijalni fakti, odluke, historija) nalazi se u:
-```
-~/.claude/projects/-home-radovan-Desktop-deklarant-pro/memory/
-```
-Indeks svih zapisa: `MEMORY.md` u tom folderu.
+**OBAVEZNO: Pročitaj `docs/CONTEXT.md` prije bilo kakvog kodiranja.**
 
-**Ako si IDE agent (Copilot, Cursor, Qwen Code):** memory fajlove možeš čitati direktno.
-**Ako si CLI/API agent (MiniMax, prompt bez IDE konteksta):** task fajl koji dobiješ
-sadrži sve potrebne informacije — ne moraš ručno tražiti memoriju.
+Taj fajl sadrži ne-trivijalne odluke, zabranjene patterne i poznate bugove
+koji nisu vidljivi iz samog koda. Dostupan je svim agentima jer je u git repozitoriju.
 
-Klauza `CLAUDE.md` u korijenu projekta sadrži formatske konvencije i projektne standarde
-koje prati Claude. Pročitaj je ako radiš šire izmjene.
+```text
+docs/CONTEXT.md   ← zajednička memorija za sve agente (Claude, Qwen, DeepSeek...)
+```
+
+Klauza `CLAUDE.md` u korijenu projekta sadrži formatske konvencije i projektne standarde.
+Pročitaj je ako radiš šire izmjene ili nisi siguran u konvencije.
+
+> **Samo za Claude:** Detaljne sesijske bilješke nalaze se i u
+> `~/.claude/projects/-home-radovan-Desktop-deklarant-pro/memory/`
+> ali `docs/CONTEXT.md` je autoritativni izvor za sve agente.
 
 ---
 
@@ -41,7 +44,7 @@ Napiši kratko (2-4 rečenice) šta si razumio iz zadatka i šta planiraš uradi
 ## Tech stack
 
 | Sloj | Tehnologija |
-|------|------------|
+| --- | --- |
 | GUI | PySide6 (Qt6) |
 | Baza | PostgreSQL 16 (server 192.168.0.69) + SQLite lokalno |
 | Python | 3.11+, uv za pakete |
@@ -52,7 +55,7 @@ Napiši kratko (2-4 rečenice) šta si razumio iz zadatka i šta planiraš uradi
 
 ## Arhitektura
 
-```
+```text
 deklarant_pro/
 ├── core/draft/          # Draft modeli: DeclarationDraft, InvoiceLine, NaimenovanjeDraft
 ├── gui/tabs/            # GUI tabovi (agent_tab, faktura_tab, naimenovanja_tab...)
@@ -81,21 +84,25 @@ servisna klasa ih omotava kao public API. Controller metode su samo 1-liner pozi
 ## Ključne konvencije
 
 ### Kod
+
 - **Nema novih komentara** osim za neočigledne workarounds ili skrivene invarijante
 - **Nema docstrings** na metodama koje slijede jasne naming konvencije
 - Fuzzy matching threshold: `min_similarity = 0.92` (ne spuštati bez eksplicitnog razloga)
 - SQL: isključivo parametrizovani upiti — nikad f-string u SQL-u
 
 ### Parseri (importers/)
+
 - Svaki importer mora imati `exporter` i `importer` polja u `ImportResult`
 - XML lookup se radi po paru `(exporter, tariff_code)` — ne samo po tariff_code
 - CBBH kurs se čita iz baze, ne hardkoduje
 
 ### XML template (xml_template_service.py)
+
 - Rb.48 (`odgodjeno_placanje`) se **ne prepisuje** iz historijskog XML-a — šifra se mijenja godišnje
 - Mijenjati samo `TEMPLATE_FIELDS` whitelist — ne pisati ad-hoc logiku po polju
 
 ### Naimenovanja
+
 - Rb.31 auto-opis se generiše po tarifi, ne prepisuje iz fakture
 - `le_r31_trg_naziv` prikazuje sve comercijalne nazive, max 550 znakova, skraćuje sa "..."
 
@@ -104,7 +111,7 @@ servisna klasa ih omotava kao public API. Controller metode su samo 1-liner pozi
 ## Zabrane specifične za ovaj projekat
 
 | Zabrana | Razlog |
-|---------|--------|
+| --- | --- |
 | Direktni `import` iz `gui/tabs/agent/agent_controller.py` u servis | Kružni import |
 | Mijenjati `TEMPLATE_FIELDS` van `xml_template_service.py` | Single source of truth |
 | Hardkodovati IP adresu servera u kodu | Mora biti u `config.ini` |
@@ -115,7 +122,7 @@ servisna klasa ih omotava kao public API. Controller metode su samo 1-liner pozi
 
 ## Format outputa
 
-```
+```text
 STATUS: OK | PARCIJALNO | BLOKIRANO
 IZMIJENJENI FAJLOVI: lista
 ŠTA JE URAĐENO: kratko
@@ -146,9 +153,9 @@ Kada hook injektuje `[DOC-GUARD]` poruku:
 ---
 
 <!-- gitnexus:start -->
-# GitNexus — Code Intelligence
+## GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **deklarant_pro** (17771 symbols, 29938 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **deklarant_pro** (18002 symbols, 30260 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
@@ -170,7 +177,7 @@ This project is indexed by GitNexus as **deklarant_pro** (17771 symbols, 29938 r
 ## Resources
 
 | Resource | Use for |
-|----------|---------|
+| --- | --- |
 | `gitnexus://repo/deklarant_pro/context` | Codebase overview, check index freshness |
 | `gitnexus://repo/deklarant_pro/clusters` | All functional areas |
 | `gitnexus://repo/deklarant_pro/processes` | All execution flows |
@@ -179,7 +186,7 @@ This project is indexed by GitNexus as **deklarant_pro** (17771 symbols, 29938 r
 ## CLI
 
 | Task | Read this skill file |
-|------|---------------------|
+| --- | --- |
 | Understand architecture / "How does X work?" | `.claude/skills/gitnexus/gitnexus-exploring/SKILL.md` |
 | Blast radius / "What breaks if I change X?" | `.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md` |
 | Trace bugs / "Why is X failing?" | `.claude/skills/gitnexus/gitnexus-debugging/SKILL.md` |
