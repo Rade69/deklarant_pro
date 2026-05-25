@@ -130,13 +130,14 @@ class Eur1QuickDialog(QDialog):
         """
         groups = {}
         for item in self.invoice_lines:
-            if item.zemlja_porijekla:
-                country = item.zemlja_porijekla.upper()
-                invoice_num = item.invoice_number or 'BEZ_BROJA'
-                key = f"{invoice_num} - {country}"
-                if key not in groups:
-                    groups[key] = []
-                groups[key].append(item)
+            country = (item.zemlja_porijekla or '').strip().upper()
+            if not country:
+                continue
+            invoice_num = (item.invoice_number or 'BEZ_BROJA').strip()
+            key = f"{invoice_num} - {country}"
+            if key not in groups:
+                groups[key] = []
+            groups[key].append(item)
         return groups
 
     def _get_country_name(self, key: str) -> str:
@@ -420,11 +421,15 @@ class Eur1QuickDialog(QDialog):
                 idx = combo.findData(current_country)
                 if idx >= 0:
                     combo.setCurrentIndex(idx)
-                
+                elif current_country:
+                    # Šifra nije u bazi — dodaj je kao opciju i selektuj
+                    combo.insertItem(0, f"{current_country} - (nepoznata)", current_country)
+                    combo.setCurrentIndex(0)
+
         except Exception as e:
             print(f"Greška pri učitavanju zemalja: {e}")
             combo.addItem(f"{current_country} - {current_country}", current_country)
-        
+
         return combo
     
     def _on_country_changed_for_group(self, key: str):
