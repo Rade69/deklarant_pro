@@ -229,11 +229,25 @@ def _is_weak_origin_query(query: str) -> bool:
     return msg in {"za", "u", "iz", "ovaj", "zaj", "taj", "proizvod"}
 
 
+def _is_missing_invoice_field_request(message: str) -> bool:
+    msg = _normalize_naim_message(message)
+    has_missing = any(kw in msg for kw in ("nema", "bez", "nedostaje", "fali", "prazn", "nepopun"))
+    has_field = any(kw in msg for kw in (
+        "zemlj", "porijek", "porijk", "porekl", "prijek", "tarif", "iznos", "vrijednost",
+    ))
+    has_table = any(kw in msg for kw in (
+        "faktura", "fakture", "faktir", "tabu", "tab", "tabel", "tabela",
+    ))
+    return has_missing and has_field and has_table
+
+
 def _extract_origin_product_query(message: str) -> str:
     # Docs: docs/sections/agent-origin-query-routing.md
     msg = (message or "").strip()
     lower = msg.lower()
     if not (_has_origin_keyword(msg) or "origin" in lower):
+        return ""
+    if _is_missing_invoice_field_request(msg):
         return ""
     if re.search(r'\b(upiši|upisi|upišite|upisite|postavi|unesi|unesite|stavi)\b', lower):
         return ""
@@ -624,6 +638,63 @@ def _origin_lookup_from_context(ctrl, message: str) -> bool:
     return False
 
 
+def _missing_invoice_field_from_context(ctrl, message: str) -> bool:
+    msg = _normalize_naim_message(message)
+    if not _is_missing_invoice_field_request(message):
+        return False
+
+    field = ""
+    label = ""
+    if any(kw in msg for kw in ("zemlj", "porijek", "porijk", "porekl", "prijek")):
+        field = "country"
+        label = "zemlje porijekla"
+    elif "tarif" in msg:
+        field = "tariff"
+        label = "tarifnog broja"
+    elif "iznos" in msg or "vrijednost" in msg:
+        field = "amount"
+        label = "iznosa"
+    if not field:
+        return False
+
+    ctx = _get_conversation_context(ctrl)
+    table_ref = any(kw in msg for kw in ("faktura", "fakture", "faktir", "tabu", "tab", "tabel", "tabela"))
+    if not table_ref and ctx.get("last_app_scope") != "faktura":
+        return False
+
+    lines = list(getattr(getattr(ctrl, "draft", None), "invoice_lines", []) or [])
+    missing = []
+    for idx, line in enumerate(lines, start=1):
+        if field == "country" and not (getattr(line, "zemlja_porijekla", "") or "").strip():
+            missing.append((idx, line))
+        elif field == "tariff" and not (getattr(line, "tarifni_broj", "") or "").strip():
+            missing.append((idx, line))
+        elif field == "amount" and (getattr(line, "iznos", 0) or 0) <= 0:
+            missing.append((idx, line))
+
+    chat = ctrl.view.get_chat_panel()
+    if not missing:
+        chat.add_agent_message(f"✅ U Faktura tabu nema stavki bez {escape(label)}.")
+        return True
+
+    rows = []
+    for idx, line in missing[:20]:
+        invoice = escape(str(getattr(line, "invoice_number", "") or "—"))
+        name = escape(str(getattr(line, "naziv_robe", "") or "—")[:80])
+        tariff = escape(str(getattr(line, "tarifni_broj", "") or "—"))
+        rows.append(
+            f"• <b>Rb.{idx}</b> — {name}<br>"
+            f"<small>Faktura: {invoice}; tarifa: {tariff}</small>"
+        )
+    more = "" if len(missing) <= 20 else f"<br><small>... i još {len(missing) - 20} stavki.</small>"
+    chat.add_agent_message(
+        f"<b>Faktura tab — stavke bez {escape(label)}</b><br>"
+        f"Ukupno: <b>{len(missing)}</b><br><br>"
+        f"{'<br>'.join(rows)}{more}"
+    )
+    return True
+
+
 def _is_tariff_usage_question(message: str) -> bool:
     msg = (message or "").lower()
     if "tarif" not in msg:
@@ -862,6 +933,9 @@ def _resolve_contextual_request(ctrl, message: str) -> bool:
             )
             return True
         _prikazi_statistiku_tarife(ctrl, code)
+        return True
+
+    if _missing_invoice_field_from_context(ctrl, message):
         return True
 
     if _origin_lookup_from_context(ctrl, message):
@@ -1170,6 +1244,9 @@ def _handle_message_regex_fallback(ctrl, message: str) -> None:
 
     chat = ctrl.view.get_chat_panel()
     msg = message.lower().strip()
+
+    if _missing_invoice_field_from_context(ctrl, message):
+        return
 
     origin_query = _extract_origin_product_query(message)
     if origin_query:
@@ -1901,6 +1978,7 @@ def _pregled_stanja_aplikacije(ctrl, scope: str = "all") -> None:
     try:
         from services.agent.application_context_service import ApplicationContextService
 
+        _get_conversation_context(ctrl)["last_app_scope"] = (scope or "all").lower()
         html = ApplicationContextService(ctrl.draft).format_html(scope)
         chat.add_agent_message(html)
     except Exception as e:

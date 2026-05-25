@@ -391,3 +391,56 @@ def test_origin_lookup_extracts_product_before_misspelled_origin(monkeypatch):
 
     assert handled
     assert looked_up == ["DEPIWHITE ADV.KREM 40 ml"]
+
+
+def test_missing_country_question_lists_invoice_rows_not_origin_search(monkeypatch):
+    draft = DeclarationDraft()
+    draft.invoice_lines = [
+        InvoiceLine(invoice_number="639/26", naziv_robe="VITIX gel 20ml", tarifni_broj="33049900", zemlja_porijekla="FR"),
+        InvoiceLine(invoice_number="639/26", naziv_robe="DEPIWHITE ADV.KREM 40 ml", tarifni_broj="33049900", zemlja_porijekla=""),
+        InvoiceLine(invoice_number="639/26", naziv_robe="VITICOLOR gel 50ml", tarifni_broj="33049900", zemlja_porijekla=""),
+    ]
+    ctrl = _Ctrl(draft)
+    looked_up = []
+    monkeypatch.setattr(handler, "_pretrazi_porijeklo", lambda _, naziv: looked_up.append(naziv))
+
+    handler._pregled_stanja_aplikacije(ctrl, "faktura")
+    handled = handler._resolve_contextual_request(
+        ctrl,
+        "Ima li neka stavka da nema zemlju porijekla u toj tabeli",
+    )
+
+    assert handled
+    assert looked_up == []
+    message = ctrl.chat.messages[-1]
+    assert "Faktura tab — stavke bez zemlje porijekla" in message
+    assert "Ukupno: <b>2</b>" in message
+    assert "Rb.2" in message
+    assert "Rb.3" in message
+
+
+def test_missing_country_request_with_typos_does_not_become_origin_lookup(monkeypatch):
+    draft = DeclarationDraft()
+    draft.invoice_lines = [
+        InvoiceLine(invoice_number="639/26", naziv_robe="VITIX gel 20ml", tarifni_broj="33049900", zemlja_porijekla="FR"),
+        InvoiceLine(invoice_number="639/26", naziv_robe="DEPIWHITE ADV.KREM 40 ml", tarifni_broj="33049900", zemlja_porijekla=""),
+    ]
+    ctrl = _Ctrl(draft)
+    looked_up = []
+    monkeypatch.setattr(handler, "_pretrazi_porijeklo", lambda _, naziv: looked_up.append(naziv))
+
+    handled = handler._resolve_contextual_request(
+        ctrl,
+        "U tabu faktira u tabeli nađi stvake bez zemlje porijekla",
+    )
+
+    assert handled
+    assert looked_up == []
+    assert "Faktura tab — stavke bez zemlje porijekla" in ctrl.chat.messages[-1]
+    assert "DEPIWHITE ADV.KREM 40 ml" in ctrl.chat.messages[-1]
+
+
+def test_missing_country_request_is_not_extracted_as_origin_product_query():
+    assert handler._extract_origin_product_query(
+        "U tabu faktira u tabeli nađi stvake bez zemlje porijekla"
+    ) == ""

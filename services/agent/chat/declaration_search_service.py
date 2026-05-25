@@ -16,17 +16,46 @@ import logging
 import os
 import re
 import sqlite3
+import unicodedata
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import List, Dict, Optional
 
 logger = logging.getLogger("deklarant_pro.agent.declaration_search")
 
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+GENERIC_SEARCH_TOKENS = {
+    "artikl", "artikal", "faktura", "gel", "komad", "krem", "ml",
+    "model", "naziv", "ostali", "ostalo", "proizvod", "proizvodi", "robe",
+    "tbl", "tip",
+}
+
 # Putanja do XML fajlova
-XML_DIR = Path(__file__).parent.parent.parent / "data" / "knowledge_base" / "NOVA ASIKUDA"
+XML_DIR = PROJECT_ROOT / "data" / "knowledge_base" / "NOVA ASIKUDA"
 
 # SQLite index — u istom folderu kao XML-ovi
-INDEX_DB = Path(__file__).parent.parent.parent / "data" / "knowledge_base" / "declaration_index.db"
+INDEX_DB = PROJECT_ROOT / "data" / "knowledge_base" / "declaration_index.db"
+
+
+def _path_from_env(name: str, default: Path) -> Path:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    path = Path(raw).expanduser()
+    return path if path.is_absolute() else PROJECT_ROOT / path
+
+
+def _resolve_xml_dir() -> Path:
+    path = _path_from_env("XML_ARCHIVE_DIR", XML_DIR)
+    if not path.exists():
+        raise FileNotFoundError(
+            f"XML arhiv nije pronađen: {path}. Postavite XML_ARCHIVE_DIR u .env."
+        )
+    return path
+
+
+def _resolve_index_db() -> Path:
+    return _path_from_env("DECLARATION_INDEX_DB", INDEX_DB)
 
 
 def _txt(element, path: str, default: str = "") -> str:
@@ -49,6 +78,51 @@ def _build_hs_code(commodity: str, precision: str) -> str:
     return c + p if p else c + "000"
 
 
+def _normalize_search_text(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", value or "")
+    ascii_value = "".join(ch for ch in normalized if not unicodedata.combining(ch))
+    return re.sub(r"\s+", " ", re.sub(r"[^a-zA-Z0-9]+", " ", ascii_value.lower())).strip()
+
+
+def _search_words(query: str) -> list[str]:
+    words = []
+    for word in re.split(r"\s+", _normalize_search_text(query)):
+        if len(word) < 3:
+            continue
+        if word not in words:
+            words.append(word)
+    return words
+
+
+def _goods_match_score(row: Dict, words: list[str], phrase: str) -> float:
+    text = _normalize_search_text(
+        f"{row.get('commercial_desc', '')} {row.get('description', '')}"
+    )
+    if not text:
+        return 0.0
+
+    required = [
+        word for word in words
+        if len(word) >= 5 and not word.isdigit() and word not in GENERIC_SEARCH_TOKENS
+    ][:3]
+    if required and not any(word in text for word in required):
+        return 0.0
+
+    matched = sum(1 for word in words if word in text)
+    if not matched:
+        return 0.0
+    if len(words) >= 3 and matched < 2:
+        return 0.0
+
+    score = matched / max(len(words), 1)
+    if phrase and phrase in text:
+        score += 0.5
+    commercial = _normalize_search_text(row.get("commercial_desc", ""))
+    if commercial.startswith(phrase[:40]):
+        score += 0.2
+    return score
+
+
 class DeclarationSearchService:
     """
     Servis za pretragu istorijskih XML deklaracija.
@@ -69,7 +143,7 @@ class DeclarationSearchService:
         Vraća stavke sa tarifnim brojem, zemljom, povlasticom.
         """
         self._ensure_index()
-        words = [w for w in re.split(r'\s+', query.strip()) if len(w) >= 3]
+        words = _search_words(query)
         if not words:
             return []
 
@@ -91,8 +165,23 @@ class DeclarationSearchService:
             ORDER BY length(i.commercial_desc)
             LIMIT ?
         """
-        params.append(limit)
-        return self._fetchall(sql, params)
+        params.append(max(limit * 80, 300))
+        rows = self._fetchall(sql, params)
+        phrase = _normalize_search_text(query)
+        scored = [
+            (_goods_match_score(row, words, phrase), row)
+            for row in rows
+        ]
+        scored = [(score, row) for score, row in scored if score > 0]
+        scored.sort(
+            key=lambda item: (
+                item[0],
+                bool((item[1].get("country_origin") or "").strip()),
+                -len(item[1].get("commercial_desc") or ""),
+            ),
+            reverse=True,
+        )
+        return [row for _, row in scored[:limit]]
 
     def search_by_tariff(self, tariff_code: str, limit: int = 10) -> List[Dict]:
         """Pronalazi sve istorijske stavke sa određenim tarifnim brojem."""
@@ -182,14 +271,16 @@ class DeclarationSearchService:
         if self._indexed:
             return
 
-        INDEX_DB.parent.mkdir(parents=True, exist_ok=True)
-        self._db = sqlite3.connect(str(INDEX_DB))
+        xml_dir = _resolve_xml_dir()
+        index_db = _resolve_index_db()
+        index_db.parent.mkdir(parents=True, exist_ok=True)
+        self._db = sqlite3.connect(str(index_db))
         self._db.row_factory = sqlite3.Row
 
         self._create_schema()
 
         # Provjeri treba li reindeksiranje
-        xml_files = sorted(XML_DIR.glob("*.xml")) if XML_DIR.exists() else []
+        xml_files = sorted(xml_dir.glob("*.xml"))
         indexed_count = self._db.execute(
             "SELECT COUNT(*) FROM declarations"
         ).fetchone()[0]
