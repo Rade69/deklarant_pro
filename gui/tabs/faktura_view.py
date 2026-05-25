@@ -546,12 +546,12 @@ class FakturaView(BaseTabView):
             layout.addWidget(self.btn_auto_fill)
 
             self.btn_load_mappings = self._create_button(
-                "Učitaj novi xml",
-                "Učitaj novi XML fajl u bazu znanja",
-                object_name="btnUcitajMappinge",
-                icon_name="fa5s.database",
+                "Prethodna deklaracija",
+                "Učitaj zaglavlje iz prethodne deklaracije istog izvoznika",
+                object_name="btnPrethodnaDekl",
+                icon_name="fa5s.history",
             )
-            self.btn_load_mappings.clicked.connect(self._on_load_mappings_from_xml)
+            self.btn_load_mappings.clicked.connect(self._on_load_previous_declaration)
             layout.addWidget(self.btn_load_mappings)
 
     def _create_table(self) -> QTableWidget:
@@ -3811,6 +3811,160 @@ class FakturaView(BaseTabView):
                 "Greška",
                 f"❌ Greška pri učitavanju mappinga iz XML fajlova:\n\n{str(e)}\n\nProvjerite konzolu za detalje.",
             )
+
+    def _on_load_previous_declaration(self):
+        """Učitaj zaglavlje iz prethodne deklaracije istog izvoznika."""
+        # Odredi izvoznika iz draft-a ili iz prve invoice linije
+        izvoznik = (self.draft.izvoznik_naziv or '').strip()
+        if not izvoznik and self.draft.invoice_lines:
+            for line in self.draft.invoice_lines:
+                cand = (getattr(getattr(line, 'exporter', None), 'name', '') or '').strip()
+                if cand:
+                    izvoznik = cand
+                    break
+
+        xml_path = None
+
+        if izvoznik:
+            try:
+                from services.agent.learning.exporter_xml_indexer import find_xml_for_pair
+                result = find_xml_for_pair(izvoznik)
+                if result:
+                    xml_path = result.get('xml_filepath')
+            except Exception as exc:
+                logger.warning("find_xml_for_pair greška: %s", exc)
+
+        # Ako nije pronađen automatski — ponudi ručni odabir
+        if not xml_path:
+            msg = (
+                f"Nije pronađena prethodna deklaracija za izvoznika '{izvoznik}'.\n\n"
+                if izvoznik else
+                "Nije poznat izvoznik — nije moguća automatska pretraga.\n\n"
+            )
+            msg += "Odaberi XML fajl ručno?"
+            reply = QMessageBox.question(
+                self, "Prethodna deklaracija", msg,
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes,
+            )
+            if reply != QMessageBox.Yes:
+                return
+            path, _ = QFileDialog.getOpenFileName(
+                self, "Odaberi ASYCUDA XML deklaraciju", "", "XML Files (*.xml)"
+            )
+            if not path:
+                return
+            xml_path = path
+
+        # Parsiraj header iz XML-a
+        try:
+            header = self._extract_header_from_xml(xml_path)
+        except Exception as exc:
+            QMessageBox.critical(self, "Greška", f"Nije moguće parsirati XML:\n{exc}")
+            return
+
+        if not header:
+            QMessageBox.warning(self, "Prethodna deklaracija", "XML ne sadrži prepoznatljive header podatke.")
+            return
+
+        # Prikaži šta će biti učitano
+        lines = []
+        field_labels = {
+            'izvoznik_naziv': 'Izvoznik',
+            'drzava_izvoza_sifra': 'Država izvoza',
+            'valuta': 'Valuta',
+            'uslovi_kod': 'Incoterm',
+            'uslovi_mjesto': 'Mjesto isporuke',
+            'deklaracija_tip': 'Tip deklaracije',
+            'deklaracija_a': 'Oznaka',
+            'deklaracija_oznaka': 'Procedura',
+        }
+        for field, label in field_labels.items():
+            if header.get(field):
+                lines.append(f"  {label}: {header[field]}")
+
+        confirm = QMessageBox.question(
+            self,
+            "Prethodna deklaracija",
+            f"Pronađena prethodna deklaracija:\n\n" + "\n".join(lines) +
+            "\n\nUčitati ove podatke u zaglavlje?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.Yes,
+        )
+        if confirm != QMessageBox.Yes:
+            return
+
+        # Upiši u draft
+        for field, value in header.items():
+            if value and hasattr(self.draft, field):
+                setattr(self.draft, field, value)
+
+        # Obavijesti ZaglavljeView da se reload-uje
+        try:
+            main_window = self.window()
+            if hasattr(main_window, 'zaglavlje_tab'):
+                main_window.zaglavlje_tab.load_from_draft(self.draft)
+        except Exception as exc:
+            logger.warning("Zaglavlje reload greška: %s", exc)
+
+        self._notify_data_changed()
+        self.lbl_validation.setText("✓ Zaglavlje učitano iz prethodne deklaracije")
+        self.lbl_validation.setProperty("status", "success")
+        self.lbl_validation.style().unpolish(self.lbl_validation)
+        self.lbl_validation.style().polish(self.lbl_validation)
+        self._learn_notify_timer.start()
+
+    @staticmethod
+    def _extract_header_from_xml(xml_path: str) -> dict:
+        """Parsira ASYCUDA XML i vraća dict sa header poljima za DeclarationDraft."""
+        import xml.etree.ElementTree as ET
+
+        tree = ET.parse(xml_path)
+        root = tree.getroot()
+
+        def _text(xpath: str) -> str:
+            el = root.find(xpath)
+            return (el.text or '').strip().split('\n')[0].strip() if el is not None else ''
+
+        header = {}
+
+        # Izvoznik — samo prva linija (ostale su adresa)
+        izvoznik = _text('.//Traders/Exporter/Exporter_name')
+        if izvoznik:
+            header['izvoznik_naziv'] = izvoznik
+
+        # Zemlja izvoza
+        zem = _text('.//General_information/Country/Export/Export_country_code')
+        if zem:
+            header['drzava_izvoza_sifra'] = zem
+            naziv = _text('.//General_information/Country/Export/Export_country_name')
+            if naziv:
+                header['drzava_izvoza_naziv'] = naziv
+
+        # Valuta (iz Gs_Invoice bloka)
+        val = _text('.//Valuation/Gs_Invoice/Currency_code')
+        if val:
+            header['valuta'] = val
+
+        # Incoterm i mjesto — uzimamo iz prve stavke
+        incoterm = _text('.//Item/IncoTerms/Code')
+        if incoterm:
+            header['uslovi_kod'] = incoterm
+        place = _text('.//Item/IncoTerms/Place')
+        if place:
+            header['uslovi_mjesto'] = place
+
+        # Tip deklaracije
+        tip = _text('.//Identification/Type/Type_of_declaration')
+        if tip:
+            header['deklaracija_tip'] = tip
+        ozn = _text('.//Identification/Type/Declaration_gen_procedure_code')
+        if ozn:
+            header['deklaracija_oznaka'] = ozn
+        tip_x = _text('.//Identification/Type/Type_of_Declaration_X')
+        if tip_x:
+            header['deklaracija_a'] = tip_x
+
+        return header
 
     def _set_buttons_enabled(self, enabled: bool):
         """Enable/disable all buttons (used during import)."""

@@ -47,14 +47,15 @@ def _db_connect():
 
 class _ReindexWorker(QThread):
     log_line = Signal(str)
-    finished = Signal(int, int)
+    finished = Signal(int, int, int)  # dodano_parova, ukupno_parova, uvezeno_tarifa
     error    = Signal(str)
 
     def run(self):
         handler = None
         logger = None
         try:
-            from services.agent.learning.exporter_xml_indexer import reindex, get_stats
+            from services.agent.learning.exporter_xml_indexer import reindex, get_stats, get_xml_folder
+            from services.tariff.tariff_mapping_service import TariffMappingService
             import logging
 
             class _QtHandler(logging.Handler):
@@ -66,11 +67,28 @@ class _ReindexWorker(QThread):
             logger = logging.getLogger("deklarant_pro.exporter_indexer")
             logger.addHandler(handler)
 
-            self.log_line.emit("Pokrećem reindeksiranje...")
+            # Korak 1: reindeksiraj parove izvoznik+uvoznik
+            self.log_line.emit("Korak 1/2 — Indeksiram parove izvoznik+uvoznik...")
             dodano = reindex()
             stats  = get_stats()
             ukupno = stats.get("total_pairs", 0)
-            self.finished.emit(dodano, ukupno)
+
+            # Korak 2: ekstrahuj tarifne veze iz svih XML-ova
+            self.log_line.emit("Korak 2/2 — Ekstraktujem tarifne veze iz XML-ova...")
+            xml_folder = get_xml_folder()
+            xml_paths = [str(p) for p in xml_folder.glob("*.xml")]
+            if xml_paths:
+                tariff_stats = TariffMappingService().import_from_xml_files(xml_paths)
+                uvezeno = tariff_stats.get("imported", 0)
+                self.log_line.emit(
+                    f"   Obrađeno {tariff_stats['total_files']} fajlova, "
+                    f"pronađeno {tariff_stats['total_items']} stavki, "
+                    f"uvezeno {uvezeno} novih veza."
+                )
+            else:
+                uvezeno = 0
+
+            self.finished.emit(dodano, ukupno, uvezeno)
         except Exception as e:
             self.error.emit(str(e))
         finally:
@@ -339,10 +357,13 @@ class LearningPanel(QWidget):
         self._reindex_worker.error.connect(self._on_reindex_error)
         self._reindex_worker.start()
 
-    def _on_reindex_done(self, dodano: int, ukupno: int):
+    def _on_reindex_done(self, dodano: int, ukupno: int, uvezeno_tarifa: int):
         self.progress.setVisible(False)
         self.btn_reindex.setEnabled(True)
-        self._log(f"✅ Završeno — {dodano} promjena, ukupno {ukupno} naučenih deklaracija.")
+        self._log(
+            f"✅ Završeno — {dodano} novih parova, ukupno {ukupno} deklaracija, "
+            f"{uvezeno_tarifa} novih tarifnih veza."
+        )
         self._refresh_stats()
 
     def _on_reindex_error(self, msg: str):
