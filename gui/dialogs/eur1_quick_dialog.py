@@ -46,7 +46,6 @@ class Eur1QuickDialog(QDialog):
         """Postavi UI elemente dialoga."""
         self.setWindowTitle("EUR.1 obrazac po fakturi")
         self.setMinimumWidth(820)
-        self.setMinimumHeight(360)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(18, 14, 18, 14)
@@ -107,7 +106,18 @@ class Eur1QuickDialog(QDialog):
         button_layout.addWidget(cancel_button)
         layout.addLayout(button_layout)
         self._update_info()
+        self._auto_resize()
 
+
+    def _auto_resize(self):
+        """Automatski provjeri visinu na osnovu broja redova, ograniči na ekran."""
+        from PySide6.QtGui import QGuiApplication
+        self.adjustSize()
+        screen = QGuiApplication.primaryScreen()
+        if screen:
+            available_h = screen.availableGeometry().height() - 80
+            if self.height() > available_h:
+                self.resize(self.width(), available_h)
 
     def _group_by_country(self) -> Dict[str, List[InvoiceLine]]:
         """Grupiši stavke po fakturi + zemlji porijekla.
@@ -212,8 +222,7 @@ class Eur1QuickDialog(QDialog):
         row_height = 48
         header_height = 46
         total_h = header_height + len(countries) * row_height
-        table.setMinimumHeight(min(total_h, 300))
-        table.setMaximumHeight(min(total_h, 480))
+        table.setMinimumHeight(total_h)
         return table
 
     def _populate_group_row(self, table: QTableWidget, row: int, key: str, items: List[InvoiceLine]) -> None:
