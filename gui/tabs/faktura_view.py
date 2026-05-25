@@ -1655,6 +1655,8 @@ class FakturaView(BaseTabView):
                     is_auth_file = getattr(result, 'is_authorized_exporter', False)
                     if is_auth_file:
                         any_authorized_exporter = True
+                    # Popuni zaglavlje drafta iz ImportResult (izvoznik, uvoznik, valuta)
+                    self._apply_import_result_to_header(result)
                     # Postavi invoice_number na stavke — samo ako ga parser eksplicitno izvukao
                     explicit_inv = result.invoice_name or ""
                     if explicit_inv:
@@ -3812,15 +3814,52 @@ class FakturaView(BaseTabView):
                 f"❌ Greška pri učitavanju mappinga iz XML fajlova:\n\n{str(e)}\n\nProvjerite konzolu za detalje.",
             )
 
+    def _apply_import_result_to_header(self, result) -> None:
+        """Prenesi izvoznika, uvoznika i valutu iz ImportResult u draft zaglavlje.
+
+        Popunjava samo prazna polja — ne prepisuje ono što je korisnik već unio.
+        """
+        exp = getattr(result, 'exporter', None)
+        if exp:
+            name = (getattr(exp, 'name', '') or '').strip().split('\n')[0].strip()
+            if name and not self.draft.izvoznik_naziv:
+                self.draft.izvoznik_naziv = name
+            addr = (getattr(exp, 'address', '') or '').strip()
+            if addr and not self.draft.izvoznik_adresa:
+                self.draft.izvoznik_adresa = addr
+            city = (getattr(exp, 'city', '') or '').strip()
+            if city and not self.draft.izvoznik_grad:
+                self.draft.izvoznik_grad = city
+            country = (getattr(exp, 'country', '') or '').strip()
+            if country and not self.draft.izvoznik_drzava:
+                self.draft.izvoznik_drzava = country
+
+        imp = getattr(result, 'importer', None)
+        if imp:
+            name = (getattr(imp, 'name', '') or '').strip().split('\n')[0].strip()
+            if name and not self.draft.primalac_naziv:
+                self.draft.primalac_naziv = name
+            vat = (getattr(imp, 'vat_or_id', '') or '').strip()
+            if vat and not self.draft.primalac_id:
+                self.draft.primalac_id = vat
+            addr = (getattr(imp, 'address', '') or '').strip()
+            if addr and not self.draft.primalac_adresa:
+                self.draft.primalac_adresa = addr
+
+        currency = (getattr(result, 'currency', '') or '').strip()
+        if currency and currency != 'EUR' and not self.draft.valuta:
+            self.draft.valuta = currency
+
     def _on_load_previous_declaration(self):
         """Učitaj zaglavlje iz prethodne deklaracije istog izvoznika."""
-        # Odredi izvoznika iz draft-a ili iz prve invoice linije
+        # Prioritet: draft zaglavlje (popunjeno iz _apply_import_result_to_header)
+        # → exporter na prvoj invoice liniji → ručni odabir
         izvoznik = (self.draft.izvoznik_naziv or '').strip()
         if not izvoznik and self.draft.invoice_lines:
             for line in self.draft.invoice_lines:
                 cand = (getattr(getattr(line, 'exporter', None), 'name', '') or '').strip()
                 if cand:
-                    izvoznik = cand
+                    izvoznik = cand.split('\n')[0].strip()
                     break
 
         xml_path = None
