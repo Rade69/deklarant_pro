@@ -148,14 +148,22 @@ class TariffValidationDialog(QDialog):
         tarif_label.setTextFormat(Qt.RichText)
         tarif_label.setStyleSheet("font-size: 14px;")
 
-        # Meta info
-        source_txt = match.source[:40] if match.source else "—"
+        # Meta info — supplier ima prednost, fallback na source (XML filename)
+        supplier = (match.source or '').strip()
+        if not supplier:
+            source_lbl = "<span style='color:#aaa; font-size:13px;'>nepoznat izvoznik</span>"
+        elif supplier.lower().endswith('.xml'):
+            # source je XML filename — prikaži ga bez ekstenzije kao "iz XML: ime"
+            xml_name = supplier.rsplit('.', 1)[0][:40]
+            source_lbl = f"<span style='color:#888; font-size:13px;'>XML: {xml_name}</span>"
+        else:
+            source_lbl = f"<span style='color:#374151; font-size:13px; font-weight:600;'>{supplier[:45]}</span>"
         pct = int(match.confidence * 100)
         meta_label = QLabel(
             f"<span style='color:#888; font-size:13px;'>"
-            f"Izvor: {source_txt} &nbsp;|&nbsp; "
-            f"Korišten {match.usage_count}× &nbsp;|&nbsp; "
-            f"Pouzdanost: {pct}%"
+            f"Izvor: </span>{source_lbl}"
+            f"<span style='color:#888; font-size:13px;'>"
+            f" &nbsp;|&nbsp; Korišten {match.usage_count}× &nbsp;|&nbsp; Pouzdanost: {pct}%"
             f"</span>"
         )
         meta_label.setTextFormat(Qt.RichText)

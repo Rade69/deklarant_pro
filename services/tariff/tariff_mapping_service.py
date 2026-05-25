@@ -947,6 +947,12 @@ class TariffMappingService:
                         tree = ET.parse(xml_path)
                         root = tree.getroot()
                         items = root.findall(".//Item")
+
+                        # Izvuci ime izvoznika iz XML zaglavlja (prva linija)
+                        exp_el = root.find(".//Traders/Exporter/Exporter_name")
+                        exporter_name = ""
+                        if exp_el is not None and exp_el.text:
+                            exporter_name = exp_el.text.strip().split('\n')[0].strip()
                         logger.debug(f"   Pronađeno Item tagova: {len(items)}")
 
                         for item in items:
@@ -983,8 +989,8 @@ class TariffMappingService:
 
                                 cursor.execute("""
                                     INSERT INTO catalogs.product_tariff_mapping
-                                    (product_code, naziv_robe, commodity_code, precision_1, zemlja_porijekla, povlastica, usage_count, source)
-                                    VALUES (%s, %s, %s, %s, %s, %s, 1, %s)
+                                    (product_code, naziv_robe, commodity_code, precision_1, zemlja_porijekla, povlastica, usage_count, source, supplier)
+                                    VALUES (%s, %s, %s, %s, %s, %s, 1, %s, %s)
                                     ON CONFLICT (product_code, naziv_robe, commodity_code) DO UPDATE SET
                                         precision_1 = CASE
                                             WHEN EXCLUDED.precision_1 != '000' THEN EXCLUDED.precision_1
@@ -994,9 +1000,14 @@ class TariffMappingService:
                                             WHEN catalogs.product_tariff_mapping.source = '' THEN EXCLUDED.source
                                             ELSE catalogs.product_tariff_mapping.source
                                         END,
+                                        supplier = CASE
+                                            WHEN catalogs.product_tariff_mapping.supplier IS NULL
+                                              OR catalogs.product_tariff_mapping.supplier = '' THEN EXCLUDED.supplier
+                                            ELSE catalogs.product_tariff_mapping.supplier
+                                        END,
                                         usage_count = catalogs.product_tariff_mapping.usage_count + 1,
                                         last_used = CURRENT_TIMESTAMP
-                                """, ("", naziv_clean, tarif, precision, zemlja or "", povlastica or "", source_name))
+                                """, ("", naziv_clean, tarif, precision, zemlja or "", povlastica or "", source_name, exporter_name))
 
                                 if cursor.rowcount > 0:
                                     stats['imported'] += 1
