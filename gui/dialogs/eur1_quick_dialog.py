@@ -215,10 +215,12 @@ class Eur1QuickDialog(QDialog):
 
         header = table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.Interactive)
         header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(4, QHeaderView.Stretch)
+        header.setSectionResizeMode(4, QHeaderView.Interactive)
+        table.setColumnWidth(1, 230)
+        table.setColumnWidth(4, 240)
         table.verticalHeader().setDefaultSectionSize(48)
         row_height = 48
         header_height = 46
@@ -401,7 +403,7 @@ class Eur1QuickDialog(QDialog):
         from PySide6.QtWidgets import QComboBox
         
         combo = QComboBox()
-        combo.setMaximumWidth(150)
+        combo.setMaximumWidth(220)
         
         # Učitaj zemlje iz baze
         try:
