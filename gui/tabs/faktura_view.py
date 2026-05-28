@@ -891,27 +891,41 @@ class FakturaView(BaseTabView):
         self.table.blockSignals(True)
         self.table.setUpdatesEnabled(False)
         try:
-            # FIX BUG: Clear validation cache at start to avoid stale data
             self.validation_cache.clear()
-
             item_count = len(self.draft.invoice_lines)
-
-            # OPTIMIZATION: Use setRowCount instead of insertRow loop
             self.table.setRowCount(item_count)
 
-            # PASS 1: Insert all items WITHOUT validation (fast)
+            # PASS 1: Popuni ćelije BEZ validacije — brzo, GUI odmah vidi tabelu
             for idx, item in enumerate(self.draft.invoice_lines):
                 self._add_item_to_table_fast(idx, item)
-
-            # PASS 2: Validate all rows AFTER insertion (better UI responsiveness)
-            for idx, item in enumerate(self.draft.invoice_lines):
-                self._validate_and_color_row(idx, item)
 
             self._update_status_bar()
         finally:
             self.table.setUpdatesEnabled(True)
             self.table.viewport().update()
             self.table.blockSignals(False)
+
+        # PASS 2: Validacija u chunkovima — deferred QTimer, ne blokira GUI
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(0, lambda: self._validation_pass_chunk(0))
+
+    _VALIDATION_CHUNK = 25  # redova po frame-u
+
+    def _validation_pass_chunk(self, start: int) -> None:
+        """Validira chunk redova i zakazuje sljedeći — GUI ostaje responsivan."""
+        lines = self.draft.invoice_lines
+        if start >= len(lines):
+            return
+        end = min(start + self._VALIDATION_CHUNK, len(lines))
+        self.table.blockSignals(True)
+        try:
+            for idx in range(start, end):
+                self._validate_and_color_row(idx, lines[idx])
+        finally:
+            self.table.blockSignals(False)
+        if end < len(lines):
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(0, lambda: self._validation_pass_chunk(end))
 
     def _populate_row_cells(self, row: int, row_number: int, item: InvoiceLine):
         """Popuni ćelije reda tabele iz InvoiceLine objekta (bez insertRow ili validacije)."""
@@ -1684,7 +1698,8 @@ class FakturaView(BaseTabView):
         excel_count = 0
         pdf_count = 0
 
-        for record in final_records:
+        from PySide6.QtWidgets import QApplication
+        for i, record in enumerate(final_records):
             items = record["items"]
             bruto_kg = record["bruto_kg"]
             neto_kg  = record["neto_kg"]
@@ -1704,6 +1719,10 @@ class FakturaView(BaseTabView):
                 excel_count += 1
             elif suffix == ".pdf":
                 pdf_count += 1
+
+            # Pusti event loop da dođe do zraka svakih 5 faktura
+            if i % 5 == 4:
+                QApplication.processEvents()
 
         if not all_items:
             QMessageBox.warning(
