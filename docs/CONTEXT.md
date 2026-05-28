@@ -3,7 +3,7 @@
 > Ovaj fajl čitaju SVI agenti: Claude, Qwen, DeepSeek, i drugi.
 > Sadrži ne-trivijalne odluke i pravila koja nisu vidljiva iz samog koda.
 > Ažurira ga Claude na kraju svake sesije u kojoj je donesena nova bitna odluka.
-> Posljednje ažuriranje: 2026-05-28
+> Posljednje ažuriranje: 2026-05-29
 
 ---
 
@@ -177,7 +177,28 @@ Chat poruka: max 2 linije, BEZ prijedloga. Korisnik pita agenta ako hoće — ag
 
 ---
 
-## 10. Kako ažurirati ovaj fajl
+## 10. Performansne optimizacije (Maj 2026)
+
+### ManualBatchImportWorker — ručni batch uvoz u background threadu
+`services/import_worker.py` — `ManualBatchImportWorker(QThread)` parsira fajlove u pozadini.
+NIKAD ne prikazuje dijaloge (EUR1/PE2) — to radi main thread u `_process_batch_records()`.
+Koristi privatnu `ImportService()` instancu (ne singleton — race condition).
+`_import_multiple_files()` u `faktura_view.py` pokraje worker i odmah vraća kontrolu.
+
+### Packing list matching — O(n×m) → O(n+m)
+`importers/packing_list_parser.py`: `code_index` dict za O(1) exact match po product_code.
+`packing_norm` lista: nazivi normalizovani jednom prije petlje, ne po svakoj stavci.
+`_fuzzy_match_normalized(t1, t2)`: prima već normalizovane stringove — bez redundantnog lower/strip.
+
+### FTS5 indeks za XML arhivu — schema versioning
+`declaration_search_service.py`: `items_fts` FTS5 virtual table za `commercial_desc` + `description`.
+`_SCHEMA_VERSION = 2` — povećati kad se mijenja shema; `_ensure_index` automatski rebuilda.
+`search_by_goods` koristi `MATCH` + `bm25()` ranking umjesto `LIKE %keyword%`.
+LIKE fallback ostaje ako FTS5 indeks nije populiran (backward compat).
+
+---
+
+## 11. Kako ažurirati ovaj fajl
 
 Claude ažurira CONTEXT.md na kraju svake sesije gdje je:
 - Donesena nova arhitekturna odluka
