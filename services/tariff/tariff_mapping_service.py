@@ -207,6 +207,13 @@ class TariffMappingService:
 
         _usage_batch: list = []  # batch increment — jedna konekcija na kraju, ne po stavci
 
+        # ── Batch lookup po product_code (1 SQL umjesto N) ──────────────────────
+        lines_to_process = [l for l in invoice_lines
+                            if not (l.tarifni_broj and not overwrite_existing)]
+        all_codes = [getattr(l, 'product_code', '') or '' for l in lines_to_process]
+        batch_code_hits = self.find_batch_by_product_codes(all_codes) if all_codes else {}
+        # ─────────────────────────────────────────────────────────────────────────
+
         for line in invoice_lines:
             # Skip ako već ima tarifni broj i ne želimo overwrite
             if line.tarifni_broj and not overwrite_existing:
@@ -217,8 +224,14 @@ class TariffMappingService:
 
             mapping = None
 
-            # ── 0. Prvo istorija dobavljača (XML fajlovi sa carine — najvalidniji) ──
-            if line_supplier and hybrid:
+            # ── 0. Batch hit po product_code (O(1), bez SQL po stavci) ──────────
+            code_key = (getattr(line, 'product_code', '') or '').strip().upper()
+            if code_key and code_key in batch_code_hits:
+                mapping = batch_code_hits[code_key]
+                logger.debug(f"  🗂️  Batch hit: {code_key} → {mapping.tarifni_broj}")
+
+            # ── 1. Istorija dobavljača (ako batch nije dao rezultat) ──────────────
+            if mapping is None and line_supplier and hybrid:
                 try:
                     hist_match = hybrid.find_hybrid_mapping(
                         product_code=line.product_code,
@@ -236,7 +249,7 @@ class TariffMappingService:
                 except Exception:
                     pass  # Silent — istorijski match nije kritičan
 
-            # ── 1. Baza znanja (ako istorija nije dala rezultat) ──
+            # ── 2. Baza znanja — fuzzy/vote (ako prethodni koraci nisu dali rezultat) ──
             if mapping is None:
                 mapping = self.find_mapping(
                     product_code=line.product_code,
