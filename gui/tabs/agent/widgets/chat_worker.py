@@ -301,16 +301,6 @@ class ChatWorker(QThread):
             ctx.append("")
             ctx.extend(zaglavlje_lines)
 
-        # Zone B3: Rub.44 — priložene isprave zaglavlja
-        header_docs = getattr(self.draft, 'header_attached_documents', []) or []
-        if header_docs:
-            ctx.append("")
-            ctx.append("=== PRILOŽENE ISPRAVE — RUB.44 (zaglavlje) ===")
-            for doc in header_docs:
-                name   = getattr(doc, 'name', '') or ''
-                number = getattr(doc, 'number', '') or ''
-                ctx.append(f"  {name}  {number}".strip())
-
         ctx.extend(["", ctx_header])
         ctx.extend(sve_stavke)
 
@@ -519,6 +509,14 @@ class ChatWorker(QThread):
                 troskovi.append(f"T{i}={v}")
         if troskovi:
             lines.append(f"  Troškovi:                  {', '.join(troskovi)}")
+
+        header_docs = getattr(d, 'header_attached_documents', []) or []
+        if header_docs:
+            lines.append(f"  Priložene isprave (Rb.44):")
+            for doc in header_docs:
+                name   = getattr(doc, 'name', '') or ''
+                number = getattr(doc, 'number', '') or ''
+                lines.append(f"    - {name}  {number}".rstrip())
 
         return lines if len(lines) > 1 else []
 
