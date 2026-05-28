@@ -602,14 +602,10 @@ class AgentController:
             self.workflow.transition(WorkflowState.COMPLETED)
             self._puna_auto_pipeline(fw, chat, all_processed_lines)
         else:
+            analiza = self._proactive_analysis(all_processed_lines)
             chat.add_agent_message(
-                f"✅ <b>Sve fakture uvezene!</b><br>"
-                f"Ukupno stavki: <b>{processed_total}</b><br>"
-                f"Bez tarifnog: <b>{total_bez}</b><br><br>"
-                f"💡 <b>Šta dalje?</b><br>"
-                f"  • Reci <i>'popuni tarifne'</i> za prijedloge<br>"
-                f"  • Pregledaj tablicu i ručno dopuni<br>"
-                f"  • Kad si spreman, reci <i>'kreiraj naimenovanja'</i>"
+                f"✅ <b>Sve fakture uvezene!</b> ({processed_total} stavki)<br><br>"
+                f"{analiza}"
             )
             from .workflow_state import WorkflowState
             self.workflow.transition(WorkflowState.COMPLETED)
@@ -622,6 +618,58 @@ class AgentController:
 
     def _analiza_auto_action(self):
         self.import_pipeline_svc.analiza_auto_action()
+
+    def _proactive_analysis(self, lines: list) -> str:
+        """Generiši proaktivni HTML izvještaj o stanju uvezenih stavki."""
+        total = len(lines)
+        if not total:
+            return ""
+
+        bez_tarife   = [l for l in lines if not getattr(l, 'tarifni_broj', None)]
+        bez_zemlje   = [l for l in lines if not getattr(l, 'zemlja_porijekla', None)]
+        sa_pov       = [l for l in lines if getattr(l, 'povlastica', None)]
+        bez_eur1     = [
+            l for l in sa_pov
+            if not getattr(l, 'has_origin_statement', False)
+            and not getattr(l, 'eur1_number', None)
+        ]
+
+        countries: dict = {}
+        for l in lines:
+            c = getattr(l, 'zemlja_porijekla', None) or '(nepoznato)'
+            countries[c] = countries.get(c, 0) + 1
+
+        problemi = []
+        if bez_tarife:
+            problemi.append(f"⚠️ <b>{len(bez_tarife)}</b> stavki bez tarifnog broja")
+        if bez_zemlje:
+            problemi.append(f"⚠️ <b>{len(bez_zemlje)}</b> stavki bez zemlje porijekla")
+        if bez_eur1:
+            problemi.append(f"⚠️ <b>{len(bez_eur1)}</b> stavki čekaju EUR1 / izjavu o porijeklu")
+
+        zemlja_str = " | ".join(
+            f"{k}: {v}" for k, v in sorted(countries.items(), key=lambda x: -x[1])[:6]
+        )
+
+        html = f"<b>Analiza uvezenih stavki ({total}):</b><br>"
+        html += f"🌍 Porijeklo: {zemlja_str}<br>"
+        if sa_pov:
+            html += f"📋 Sa povlasticom: {len(sa_pov)}<br>"
+
+        if problemi:
+            html += "<br>" + "<br>".join(problemi) + "<br><br>"
+            html += "💡 <b>Prijedlozi:</b><br>"
+            if bez_tarife:
+                html += "  • Reci <i>'popuni tarifne'</i> za automatske prijedloge<br>"
+            if bez_eur1:
+                html += "  • Provjeri EUR1 obrasce za stavke s povlasticom<br>"
+            if bez_zemlje:
+                html += "  • Dopuni zemlju porijekla za označene stavke<br>"
+        else:
+            html += "<br>✅ <b>Sve stavke uredne</b> — nema vidljivih problema.<br>"
+            html += "💡 Reci <i>'kreiraj naimenovanja'</i> kad si spreman."
+
+        return html
 
     def _puna_auto_pipeline(self, fw, chat, all_lines: list):
         self.import_pipeline_svc.puna_auto_pipeline(fw, chat, all_lines)
