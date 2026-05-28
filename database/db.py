@@ -13,6 +13,35 @@ from config.settings import get_db_settings
 
 
 # =========================================================
+# CIRCUIT BREAKER — sprječava uzastopne timeout blokade
+# =========================================================
+# Ako se konekcija ne može uspostaviti, čekamo _CB_COOLDOWN sekundi
+# prije sljedećeg pokušaja. Bez ovoga svaka operacija čeka connect_timeout.
+
+_CB_COOLDOWN = 15.0       # sekundi pauze nakon neuspjeha
+_cb_open_until: float = 0.0   # monotonic timestamp do kada je circuit otvoren
+_cb_lock = threading.Lock()
+
+
+def _circuit_open() -> bool:
+    """Vrati True ako circuit breaker blokira konekcije."""
+    return time.monotonic() < _cb_open_until
+
+
+def _trip_circuit() -> None:
+    """Otvori circuit breaker na _CB_COOLDOWN sekundi."""
+    global _cb_open_until
+    with _cb_lock:
+        _cb_open_until = time.monotonic() + _CB_COOLDOWN
+
+
+def _reset_circuit() -> None:
+    """Zatvori circuit breaker (uspješna konekcija)."""
+    global _cb_open_until
+    _cb_open_until = 0.0
+
+
+# =========================================================
 # CONNECTION POOL
 # =========================================================
 
@@ -23,30 +52,32 @@ _pool_lock = threading.Lock()
 def get_connection_pool() -> ThreadedConnectionPool:
     """
     Dohvata ili kreira connection pool.
-    
-    Returns:
-        SimpleConnectionPool: Pool za DB konekcije
+    Baca psycopg2.OperationalError ako server nije dostupan.
     """
     global _connection_pool
-    
+
     if _connection_pool is None:
         with _pool_lock:
             if _connection_pool is None:
                 settings = get_db_settings()
-                _connection_pool = ThreadedConnectionPool(
-                    minconn=1,
-                    maxconn=10,
-                    host=settings.host,
-                    port=settings.port,
-                    database=settings.database,
-                    user=settings.user,
-                    password=settings.password,
-                    sslmode=settings.sslmode,
-                    cursor_factory=RealDictCursor,
-                    connect_timeout=1,
-                    options="-c statement_timeout=15000",
-                )
-    
+                try:
+                    _connection_pool = ThreadedConnectionPool(
+                        minconn=1,
+                        maxconn=10,
+                        host=settings.host,
+                        port=settings.port,
+                        database=settings.database,
+                        user=settings.user,
+                        password=settings.password,
+                        sslmode=settings.sslmode,
+                        cursor_factory=RealDictCursor,
+                        connect_timeout=1,
+                        options="-c statement_timeout=15000",
+                    )
+                except psycopg2.OperationalError:
+                    _trip_circuit()
+                    raise
+
     return _connection_pool
 
 
@@ -69,36 +100,62 @@ def get_db_connection():
     """
     Context manager za DB konekcije.
     Automatski commit/rollback i vraćanje u pool.
-    
+    Circuit breaker: ako je DB nedostupan, odmah baci grešku bez čekanja.
+
     Usage:
         with get_db_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(...)
     """
-    pool = get_connection_pool()
+    # Circuit breaker — ne čekaj timeout ako znamo da DB nije dostupan
+    if _circuit_open():
+        raise PoolError("DB circuit breaker aktivan — server privremeno nedostupan")
+
     conn = None
-    deadline = time.monotonic() + _POOL_WAIT_TIMEOUT
-    while True:
-        try:
-            conn = pool.getconn()
-            break
-        except PoolError:
-            if time.monotonic() >= deadline:
-                raise PoolError(
-                    f"Connection pool iscrpljen — konekcija nije dostupna za {_POOL_WAIT_TIMEOUT}s"
-                )
-            time.sleep(0.1)
     try:
+        pool = get_connection_pool()
+        deadline = time.monotonic() + _POOL_WAIT_TIMEOUT
+        while True:
+            try:
+                conn = pool.getconn()
+                break
+            except PoolError:
+                if time.monotonic() >= deadline:
+                    raise PoolError(
+                        f"Connection pool iscrpljen — konekcija nije dostupna za {_POOL_WAIT_TIMEOUT}s"
+                    )
+                time.sleep(0.1)
+
         if conn.closed:
             pool.putconn(conn, close=True)
             conn = pool.getconn()
+
         yield conn
         conn.commit()
+        _reset_circuit()  # uspješna konekcija — zatvori circuit
+
+    except (psycopg2.OperationalError, psycopg2.DatabaseError) as e:
+        if conn:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+        if "timeout" in str(e).lower() or "connect" in str(e).lower():
+            _trip_circuit()  # otvori circuit na _CB_COOLDOWN sekundi
+        raise
     except Exception:
-        conn.rollback()
+        if conn:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
         raise
     finally:
-        pool.putconn(conn)
+        if conn:
+            try:
+                get_connection_pool().putconn(conn)
+            except Exception:
+                pass
 
 
 def close_all_connections():
