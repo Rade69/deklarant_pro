@@ -24,6 +24,10 @@ from typing import List, Dict, Optional
 logger = logging.getLogger("deklarant_pro.agent.declaration_search")
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
+
+# Povećati kad se mijenja shema — triggeriše rebuild postojećeg indeksa
+_SCHEMA_VERSION = 2
+
 GENERIC_SEARCH_TOKENS = {
     "artikl", "artikal", "faktura", "gel", "komad", "krem", "ml",
     "model", "naziv", "ostali", "ostalo", "proizvod", "proizvodi", "robe",
@@ -147,36 +151,33 @@ class DeclarationSearchService:
         if not words:
             return []
 
-        like_clauses = " OR ".join(
-            ["i.commercial_desc LIKE ? OR i.description LIKE ?"] * len(words)
-        )
-        score_cases = " + ".join(
-            [f"(CASE WHEN i.commercial_desc LIKE ? THEN 2 ELSE 0 END "
-             f"+ CASE WHEN i.description LIKE ? THEN 1 ELSE 0 END)"]
-            * len(words)
-        )
-        params = []
-        for w in words:
-            p = f"%{w}%"
-            params.extend([p, p])
-        score_params = []
-        for w in words:
-            p = f"%{w}%"
-            score_params.extend([p, p])
-
-        sql = f"""
+        # FTS5 MATCH — inverted index, višestruko brže od LIKE za veliku arhivu
+        fts_query = " ".join(words)
+        sql = """
             SELECT i.hs_code, i.commercial_desc, i.description,
                    i.country_origin, i.preference,
-                   d.exporter_name, d.consignee_name, d.filename
-            FROM items i
+                   d.exporter_name, d.consignee_name, d.filename,
+                   bm25(items_fts) AS _rank
+            FROM items_fts f
+            JOIN items i ON f.item_id = i.id
             JOIN declarations d ON i.decl_id = d.id
-            WHERE {like_clauses}
-            ORDER BY ({score_cases}) DESC, length(i.commercial_desc)
+            WHERE items_fts MATCH ?
+            ORDER BY _rank
             LIMIT ?
         """
-        params.extend(score_params)
-        params.append(max(limit * 20, 100))
-        rows = self._fetchall(sql, params)
+        try:
+            rows = self._fetchall(sql, [fts_query, max(limit * 20, 100)])
+        except Exception:
+            # Fallback na LIKE ako FTS5 indeks nije populiran (stara baza)
+            rows = self._fetchall(
+                "SELECT i.hs_code, i.commercial_desc, i.description,"
+                " i.country_origin, i.preference,"
+                " d.exporter_name, d.consignee_name, d.filename"
+                " FROM items i JOIN declarations d ON i.decl_id = d.id"
+                f" WHERE {' OR '.join(['i.commercial_desc LIKE ? OR i.description LIKE ?'] * len(words))}"
+                " LIMIT ?",
+                [p for w in words for p in (f"%{w}%", f"%{w}%")] + [max(limit * 20, 100)]
+            )
         phrase = _normalize_search_text(query)
         scored = [
             (_goods_match_score(row, words, phrase), row)
@@ -289,21 +290,35 @@ class DeclarationSearchService:
 
         self._create_schema()
 
-        # Provjeri treba li reindeksiranje
+        # Provjeri schema verziju — zastarjela shema triggeriše rebuild
+        stored_ver = self._db.execute(
+            "SELECT value FROM schema_meta WHERE key='version'"
+        ).fetchone()
+        needs_rebuild = (stored_ver is None or int(stored_ver[0]) < _SCHEMA_VERSION)
+
         xml_files = sorted(xml_dir.glob("*.xml"))
         indexed_count = self._db.execute(
             "SELECT COUNT(*) FROM declarations"
         ).fetchone()[0]
 
-        if indexed_count < len(xml_files) * 0.9:
-            logger.info(f"Indeksiranje {len(xml_files)} XML deklaracija...")
+        if needs_rebuild or indexed_count < len(xml_files) * 0.9:
+            logger.info(f"Indeksiranje {len(xml_files)} XML deklaracija (schema v{_SCHEMA_VERSION})...")
             self._index_all(xml_files)
+            self._db.execute(
+                "INSERT OR REPLACE INTO schema_meta(key, value) VALUES ('version', ?)",
+                (str(_SCHEMA_VERSION),)
+            )
+            self._db.commit()
             logger.info("Indeksiranje završeno.")
 
         self._indexed = True
 
     def _create_schema(self):
         self._db.executescript("""
+            CREATE TABLE IF NOT EXISTS schema_meta (
+                key   TEXT PRIMARY KEY,
+                value TEXT
+            );
             CREATE TABLE IF NOT EXISTS declarations (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
                 filename    TEXT UNIQUE,
@@ -321,14 +336,20 @@ class DeclarationSearchService:
                 country_origin  TEXT,
                 preference  TEXT
             );
-            CREATE INDEX IF NOT EXISTS idx_items_hs    ON items(hs_code);
-            CREATE INDEX IF NOT EXISTS idx_items_co    ON items(country_origin);
-            CREATE INDEX IF NOT EXISTS idx_items_desc  ON items(commercial_desc);
+            CREATE INDEX IF NOT EXISTS idx_items_hs ON items(hs_code);
+            CREATE INDEX IF NOT EXISTS idx_items_co ON items(country_origin);
+            CREATE VIRTUAL TABLE IF NOT EXISTS items_fts USING fts5(
+                item_id     UNINDEXED,
+                commercial_desc,
+                description,
+                tokenize    = 'unicode61 remove_diacritics 2'
+            );
         """)
         self._db.commit()
 
     def _index_all(self, xml_files: list):
         """Parsira sve XML fajlove i upisuje u SQLite."""
+        self._db.execute("DELETE FROM items_fts")
         self._db.execute("DELETE FROM items")
         self._db.execute("DELETE FROM declarations")
         self._db.commit()
@@ -369,6 +390,17 @@ class DeclarationSearchService:
                     "(decl_id, hs_code, commercial_desc, description, country_origin, preference) "
                     "VALUES (?, ?, ?, ?, ?, ?)",
                     [(decl_id,) + item for item in items]
+                )
+                # FTS5 — upiši commercial_desc + description za pretragu
+                last_id = cur.lastrowid
+                first_id = last_id - len(items) + 1
+                cur.executemany(
+                    "INSERT INTO items_fts(item_id, commercial_desc, description) "
+                    "VALUES (?, ?, ?)",
+                    [
+                        (first_id + i, item[1] or "", item[2] or "")
+                        for i, item in enumerate(items)
+                    ]
                 )
         self._db.commit()
 
