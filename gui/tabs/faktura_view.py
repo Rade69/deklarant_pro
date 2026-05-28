@@ -729,6 +729,10 @@ class FakturaView(BaseTabView):
         self.lbl_neto          = _stat_lbl("◈  Neto: 0.00 kg")
         self.lbl_validation    = _stat_lbl("⚪ Neprovjereno")
         self.lbl_assembly      = _stat_lbl("📋 Assembly: N/A")
+        self.lbl_analysis      = _stat_lbl("")
+        self._sep_analysis     = _sep()
+        self.lbl_analysis.setVisible(False)
+        self._sep_analysis.setVisible(False)
 
         for widget in [
             self.lbl_item_count,    _sep(),
@@ -737,7 +741,8 @@ class FakturaView(BaseTabView):
             self.lbl_bruto,          _sep(),
             self.lbl_neto,           _sep(),
             self.lbl_validation,     _sep(),
-            self.lbl_assembly,
+            self.lbl_assembly,       self._sep_analysis,
+            self.lbl_analysis,
         ]:
             layout.addWidget(widget)
 
@@ -1191,6 +1196,23 @@ class FakturaView(BaseTabView):
     def _restore_validation_label(self):
         """Vrati lbl_validation na normalan prikaz validacije."""
         self._update_status_bar()
+
+    def set_analysis_summary(self, text: str, level: str = "warning") -> None:
+        """
+        Prikaži sažetak analize uvoza u status baru (diskretno, bez ometanja).
+        level: 'warning' | 'success' | ''
+        Poziva se iz AgentController-a nakon uvoza.
+        """
+        if not text:
+            self.lbl_analysis.setVisible(False)
+            self._sep_analysis.setVisible(False)
+            return
+        self.lbl_analysis.setText(text)
+        self.lbl_analysis.setProperty("status", level)
+        self.lbl_analysis.style().unpolish(self.lbl_analysis)
+        self.lbl_analysis.style().polish(self.lbl_analysis)
+        self.lbl_analysis.setVisible(True)
+        self._sep_analysis.setVisible(True)
 
     def _parse_number(self, value_str: str) -> float:
         """Parse European format number (10.258,23) to float."""
