@@ -886,8 +886,15 @@ class FakturaView(BaseTabView):
     # Data Management
     # ============================================================
 
+    _validation_generation: int = 0  # inkrementiše se pri svakom _load_data_from_draft
+    _VALIDATION_CHUNK = 40           # redova po frame-u (veći chunk = manje timer overhead-a)
+
     def _load_data_from_draft(self):
         """Load invoice items from draft into table - OPTIMIZED bulk load."""
+        # Otkaži sve prethodno zakazane validacione lance
+        self._validation_generation += 1
+        my_gen = self._validation_generation
+
         self.table.blockSignals(True)
         self.table.setUpdatesEnabled(False)
         try:
@@ -895,7 +902,7 @@ class FakturaView(BaseTabView):
             item_count = len(self.draft.invoice_lines)
             self.table.setRowCount(item_count)
 
-            # PASS 1: Popuni ćelije BEZ validacije — brzo, GUI odmah vidi tabelu
+            # PASS 1: Popuni ćelije BEZ validacije — odmah vidljivo
             for idx, item in enumerate(self.draft.invoice_lines):
                 self._add_item_to_table_fast(idx, item)
 
@@ -905,14 +912,25 @@ class FakturaView(BaseTabView):
             self.table.viewport().update()
             self.table.blockSignals(False)
 
-        # PASS 2: Validacija u chunkovima — deferred QTimer, ne blokira GUI
-        from PySide6.QtCore import QTimer
-        QTimer.singleShot(0, lambda: self._validation_pass_chunk(0))
+        # PASS 2: Validacija u chunkovima samo za male tabele ili sinhrono
+        item_count = len(self.draft.invoice_lines)
+        if item_count <= self._VALIDATION_CHUNK:
+            # Malo redova — validiraj odmah, nema potrebe za timer overhead-om
+            self.table.blockSignals(True)
+            try:
+                for idx, item in enumerate(self.draft.invoice_lines):
+                    self._validate_and_color_row(idx, item)
+            finally:
+                self.table.blockSignals(False)
+        else:
+            # Veliki batch — chunkovano kroz QTimer, ali samo najnovija generacija
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(0, lambda: self._validation_pass_chunk(0, my_gen))
 
-    _VALIDATION_CHUNK = 25  # redova po frame-u
-
-    def _validation_pass_chunk(self, start: int) -> None:
-        """Validira chunk redova i zakazuje sljedeći — GUI ostaje responsivan."""
+    def _validation_pass_chunk(self, start: int, generation: int) -> None:
+        """Validira chunk redova. Otkazuje se ako je pokrenuta nova generacija."""
+        if generation != self._validation_generation:
+            return  # Noviji _load_data_from_draft je pokrenut — odustaj
         lines = self.draft.invoice_lines
         if start >= len(lines):
             return
@@ -925,7 +943,7 @@ class FakturaView(BaseTabView):
             self.table.blockSignals(False)
         if end < len(lines):
             from PySide6.QtCore import QTimer
-            QTimer.singleShot(0, lambda: self._validation_pass_chunk(end))
+            QTimer.singleShot(0, lambda: self._validation_pass_chunk(end, generation))
 
     def _populate_row_cells(self, row: int, row_number: int, item: InvoiceLine):
         """Popuni ćelije reda tabele iz InvoiceLine objekta (bez insertRow ili validacije)."""
