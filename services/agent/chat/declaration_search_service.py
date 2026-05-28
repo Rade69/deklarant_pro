@@ -150,10 +150,19 @@ class DeclarationSearchService:
         like_clauses = " OR ".join(
             ["i.commercial_desc LIKE ? OR i.description LIKE ?"] * len(words)
         )
+        score_cases = " + ".join(
+            [f"(CASE WHEN i.commercial_desc LIKE ? THEN 2 ELSE 0 END "
+             f"+ CASE WHEN i.description LIKE ? THEN 1 ELSE 0 END)"]
+            * len(words)
+        )
         params = []
         for w in words:
             p = f"%{w}%"
             params.extend([p, p])
+        score_params = []
+        for w in words:
+            p = f"%{w}%"
+            score_params.extend([p, p])
 
         sql = f"""
             SELECT i.hs_code, i.commercial_desc, i.description,
@@ -162,10 +171,11 @@ class DeclarationSearchService:
             FROM items i
             JOIN declarations d ON i.decl_id = d.id
             WHERE {like_clauses}
-            ORDER BY length(i.commercial_desc)
+            ORDER BY ({score_cases}) DESC, length(i.commercial_desc)
             LIMIT ?
         """
-        params.append(max(limit * 80, 300))
+        params.extend(score_params)
+        params.append(max(limit * 20, 100))
         rows = self._fetchall(sql, params)
         phrase = _normalize_search_text(query)
         scored = [
