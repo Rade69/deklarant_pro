@@ -295,6 +295,22 @@ class ChatWorker(QThread):
             ctx.append("")
             ctx.extend(session_lines)
 
+        # Zone B2: zaglavlje deklaracije (Rb.1-49 polja)
+        zaglavlje_lines = self._build_zaglavlje_zone()
+        if zaglavlje_lines:
+            ctx.append("")
+            ctx.extend(zaglavlje_lines)
+
+        # Zone B3: Rub.44 — priložene isprave zaglavlja
+        header_docs = getattr(self.draft, 'header_attached_documents', []) or []
+        if header_docs:
+            ctx.append("")
+            ctx.append("=== PRILOŽENE ISPRAVE — RUB.44 (zaglavlje) ===")
+            for doc in header_docs:
+                name   = getattr(doc, 'name', '') or ''
+                number = getattr(doc, 'number', '') or ''
+                ctx.append(f"  {name}  {number}".strip())
+
         ctx.extend(["", ctx_header])
         ctx.extend(sve_stavke)
 
@@ -456,6 +472,55 @@ class ChatWorker(QThread):
     # ─────────────────────────────────────────────────────────────────────
     # ZONE KONTEKSTA — selektivno uključivanje po tipu upita
     # ─────────────────────────────────────────────────────────────────────
+
+    def _build_zaglavlje_zone(self) -> list:
+        """Zaglavlje deklaracije — Rb.1-49 polja koja agent nije vidio."""
+        d = self.draft
+        if not d:
+            return []
+        lines = ["=== ZAGLAVLJE DEKLARACIJE ==="]
+
+        tip = f"{getattr(d,'deklaracija_tip','')} {getattr(d,'deklaracija_oznaka','')} {getattr(d,'deklaracija_a','')}".strip()
+        if tip:
+            lines.append(f"  Vrsta deklaracije (Rb.1): {tip}")
+        if getattr(d, 'ured_odredista', ''):
+            lines.append(f"  Carinska ispostava:        {d.ured_odredista}")
+        if getattr(d, 'izvoznik_naziv', ''):
+            lines.append(f"  Izvoznik (Rb.2):           {d.izvoznik_naziv}, {getattr(d,'izvoznik_drzava','')}")
+        if getattr(d, 'primalac_naziv', ''):
+            lines.append(f"  Primalac (Rb.8):           {d.primalac_naziv}")
+        if getattr(d, 'deklarant_naziv', ''):
+            lines.append(f"  Deklarant (Rb.14):         {d.deklarant_naziv}")
+
+        valuta = getattr(d, 'valuta', '')
+        iznos  = getattr(d, 'iznos', 0.0) or 0.0
+        kurs   = getattr(d, 'kurs', 1.0) or 1.0
+        if valuta or iznos:
+            lines.append(f"  Valuta/iznos (Rb.22/23):   {iznos:,.2f} {valuta}  |  kurs: {kurs}")
+
+        uslovi_kod   = getattr(d, 'uslovi_kod', '')
+        uslovi_mjesto = getattr(d, 'uslovi_mjesto', '')
+        if uslovi_kod:
+            lines.append(f"  Uslovi isporuke (Rb.20):   {uslovi_kod} {uslovi_mjesto}".strip())
+
+        vid_g = getattr(d, 'vid_granica', '')
+        vid_u = getattr(d, 'vid_unutra', '')
+        if vid_g or vid_u:
+            lines.append(f"  Vid transporta (Rb.25/26): unutra={vid_u or '?'}  granica={vid_g or '?'}")
+
+        drzava_iz = getattr(d, 'drzava_izvoza_naziv', '') or getattr(d, 'drzava_izvoza_sifra', '')
+        if drzava_iz:
+            lines.append(f"  Država izvoza (Rb.15):     {drzava_iz}")
+
+        troskovi = []
+        for i, attr in enumerate(['trosak_1','trosak_2','trosak_3','trosak_4','trosak_5'], 1):
+            v = getattr(d, attr, '0,00') or '0,00'
+            if v not in ('0,00', '0', '', '0.00'):
+                troskovi.append(f"T{i}={v}")
+        if troskovi:
+            lines.append(f"  Troškovi:                  {', '.join(troskovi)}")
+
+        return lines if len(lines) > 1 else []
 
     @staticmethod
     def _determine_context_zones(msg: str) -> set:
@@ -1081,7 +1146,18 @@ class ChatWorker(QThread):
             "- Ako korisnik pita za tarifni broj: daj konkretnu opciju iz svog znanja o HS, "
             "navedi kao 8 cifara (npr. 56079090). Ako nisi siguran, daj 2-3 opcije.\n"
             "- Tarifne prijedloge iz baze znanja (kontekst) preferuj nad opštim znanjem\n"
-            "- Ako korisnik pita nešto opšte o carinjenju — odgovori normalno, bez liste tarifa\n\n"
+            "- Ako korisnik pita nešto opšte o carinjenju — odgovori normalno, bez liste tarifa\n"
+            "- Kad vidiš zaglavlje (Rb.2, Rb.8, valuta, kurs...) — koristi te podatke u odgovorima\n"
+            "- Kad vidiš Rub.44 dokumente — uključi ih u provjeru kompletnosti\n\n"
+            "PRIMJERI DOBRIH ODGOVORA (koristi ovaj stil):\n"
+            "K: 'Koji tarifni broj za pamučne čarape?'\n"
+            "O: '61159600 — Čarape i slični proizvodi, pleteni, od pamuka (poglavlje 61, CarT BiH).'\n\n"
+            "K: 'Koliko naimenovanja ima deklaracija?'\n"
+            "O: 'Deklaracija ima 7 naimenovanja. Rb.3 i Rb.5 nemaju tarifni broj — potrebno popuniti.'\n\n"
+            "K: 'Je li EUR1 potreban za TR robu?'\n"
+            "O: 'Da — roba turskog porijekla (TR) uz povlasticu TRP zahtijeva EUR1 obrazac ili izjavu o porijeklu na fakturi.'\n\n"
+            "K: 'Provjeri naimenovanje 4'\n"
+            "O: 'Rb.4: tarifa 62034200 (Muška odijela, od vune) — ✅ usklađeno s opisom. Zemlja: TR, povlastica: TRP.'\n\n"
             "ANALIZA NAIMENOVANJA I TARIFE:\n"
             "U kontekstu imaš sekciju NAIMENOVANJA sa kolonama: Rb. | Tarifni br. | Opis | Zvanični opis tarife | ...\n"
             "Kada korisnik pita za konkretna naimenovanja (npr. 'naimenovanje 10 i 11'), imaš i sekciju\n"
