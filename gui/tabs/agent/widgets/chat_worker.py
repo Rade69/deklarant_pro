@@ -119,7 +119,7 @@ class ChatWorker(QThread):
 
             chat_history = []
             if self.memory_service:
-                chat_history = self.memory_service.get_context(max_messages=10)
+                chat_history = self.memory_service.get_context()
             if self.memory_service:
                 self.memory_service.add_user_message(self.message)
 
@@ -551,7 +551,7 @@ class ChatWorker(QThread):
                 naziv = getattr(l, "naziv_robe", "") or ""
                 if naziv and naziv not in seen_queries:
                     seen_queries.add(naziv)
-                    historija = facade.rag_candidates(naziv, limit=2)
+                    historija = facade.rag_candidates(naziv, limit=4)
                     for r in historija:
                         rag_prijedlozi.append(
                             f"  '{naziv[:40]}' → tarifa={r.get('tarifni_kod', '?')} "

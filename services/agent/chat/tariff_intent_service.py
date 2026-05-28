@@ -72,7 +72,9 @@ class TariffIntentService:
         self._activity(f"🔍 Tražim tarifne brojeve za {len(bez_tarife)} stavki...")
 
         from services.tariff_mapping_service import TariffMappingService
+        from services.agent.tariff.tariff_suggestion_service import HybridMatchingService
         svc = TariffMappingService()
+        hybrid = HybridMatchingService() if exporter_name else None
         proposals: List[TariffProposal] = []
         bez_lokalne: List[Tuple[int, Any]] = []
 
@@ -80,9 +82,9 @@ class TariffIntentService:
 
         for idx, line in bez_tarife:
             # ── 1. Prvo proveri istoriju dobavljača ──
-            if exporter_name:
+            if exporter_name and hybrid:
                 hist_match = self._try_history_match(
-                    exporter_name, line.product_code, line.naziv_robe,
+                    hybrid, exporter_name, line.product_code, line.naziv_robe,
                     getattr(line, 'zemlja_porijekla', '')
                 )
                 if hist_match:
@@ -146,7 +148,9 @@ class TariffIntentService:
         self._activity(f"🔍 Nađeno {len(filtrirane)} stavki s '{keyword}', tražim tarifne...")
 
         from services.tariff_mapping_service import TariffMappingService
+        from services.agent.tariff.tariff_suggestion_service import HybridMatchingService
         svc = TariffMappingService()
+        hybrid = HybridMatchingService() if exporter_name else None
         proposals: List[TariffProposal] = []
         bez_lokalne: List[Tuple[int, Any]] = []
 
@@ -158,9 +162,9 @@ class TariffIntentService:
             country = getattr(line, 'zemlja_porijekla', '') or ''
 
             # ── 1. Prvo istorija dobavljača ──
-            if exporter_name:
+            if exporter_name and hybrid:
                 hist_match = self._try_history_match(
-                    exporter_name, product_code, naziv, country
+                    hybrid, exporter_name, product_code, naziv, country
                 )
                 if hist_match:
                     hist_match.line_index = idx
@@ -212,15 +216,13 @@ class TariffIntentService:
         return ""
 
     def _try_history_match(
-        self, exporter_name: str, product_code: str, naziv_robe: str, country: str
+        self, hybrid, exporter_name: str, product_code: str, naziv_robe: str, country: str
     ) -> Optional[TariffProposal]:
         """
         Pokušaj da nađeš tarifni broj iz istorije dobavljača.
         Koristi HybridMatchingService sa težinom na istorijskom match-u.
         """
         try:
-            from services.agent.tariff.tariff_suggestion_service import HybridMatchingService
-            hybrid = HybridMatchingService()
             match = hybrid.find_hybrid_mapping(
                 product_code=product_code,
                 naziv_robe=naziv_robe,
