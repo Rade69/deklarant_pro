@@ -3,7 +3,7 @@
 > Ovaj fajl čitaju SVI agenti: Claude, Qwen, DeepSeek, i drugi.
 > Sadrži ne-trivijalne odluke i pravila koja nisu vidljiva iz samog koda.
 > Ažurira ga Claude na kraju svake sesije u kojoj je donesena nova bitna odluka.
-> Posljednje ažuriranje: 2026-05-24
+> Posljednje ažuriranje: 2026-05-28
 
 ---
 
@@ -158,7 +158,26 @@ Ovaj CONTEXT.md odgovara na "zašto je nešto urađeno tako".
 
 ---
 
-## 9. Kako ažurirati ovaj fajl
+## 9. Agent optimizacije (Maj 2026)
+
+### HybridMatchingService — jednom izvan petlje
+U `tariff_intent_service.py` (propose_all i propose_by_keyword) `HybridMatchingService()`
+se instancira JEDNOM prije petlje i prosljeđuje u `_try_history_match(hybrid, ...)`.
+NIKAD unutar petlje — za 30 stavki to znači 30 novih instanci i ~90 suvišnih SQL upita.
+
+### find_batch_by_product_codes — batch SQL
+`TariffMappingService.find_batch_by_product_codes(codes)` radi jedan `ANY(ARRAY[...])` upit
+za sve product_code-ove odjednom. Koristiti prije petlje u svim mjestima gdje se iterira
+po stavkama i traži tarifa po product_code.
+
+### set_analysis_summary — diskretna analiza u status baru
+`FakturaView.set_analysis_summary(text, level)` prikazuje rezultat analize u status baru
+(lbl_analysis, normalno skriven). Poziva se iz `AgentController._proactive_analysis(lines, fw)`.
+Chat poruka: max 2 linije, BEZ prijedloga. Korisnik pita agenta ako hoće — agent ne nudi.
+
+---
+
+## 10. Kako ažurirati ovaj fajl
 
 Claude ažurira CONTEXT.md na kraju svake sesije gdje je:
 - Donesena nova arhitekturna odluka
