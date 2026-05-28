@@ -78,6 +78,10 @@ class TariffIntentService:
         proposals: List[TariffProposal] = []
         bez_lokalne: List[Tuple[int, Any]] = []
 
+        # ── Batch lookup po product_code (1 SQL umjesto N) ──
+        all_codes = [getattr(l, 'product_code', '') or '' for _, l in bez_tarife]
+        batch_hits = svc.find_batch_by_product_codes(all_codes)
+
         istorijskih = 0
 
         for idx, line in bez_tarife:
@@ -93,7 +97,21 @@ class TariffIntentService:
                     istorijskih += 1
                     continue
 
-            # ── 2. Lokalna baza znanja ──
+            # ── 2. Batch hit po product_code ──
+            code_key = (line.product_code or '').strip().upper()
+            batch_mapping = batch_hits.get(code_key)
+            if batch_mapping:
+                proposals.append(TariffProposal(
+                    line_index=idx,
+                    naziv_robe=line.naziv_robe[:60],
+                    product_code=line.product_code,
+                    proposed_tariff=batch_mapping.tarifni_broj,
+                    confidence=1.0,
+                    source="baza_znanja"
+                ))
+                continue
+
+            # ── 3. Lokalna baza — fuzzy/vote za linije bez product_code hita ──
             mapping = svc.find_mapping(
                 product_code=line.product_code,
                 naziv_robe=line.naziv_robe,
@@ -154,6 +172,10 @@ class TariffIntentService:
         proposals: List[TariffProposal] = []
         bez_lokalne: List[Tuple[int, Any]] = []
 
+        # ── Batch lookup po product_code (1 SQL umjesto N) ──
+        all_codes = [getattr(l, 'product_code', '') or '' for _, l in filtrirane]
+        batch_hits = svc.find_batch_by_product_codes(all_codes)
+
         istorijskih = 0
 
         for idx, line in filtrirane:
@@ -172,7 +194,20 @@ class TariffIntentService:
                     istorijskih += 1
                     continue
 
-            # ── 2. Lokalna baza ──
+            # ── 2. Batch hit po product_code ──
+            batch_mapping = batch_hits.get(product_code.upper())
+            if batch_mapping:
+                proposals.append(TariffProposal(
+                    line_index=idx,
+                    naziv_robe=naziv[:60],
+                    product_code=product_code,
+                    proposed_tariff=batch_mapping.tarifni_broj,
+                    confidence=1.0,
+                    source="baza_znanja"
+                ))
+                continue
+
+            # ── 3. Lokalna baza — fuzzy/vote za linije bez product_code hita ──
             mapping = svc.find_mapping(
                 product_code=product_code,
                 naziv_robe=naziv,
