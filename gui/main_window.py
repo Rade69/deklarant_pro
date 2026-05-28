@@ -313,7 +313,27 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event) -> None:
         """Sačuvaj stanje prozora pre zatvaranja."""
+        # Zaustavi aktivne workere u Faktura i Agent tabu
+        try:
+            fw = getattr(self.faktura_tab, 'view', self.faktura_tab)
+            for attr in ('import_worker', '_batch_worker'):
+                w = getattr(fw, attr, None)
+                if w and hasattr(w, 'isRunning') and w.isRunning():
+                    w.cancel() if hasattr(w, 'cancel') else w.quit()
+                    w.wait(2000)
+        except Exception:
+            pass
+        try:
+            ctrl = getattr(self.agent_tab, 'controller', None)
+            if ctrl:
+                pw = getattr(ctrl, '_processing_worker', None)
+                if pw and hasattr(pw, 'isRunning') and pw.isRunning():
+                    pw.cancel()
+                    pw.wait(2000)
+        except Exception:
+            pass
+
         settings = QSettings("DeklarantPro", "MainWindow")
         settings.setValue("geometry", self.saveGeometry())
-        settings.sync()  # Prisili trenutno pisanje na disk
+        settings.sync()
         super().closeEvent(event)

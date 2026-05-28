@@ -44,6 +44,7 @@ def get_connection_pool() -> ThreadedConnectionPool:
                     sslmode=settings.sslmode,
                     cursor_factory=RealDictCursor,
                     connect_timeout=3,
+                    options="-c statement_timeout=15000",
                 )
     
     return _connection_pool
