@@ -198,7 +198,29 @@ LIKE fallback ostaje ako FTS5 indeks nije populiran (backward compat).
 
 ---
 
-## 11. Kako ažurirati ovaj fajl
+## 11. Windows instalacija — status (2026-05-29)
+
+### Što je pripremljeno
+`build_windows.bat`, `deklarant_pro.spec`, `installer/setup.iss`, `build_hooks/version_info.txt`
+commitovano u `1cbe4c7` (2026-05-28). Gradi standalone `DeklarantPro.exe` putem PyInstaller.
+
+### Windows klijent (IP: 192.168.100.55, user: "dm promet", pass: "1")
+- Python 3.11.9 instaliran ✅
+- Fajlovi projekta na `C:\Users\dm promet\Desktop\deklarant_pro` ✅
+- **Sljedeći korak:** pokrenuti `build_windows.bat` na Windows računaru
+
+### Procedura licenciranja
+Svaka mašina treba zasebnu licencu (machine fingerprint). Detalji u:
+`agent_reports/2026-05-24_licenciranje-novih-instalacija.md`
+Privatni ključ: `tools/licensing/keys/private_key.pem` — nikad ne commitovati.
+
+### Baza podataka
+PostgreSQL je samo na serveru `192.168.0.41`. Windows klijent se SPAJA na server,
+ne instalira lokalnu bazu. `.env` na Windows mora imati `DB_HOST=192.168.0.41`.
+
+---
+
+## 13. Kako ažurirati ovaj fajl
 
 Claude ažurira CONTEXT.md na kraju svake sesije gdje je:
 - Donesena nova arhitekturna odluka
