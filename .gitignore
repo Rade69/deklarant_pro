@@ -129,3 +129,6 @@ tests.7z
 *.csv
 database/*.csv
 .gitnexus
+
+# PyArmor distribucija
+dist_client/
