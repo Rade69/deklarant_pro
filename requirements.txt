@@ -25,6 +25,26 @@ pytest-qt>=4.2.0
 # Logging and Utilities
 colorama>=0.4.6
 
+# GUI ikone
+qtawesome>=1.3.0
+
+# Fuzzy matching (parseri, tarife)
+rapidfuzz>=3.0.0
+
+# Excel stari format (.xls)
+xlrd>=2.0.0
+
+# XML parsiranje
+lxml>=5.0.0
+
+# HTTP klijent
+requests>=2.28.0
+
+# AI servisi (opciono — agent ne radi bez ovih)
+anthropic>=0.50.0
+groq>=1.0.0
+google-generativeai>=0.8.0
+
 # OCR Support (OPCIONO - samo za skenirane PDF-ove bez tekstualnog sloja)
 # OCR je potpuno opcioni! Aplikacija radi i bez njega.
 # Za instalaciju OCR podrške:
