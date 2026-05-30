@@ -62,43 +62,23 @@ Ako je sve u redu — **sačuvaj i zatvori** Notepad (`Ctrl+S`, pa `Alt+F4`).
 
 ---
 
-## KORAK 4 — Uzmi fingerprint računara (za licencu)
+## KORAK 4 — Uzmi fingerprint i generiši licencu
 
-1. Otvori folder `deklarant_pro` na Desktopu
-2. Drži `Shift` + desni klik na prazan prostor u folderu
-3. Odaberi **"Otvori PowerShell ovdje"** (ili "Open PowerShell window here")
-4. Upiši i pritisni Enter:
+### Na Windows računaru:
+1. Pokreni aplikaciju (`start_silent.vbs` ili `start_debug.bat`)
+2. Idi u tab **Admin** → panel **Licenca**
+3. Klikni dugme **"Kopiraj fingerprint"** — JSON se kopira u clipboard
+4. Otvori Notepad, zalijepi (`Ctrl+V`) i sačuvaj kao `fingerprint.json`
+5. Pošalji taj fajl Radovanu (USB, email ili mreža)
 
-```powershell
-.\.venv\Scripts\python.exe -c "from core.licensing.machine_fingerprint import get_machine_fingerprint; import json; print(json.dumps(get_machine_fingerprint(), indent=2))"
-```
-
-5. Selektuj i kopiraj cijeli ispis koji izgleda ovako:
-```json
-{
-  "machine_id": "3753AF3EB053...",
-  "disk_id": "C80A5556C3CB...",
-  "mac": "5B5B2CB8AE03...",
-  "cpu": "D0C6F0FEFB22...",
-  "hostname": "B1586D462861..."
-}
-```
-
-6. Pošalji taj JSON tekst na Radovana (poruka, email, ili preko Claude Code agenta)
-
----
-
-## KORAK 5 — Generiši licencu (radi Radovan na Linux laptopu)
-
-**Ovo radi Radovan na svom laptpu**, ne ti:
-
+### Radovan na Linux laptopu:
 ```bash
 cd /home/radovan/Desktop/deklarant_pro
 
-uv run python3 tools/licensing/generate_license.py \
+python tools/licensing/generate_license.py \
     --customer-name "DM Promet — Windows klijent" \
     --customer-id "dmwindows" \
-    --fingerprint-json '{ ... JSON koji si dobio u Koraku 4 ... }' \
+    --fingerprint-file /tmp/fingerprint.json \
     --valid-from 2026-01-01 \
     --valid-to 2030-12-31 \
     --features full,agent \
@@ -109,17 +89,15 @@ Radovan ti šalje nazad fajl `dmwindows_licenca.dat`.
 
 ---
 
-## KORAK 6 — Kopiraj licencu
+## KORAK 5 — Uvezi licencu
 
-1. Uzmi fajl `dmwindows_licenca.dat` (od Radovana, USB ili mreža)
-2. Na Windows računaru otvori **File Explorer** (Windows Explorer)
-3. U adresnu traku upiši: `C:\ProgramData` i pritisni Enter
-4. Ako ne postoji folder `DeklarantPro` — klikni desni klik → **New Folder** → nazovi ga `DeklarantPro`
-5. Uđi u folder `DeklarantPro`
-6. Kopiraj `dmwindows_licenca.dat` u taj folder
-7. **Preimenuj** ga u `license.dat`
+### Na Windows računaru (u aplikaciji):
+1. Idi u tab **Admin** → panel **Licenca**
+2. Klikni dugme **"Uvezi licencu"**
+3. Pronađi i odaberi fajl `dmwindows_licenca.dat`
+4. Aplikacija potvrđuje da je licenca prihvaćena
 
-Rezultat: `C:\ProgramData\DeklarantPro\license.dat`
+> Licenca se automatski kopira na ispravno mjesto (`C:\ProgramData\DeklarantPro\license.dat`)
 
 ---
 
