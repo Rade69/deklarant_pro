@@ -18,7 +18,7 @@ from core.licensing.license_importer import import_license
 from core.licensing.license_paths import get_license_path
 from core.licensing.license_validator import validate_license_file
 from core.licensing.machine_fingerprint import format_fingerprint_payload
-from core.licensing.machine_id import get_machine_id
+from core.licensing.machine_id import get_machine_id  # zadržano za prikaz Machine ID labele
 from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
 
 
@@ -33,7 +33,6 @@ class LicensePanel(QWidget):
         self.features_label = QLabel()
         self.fingerprint_label = QLabel()
 
-        self.copy_machine_id_button = QPushButton("Kopiraj Machine ID")
         self.copy_fingerprint_button = QPushButton("Kopiraj fingerprint")
         self.save_fingerprint_button = QPushButton("Sačuvaj fingerprint (JSON)")
         self.import_license_button = QPushButton("Uvezi licencu")
@@ -67,7 +66,6 @@ class LicensePanel(QWidget):
         card_layout.addWidget(self.fingerprint_label)
 
         buttons = QHBoxLayout()
-        buttons.addWidget(self.copy_machine_id_button)
         buttons.addWidget(self.copy_fingerprint_button)
         buttons.addWidget(self.save_fingerprint_button)
         buttons.addWidget(self.import_license_button)
@@ -79,7 +77,6 @@ class LicensePanel(QWidget):
         root.addStretch(1)
 
     def _connect_signals(self) -> None:
-        self.copy_machine_id_button.clicked.connect(self.copy_machine_id)
         self.copy_fingerprint_button.clicked.connect(self.copy_fingerprint)
         self.save_fingerprint_button.clicked.connect(self.save_fingerprint)
         self.import_license_button.clicked.connect(self.import_license)
@@ -108,11 +105,6 @@ class LicensePanel(QWidget):
             self.fingerprint_label.setText("Fingerprint score: —")
 
         self.status_label.setText(f"Status: {result.message}")
-
-    def copy_machine_id(self) -> None:
-        machine_id = get_machine_id()
-        QApplication.clipboard().setText(machine_id)
-        QMessageBox.information(self, "Machine ID", "Machine ID je kopiran.")
 
     def copy_fingerprint(self) -> None:
         QApplication.clipboard().setText(format_fingerprint_payload())
