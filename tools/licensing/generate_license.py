@@ -36,7 +36,7 @@ def main() -> None:
     parser.add_argument(
         "--min-score",
         type=int,
-        default=70,
+        default=60,
         help="Minimalni fingerprint score (default: 70)",
     )
     parser.add_argument("--valid-from", required=True, help="Datum pocetka (YYYY-MM-DD)")
