@@ -67,8 +67,8 @@ Ako je sve u redu — **sačuvaj i zatvori** Notepad (`Ctrl+S`, pa `Alt+F4`).
 ### Na Windows računaru:
 1. Pokreni aplikaciju (`start_silent.vbs` ili `start_debug.bat`)
 2. Idi u tab **Admin** → panel **Licenca**
-3. Klikni dugme **"Kopiraj fingerprint"** — JSON se kopira u clipboard
-4. Otvori Notepad, zalijepi (`Ctrl+V`) i sačuvaj kao `fingerprint.json`
+3. Klikni dugme **"Sačuvaj fingerprint (JSON)"**
+4. Odaberi gdje ćeš sačuvati fajl (npr. Desktop) — sačuvaj kao `fingerprint.json`
 5. Pošalji taj fajl Radovanu (USB, email ili mreža)
 
 ### Radovan na Linux laptopu:
