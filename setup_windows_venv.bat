@@ -109,13 +109,29 @@ except Exception as e:
 " 2>&1
 echo.
 
+REM ── Ikonica na Desktopu ──────────────────────────────────────
+echo [5/5] Kreiranje ikonce na Desktopu...
+powershell -NoProfile -Command ^
+    "$ws = New-Object -ComObject WScript.Shell;" ^
+    "$desktop = [System.Environment]::GetFolderPath('Desktop');" ^
+    "$sc = $ws.CreateShortcut($desktop + '\Deklarant Pro.lnk');" ^
+    "$sc.TargetPath = 'wscript.exe';" ^
+    "$sc.Arguments = '\"' + (Get-Location).Path + '\start_silent.vbs\"';" ^
+    "$sc.WorkingDirectory = (Get-Location).Path;" ^
+    "$sc.Description = 'Deklarant Pro — Carinska aplikacija';" ^
+    "$ico = (Get-Location).Path + '\assets\icons\app_icon.ico';" ^
+    "if (Test-Path $ico) { $sc.IconLocation = $ico };" ^
+    "$sc.Save(); Write-Host '  Ikonica kreirana na Desktopu.'"
+echo.
+
 REM ── Gotovo ───────────────────────────────────────────────────
 echo ============================================================
 echo   Postavljanje zavrseno!
 echo.
-echo   Za pokretanje aplikacije:
-echo     - Korisnik:  dvostruki klik na "Deklarant Pro.vbs"
-echo     - Developer: pokreni start_debug.bat
+echo   Ikonica "Deklarant Pro" je na Desktopu.
+echo   Dvostruki klik za pokretanje aplikacije.
+echo.
+echo   Za prikaz gresaka: pokreni start_debug.bat
 echo ============================================================
 echo.
 pause
