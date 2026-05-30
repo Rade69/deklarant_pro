@@ -1,7 +1,9 @@
-# Deklarant Pro - Python Dependencies
+# Deklarant Pro — Python zavisnosti za pip instalaciju
+# NAPOMENA: Source of truth je pyproject.toml (koristi uv sync)
+# Ovaj fajl je derivat za Windows/pip setup (setup_windows_venv.bat)
 
 # GUI Framework
-PySide6>=6.5.0
+PySide6>=6.6.0
 
 # Database
 psycopg2-binary>=2.9.7
@@ -11,42 +13,39 @@ pydantic>=2.0.0
 pydantic-settings>=2.0.0
 python-dotenv>=1.0.0
 
+# Security / Licensing
+cryptography>=42.0.0
+
 # PDF Processing
 pdfplumber>=0.10.0
 reportlab>=4.0.0
 
 # Excel Processing
 openpyxl>=3.1.0
+xlrd>=2.0.0
 
-# Testing
-pytest>=7.4.0
-pytest-qt>=4.2.0
+# XML parsiranje
+lxml>=4.9.0
 
-# Logging and Utilities
+# HTTP klijent
+requests>=2.28.0
+
+# Fuzzy matching (parseri, tarife)
+rapidfuzz>=3.0.0
+
+# Logging i utilities
 colorama>=0.4.6
 
 # GUI ikone
 qtawesome>=1.3.0
 
-# Fuzzy matching (parseri, tarife)
-rapidfuzz>=3.0.0
-
-# Excel stari format (.xls)
-xlrd>=2.0.0
-
-# XML parsiranje
-lxml>=5.0.0
-
-# HTTP klijent
-requests>=2.28.0
-
-# AI servisi (opciono — agent ne radi bez ovih)
+# AI Agent
 anthropic>=0.50.0
+openai>=1.0.0
 groq>=1.0.0
 google-generativeai>=0.8.0
+mcp>=1.0.0
+ollama>=0.1.0
 
-# OCR Support (OPCIONO - samo za skenirane PDF-ove bez tekstualnog sloja)
-# OCR je potpuno opcioni! Aplikacija radi i bez njega.
-# Za instalaciju OCR podrške:
-#   pip install -r requirements-ocr.txt
-# Za detalje, vidi: docs/OCR_SETUP.md
+# OCR (opciono — instalirati samo ako treba skeniranje)
+# pip install -r requirements-ocr.txt
