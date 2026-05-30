@@ -47,7 +47,9 @@ class MainWindow(QMainWindow):
         
         # Font za tab kartice (stilovi su u main_tabs.qss — bez inline setStyleSheet koji bi kreirao QSS bubble)
         from PySide6.QtGui import QFont
-        tabs.setFont(QFont("Arial", 16, QFont.Bold))
+        tab_font = QFont("Arial", 16, QFont.Bold)
+        tab_font.setFamilies(["Arial", "Noto Color Emoji", "Segoe UI Emoji", "Apple Color Emoji"])
+        tabs.setFont(tab_font)
 
         self.setCentralWidget(tabs)
 
