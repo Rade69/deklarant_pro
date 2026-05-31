@@ -219,11 +219,21 @@ class PE2QuickDialog(QDialog):
         return countries
     
     def _get_country_name(self, country_code: str) -> str:
-        """Dobavi naziv zemlje iz šifre — koristi cache, ne blokira GUI."""
-        from services.countries_cache import get_countries
-        for code, name in get_countries():
-            if code == country_code:
-                return name
+        """Dobavi naziv zemlje iz šifre."""
+        # Try to load from database
+        try:
+            from database.db import get_db_connection
+            
+            with get_db_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT naziv FROM catalogs.drzave WHERE sifra = %s", (country_code,))
+                    row = cur.fetchone()
+                    if row:
+                        return row['naziv']
+        except Exception:
+            pass
+        
+        # Fallback - return code as name
         return country_code
     
     def _create_country_group(self, country_code: str, country_name: str, 

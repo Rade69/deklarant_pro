@@ -115,14 +115,10 @@ try:
     import qtawesome as qta
 
     QTAWESOME_AVAILABLE = True
-    sys.stderr.write(
-        f"✅ [NaimenovanjaTab] QtAwesome učitan (verzija: {qta.__version__})\n"
-    )
-    sys.stderr.flush()
+    logger.warning("✅ [NaimenovanjaTab] QtAwesome učitan (verzija: %s)", qta.__version__)
 except ImportError as e:
     QTAWESOME_AVAILABLE = False
-    sys.stderr.write(f"❌ [NaimenovanjaTab] QtAwesome import FAILED: {e}\n")
-    sys.stderr.flush()
+    logger.warning("❌ [NaimenovanjaTab] QtAwesome import FAILED: %s", e)
 
 
 class BlackLineWidget(QWidget):
@@ -266,8 +262,7 @@ class NaimenovanjaView(BaseTabView):
                 btn.setIcon(QIcon(pixmap))
                 btn.setIconSize(QSize(16, 16))
             except Exception as e:
-                sys.stderr.write(f"❌ Could not load icon {icon_name}: {e}\n")
-                sys.stderr.flush()
+                logger.warning("❌ Could not load icon %s: %s", icon_name, e)
 
         return btn
 
@@ -277,8 +272,7 @@ class NaimenovanjaView(BaseTabView):
         Loguje grešku, prikazuje korisniku i šalje u stderr.
         """
         error_msg = f"Greška {context}: {str(error)}"
-        sys.stderr.write(f"❌ {error_msg}\n")
-        sys.stderr.flush()
+        logger.error("❌ %s", error_msg)
 
         # Prikaz korisniku (samo ako nema UI ili ako je glavni thread)
         try:
@@ -295,13 +289,9 @@ class NaimenovanjaView(BaseTabView):
         """Dohvati PostgreSQL connection pool koristeći get_connection_pool()"""
         try:
             self.connection_pool = get_connection_pool()
-            sys.stderr.write(
-                f"✅ PostgreSQL connection pool dohvaćen (get_connection_pool)\n"
-            )
-            sys.stderr.flush()
+            logger.warning("✅ PostgreSQL connection pool dohvaćen (get_connection_pool)")
         except Exception as e:
-            sys.stderr.write(f"⚠️  PostgreSQL connection pool nije uspešan: {e}\n")
-            sys.stderr.flush()
+            logger.warning("⚠️  PostgreSQL connection pool nije uspešan: %s", e)
             self.connection_pool = None
 
     def _init_field_mapping(self) -> None:
@@ -2959,9 +2949,9 @@ class NaimenovanjaView(BaseTabView):
         if header_docs is None:
             return
 
-        # 1. Sakupi sve jedinstvene (sifra, broj) parove iz svih naimenovanja
+        # 1. Sakupi sve jedinstvene PE šifre iz svih naimenovanja (dedup po šifri)
         pe_entries: list[tuple[str, str]] = []
-        seen: set[tuple[str, str]] = set()
+        seen: set[str] = set()
         for item in self.draft.items:
             _clear_secondary_pe_documents(item)
             doc4 = _normalize_pe_document_text(getattr(item, 'attached_document4', '') or '')
@@ -2974,9 +2964,8 @@ class NaimenovanjaView(BaseTabView):
             sifra = parts[0].strip()
             broj = parts[1].strip() if len(parts) > 1 else ''
             if sifra in _PE_DOC_CODES:
-                key = (sifra, broj)
-                if key not in seen:
-                    seen.add(key)
+                if sifra not in seen:  # dedup po šifri — jedna deklaracija = jedan EUR.1
+                    seen.add(sifra)
                     pe_entries.append(key)
 
         # 2. Ukloni postojeće PE1/PE2/PE3 unose iz header_attached_documents

@@ -168,13 +168,6 @@ def main():
                 logging.getLogger("deklarant_pro").warning(
                     f"MCP server cleanup nije uspio: {e}"
                 )
-        try:
-            from database.db import close_all_connections
-            close_all_connections()
-        except Exception as e:
-            logging.getLogger("deklarant_pro").warning(
-                f"DB pool cleanup nije uspio: {e}"
-            )
 
     sys.exit(exit_code)
 

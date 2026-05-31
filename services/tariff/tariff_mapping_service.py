@@ -194,26 +194,6 @@ class TariffMappingService:
 
         effective_supplier = supplier or ""
 
-        # Instancirati jednom — ne unutar petlje (N instanci = N×SQL upita)
-        hybrid = None
-        if effective_supplier or any(
-            (line.exporter.name if line.exporter.name else "") for line in invoice_lines
-        ):
-            try:
-                from services.agent.tariff.tariff_suggestion_service import HybridMatchingService
-                hybrid = HybridMatchingService()
-            except Exception:
-                pass
-
-        _usage_batch: list = []  # batch increment — jedna konekcija na kraju, ne po stavci
-
-        # ── Batch lookup po product_code (1 SQL umjesto N) ──────────────────────
-        lines_to_process = [l for l in invoice_lines
-                            if not (l.tarifni_broj and not overwrite_existing)]
-        all_codes = [getattr(l, 'product_code', '') or '' for l in lines_to_process]
-        batch_code_hits = self.find_batch_by_product_codes(all_codes) if all_codes else {}
-        # ─────────────────────────────────────────────────────────────────────────
-
         for line in invoice_lines:
             # Skip ako već ima tarifni broj i ne želimo overwrite
             if line.tarifni_broj and not overwrite_existing:
@@ -224,15 +204,11 @@ class TariffMappingService:
 
             mapping = None
 
-            # ── 0. Batch hit po product_code (O(1), bez SQL po stavci) ──────────
-            code_key = (getattr(line, 'product_code', '') or '').strip().upper()
-            if code_key and code_key in batch_code_hits:
-                mapping = batch_code_hits[code_key]
-                logger.debug(f"  🗂️  Batch hit: {code_key} → {mapping.tarifni_broj}")
-
-            # ── 1. Istorija dobavljača (ako batch nije dao rezultat) ──────────────
-            if mapping is None and line_supplier and hybrid:
+            # ── 0. Prvo istorija dobavljača (XML fajlovi sa carine — najvalidniji) ──
+            if line_supplier:
                 try:
+                    from services.agent.tariff.tariff_suggestion_service import HybridMatchingService
+                    hybrid = HybridMatchingService()
                     hist_match = hybrid.find_hybrid_mapping(
                         product_code=line.product_code,
                         naziv_robe=line.naziv_robe,
@@ -249,7 +225,7 @@ class TariffMappingService:
                 except Exception:
                     pass  # Silent — istorijski match nije kritičan
 
-            # ── 2. Baza znanja — fuzzy/vote (ako prethodni koraci nisu dali rezultat) ──
+            # ── 1. Baza znanja (ako istorija nije dala rezultat) ──
             if mapping is None:
                 mapping = self.find_mapping(
                     product_code=line.product_code,
@@ -298,7 +274,9 @@ class TariffMappingService:
                     line.product_code or line.naziv_robe[:30],
                     mapping.tarifni_broj
                 ))
-                _usage_batch.append((mapping.tarifni_broj, mapping.product_code, mapping.naziv_robe))
+
+                # Inkrementiraj usage_count
+                self._increment_usage(mapping.tarifni_broj, mapping.product_code, mapping.naziv_robe)
 
                 logger.debug(f"  ✅ Stavka #{line.line_no}: {line.product_code} → {mapping.tarifni_broj} "
                             f"(povlastica={line.povlastica or 'N/A'}, eur1={line.eur1_number or 'N/A'})")
@@ -328,10 +306,6 @@ class TariffMappingService:
 
                 logger.debug(f"  ⚠️  Stavka #{line.line_no}: {line.product_code} - nije pronađen mapping")
 
-        # Batch increment usage_count — jedna DB konekcija za sve matcheve
-        if _usage_batch:
-            self._increment_usage_batch(_usage_batch)
-
         result = MappingResult(
             total_items=len(invoice_lines),
             matched_items=matched_count,
@@ -341,63 +315,6 @@ class TariffMappingService:
         )
 
         logger.info(f"✅ Auto-popunjavanje završeno: {matched_count}/{len(invoice_lines)} stavki popunjeno")
-
-        return result
-
-    def find_batch_by_product_codes(
-        self, product_codes: List[str]
-    ) -> Dict[str, "TariffMapping"]:
-        """
-        Batch lookup po product_code — jedan SQL umjesto N.
-
-        Vraća dict {product_code_upper: TariffMapping} samo za tačne i prefix matcheve.
-        Linije bez hita trebaju proći kroz find_mapping() za fuzzy/vote matching.
-        """
-        codes = [c.strip() for c in product_codes if c and c.strip()]
-        if not codes:
-            return {}
-
-        result: Dict[str, TariffMapping] = {}
-        try:
-            with get_db_connection() as conn:
-                with conn.cursor() as cursor:
-                    cursor.execute("""
-                        SELECT DISTINCT ON (input_code)
-                               input_code,
-                               product_code, naziv_robe, commodity_code,
-                               precision_1, zemlja_porijekla, povlastica, usage_count,
-                               match_type
-                        FROM (
-                            SELECT
-                                unnest(%s::text[]) AS input_code,
-                                m.product_code, m.naziv_robe, m.commodity_code,
-                                m.precision_1, m.zemlja_porijekla, m.povlastica,
-                                m.usage_count,
-                                CASE WHEN m.product_code ILIKE unnest(%s::text[])
-                                     THEN 0 ELSE 1 END AS match_type
-                            FROM catalogs.product_tariff_mapping m
-                            WHERE EXISTS (
-                                SELECT 1 FROM unnest(%s::text[]) AS q
-                                WHERE m.product_code ILIKE q
-                                   OR q ILIKE m.product_code || '%%'
-                            )
-                        ) sub
-                        ORDER BY input_code, match_type, usage_count DESC
-                    """, (codes, codes, codes))
-
-                    for row in cursor.fetchall():
-                        result[row["input_code"].upper()] = TariffMapping(
-                            product_code=row["product_code"],
-                            naziv_robe=row["naziv_robe"],
-                            tarifni_broj=row["commodity_code"],
-                            precision_1=row["precision_1"],
-                            zemlja_porijekla=row["zemlja_porijekla"] or "",
-                            povlastica=row["povlastica"] or "",
-                            usage_count=row["usage_count"],
-                            similarity=1.0,
-                        )
-        except Exception as e:
-            logger.debug(f"⚠️ find_batch_by_product_codes greška: {e}")
 
         return result
 
@@ -569,7 +486,7 @@ class TariffMappingService:
                                 usage_count=row["usage_count"],
                                 similarity=final_similarity
                             )
-                            if best_similarity >= 0.95:
+                            if best_similarity >= 0.98:
                                 break
 
                     if best_match:
@@ -915,26 +832,21 @@ class TariffMappingService:
             return False
 
     def _increment_usage(self, tarifni_broj: str, product_code: Optional[str], naziv_robe: str):
-        """Inkrementiraj usage_count za jednu stavku. Za petlje koristiti _increment_usage_batch."""
-        self._increment_usage_batch([(tarifni_broj, product_code, naziv_robe)])
-
-    def _increment_usage_batch(self, items: list):
-        """Batch increment usage_count — jedna DB konekcija za N stavki."""
-        if not items:
-            return
+        """Inkrementiraj usage_count za mapping."""
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cursor:
-                    cursor.executemany("""
+                    cursor.execute("""
                         UPDATE catalogs.product_tariff_mapping
                         SET usage_count = usage_count + 1,
                             last_used = CURRENT_TIMESTAMP
                         WHERE commodity_code = %s
                           AND product_code = %s
                           AND naziv_robe = %s
-                    """, [(t, p or "", n) for t, p, n in items])
+                    """, (tarifni_broj, product_code or "", naziv_robe))
+
         except Exception as e:
-            logger.warning(f"⚠️  Greška pri batch ažuriranju usage_count: {e}")
+            logger.warning(f"⚠️  Greška pri ažuriranju usage_count: {e}")
 
     def learn_from_draft(self, invoice_lines: List[InvoiceLine]) -> int:
         """

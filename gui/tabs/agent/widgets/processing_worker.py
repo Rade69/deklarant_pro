@@ -198,13 +198,8 @@ class ProcessingWorker(QThread):
                 self.file_completed.emit(file_item)
 
             finally:
-                # gc.collect() samo za PDF fajlove (pdfplumber alocira više objekata)
-                # ili svakih 5 fajlova — Excel/mapping fajlovi ne zahtijevaju cleanup
-                _is_pdf = Path(file_item.filepath).suffix.lower() == ".pdf"
-                _file_no = getattr(self, '_gc_counter', 0) + 1
-                self._gc_counter = _file_no
-                if _is_pdf or _file_no % 5 == 0:
-                    gc.collect()
+                # Oslobodi memoriju između fajlova — kritično pri uvozu većeg broja PDF-ova
+                gc.collect()
 
         # Post-process za Agent workflow:
         # Master Frigo PDF + Excel sparivanje u istom batch-u (cijena/iznos iz Excel-a)

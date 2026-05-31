@@ -49,25 +49,24 @@ def detect_blagic_attos_pdf(filepath: str) -> bool:
         if not filepath.lower().endswith('.pdf'):
             return False
 
-        # Provjeri cache (populiran od _detect_pdf_format ako je već parsiran)
-        from importers.smart_pdf_importer import get_cached_pdf_text
-        cached = get_cached_pdf_text(filepath)
-        if cached:
-            text, text_upper, text_norm = cached
-        else:
-            with pdfplumber.open(filepath) as pdf:
-                text = pdf.pages[0].extract_text() or ""
-                text_upper = text.upper()
+        with pdfplumber.open(filepath) as pdf:
+            # Extract first page text
+            first_page = pdf.pages[0]
+            text = first_page.extract_text() or ""
+            text_upper = text.upper()
 
-        has_document_type = ("RAČUN-OTPREMNICA" in text_upper or
-                            "RACUN-OTPREMNICA" in text_upper or
-                            "LISTA PAKOVANJA" in text_upper)
-        has_supplier = "ATTOS" in text_upper or "NOVI SAD" in text_upper
-        has_customer = "BLAGIĆ" in text_upper or "BLAGIC" in text_upper
+            # Check for indicators
+            has_document_type = ("RAČUN-OTPREMNICA" in text_upper or
+                                "RACUN-OTPREMNICA" in text_upper or
+                                "LISTA PAKOVANJA" in text_upper)
 
-        if has_document_type and has_supplier and has_customer:
-            logger.info(f"Blagic-Attos format detektovan: {filepath}")
-            return True
+            has_supplier = "ATTOS" in text_upper or "NOVI SAD" in text_upper
+
+            has_customer = "BLAGIĆ" in text_upper or "BLAGIC" in text_upper
+
+            if has_document_type and has_supplier and has_customer:
+                logger.info(f"Blagic-Attos format detektovan: {filepath}")
+                return True
 
         return False
 
@@ -82,11 +81,6 @@ def is_blagic_attos_packing_list(filepath: str) -> bool:
         fname = Path(filepath).name.lower()
         if "lista pakovanja" in fname:
             return True
-        from importers.smart_pdf_importer import get_cached_pdf_text
-        cached = get_cached_pdf_text(filepath)
-        if cached:
-            _, text_upper, _ = cached
-            return "LISTA PAKOVANJA" in text_upper
         with pdfplumber.open(filepath) as pdf:
             text = pdf.pages[0].extract_text() or ""
             return "LISTA PAKOVANJA" in text.upper()

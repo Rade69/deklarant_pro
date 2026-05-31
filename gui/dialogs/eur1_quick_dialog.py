@@ -405,18 +405,32 @@ class Eur1QuickDialog(QDialog):
         combo = QComboBox()
         combo.setMaximumWidth(220)
         
-        # Učitaj zemlje iz cache-a (ne blokira GUI pri nedostupnom DB)
-        from services.countries_cache import get_countries
-        countries = get_countries()
-        for code, name in countries:
-            combo.addItem(f"{code} - {name}", code)
+        # Učitaj zemlje iz baze
+        try:
+            from database.db import get_db_connection
+            with get_db_connection() as conn:
+                cur = conn.cursor()
+                cur.execute("SELECT sifra, naziv FROM catalogs.drzave WHERE sifra IS NOT NULL ORDER BY naziv")
+                countries = cur.fetchall()
+                
+                # Dodaj sve zemlje
+                for row in countries:
+                    code = row['sifra']
+                    name = row['naziv']
+                    combo.addItem(f"{code} - {name}", code)
+                
+                # Podesi current country
+                idx = combo.findData(current_country)
+                if idx >= 0:
+                    combo.setCurrentIndex(idx)
+                elif current_country:
+                    # Šifra nije u bazi — dodaj je kao opciju i selektuj
+                    combo.insertItem(0, f"{current_country} - (nepoznata)", current_country)
+                    combo.setCurrentIndex(0)
 
-        idx = combo.findData(current_country)
-        if idx >= 0:
-            combo.setCurrentIndex(idx)
-        elif current_country:
-            combo.insertItem(0, f"{current_country} - (nepoznata)", current_country)
-            combo.setCurrentIndex(0)
+        except Exception as e:
+            print(f"Greška pri učitavanju zemalja: {e}")
+            combo.addItem(f"{current_country} - {current_country}", current_country)
 
         return combo
     

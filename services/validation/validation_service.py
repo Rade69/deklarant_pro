@@ -76,17 +76,6 @@ class FakturaItemValidator:
                 )
             )
 
-        if not item.zemlja_porijekla or len(item.zemlja_porijekla.strip()) == 0:
-            result.valid = False
-            result.errors.append(
-                ValidationError(
-                    level=ValidationLevel.ERROR,
-                    field="zemlja_porijekla",
-                    message="Zemlja porijekla je obavezna",
-                    suggestion="Unesite zemlju porijekla (npr. TR, CN, DE)",
-                )
-            )
-
         # 2. FORMAT VALIDACIJA (ERROR)
         if item.tarifni_broj:
             if not self._is_valid_tariff_format(item.tarifni_broj):
