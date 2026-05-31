@@ -178,17 +178,17 @@ class ZaglavljeService:
         if decl_type is not None and decl_type.text:
             data['vrsta_deklaracije'] = decl_type.text.strip()
         
-        # Izvoznik
+        # Izvoznik — ključ mora odgovarati field_widgets (izvoznik_r1, ne izvoznik_naziv)
         exporter = find_with_ns(root, 'Exporter')
         if exporter is not None:
             data['izvoznik_id'] = self._get_text_from_element(exporter, ['ID', 'Code'])
-            data['izvoznik_naziv'] = self._get_text_from_element(exporter, ['Name', 'CompanyName'])
-        
-        # Primalac
+            data['izvoznik_r1'] = self._get_text_from_element(exporter, ['Name', 'CompanyName'])
+
+        # Primalac — isti razlog
         consignee = find_with_ns(root, 'Consignee')
         if consignee is not None:
             data['primalac_id'] = self._get_text_from_element(consignee, ['ID', 'Code'])
-            data['primalac_naziv'] = self._get_text_from_element(consignee, ['Name', 'CompanyName'])
+            data['primalac_r1'] = self._get_text_from_element(consignee, ['Name', 'CompanyName'])
         
         # Transport
         transport = find_with_ns(root, 'TransportMeans')
@@ -1135,8 +1135,8 @@ class ZaglavljeService:
                 ref = _txt(att_el, "Attached_document_reference")
                 from_rule_str = _txt(att_el, "Attached_document_from_rule")
                 from_rule = (from_rule_str == "1")
-                # Blokiraj zastarjele šifre (FAK → N380, CMR → nova šifra)
-                if code.upper() in {"FAK", "CMR"}:
+                # Blokiraj zastarjele šifre (zamijenjene novim ASYCUDA kodovima)
+                if code.upper() in {"FAK", "CMR", "SAN", "VET", "UVK"}:
                     continue
                 # Deduplicate by (code, ref)
                 doc_key = (code, ref)
