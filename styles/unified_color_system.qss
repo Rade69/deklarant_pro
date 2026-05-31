@@ -1,0 +1,288 @@
+/* ============================================================
+   Deklarant Pro — Unified Color System v3.0
+   Izvor: Zaglavlje hue paleta, desaturirana
+   Učitava se ZADNJI — ima najveći prioritet
+   ============================================================ */
+
+/* ============================
+   TABOVI
+   ============================ */
+
+QTabBar::tab {
+    background-color: #C5CAD0;
+    color: #3D4549;
+    padding: 6px 20px;
+    border: none;
+    border-bottom: 2px solid transparent;
+    font-weight: 600;
+    font-size: 12px;
+}
+QTabBar::tab:hover {
+    background-color: #A8B2BA;
+    color: #263238;
+}
+QTabBar::tab:selected {
+    background-color: #4A7FA5;
+    color: #FFFFFF;
+    border-bottom: 2px solid #2C5570;
+}
+
+/* ============================
+   DUGMAD — BAZA (plava, default za sva dugmad bez specifičnog ID-a)
+   ============================ */
+
+QPushButton {
+    background-color: #3D6A8A;
+    color: #FFFFFF;
+    border: none;
+    border-radius: 4px;
+    padding: 5px 12px;
+    font-weight: 600;
+    font-size: 12px;
+}
+QPushButton:hover    { background-color: #4A7FA5; }
+QPushButton:pressed  { background-color: #2D506B; }
+QPushButton:disabled { background-color: #B0BEC5; color: #78909C; }
+
+/* ============================
+   ZELENA — Primarna akcija
+   Snimi, Dodaj, Kreiraj naimenovanja
+   ============================ */
+
+QPushButton#btnSnimi,
+QPushButton#btnDodaj,
+QPushButton#btnKreirajNaimenovanja,
+QPushButton[btnType="primary"] {
+    background-color: #2D5A48;
+    color: #FFFFFF;
+}
+QPushButton#btnSnimi:hover,
+QPushButton#btnDodaj:hover,
+QPushButton#btnKreirajNaimenovanja:hover,
+QPushButton[btnType="primary"]:hover    { background-color: #3D7A5F; }
+QPushButton#btnSnimi:pressed,
+QPushButton#btnDodaj:pressed,
+QPushButton#btnKreirajNaimenovanja:pressed,
+QPushButton[btnType="primary"]:pressed  { background-color: #1F3D30; }
+
+/* ============================
+   LJUBIČASTA — Uvoz + AI akcije
+   Uvezi XML/PDF/Excel, Učitaj mappinge, Auto-popuni, Izračunaj mase
+   ============================ */
+
+QPushButton#btnUveziXML,
+QPushButton#btnUveziPDF,
+QPushButton#btnUveziExcel,
+QPushButton#btnUcitajMappinge,
+QPushButton#btnAutoPopuni,
+QPushButton#btnIzracunajMase,
+QPushButton[btnType="import"] {
+    background-color: #5E4272;
+    color: #FFFFFF;
+}
+QPushButton#btnUveziXML:hover,
+QPushButton#btnUveziPDF:hover,
+QPushButton#btnUveziExcel:hover,
+QPushButton#btnUcitajMappinge:hover,
+QPushButton#btnAutoPopuni:hover,
+QPushButton#btnIzracunajMase:hover,
+QPushButton[btnType="import"]:hover    { background-color: #7B5C96; }
+QPushButton#btnUveziXML:pressed,
+QPushButton#btnUveziPDF:pressed,
+QPushButton#btnUveziExcel:pressed,
+QPushButton#btnUcitajMappinge:pressed,
+QPushButton#btnAutoPopuni:pressed,
+QPushButton#btnIzracunajMase:pressed,
+QPushButton[btnType="import"]:pressed  { background-color: #452F55; }
+
+/* ============================
+   TEAL — Import Naimenovanja XML
+   Uvezi XML (naimenovanja tab)
+   ============================ */
+QPushButton#btnUveziXMLNaim {
+    background-color: #2E7D6F;
+    color: #FFFFFF;
+}
+QPushButton#btnUveziXMLNaim:hover { background-color: #3A9B89; }
+QPushButton#btnUveziXMLNaim:pressed { background-color: #1E5A4F; }
+
+/* ============================
+   TEAL — Izvoz + Validacija
+   Izvezi XML, Excel, PDF, Validacija
+   ============================ */
+
+QPushButton#btnIzveziXML,
+QPushButton#btnExcel,
+QPushButton#btnPDF,
+QPushButton#btnValidacija,
+QPushButton[btnType="export"] {
+    background-color: #2C6B5C;
+    color: #FFFFFF;
+}
+QPushButton#btnIzveziXML:hover,
+QPushButton#btnExcel:hover,
+QPushButton#btnPDF:hover,
+QPushButton#btnValidacija:hover,
+QPushButton[btnType="export"]:hover    { background-color: #3D8B7A; }
+QPushButton#btnIzveziXML:pressed,
+QPushButton#btnExcel:pressed,
+QPushButton#btnPDF:pressed,
+QPushButton#btnValidacija:pressed,
+QPushButton[btnType="export"]:pressed  { background-color: #1F4D42; }
+
+/* ============================
+   ŽUTA/BRAON — Sekundarno
+   Otvori
+   ============================ */
+
+QPushButton#btnOtvori,
+QPushButton[btnType="secondary"] {
+    background-color: #7A6338;
+    color: #FFFFFF;
+}
+QPushButton#btnOtvori:hover,
+QPushButton[btnType="secondary"]:hover    { background-color: #9B8250; }
+QPushButton#btnOtvori:pressed,
+QPushButton[btnType="secondary"]:pressed  { background-color: #5A4828; }
+
+/* ============================
+   CRVENA — Opasnost
+   Briši, Obriši, Očisti sve
+   ============================ */
+
+QPushButton#btnBrisi,
+QPushButton#btnObrisi,
+QPushButton#btnOcistiSve,
+QPushButton[btnType="danger"] {
+    background-color: #7A3432;
+    color: #FFFFFF;
+}
+QPushButton#btnBrisi:hover,
+QPushButton#btnObrisi:hover,
+QPushButton#btnOcistiSve:hover,
+QPushButton[btnType="danger"]:hover    { background-color: #9B4A48; }
+QPushButton#btnBrisi:pressed,
+QPushButton#btnObrisi:pressed,
+QPushButton#btnOcistiSve:pressed,
+QPushButton[btnType="danger"]:pressed  { background-color: #5A2422; }
+
+/* ============================
+   SIVA — Izlaz / Cancel
+   ============================ */
+
+QPushButton#btnIzlaz,
+QPushButton#btnCancel,
+QPushButton[btnType="cancel"] {
+    background-color: #6B7280;
+    color: #FFFFFF;
+}
+QPushButton#btnIzlaz:hover,
+QPushButton#btnCancel:hover,
+QPushButton[btnType="cancel"]:hover    { background-color: #8A9099; }
+QPushButton#btnIzlaz:pressed,
+QPushButton#btnCancel:pressed,
+QPushButton[btnType="cancel"]:pressed  { background-color: #4E5560; }
+
+/* ============================
+   NAVIGACIJSKA DUGMAD — Naimenovanja (Prethodno / Sljedeće)
+   Različite boje jasno pokazuju smjer navigacije
+   ============================ */
+
+QPushButton#btnPrethodno {
+    background-color: #9B8250;
+    color: #FFFFFF;
+}
+QPushButton#btnPrethodno:hover   { background-color: #B89A64; color: #FFFFFF; }
+QPushButton#btnPrethodno:pressed { background-color: #7A6338; color: #FFFFFF; }
+
+QPushButton#btnSljedece {
+    background-color: #3D8B7A;
+    color: #FFFFFF;
+}
+QPushButton#btnSljedece:hover   { background-color: #4EAD99; color: #FFFFFF; }
+QPushButton#btnSljedece:pressed { background-color: #2C6B5C; color: #FFFFFF; }
+
+/* ============================
+   ŠIFRARNICI TAB — dugmad: isti font/veličina kao Faktura tab
+   Postavlja se PRIJE ID selektora da ne bi override-alo boje
+   ============================ */
+
+#SifarniciTab QPushButton {
+    font-size: 12px;
+    font-weight: 600;
+    color: #FFFFFF;
+    padding: 5px 12px;
+}
+
+/* ============================
+   ŠIFRARNICI TAB — input polja (veliki font, udoban padding)
+   Skopovano na #SifarniciTab da ne utiče na ostatak aplikacije
+   ============================ */
+
+#SifarniciTab QLineEdit {
+    font-size: 13pt;
+    padding: 10px 8px;
+    min-height: 35px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+}
+#SifarniciTab QComboBox {
+    font-size: 13pt;
+    padding: 8px;
+    min-height: 35px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+}
+#SifarniciTab QGroupBox {
+    font-size: 13pt;
+    font-weight: bold;
+    padding-top: 20px;
+    margin-top: 10px;
+    border: 2px solid #ddd;
+    border-radius: 5px;
+}
+#SifarniciTab QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    padding: 5px 10px;
+    background-color: #f5f5f5;
+    border-radius: 3px;
+}
+#SifarniciTab QLabel {
+    font-size: 12pt;
+}
+
+/* ============================
+   ZAGLAVLJE TAB — input polja
+   Skopovano na #ZaglavljeTab — specifičnost (0,1,1) > (0,0,1)
+   pobijedi globalni QLineEdit { border: 1px solid #C5D2E8 }
+   ============================ */
+
+#ZaglavljeTab QLineEdit {
+    border: 1px solid #a0c4a0;
+    border-radius: 3px;
+    padding: 2px 8px;
+    font-size: 12pt;
+    min-height: 26px;
+    background: #fafcfa;
+    color: #1e3820;
+}
+
+#ZaglavljeTab QLineEdit:focus {
+    background: #e8f2e8;
+    border-color: #5a8060;
+    border-width: 2px;
+}
+
+#ZaglavljeTab QLineEdit:read-only {
+    background: #eef4ee;
+    border-color: #c8dcc8;
+    color: #4a6a4a;
+}
+
+/* Kolone — bijela pozadina unutar kolona; prostor između kolona je #dce8dc */
+#ZaglavljeTab #left_column,
+#ZaglavljeTab #middle_column,
+#ZaglavljeTab #right_column {
+    background-color: #f5f9f5;
+}

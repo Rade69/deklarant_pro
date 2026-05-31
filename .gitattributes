@@ -1,0 +1,24 @@
+# Automatski normalizuj line endings
+* text=auto
+
+# Windows skripte — zadrži CRLF
+*.bat text eol=crlf
+*.vbs text eol=crlf
+*.ps1 text eol=crlf
+
+# Python — uvijek LF
+*.py text eol=lf
+
+# Markdown, JSON, YAML — LF
+*.md text eol=lf
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+
+# Binarni fajlovi — ne diraj
+*.pyd binary
+*.db binary
+*.ico binary
+*.png binary
+*.pdf binary
+*.xlsx binary

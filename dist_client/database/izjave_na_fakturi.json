@@ -1,0 +1,30 @@
+{
+  "invoice_declarations": {
+    "standard": {
+      "serbian": "Izvoznik proizvoda obuhvaćenih ovom ispravom izjavljuje da su, osim ako je to drugačije izričito navedeno, ovi proizvodi [origin] preferencijalnog porekla.",
+      "serbian_eu_list": "Izvoznik proizvoda obuhvaćenih ovom ispravom izjavljuje da su, osim ako je to drugačije izričito navedeno, ovi proizvodi EU/ [origin] preferencijalnog porekla.",
+      "serbian_eu_multiline": "Izvoznik proizvoda obuhvaćenih ovom ispravom izjavljuje da su, osim ako je to drugačije izričito navedeno, ovi proizvodi EU/.*?preferencijalnog porekla.",
+      "english": "The exporter of the products covered by this document declares that, except where otherwise clearly indicated, these products are of [origin] preferential origin.",
+      "german": "Der Ausführer der Waren, auf die sich dieses Handelspapier bezieht, erklärt, dass diese Waren, soweit nicht anders angegeben, [origin] Präferenzursprungswaren sind.",
+      "croatian": "Izvoznik proizvoda obuhvaćenih ovom ispravom izjavljuje da su, osim ako je drukčije jasno navedeno, ovi proizvodi [origin] preferencijalnoga podrijetla.",
+      "macedonian": "Извозникот на производите што ги покрива овој документ изјавува дека, освен ако тоа не е јасно поинаку назначено, овие производи се со [origin] преференцијално потекло.",
+      "turkish": "Bu belge kapsamındaki ürünlerin ihracatçısı, aksi açıkça belirtilmedikçe, bu ürünlerin [origin] menşeli ve tercihli menşeli olduğunu beyan eder."
+    },
+    "approved_exporter": {
+      "serbian": "Izvoznik proizvoda obuhvaćenih ovom ispravom (carinsko ovlašćenje br. [broj]) izjavljuje da su, osim ako je to drugačije izričito navedeno, ovi proizvodi [origin] preferencijalnog porekla.",
+      "english": "The exporter of the products covered by this document (customs authorization No [number]) declares that, except where otherwise clearly indicated, these products are of [origin] preferential origin.",
+      "german": "Der Ausführer (Ermächtigter Ausführer; Bewilligungs-Nr. [Nummer]) der Waren, auf die sich dieses Handelspapier bezieht, erklärt, dass diese Waren, soweit nicht anders angegeben, [origin] Präferenzursprungswaren sind.",
+      "croatian": "Izvoznik proizvoda obuhvaćenih ovom ispravom (carinsko ovlaštenje br. [broj]) izjavljuje da su, osim ako je drukčije jasno navedeno, ovi proizvodi [origin] preferencijalnoga podrijetla.",
+      "macedonian": "Извозникот на производите што ги покрива овој документ (царинско овластување бр. [број]) изјавува дека, освен ако тоа не е јасно поинаку назначено, овие производи се со [origin] преференцијално потекло.",
+      "turkish": "Bu belge kapsamındaki ürünlerin ihracatçısı (gümrük onay No: [numara]), aksi açıkça belirtilmedikçe, bu ürünlerin [origin] menşeli ve tercihli menşeli olduğunu beyan eder."
+    }
+  },
+  "metadata": {
+    "usage_threshold": "Standardna izjava vrijedi do 6.000 EUR. Ovlašteni izvoznici nemaju limit.",
+    "placeholders": {
+      "[origin]": "Zemlja podrijetla (npr. Serbian, hrvatskog, serbischen...) ili lista zemalja (npr. EU/ DE, DK, SI)",
+      "[broj]/[number]": "Broj ovlaštenja izdan od strane nadležne uprave carina."
+    },
+    "requirements": "Obavezno navesti mjesto i datum. Vlastoručni potpis potreban samo za standardnu izjavu."
+  }
+}

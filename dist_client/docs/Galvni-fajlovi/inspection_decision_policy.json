@@ -1,0 +1,26 @@
+{
+  "goal": "Automatizacija odlučivanja da li roba podliježe nekoj inspekciji na osnovu tarifnog broja i uslova.",
+  "priority_order": [
+    "1. Traži exact tariff match u inspection_tariff_rules",
+    "2. Ako postoji conditional match, provjeri condition_text i dodatne ulazne podatke (namjena, sastav, porijeklo, pakovanje)",
+    "3. Ako nema tariff match, pogledaj inspection_legal_context samo za explanation ili human review",
+    "4. Legal-only match nikada ne tretirati kao potpuno automatsku odluku bez dodatne provjere"
+  ],
+  "result_statuses": [
+    "requires_inspection",
+    "requires_inspection_if_condition_met",
+    "legal_signal_only_manual_review",
+    "no_match_found"
+  ],
+  "recommended_inputs_for_engine": [
+    "tariff_code",
+    "country_of_origin",
+    "intended_use",
+    "contains_animal_material",
+    "for_human_consumption",
+    "for_animal_feed",
+    "for_sowing",
+    "packaging_type",
+    "contains_medicinal_substances"
+  ]
+}

@@ -1,0 +1,43 @@
+/*
+═══════════════════════════════════════════════════════════════
+Deklarant Pro - Typography Scale
+═══════════════════════════════════════════════════════════════
+*/
+
+/* ═══════════════════════════════════════════════════════════
+   FONT SIZES
+   ═══════════════════════════════════════════════════════════ */
+
+.text-xs { font-size: 10px; }  /* Meta info */
+.text-sm { font-size: 12px; }  /* Labels, secondary */
+.text-md { font-size: 14px; }  /* Primary text, inputs */
+.text-lg { font-size: 16px; }  /* Titles */
+.text-xl { font-size: 18px; }  /* Section headers */
+
+/* ═══════════════════════════════════════════════════════════
+   FONT WEIGHTS
+   ═══════════════════════════════════════════════════════════ */
+
+.font-normal   { font-weight: 400; }
+.font-medium   { font-weight: 500; }
+.font-semibold { font-weight: 600; }
+.font-bold     { font-weight: 700; }
+
+/* ═══════════════════════════════════════════════════════════
+   TEXT COLORS
+   ═══════════════════════════════════════════════════════════ */
+
+.text-primary   { color: #2B2F36; }  /* Main text */
+.text-secondary { color: #6B7280; }  /* Supporting text */
+.text-accent    { color: #2FA36B; }  /* Emphasis */
+.text-muted     { color: #9CA3AF; }  /* Disabled/subtle */
+.text-error     { color: #D64545; }  /* Errors */
+
+/* ═══════════════════════════════════════════════════════════
+   SPECIAL TEXT STYLES
+   ═══════════════════════════════════════════════════════════ */
+
+/* Form notes and hints (gray italic text) */
+QLabel.form-note {
+    color: #666666;
+}

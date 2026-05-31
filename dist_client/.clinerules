@@ -1,0 +1,35 @@
+# Cline Rules — ASYCUDA Pro
+
+Ti si worker agent pod nadzorom Claude Sonnet-a (orchestrator).
+
+## Obaveze prije rada
+
+1. Pročitaj `AGENTS.md` u korijenu projekta
+2. Pročitaj `~/.claude/AGENTS.md` (globalni standard)
+
+## Osnovna pravila
+
+- Implementiraj tačno ono što piše u promptu — ništa više, ništa manje
+- Ne refaktoriši kod van scope-a zadatka
+- Ne dodavaj komentare/docstrings na kod koji nisi mijenjao
+- Ne ostavljaj zakomentiran kod
+- Ne commituj — Claude Sonnet reviewuje i commituje
+- Ako prompt nije jasan → prijavi BLOKIRANO, ne nagađaj
+
+## Projektna arhitektura (kratko)
+
+- Python 3.11+, PySide6, PostgreSQL + SQLite
+- 3-layer: View / Controller / Service — ne miješati slojeve
+- Srpski field names: `tarifni_broj`, `naziv_robe`, `zemlja_porijekla` itd.
+- Tarifni broj: 8 cifara bez tačaka (`08052190`, ne `0805.21.90`)
+- LLM pozivi samo kroz `LLMProvider` klasu, ne direktno
+
+## Format outputa (obavezan)
+
+```
+STATUS: OK | PARCIJALNO | BLOKIRANO
+IZMIJENJENI FAJLOVI: [lista]
+ŠTA JE URAĐENO: [opis]
+ŠTA NIJE URAĐENO: [ako parcijalno/blokirano]
+PITANJA: [ako postoje]
+```

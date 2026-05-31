@@ -1,0 +1,34 @@
+[
+  {
+    "sifra": "CEFTAT",
+    "opis": "Povlastica za robu po Sporazumu CEFTA 2006 - Tranziciona (prelazna) pravila"
+  },
+  {
+    "sifra": "CEFTAP",
+    "opis": "Povlastica za robu po Sporazumu CEFTA 2006 - PEM Konvencija"
+  },
+  {
+    "sifra": "EFTA1",
+    "opis": "Povlastica za robu sa porijeklom iz Švajcarske Konfederacije i Kneževine Lihtenštajn"
+  },
+  {
+    "sifra": "EFTA2",
+    "opis": "Povlastica za robu porijeklom iz Islanda"
+  },
+  {
+    "sifra": "EFTA3",
+    "opis": "Povlastica za robu porijeklom iz Kraljevine Norveške"
+  },
+  {
+    "sifra": "EUP",
+    "opis": "Povlastica za robu porijeklom iz Evropske zajednice"
+  },
+  {
+    "sifra": "IRP",
+    "opis": "Povlastica za robu porijeklom iz Islamske Republike Iran"
+  },
+  {
+    "sifra": "TRP",
+    "opis": "Povlastica za robu porijeklom iz Turske"
+  }
+]

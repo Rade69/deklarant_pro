@@ -1,0 +1,151 @@
+/* ─── Admin Tab — Botanički Sage Green stil ───────────────────────────────── */
+
+/* Osnovna pozadina */
+AdminView {
+    background-color: #f0f7f0;
+}
+
+/* Sidebar */
+QFrame#adminSidebar {
+    background-color: #e8f2e8;
+    border-right: 1px solid #c8dcc8;
+}
+
+/* Nav lista */
+QListWidget#adminNavList {
+    background-color: #e8f2e8;
+    border: none;
+    outline: none;
+    font-size: 13px;
+    padding: 8px;
+}
+QListWidget#adminNavList::item {
+    padding: 10px 8px;
+    border-radius: 4px;
+    margin: 2px 0;
+    color: #1e3820;
+}
+QListWidget#adminNavList::item:hover {
+    background-color: #c8dcc8;
+}
+QListWidget#adminNavList::item:selected {
+    background-color: #5a8060;
+    color: white;
+    font-weight: bold;
+}
+
+/* Content area */
+QStackedWidget {
+    background-color: #f0f7f0;
+}
+
+/* GroupBox unutar panela */
+QGroupBox {
+    border: 1px solid #c8dcc8;
+    border-radius: 4px;
+    margin-top: 12px;
+    padding-top: 10px;
+    font-weight: bold;
+    font-size: 14px;
+    background-color: white;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    padding: 0 8px;
+    color: #1e3820;
+}
+
+/* Input polja */
+QLineEdit, QComboBox, QDateEdit, QSpinBox {
+    border: 1px solid #c8dcc8;
+    border-radius: 3px;
+    padding: 6px 10px;
+    background-color: white;
+    font-size: 13px;
+    color: #1e3820;
+}
+QLineEdit:hover, QComboBox:hover, QDateEdit:hover, QSpinBox:hover {
+    border-color: #7aa080;
+}
+QLineEdit:focus, QComboBox:focus, QDateEdit:focus, QSpinBox:focus {
+    border-color: #5a8060;
+    background-color: #f7faf7;
+}
+QComboBox::drop-down {
+    border: none;
+    width: 24px;
+}
+
+/* Tabele */
+QTableWidget {
+    background-color: white;
+    border: 1px solid #c8dcc8;
+    gridline-color: #c8dcc8;
+    font-size: 13px;
+    color: #1e3820;
+}
+QTableWidget::item {
+    padding: 6px;
+    color: #1e3820;
+}
+QTableWidget::item:selected {
+    background-color: #d4e8d4;
+    color: #1e3820;
+}
+QHeaderView::section {
+    background-color: #dce8dc;
+    border: 1px solid #c8dcc8;
+    padding: 6px;
+    font-weight: bold;
+    font-size: 13px;
+    color: #1e3820;
+}
+
+/* List widgeti u panelima */
+QListWidget {
+    background-color: #f7faf7;
+    border: 1px solid #c8dcc8;
+    border-radius: 4px;
+    padding: 5px;
+    font-size: 13px;
+    color: #1e3820;
+}
+QListWidget::item {
+    padding: 10px;
+    border-radius: 3px;
+    margin-bottom: 2px;
+}
+QListWidget::item:hover {
+    background-color: #c8dcc8;
+}
+QListWidget::item:selected {
+    background-color: #5a8060;
+    color: white;
+}
+
+/* QLabel */
+QLabel {
+    font-size: 13px;
+    color: #1e3820;
+}
+QCheckBox {
+    font-size: 13px;
+    color: #1e3820;
+}
+
+/* ScrollBar */
+QScrollBar:vertical {
+    background: #f0f7f0;
+    width: 8px;
+    border-radius: 4px;
+}
+QScrollBar::handle:vertical {
+    background: #a0c4a0;
+    border-radius: 4px;
+    min-height: 20px;
+}
+QScrollBar::handle:vertical:hover {
+    background: #7aa080;
+}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }

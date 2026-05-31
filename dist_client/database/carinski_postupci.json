@@ -1,0 +1,890 @@
+[
+    {
+        "sifra": "1000",
+        "vrsta": "EX",
+        "oznaka": "A",
+        "opis": "Izvoz robe bez prethodnog postupka Objašnjenje: Uobičajeni izvoz (trajni) robe koja ima carinski status domaće robe."
+    },
+    {
+        "sifra": "1021",
+        "vrsta": "EX",
+        "oznaka": "A",
+        "opis": "Izvoz privremeno izvezene robe na vanjsku obradu koja se ne vraća u carinsko područje Bosne i Hercegovine"
+    },
+    {
+        "sifra": "1023",
+        "vrsta": "EX",
+        "oznaka": "A",
+        "opis": "Izvoz privremeno izvezene robe koja se ne vraća u carinsko područje Bosne i Hercegovine"
+    },
+    {
+        "sifra": "1040",
+        "vrsta": "EX",
+        "oznaka": "A",
+        "opis": "Izvoz robe puštene u slobodan promet bez oslobađanja od plaćanja uvoznih dažbina, za koju se pri izvozu traži povrat ili otpust uvoznih dažbina prijavljuje za izvoz traži povrat ili otpust uvoznih dažbina prema uvjetima propisanim čl. 264. i 265. Zakona i čl. 528. do 548. Odluke, primjenjivim na predmetnu situaciju kod izvoza. U protivnom, koristi se šifra ''1000''."
+    },
+    {
+        "sifra": "1041",
+        "vrsta": "EX",
+        "oznaka": "A",
+        "opis": "Izvoz robe nakon postupka unutarnje obrade (sistem povrata)"
+    },
+    {
+        "sifra": "1042",
+        "vrsta": "EX",
+        "oznaka": "A",
+        "opis": "Izvoz robe stavljene u slobodan promet uz oslobađanje od plaćanja uvoznih dažbina"
+    },
+    {
+        "sifra": "1046",
+        "vrsta": "EX",
+        "oznaka": "A",
+        "opis": "Izvoz robe nakon postupka unutarnje obrade u carinskom skladištu (sistem povrata)"
+    },
+    {
+        "sifra": "1047",
+        "vrsta": "EX",
+        "oznaka": "A",
+        "opis": "Izvoz robe nakon postupka unutarnje obrade u slobodnoj zoni (sistem povrata)"
+    },
+    {
+        "sifra": "1100",
+        "vrsta": "EX",
+        "oznaka": "A",
+        "opis": "Izvoz dobijenih proizvoda proizvedenih iz ekvivalentne robe u postupku unutarnje obrade (sistem odgođenog plaćanja) prije stavljanja uvozne robe u postupak Objašnjenje: Prethodni izvoz (EX - IM) u skladu sa članom 132. stav (1) tačka b) Zakona."
+    },
+    {
+        "sifra": "2100",
+        "vrsta": "EX",
+        "oznaka": "E",
+        "opis": "Privremeni izvoz robe po postupku vanjske obrade bez prethodnog postupka"
+    },
+    {
+        "sifra": "2141",
+        "vrsta": "EX",
+        "oznaka": "E",
+        "opis": "Privremeni izvoz robe po postupku vanjske obrade nakon postupka unutarnje obrade (sistem povrata)"
+    },
+    {
+        "sifra": "2146",
+        "vrsta": "EX",
+        "oznaka": "E",
+        "opis": "Privremeni izvoz robe po postupku vanjske obrade nakon postupka unutarnje obrade u carinskom skladištu (sistem povrata)"
+    },
+    {
+        "sifra": "2147",
+        "vrsta": "EX",
+        "oznaka": "E",
+        "opis": "Privremeni izvoz robe po postupku vanjske obrade nakon postupka unutarnje obrade u slobodnoj zoni (sistem povrata)"
+    },
+    {
+        "sifra": "2148",
+        "vrsta": "EX",
+        "oznaka": "E",
+        "opis": "Privremeni izvoz robe po postupku vanjske obrade nakon puštanja u slobodan promet zamjenskog proizvoda u okviru vanjske obrade po standardnom sistemu zamjene uz prethodni uvoz u skladu sa članom 172. stav (4) Zakona"
+    },
+    {
+        "sifra": "2151",
+        "vrsta": "EX",
+        "oznaka": "E",
+        "opis": "Privremeni izvoz robe po postupku vanjske obrade nakon postupka unutarnje obrade (sistem odgođenog plaćanja)"
+    },
+    {
+        "sifra": "2155",
+        "vrsta": "EX",
+        "oznaka": "E",
+        "opis": "Privremeni izvoz robe po postupku vanjske obrade nakon postupka unutarnje obrade u carinskom skladištu (sistem odgođenog plaćanja)"
+    },
+    {
+        "sifra": "2156",
+        "vrsta": "EX",
+        "oznaka": "E",
+        "opis": "Privremeni izvoz robe po postupku vanjske obrade nakon postupka unutarnje obrade u slobodnoj zoni (sistem odgođenog plaćanja)"
+    },
+    {
+        "sifra": "2300",
+        "vrsta": "EX",
+        "oznaka": "A",
+        "opis": "Privremeni izvoz robe koja će se vratiti u nepromijenjenom stanju bez prethodnog postupka Na primjer, privremeni izvoz robe za izložbu kao što su trgovinski sajmovi, privremeni izvoz profesionalne opreme i drugo."
+    },
+    {
+        "sifra": "3151",
+        "vrsta": "EX",
+        "oznaka": "C",
+        "opis": "Ponovni izvoz robe nakon postupka unutarnje obrade (sistem odgođenog plaćanja)"
+    },
+    {
+        "sifra": "3153",
+        "vrsta": "EX",
+        "oznaka": "C",
+        "opis": "Ponovni izvoz robe nakon postupka privremenog uvoza"
+    },
+    {
+        "sifra": "3155",
+        "vrsta": "EX",
+        "oznaka": "C",
+        "opis": "Ponovni izvoz robe nakon postupka unutarnje obrade u carinskom skladištu (sistem odgođenog plaćanja)"
+    },
+    {
+        "sifra": "3156",
+        "vrsta": "EX",
+        "oznaka": "C",
+        "opis": "Ponovni izvoz robe nakon postupka unutarnje obrade u slobodnoj zoni (sistem odgođenog plaćanja)"
+    },
+    {
+        "sifra": "3171",
+        "vrsta": "EX",
+        "oznaka": "C",
+        "opis": "Ponovni izvoz robe nakon postupka carinskog skladištenja"
+    },
+    {
+        "sifra": "3191",
+        "vrsta": "EX",
+        "oznaka": "C",
+        "opis": "Ponovni izvoz robe nakon postupka obrade pod carinskom kontrolom"
+    },
+    {
+        "sifra": "3193",
+        "vrsta": "EX",
+        "oznaka": "C",
+        "opis": "Ponovni izvoz robe nakon uništenja pod carinskim nadzorom"
+    },
+    {
+        "sifra": "4000",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Puštanje u slobodan promet robe koja ne podliježe oslobađanju od plaćanja uvoznih dažbina bez prethodnog postupka"
+    },
+    {
+        "sifra": "4051",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Puštanje u slobodan promet robe koja ne podliježe oslobađanju od plaćanja uvoznih dažbina nakon postupka unutarnje obrade (sistem odgođenog plaćanja)"
+    },
+    {
+        "sifra": "4053",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Puštanje u slobodan promet robe koja ne podliježe oslobađanju od plaćanja uvoznih dažbina nakon postupka privremenog uvoza"
+    },
+    {
+        "sifra": "4055",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Puštanje u slobodan promet robe koja ne podliježe oslobađanju od plaćanja uvoznih dažbina nakon postupka unutarnje obrade u carinskom skladištu (sistem odgođenog plaćanja)"
+    },
+    {
+        "sifra": "4056",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Puštanje u slobodan promet robe koja ne podliježe oslobađanju od plaćanja uvoznih dažbina nakon postupka unutarnje obrade u slobodnoj zoni (sistem odgođenog plaćanja)"
+    },
+    {
+        "sifra": "4071",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Puštanje u slobodan promet robe koja ne podliježe oslobađanju od plaćanja uvoznih dažbina nakon postupka carinskog skladištenja"
+    },
+    {
+        "sifra": "4091",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Puštanje u slobodan promet robe koja ne podliježe oslobađanju od plaćanja uvoznih dažbina nakon postupka obrade pod carinskom kontrolom"
+    },
+    {
+        "sifra": "4093",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Puštanje u slobodan promet robe koja ne podliježe oslobađanju od plaćanja uvoznih dažbina nakon uništenja pod carinskim nadzorom"
+    },
+    {
+        "sifra": "4100",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Postupak unutarnje obrade (sistem povrata) bez prethodnog postupka"
+    },
+    {
+        "sifra": "4121",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Postupak unutarnje obrade (sistem povrata) nakon postupka vanjske obrade"
+    },
+    {
+        "sifra": "4141",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Postupak unutarnje obrade (sistem povrata) nakon postupka unutarnje obrade (sistem povrata)"
+    },
+    {
+        "sifra": "4151",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Postupak unutarnje obrade (sistem povrata) nakon postupka unutarnje obrade (sistem odgođenog plaćanja)"
+    },
+    {
+        "sifra": "4153",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Postupak unutarnje obrade (sistem povrata) nakon postupka privremenog uvoza"
+    },
+    {
+        "sifra": "4156",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Postupak unutarnje obrade (sistem povrata) nakon postupka unutarnje obrade u slobodnoj zoni (sistem odgođenog plaćanja)"
+    },
+    {
+        "sifra": "4171",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Postupak unutarnje obrade (sistem povrata) nakon postupka carinskog skladištenja"
+    },
+    {
+        "sifra": "4193",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Postupak unutarnje obrade (sistem povrata) nakon uništenja pod carinskim nadzorom"
+    },
+    {
+        "sifra": "4200",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Puštanje u slobodan promet robe koja podliježe oslobađanju od plaćanja uvoznih dažbina bez prethodnog postupka"
+    },
+    {
+        "sifra": "4251",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Puštanje u slobodan promet robe koja podliježe oslobađanju od plaćanja uvoznih dažbina nakon postupka unutarnje obrade (sistem odgođenog plaćanja)"
+    },
+    {
+        "sifra": "4253",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Puštanje u slobodan promet robe koja podliježe oslobađanju od plaćanja uvoznih dažbina nakon postupka privremenog uvoza"
+    },
+    {
+        "sifra": "4255",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Puštanje u slobodan promet robe koja podliježe oslobađanju od plaćanja uvoznih dažbina nakon postupka unutarnje obrade u carinskom skladištu (sistem odgođenog plaćanja)"
+    },
+    {
+        "sifra": "4256",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Puštanje u slobodan promet robe koja podliježe oslobađanju od plaćanja uvoznih dažbina nakon postupka unutarnje obrade u slobodnoj zoni (sistem odgođenog plaćanja)"
+    },
+    {
+        "sifra": "4271",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Puštanje u slobodan promet robe koja podliježe oslobađanju od plaćanja uvoznih dažbina nakon postupka carinskog skladištenja"
+    },
+    {
+        "sifra": "4291",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Puštanje u slobodan promet robe koja podliježe oslobađanju od plaćanja uvoznih dažbina nakon postupka obrade pod carinskom kontrolom"
+    },
+    {
+        "sifra": "4293",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Puštanje u slobodan promet robe koja podliježe oslobađanju od plaćanja uvoznih dažbina nakon uništenja pod carinskim nadzorom"
+    },
+    {
+        "sifra": "4600",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Postupak unutarnje obrade u carinskom skladištu (sistem povrata) bez prethodnog postupka"
+    },
+    {
+        "sifra": "4653",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Postupak unutarnje obrade u carinskom skladištu (sistem povrata) nakon postupka privremenog uvoza"
+    },
+    {
+        "sifra": "4671",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Postupak unutarnje obrade u carinskom skladištu (sistem povrata) nakon postupka carinskog skladištenja"
+    },
+    {
+        "sifra": "4693",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Postupak unutarnje obrade u carinskom skladištu (sistem povrata) nakon uništenja pod carinskim nadzorom"
+    },
+    {
+        "sifra": "4700",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Postupak unutarnje obrade u slobodnoj zoni (sistem povrata) bez prethodnog postupka"
+    },
+    {
+        "sifra": "4746",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Postupak unutarnje obrade u slobodnoj zoni (sistem povrata) nakon postupka unutarnje obrade u carinskom skladištu (sistem povrata)"
+    },
+    {
+        "sifra": "4747",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Postupak unutarnje obrade u slobodnoj zoni (sistem povrata) nakon postupka unutarnje obrade u slobodnoj zoni (sistem povrata)"
+    },
+    {
+        "sifra": "4753",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Postupak unutarnje obrade u slobodnoj zoni (sistem povrata) nakon postupka privremenog uvoza"
+    },
+    {
+        "sifra": "4755",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Postupak unutarnje obrade u slobodnoj zoni (sistem povrata) nakon postupka unutarnje obrade u carinskom skladištu (sistem odgođenog plaćanja)"
+    },
+    {
+        "sifra": "4756",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Postupak unutarnje obrade u slobodnoj zoni (sistem povrata) nakon postupka unutarnje obrade u slobodnoj zoni (sistem odgođenog plaćanja)"
+    },
+    {
+        "sifra": "4771",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Postupak unutarnje obrade u slobodnoj zoni (sistem povrata) nakon postupka carinskog skladištenja"
+    },
+    {
+        "sifra": "4793",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Postupak unutarnje obrade u slobodnoj zoni (sistem povrata) nakon uništenja pod carinskim nadzorom"
+    },
+    {
+        "sifra": "4800",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Puštanje u slobodan promet zamjenskog proizvoda u okviru postupka vanjske obrade prije nego se roba namijenjena privremenom izvozu izveze Objašnjenje: Sistem standardne zamjene, prethodni uvoz (IM - EX) u skladu sa članom 172. stav (4) Zakona; polaže se osiguranje za mogući dug - carina i PDV."
+    },
+    {
+        "sifra": "4871",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Puštanje u slobodan promet nakon postupka carinskog skladišenja zamjenskog proizvoda u okviru postupka vanjske obrade prije nego se roba namijenjena privremenom izvozu izveze Objašnjenje: Sistem standardne zamjene, prethodni uvoz (IM - EX) u skladu sa članom 172. stav (4) Zakona; polaže se osiguranje za mogući dug - carina i PDV."
+    },
+    {
+        "sifra": "5100",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak unutarnje obrade (sistem odgođenog plaćanja) bez prethodnog postupka"
+    },
+    {
+        "sifra": "5111",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Stavljanje uvozne robe u postupak unutarnje obrade (sistem odgođenog plaćanja) nakon izvoza dobijenih proizvoda proizvedenih od ekvivalentne robe u postupku unutarnje obrade po sistemu odgođenog plaćanja (EX - IM)"
+    },
+    {
+        "sifra": "5141",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak unutarnje obrade (sistem odgođenog plaćanja) nakon postupka unutarnje obrade (sistem povrata)"
+    },
+    {
+        "sifra": "5146",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak unutarnje obrade (sistem odgođenog plaćanja) nakon postupka unutarnje obrade u carinskom skladištu (sistem povrata)"
+    },
+    {
+        "sifra": "5147",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak unutarnje obrade (sistem odgođenog plaćanja) nakon postupka unutarnje obrade u slobodnoj zoni (sistem povrata)"
+    },
+    {
+        "sifra": "5151",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak unutarnje obrade (sistem odgođenog plaćanja) nakon postupka unutarnje obrade (sistem odgođenog plaćanja), što uključuje i premještanje (prijenos) robe u unutarnjoj obradi po sistemu odgođenog plaćanja"
+    },
+    {
+        "sifra": "5153",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak unutarnje obrade (sistem odgođenog plaćanja) nakon postupka privremenog uvoza"
+    },
+    {
+        "sifra": "5171",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak unutarnje obrade (sistem odgođenog plaćanja) nakon postupka carinskog skladištenja"
+    },
+    {
+        "sifra": "5193",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak unutarnje obrade (sistem odgođenog plaćanja) nakon uništenja pod carinskim nadzorom"
+    },
+    {
+        "sifra": "5300",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak privremenog uvoza bez prethodnog postupka"
+    },
+    {
+        "sifra": "5341",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak privremenog uvoza nakon postupka unutarnje obrade (sistem povrata)"
+    },
+    {
+        "sifra": "5346",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak privremenog uvoza nakon postupka unutarnje obrade u carinskom skladištu (sistem povrata)"
+    },
+    {
+        "sifra": "5347",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak privremenog uvoza nakon postupka unutarnje obrade u slobodnoj zoni (sistem povrata)"
+    },
+    {
+        "sifra": "5351",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak privremenog uvoza nakon postupka unutarnje obrade (sistem odgođenog plaćanja)"
+    },
+    {
+        "sifra": "5353",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak privremenog uvoza nakon postupka privremenog uvoza"
+    },
+    {
+        "sifra": "5355",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak privremenog uvoza nakon postupka unutarnje obrade u carinskom skladištu (sistem odgođenog plaćanja)"
+    },
+    {
+        "sifra": "5356",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak privremenog uvoza nakon postupka unutarnje obrade u slobodnoj zoni (sistem odgođenog plaćanja)"
+    },
+    {
+        "sifra": "5371",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak privremenog uvoza nakon postupka carinskog skladištenja"
+    },
+    {
+        "sifra": "5393",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak privremenog uvoza nakon uništenja pod carinskim nadzorom"
+    },
+    {
+        "sifra": "5500",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak unutarnje obrade u carinskom skladištu (sistem odgođenog plaćanja) bez prethodnog postupka"
+    },
+    {
+        "sifra": "5541",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak unutarnje obrade u carinskom skladištu (sistem odgođenog plaćanja) nakon postupka unutarnje obrade (sistem povrata)"
+    },
+    {
+        "sifra": "5546",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak unutarnje obrade u carinskom skladištu (sistem odgođenog plaćanja) nakon postupka unutarnje obrade u carinskom skladištu (sistem povrata)"
+    },
+    {
+        "sifra": "5547",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak unutarnje obrade u carinskom skladištu (sistem odgođenog plaćanja) nakon postupka unutarnje obrade u slobodnoj zoni (sistem povrata)"
+    },
+    {
+        "sifra": "5551",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak unutarnje obrade u carinskom skladištu (sistem odgođenog plaćanja) nakon postupka unutarnje obrade (sistem odgođenog plaćanja)"
+    },
+    {
+        "sifra": "5553",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak unutarnje obrade u carinskom skladištu (sistem odgođenog plaćanja) nakon postupka privremenog uvoza"
+    },
+    {
+        "sifra": "5555",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak unutarnje obrade u carinskom skladištu (sistem odgođenog plaćanja) nakon postupka unutarnje obrade u carinskom skladištu (sistem odgođenog plaćanja)"
+    },
+    {
+        "sifra": "5556",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak unutarnje obrade u carinskom skladištu (sistem odgođenog plaćanja) nakon postupka unutarnje obrade u slobodnoj zoni (sistem odgođenog plaćanja)"
+    },
+    {
+        "sifra": "5571",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak unutarnje obrade u carinskom skladištu (sistem odgođenog plaćanja) nakon postupka carinskog skladištenja"
+    },
+    {
+        "sifra": "5593",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak unutarnje obrade u carinskom skladištu (sistem odgođenog plaćanja) nakon uništenja pod carinskim nadzorom"
+    },
+    {
+        "sifra": "5600",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak unutarnje obrade u slobodnoj zoni (sistem odgođenog plaćanja) bez prethodnog postupka"
+    },
+    {
+        "sifra": "5641",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak unutarnje obrade u slobodnoj zoni (sistem odgođenog plaćanja) nakon postupka unutarnje obrade (sistem povrata)"
+    },
+    {
+        "sifra": "5646",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak unutarnje obrade u slobodnoj zoni (sistem odgođenog plaćanja) nakon postupka unutarnje obrade u carinskom skladištu (sistem povrata)"
+    },
+    {
+        "sifra": "5647",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak unutarnje obrade u slobodnoj zoni (sistem odgođenog plaćanja) nakon postupka unutarnje obrade u slobodnoj zoni (sistem povrata)"
+    },
+    {
+        "sifra": "5651",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak unutarnje obrade u slobodnoj zoni (sistem odgođenog plaćanja) nakon postupka unutarnje obrade (sistem odgođenog plaćanja)"
+    },
+    {
+        "sifra": "5653",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak unutarnje obrade u slobodnoj zoni (sistem odgođenog plaćanja) nakon postupka privremenog uvoza"
+    },
+    {
+        "sifra": "5655",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak unutarnje obrade u slobodnoj zoni (sistem odgođenog plaćanja) nakon postupka unutarnje obrade u carinskom skladištu (sistem odgođenog plaćanja)"
+    },
+    {
+        "sifra": "5656",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak unutarnje obrade u slobodnoj zoni (sistem odgođenog plaćanja) nakon postupka unutarnje obrade u slobodnoj zoni (sistem odgođenog plaćanja), što uključuje i premještanje (prijenos) robe u unutarnjoj obradi po sistemu odgođenog plaćanja u slobodnoj zoni"
+    },
+    {
+        "sifra": "5671",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak unutarnje obrade u slobodnoj zoni (sistem odgođenog plaćanja) nakon postupka carinskog skladištenja"
+    },
+    {
+        "sifra": "5693",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak unutarnje obrade u slobodnoj zoni (sistem odgođenog plaćanja) nakon uništenja pod carinskim nadzorom"
+    },
+    {
+        "sifra": "6100",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Ponovni uvoz uz istovremeno puštanje u slobodan promet dobijenih proizvoda koji su bili prvobitno izvezeni ili ponovo izvezeni nakon postupka unutarnje obrade (član 211. Zakona)"
+    },
+    {
+        "sifra": "6110",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Ponovni uvoz trajno izvezene robe uz istovremeno puštanje u slobodan promet bez oslobađanja od plaćanja uvoznih dažbina"
+    },
+    {
+        "sifra": "6121",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Ponovni uvoz uz istovremeno puštanje u slobodan promet bez oslobađanja od plaćanja uvoznih dažbina nakon postupka vanjske obrade"
+    },
+    {
+        "sifra": "6123",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Ponovni uvoz privremeno izvezene robe što se vraća u nepromijenjenom stanju uz istovremeno puštanje u slobodan promet bez oslobađanja od plaćanja uvoznih dažbina"
+    },
+    {
+        "sifra": "6195",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Ponovni uvoz uz istovremeno puštanje u slobodan promet bez oslobađanja od plaćanja uvoznih dažbina robe kojima su bile snabdjevene zalihe na brodovima i avionima"
+    },
+    {
+        "sifra": "6196",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Ponovni uvoz uz istovremeno puštanje u slobodan promet robe bez oslobađanja od plaćanja uvoznih dažbina nakon prodaje u bescarinskoj prodavnici na aerodromu"
+    },
+    {
+        "sifra": "6310",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Ponovni uvoz u nepromijenjenom stanju trajno izvezene robe uz istovremeno puštanje u slobodan promet uz oslobađanje od plaćanja uvoznih dažbina (član 209. Zakona)"
+    },
+    {
+        "sifra": "6321",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Ponovni uvoz robe u nepromijenjenom stanju uz istovremeno puštanje u slobodan promet uz oslobađanje od plaćanja uvoznih dažbina nakon postupka vanjske obrade (član 209. Zakona)"
+    },
+    {
+        "sifra": "6323",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Ponovni uvoz u nepromijenjenom stanju privremeno izvezene robe uz istovremeno puštanje u slobodan promet uz oslobađanje od plaćanja uvoznih dažbina (član 209. Zakona)"
+    },
+    {
+        "sifra": "6395",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Ponovni uvoz uz istovremeno puštanje u slobodan promet uz oslobađanje od plaćanja uvoznih dažbina robe kojima su snabdjevene zalihe na brodovima i avionima (član 209. Zakona)"
+    },
+    {
+        "sifra": "6396",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Ponovni uvoz i puštanje u slobodan promet robe uz oslobađanje od plaćanja uvoznih dažbina nakon maloprodaje u bescarinskoj prodavnici na aerodromu (član 209. Zakona)"
+    },
+    {
+        "sifra": "7100",
+        "vrsta": "IM",
+        "oznaka": "J",
+        "opis": "Postupak carinskog skladištenja bez prethodnog postupka"
+    },
+    {
+        "sifra": "7121",
+        "vrsta": "IM",
+        "oznaka": "J",
+        "opis": "Postupak carinskog skladištenja nakon postupka vanjske obrade"
+    },
+    {
+        "sifra": "7123",
+        "vrsta": "",
+        "oznaka": "",
+        "opis": "Postupak carinskog skladištenja nakon postupka privremenog izvoza robe koja se vraća u nepromijenjenom stanju IM J(10) K(11) NE NE"
+    },
+    {
+        "sifra": "7141",
+        "vrsta": "",
+        "oznaka": "",
+        "opis": "Postupak carinskog skladištenja nakon postupka unutarnje obrade (sistem povrata) IM J(10) K(11) NE NE"
+    },
+    {
+        "sifra": "7146",
+        "vrsta": "",
+        "oznaka": "",
+        "opis": "Postupak carinskog skladištenja nakon postupka unutarnje obrade u carinskom skladištu (sistem povrata) IM J(10) K(11) NE NE"
+    },
+    {
+        "sifra": "7147",
+        "vrsta": "",
+        "oznaka": "",
+        "opis": "Postupak carinskog skladištenja nakon postupka unutarnje obrade u slobodnoj zoni (sistem povrata) IM J(10) K(11) NE NE"
+    },
+    {
+        "sifra": "7151",
+        "vrsta": "",
+        "oznaka": "",
+        "opis": "Postupak carinskog skladištenja nakon postupka unutarnje obrade (sistem odgođenog plaćanja) IM J(10) K(11) NE NE"
+    },
+    {
+        "sifra": "7153",
+        "vrsta": "",
+        "oznaka": "",
+        "opis": "Postupak carinskog skladištenja nakon postupka privremenog uvoza IM J(10) K(11) NE NE"
+    },
+    {
+        "sifra": "7155",
+        "vrsta": "",
+        "oznaka": "",
+        "opis": "Postupak carinskog skladištenja nakon postupka unutarnje obrade u carinskom skladištu (sistem odgođenog plaćanja) IM J(10) K(11) NE NE"
+    },
+    {
+        "sifra": "7156",
+        "vrsta": "",
+        "oznaka": "",
+        "opis": "Postupak carinskog skladištenja nakon postupka unutarnje obrade u slobodnoj zoni (sistem odgođenog plaćanja ) IM J(10) K(11) NE NE"
+    },
+    {
+        "sifra": "7171",
+        "vrsta": "",
+        "oznaka": "",
+        "opis": "Postupak carinskog skladištenja nakon postupka carinskog skladištenja IM J(10) K(11) NE NE"
+    },
+    {
+        "sifra": "7191",
+        "vrsta": "",
+        "oznaka": "",
+        "opis": "Postupak carinskog skladištenja nakon postupka obrade pod carinskom kontrolom IM J(10) K(11) NE NE"
+    },
+    {
+        "sifra": "7193",
+        "vrsta": "",
+        "oznaka": "",
+        "opis": "Postupak carinskog skladištenja nakon uništenja pod carinskim nadzorom IM J(10) K(11) NE NE"
+    },
+    {
+        "sifra": "9100",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak obrade pod carinskom kontrolom bez prethodnog postupka"
+    },
+    {
+        "sifra": "9141",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak obrade pod carinskom kontrolom nakon postupka unutarnje obrade (sistem povrata)"
+    },
+    {
+        "sifra": "9146",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak obrade pod carinskom kontrolom nakon postupka unutarnje obrade u carinskom skladištu (sistem povrata)"
+    },
+    {
+        "sifra": "9147",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak obrade pod carinskom kontrolom nakon postupka unutarnje obrade u slobodnoj zoni (sistem povrata)"
+    },
+    {
+        "sifra": "9151",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak obrade pod carinskom kontrolom nakon postupka unutarnje obrade (sistem odgođenog plaćanja)"
+    },
+    {
+        "sifra": "9153",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak obrade pod carinskom kontrolom nakon postupka privremenog uvoza"
+    },
+    {
+        "sifra": "9155",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak obrade pod carinskom kontrolom nakon postupka unutarnje obrade u carinskom skladištu (sistem odgođenog plaćanja)"
+    },
+    {
+        "sifra": "9156",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak obrade pod carinskom kontrolom nakon postupka unutarnje obrade u slobodnoj zoni (sistem odgođenog plaćanja)"
+    },
+    {
+        "sifra": "9171",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak obrade pod carinskom kontrolom nakon postupka carinskog skladištenja"
+    },
+    {
+        "sifra": "9193",
+        "vrsta": "IM",
+        "oznaka": "I",
+        "opis": "Postupak obrade pod carinskom kontrolom nakon uništenja pod carinskim nadzorom"
+    },
+    {
+        "sifra": "9300",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Uništenje robe pod carinskim nadzorom bez prethodnog postupka"
+    },
+    {
+        "sifra": "9341",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Uništenje robe pod carinskim nadzorom nakon postupka unutarnje obrade (sistem povrata)"
+    },
+    {
+        "sifra": "9346",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Uništenje robe pod carinskim nadzorom nakon postupka unutarnje obrade u carinskom skladištu (sistem povrata)"
+    },
+    {
+        "sifra": "9347",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Uništenje robe pod carinskim nadzorom nakon postupka unutarnje obrade u slobodnoj zoni (sistem povrata)"
+    },
+    {
+        "sifra": "9351",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Uništenje robe pod carinskim nadzorom nakon postupka unutarnje obrade (sistem odgođenog plaćanja)"
+    },
+    {
+        "sifra": "9353",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Uništenje pod carinskim nadzorom nakon postupka privremenog uvoza"
+    },
+    {
+        "sifra": "9355",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Uništenje robe pod carinskim nadzorom nakon postupka unutarnje obrade u carinskom skladištu (sistem odgođenog plaćanja)"
+    },
+    {
+        "sifra": "9356",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Uništenje robe pod carinskim nadzorom nakon postupka unutarnje obrade u slobodnoj zoni (sistem odgođenog plaćanja)"
+    },
+    {
+        "sifra": "9371",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Uništenje robe pod carinskim nadzorom nakon postupka carinskog skladištenja"
+    },
+    {
+        "sifra": "9391",
+        "vrsta": "IM",
+        "oznaka": "H",
+        "opis": "Uništenje robe pod carinskim nadzorom nakon postupka obrade pod carinskom kontrolom"
+    },
+    {
+        "sifra": "9500",
+        "vrsta": "EX",
+        "oznaka": "A",
+        "opis": "Snabdjevanje zaliha (isporuka robe) na zrakoplove i plovila u međunarodnom saobraćaju bh. robom bez prethodnog postupka"
+    },
+    {
+        "sifra": "9600",
+        "vrsta": "EX",
+        "oznaka": "A",
+        "opis": "Maloprodaja bh. robe u bescarinskoj prodavnici na međunarodnom aerodromu u Bosni i Hercegovini bez prethodnog postupka"
+    }
+]

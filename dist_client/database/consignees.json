@@ -1,0 +1,5866 @@
+[
+  {
+    "type": "CONSIGNEE",
+    "name": "PIP 92 d.o.o. Laktaši",
+    "address": "Прњаворски пут број 7",
+    "city": "Лакташи",
+    "country": "BIH",
+    "code": "401631740005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ELAS METALEXPERT EXPORT-IMPORT DOO",
+    "address": "BRANKA POPOVIĆA BR.61B",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "400823280001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "1. MAJ d.o.o. Kozarska Dubica",
+    "address": "Краља Петра I Ослободиоца  бб",
+    "city": "Козарска Дубица",
+    "country": "BIH",
+    "code": "400737950002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "GMP KOMPANI DOO",
+    "address": "Улица jaсеновачка број 12",
+    "city": "Laktaši",
+    "country": "BIH",
+    "code": "402287720004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ENMON DOO",
+    "address": "RAMIĆI BB",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "402283900008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "IPEK d.o.o.",
+    "address": "Дујка Комљеновића 100 А",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "403963140004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "VERDIĆ-COMMERCE d.o.o.",
+    "address": "RAKITNO BB",
+    "city": "POSUŠJE",
+    "country": "BIH",
+    "code": "272012370002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "LEBURIĆ KOMERC DOO",
+    "address": "VIJAKA BB",
+    "city": "PRNJAVOR",
+    "country": "BIH",
+    "code": "401219270002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "2E-CONSULTING d.o.o.",
+    "address": "Pijačna 78",
+    "city": "Ilidža",
+    "country": "BIH",
+    "code": "201838450008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PS-TEX DOO",
+    "address": "RAMIĆI BB",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "402278650001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "SUŠA-COMMERCE DOO",
+    "address": "DONJA ZIMČA BB",
+    "city": "VISOKO",
+    "country": "BIH",
+    "code": "218204740003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "078 COMMERCE DOO",
+    "address": "MLADENA STOJANOVIĆA 3",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "400814960008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MESSER TEHNOPLIN DOO",
+    "address": "RAJLOVAČKA BB",
+    "city": "SARAJEVO",
+    "country": "BIH",
+    "code": "200350720000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MODUL",
+    "address": "SUBOTIČKA 15",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "400931920009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "YIMOR d.o.o. Domaljevac",
+    "address": "ul. Stjepana Radića br.22",
+    "city": "Domaljevac-Šamac",
+    "country": "BIH",
+    "code": "254012470009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "FARMALOGIST ALLBIX d.o.o. Bijeljina",
+    "address": "Стефана Дечанског  258",
+    "city": "Бијељина",
+    "country": "BIH",
+    "code": "403876500002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "СРЕТО БЛАГИЋ с.п. \"BLAGIĆ\"",
+    "address": "Браће Подгорникa бб",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "502690430002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ARMAKO DOO",
+    "address": "BANJALUČKI PUT 21",
+    "city": "PRNJAVOR",
+    "country": "BIH",
+    "code": "401219190009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ANDORA DOO",
+    "address": "PUT ŽIVOTA 14",
+    "city": "SARAJEVO",
+    "country": "BIH",
+    "code": "201088190009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ABAK d.o.o.",
+    "address": "BARE,HAJRUDINA MEŠIĆA BB",
+    "city": "TUZLA",
+    "country": "BIH",
+    "code": "209080760001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "AUTOCENTAR-MERKUR DOO",
+    "address": "KNJAZA MILOŠA BB",
+    "city": "BANJA LUKA 78000",
+    "country": "BIH",
+    "code": "400841420007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "AC FOOD d.o.o.",
+    "address": "Polje bb",
+    "city": "Velika Kladuša",
+    "country": "BIH",
+    "code": "263754360009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ACMA-GROUP DOO",
+    "address": "LJUSINA BB",
+    "city": "BOSANSKA KRUPA",
+    "country": "BIH",
+    "code": "263603310000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ISKRA  DOO",
+    "address": "PODBRDO BB",
+    "city": "MRKONJIĆ GRAD",
+    "country": "BIH",
+    "code": "401189690001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "AD PLUS DOO",
+    "address": "DŽEMALA BIJEDIĆA 185",
+    "city": "ILIDŽA",
+    "country": "BIH",
+    "code": "201406070000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ADRIALINE DOO",
+    "address": "ILIJE GARAŠANINA BB",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "403262430008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "AGEL PACK DOO",
+    "address": "ŠABANA ZAHIROVIĆA BR.9/166",
+    "city": "TUZLA",
+    "country": "BIH",
+    "code": "209985390003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "AGEL PACK PRO d.o.o.",
+    "address": "Brka, Industrijska zona bb",
+    "city": "Brčko",
+    "country": "BIH",
+    "code": "600508800004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "Agenda d.o.o.",
+    "address": "Улица Цара Душана 47",
+    "city": "Лакташи",
+    "country": "BIH",
+    "code": "405108770001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "AGRAGOLD d.o.о.",
+    "address": "Industrijska br. 4",
+    "city": "Brčko Distrikt BiH",
+    "country": "BIH",
+    "code": "600056640004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MONTEX-M",
+    "address": "DONJI ŠTRPCI BB",
+    "city": "PRNJAVOR",
+    "country": "BIH",
+    "code": "401799500000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "AGRINATURA d.o.o.",
+    "address": "6. mart br. 86",
+    "city": "Sarajevo",
+    "country": "BIH",
+    "code": "202403180005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "AGRO SLIJEPČEVIĆ d.o.o.",
+    "address": "Краља Петра I Ослободиоца бб",
+    "city": "Козарска Дубица",
+    "country": "BIH",
+    "code": "404908410007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "AGRO BUĆEVAČA",
+    "address": "GORNJE VAKUVSKO BB",
+    "city": "KUPRES",
+    "country": "BIH",
+    "code": "281040730005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "AGROEKONOMIK D.O.O.",
+    "address": "ZMAJA OD BOSNE BB-",
+    "city": "ZENICA",
+    "country": "BIH",
+    "code": "218125100007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "POLJOOPREMA MT  DOO",
+    "address": "KRALJA PETRA I OSLOBODIOCA 14",
+    "city": "BILEĆA",
+    "country": "BIH",
+    "code": "401379390004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "AGROKOMBINAT DOO",
+    "address": "ZMAJ OGNJENOG VUKA 144",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "402159210001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "TENEN doo",
+    "address": "SRBIJA",
+    "city": "NOVI SAD",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "AGROŠPED DOO",
+    "address": "VELIKO BLAŠKO BB",
+    "city": "LAKTAŠI",
+    "country": "BIH",
+    "code": "401141810005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "AGROUNIJA",
+    "address": "SARAJEVSKA BB",
+    "city": "SRBAC",
+    "country": "BIH",
+    "code": "401255400001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "RATKO DUJAKOVIĆ s.p. AGRO - VAR",
+    "address": "Улица Марија Кири бр.18",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "504747980007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "AGROVITA d.o.o.",
+    "address": "Краља Александра бб",
+    "city": "Добој",
+    "country": "BIH",
+    "code": "404011210005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "UBIZ ENTERPISES Ltd.",
+    "address": "CYPRUS",
+    "city": "NICOSIA,Avionos 1",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "UBIZ ENTERPRISES Ltd.",
+    "address": "CYPRUS",
+    "city": "NICOSIA,Avionos 1",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "AJDIN-GROUP DOO",
+    "address": "INDUSTRIJSKA ZONA OZRAKOVIĆI",
+    "city": "VISOKO",
+    "country": "BIH",
+    "code": "218051570006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "AJDO-PROM d.o.o. Zenica",
+    "address": "Bistua Nuova bb",
+    "city": "Zenica",
+    "country": "BIH",
+    "code": "218912150003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "AUTOKUĆA BOŠNJAK d.o.o.",
+    "address": "Fra Dominika Mandića 23",
+    "city": "Široki Brijeg",
+    "country": "BIH",
+    "code": "272024030002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BIOS P.O.",
+    "address": "GORNJA VRATNICA BB",
+    "city": "VISOKO",
+    "country": "BIH",
+    "code": "218401220003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "AKTIVA INVEST d.o.o.",
+    "address": "Иве Лоле Рибара 4",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "400792200004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "AQUA TIM DOO",
+    "address": "GLAMOČANI BB",
+    "city": "LAKTAŠI",
+    "country": "BIH",
+    "code": "402926160007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ALBAT d.o.o.",
+    "address": "Pavla Lukača 7",
+    "city": "Novo Sarajevo",
+    "country": "BIH",
+    "code": "201041550007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ALEX DOO",
+    "address": "VELIKO BLAŠKO BB",
+    "city": "LAKTAŠI",
+    "country": "BIH",
+    "code": "402796870007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PTU ALFA-COMMERCE DOO",
+    "address": "PETRA SVAČIĆA BB",
+    "city": "VITEZ",
+    "country": "BIH",
+    "code": "236157890008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MY BOOK DOO",
+    "address": "PETRA PECIJE BR.83",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "403570250002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ALJETIĆ d.o.o. export-import",
+    "address": "Ул. Крајишких бригада број 16",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "402148440005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MILKOS DD",
+    "address": "MOSTARSKO RASKRŠĆE BB",
+    "city": "HADŽIĆI",
+    "country": "BIH",
+    "code": "200967560000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ALTERA д.о.о.",
+    "address": "Улица краља Петра II Карађорђевића",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "401641540004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ALUMINA  DOO",
+    "address": "KARAKAJ BB",
+    "city": "ZVORNIK",
+    "country": "BIH",
+    "code": "400281290005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ALUTREND d.o.o.",
+    "address": "Равногорска до 158",
+    "city": "Istočna Ilidža",
+    "country": "BIH",
+    "code": "600485840003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ALWENOL-BH DOO",
+    "address": "JELAH,TITOVA BB",
+    "city": "TEŠANJ",
+    "country": "BIH",
+    "code": "218729030007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "AM-AČKO DOO",
+    "address": "BOLJANIĆ 305",
+    "city": "DOBOJ",
+    "country": "BIH",
+    "code": "403821510009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "AMEDEX DOO",
+    "address": "AJVAZ DEDINA 45",
+    "city": "ILIDŽA",
+    "country": "BIH",
+    "code": "200439890006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "AMITEA-II DOO",
+    "address": "BIŠĆE POLJE BB",
+    "city": "MOSTAR",
+    "country": "BIH",
+    "code": "227720230002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "AMS EX GRUPA d.o.o.",
+    "address": "Књаза Милоша број 48",
+    "city": "Banja Luka",
+    "country": "BIH",
+    "code": "403967480004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ЗОРАН ШУГИЋ с.п. АНАСТАСИЈА",
+    "address": "Угао ул. Јеврејска и Ивана Фрање Ј.",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "508419950007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "AN Consulting d.o.o. Sarajevo",
+    "address": "Ulica Džemala Bijedića br. 160",
+    "city": "Novi Grad Sarajevo",
+    "country": "BIH",
+    "code": "202812600008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ITC ZENICA DOO",
+    "address": "ZMAJA OD BOSNE BB",
+    "city": "ZENICA",
+    "country": "BIH",
+    "code": "218146790003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "",
+    "address": "",
+    "city": "",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "KLAUR INTERNATIONAL d.o.o. Sarajevo",
+    "address": "ul. Tome Mendeša br. 45",
+    "city": "Sarajevo",
+    "country": "BIH",
+    "code": "202042900008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ANH Capital Investment\" d.o.o.",
+    "address": "Zaobilaznica bb",
+    "city": "Bihać",
+    "country": "BIH",
+    "code": "263901500008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ANITEX MD DOO",
+    "address": "SOLUNSKIH DOBROVOLJACA SP 100,POSL.",
+    "city": "DOBOJ",
+    "country": "BIH",
+    "code": "402522660006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "GMP enterijeri d.o.o. Banja Luka",
+    "address": "Улица Карађорђева број 2",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "404339960001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "CARLLATO  DOO",
+    "address": "NOVA BILA,20/B",
+    "city": "TRAVNIK",
+    "country": "BIH",
+    "code": "236336470003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "APROTRANS D.O.O.",
+    "address": "TREBAVSKE SRPSKE BRIGADE BB",
+    "city": "DOBOJ 74000",
+    "country": "BIH",
+    "code": "400024130005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "AQUAMAX LINE DOO",
+    "address": "SIŽJE,UL.MAGISTRALNI PUT BB",
+    "city": "LUKAVAC",
+    "country": "BIH",
+    "code": "210134120001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "YIMOR DOO",
+    "address": "SARAJEVSKA BR.56",
+    "city": "BRČKO DISTRIKT BIH",
+    "country": "BIH",
+    "code": "600300900005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ARI MEDIKAL DOO",
+    "address": "IVE ANDRIĆA 13",
+    "city": "SARAJEVO",
+    "country": "BIH",
+    "code": "201564570001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ARIFAGIĆ INVESTMENT DOO",
+    "address": "TRNOPOLJE BR.61",
+    "city": "PRIJEDOR",
+    "country": "BIH",
+    "code": "403299860002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "SMIT COMMERCE",
+    "address": "HRVATSKA",
+    "city": "GORNJI STUPNIK",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ART HOME DOO",
+    "address": "ULICA SRPSKA KRILA SLOBODE A",
+    "city": "GRADIŠKA",
+    "country": "BIH",
+    "code": "403717020008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ARTENTd.o.o. Sarajevo",
+    "address": "ul. Radnička bb",
+    "city": "Sarajevo",
+    "country": "BIH",
+    "code": "202400080000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ART SCENA DOO",
+    "address": "MILANA CVIJETIĆA 52",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "402902570000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "AS-ŠPED",
+    "address": "JEVREJSKA 24",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "401959390001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ASCO BH d.o.o.",
+    "address": "Индустријска зона бб",
+    "city": "Александровац",
+    "country": "BIH",
+    "code": "404340890009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "AS DOO",
+    "address": "INDUSTRIJSKA ZONA \"EKONOMIJA\" BB",
+    "city": "TEŠANJ",
+    "country": "BIH",
+    "code": "218052620007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ASPO RAIL d.o.o.",
+    "address": "Alipašina 53",
+    "city": "Sarajevo",
+    "country": "BIH",
+    "code": "202124540000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "INTER-METAL DOO",
+    "address": "DESPOTA STEFANA LAZAREVIĆA BB",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "400870790000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ATLANTIK BB DOO",
+    "address": "JOVANA BIJELIĆA BB",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "400913350009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ATRAKTIV",
+    "address": "ISMETA ALAJBEGOVIĆA ŠERBE BR.18",
+    "city": "SARAJEVO",
+    "country": "BIH",
+    "code": "200218450001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "AUROGMM",
+    "address": "MEĐUGORJE BB",
+    "city": "ČITLUK",
+    "country": "BIH",
+    "code": "227501940002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "DOMAĆA FIZIČKA LICA",
+    "address": "nalaze se u rubrici 9 prijave",
+    "city": "Identitet i detalji o adresi",
+    "country": "BIH",
+    "code": "010000000019"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "KING DOO",
+    "address": "MAGISTRALNI PUT BB-INDUSTRIJSKA",
+    "city": "LUKAVAC",
+    "country": "BIH",
+    "code": "209756870000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "AVANTI",
+    "address": "BRANILACA SARAJEVA 4",
+    "city": "SARAJEVO",
+    "country": "BIH",
+    "code": "200523330008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "AVGS d.o.o. Banja Luka",
+    "address": "Алеја Светог Саве број 69",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "404866310007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "AVIFF BL d.o.o.",
+    "address": "Ул. Мирка Ковачевића бр. 13а",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "404101980004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "Адријана Шешић с.п. AVIOR",
+    "address": "Моштаничка 8",
+    "city": "Козарска Дубица",
+    "country": "BIH",
+    "code": "512540820002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "KALAMIDO d.o.o.",
+    "address": "ul. Svete Ane broj 11",
+    "city": "Domaljevac-Šamac",
+    "country": "BIH",
+    "code": "254139110001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "A.W.G. DOO",
+    "address": "Aleja Bosne srebrene br. 125",
+    "city": "Ilidža",
+    "country": "BIH",
+    "code": "218491890002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "TRGOPROMEX DOO",
+    "address": "SPORTSKA BB",
+    "city": "MRKONJIĆ GRAD",
+    "country": "BIH",
+    "code": "401189930002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BROMA BEL DOO",
+    "address": "BRANKA POPOVIĆA 39",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "400839360005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "Bisprom",
+    "address": "MAGISTRALNI PUT 26",
+    "city": "PRNJAVOR 78430",
+    "country": "BIH",
+    "code": "401586690000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "KONZUM DOO",
+    "address": "RAJLOVAČKA BB",
+    "city": "SARAJEVO",
+    "country": "BIH",
+    "code": "200918600004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ДАРКО ДАКИЋ с.п. BAG ME трговачка р",
+    "address": "Краља Петра I Ослободиоца бр.25",
+    "city": "Приједор",
+    "country": "BIH",
+    "code": "504220460005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "SARAJEVSKA PIVARA",
+    "address": "FRANJEVAČKA 15",
+    "city": "SARAJEVO",
+    "country": "BIH",
+    "code": "200231550007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BAMBUS PETROL d.o.o Veliko Blaško",
+    "address": "Велико Блашко бб",
+    "city": "Лакташи",
+    "country": "BIH",
+    "code": "401153580005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "VETEKS DOO",
+    "address": "CARA DUŠANA BR.65, TRN",
+    "city": "LAKTAŠI",
+    "country": "BIH",
+    "code": "402542770002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BANJA KULAŠI d.o.o.",
+    "address": "Кулаши бб",
+    "city": "Прњавор",
+    "country": "BIH",
+    "code": "403875010001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "POLJOKUĆA DOO",
+    "address": "SRPSKIH SOKOLOVA BR.1",
+    "city": "DOBOJ 74000",
+    "country": "BIH",
+    "code": "400013520006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BANT",
+    "address": "PC 96",
+    "city": "VITEZ",
+    "country": "BIH",
+    "code": "236365490005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BARE-COM DOO",
+    "address": "KRAJIŠKIH BRIGADA 1",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "400804060009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "d.o.o. BATIMAT.BA. Bosanska Krupa",
+    "address": "Bužimski put  , Bosanska Otoka",
+    "city": "Bosanska Krupa",
+    "country": "BIH",
+    "code": "263742600004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BAU & GARTEN DOO",
+    "address": "LUŽANSKO POLJE 9",
+    "city": "SARAJEVO",
+    "country": "BIH",
+    "code": "200488080001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "Bautex d.o.o.",
+    "address": "Ravnogorska 96",
+    "city": "Istočna Ilidža",
+    "country": "BIH",
+    "code": "404296110009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ID EUROBLIC PRESS DOO",
+    "address": "MIŠE STUPARA 3",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "400816740005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "beeJapa d.o.o. Sanski Most",
+    "address": "Pobriježje broj 36",
+    "city": "Sanski Most",
+    "country": "BIH",
+    "code": "263793690008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "NAKLADA BEGEN DOO",
+    "address": "ŠEFIKA DORIĆA 6/1",
+    "city": "SARAJEVO-NOVI GRAD",
+    "country": "BIH",
+    "code": "200511160000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BEGISTAN",
+    "address": "BULEVAR KRALAJ TVRTKA I 17",
+    "city": "ZENICA",
+    "country": "BIH",
+    "code": "218311150006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BEL PRINT DOO",
+    "address": "CARA LAZARA BR.20",
+    "city": "ČELINAC",
+    "country": "BIH",
+    "code": "401848640009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BELT DOO",
+    "address": "STARINE NOVAKA 23",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "402085180008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BEMA DOO",
+    "address": "VOJVODE PERE KRECE BB",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "402091580000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BEOPLAST",
+    "address": "NOVOSADSKA  13",
+    "city": "TRN-LAKTAŠI",
+    "country": "BIH",
+    "code": "402270910004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "RINGIER AXEL SPRINGER",
+    "address": "SRBIJA",
+    "city": "BEOGRAD",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "Bergman Tehnik d.o.o.",
+    "address": "Пут српских бранилаца број 45",
+    "city": "Залужани",
+    "country": "BIH",
+    "code": "405017200008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BEST DOO",
+    "address": "GOSTE LAZAREVIĆA 62",
+    "city": "TUZLA",
+    "country": "BIH",
+    "code": "209014380001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "GALEB GROUP d.o.o.",
+    "address": "Стефана Дечанског бр.241",
+    "city": "Бијељина",
+    "country": "BIH",
+    "code": "400375600008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "Messer BH Gas d.o.o.",
+    "address": "Poslovna zona 14",
+    "city": "Petrovo",
+    "country": "BIH",
+    "code": "201271040008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BH ES ELEKTROSISTEM DOO",
+    "address": "ULICA PALIH BORACA BR.104",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "400800580008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BIBIĆ d.o.o.",
+    "address": "Суботичка бр.3",
+    "city": "Дракулић",
+    "country": "BIH",
+    "code": "404259000007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BIHEXO d.o.o.",
+    "address": "Put Famosa br. 47",
+    "city": "Sarajevo, Ilidža",
+    "country": "BIH",
+    "code": "200143180003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BIMAL",
+    "address": "BIJELJINSKA 9",
+    "city": "BRČKO 76000",
+    "country": "BIH",
+    "code": "600029240002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BIOPLOD DOO",
+    "address": "SVETOSAVSKA BR.6",
+    "city": "KOZARSKA DUBICA",
+    "country": "BIH",
+    "code": "403504460004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BIONA & BEYOND d.o.o.",
+    "address": "Pofalićka broj 5",
+    "city": "Sarajevo",
+    "country": "BIH",
+    "code": "201030190009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "Bisprom",
+    "address": "MAGISTRALNI PUT 26",
+    "city": "PRNJAVOR 78430",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BK BAU SERVICE d.o.o.",
+    "address": "Ул. Боланог Дојчина број 30",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "404162930000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BLACK & WHITE д.о.о.",
+    "address": "Сердар Јанка Вукотића бб",
+    "city": "Пале",
+    "country": "BIH",
+    "code": "403504620001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "B Medik d.o.o. Gradiška",
+    "address": "Seferovci bb",
+    "city": "Nova Topola",
+    "country": "BIH",
+    "code": "404358240001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "B N",
+    "address": "LAZE KOSTIĆA 146",
+    "city": "BIJELJINA 76300",
+    "country": "BIH",
+    "code": "400330920001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BOCA DOO",
+    "address": "NOVACI BB PC 96",
+    "city": "VITEZ",
+    "country": "BIH",
+    "code": "236052010002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "VINARIJA JUNGIĆ DOO",
+    "address": "MARKOVAC BB",
+    "city": "ČELINAC",
+    "country": "BIH",
+    "code": "402905830002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BOLETUS d.o.o. Sarajevo",
+    "address": "ul. Ćate br. 5",
+    "city": "Sarajevo",
+    "country": "BIH",
+    "code": "200386750002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BOM-IMPEKS d.o.o.",
+    "address": "Јована Бијелића бб",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "400860640000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BONITA  D.O.O.",
+    "address": "OTOK BB",
+    "city": "TREBINJE 89101",
+    "country": "BIH",
+    "code": "401354130008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BORILAČKA OPREMA d.o.o.",
+    "address": "Terеzije  bb",
+    "city": "Sarajevo",
+    "country": "BIH",
+    "code": "404359130005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BOSBERRY d.o.o.",
+    "address": "Živiničke ose bb",
+    "city": "Živinice",
+    "country": "BIH",
+    "code": "210186190008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BOSANCAR DOO",
+    "address": "UNSKA BB",
+    "city": "BOSANSKA KRUPA",
+    "country": "BIH",
+    "code": "263437040007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "AGROSOL DOO",
+    "address": "KRUŠEVAC",
+    "city": "TIMOČKE BUNE 5",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "RZG BOSNA METAL",
+    "address": "KAONIK",
+    "city": "BUSOVAČA",
+    "country": "BIH",
+    "code": "236347080002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MODUL",
+    "address": "SUBOTIČKA 15",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BOSNAPLAST DOO",
+    "address": "SAFETA ZAJKE 61",
+    "city": "SARAJEVO",
+    "country": "BIH",
+    "code": "200152250006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "D.o.o. BOSNA SJEME Bijeljine",
+    "address": "Љељенча 9",
+    "city": "Бијељина",
+    "country": "BIH",
+    "code": "402021530005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BOSNET GROUP DOO",
+    "address": "6.MART BB",
+    "city": "HADŽIĆI",
+    "country": "BIH",
+    "code": "200995850005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BOSNIAKOP DOO",
+    "address": "TEŠANJKA BB",
+    "city": "USORA",
+    "country": "BIH",
+    "code": "218774920005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BOST DOO",
+    "address": "DUŠANA BARANJINA 3",
+    "city": "BIJELJINA",
+    "country": "BIH",
+    "code": "400434030008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BOVA DOO",
+    "address": "NASELJE SLOBODE BB",
+    "city": "ISTOČNO SARAJEVO",
+    "country": "BIH",
+    "code": "403143340009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "UMKA doo FABRIKA KARTONA",
+    "address": "SRBIJA",
+    "city": "UMKA",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "UMKA DOO",
+    "address": "SRBIJA",
+    "city": "UMKA",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "UMKA doo FABRIKA KARTONA",
+    "address": "SRBIJA",
+    "city": "Umka-BEOGRAD",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PAPIR SERVIS FHB DOO",
+    "address": "SRBIJA",
+    "city": "UMKA",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "UMKA doo-FABRIKA KARTONA",
+    "address": "SRBIJA",
+    "city": "BEOGRAD",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BRAĆA JOVIĆ DOO",
+    "address": "KARAĐORĐEVA BR.205",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "403177240003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BRAĆA KARIĆ DOO",
+    "address": "HUSEINA KULENOVIĆA 18",
+    "city": "ZENICA",
+    "country": "BIH",
+    "code": "218088650000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ŽITO-PROGRES DOO",
+    "address": "RAMIĆI BB",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "403621690002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ЈОВО ПЕРИШИЋ с.п. БРАВАРИЈА з.б.р.",
+    "address": "Београдска бб",
+    "city": "Бијељина",
+    "country": "BIH",
+    "code": "501079570005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "METALLVERK",
+    "address": "ŠVEDSKA",
+    "city": "AKARP,VAGMASTAREVAGEN 24",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BRIJESNICA KOMERC DOO",
+    "address": "Doboj-Istok",
+    "city": "BRIJESNICA VELIKA BB",
+    "country": "BIH",
+    "code": "209245860006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BRO MANUFAKTURA d.o.o.",
+    "address": "Obilićev vijenac 107",
+    "city": "Šamac",
+    "country": "BIH",
+    "code": "405158440002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BTS GARDEN d.o.o.",
+    "address": "Младена Стојановића бб",
+    "city": "Лакташи",
+    "country": "BIH",
+    "code": "404172650005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BUBA-COMMERCE",
+    "address": "POSLOVNI CENTAR 96",
+    "city": "JARDOL-VITEZ",
+    "country": "BIH",
+    "code": "236075060007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BULJŠAĆ d.o.o. Sarajevo",
+    "address": "Magistrala broj 18",
+    "city": "Ilidža",
+    "country": "BIH",
+    "code": "200425320002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "RHEI LIFE",
+    "address": "SRBIJA",
+    "city": "BEOGRAD",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ČARDAKLI d.o.o.",
+    "address": "ul. Tešanjska do broja 9",
+    "city": "Sarajevo-Novi Grad",
+    "country": "BIH",
+    "code": "201513150008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ЖАРКА ВУЧИНИЋ с.п.",
+    "address": "Невесиње",
+    "city": "ТР АУТО ДИЈЕЛОВА CARGO",
+    "country": "BIH",
+    "code": "505788440005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "CASA DE d.o.o.",
+    "address": "Књаза Милоша 82",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "403926960000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "FOLIPLAST d.o.o.",
+    "address": "Stjepana Radića bb",
+    "city": "Vitez",
+    "country": "BIH",
+    "code": "236664990006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "CEMEDIC PROMET DOO",
+    "address": "FRA GRGE MARTIĆA 10",
+    "city": "ZENICA",
+    "country": "BIH",
+    "code": "218692520009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "CENTROMETAL d.o.o.",
+    "address": "Bačići 9",
+    "city": "Sarajevo",
+    "country": "BIH",
+    "code": "202414030005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PRAMAT",
+    "address": "BRKA BB,INDUSTRIJSKA ZONA",
+    "city": "BRČKO DISTRIKT",
+    "country": "BIH",
+    "code": "600143880003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "METALFER STEEL MILL",
+    "address": "SRBIJA",
+    "city": "SREMSKA MITROVICA",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "CLASSY BH d.o.o.",
+    "address": "Stjepana Radića broj 22",
+    "city": "Domaljevac",
+    "country": "BIH",
+    "code": "254173480004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "CMC GROUP d.o.o.",
+    "address": "Bosanski put br. 215",
+    "city": "Ilijaš",
+    "country": "BIH",
+    "code": "200213810000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "GTI COBRA d.o.o.",
+    "address": "Ćehaje bb",
+    "city": "Srebrenik",
+    "country": "BIH",
+    "code": "210647340007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "COBRA",
+    "address": "ĆEHAJE BB",
+    "city": "SREBRENIK",
+    "country": "BIH",
+    "code": "209373600009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "COCA-COLA HBC B-H d.o.o.",
+    "address": "ul. Mostarsko raskršće 1",
+    "city": "Sarajevo",
+    "country": "BIH",
+    "code": "200200160006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "KolorHEM",
+    "address": "BEZCARINSKA ZONA BB",
+    "city": "BRČKO DISTRIKT",
+    "country": "BIH",
+    "code": "600138700005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "COMACO TRADING d.o.o.",
+    "address": "HIMZE POLOVINE 35",
+    "city": "SARAJEVO-CENTAR",
+    "country": "BIH",
+    "code": "200610140002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MINAS COMMERCE d.o.o.",
+    "address": "SOVIĆI 374",
+    "city": "GRUDE",
+    "country": "BIH",
+    "code": "272010320008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "COMPEX DOO",
+    "address": "BRAĆE PIŠTELJIĆA BR.1",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "400786650006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "CONI PLUS   DOO",
+    "address": "BRAĆE BEGIĆ 27-A",
+    "city": "SARAJEVO",
+    "country": "BIH",
+    "code": "200833950006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "CONTEGO d.o.o.",
+    "address": "Divijak bb",
+    "city": "Vitez",
+    "country": "BIH",
+    "code": "236623960003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MABO DOO",
+    "address": "fra Didaka Buntića 96",
+    "city": "ŠIROKI BRIJEG",
+    "country": "BIH",
+    "code": "272371930005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "COTEX DOO",
+    "address": "ĆEHAJE BB",
+    "city": "SREBRENIK",
+    "country": "BIH",
+    "code": "209957340009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "C.P.A. D.O.O.",
+    "address": "TOJŠIĆI BB",
+    "city": "KALESIJA",
+    "country": "BIH",
+    "code": "209245350008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "INFOCOMP DOO",
+    "address": "SRPSKE VOJSKE 2",
+    "city": "BIJELJINA",
+    "country": "BIH",
+    "code": "403852400007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PERO DOO",
+    "address": "SARAJEVSKA 97",
+    "city": "ZENICA",
+    "country": "BIH",
+    "code": "218026030005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "TOPDOM-B&H DOO",
+    "address": "BRANKA POPOVIĆA BR.41D",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "402282170006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "C&V d.o.o.",
+    "address": "ul. Ferhadija bb",
+    "city": "Sarajevo",
+    "country": "BIH",
+    "code": "202832970006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "CVIJETA d.o.o.",
+    "address": "Вука Караџића број 50А",
+    "city": "Прњавор",
+    "country": "BIH",
+    "code": "404783370008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "DUOLIFT d.o.o.",
+    "address": "Srđe Zlopogleđe broj 77 b",
+    "city": "Banja Luka",
+    "country": "BIH",
+    "code": "401018020008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "DEUS SYSTEM DOO",
+    "address": "DUNAVSKA 1C",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "400928460005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "DOLFARM d.o.o. Sarajevo",
+    "address": "ul. Stupska bb",
+    "city": "Ilidža",
+    "country": "BIH",
+    "code": "201674160003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "Dajman d.o.o.",
+    "address": "Улица Новице Церовића бб",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "405028310000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ĐAKOVIĆ DOO",
+    "address": "ALEJA SVETOG SAVE BR.51",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "403688920002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "DAMJAN DOO",
+    "address": "VASE PELAGIĆA 25",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "401554570002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "DŽANANOVIĆ TRANSPORT DOO",
+    "address": "ZAVNOBIHBR  BROJ 88",
+    "city": "ZENICA",
+    "country": "BIH",
+    "code": "218669110006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "IG TRADE DOO",
+    "address": "CRNA GORA",
+    "city": "BERANE",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ДАНПРОМ д.о.о.",
+    "address": "Семберска бр. 6/А",
+    "city": "Брчко Дистрикт БиХ",
+    "country": "BIH",
+    "code": "600343890003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ДАРКО ВИНЧИЋ с.п. КАРБИД",
+    "address": "Магистрални пут број 12",
+    "city": "Прњавор",
+    "country": "BIH",
+    "code": "511318350000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "Дармин Пашалић с.п. ИЗРАДА КЉУЧЕВА",
+    "address": "Banja Luka",
+    "city": "ПАШАЛИЋ",
+    "country": "BIH",
+    "code": "507381240004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "DAS MOBILE VP d.o.o.",
+    "address": "Patriotske lige  46",
+    "city": "Tešanj",
+    "country": "BIH",
+    "code": "219067510000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "DERVIŠBEGOVIĆ d.o.o.",
+    "address": "Donje Moštre broj 29",
+    "city": "Visoko",
+    "country": "BIH",
+    "code": "218974420007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "DE BOER TRADING DOO",
+    "address": "DR.M.ŠUFFLAYA 46",
+    "city": "MOSTAR",
+    "country": "BIH",
+    "code": "227446310002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "Невен Вујичић с.п. Трговина",
+    "address": "Челинац Горњи",
+    "city": "DECOR TRADE Челинац",
+    "country": "BIH",
+    "code": "513301880008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "DEFTER DOO",
+    "address": "GATAČKA 20",
+    "city": "SARAJEVO",
+    "country": "BIH",
+    "code": "200303990007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "DEKOSTIL d.o.o.",
+    "address": "Muftije Numanagića 7",
+    "city": "Visoko",
+    "country": "BIH",
+    "code": "218940950007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "DELANSIA d.o.o.",
+    "address": "Бранка Поповића бр. 41х",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "405023270000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ZEUS DOO",
+    "address": "SUBOTIČKA BR.1",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "400858400000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "DEPLAST",
+    "address": "VUKOVARSKA DO BR.69",
+    "city": "TUZLA",
+    "country": "BIH",
+    "code": "209533140000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "DESIGN HOUSE d.o.o.",
+    "address": "Terezije bb",
+    "city": "Sarajevo",
+    "country": "BIH",
+    "code": "202189080006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "DESPINA d.o.o.",
+    "address": "Улица Славићка бб, Бронзани Мајдан",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "404354840004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "DI KARAĆ DOO",
+    "address": "P.JOVANOVIĆA 12",
+    "city": "LAKTAŠI-ALEKSANDROVAC",
+    "country": "BIH",
+    "code": "401155950004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "МИЛЕНКО ПАНИЋ с.п. ДИА СЛАП з.р.",
+    "address": "Лозничка бр. 103 А",
+    "city": "Бијељина",
+    "country": "BIH",
+    "code": "509451030005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "DINO-PROM DOO",
+    "address": "BLAGAJ BB",
+    "city": "MOSTAR",
+    "country": "BIH",
+    "code": "227820450000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "DIORIT d.o.o.",
+    "address": "Tvornička broj 3",
+    "city": "Sarajevo - Ilidža",
+    "country": "BIH",
+    "code": "201697600000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "GLOBEX",
+    "address": "DOBROVOLJNIH DAVALACA KRVI 4",
+    "city": "ZENICA",
+    "country": "BIH",
+    "code": "218000740004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "DMD COLOR d.o.o.",
+    "address": "Улица палих бораца број 85",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "404085250009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "DMF Office d.o.o. Tuzla",
+    "address": "ul. Mehmedalije Maka Dizdara",
+    "city": "Tuzla",
+    "country": "BIH",
+    "code": "210235070005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "DODEX-AUTO DOO",
+    "address": "KOBILJAČA BB",
+    "city": "KISELJAK",
+    "country": "BIH",
+    "code": "236370140004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "EXCLUSIVE LINGERIE",
+    "address": "PUT SRPSKIH BRANILACA BR.186",
+    "city": "BANJA LUKA 78000",
+    "country": "BIH",
+    "code": "400843980000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "DORWOOD d.o.o.",
+    "address": "Пилана 31",
+    "city": "Трново",
+    "country": "BIH",
+    "code": "404308060002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "DOS ELEKTRO",
+    "address": "BRAĆE PODGORNIKA 4",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "400840610007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "DOTEA DOO",
+    "address": "STJEPANA RADIĆA 9",
+    "city": "MOSTAR",
+    "country": "BIH",
+    "code": "227035520006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "DRANIK д.о.о.",
+    "address": "Jovana Draškovića bb",
+    "city": "Pelagićevo",
+    "country": "BIH",
+    "code": "403121610002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "DREAM CARE d.o.o. Banja Luka",
+    "address": "Улица Меше Селимовића број 18",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "404582040000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "DRENIK d.o.o.",
+    "address": "Blažujski drum 2",
+    "city": "Ilidža",
+    "country": "BIH",
+    "code": "201931230000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "INCEL TRADE",
+    "address": "VESELINA MASLEŠE 1/2",
+    "city": "BANJA LUKA 78000",
+    "country": "BIH",
+    "code": "400934430002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ZU Apoteka Dr GOLIĆ",
+    "address": "Улица Здравка Челара број 9",
+    "city": "Србац",
+    "country": "BIH",
+    "code": "402968910006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "DRVOPRODEX d.o.o. Banja Luka",
+    "address": "Karanovac broj 3, Jagare",
+    "city": "Banja Luka",
+    "country": "BIH",
+    "code": "400878340003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "D&S KOMERC DOO",
+    "address": "Николе Тесле  бб",
+    "city": "DOBOJ",
+    "country": "BIH",
+    "code": "402567250003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "201640930004",
+    "address": "",
+    "city": "",
+    "country": "BIH",
+    "code": "201640930004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "D.S.W.",
+    "address": "VIDOVDANSKA 39",
+    "city": "DOBOJ 74000",
+    "country": "BIH",
+    "code": "400024210009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "DTM-BL DOO",
+    "address": "BRANKA POPOVIĆA 75",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "403782860005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "RAJZ DOO",
+    "address": "GAROVCI BB",
+    "city": "HADŽIĆI",
+    "country": "BIH",
+    "code": "200540340009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MPA GROUPE d.o.o.",
+    "address": "Industrijska zona Ozrakovići bb",
+    "city": "Visoko",
+    "country": "BIH",
+    "code": "218974340003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "DUSA d.o.o. Gračanica",
+    "address": "Gračaničkih gazija bb",
+    "city": "Gračanica",
+    "country": "BIH",
+    "code": "209304890003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "DUVAN AD",
+    "address": "STEFANA DEČANSKOG 125",
+    "city": "BIJELJINA",
+    "country": "BIH",
+    "code": "400362960005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "DŽAMBO DOO",
+    "address": "PODGAJ 2",
+    "city": "GRAČANICA",
+    "country": "BIH",
+    "code": "209202110003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "DŽENEX DOO",
+    "address": "UL.KREČANSKA 5-D",
+    "city": "TUZLA",
+    "country": "BIH",
+    "code": "209263840004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "EBI DOO",
+    "address": "IBRAHIMA POPOVIĆA BB",
+    "city": "GORAŽDE",
+    "country": "BIH",
+    "code": "245063980002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "EĆO-COMPANY D.O.O.",
+    "address": "PIJAČNA 6",
+    "city": "SARAJEVO-ILIDŽA",
+    "country": "BIH",
+    "code": "200501790005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "Eco electric d.o.o.",
+    "address": "Dom bb",
+    "city": "Gračanica",
+    "country": "BIH",
+    "code": "210632400003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "THERMO SERVICE",
+    "address": "HRVATSKA",
+    "city": "DUGO SELO",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ECOVISION d.o.o.",
+    "address": "Боже Варићака 19/I",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "403996070001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "\"Edea Invest\" d.o.o. Bijeljina",
+    "address": "Душана Баранина 1Ц",
+    "city": "Бијељина",
+    "country": "BIH",
+    "code": "404453660000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "EDELKELLER d.o.o.",
+    "address": "Zahira Panjete 7",
+    "city": "Novo Sarajevo",
+    "country": "BIH",
+    "code": "202351950001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "EDING TELECOM d.o.o.",
+    "address": "Ivanjska 8",
+    "city": "Sarajevo",
+    "country": "BIH",
+    "code": "200634240008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PIKAS",
+    "address": "SLOVENIJA",
+    "city": "POLJUBINJ 112,TOLMIN",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "EKO-BEL doo",
+    "address": "CARA DUŠANA 84",
+    "city": "TRN-LAKTAŠI",
+    "country": "BIH",
+    "code": "400855480002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "EKO-COLOR DOO",
+    "address": "VOJVODE STEPE STEPANOVIĆA 185A",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "402811690002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "EKOGAS d.o.o.",
+    "address": "Mehmeda Vehbi ef.Šemsekadića 1",
+    "city": "Gračanica",
+    "country": "BIH",
+    "code": "210225190002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "GREENTECH DO",
+    "address": "SRBIJA",
+    "city": "NOVI SAD",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ELDOM d.o.o.",
+    "address": "Zlatana Mešića br.33",
+    "city": "Tuzla",
+    "country": "BIH",
+    "code": "209216250002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "LUBEX d.o.o. Derventa",
+    "address": "Поље 43",
+    "city": "Дервента",
+    "country": "BIH",
+    "code": "404991210006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ELCOM DOO",
+    "address": "M.M.DIZDARA-STUPINE B-2",
+    "city": "TUZLA",
+    "country": "BIH",
+    "code": "209092690009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ELCOR d.o.o.",
+    "address": "GZ Pogana vlaka - Poljanice br. 7",
+    "city": "Grude",
+    "country": "BIH",
+    "code": "272169940007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ELEKTRO-MILAS d.o.o.",
+    "address": "Sestre Silvije Antić 4",
+    "city": "Ljubuški",
+    "country": "BIH",
+    "code": "272012960004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ELEKTRANЕ STANARI d.o.o.",
+    "address": "STANARI BB",
+    "city": "STANARI",
+    "country": "BIH",
+    "code": "400106370004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "DUŠKO ŠUŠKOVIĆ s.p. ELEKTRON",
+    "address": "Крњинских српских бригада бб",
+    "city": "Добој-Баре",
+    "country": "BIH",
+    "code": "500372660004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "EL-EN SOLUTIONS d.o.o. Laktaši",
+    "address": "улица Светосавска број 30",
+    "city": "Трн",
+    "country": "BIH",
+    "code": "403443140001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ELESTRA DOO",
+    "address": "KEREPSKI PUT BB",
+    "city": "GRADAČAC",
+    "country": "BIH",
+    "code": "209211530007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ELHA NEKRETNINE d.o.o.",
+    "address": "Ciglane bb",
+    "city": "Visoko",
+    "country": "BIH",
+    "code": "218912740005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ELMED DOO",
+    "address": "DUJKA KOMLJENOVIĆA BR.28A",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "401959630002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ELNET DOO SARAJEVO",
+    "address": "SREDNJE BB",
+    "city": "ILIJAŠ",
+    "country": "BIH",
+    "code": "201194200005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "EM Consulting d.o.o.",
+    "address": "ul. Ismeta Alajbegovića Šerbe br.3",
+    "city": "Ilidža",
+    "country": "BIH",
+    "code": "202614120009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "EMGEN d.o.o.",
+    "address": "ul. Patriotske lige do broja 48",
+    "city": "Sarajevo",
+    "country": "BIH",
+    "code": "202488150002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ENIGMA DOO",
+    "address": "POCRTE 159",
+    "city": "GRUDE",
+    "country": "BIH",
+    "code": "272095050004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ENMON BG",
+    "address": "SRBIJA",
+    "city": "BEOGRAD",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ENMON BG",
+    "address": "BUL.OSLOBOĐENJA 205",
+    "city": "BEOGRAD",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ROPER CO DOO",
+    "address": "SRBIJA",
+    "city": "UMKA",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "SPORT VISION DOO",
+    "address": "CRNA GORA",
+    "city": "PODGORICA",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BUK PROMET",
+    "address": "SRBIJA",
+    "city": "KLENJE,BOGATIĆ",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ENTO DOO",
+    "address": "IGMANSKA 36",
+    "city": "VOGOŠĆA",
+    "country": "BIH",
+    "code": "201996010007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "E-PLAST",
+    "address": "INDUSTRIJSKA ZONA BB",
+    "city": "KALESIJA",
+    "country": "BIH",
+    "code": "209114250008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "E.S.C. DOO",
+    "address": "POTKRAJ BB",
+    "city": "BREZA",
+    "country": "BIH",
+    "code": "218472080008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ESSENZA DOO",
+    "address": "RUSTEMPAŠINA 4",
+    "city": "ILIDŽA",
+    "country": "BIH",
+    "code": "201680640009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "EURO STIL d.o.o. Doboj",
+    "address": "Nikole Tesle br. 71",
+    "city": "Doboj",
+    "country": "BIH",
+    "code": "403636700004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "EURO-BICCO DOO",
+    "address": "SARAJEVO",
+    "city": "TEREZIJE 27.",
+    "country": "BIH",
+    "code": "200159930002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "RINGIER AXEL SPRINGER",
+    "address": "Žorža Klemansoa 19",
+    "city": "BEOGRAD",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BDR MEDIA doo",
+    "address": "SRBIJA",
+    "city": "BEOGRAD-ZEMUN",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "EURO DAM-JAS DOO",
+    "address": "LUKAVAČKIH BRIGADA BB",
+    "city": "LUKAVAC",
+    "country": "BIH",
+    "code": "209701970005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "EURO-GROUP DOO",
+    "address": "311.LAHKE BRIGADE BB",
+    "city": "KAKANJ",
+    "country": "BIH",
+    "code": "218773100004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "EURO HLAĐENJE DOO",
+    "address": "BIŠĆE POLJE BR.195",
+    "city": "MOSTAR",
+    "country": "BIH",
+    "code": "227387470009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "\"EUROMEDICINA\" D.o.o. Bijeljina",
+    "address": "Доња Љељенча  015А",
+    "city": "Бијељина",
+    "country": "BIH",
+    "code": "400444420009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "EUROMEDICINA D.o.o.",
+    "address": "SRBIJA",
+    "city": "NOVI SAD",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "TEHNOMARKET-PIRIĆ DOO",
+    "address": "BRANILACA GRADA 34",
+    "city": "ČELIĆ",
+    "country": "BIH",
+    "code": "209306830008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "EUROTEHNIKA DOO",
+    "address": "CARA DUŠANA BR.64",
+    "city": "KOTOR VAROŠ",
+    "country": "BIH",
+    "code": "403591330006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "EURO ZNAK DOO",
+    "address": "BRAĆE PIŠTELJIĆ BR.1",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "401303060005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "EVL d.o.o. Banja Luka",
+    "address": "Улица краља Петра II број 17",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "404529230000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "EXPRESS COURIER međunarodna",
+    "address": "Sarajevo Rajlovačka broj 14B",
+    "city": "špedicija, skladištenje i transport",
+    "country": "BIH",
+    "code": "201536360000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "VRHPOLJE-PROMET",
+    "address": "HAMZIBEGOVA BB",
+    "city": "SANSKI MOST",
+    "country": "BIH",
+    "code": "263173120007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "FACTA DOO",
+    "address": "H.KREŠEVLJAKOVIĆA 7C",
+    "city": "SARAJEVO",
+    "country": "BIH",
+    "code": "200962170009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ISOWOOD d.o.o.",
+    "address": "SPREČANSKI PUT BB",
+    "city": "GRAČANICA",
+    "country": "BIH",
+    "code": "209630000000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "FARSTAR OGIS MEDIKAL DOO",
+    "address": "ZDRAVKA ČELARA 11",
+    "city": "SRBAC",
+    "country": "BIH",
+    "code": "401238650002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "FARMA SPREČA DOO",
+    "address": "DONJE VUKOVIJE BB",
+    "city": "KALESIJA",
+    "country": "BIH",
+    "code": "201631860001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PONTUS PHARMA DOO",
+    "address": "KRALJA ZVONIMIRA 62",
+    "city": "ZAGREB",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "FARMASI BH DOO",
+    "address": "ADEMA BUĆE 24",
+    "city": "SARAJEVO-NOVI GRAD",
+    "country": "BIH",
+    "code": "201796350008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "FEF EXPORT-IMPORT DOO",
+    "address": "AZIZE ŠAĆIRBEGOVIĆ 24",
+    "city": "SARAJEVO",
+    "country": "BIH",
+    "code": "200160190004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "FEMAS DOO",
+    "address": "SAFETA ZAJKE 63",
+    "city": "NOVI GRAD/SARAJEVO",
+    "country": "BIH",
+    "code": "200248950009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "FEMIS  DOO",
+    "address": "PUT ZA GRUDE BB",
+    "city": "POSUŠJE",
+    "country": "BIH",
+    "code": "272165010005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "FENIKS PLUS DOO",
+    "address": "PETRA VELIKOG 18",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "403884940003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "FEROCIN d.o.o.",
+    "address": "Druga ulica br. 17",
+    "city": "Živinice",
+    "country": "BIH",
+    "code": "210570960007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "FERROSTIL-MONT DOO",
+    "address": "JOVANA DUČIĆA 6",
+    "city": "PRNJAVOR",
+    "country": "BIH",
+    "code": "403458680002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PUT.AG.FIBULA AIR TRAVEL AGENCY DOO",
+    "address": "FERHADIJA 24",
+    "city": "SARAJEVO",
+    "country": "BIH",
+    "code": "200269870005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "FINIVA d.o.o.",
+    "address": "Браце Поткоњака бр. 4",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "405232270009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "FIRST STEP d.o.o.",
+    "address": "Цара Душана 81",
+    "city": "Лакташи",
+    "country": "BIH",
+    "code": "403845370003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "Fitness centar New Body d.o.o.",
+    "address": "Žabljak bb",
+    "city": "Usora",
+    "country": "BIH",
+    "code": "218942730004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "FOLI PAK d.o.o.",
+    "address": "Рамићи бб",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "404094590009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "GRAND AUTOMOTIVE d.o.o.",
+    "address": "Alipašina bb",
+    "city": "Sarajevo",
+    "country": "BIH",
+    "code": "202184950002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "FOREKS BH DOO",
+    "address": "FIKRETA SALIHOVIĆA FIKRE 37",
+    "city": "TUZLA",
+    "country": "BIH",
+    "code": "209863950008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "FormaPharm Engineering Group d.o.o.",
+    "address": "ul. Obala Kulina bana broj 2",
+    "city": "Sarajevo",
+    "country": "BIH",
+    "code": "202263150003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "VEGA-MIX DOO",
+    "address": "MAGISTRALNI PUT A-MALINE 224",
+    "city": "ŽIVINICE",
+    "country": "BIH",
+    "code": "209335260008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "FRIGOING  DOO",
+    "address": "BLAJBURŠKIH ŽRTAVA BB",
+    "city": "MOSTAR",
+    "country": "BIH",
+    "code": "227102900005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MASTER FRIGO",
+    "address": "PUT SRPSKIH BRANILACA 332A",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "402390140008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "FRUCTAS DOO",
+    "address": "HIFZI BJELAVCA 2",
+    "city": "SARAJEVO",
+    "country": "BIH",
+    "code": "200387640006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "FTM",
+    "address": "STJEPANA TOMAŠEVIĆA BB",
+    "city": "NOVI TRAVNIK",
+    "country": "BIH",
+    "code": "236033810006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "GEMAX TRADE DOO",
+    "address": "CRNA GORA",
+    "city": "NIKŠIĆ,V.Karadžića b",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "GALEB ELECTRONICS doo",
+    "address": "ŠABAC",
+    "city": "POCERSKA BR:111",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "GALEB ELECTRONIC",
+    "address": "SRBIJA",
+    "city": "ŠABAC",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "GALEB ELECTRONICS",
+    "address": "SRBIJA",
+    "city": "ŠABAC",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "GAME QUEEN DOO",
+    "address": "KRALJA ALFONSA XIII BR.48",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "402682600000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "GANIK I.D.A. DOO",
+    "address": "POSLOVNI CENTAR 96-2",
+    "city": "VITEZ",
+    "country": "BIH",
+    "code": "236533380008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "Gastro consulting dоо Banja Luka",
+    "address": "Јована Рашковића 57",
+    "city": "Banja Luka",
+    "country": "BIH",
+    "code": "404385560000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "GAUDIUM DOO",
+    "address": "BRIJESNICA VELIKA BB",
+    "city": "BRIJESNICA VELIKA/DOBOJ ISTOK",
+    "country": "BIH",
+    "code": "210039050004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PREMIUM GROUP  DOO",
+    "address": "INDUSTRIJSKA ZONA OZRAKOVIĆI BB",
+    "city": "VISOKO",
+    "country": "BIH",
+    "code": "218698050004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "GEM",
+    "address": "MLADENA STOJANOVIĆA BR.26B",
+    "city": "BANJA LUKA 78102",
+    "country": "BIH",
+    "code": "400836340003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ABANOS FURNITURE & DECORATION",
+    "address": "DUBAI",
+    "city": "INDUSTRY LLC",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "GEOKOP DOO",
+    "address": "SVETOG SAVE BR.7",
+    "city": "DERVENTA",
+    "country": "BIH",
+    "code": "400143220004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "GEORG - KOMERC d.o.o. Banja Luka",
+    "address": "Ул. Војводе Степе Степановића бр.12",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "400876300004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "GM-GRATIS",
+    "address": "KOLO BB",
+    "city": "TOMISLAVGRAD",
+    "country": "BIH",
+    "code": "281142650006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "GMP LOGISTICS  д.о.о.  Бања Лука",
+    "address": "Илије Гарашанина  бр.8Д",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "402669680002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "GMTEL LOGISTICS  d.о.о.",
+    "address": "Књаза Милоша  32",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "403378650005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "GO PACK d.o.o.",
+    "address": "Горњи Штрпци број 108А",
+    "city": "Прњавор",
+    "country": "BIH",
+    "code": "403135080006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "Goods Trade d.o.o.",
+    "address": "Bravadžiluk bb",
+    "city": "Sarajevo",
+    "country": "BIH",
+    "code": "203057890005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "GRADINA-EXPORT-IMPORT DOO",
+    "address": "BREŽANI BB",
+    "city": "KAKANJ",
+    "country": "BIH",
+    "code": "218243720001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "GP GRADIP d.o.o.",
+    "address": "Светог Саве број 28",
+    "city": "Прњавор",
+    "country": "BIH",
+    "code": "401229580000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "GRADIZ DOO",
+    "address": "HALIDA KAJTAZA 1",
+    "city": "SARAJEVO",
+    "country": "BIH",
+    "code": "200153570004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "GRAFID",
+    "address": "MILANA KRANOVIĆA 25",
+    "city": "BANJA LUKA 78000",
+    "country": "BIH",
+    "code": "400793190002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "DUŠKO SKAKIĆ s.p GRAFO BALKAN",
+    "address": "Драгочај бб",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "506870150003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "GRAMIN",
+    "address": "JAKUPOVCI BB",
+    "city": "JAKUPOVCI-LAKTAŠI",
+    "country": "BIH",
+    "code": "401148660009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "GRANDCOMMERCE DOO",
+    "address": "VIDOVDANSKA 11",
+    "city": "KOZARSKA DUBICA",
+    "country": "BIH",
+    "code": "400730860008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "SMURFIT KAPPA DOO",
+    "address": "PRILAZNI PUT ZA ADU HUJU",
+    "city": "BEOGRAD",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "GRBO DOO",
+    "address": "MOŠEVAČKA BB",
+    "city": "ILIJAŠ",
+    "country": "BIH",
+    "code": "201619810007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "GreenGo d.o.o. Banja Luka",
+    "address": "Улица Веселина Маслеше број 1",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "404989660002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "GRIN DOO",
+    "address": "PATRIOTSKE LIGE BB",
+    "city": "GRAČANICA",
+    "country": "BIH",
+    "code": "209182840000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "GRMEČ-HEM",
+    "address": "BRAĆE PODGORNIKA BB",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "400811780009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "GRMUŠA-MONT DOO",
+    "address": "PRIJEČANI BB",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "402940230000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "GUEVARA BH d.o.o.",
+    "address": "Ул. Крајишких бригада 22",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "403128460006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "HAS-KOMERC",
+    "address": "1 ZENIČKE BRIGADE 11",
+    "city": "ZENICA",
+    "country": "BIH",
+    "code": "218198910007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "HACIENDA DE LA VIDA d.o.o.",
+    "address": "Kraljice mira 16",
+    "city": "Kiseljak",
+    "country": "BIH",
+    "code": "210225350000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "HARIS Company d.o.o.",
+    "address": "Alije Izetbegovića bb",
+    "city": "Visoko",
+    "country": "BIH",
+    "code": "218941170005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MIRA KUSIĆ s.p. HATEZA ztr",
+    "address": "Савска бб",
+    "city": "Србац",
+    "country": "BIH",
+    "code": "503353210005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "HEMOFARM",
+    "address": "NOVAKOVIĆI BB",
+    "city": "BANJA LUKA 78000",
+    "country": "BIH",
+    "code": "400794320007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ŠUMAPROM-COMMERCE DOO",
+    "address": "DVOROVI,KARAĐORĐEVA BR.68",
+    "city": "DVOROVI",
+    "country": "BIH",
+    "code": "400403070001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "HERBAL GROUP d.o.o.",
+    "address": "ul. Džemala Bijedića broj 129",
+    "city": "Sarajevo",
+    "country": "BIH",
+    "code": "202641870001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "HGP DOO",
+    "address": "RATKOVAC BB",
+    "city": "PRNJAVOR",
+    "country": "BIH",
+    "code": "401219600002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "200540180001",
+    "address": "",
+    "city": "",
+    "country": "BIH",
+    "code": "200540180001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "HIT HAUS  DOO",
+    "address": "RAČANSKA 7",
+    "city": "BIJELJINA",
+    "country": "BIH",
+    "code": "401840820008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "HM Cement BiH d.d.",
+    "address": "Selima efendije Merdanovića 146",
+    "city": "Kakanj",
+    "country": "BIH",
+    "code": "218003250008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "HOTELI ILIDŽA",
+    "address": "IlidŽa",
+    "city": "HRASNIČKA CESTA 14",
+    "country": "BIH",
+    "code": "200597960003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "HRAST DOO",
+    "address": "MRKOTIĆ BB",
+    "city": "TEŠANJ",
+    "country": "BIH",
+    "code": "218809220001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "HTEC d.o.o.",
+    "address": "Младена Стојановића 30",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "404504750009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "IBRA DOO",
+    "address": "HUSINSKIH RUDARA BB",
+    "city": "TUZLA",
+    "country": "BIH",
+    "code": "209484420000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "iConstruction d.o.o. Sarajevo",
+    "address": "ul. Bulevar Meše Selimovića broj 2C",
+    "city": "Sarajevo",
+    "country": "BIH",
+    "code": "202715400002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "IDE-AL OPĆA ZADRUGA",
+    "address": "DONJE  MOŠTRE 29",
+    "city": "VISOKO",
+    "country": "BIH",
+    "code": "218582770000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ONIK-COMMERCE EXPORT-IMPORT DOO",
+    "address": "BIŠĆE POLJE BB",
+    "city": "MOSTAR",
+    "country": "BIH",
+    "code": "227080740009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "IGM D.O.O.",
+    "address": "CIGLANSKA BB",
+    "city": "VISOKO",
+    "country": "BIH",
+    "code": "218125280005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "IKONIĆ KOMERC DOO",
+    "address": "ZAGANOVIĆI BB",
+    "city": "ROGATICA",
+    "country": "BIH",
+    "code": "401469890006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ŽELJEZARA ILIJAŠ DD",
+    "address": "BOSANSKI PUT 215",
+    "city": "ILIJAŠ",
+    "country": "BIH",
+    "code": "200121610004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ILMONE d.o.o.",
+    "address": "Džemala Bijedića br. 160 К,",
+    "city": "Sarajevo",
+    "country": "BIH",
+    "code": "202819440006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "IMBREX  DOO",
+    "address": "IVANA MILIČEVIĆA 4-A",
+    "city": "MOSTAR",
+    "country": "BIH",
+    "code": "227438640001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "IMpro d.o.o. Brčko distrikt BiH",
+    "address": "Циглана бр.3",
+    "city": "Брчко",
+    "country": "BIH",
+    "code": "600426670005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "INEL BH DOO",
+    "address": "Ul. Aleja ljiljana bb",
+    "city": "MAGLAJ",
+    "country": "BIH",
+    "code": "218528560008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "FITLAJF DOOEL SKOPJE",
+    "address": "1000 SKOPJE",
+    "city": "Vangel Todorovski broj 5/1-48",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ДЕЈАН МАРКОВИЋ с.п. ДЕКАЛ",
+    "address": "Јована Дучића 80",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "512208540004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "INOX INŽENJERING d.o.o.",
+    "address": "Драксенић бб",
+    "city": "Козарска Дубица",
+    "country": "BIH",
+    "code": "404463110008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "METAL-FLEX",
+    "address": "SUBOTIČKA 149",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "400792380002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "INTERŠPED TUZLA",
+    "address": "Tuzla",
+    "city": "BOSNE SREBRENE 56",
+    "country": "BIH",
+    "code": "209076900001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "INTRAS d.o.o.",
+    "address": "ul. Pijačna br. 14K",
+    "city": "Sarajevo, Ilidža",
+    "country": "BIH",
+    "code": "200219340005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "IPIN DOO",
+    "address": "VIDOVDANSKA 48",
+    "city": "BIJELJINA",
+    "country": "BIH",
+    "code": "400384770005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ITS d.o.o.",
+    "address": "Mule Hodžića bb",
+    "city": "Visoko",
+    "country": "BIH",
+    "code": "218676080007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "IVEX d.o.o. Usora",
+    "address": "Srednja Omanjska bb",
+    "city": "Usora",
+    "country": "BIH",
+    "code": "218224930003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "SMURFIT WESTROCK DOO",
+    "address": "SRBIJA",
+    "city": "UMKA",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "JAFFA-KOMERC EXPORT-IMPORT DOO",
+    "address": "BLAGAJ BB",
+    "city": "MOSTAR",
+    "country": "BIH",
+    "code": "227040440002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "JARO TRADE d.o.o.",
+    "address": "Николе Пашића бб",
+    "city": "Лакташи",
+    "country": "BIH",
+    "code": "403914010006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "JASMIN-M DOO",
+    "address": "LJESKOVICA BB",
+    "city": "ŽEPČE",
+    "country": "BIH",
+    "code": "218141300008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "LUG PETROL DOO",
+    "address": "DERVENTSKI LUG BB",
+    "city": "DERVENTA",
+    "country": "BIH",
+    "code": "400150430006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "JEESA d.o.o.",
+    "address": "Dubrave Donje bb",
+    "city": "Živinice",
+    "country": "BIH",
+    "code": "210034410002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "JODDY DREAMS DOO",
+    "address": "CARA LAZARA 20",
+    "city": "ČELINAC",
+    "country": "BIH",
+    "code": "403822590006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "Joddy medico d.o.o.",
+    "address": "Булевар војводе Степе Степановића",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "404870260006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "СЛАВИЦА ЈЕВЂЕНИЋ с.п. \"JODDY\"",
+    "address": "др Младена Стојановића 111",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "511735460004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "JOVAN MAKITAN s.p. OPREMA ZA FARME",
+    "address": "Градишка",
+    "city": "JOMA MONT",
+    "country": "BIH",
+    "code": "512540740009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "JONJIĆ-ŠPED",
+    "address": "BULEVAR KRALJA TVRTKA I BR.17",
+    "city": "ZENICA",
+    "country": "BIH",
+    "code": "218011860001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "KERAMIKA JOVANOVIĆ d.o.o.",
+    "address": "Милоша Обилића бр. 85",
+    "city": "Бијељина",
+    "country": "BIH",
+    "code": "404264770007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "JUSUF-BEJ",
+    "address": "PRIJEKO BB",
+    "city": "VISOKO",
+    "country": "BIH",
+    "code": "218506670004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "OSTALA LICA",
+    "address": "nalaze se u rubrici 9 prijave",
+    "city": "Identitet i detalji o adresi",
+    "country": "BIH",
+    "code": "100000000034"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "KANETEX",
+    "address": "ŠENIĆKI PUT BB",
+    "city": "GRAČANICA",
+    "country": "BIH",
+    "code": "209763900003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "KA PLIN d.o.o.",
+    "address": "Čaušlije bb",
+    "city": "Bugojno",
+    "country": "BIH",
+    "code": "236170990003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "KARE",
+    "address": "TRG HEROJA BB",
+    "city": "SARAJEVO",
+    "country": "BIH",
+    "code": "200273040009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "KARTA d.o.o.",
+    "address": "Malog Marijana bb",
+    "city": "Tomislavgrad",
+    "country": "BIH",
+    "code": "281030930006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "KASUMEX DOO",
+    "address": "IGMANSKA BB",
+    "city": "VOGOŠĆA",
+    "country": "BIH",
+    "code": "201217000009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "K&B FairTex d.o.o. Gradačac",
+    "address": "Ledenice Donje bb",
+    "city": "Gradačac",
+    "country": "BIH",
+    "code": "210367220006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "KBA SERVIS DOO",
+    "address": "Горице бб",
+    "city": "Брчко Дистрикт БиХ",
+    "country": "BIH",
+    "code": "600357840009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ЗОРАН ПУШИЋ с.п. КЕЦ",
+    "address": "Веселина Маслеше бб",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "502334210006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "KELLMAN d.o.o.",
+    "address": "Благоја Паровића 124",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "403917540006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "KIM TEC d.o.o.",
+    "address": "Poslovni centar 96-2",
+    "city": "Vitez",
+    "country": "BIH",
+    "code": "236098430006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "KIS PRODUKT",
+    "address": "NIKOLE PAŠIĆA BB",
+    "city": "TRN-LAKTAŠI",
+    "country": "BIH",
+    "code": "401177840008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "KISMET",
+    "address": "BRIJESNICA MALA BB",
+    "city": "DOBOJ ISTOK",
+    "country": "BIH",
+    "code": "209185430007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PZ Klekovača sa p.o.",
+    "address": "Дринић бб",
+    "city": "Петровац-Дринић",
+    "country": "BIH",
+    "code": "403897090009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "KLIO DOO",
+    "address": "BISTARAC DONJI,UL.PORASLIKA BB",
+    "city": "LUKAVAC",
+    "country": "BIH",
+    "code": "209365920002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "KLOSTERMEIER MAJDAN DOO",
+    "address": "UNSKA BB",
+    "city": "BOSANSKA KRUPA",
+    "country": "BIH",
+    "code": "263122560002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "KOMERC-MALI",
+    "address": "MAGISTRALNI PUT BB",
+    "city": "PRNJAVOR 78430",
+    "country": "BIH",
+    "code": "401210210007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "KNEŽEVIĆ ENTERING DOO",
+    "address": "CARA DUŠANA 137 B",
+    "city": "LAKTAŠI",
+    "country": "BIH",
+    "code": "402755500009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "KNEŽEVIĆ-CO DOO",
+    "address": "KRALJA ALEKSANDRA I",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "402098910005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "KOALA PAINTINGS d.o.o. Tešanj",
+    "address": "Poslovna zona Bukva broj 12,",
+    "city": "TEŠANJ",
+    "country": "BIH",
+    "code": "218543360007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MIROSLAV RADOSAVAC s.p. KOKA-KIK žf",
+    "address": "Опсјечко бб",
+    "city": "Челинац",
+    "country": "BIH",
+    "code": "503883010007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "KONEL",
+    "address": "CARA DUŠANA 70",
+    "city": "LAKTAŠI-TRN",
+    "country": "BIH",
+    "code": "400824410006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "KONTEC d.o.o. Cazin",
+    "address": "Kovačevići bb",
+    "city": "Cazin",
+    "country": "BIH",
+    "code": "263668870002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "KRAS DOO",
+    "address": "LJEVČANSKA BR.43",
+    "city": "LAKTAŠI",
+    "country": "BIH",
+    "code": "401140170002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "KS Tueren d.o.o.",
+    "address": "Pobijenih franjevaca 52",
+    "city": "Široki Brijeg",
+    "country": "BIH",
+    "code": "272380250009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "KUĆA PRIRODE d.o.o.",
+    "address": "Korča broj 2",
+    "city": "Hadžići",
+    "country": "BIH",
+    "code": "218516390000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "KUM-COMPANY  DOO",
+    "address": "GRBAVICA BB",
+    "city": "ŠIPOVO 70270",
+    "country": "BIH",
+    "code": "401308370002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "KUNA, EXPORT-IMPORT DOO",
+    "address": "VISOKO",
+    "city": "OZRAKOVICI BB.",
+    "country": "BIH",
+    "code": "218091010003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "KUVET DOO",
+    "address": "ALEJA BOSNE SREBRENE 99",
+    "city": "NOVI GRAD",
+    "country": "BIH",
+    "code": "200644800001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "LADA AUTO",
+    "address": "TRIVE AMELICE 38",
+    "city": "BANJA LUKA 78000",
+    "country": "BIH",
+    "code": "400991820003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "LAGER DOO",
+    "address": "JUŽNA OBILAZNICA BB",
+    "city": "POSUŠJE",
+    "country": "BIH",
+    "code": "272036120007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "LANGOS d.o.o. Bijeljina",
+    "address": "Вука Караџића 2",
+    "city": "Дворови",
+    "country": "BIH",
+    "code": "404296540003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "NIKOLAS SZR IVAN MARINKOVIĆ",
+    "address": "SRBIJA",
+    "city": "ZAJEČAR",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "LEDO d.o.o. Čitluk",
+    "address": "Gospodarska zona, Tromeđa broj 1",
+    "city": "Čitluk",
+    "country": "BIH",
+    "code": "227031530007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "LEGEND WW d.o.o.",
+    "address": "Јована Дучића 25",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "404225010003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "LERIM DOO",
+    "address": "DRAGIŠE CVJETKOVIĆA BR.2",
+    "city": "LUKAVAC",
+    "country": "BIH",
+    "code": "209960720009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PREMIUM INTERNATIONAL d.o.o.",
+    "address": "Гундулићева 96",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "404295220005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "LIMO GRAD d.o.o.",
+    "address": "Улица Гаврила Принципа број 4",
+    "city": "Gradiška",
+    "country": "BIH",
+    "code": "404611160001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "LIMO CENTAR d.o.o. Banja Luka",
+    "address": "Put srpskih branilaca 115",
+    "city": "Banja Luka",
+    "country": "BIH",
+    "code": "404418320000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "LIPA-DRVO",
+    "address": "OMARSKA,PALIH BORACA BB",
+    "city": "PRIJEDOR",
+    "country": "BIH",
+    "code": "400691600001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "LIVI d.o.o. Sarajevo",
+    "address": "ul. Bosanski put br. 215",
+    "city": "Sarajevo, Ilijaš",
+    "country": "BIH",
+    "code": "202002190008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PREVENT FAD d.d.",
+    "address": "Poslovna zona Ekonomija broj 21",
+    "city": "Tešanj",
+    "country": "BIH",
+    "code": "218132810001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "''LNB Trade'' d.o.o.",
+    "address": "Пут српске војске бр.236",
+    "city": "Градишка",
+    "country": "BIH",
+    "code": "404730840002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "\"Lo Elektro\" d.o.o.",
+    "address": "Улица спрпских пилота број 11",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "405084730003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "TELOPTIC DOO",
+    "address": "MOSTARSKO RASKRŠĆE BB",
+    "city": "SARAJEVO-HADŽIĆI",
+    "country": "BIH",
+    "code": "200219930007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "LOVOR D.O.O.",
+    "address": "JOVANA DUČIĆA 24",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "400811940006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "Горан Милекић с.п. LUKA",
+    "address": "Пут српских бранилаца бб",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "505350880002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "СТЕЛА ПУРИЋ ЈАКОВЉЕВИЋ с.п.",
+    "address": "Бања Лука",
+    "city": "\"LUNARIS\"",
+    "country": "BIH",
+    "code": "511922900000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "\"LUXMAR\" doo Zvornik",
+    "address": "Браће Југовића Б-17",
+    "city": "Зворник",
+    "country": "BIH",
+    "code": "404653590006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "TIME OUTLET DOO",
+    "address": "MALA ALEJA 67 KSC IL",
+    "city": "SARAJEVO",
+    "country": "BIH",
+    "code": "201528420001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MEDICOPHARM DOO",
+    "address": "KRALJA DRAGUTINA 35",
+    "city": "BIJELJINA",
+    "country": "BIH",
+    "code": "400338400007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MABO",
+    "address": "BOSANSKI PUT 215",
+    "city": "ILIJAŠ",
+    "country": "BIH",
+    "code": "201087460002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MADACO DOO",
+    "address": "KOJIĆA PUT BR.4",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "401014030009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MAGLOV FUNGHI d.o.o. Čelinac",
+    "address": "Челинац",
+    "city": "Цара Лазара 23",
+    "country": "BIH",
+    "code": "404412040005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PILE-FARM DOO",
+    "address": "POVELIČ-DVORINE BB",
+    "city": "SRBAC",
+    "country": "BIH",
+    "code": "402641590008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "Makotron d.o.o.",
+    "address": "Стевана Мокрањца број 38",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "404675560003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MALCOM DOO",
+    "address": "BRANILACA SARAJEVA BR.11",
+    "city": "SARAJEVO",
+    "country": "BIH",
+    "code": "200160510009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "РАДОВАН МАЛЕТИЋ с.п. вл. ПЕКАРА МА.",
+    "address": "Васе Пелагића бр.6",
+    "city": "Лакташи",
+    "country": "BIH",
+    "code": "504181620008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MALJIGOVO COMPANI DOO",
+    "address": "PUT SRPSKIH BRANILACA BB",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "401182840008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MAND d.o.o. Sarajevo",
+    "address": "ul. Azize Šaćirbegović br.  80b",
+    "city": "Sarajevo",
+    "country": "BIH",
+    "code": "202549120004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MANECO DOO",
+    "address": "ALMIRA HASAGIĆA 9",
+    "city": "KAKANJ",
+    "country": "BIH",
+    "code": "218426990008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MANNER COMMERCE",
+    "address": "DŽEMALA BIJEDIĆA 178",
+    "city": "SARAJEVO",
+    "country": "BIH",
+    "code": "200181510009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MLIN MARIN DOO",
+    "address": "TAVIJA BB",
+    "city": "BOSANSKA KOSTAJNICA",
+    "country": "BIH",
+    "code": "401511760002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "БУДИМИРКА ВУКОВИЋ и ЗОРАН ВУКОВИЋ",
+    "address": "Вука Караџића  бр.34",
+    "city": "Прњавор",
+    "country": "BIH",
+    "code": "503204300000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MAŠINMONT DOO",
+    "address": "Улица Николе Пашића број 33 б",
+    "city": "LAKTAŠI",
+    "country": "BIH",
+    "code": "401164350001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MATE COMMERCE DOO",
+    "address": "BANA JELAČIĆA BB",
+    "city": "LJUBUŠKI",
+    "country": "BIH",
+    "code": "272061150000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MG line d.o.o.",
+    "address": "Дрвар Село 2А",
+    "city": "Дрвар",
+    "country": "BIH",
+    "code": "281304570001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "M-BIKE d.o.o.",
+    "address": "Aleja Bosne Srebrene do broja 14",
+    "city": "Ilidža",
+    "country": "BIH",
+    "code": "202197000003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MB MOTORS DOO",
+    "address": "STEVANA NEMANJE BB",
+    "city": "DERVENTA",
+    "country": "BIH",
+    "code": "403694810006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MC-STELLA DOO",
+    "address": "TRNOVAČKA BR.10",
+    "city": "VELIKA KLADUŠA",
+    "country": "BIH",
+    "code": "263089500007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MEDEKS-PROM  d.o.o.",
+    "address": "Ул. Прве шиповачке бригаде број 6",
+    "city": "Шипово",
+    "country": "BIH",
+    "code": "401309260006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "DRAGO JANKOVIĆ s.p. DRVO-G",
+    "address": "Српски бедем 91",
+    "city": "Градишка",
+    "country": "BIH",
+    "code": "506710110005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MEDITERAN-INOX DOO",
+    "address": "PETRA KOČIĆA BB",
+    "city": "ČELINAC",
+    "country": "BIH",
+    "code": "401300470008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MEGAMIX DOO",
+    "address": "RAJLOVAČKA BB",
+    "city": "SARAJEVO",
+    "country": "BIH",
+    "code": "200017980002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "M-ELECTRIC d.o.o. Sarajevo",
+    "address": "ul. Džemala Bijedića broj 160 A",
+    "city": "Novi Grad Sarajevo",
+    "country": "BIH",
+    "code": "201713590002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "d.o.o. MEMIĆ-GRADNJA Cazin",
+    "address": "Ćuprija bb",
+    "city": "Cazin",
+    "country": "BIH",
+    "code": "263011140004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MEPROMEX",
+    "address": "LEPENICA BB",
+    "city": "TEŠANJ",
+    "country": "BIH",
+    "code": "218105410000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MERGEN d.o.o.",
+    "address": "Zlatnih ljiljana bb",
+    "city": "Gračanica",
+    "country": "BIH",
+    "code": "210302440009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MUSTAFA YILDIRIM s.p. , MERINOS",
+    "address": "Branka Popovića br.54 A",
+    "city": "Banja Luka",
+    "country": "BIH",
+    "code": "507791490008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MERIOT DOO",
+    "address": "KAKANJ",
+    "city": "BRATSTVA I JEDINSTVA 107.",
+    "country": "BIH",
+    "code": "218101180000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ЖЕЉКО МИЛИВОЈАЦ с.п. МЕРМЕР",
+    "address": "Јована Дучића 2А",
+    "city": "Прњавор",
+    "country": "BIH",
+    "code": "504971430004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ДРАГОЉУБ МИРКОВИЋ с.п. МЕРМЕР зкр.",
+    "address": "Филипа Вишњића 145",
+    "city": "Бијељина",
+    "country": "BIH",
+    "code": "500999110000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MESSER MOSTAR PLIN DOO",
+    "address": "RODOČ BB",
+    "city": "MOSTAR",
+    "country": "BIH",
+    "code": "227070860006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "METAGO d.o.o.",
+    "address": "Суботичка бб",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "403347850006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "МИРА РАДИЋ с.п., SANUS",
+    "address": "Бранка Поповића бб",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "510122670000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "Тихомир Стевковић с.п.\"JAVNI PREVOZ",
+    "address": "Бања Лука",
+    "city": "Stevković Tihomir\" и \"METAL PROTECT",
+    "country": "BIH",
+    "code": "507223500007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "METKON DOO",
+    "address": "23.APRILA 83",
+    "city": "LAKTAŠI",
+    "country": "BIH",
+    "code": "403826230004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MG-HEM d.o.o.",
+    "address": "Транзитни пут бб",
+    "city": "Mrkonjić Grad",
+    "country": "BIH",
+    "code": "404647270008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MG-LOTUS DOO",
+    "address": "JOVANKE -GAJIĆ ZMIJANKE 55",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "402675810007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MGM FARM d.o.o. Kakanj",
+    "address": "Ul. 311. Lahke brigade broj 97",
+    "city": "Kakanj",
+    "country": "BIH",
+    "code": "218227790008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MICOM BH d.o.o.",
+    "address": "ul. Bačići br. 58",
+    "city": "Novi Grad Sarajevo",
+    "country": "BIH",
+    "code": "201551590003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MIDDLE POINT ELECTRONICS",
+    "address": "DŽEMALA BIJEDIĆA 35",
+    "city": "SARAJEVO",
+    "country": "BIH",
+    "code": "200148570004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MINACO DOO",
+    "address": "VI BATALJONA BB",
+    "city": "GRADAČAC",
+    "country": "BIH",
+    "code": "209101860001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MPM WEB d.o.o.",
+    "address": "Доња Љељенча 1М",
+    "city": "Бијељина",
+    "country": "BIH",
+    "code": "404093190007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MK-COMPANY DOO",
+    "address": "SKUGRIĆ GORNJI BB",
+    "city": "MODRIČA",
+    "country": "BIH",
+    "code": "400184680001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MLIN I PEKARA d.o.o. Ljubače",
+    "address": "Ljubače bb",
+    "city": "Tuzla",
+    "country": "BIH",
+    "code": "209271780002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MLINPEK AD",
+    "address": "MAGISTRALNI PUT 20",
+    "city": "PRNJAVOR",
+    "country": "BIH",
+    "code": "401219350006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MLM COMPANY DOO",
+    "address": "SRETENA STOJANOVIĆA BR.39",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "403425240007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MMS MARIĆ COMPANY d.o.o. K.Dubica",
+    "address": "Улица Војводе Путника број 58",
+    "city": "Козарска Дубица",
+    "country": "BIH",
+    "code": "401937400003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MODUL PRODUCTION d.o.o.",
+    "address": "Пословна зона Рамићи, Рамићи бб",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "404462220004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "DRAGAN DAKIĆ s.p., MODUS S",
+    "address": "Јеврејска бб",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "502351220007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MOUNTAIN DOO",
+    "address": "BINJEŽEVO BB  HADŽIĆI",
+    "city": "SARAJEVO",
+    "country": "BIH",
+    "code": "200181350001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "Mourah d.o.o. Sarajevo",
+    "address": "ul. Capital Tower Sarajevo",
+    "city": "Sarajevo",
+    "country": "BIH",
+    "code": "202490480001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MP GRAĐENJE PROJEKT d.o.o.",
+    "address": "Bulevar vojvode Stepe",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "404212620007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MP OLIMPIJA DOO",
+    "address": "BOSANSKI PUT BROJ 215",
+    "city": "SARAJEVO-ILIJAŠ",
+    "country": "BIH",
+    "code": "600238320005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MS & WOOD d.d. Fojnica",
+    "address": "Podcitonja bb",
+    "city": "Ostružnica, Fojnica",
+    "country": "BIH",
+    "code": "236676900002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MTES TRADE DOO",
+    "address": "TRŽNICA ARIZONA,P+1,",
+    "city": "BRČKO DISTRIKT BIH",
+    "country": "BIH",
+    "code": "600292530007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MUSHROOM DOO",
+    "address": "MAJDANPEČKA 7",
+    "city": "ČELINAC",
+    "country": "BIH",
+    "code": "401792670007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MVA-PAP d.o.o.",
+    "address": "Раковачких рудара 6",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "403703070002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "NOBIL d.o.o.",
+    "address": "Nova Bila 20 b",
+    "city": "Travnik",
+    "country": "BIH",
+    "code": "236058050006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "NANSI",
+    "address": "DONJA GOLUBINJA BB",
+    "city": "ŽEPČE",
+    "country": "BIH",
+    "code": "218140240001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "NAPRAVIO BIH DOO",
+    "address": "HALILOVIĆI BB",
+    "city": "SARAJEVO-NOVI GRAD",
+    "country": "BIH",
+    "code": "201871400008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "NASHWAN REAL ESTATE INVESTMENT doo",
+    "address": "Ul. Mule Hodžića broj 10",
+    "city": "Visoko",
+    "country": "BIH",
+    "code": "218884860008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "NATRON-HAYAT D.O.O.",
+    "address": "LIJEŠNICA BB",
+    "city": "MAGLAJ",
+    "country": "BIH",
+    "code": "218471430005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "NEIMAR-PROGRES",
+    "address": "DUBIČKA 132",
+    "city": "BANJA LUKA 78000",
+    "country": "BIH",
+    "code": "400815180006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "Верица Трубајић с.п. \"НЕ-НИ\"",
+    "address": "Суботичка бб",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "502352970000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "Neptun BH team d.o.o.",
+    "address": "ul. Put života bb",
+    "city": "Sarajevo",
+    "country": "BIH",
+    "code": "203269300003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "NETWORK d.o.o.",
+    "address": "Skendera Kulenovića 69",
+    "city": "Vogošća",
+    "country": "BIH",
+    "code": "201033530005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "NETWORK MANAGER d.o.o. Banja Luka",
+    "address": "Српских пилота број 30",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "403425590008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "NEW MOMENT",
+    "address": "DOSITEJA OBRADOVIĆA 1",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "401717620002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "NEXEN d.o.o. Banja Luka",
+    "address": "Улица Козарска број 61б",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "403804000005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "NEXGEN DOO",
+    "address": "LUŽANSKO POLJE 40",
+    "city": "SARAJEVO-ILIDŽA",
+    "country": "BIH",
+    "code": "201897890003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "NIHA SPORT d.o.o. Banja Luka",
+    "address": "Алеја Светог Саве број 25",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "405242740003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "NIK TRADE DOO",
+    "address": "SIME ŠOLAJE 112",
+    "city": "MRKONJIĆ GRAD",
+    "country": "BIH",
+    "code": "401190860000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "NIKICA-PROM DOO",
+    "address": "BOLJANIĆ BB",
+    "city": "DOBOJ",
+    "country": "BIH",
+    "code": "400119430006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "NIL KOMERC д.о.о. Бања Лука",
+    "address": "Косовска 21 Д",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "401718780003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "NIRBO",
+    "address": "VINAC BB",
+    "city": "JAJCE",
+    "country": "BIH",
+    "code": "236335310002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "NIT PROMET",
+    "address": "BRAĆE MAŽAR I MAJKE MARIJE 90",
+    "city": "BANJA LUKA 78000",
+    "country": "BIH",
+    "code": "400793510007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "NITAL DOO",
+    "address": "LONDŽA-P.C.ROMA 2",
+    "city": "ZENICA",
+    "country": "BIH",
+    "code": "218049830009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "NODES d.o.o. Sarajevo",
+    "address": "ul. Fra Anđela Zvizdovića broj 4",
+    "city": "Sarajevo",
+    "country": "BIH",
+    "code": "202380970003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "NOTA DESIGN DOO",
+    "address": "ZMAJA OD BOSNE 38/40",
+    "city": "SARAJEVO",
+    "country": "BIH",
+    "code": "201188490000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "НОВИ СТАНДАРД д.о.о.",
+    "address": "Карађорђева бб",
+    "city": "Лакташи",
+    "country": "BIH",
+    "code": "403903320003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "NOVO-TEKS DOO",
+    "address": "ŽIVOJINA Ž.MIŠIĆA 19",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "400860300004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "OAZA d.o.o. Tešanj",
+    "address": "Karadaglije broj 6",
+    "city": "Tešanj",
+    "country": "BIH",
+    "code": "218246740003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "TDS DOO",
+    "address": "DR.SILVE RIZVANBEGOVIĆ DO BR.2",
+    "city": "ILIDŽA",
+    "country": "BIH",
+    "code": "201102280008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ONOGOŠT d.o.o.",
+    "address": "Цара Лазара 2",
+    "city": "Соколац",
+    "country": "BIH",
+    "code": "400627770009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "OPTINET d.o.o.",
+    "address": "Карађорђева бр.2",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "404157930000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PIKO AD",
+    "address": "BOŽE TATAREVIĆA BR.16",
+    "city": "PRNJAVOR",
+    "country": "BIH",
+    "code": "401227700008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PABOS DOO",
+    "address": "BUTMIRSKA 13",
+    "city": "SARAJEVO",
+    "country": "BIH",
+    "code": "200244450001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "HOTEL PALAS  AD",
+    "address": "KRALJA PETRA I KARAĐORĐEVIĆA 60",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "400836260000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "Paleta Plus d.o.o.",
+    "address": "Цара Душана 139",
+    "city": "Лакташи",
+    "country": "BIH",
+    "code": "403927260001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PLAMA-PUR BIH DOO",
+    "address": "BJELAVIĆI BB",
+    "city": "KAKANJ",
+    "country": "BIH",
+    "code": "218451670000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PAN-ŠPED DOO",
+    "address": "BOSANSKA POLJANA BB",
+    "city": "TUZLA",
+    "country": "BIH",
+    "code": "209054330007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PANGEA DOO",
+    "address": "OKOLICI BB",
+    "city": "PRNJAVOR",
+    "country": "BIH",
+    "code": "401211880006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PORČA DOO",
+    "address": "PORJEČANI BB",
+    "city": "VISOKO",
+    "country": "BIH",
+    "code": "218233840009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PARTS CITY d.o.o.",
+    "address": "Stupska bb",
+    "city": "Ilidža",
+    "country": "BIH",
+    "code": "201933790002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ВЛАДИМИР ЂАЈИЋ с.п. ПАТЕНТ т.р.",
+    "address": "Касиндолског батаљона 24",
+    "city": "Источна Илиџа",
+    "country": "BIH",
+    "code": "509912020007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PATROL TAXI d.o.o.",
+    "address": "Вељка Млађеновића бб",
+    "city": "78000 Бања Лука",
+    "country": "BIH",
+    "code": "400796450005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PANAPAC",
+    "address": "REPUBLIKA SRBIJA",
+    "city": "BAJINA BAŠTA",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "KARADŽA-TRADE-KAŠMIR DOO",
+    "address": "PODGAJ BB",
+    "city": "BUGOJNO",
+    "country": "BIH",
+    "code": "236144480005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PEGAZ-X d.o.o.",
+    "address": "Ул. Младена Стојановића бр.10",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "404194380001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PERPER",
+    "address": "SLATINA BB",
+    "city": "SLATINA-LAKTAŠI",
+    "country": "BIH",
+    "code": "401155280009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "Pertini Toys d.o.o",
+    "address": "Улица царице Милице број 11",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "404410260008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PERUTNINA PTUJ S DOO",
+    "address": "POVELIĆ BB",
+    "city": "SRBAC",
+    "country": "BIH",
+    "code": "401279920006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PET-PROM DOO",
+    "address": "RAJLOVAČKA BB",
+    "city": "SARAJEVO",
+    "country": "BIH",
+    "code": "200935520006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PETROL-P DOO",
+    "address": "ZAOBILAZNICA BB",
+    "city": "BIHAĆ",
+    "country": "BIH",
+    "code": "263426780009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PHYTOLINE d.o.o.",
+    "address": "Josipa Štadlera broj 6",
+    "city": "Sarajevo",
+    "country": "BIH",
+    "code": "203133740000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "GP TEHNIKA INŽINJERING D.o.o.",
+    "address": "Hase bb",
+    "city": "Bijeljina",
+    "country": "BIH",
+    "code": "400361640007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "SALMON d.o.o.",
+    "address": "Fra Lea Petrovića 11",
+    "city": "88320 Ljubuški",
+    "country": "BIH",
+    "code": "272047320008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PIMS ELEKTRO OPREMA  DOO",
+    "address": "TITOVA BR.59",
+    "city": "ODŽAK",
+    "country": "BIH",
+    "code": "254117900009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PIP-BH",
+    "address": "ZUHDIJE ŽALIĆA BB",
+    "city": "VELIKA KLADUŠA",
+    "country": "BIH",
+    "code": "263157600007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PLATINIUM  DOO",
+    "address": "Hajrudina Mešića  23b",
+    "city": "TUZLA",
+    "country": "BIH",
+    "code": "209630260001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "SOKOVIĆ SPORT d.o.o.",
+    "address": "Гундулићева 80",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "403990620000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "POLARITET d.o.o.",
+    "address": "ul. Kneza Branimira 12",
+    "city": "Mostar",
+    "country": "BIH",
+    "code": "272392930005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "POLJORAD DOO",
+    "address": "BOSANSKA BB",
+    "city": "TRAVNIK",
+    "country": "BIH",
+    "code": "236121190000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PORIN DOO",
+    "address": "TITOVA 155",
+    "city": "TUZLA",
+    "country": "BIH",
+    "code": "209016670007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ПРЕДРАГ ЦВИЈАНОВИЋ с.п., вл. ТИЦА",
+    "address": "Тиршова бр.13",
+    "city": "Бијељина",
+    "country": "BIH",
+    "code": "700306320005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "Pret A Porter d.o.o.",
+    "address": "Краља Петра I Карађорђевића 25",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "600074970003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PREVENT INTERIOR DOO",
+    "address": "GORUŠA BB",
+    "city": "VISOKO",
+    "country": "BIH",
+    "code": "245058710005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PRIMOLUX DOO",
+    "address": "GORA DANSKA 54",
+    "city": "ZENICA",
+    "country": "BIH",
+    "code": "218507050000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PRISIKA DOO",
+    "address": "RODOČ BB SLOBODNA ZONA HERCEGOVINA",
+    "city": "MOSTAR",
+    "country": "BIH",
+    "code": "227343930002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PRIZMA COMERC  DOO",
+    "address": "RAMIĆI BB",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "401174070007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PRO HORECA doo",
+    "address": "Lužansko polje 40",
+    "city": "Ilidža",
+    "country": "BIH",
+    "code": "202279740005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ProCar d.o.o. Kotor Varoš",
+    "address": "Ул.Цара Душана бб",
+    "city": "Котор Варош",
+    "country": "BIH",
+    "code": "404450300002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PRODUCTION LIGHTMEDIA d.o.o.",
+    "address": "Izeta Sarajlića broj 15",
+    "city": "Tuzla",
+    "country": "BIH",
+    "code": "209866620009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PROFIL GROUP d.o.o.",
+    "address": "Trg Alije Izetbegovića 64",
+    "city": "Zenica",
+    "country": "BIH",
+    "code": "218855090007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PROINŽENJERING d.o.o.",
+    "address": "Спасовданска 37, Лукавица",
+    "city": "Источно Сарајево",
+    "country": "BIH",
+    "code": "404509470004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PROJEKT PLUS d.o.o. Bihać",
+    "address": "Hasan bega Bišćevića br. 32",
+    "city": "Bihać",
+    "country": "BIH",
+    "code": "263845830008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PROVIDER-DOBAVLJAČ d.o.o.",
+    "address": "Budimiri 16",
+    "city": "Posušje",
+    "country": "BIH",
+    "code": "272462140007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "RAKIĆ KOMERC",
+    "address": "BATKOVIĆ BB",
+    "city": "BATKOVIĆ",
+    "country": "BIH",
+    "code": "400395890002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "RMA d.o.o.",
+    "address": "Илије Гарашанина 6",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "403857620005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MH ERS-MP AD ZP ELEKTROKRAJINA AD",
+    "address": "KRALJA PETRA I KARAĐORĐEVIĆA BR.95",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "400855640000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "RAČUNARI",
+    "address": "BORE STANKOVIĆA 13",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "400939070004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "RADIN PRINT d.o.o. Sarajevo",
+    "address": "ul. Alipašina br. 2",
+    "city": "Centar Sarajevo",
+    "country": "BIH",
+    "code": "201210330003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "RAMEX",
+    "address": "GOJAKOVIĆ 17",
+    "city": "KLADANJ",
+    "country": "BIH",
+    "code": "209074870008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "RAPIDO d.o.o.",
+    "address": "16. крајишке народноослободилачке",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "402369370001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "TEMPO GRADNJA DOO",
+    "address": "Веселина Маслеше 1",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "402778970002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BDR MEDIA DOO",
+    "address": "BEOGRAD",
+    "city": "BOGDANA TIRNANIĆA 12",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "RAZONODA-PRESS DOO",
+    "address": "KARAĐORĐEVA 219",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "400996460005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "SPRESS MONTE",
+    "address": "SRBIJA",
+    "city": "JAKOVO,SURČIN",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "REKAL d.o.o. Zenica",
+    "address": "Ul. Bistua Nuova bb",
+    "city": "Zenica",
+    "country": "BIH",
+    "code": "219061400008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "RENI INŽINJERING BH DOO",
+    "address": "UNSKA BB",
+    "city": "BOSANSKA KRUPA",
+    "country": "BIH",
+    "code": "263663720002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "RESPECT PLUS DOO",
+    "address": "Улица Браће Подгорника бб",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "403237830000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "RETEX d.o.o. Brčko",
+    "address": "Cerik bb",
+    "city": "Cerik",
+    "country": "BIH",
+    "code": "600408850004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "RIBARSTVO DOO",
+    "address": "SIJEKOVAC BB",
+    "city": "BROD",
+    "country": "BIH",
+    "code": "400086320005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "RILEPROMET",
+    "address": "MEMIĆI BB",
+    "city": "KALESIJA",
+    "country": "BIH",
+    "code": "209046230001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "RIVIMIT d.o.o.",
+    "address": "Петра Прерадовића 10",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "403881330000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "RM SOČE",
+    "address": "IVANA MILIĆEVIĆA 7",
+    "city": "MOSTAR",
+    "country": "BIH",
+    "code": "227488230009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "RM co. DOO",
+    "address": "PERE MARJANA 7",
+    "city": "BRČKO DISTRIKT BIH",
+    "country": "BIH",
+    "code": "600123260009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "RM COMPANY DOO",
+    "address": "GORNJOZENIČKA 42",
+    "city": "ZENICA",
+    "country": "BIH",
+    "code": "218507720005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ROAD d.o.o.",
+    "address": "Industrijska zona bb",
+    "city": "Lukavac",
+    "country": "BIH",
+    "code": "209161500004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ROADING DOO",
+    "address": "SPREČANSKI PUT BB",
+    "city": "GRAČANICA",
+    "country": "BIH",
+    "code": "209306750004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ROYAL AM DOO",
+    "address": "PILANSKA BB",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "403414120000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ROMA TRADE",
+    "address": "VOJVODE MIŠIĆA 6",
+    "city": "DOBOJ",
+    "country": "BIH",
+    "code": "400095660005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "TOP AGM d.o.o.",
+    "address": "XVI КНОУБ број 53",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "402973670005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ROTOLINE DOO",
+    "address": "ŠPIONICA BB",
+    "city": "SREBRENIK",
+    "country": "BIH",
+    "code": "210008840007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ROYAL ELEKTRONIC",
+    "address": "DUBRAVE,TRŽNICA ARIZONA,BEZISTAN 3",
+    "city": "BRČKO DISTRIKT",
+    "country": "BIH",
+    "code": "600200940000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "R-P-B d.o.o.",
+    "address": "Bosanski put 215",
+    "city": "Ilijaš",
+    "country": "BIH",
+    "code": "201962200001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "RMP Frigo d.o.o. Čitluk",
+    "address": "Ulica kralja Tomislava 151",
+    "city": "Čitluk",
+    "country": "BIH",
+    "code": "227129340001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "TUZLA RUDNIK SOLI DD",
+    "address": "TUŠANJ BROJ 66",
+    "city": "TUZLA",
+    "country": "BIH",
+    "code": "209348590007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "SLADABONI DOO",
+    "address": "KNJAZA MILOŠA 3-A",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "400965310005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "TECHNOGREEN D.O.O.",
+    "address": "SRBIJA",
+    "city": "BEOGRAD",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "SACOM d.o.o.",
+    "address": "Luka bb",
+    "city": "Ilijaš",
+    "country": "BIH",
+    "code": "200814900006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "SALON BANKARSKE OPREME BL-SBO BL",
+    "address": "BULEVAR VOJVODE STEPE STEPANOVIĆA",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "403356090006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "SAM-TEX COMPANY d.o.o.",
+    "address": "Svetog Save L1/PP3",
+    "city": "Doboj",
+    "country": "BIH",
+    "code": "404130570001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "SAR-LIGHT DOO",
+    "address": "MEHMEDALIJE MAKA DIZDARA DO BR.11",
+    "city": "TUZLA",
+    "country": "BIH",
+    "code": "209043640004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "SAVINA d.o.o. Banja Luka",
+    "address": "Рамићи бб",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "400907200003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "SGI TECHNOLOGY d.o.o.",
+    "address": "Poslovna zona Vila broj 49",
+    "city": "Tesanj",
+    "country": "BIH",
+    "code": "202021730005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "SeanTech Bosnia d.o.o. Vareš",
+    "address": "Ul. Industrijska broj  2",
+    "city": "Vareš",
+    "country": "BIH",
+    "code": "218965190007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "SEDEF BOSNIA DOO",
+    "address": "HRASNIČKA CESTA 15",
+    "city": "ILIDŽA",
+    "country": "BIH",
+    "code": "201603730003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "SEDRA d.o.o.",
+    "address": "ul. Džemala Bijedića broj 179",
+    "city": "Sarajevo",
+    "country": "BIH",
+    "code": "202292760007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "Selected home d.o.o. Živinice",
+    "address": "Magistralni put do br. 9, TC Porto",
+    "city": "Živinice",
+    "country": "BIH",
+    "code": "210523610006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "MESNA INDUSTRIJA SEMKO d.o.o.",
+    "address": "Goruša bb",
+    "city": "Visoko",
+    "country": "BIH",
+    "code": "218653890001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "SERVIS TIM d.o.o.",
+    "address": "Стефана Дечанског бб",
+    "city": "Бијељина",
+    "country": "BIH",
+    "code": "404075530003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "SET UP  S DOO",
+    "address": "MARŠALA TITA BB,AVAZ ROBOT CENTAR,",
+    "city": "TUZLA",
+    "country": "BIH",
+    "code": "210054790006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "SHOT DOO",
+    "address": "ZMAJEVAČKA CESTA 55C",
+    "city": "ZENICA",
+    "country": "BIH",
+    "code": "218126090005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "SI BE HOLZ DOO",
+    "address": "MAHOVLJANI BB",
+    "city": "LAKTAŠI",
+    "country": "BIH",
+    "code": "403054590000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "SIK DOO",
+    "address": "RAŠTANI BB",
+    "city": "MOSTAR",
+    "country": "BIH",
+    "code": "227019080004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "SILVASOLIS DOO",
+    "address": "PODGRAB BB",
+    "city": "PALE",
+    "country": "BIH",
+    "code": "403262780009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "SIM IMPEX d.o.o.",
+    "address": "Пословна  зона Рамићи бб",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "400874190007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "SI-MEDIS d.o.o.",
+    "address": "Јована Дучића 29",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "403905700008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "SIMPSON DOO",
+    "address": "GOLO BRDO BB",
+    "city": "BIJELJINA",
+    "country": "BIH",
+    "code": "402586550000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "A.M.D. GRUP dooel",
+    "address": "S.MAKEDONIJA",
+    "city": "SKOPLJE-AERODROM",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "IG TRADE doo",
+    "address": "CRNA GORA",
+    "city": "Polimska bb,Berane",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PATOFNA TR",
+    "address": "SRBIJA",
+    "city": "NOVI SAD",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BAMBINA doo",
+    "address": "CRNA GORA",
+    "city": "BERANE",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "KRETEX DOO",
+    "address": "R.HRVATSKA",
+    "city": "GAREŠNIČKI BRESTOVAC,GAREŠNICA",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "KRETEX doo",
+    "address": "HRVATSKA",
+    "city": "GAREŠNIČKI BRESTOVAC,GAREŠNICA",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "SINECS DOO",
+    "address": "RIBIĆKIH LJILJANA BR.3",
+    "city": "BIHAĆ",
+    "country": "BIH",
+    "code": "263037700008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "SINGERICA LIFT DOO",
+    "address": "P.M.NENADOVIĆA BB",
+    "city": "PRIJEDOR",
+    "country": "BIH",
+    "code": "402854740003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "SIRIUS DOO",
+    "address": "HIFZI BJELAVCA 152-154",
+    "city": "SARAJEVO",
+    "country": "BIH",
+    "code": "200296760009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "SKING TRADE DOO",
+    "address": "STARI DRUM BR.5,HRASNICA",
+    "city": "ILIDŽA",
+    "country": "BIH",
+    "code": "201289680004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "S & KO DOO",
+    "address": "SVETOSAVSKA 1",
+    "city": "TREBINJE",
+    "country": "BIH",
+    "code": "402670180005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "Мирослав Мишковић с.п. Šljivno",
+    "address": "Добрња бб",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "512904880006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "\"VC SMARAGD\" d.o.o. Travnik",
+    "address": "Varošluk bb",
+    "city": "Turbe",
+    "country": "BIH",
+    "code": "236728040007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "SMT d.o.o.",
+    "address": "ul. Kurta Schorka br. 15",
+    "city": "Sarajevo",
+    "country": "BIH",
+    "code": "203037510001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "SO KOMERC PLUS DOO",
+    "address": "NENADA KOSTIĆA BB",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "403631810006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "PTP ŠOLA  DOO",
+    "address": "KRALJA ZVONIMIRA BB",
+    "city": "TOMISLAVGRAD",
+    "country": "BIH",
+    "code": "281035490004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "SOLANA d.d.",
+    "address": "SOLANSKA BR. 3",
+    "city": "TUZLA",
+    "country": "BIH",
+    "code": "209372970007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "KMETIJSKA ZADRUGA METLIKA",
+    "address": "SLOVENIJA",
+    "city": "METLIKA",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ŠOŠA d.o.o. Čitluk",
+    "address": "Gospodarska zona Tromeđa VII br 10",
+    "city": "Čitluk",
+    "country": "BIH",
+    "code": "227054070003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "SPORT-GMS d.o.o.",
+    "address": "Poslovni centar 96",
+    "city": "Vitez",
+    "country": "BIH",
+    "code": "236632790005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "SSVEA DOO",
+    "address": "ILIJE GARAŠANINA BR.58",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "401608760007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "STANDARD",
+    "address": "JOVANA DUČIĆA 2",
+    "city": "PRNJAVOR",
+    "country": "BIH",
+    "code": "401226560008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "STAR Co d.o.o.",
+    "address": "Đoke Mazalića br. 2",
+    "city": "Sarajevo",
+    "country": "BIH",
+    "code": "201967180009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "STEELSOFT d.o.o. Banja Luka",
+    "address": "Улица Гундулићева број 102",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "404036390008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "STEP D.D",
+    "address": "Sarajevo-Novi Grad",
+    "city": "HALILOVICI 2",
+    "country": "BIH",
+    "code": "200095860005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "Jasmin Buzaljko, vlasnik Obrt",
+    "address": "Zenica",
+    "city": "STIGMA 3D Zenica",
+    "country": "BIH",
+    "code": "320333180005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "CHESI doo",
+    "address": "HRVATSKA",
+    "city": "KOPRIVNICA",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "SUPPORT MARKETING CENTAR DOO",
+    "address": "DRAGIŠE VASIĆA BR.16",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "403559790003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "SWE-EXPORT d.o.o.",
+    "address": "Centar 2, Kopači",
+    "city": "Novo Goražde",
+    "country": "BIH",
+    "code": "201722580001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "TRGOVIR",
+    "address": "NASELJE STJEPAN POLJE BB",
+    "city": "GRAČANICA",
+    "country": "BIH",
+    "code": "209118830009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "TABAKPLAST d.o.o.",
+    "address": "Vukovarska 58",
+    "city": "Tomislavgrad",
+    "country": "BIH",
+    "code": "281237520002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "T.A.J.M. DOO",
+    "address": "KOČERIN, IVANKOVIĆA DOLAC BB",
+    "city": "ŠIROKI BRIJEG",
+    "country": "BIH",
+    "code": "272255600006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "TAPAS d.o.o. Zenica",
+    "address": "Travnička cesta broj 4",
+    "city": "Zenica",
+    "country": "BIH",
+    "code": "218436950004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "TEA PROMESA д.о.о.",
+    "address": "Јована Бијелића 202 Ц",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "400892760007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "TEHNO DENTAL d.o.o. Banja Luka",
+    "address": "Булевар војводе Живојина Мишића 10Б",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "404558500008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "Tehpro d.o.o.",
+    "address": "Меше Селимовића број 50а",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "404855030002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "TERMOHOLDING DOO",
+    "address": "DONJA VRATNICA BB",
+    "city": "VISOKO",
+    "country": "BIH",
+    "code": "218780810009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "BOJAN BASURIĆ s.p. \"TERMO LINE\"",
+    "address": "Карађорђева 83/10а",
+    "city": "Лакташи",
+    "country": "BIH",
+    "code": "511673920003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "TERMOMONT DOO",
+    "address": "SOVIĆI BB",
+    "city": "GRUDE",
+    "country": "BIH",
+    "code": "272126620009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "403038470002",
+    "address": "",
+    "city": "",
+    "country": "BIH",
+    "code": "403038470002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "TEVEKKUL d.o.o.",
+    "address": "Mirze Hadžimehmedovića 12-18",
+    "city": "Tuzla",
+    "country": "BIH",
+    "code": "210465820003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "TEVE VARNOST ELEKTRONIKA DOO",
+    "address": "ČAJENGRADSKA 6A",
+    "city": "VISOKO",
+    "country": "BIH",
+    "code": "218101930009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "TIM-PROMET DOO",
+    "address": "SANSKA BR.6/B",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "400885980000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "TIMING DOO",
+    "address": "PUT KRIŽANI BR.69",
+    "city": "TUZLA",
+    "country": "BIH",
+    "code": "209144670001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "TOLEDO-UNION",
+    "address": "SRĐE ZLOPOGLEĐE 75",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "400815340003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "TOMATO-COMMERCE",
+    "address": "KRAJIŠKIH BRIGADA 29",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "400852540004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "TOP HOLZ d.o.o.",
+    "address": "улица Карађорђева бб, Лактинг II",
+    "city": "Лакташи",
+    "country": "BIH",
+    "code": "404234430007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "TOPLET DOO",
+    "address": "NOVA TOPOLA 135A",
+    "city": "NOVA TOPOLA-GRADIŠKA",
+    "country": "BIH",
+    "code": "401023020008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "TORINEX DOO",
+    "address": "MILOŠA DUJIĆA BB",
+    "city": "ČELINAC",
+    "country": "BIH",
+    "code": "401304970005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "TOTO-INŽENJERING d.o.o. Laktaši",
+    "address": "улица Карађорђева бб",
+    "city": "Лакташи",
+    "country": "BIH",
+    "code": "401672930005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "TPE",
+    "address": "MAHOVLJANI",
+    "city": "LAKTAŠI",
+    "country": "BIH",
+    "code": "402168800008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "TRIMIX DOO",
+    "address": "KARAĐORĐEVA BB",
+    "city": "BIJELJINA-DVOROVI",
+    "country": "BIH",
+    "code": "402196250005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "TREVIRA DOO",
+    "address": "GUNDULIĆEVA BR.106,LOKAL BR.6",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "403577850005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "TRI BEST DOO",
+    "address": "RAMIĆI BB",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "400802520002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "TVC d.o.o.",
+    "address": "1. Drinske brigade bb",
+    "city": "Goražde",
+    "country": "BIH",
+    "code": "245091500008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "UNIONINVESTPLASTIKA DD",
+    "address": "SEMIZOVAC BB",
+    "city": "SARAJEVO-VOGOŠĆA",
+    "country": "BIH",
+    "code": "200065010007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "UGALJ-PROMET DOO",
+    "address": "ŠTRBE BB",
+    "city": "ČELINAC",
+    "country": "BIH",
+    "code": "403825770005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "UNATEL",
+    "address": "BIHAĆKIH BRANILACA 108",
+    "city": "BIHAĆ",
+    "country": "BIH",
+    "code": "263096890007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "Unaviva d.o.o.",
+    "address": "Hamze Hume bb",
+    "city": "Bihać",
+    "country": "BIH",
+    "code": "263759670006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "UNIMONT DOO",
+    "address": "SOLUNSKIH DOBROVOLJACA 10",
+    "city": "GACKO",
+    "country": "BIH",
+    "code": "401383740001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "227040010008",
+    "address": "",
+    "city": "",
+    "country": "BIH",
+    "code": "227040010008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "UNIS - ENERGETIKA d.o.o. Sarajevo",
+    "address": "ul. Tešanjska br. 24A",
+    "city": "Centar Sarajevo",
+    "country": "BIH",
+    "code": "200408310001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "UNIS GINEX DD",
+    "address": "VIŠEGRADSKA BB",
+    "city": "GORAŽDE",
+    "country": "BIH",
+    "code": "245006750009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "UNIVERZITE U BANJOJ LUCI",
+    "address": "BULEVAR VOJVODE PETRA BOJOVIĆA 1A",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "401017720006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "URBANGRAD DOO",
+    "address": "ŽRTAVA SREBRENICE BR.139",
+    "city": "GRADAČAC",
+    "country": "BIH",
+    "code": "210104210006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "URGAN GROUP d.o.o. Sarajevo",
+    "address": "ul. Latička broj 23",
+    "city": "Ilidža",
+    "country": "BIH",
+    "code": "201601520001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "UTEK BH",
+    "address": "TOJŠIĆI BB",
+    "city": "KALESIJA",
+    "country": "BIH",
+    "code": "209763140009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "UNION COMERC-CO DOO",
+    "address": "BULEVAR KRALJA TVRTKA I BROJ 17",
+    "city": "ZENICA",
+    "country": "BIH",
+    "code": "218239530001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "VALBIH DOO.",
+    "address": "KONJIC",
+    "city": "DONJE POLJE 42",
+    "country": "BIH",
+    "code": "227139570005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "VALI d.o.o. Brčko distrikt BiH",
+    "address": "Иве Андрића бр.4",
+    "city": "Брчко",
+    "country": "BIH",
+    "code": "600470060001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "VALTER-ELEKTRO d.o.o.",
+    "address": "Put Famosa 38",
+    "city": "Ilidža",
+    "country": "BIH",
+    "code": "201803150001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "Veleprehrana",
+    "address": "DUNAVSKA 1 C",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "400882880004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "FD VELEPRODAJA HIGIJENE DOO",
+    "address": "BRANISLAVA NUŠIĆA BB",
+    "city": "KOTOR VAROŠ",
+    "country": "BIH",
+    "code": "402919970001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "VELPRO d.o.o.",
+    "address": "Blažuj bb",
+    "city": "Ilidža",
+    "country": "BIH",
+    "code": "202205620008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "VELVET-TRADE DOO",
+    "address": "DŽEMALA BIJEDIĆA 162",
+    "city": "SARAJEVO",
+    "country": "BIH",
+    "code": "200331180002"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "VET CNTAR veterinarska ambulanta",
+    "address": "Карађорђева бб",
+    "city": "Бања Лука",
+    "country": "BIH",
+    "code": "403271690004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "WILLIAMS DOO",
+    "address": "SVETOZARA MARKOVIĆA 5E",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "402125230003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "VIMAR GROUPE DOO",
+    "address": "ARNAUTOVIĆI 42",
+    "city": "VISOKO",
+    "country": "BIH",
+    "code": "218734030007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "VINOJUG  DOO",
+    "address": "SARAJEVO",
+    "city": "IGMANSKA  2-4",
+    "country": "BIH",
+    "code": "200368260006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "VINOS",
+    "address": "CARA DUŠANA 36",
+    "city": "LAKTAŠI",
+    "country": "BIH",
+    "code": "401183900004"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "VINOVINO d.o.o.",
+    "address": "Novi rezervoar br. 34",
+    "city": "Vogošća",
+    "country": "BIH",
+    "code": "202766490006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "VIOLETA  d.o.o.",
+    "address": "Stjepana Radića 21",
+    "city": "Grude",
+    "country": "BIH",
+    "code": "281104300000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "VISPAK",
+    "address": "OZRAKOVIĆI BB",
+    "city": "VISOKO",
+    "country": "BIH",
+    "code": "218308950000"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "FARMAVITA DOOEL",
+    "address": "MAKEDONIJA",
+    "city": "SKOPLJE",
+    "country": "BIH",
+    "code": ""
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "AUTOTRANSPORTI-VRHOVAC DOO",
+    "address": "ŠTRBE BB",
+    "city": "ČELINAC",
+    "country": "BIH",
+    "code": "403518170009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "VS-Lord d.o.o.",
+    "address": "Ul. Kojića put broj 4",
+    "city": "Banja Luka",
+    "country": "BIH",
+    "code": "403823050005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "VUJČIĆ",
+    "address": "SRPSKA KRILA SLOBODE BR.2",
+    "city": "GRADIŠKA",
+    "country": "BIH",
+    "code": "401101270008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "WALTER DOO",
+    "address": "VESELINA MASLEŠE 1",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "400940590003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "Wilderwise BH d.o.o. Tuzla",
+    "address": "Trg slobode 16",
+    "city": "Tuzla",
+    "country": "BIH",
+    "code": "210395190007"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "WINNER PROJECT d.o.o.",
+    "address": "Zmaja od Bosne 47A",
+    "city": "Novo Sarajevo",
+    "country": "BIH",
+    "code": "200197510009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "WOOL-LINE d.o.o. Sarajevo",
+    "address": "Hadželi 218",
+    "city": "Hadžići",
+    "country": "BIH",
+    "code": "202268030006"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "WS Light d.o.o.",
+    "address": "Јована Цвијића 16",
+    "city": "Пале",
+    "country": "BIH",
+    "code": "404290690003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ZAIMOVIĆ",
+    "address": "311. LAHKE BRIGADE 65",
+    "city": "KAKANJ",
+    "country": "BIH",
+    "code": "218125790003"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "Zeochem d.o.o.",
+    "address": "Каракај 229а",
+    "city": "Зворник",
+    "country": "BIH",
+    "code": "404090090001"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ZEP GROUP d.o.o.",
+    "address": "Magistralni put br. 69",
+    "city": "Živinice",
+    "country": "BIH",
+    "code": "210450120005"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ZEPTER INTERNATIONAL KD",
+    "address": "CVIJIĆEVA BB",
+    "city": "KOZARSKA DUBICA",
+    "country": "BIH",
+    "code": "400738330008"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "ZETRA",
+    "address": "I MUSLIMANSKE BRIGADE BB",
+    "city": "VELIKA KLADUŠA",
+    "country": "BIH",
+    "code": "263075380009"
+  },
+  {
+    "type": "CONSIGNEE",
+    "name": "YUKK ZIPPLAST",
+    "address": "NJEGOŠEVA 27",
+    "city": "BANJA LUKA",
+    "country": "BIH",
+    "code": "402373480008"
+  }
+]

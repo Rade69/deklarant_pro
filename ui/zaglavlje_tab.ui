@@ -1,0 +1,2101 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<ui version="4.0">
+  <class>ZaglavljeTab</class>
+  <widget class="QWidget" name="ZaglavljeTab">
+    <property name="geometry">
+      <rect>
+        <x>0</x>
+        <y>0</y>
+        <width>1250</width>
+        <height>700</height>
+      </rect>
+    </property>
+    <widget class="QPushButton" name="btn_novi">
+      <property name="geometry">
+        <rect>
+          <x>65</x>
+          <y>20</y>
+          <width>75</width>
+          <height>25</height>
+        </rect>
+      </property>
+      <property name="text">
+        <string>novi</string>
+      </property>
+    </widget>
+    <widget class="QPushButton" name="btn_otvori">
+      <property name="geometry">
+        <rect>
+          <x>145</x>
+          <y>20</y>
+          <width>75</width>
+          <height>25</height>
+        </rect>
+      </property>
+      <property name="text">
+        <string>otvori</string>
+      </property>
+    </widget>
+    <widget class="QPushButton" name="btn_import">
+      <property name="geometry">
+        <rect>
+          <x>225</x>
+          <y>20</y>
+          <width>85</width>
+          <height>25</height>
+        </rect>
+      </property>
+      <property name="text">
+        <string>import JCI</string>
+      </property>
+    </widget>
+    <widget class="QCheckBox" name="chk_direktan">
+      <property name="geometry">
+        <rect>
+          <x>315</x>
+          <y>22</y>
+          <width>130</width>
+          <height>20</height>
+        </rect>
+      </property>
+      <property name="text">
+        <string>direktan unos naimenovanja</string>
+      </property>
+    </widget>
+    <widget class="QLineEdit" name="top_search">
+      <property name="geometry">
+        <rect>
+          <x>450</x>
+          <y>20</y>
+          <width>110</width>
+          <height>25</height>
+        </rect>
+      </property>
+    </widget>
+    <widget class="QPushButton" name="btn_snimi">
+      <property name="geometry">
+        <rect>
+          <x>570</x>
+          <y>20</y>
+          <width>75</width>
+          <height>25</height>
+        </rect>
+      </property>
+      <property name="text">
+        <string>snimi</string>
+      </property>
+    </widget>
+    <widget class="QPushButton" name="btn_brisi_top">
+      <property name="geometry">
+        <rect>
+          <x>650</x>
+          <y>20</y>
+          <width>75</width>
+          <height>25</height>
+        </rect>
+      </property>
+      <property name="text">
+        <string>briši</string>
+      </property>
+    </widget>
+    <widget class="QPushButton" name="btn_export">
+      <property name="geometry">
+        <rect>
+          <x>730</x>
+          <y>20</y>
+          <width>85</width>
+          <height>25</height>
+        </rect>
+      </property>
+      <property name="text">
+        <string>export u AW</string>
+      </property>
+    </widget>
+    <widget class="QLineEdit" name="top_num">
+      <property name="geometry">
+        <rect>
+          <x>825</x>
+          <y>20</y>
+          <width>25</width>
+          <height>25</height>
+        </rect>
+      </property>
+      <property name="text">
+        <string>99</string>
+      </property>
+    </widget>
+    <widget class="QLabel" name="lbl_max">
+      <property name="geometry">
+        <rect>
+          <x>855</x>
+          <y>15</y>
+          <width>80</width>
+          <height>30</height>
+        </rect>
+      </property>
+      <property name="text">
+        <string>max broj
+naim po JCI</string>
+      </property>
+    </widget>
+    <widget class="QPushButton" name="btn_izlaz">
+      <property name="geometry">
+        <rect>
+          <x>945</x>
+          <y>20</y>
+          <width>75</width>
+          <height>25</height>
+        </rect>
+      </property>
+      <property name="text">
+        <string>izlaz</string>
+      </property>
+    </widget>
+    <widget class="QFrame" name="glavni_grid">
+      <property name="geometry">
+        <rect>
+          <x>10</x>
+          <y>120</y>
+          <width>1000</width>
+          <height>550</height>
+        </rect>
+      </property>
+      <widget class="QFrame" name="V_line_1">
+        <property name="geometry">
+          <rect>
+            <x>350</x>
+            <y>0</y>
+            <width>2</width>
+            <height>550</height>
+          </rect>
+        </property>
+        <property name="frameShape">
+          <enum>QFrame::Shape::VLine</enum>
+        </property>
+        <property name="frameShadow">
+          <enum>QFrame::Shadow::Plain</enum>
+        </property>
+        <property name="lineWidth">
+          <number>1</number>
+        </property>
+      </widget>
+      <widget class="QFrame" name="V_line_2">
+        <property name="geometry">
+          <rect>
+            <x>675</x>
+            <y>0</y>
+            <width>2</width>
+            <height>550</height>
+          </rect>
+        </property>
+        <property name="frameShape">
+          <enum>QFrame::Shape::VLine</enum>
+        </property>
+        <property name="frameShadow">
+          <enum>QFrame::Shadow::Plain</enum>
+        </property>
+        <property name="lineWidth">
+          <number>1</number>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L2">
+        <property name="geometry">
+          <rect>
+            <x>5</x>
+            <y>2</y>
+            <width>150</width>
+            <height>12</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>2 Izvoznik / Pošiljalac</string>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I2_id">
+        <property name="geometry">
+          <rect>
+            <x>190</x>
+            <y>2</y>
+            <width>150</width>
+            <height>16</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I2_r1">
+        <property name="geometry">
+          <rect>
+            <x>10</x>
+            <y>18</y>
+            <width>330</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I2_r2">
+        <property name="geometry">
+          <rect>
+            <x>10</x>
+            <y>38</y>
+            <width>330</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I2_r3">
+        <property name="geometry">
+          <rect>
+            <x>10</x>
+            <y>58</y>
+            <width>330</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I2_r4">
+        <property name="geometry">
+          <rect>
+            <x>10</x>
+            <y>78</y>
+            <width>330</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I2_r5">
+        <property name="geometry">
+          <rect>
+            <x>10</x>
+            <y>98</y>
+            <width>330</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QFrame" name="H2">
+        <property name="geometry">
+          <rect>
+            <x>0</x>
+            <y>120</y>
+            <width>350</width>
+            <height>1</height>
+          </rect>
+        </property>
+        <property name="frameShape">
+          <enum>QFrame::Shape::HLine</enum>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L8">
+        <property name="geometry">
+          <rect>
+            <x>5</x>
+            <y>122</y>
+            <width>150</width>
+            <height>12</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>8 Primalac</string>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I8_id">
+        <property name="geometry">
+          <rect>
+            <x>190</x>
+            <y>122</y>
+            <width>150</width>
+            <height>16</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I8_r1">
+        <property name="geometry">
+          <rect>
+            <x>10</x>
+            <y>138</y>
+            <width>330</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I8_r2">
+        <property name="geometry">
+          <rect>
+            <x>10</x>
+            <y>158</y>
+            <width>330</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I8_r3">
+        <property name="geometry">
+          <rect>
+            <x>10</x>
+            <y>178</y>
+            <width>330</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I8_r4">
+        <property name="geometry">
+          <rect>
+            <x>10</x>
+            <y>198</y>
+            <width>330</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I8_r5">
+        <property name="geometry">
+          <rect>
+            <x>10</x>
+            <y>218</y>
+            <width>330</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QFrame" name="H8">
+        <property name="geometry">
+          <rect>
+            <x>0</x>
+            <y>240</y>
+            <width>350</width>
+            <height>1</height>
+          </rect>
+        </property>
+        <property name="frameShape">
+          <enum>QFrame::Shape::HLine</enum>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L14">
+        <property name="geometry">
+          <rect>
+            <x>5</x>
+            <y>242</y>
+            <width>150</width>
+            <height>12</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>14 Deklarant / Zastupnik</string>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I14_id">
+        <property name="geometry">
+          <rect>
+            <x>190</x>
+            <y>242</y>
+            <width>150</width>
+            <height>16</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I14_r1">
+        <property name="geometry">
+          <rect>
+            <x>10</x>
+            <y>258</y>
+            <width>330</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QFrame" name="H14">
+        <property name="geometry">
+          <rect>
+            <x>0</x>
+            <y>280</y>
+            <width>350</width>
+            <height>1</height>
+          </rect>
+        </property>
+        <property name="frameShape">
+          <enum>QFrame::Shape::HLine</enum>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L18">
+        <property name="geometry">
+          <rect>
+            <x>5</x>
+            <y>282</y>
+            <width>280</width>
+            <height>12</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>18 Identitet transp. sredstva</string>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I18">
+        <property name="geometry">
+          <rect>
+            <x>10</x>
+            <y>296</y>
+            <width>270</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L19">
+        <property name="geometry">
+          <rect>
+            <x>290</x>
+            <y>282</y>
+            <width>50</width>
+            <height>12</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>19 Kont.</string>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I19">
+        <property name="geometry">
+          <rect>
+            <x>290</x>
+            <y>296</y>
+            <width>50</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QFrame" name="H19">
+        <property name="geometry">
+          <rect>
+            <x>0</x>
+            <y>318</y>
+            <width>350</width>
+            <height>1</height>
+          </rect>
+        </property>
+        <property name="frameShape">
+          <enum>QFrame::Shape::HLine</enum>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L21">
+        <property name="geometry">
+          <rect>
+            <x>5</x>
+            <y>320</y>
+            <width>340</width>
+            <height>12</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>21 Aktivno transp. sredstvo na granici</string>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I21">
+        <property name="geometry">
+          <rect>
+            <x>10</x>
+            <y>334</y>
+            <width>330</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QFrame" name="H21">
+        <property name="geometry">
+          <rect>
+            <x>0</x>
+            <y>356</y>
+            <width>350</width>
+            <height>1</height>
+          </rect>
+        </property>
+        <property name="frameShape">
+          <enum>QFrame::Shape::HLine</enum>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L25">
+        <property name="geometry">
+          <rect>
+            <x>5</x>
+            <y>358</y>
+            <width>80</width>
+            <height>12</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>25 Vid unutra</string>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I25">
+        <property name="geometry">
+          <rect>
+            <x>10</x>
+            <y>372</y>
+            <width>70</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L26">
+        <property name="geometry">
+          <rect>
+            <x>90</x>
+            <y>358</y>
+            <width>80</width>
+            <height>12</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>26 Vid granica</string>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I26">
+        <property name="geometry">
+          <rect>
+            <x>90</x>
+            <y>372</y>
+            <width>70</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L27">
+        <property name="geometry">
+          <rect>
+            <x>170</x>
+            <y>358</y>
+            <width>170</width>
+            <height>12</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>27 Mjesto utovara</string>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I27">
+        <property name="geometry">
+          <rect>
+            <x>170</x>
+            <y>372</y>
+            <width>170</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QFrame" name="H27">
+        <property name="geometry">
+          <rect>
+            <x>0</x>
+            <y>394</y>
+            <width>350</width>
+            <height>1</height>
+          </rect>
+        </property>
+        <property name="frameShape">
+          <enum>QFrame::Shape::HLine</enum>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L29">
+        <property name="geometry">
+          <rect>
+            <x>5</x>
+            <y>396</y>
+            <width>165</width>
+            <height>12</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>29 Izlazna carinarnica</string>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I29">
+        <property name="geometry">
+          <rect>
+            <x>10</x>
+            <y>410</y>
+            <width>160</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L30">
+        <property name="geometry">
+          <rect>
+            <x>180</x>
+            <y>396</y>
+            <width>165</width>
+            <height>12</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>30 Lokacija robe</string>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I30">
+        <property name="geometry">
+          <rect>
+            <x>180</x>
+            <y>410</y>
+            <width>160</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L1">
+        <property name="geometry">
+          <rect>
+            <x>355</x>
+            <y>2</y>
+            <width>100</width>
+            <height>12</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>1 Deklaracija</string>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I1_1">
+        <property name="geometry">
+          <rect>
+            <x>355</x>
+            <y>15</y>
+            <width>30</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I1_2">
+        <property name="geometry">
+          <rect>
+            <x>390</x>
+            <y>15</y>
+            <width>30</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I1_3">
+        <property name="geometry">
+          <rect>
+            <x>425</x>
+            <y>15</y>
+            <width>30</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QFrame" name="Hm1">
+        <property name="geometry">
+          <rect>
+            <x>350</x>
+            <y>36</y>
+            <width>325</width>
+            <height>1</height>
+          </rect>
+        </property>
+        <property name="frameShape">
+          <enum>QFrame::Shape::HLine</enum>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L3">
+        <property name="geometry">
+          <rect>
+            <x>355</x>
+            <y>40</y>
+            <width>60</width>
+            <height>12</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>3 Obrasci</string>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I3_1">
+        <property name="geometry">
+          <rect>
+            <x>355</x>
+            <y>53</y>
+            <width>25</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I3_2">
+        <property name="geometry">
+          <rect>
+            <x>385</x>
+            <y>53</y>
+            <width>25</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L4">
+        <property name="geometry">
+          <rect>
+            <x>425</x>
+            <y>40</y>
+            <width>240</width>
+            <height>12</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>4 Tovarni listovi</string>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I4">
+        <property name="geometry">
+          <rect>
+            <x>425</x>
+            <y>53</y>
+            <width>240</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QFrame" name="Hm2">
+        <property name="geometry">
+          <rect>
+            <x>350</x>
+            <y>75</y>
+            <width>325</width>
+            <height>1</height>
+          </rect>
+        </property>
+        <property name="frameShape">
+          <enum>QFrame::Shape::HLine</enum>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L5">
+        <property name="geometry">
+          <rect>
+            <x>355</x>
+            <y>77</y>
+            <width>60</width>
+            <height>12</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>5 Stavke</string>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I5">
+        <property name="geometry">
+          <rect>
+            <x>355</x>
+            <y>90</y>
+            <width>40</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L6">
+        <property name="geometry">
+          <rect>
+            <x>405</x>
+            <y>77</y>
+            <width>80</width>
+            <height>12</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>6 Uk. paketa</string>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I6">
+        <property name="geometry">
+          <rect>
+            <x>405</x>
+            <y>90</y>
+            <width>80</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L7">
+        <property name="geometry">
+          <rect>
+            <x>495</x>
+            <y>77</y>
+            <width>170</width>
+            <height>12</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>7 Ref.br</string>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I7">
+        <property name="geometry">
+          <rect>
+            <x>495</x>
+            <y>90</y>
+            <width>170</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QFrame" name="Hm3">
+        <property name="geometry">
+          <rect>
+            <x>350</x>
+            <y>112</y>
+            <width>325</width>
+            <height>1</height>
+          </rect>
+        </property>
+        <property name="frameShape">
+          <enum>QFrame::Shape::HLine</enum>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L9">
+        <property name="geometry">
+          <rect>
+            <x>355</x>
+            <y>114</y>
+            <width>310</width>
+            <height>12</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>9 Odgovorna zemlja / Podaci</string>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I9_1">
+        <property name="geometry">
+          <rect>
+            <x>355</x>
+            <y>127</y>
+            <width>40</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I9_2">
+        <property name="geometry">
+          <rect>
+            <x>400</x>
+            <y>127</y>
+            <width>85</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I9_3">
+        <property name="geometry">
+          <rect>
+            <x>490</x>
+            <y>127</y>
+            <width>85</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I9_4">
+        <property name="geometry">
+          <rect>
+            <x>580</x>
+            <y>127</y>
+            <width>85</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QFrame" name="Hm4">
+        <property name="geometry">
+          <rect>
+            <x>350</x>
+            <y>149</y>
+            <width>325</width>
+            <height>1</height>
+          </rect>
+        </property>
+        <property name="frameShape">
+          <enum>QFrame::Shape::HLine</enum>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L10">
+        <property name="geometry">
+          <rect>
+            <x>355</x>
+            <y>151</y>
+            <width>75</width>
+            <height>12</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>10 Zem.otp.</string>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I10">
+        <property name="geometry">
+          <rect>
+            <x>355</x>
+            <y>164</y>
+            <width>75</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L11">
+        <property name="geometry">
+          <rect>
+            <x>435</x>
+            <y>151</y>
+            <width>75</width>
+            <height>12</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>11 Trgov.zem.</string>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I11">
+        <property name="geometry">
+          <rect>
+            <x>435</x>
+            <y>164</y>
+            <width>75</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L12">
+        <property name="geometry">
+          <rect>
+            <x>515</x>
+            <y>151</y>
+            <width>75</width>
+            <height>12</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>12 Vrijednost</string>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I12">
+        <property name="geometry">
+          <rect>
+            <x>515</x>
+            <y>164</y>
+            <width>75</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L13">
+        <property name="geometry">
+          <rect>
+            <x>595</x>
+            <y>151</y>
+            <width>75</width>
+            <height>12</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>13 CAP</string>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I13">
+        <property name="geometry">
+          <rect>
+            <x>595</x>
+            <y>164</y>
+            <width>70</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QFrame" name="Hm5">
+        <property name="geometry">
+          <rect>
+            <x>350</x>
+            <y>186</y>
+            <width>325</width>
+            <height>1</height>
+          </rect>
+        </property>
+        <property name="frameShape">
+          <enum>QFrame::Shape::HLine</enum>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L15_s">
+        <property name="geometry">
+          <rect>
+            <x>355</x>
+            <y>188</y>
+            <width>100</width>
+            <height>12</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>15 Država izvoza</string>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I15_naziv">
+        <property name="geometry">
+          <rect>
+            <x>355</x>
+            <y>201</y>
+            <width>140</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L15_sifra">
+        <property name="geometry">
+          <rect>
+            <x>500</x>
+            <y>188</y>
+            <width>50</width>
+            <height>12</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>15 Šifra</string>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I15_sifra">
+        <property name="geometry">
+          <rect>
+            <x>500</x>
+            <y>201</y>
+            <width>40</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L17_sifra_naslov">
+        <property name="geometry">
+          <rect>
+            <x>550</x>
+            <y>188</y>
+            <width>50</width>
+            <height>12</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>17 Šifra</string>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I17_sifra">
+        <property name="geometry">
+          <rect>
+            <x>550</x>
+            <y>201</y>
+            <width>40</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QFrame" name="Hm6">
+        <property name="geometry">
+          <rect>
+            <x>350</x>
+            <y>223</y>
+            <width>325</width>
+            <height>1</height>
+          </rect>
+        </property>
+        <property name="frameShape">
+          <enum>QFrame::Shape::HLine</enum>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L16">
+        <property name="geometry">
+          <rect>
+            <x>355</x>
+            <y>225</y>
+            <width>140</width>
+            <height>12</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>16 Država porijekla</string>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I16">
+        <property name="geometry">
+          <rect>
+            <x>355</x>
+            <y>238</y>
+            <width>140</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L17_drzava">
+        <property name="geometry">
+          <rect>
+            <x>500</x>
+            <y>225</y>
+            <width>140</width>
+            <height>12</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>17 Država odredišta</string>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I17_n">
+        <property name="geometry">
+          <rect>
+            <x>500</x>
+            <y>238</y>
+            <width>140</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QFrame" name="Hm7">
+        <property name="geometry">
+          <rect>
+            <x>350</x>
+            <y>260</y>
+            <width>325</width>
+            <height>1</height>
+          </rect>
+        </property>
+        <property name="frameShape">
+          <enum>QFrame::Shape::HLine</enum>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L20">
+        <property name="geometry">
+          <rect>
+            <x>355</x>
+            <y>262</y>
+            <width>200</width>
+            <height>12</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>20 Uslovi isporuke</string>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I20_1">
+        <property name="geometry">
+          <rect>
+            <x>355</x>
+            <y>275</y>
+            <width>50</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I20_2">
+        <property name="geometry">
+          <rect>
+            <x>410</x>
+            <y>275</y>
+            <width>200</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QFrame" name="Hm8">
+        <property name="geometry">
+          <rect>
+            <x>350</x>
+            <y>298</y>
+            <width>325</width>
+            <height>1</height>
+          </rect>
+        </property>
+        <property name="frameShape">
+          <enum>QFrame::Shape::HLine</enum>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L22">
+        <property name="geometry">
+          <rect>
+            <x>355</x>
+            <y>300</y>
+            <width>100</width>
+            <height>12</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>22 Valuta i iznos</string>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I22_val">
+        <property name="geometry">
+          <rect>
+            <x>355</x>
+            <y>313</y>
+            <width>40</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I22_iznos">
+        <property name="geometry">
+          <rect>
+            <x>400</x>
+            <y>313</y>
+            <width>60</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L23">
+        <property name="geometry">
+          <rect>
+            <x>465</x>
+            <y>300</y>
+            <width>80</width>
+            <height>12</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>23 Kurs</string>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I23">
+        <property name="geometry">
+          <rect>
+            <x>465</x>
+            <y>313</y>
+            <width>80</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L24">
+        <property name="geometry">
+          <rect>
+            <x>555</x>
+            <y>300</y>
+            <width>100</width>
+            <height>12</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>24 Vrsta trans.</string>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I24_1">
+        <property name="geometry">
+          <rect>
+            <x>555</x>
+            <y>313</y>
+            <width>30</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I24_2">
+        <property name="geometry">
+          <rect>
+            <x>590</x>
+            <y>313</y>
+            <width>30</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QFrame" name="Hm9">
+        <property name="geometry">
+          <rect>
+            <x>350</x>
+            <y>335</y>
+            <width>325</width>
+            <height>1</height>
+          </rect>
+        </property>
+        <property name="frameShape">
+          <enum>QFrame::Shape::HLine</enum>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_tr_1">
+        <property name="geometry">
+          <rect>
+            <x>355</x>
+            <y>340</y>
+            <width>60</width>
+            <height>18</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>0,00</string>
+        </property>
+        <property name="alignment">
+          <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L_tr_1">
+        <property name="geometry">
+          <rect>
+            <x>420</x>
+            <y>338</y>
+            <width>180</width>
+            <height>26</height>
+          </rect>
+        </property>
+        <property name="font">
+          <font>
+            <pointsize>20</pointsize>
+          </font>
+        </property>
+        <property name="text">
+          <string>prijevoz do granice</string>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L_brutto">
+        <property name="geometry">
+          <rect>
+            <x>560</x>
+            <y>343</y>
+            <width>40</width>
+            <height>12</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>brutto</string>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_brutto">
+        <property name="geometry">
+          <rect>
+            <x>600</x>
+            <y>340</y>
+            <width>70</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_tr_2">
+        <property name="geometry">
+          <rect>
+            <x>355</x>
+            <y>360</y>
+            <width>60</width>
+            <height>18</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>0,00</string>
+        </property>
+        <property name="alignment">
+          <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L_tr_2">
+        <property name="geometry">
+          <rect>
+            <x>420</x>
+            <y>358</y>
+            <width>180</width>
+            <height>26</height>
+          </rect>
+        </property>
+        <property name="font">
+          <font>
+            <pointsize>20</pointsize>
+          </font>
+        </property>
+        <property name="text">
+          <string>osiguranje</string>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_tr_3">
+        <property name="geometry">
+          <rect>
+            <x>355</x>
+            <y>380</y>
+            <width>60</width>
+            <height>18</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>0,00</string>
+        </property>
+        <property name="alignment">
+          <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L_tr_3">
+        <property name="geometry">
+          <rect>
+            <x>420</x>
+            <y>378</y>
+            <width>180</width>
+            <height>26</height>
+          </rect>
+        </property>
+        <property name="font">
+          <font>
+            <pointsize>20</pointsize>
+          </font>
+        </property>
+        <property name="text">
+          <string>ost.troškovi / dodaci</string>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L_netto">
+        <property name="geometry">
+          <rect>
+            <x>560</x>
+            <y>383</y>
+            <width>40</width>
+            <height>12</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>netto</string>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_netto">
+        <property name="geometry">
+          <rect>
+            <x>600</x>
+            <y>380</y>
+            <width>70</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_tr_4">
+        <property name="geometry">
+          <rect>
+            <x>355</x>
+            <y>400</y>
+            <width>60</width>
+            <height>18</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>0,00</string>
+        </property>
+        <property name="alignment">
+          <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L_tr_4">
+        <property name="geometry">
+          <rect>
+            <x>420</x>
+            <y>398</y>
+            <width>180</width>
+            <height>26</height>
+          </rect>
+        </property>
+        <property name="font">
+          <font>
+            <pointsize>20</pointsize>
+          </font>
+        </property>
+        <property name="text">
+          <string>un. zavisni troškovi</string>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_tr_5">
+        <property name="geometry">
+          <rect>
+            <x>355</x>
+            <y>420</y>
+            <width>60</width>
+            <height>18</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>0,00</string>
+        </property>
+        <property name="alignment">
+          <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L_tr_5">
+        <property name="geometry">
+          <rect>
+            <x>420</x>
+            <y>418</y>
+            <width>180</width>
+            <height>26</height>
+          </rect>
+        </property>
+        <property name="font">
+          <font>
+            <pointsize>20</pointsize>
+          </font>
+        </property>
+        <property name="text">
+          <string>popusti</string>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L_radni">
+        <property name="geometry">
+          <rect>
+            <x>560</x>
+            <y>418</y>
+            <width>50</width>
+            <height>20</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>radni mod
+po vrij.</string>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_radni">
+        <property name="geometry">
+          <rect>
+            <x>610</x>
+            <y>420</y>
+            <width>60</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QFrame" name="Hm10">
+        <property name="geometry">
+          <rect>
+            <x>350</x>
+            <y>445</y>
+            <width>325</width>
+            <height>1</height>
+          </rect>
+        </property>
+        <property name="frameShape">
+          <enum>QFrame::Shape::HLine</enum>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L48">
+        <property name="geometry">
+          <rect>
+            <x>355</x>
+            <y>447</y>
+            <width>130</width>
+            <height>12</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>48 odgođeno plaćanje</string>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I48">
+        <property name="geometry">
+          <rect>
+            <x>355</x>
+            <y>460</y>
+            <width>130</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L49">
+        <property name="geometry">
+          <rect>
+            <x>495</x>
+            <y>447</y>
+            <width>170</width>
+            <height>12</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>49 identifikacija skladišta</string>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I49">
+        <property name="geometry">
+          <rect>
+            <x>495</x>
+            <y>460</y>
+            <width>175</width>
+            <height>18</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L_pr_sifra">
+        <property name="geometry">
+          <rect>
+            <x>680</x>
+            <y>10</y>
+            <width>50</width>
+            <height>20</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>Šifra</string>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L_pr_naziv">
+        <property name="geometry">
+          <rect>
+            <x>729</x>
+            <y>10</y>
+            <width>190</width>
+            <height>20</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>Naziv</string>
+        </property>
+      </widget>
+      <widget class="QLabel" name="L_pr_datum">
+        <property name="geometry">
+          <rect>
+            <x>918</x>
+            <y>10</y>
+            <width>77</width>
+            <height>20</height>
+          </rect>
+        </property>
+        <property name="text">
+          <string>Datum</string>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_sifra_1">
+        <property name="geometry">
+          <rect>
+            <x>680</x>
+            <y>30</y>
+            <width>50</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_naziv_1">
+        <property name="geometry">
+          <rect>
+            <x>729</x>
+            <y>30</y>
+            <width>190</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_datum_1">
+        <property name="geometry">
+          <rect>
+            <x>918</x>
+            <y>30</y>
+            <width>77</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_sifra_2">
+        <property name="geometry">
+          <rect>
+            <x>680</x>
+            <y>49</y>
+            <width>50</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_naziv_2">
+        <property name="geometry">
+          <rect>
+            <x>729</x>
+            <y>49</y>
+            <width>190</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_datum_2">
+        <property name="geometry">
+          <rect>
+            <x>918</x>
+            <y>49</y>
+            <width>77</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_sifra_3">
+        <property name="geometry">
+          <rect>
+            <x>680</x>
+            <y>68</y>
+            <width>50</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_naziv_3">
+        <property name="geometry">
+          <rect>
+            <x>729</x>
+            <y>68</y>
+            <width>190</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_datum_3">
+        <property name="geometry">
+          <rect>
+            <x>918</x>
+            <y>68</y>
+            <width>77</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_sifra_4">
+        <property name="geometry">
+          <rect>
+            <x>680</x>
+            <y>87</y>
+            <width>50</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_naziv_4">
+        <property name="geometry">
+          <rect>
+            <x>729</x>
+            <y>87</y>
+            <width>190</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_datum_4">
+        <property name="geometry">
+          <rect>
+            <x>918</x>
+            <y>87</y>
+            <width>77</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_sifra_5">
+        <property name="geometry">
+          <rect>
+            <x>680</x>
+            <y>106</y>
+            <width>50</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_naziv_5">
+        <property name="geometry">
+          <rect>
+            <x>729</x>
+            <y>106</y>
+            <width>190</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_datum_5">
+        <property name="geometry">
+          <rect>
+            <x>918</x>
+            <y>106</y>
+            <width>77</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_sifra_6">
+        <property name="geometry">
+          <rect>
+            <x>680</x>
+            <y>125</y>
+            <width>50</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_naziv_6">
+        <property name="geometry">
+          <rect>
+            <x>729</x>
+            <y>125</y>
+            <width>190</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_datum_6">
+        <property name="geometry">
+          <rect>
+            <x>918</x>
+            <y>125</y>
+            <width>77</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_sifra_7">
+        <property name="geometry">
+          <rect>
+            <x>680</x>
+            <y>144</y>
+            <width>50</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_naziv_7">
+        <property name="geometry">
+          <rect>
+            <x>729</x>
+            <y>144</y>
+            <width>190</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_datum_7">
+        <property name="geometry">
+          <rect>
+            <x>918</x>
+            <y>144</y>
+            <width>77</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_sifra_8">
+        <property name="geometry">
+          <rect>
+            <x>680</x>
+            <y>163</y>
+            <width>50</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_naziv_8">
+        <property name="geometry">
+          <rect>
+            <x>729</x>
+            <y>163</y>
+            <width>190</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_datum_8">
+        <property name="geometry">
+          <rect>
+            <x>918</x>
+            <y>163</y>
+            <width>77</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_sifra_9">
+        <property name="geometry">
+          <rect>
+            <x>680</x>
+            <y>182</y>
+            <width>50</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_naziv_9">
+        <property name="geometry">
+          <rect>
+            <x>729</x>
+            <y>182</y>
+            <width>190</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_datum_9">
+        <property name="geometry">
+          <rect>
+            <x>918</x>
+            <y>182</y>
+            <width>77</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_sifra_10">
+        <property name="geometry">
+          <rect>
+            <x>680</x>
+            <y>201</y>
+            <width>50</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_naziv_10">
+        <property name="geometry">
+          <rect>
+            <x>729</x>
+            <y>201</y>
+            <width>190</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_datum_10">
+        <property name="geometry">
+          <rect>
+            <x>918</x>
+            <y>201</y>
+            <width>77</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_sifra_11">
+        <property name="geometry">
+          <rect>
+            <x>680</x>
+            <y>220</y>
+            <width>50</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_naziv_11">
+        <property name="geometry">
+          <rect>
+            <x>729</x>
+            <y>220</y>
+            <width>190</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_datum_11">
+        <property name="geometry">
+          <rect>
+            <x>918</x>
+            <y>220</y>
+            <width>77</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_sifra_12">
+        <property name="geometry">
+          <rect>
+            <x>680</x>
+            <y>239</y>
+            <width>50</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_naziv_12">
+        <property name="geometry">
+          <rect>
+            <x>729</x>
+            <y>239</y>
+            <width>190</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_datum_12">
+        <property name="geometry">
+          <rect>
+            <x>918</x>
+            <y>239</y>
+            <width>77</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_sifra_13">
+        <property name="geometry">
+          <rect>
+            <x>680</x>
+            <y>258</y>
+            <width>50</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_naziv_13">
+        <property name="geometry">
+          <rect>
+            <x>729</x>
+            <y>258</y>
+            <width>190</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_datum_13">
+        <property name="geometry">
+          <rect>
+            <x>918</x>
+            <y>258</y>
+            <width>77</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_sifra_14">
+        <property name="geometry">
+          <rect>
+            <x>680</x>
+            <y>277</y>
+            <width>50</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_naziv_14">
+        <property name="geometry">
+          <rect>
+            <x>729</x>
+            <y>277</y>
+            <width>190</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_datum_14">
+        <property name="geometry">
+          <rect>
+            <x>918</x>
+            <y>277</y>
+            <width>77</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_sifra_15">
+        <property name="geometry">
+          <rect>
+            <x>680</x>
+            <y>296</y>
+            <width>50</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_naziv_15">
+        <property name="geometry">
+          <rect>
+            <x>729</x>
+            <y>296</y>
+            <width>190</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+      <widget class="QLineEdit" name="I_pr_datum_15">
+        <property name="geometry">
+          <rect>
+            <x>918</x>
+            <y>296</y>
+            <width>77</width>
+            <height>20</height>
+          </rect>
+        </property>
+      </widget>
+    </widget>
+  </widget>
+  <resources />
+  <connections />
+</ui>

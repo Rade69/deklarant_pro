@@ -1,0 +1,105 @@
+/* ============================================================
+   ASYCUDA PRO - PROFESSIONAL GRID (FLAT STYLE)
+   ============================================================ */
+
+/* GLOBALNI STILOVI */
+QWidget {
+    background-color: #F0F2F5;
+    font-family: "Roboto", "Segoe UI", sans-serif;
+    font-size: 11px;
+}
+
+/* GLAVNI GRID FRAME-OVI */
+/* NAPOMENA: Za tab-ove koji koriste QUiLoader (.ui fajlove), glavni frame se stilizuje direktno u Python kodu */
+QFrame#glavni_grid,
+QFrame#main_grid_frame {
+    background-color: #FFFFFF;
+    border: 2px solid #000000;
+}
+
+/* GRID SEPARATOR LINIJE (1px široke V_ i H_ frame linije) */
+/* NAPOMENA: Za tab-ove koji koriste QUiLoader (.ui fajlove), separator linije se stilizuju direktno u Python kodu
+   koristeći setStyleSheet("QFrame { background-color: #000000; }") zbog problema sa QSS selectorima na dinamički
+   učitane widgete. Ovo QSS pravilo ostaje za druge tab-ove koji kreiraju separator linije programatski. */
+QFrame[objectName^="V_"],
+QFrame[objectName^="H_"] {
+    background-color: #000000;
+    border: none;
+}
+
+/* LABELE */
+QLabel {
+    font-size: 9px;
+    color: #333333;
+    background-color: transparent;
+    border: none;
+    padding: 0px;
+    margin: 0px;
+}
+
+/* INPUT POLJA (QLineEdit, QComboBox, QDateEdit) */
+QLineEdit,
+QComboBox,
+QDateEdit,
+QTextEdit {
+    background-color: #FFFFFF;
+    border: 1px solid #999999;
+    border-radius: 0px;
+    padding: 2px 4px;
+    margin: 0px;
+    font-size: 11px;
+    color: #000000;
+}
+
+QLineEdit:focus,
+QComboBox:focus,
+QDateEdit:focus,
+QTextEdit:focus {
+    border: 1px solid #1976D2;
+    background-color: #FFFFFF;
+}
+
+/* READONLY/CALCULATED POLJA */
+QLineEdit[readOnly="true"] {
+    background-color: #F5F5F5;
+    color: #666666;
+    border: 1px solid #CCCCCC;
+}
+
+/* DUGMAD */
+QPushButton {
+    background-color: #E8E8E8;
+    border: 1px solid #999999;
+    border-radius: 2px;
+    font-size: 10px;
+    padding: 4px 8px;
+    color: #000000;
+}
+
+QPushButton:hover {
+    background-color: #D5D5D5;
+    border: 1px solid #777777;
+}
+
+QPushButton:pressed {
+    background-color: #C0C0C0;
+}
+
+/* CHECKBOX */
+QCheckBox {
+    font-size: 9px;
+    spacing: 4px;
+}
+
+/* COMBOBOX DROPDOWN */
+QComboBox::drop-down {
+    border: none;
+    width: 20px;
+}
+
+QComboBox::down-arrow {
+    image: none;
+    border: 1px solid #999999;
+    width: 8px;
+    height: 8px;
+}

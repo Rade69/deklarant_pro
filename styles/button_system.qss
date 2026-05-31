@@ -1,0 +1,521 @@
+/*
+═══════════════════════════════════════════════════════════════
+Deklarant Pro - Button System
+5 categories according to UI/UX proposal
+═══════════════════════════════════════════════════════════════
+*/
+
+/* ═══════════════════════════════════════════════════════════
+   CATEGORY 1: PRIMARY BUTTONS
+   Color: #2FA36B (green)
+   Usage: Main action - ONLY 1 per screen (e.g., "Save")
+   ═══════════════════════════════════════════════════════════ */
+
+QPushButton.btn_primary {
+    background-color: #2FA36B;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    min-height: 34px;
+}
+
+QPushButton.btn_primary:hover {
+    background-color: #268B55;
+}
+
+QPushButton.btn_primary:pressed {
+    background-color: #1F7044;
+}
+
+QPushButton.btn_primary:disabled {
+    background-color: #A8D5BF;
+    color: #E0E0E0;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CATEGORY 2: NAVIGATION BUTTONS
+   Color: #3A7BD5 (blue)
+   Usage: Movement, no risk (<<, <, >, >>)
+   ═══════════════════════════════════════════════════════════ */
+
+QPushButton.btn_navigation {
+    background-color: #3A7BD5;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    min-width: 70px;
+    min-height: 32px;
+}
+
+QPushButton.btn_navigation:hover {
+    background-color: #2E63B3;
+}
+
+QPushButton.btn_navigation:pressed {
+    background-color: #254F91;
+}
+
+QPushButton.btn_navigation:disabled {
+    background-color: #9DB8E3;
+    color: #E0E0E0;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CATEGORY 3: SECONDARY BUTTONS
+   Color: #E5E7EB (neutral gray)
+   Usage: Optional actions (New, Open, Export)
+   ═══════════════════════════════════════════════════════════ */
+
+QPushButton.btn_secondary {
+    background-color: #E5E7EB;
+    color: #2B2F36;
+    border: 1px solid #C9CED6;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    min-height: 36px;
+}
+
+QPushButton.btn_secondary:hover {
+    background-color: #D1D5DB;
+    border-color: #9CA3AF;
+}
+
+QPushButton.btn_secondary:pressed {
+    background-color: #C9CED6;
+}
+
+QPushButton.btn_secondary:disabled {
+    background-color: #F3F4F6;
+    color: #D1D5DB;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CATEGORY 4: DESTRUCTIVE BUTTONS
+   Color: #D64545 (red)
+   Usage: Deletion, dangerous actions - WARNING!
+   ═══════════════════════════════════════════════════════════ */
+
+QPushButton.btn_destructive {
+    background-color: #D64545;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    min-height: 32px;
+}
+
+QPushButton.btn_destructive:hover {
+    background-color: #B83838;
+}
+
+QPushButton.btn_destructive:pressed {
+    background-color: #9C2E2E;
+}
+
+QPushButton.btn_destructive:disabled {
+    background-color: #EBA9A9;
+    color: #E0E0E0;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CATEGORY 5: ASSIST (SMART) BUTTONS
+   Color: #6B5DD3 (purple)
+   Usage: Automation, AI-powered helpers
+   ═══════════════════════════════════════════════════════════ */
+
+QPushButton.btn_assist {
+    background-color: #6B5DD3;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    min-height: 32px;
+}
+
+QPushButton.btn_assist:hover {
+    background-color: #5A4BC2;
+}
+
+QPushButton.btn_assist:pressed {
+    background-color: #4A3CA8;
+}
+
+QPushButton.btn_assist:disabled {
+    background-color: #B5ADE9;
+    color: #E0E0E0;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ICON + TEXT LAYOUT
+   ═══════════════════════════════════════════════════════════ */
+
+QPushButton[icon="true"] {
+    text-align: left;
+    padding-left: 36px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ORANGE NAVIGATION BUTTONS (Naimenovanja Tab)
+   Color: #ff8c00 (orange)
+   Usage: Previous/Next navigation in Naimenovanja
+   ═══════════════════════════════════════════════════════════ */
+
+QPushButton.btn_navigation_orange {
+    background: #ff8c00;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+QPushButton.btn_navigation_orange:hover {
+    background: #ffa500;
+}
+
+QPushButton.btn_navigation_orange:disabled {
+    background: #dee2e6;
+    color: #adb5bd;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SOLID COLORED BUTTONS (Naimenovanja Tab)
+   Usage: Action buttons with specific colors
+   ═══════════════════════════════════════════════════════════ */
+
+/* Green solid button (Add, Save) */
+QPushButton.btn_solid_green {
+    background: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+QPushButton.btn_solid_green:hover {
+    background: #34ce57;
+}
+
+QPushButton.btn_solid_green:disabled {
+    background: #e9ecef;
+    color: #adb5bd;
+}
+
+/* Red solid button (Delete) */
+QPushButton.btn_solid_red {
+    background: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+QPushButton.btn_solid_red:hover {
+    background: #c82333;
+}
+
+QPushButton.btn_solid_red:disabled {
+    background: #e9ecef;
+    color: #adb5bd;
+}
+
+/* Yellow solid button (Suggest) */
+QPushButton.btn_solid_yellow {
+    background: #ffc107;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+QPushButton.btn_solid_yellow:hover {
+    background: #e0a800;
+}
+
+QPushButton.btn_solid_yellow:disabled {
+    background: #e9ecef;
+    color: #adb5bd;
+}
+
+/* Cyan solid button (Validate) */
+QPushButton.btn_solid_cyan {
+    background: #17a2b8;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+QPushButton.btn_solid_cyan:hover {
+    background: #138496;
+}
+
+QPushButton.btn_solid_cyan:disabled {
+    background: #e9ecef;
+    color: #adb5bd;
+}
+
+/* Gray solid button (Reset, Cancel) */
+QPushButton.btn_solid_gray {
+    background: #6c757d;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+QPushButton.btn_solid_gray:hover {
+    background: #5a6268;
+}
+
+QPushButton.btn_solid_gray:disabled {
+    background: #e9ecef;
+    color: #adb5bd;
+}
+
+/* Small variant for section heading buttons (Sačuvaj, Poništi) */
+QPushButton.btn_solid_small {
+    padding: 4px 12px;
+    font-size: 12px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   QMessageBox - POPUP PROZORI SA VELIKIM FONTOM
+   ═══════════════════════════════════════════════════════════ */
+
+QMessageBox {
+    font-size: 16px;
+    min-width: 800px;
+}
+
+QMessageBox QLabel {
+    font-size: 16px;
+    font-weight: bold;
+    min-height: 140px;
+    padding: 25px;
+    line-height: 1.6;
+}
+
+QMessageBox QPushButton {
+    font-size: 16px;
+    font-weight: bold;
+    padding: 15px 40px;
+    min-width: 160px;
+    min-height: 50px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SPECIFIC BUTTONS - Faktura Tab
+   btnKreirajNaimenovanja and btnValidacija color swap
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Kreiraj Naimenovanja - primary green */
+QPushButton#btnKreirajNaimenovanja {
+    background-color: #2E7D6B;
+    color: #FFFFFF;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+QPushButton#btnKreirajNaimenovanja:hover {
+    background-color: #3B9B87;
+}
+
+QPushButton#btnKreirajNaimenovanja:pressed {
+    background-color: #245F53;
+}
+
+/* Validacija - export blue-gray */
+QPushButton#btnValidacija {
+    background-color: #4A7B9D;
+    color: #FFFFFF;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+QPushButton#btnValidacija:hover {
+    background-color: #5B9DBF;
+}
+
+QPushButton#btnValidacija:pressed {
+    background-color: #3A6180;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   LEGACY ID + ATTRIBUTE SELEKTORI (migrirano iz button_styles.qss)
+   Koriste btnType="..." atribut i specifične button ID-eve.
+   button_styles.qss je uklonjen — sve je ovdje.
+   ═══════════════════════════════════════════════════════════ */
+
+QPushButton[btnType="primary"],
+QPushButton#btnSnimi,
+QPushButton#btnDodaj {
+    background-color: #2E7D6B;
+    color: #FFFFFF;
+    border: none;
+}
+QPushButton[btnType="primary"]:hover,
+QPushButton#btnSnimi:hover,
+QPushButton#btnDodaj:hover {
+    background-color: #3B9B87;
+}
+QPushButton[btnType="primary"]:pressed,
+QPushButton#btnSnimi:pressed,
+QPushButton#btnDodaj:pressed {
+    background-color: #245F53;
+}
+
+QPushButton[btnType="import"],
+QPushButton#btnUveziXML,
+QPushButton#btnUveziPDF,
+QPushButton#btnUveziExcel,
+QPushButton#btnUcitajListu,
+QPushButton#btnUcitajMappinge {
+    background-color: #5C6BC0;
+    color: #FFFFFF;
+    border: none;
+}
+QPushButton[btnType="import"]:hover,
+QPushButton#btnUveziXML:hover,
+QPushButton#btnUveziPDF:hover,
+QPushButton#btnUveziExcel:hover,
+QPushButton#btnUcitajListu:hover,
+QPushButton#btnUcitajMappinge:hover {
+    background-color: #7986CB;
+}
+QPushButton[btnType="import"]:pressed,
+QPushButton#btnUveziXML:pressed,
+QPushButton#btnUveziPDF:pressed,
+QPushButton#btnUveziExcel:pressed,
+QPushButton#btnUcitajListu:pressed,
+QPushButton#btnUcitajMappinge:pressed {
+    background-color: #3F51B5;
+}
+
+QPushButton[btnType="export"],
+QPushButton#btnIzveziXML,
+QPushButton#btnExcel,
+QPushButton#btnPDF {
+    background-color: #4A7B9D;
+    color: #FFFFFF;
+    border: none;
+}
+QPushButton[btnType="export"]:hover,
+QPushButton#btnIzveziXML:hover,
+QPushButton#btnExcel:hover,
+QPushButton#btnPDF:hover {
+    background-color: #5B9DBF;
+}
+QPushButton[btnType="export"]:pressed,
+QPushButton#btnIzveziXML:pressed,
+QPushButton#btnExcel:pressed,
+QPushButton#btnPDF:pressed {
+    background-color: #3A6180;
+}
+
+QPushButton[btnType="danger"],
+QPushButton#btnBrisi,
+QPushButton#btnObrisi,
+QPushButton#btnOcistiSve {
+    background-color: #B85450;
+    color: #FFFFFF;
+    border: none;
+}
+QPushButton[btnType="danger"]:hover,
+QPushButton#btnBrisi:hover,
+QPushButton#btnObrisi:hover,
+QPushButton#btnOcistiSve:hover {
+    background-color: #D4726E;
+}
+QPushButton[btnType="danger"]:pressed,
+QPushButton#btnBrisi:pressed,
+QPushButton#btnObrisi:pressed,
+QPushButton#btnOcistiSve:pressed {
+    background-color: #963F3C;
+}
+
+QPushButton[btnType="neutral"],
+QPushButton#btnOtvori,
+QPushButton#btnNovi {
+    background-color: #8D6E63;
+    color: #FFFFFF;
+    border: none;
+}
+QPushButton[btnType="neutral"]:hover,
+QPushButton#btnOtvori:hover,
+QPushButton#btnNovi:hover {
+    background-color: #A1887F;
+}
+QPushButton[btnType="neutral"]:pressed,
+QPushButton#btnOtvori:pressed,
+QPushButton#btnNovi:pressed {
+    background-color: #6D4C41;
+}
+
+QPushButton[btnType="ai"],
+QPushButton#btnAutoPopuni,
+QPushButton#btnIzracunajMase,
+QPushButton#btnMappings {
+    background-color: #7B5EA7;
+    color: #FFFFFF;
+    border: none;
+}
+QPushButton[btnType="ai"]:hover,
+QPushButton#btnAutoPopuni:hover,
+QPushButton#btnIzracunajMase:hover,
+QPushButton#btnMappings:hover {
+    background-color: #9575CD;
+}
+QPushButton[btnType="ai"]:pressed,
+QPushButton#btnAutoPopuni:pressed,
+QPushButton#btnIzracunajMase:pressed,
+QPushButton#btnMappings:pressed {
+    background-color: #5E3D8F;
+}
+
+QPushButton[btnType="cancel"],
+QPushButton#btnIzlaz,
+QPushButton#btnCancel {
+    background-color: #6B7280;
+    color: #FFFFFF;
+    border: none;
+}
+QPushButton[btnType="cancel"]:hover,
+QPushButton#btnIzlaz:hover,
+QPushButton#btnCancel:hover {
+    background-color: #9CA3AF;
+}
+QPushButton[btnType="cancel"]:pressed,
+QPushButton#btnIzlaz:pressed,
+QPushButton#btnCancel:pressed {
+    background-color: #4B5563;
+}
