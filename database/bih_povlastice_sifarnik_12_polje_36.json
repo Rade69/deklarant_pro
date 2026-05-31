@@ -1,0 +1,119 @@
+[
+  {
+    "code": "CEFTAP",
+    "name": "CEFTA 2006",
+    "agreement": "CEFTA",
+    "origin": "CEFTA 2006",
+    "revised_pem": false,
+    "field": "36",
+    "sifarnik": "12"
+  },
+  {
+    "code": "CEFTAR",
+    "name": "CEFTA 2006 – Revidirana PEM pravila",
+    "agreement": "CEFTA",
+    "origin": "CEFTA 2006",
+    "revised_pem": true,
+    "field": "36",
+    "sifarnik": "12"
+  },
+  {
+    "code": "EFTA1",
+    "name": "Švicarska i Lihtenštajn",
+    "agreement": "EFTA",
+    "origin": "Švicarska i Lihtenštajn",
+    "revised_pem": false,
+    "field": "36",
+    "sifarnik": "12"
+  },
+  {
+    "code": "EFTA1R",
+    "name": "Švicarska i Lihtenštajn – Revidirana PEM pravila",
+    "agreement": "EFTA",
+    "origin": "Švicarska i Lihtenštajn",
+    "revised_pem": true,
+    "field": "36",
+    "sifarnik": "12"
+  },
+  {
+    "code": "EFTA2",
+    "name": "Island",
+    "agreement": "EFTA",
+    "origin": "Island",
+    "revised_pem": false,
+    "field": "36",
+    "sifarnik": "12"
+  },
+  {
+    "code": "EFTA2R",
+    "name": "Island – Revidirana PEM pravila",
+    "agreement": "EFTA",
+    "origin": "Island",
+    "revised_pem": true,
+    "field": "36",
+    "sifarnik": "12"
+  },
+  {
+    "code": "EFTA3",
+    "name": "Norveška",
+    "agreement": "EFTA",
+    "origin": "Norveška",
+    "revised_pem": false,
+    "field": "36",
+    "sifarnik": "12"
+  },
+  {
+    "code": "EFTA3R",
+    "name": "Norveška – Revidirana PEM pravila",
+    "agreement": "EFTA",
+    "origin": "Norveška",
+    "revised_pem": true,
+    "field": "36",
+    "sifarnik": "12"
+  },
+  {
+    "code": "EUP",
+    "name": "EU porijeklo",
+    "agreement": "EU",
+    "origin": "Evropska unija",
+    "revised_pem": false,
+    "field": "36",
+    "sifarnik": "12"
+  },
+  {
+    "code": "EUPR",
+    "name": "EU porijeklo – Revidirana PEM pravila",
+    "agreement": "EU",
+    "origin": "Evropska unija",
+    "revised_pem": true,
+    "field": "36",
+    "sifarnik": "12"
+  },
+  {
+    "code": "TRP",
+    "name": "Turska",
+    "agreement": "Turska",
+    "origin": "Turska",
+    "revised_pem": false,
+    "field": "36",
+    "sifarnik": "12"
+  },
+  {
+    "code": "TRPR",
+    "name": "Turska – Revidirana PEM pravila",
+    "agreement": "Turska",
+    "origin": "Turska",
+    "revised_pem": true,
+    "field": "36",
+    "sifarnik": "12"
+  },
+  {
+    "code": "IRP",
+    "name": "Iran",
+    "agreement": "Iran",
+    "origin": "Iran",
+    "revised_pem": false,
+    "field": "36",
+    "sifarnik": "12"
+  }
+]

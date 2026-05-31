@@ -1,0 +1,470 @@
+[
+  {
+    "name": "weak_cross_chapter_is_suppressed",
+    "invoice_lines": [
+      {
+        "line_no": 58,
+        "naziv_robe": "BORT 112900 B.R.Z.palac lev XL",
+        "tarifni_broj": "63079099"
+      }
+    ],
+    "history_matches": [
+      {
+        "naziv_robe": "BORT 112900 B.R.Z.palac lev XL",
+        "tarifni_broj": "11010015",
+        "usage_count": 1,
+        "source": "",
+        "confidence": 0.6
+      }
+    ],
+    "expected": {
+      "action": "suppress"
+    }
+  },
+  {
+    "name": "strong_cross_chapter_is_shown",
+    "invoice_lines": [
+      {
+        "line_no": 52,
+        "naziv_robe": "DIXI dekstroza 7vit bomb a40",
+        "tarifni_broj": "21069092"
+      }
+    ],
+    "history_matches": [
+      {
+        "naziv_robe": "DIXI dekstroza 7vit bomb a40",
+        "tarifni_broj": "17049081",
+        "usage_count": 10,
+        "source": "MEDIKO",
+        "confidence": 0.68
+      }
+    ],
+    "expected": {
+      "action": "show",
+      "tarifni_broj": "17049081",
+      "reason_contains": "Promjena poglavlja"
+    }
+  },
+  {
+    "name": "invoice_profile_suppresses_out_of_profile_noise",
+    "invoice_lines": [
+      {
+        "line_no": 1,
+        "naziv_robe": "GW krema",
+        "tarifni_broj": "33049900"
+      },
+      {
+        "line_no": 2,
+        "naziv_robe": "GW puder",
+        "tarifni_broj": "33049900"
+      },
+      {
+        "line_no": 3,
+        "naziv_robe": "VITIX gel",
+        "tarifni_broj": "33049900"
+      },
+      {
+        "line_no": 4,
+        "naziv_robe": "OHP cepovi",
+        "tarifni_broj": "39269097"
+      },
+      {
+        "line_no": 5,
+        "naziv_robe": "BORT 112900 B.R.Z.palac lev XL",
+        "tarifni_broj": "63079099"
+      }
+    ],
+    "history_matches": [
+      {
+        "naziv_robe": "BORT 112900 B.R.Z.palac lev XL",
+        "tarifni_broj": "11010015",
+        "usage_count": 5,
+        "source": "MEDIKO",
+        "confidence": 0.68
+      }
+    ],
+    "expected": {
+      "action": "suppress"
+    }
+  },
+  {
+    "name": "very_strong_out_of_profile_evidence_is_shown",
+    "invoice_lines": [
+      {
+        "line_no": 1,
+        "naziv_robe": "GW krema",
+        "tarifni_broj": "33049900"
+      },
+      {
+        "line_no": 2,
+        "naziv_robe": "GW puder",
+        "tarifni_broj": "33049900"
+      },
+      {
+        "line_no": 3,
+        "naziv_robe": "VITIX gel",
+        "tarifni_broj": "33049900"
+      },
+      {
+        "line_no": 4,
+        "naziv_robe": "OHP cepovi",
+        "tarifni_broj": "39269097"
+      },
+      {
+        "line_no": 5,
+        "naziv_robe": "DIXI dekstroza 7vit bomb a40",
+        "tarifni_broj": "21069092"
+      }
+    ],
+    "history_matches": [
+      {
+        "naziv_robe": "DIXI dekstroza 7vit bomb a40",
+        "tarifni_broj": "17049081",
+        "usage_count": 12,
+        "source": "MEDIKO",
+        "confidence": 0.7
+      }
+    ],
+    "expected": {
+      "action": "show",
+      "tarifni_broj": "17049081",
+      "reason_contains": "Promjena poglavlja"
+    }
+  },
+  {
+    "name": "same_heading_precision_is_shown",
+    "invoice_lines": [
+      {
+        "line_no": 1,
+        "naziv_robe": "kozmeticka krema",
+        "tarifni_broj": "33049900"
+      }
+    ],
+    "history_matches": [
+      {
+        "naziv_robe": "kozmeticka krema",
+        "tarifni_broj": "33049910",
+        "usage_count": 1,
+        "source": "",
+        "confidence": 0.6
+      }
+    ],
+    "expected": {
+      "action": "show",
+      "tarifni_broj": "33049910",
+      "reason_contains": "Ista tarifna glava"
+    }
+  },
+  {
+    "name": "same_chapter_different_heading_with_repetition_is_shown",
+    "invoice_lines": [
+      {
+        "line_no": 1,
+        "naziv_robe": "sampon za kosu",
+        "tarifni_broj": "33049900"
+      }
+    ],
+    "history_matches": [
+      {
+        "naziv_robe": "sampon za kosu",
+        "tarifni_broj": "33051000",
+        "usage_count": 2,
+        "source": "",
+        "confidence": 0.6
+      }
+    ],
+    "expected": {
+      "action": "show",
+      "tarifni_broj": "33051000",
+      "reason_contains": "Isto poglavlje"
+    }
+  },
+  {
+    "name": "missing_current_tariff_with_source_is_shown",
+    "invoice_lines": [
+      {
+        "line_no": 1,
+        "naziv_robe": "medicinski zavoj",
+        "tarifni_broj": ""
+      }
+    ],
+    "history_matches": [
+      {
+        "naziv_robe": "medicinski zavoj",
+        "tarifni_broj": "30059099",
+        "usage_count": 1,
+        "source": "MEDIKO",
+        "confidence": 0.6
+      }
+    ],
+    "expected": {
+      "action": "show",
+      "tarifni_broj": "30059099",
+      "reason_contains": "Nema trenutne tarife"
+    }
+  },
+  {
+    "name": "missing_current_tariff_without_evidence_is_suppressed",
+    "invoice_lines": [
+      {
+        "line_no": 1,
+        "naziv_robe": "nepoznat artikal",
+        "tarifni_broj": ""
+      }
+    ],
+    "history_matches": [
+      {
+        "naziv_robe": "nepoznat artikal",
+        "tarifni_broj": "99999999",
+        "usage_count": 1,
+        "source": "",
+        "confidence": 0.6
+      }
+    ],
+    "expected": {
+      "action": "suppress"
+    }
+  },
+  {
+    "name": "bih_893_dixi_same_tariff_is_suppressed",
+    "source_invoice": "najavauvoza/BIH 893.pdf",
+    "invoice_lines": [
+      {
+        "line_no": 52,
+        "naziv_robe": "DIXI dekstroza 7vit bomb a40",
+        "tarifni_broj": "17049081"
+      }
+    ],
+    "history_matches": [
+      {
+        "naziv_robe": "DIXI dekstroza 7vit bomb a40",
+        "tarifni_broj": "17049081",
+        "usage_count": 12,
+        "source": "MEDIKO",
+        "confidence": 0.7
+      }
+    ],
+    "expected": {
+      "action": "suppress"
+    }
+  },
+  {
+    "name": "bih_893_cicastim_same_tariff_is_suppressed",
+    "source_invoice": "najavauvoza/BIH 893.pdf",
+    "invoice_lines": [
+      {
+        "line_no": 61,
+        "naziv_robe": "CICASTIM GEL15 ML. (5+1)PROMO",
+        "tarifni_broj": "33049900"
+      }
+    ],
+    "history_matches": [
+      {
+        "naziv_robe": "CICASTIM GEL15 ML. (5+1)PROMO",
+        "tarifni_broj": "33049900",
+        "usage_count": 4,
+        "source": "MEDIKO",
+        "confidence": 0.66
+      }
+    ],
+    "expected": {
+      "action": "suppress"
+    }
+  },
+  {
+    "name": "bih_893_missing_cicastim_tariff_with_source_is_shown",
+    "source_invoice": "najavauvoza/BIH 893.pdf",
+    "invoice_lines": [
+      {
+        "line_no": 61,
+        "naziv_robe": "CICASTIM GEL15 ML. (5+1)PROMO",
+        "tarifni_broj": ""
+      }
+    ],
+    "history_matches": [
+      {
+        "naziv_robe": "CICASTIM GEL15 ML. (5+1)PROMO",
+        "tarifni_broj": "33049900",
+        "usage_count": 1,
+        "source": "MEDIKO",
+        "confidence": 0.6
+      }
+    ],
+    "expected": {
+      "action": "show",
+      "tarifni_broj": "33049900",
+      "reason_contains": "Nema trenutne tarife"
+    }
+  },
+  {
+    "name": "bih_893_ohp_10_digit_same_heading_is_shown",
+    "source_invoice": "najavauvoza/BIH 893.pdf",
+    "invoice_lines": [
+      {
+        "line_no": 49,
+        "naziv_robe": "OHP SILICON ČEPOVI TUBA A2",
+        "tarifni_broj": "3926909710"
+      }
+    ],
+    "history_matches": [
+      {
+        "naziv_robe": "OHP SILICON ČEPOVI TUBA A2",
+        "tarifni_broj": "39269097",
+        "usage_count": 3,
+        "source": "MEDIKO",
+        "confidence": 0.66
+      }
+    ],
+    "expected": {
+      "action": "show",
+      "tarifni_broj": "39269097",
+      "reason_contains": "Ista tarifna glava"
+    }
+  },
+  {
+    "name": "bih_893_gw_podupirac_8_digit_to_10_digit_same_heading_is_shown",
+    "source_invoice": "najavauvoza/BIH 893.pdf",
+    "invoice_lines": [
+      {
+        "line_no": 12,
+        "naziv_robe": "GW GEL PODUPIRAC PRST. DESNI a1 102691500",
+        "tarifni_broj": "39269097"
+      }
+    ],
+    "history_matches": [
+      {
+        "naziv_robe": "GW GEL PODUPIRAC PRST. DESNI a1 102691500",
+        "tarifni_broj": "3926909710",
+        "usage_count": 3,
+        "source": "MEDIKO",
+        "confidence": 0.66
+      }
+    ],
+    "expected": {
+      "action": "show",
+      "tarifni_broj": "3926909710",
+      "reason_contains": "Ista tarifna glava"
+    }
+  },
+  {
+    "name": "bih_893_gw_brace_same_heading_is_shown",
+    "source_invoice": "najavauvoza/BIH 893.pdf",
+    "invoice_lines": [
+      {
+        "line_no": 41,
+        "naziv_robe": "GW BRACE PLAST.VEL.16 10 KOM 313211600",
+        "tarifni_broj": "82149000"
+      }
+    ],
+    "history_matches": [
+      {
+        "naziv_robe": "GW BRACE PLAST.VEL.16 10 KOM 313211600",
+        "tarifni_broj": "82142000",
+        "usage_count": 2,
+        "source": "MEDIKO",
+        "confidence": 0.64
+      }
+    ],
+    "expected": {
+      "action": "show",
+      "tarifni_broj": "82142000",
+      "reason_contains": "Ista tarifna glava"
+    }
+  },
+  {
+    "name": "bih_893_gw_nozici_same_heading_is_shown",
+    "source_invoice": "najavauvoza/BIH 893.pdf",
+    "invoice_lines": [
+      {
+        "line_no": 46,
+        "naziv_robe": "GW NOZICI ZA CAPRON VEL.2 311140200",
+        "tarifni_broj": "82142000"
+      }
+    ],
+    "history_matches": [
+      {
+        "naziv_robe": "GW NOZICI ZA CAPRON VEL.2 311140200",
+        "tarifni_broj": "82149000",
+        "usage_count": 2,
+        "source": "MEDIKO",
+        "confidence": 0.64
+      }
+    ],
+    "expected": {
+      "action": "show",
+      "tarifni_broj": "82149000",
+      "reason_contains": "Ista tarifna glava"
+    }
+  },
+  {
+    "name": "bih_893_bort_same_tariff_is_suppressed",
+    "source_invoice": "najavauvoza/BIH 893.pdf",
+    "invoice_lines": [
+      {
+        "line_no": 58,
+        "naziv_robe": "BORT 112900 B.R.Z.palac lev XL",
+        "tarifni_broj": "63079099"
+      }
+    ],
+    "history_matches": [
+      {
+        "naziv_robe": "BORT 112900 B.R.Z.palac lev XL",
+        "tarifni_broj": "63079099",
+        "usage_count": 6,
+        "source": "MEDIKO",
+        "confidence": 0.68
+      }
+    ],
+    "expected": {
+      "action": "suppress"
+    }
+  },
+  {
+    "name": "bih_893_full_profile_bort_noise_is_suppressed",
+    "source_invoice": "najavauvoza/BIH 893.pdf",
+    "invoice_lines": [
+      {
+        "line_no": 7,
+        "naziv_robe": "GW MED MEL.ISPUCALA KOZA 75 ML 104010500",
+        "tarifni_broj": "33049900"
+      },
+      {
+        "line_no": 14,
+        "naziv_robe": "VITIX gel 20ml",
+        "tarifni_broj": "33049900"
+      },
+      {
+        "line_no": 19,
+        "naziv_robe": "OHP SOFT CEPOVI ZA USI a10",
+        "tarifni_broj": "3926909710"
+      },
+      {
+        "line_no": 41,
+        "naziv_robe": "GW BRACE PLAST.VEL.16 10 KOM 313211600",
+        "tarifni_broj": "82149000"
+      },
+      {
+        "line_no": 52,
+        "naziv_robe": "DIXI dekstroza 7vit bomb a40",
+        "tarifni_broj": "17049081"
+      },
+      {
+        "line_no": 58,
+        "naziv_robe": "BORT 112900 B.R.Z.palac lev XL",
+        "tarifni_broj": "63079099"
+      }
+    ],
+    "history_matches": [
+      {
+        "naziv_robe": "BORT 112900 B.R.Z.palac lev XL",
+        "tarifni_broj": "11010015",
+        "usage_count": 5,
+        "source": "MEDIKO",
+        "confidence": 0.68
+      }
+    ],
+    "expected": {
+      "action": "suppress"
+    }
+  }
+]

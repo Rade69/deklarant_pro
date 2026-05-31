@@ -1,0 +1,410 @@
+[
+    {
+        "regionalni_centar": "I Regionalni centar BANJA LUKA BA094005",
+        "ispostave": [
+            {
+                "sifra": "BA094013",
+                "naziv": "1. Carinska ispostava Banja Luka"
+            },
+            {
+                "sifra": "BA094064",
+                "naziv": "1.1. Carinski referat Pošta Banja Luka"
+            },
+            {
+                "sifra": "BA094085",
+                "naziv": "1.2. Carinski referat Slobodna zona Banja Luka"
+            },
+            {
+                "sifra": "BA094080",
+                "naziv": "2. Carinska ispostava Aerodrom Banja Luka"
+            },
+            {
+                "sifra": "BA010102",
+                "naziv": "3. Carinska ispostava Bihać"
+            },
+            {
+                "sifra": "BA010107",
+                "naziv": "3.1. Carinski referat Granični prijelaz Izačić"
+            },
+            {
+                "sifra": "BA010103",
+                "naziv": "3.2. Carinski referat Željeznička stanica Martin Brod"
+            },
+            {
+                "sifra": "BA010108",
+                "naziv": "3.3. Carinski referat Granični prijelaz Užljebić (Ripač)"
+            },
+            {
+                "sifra": "BA010007",
+                "naziv": "3.4. Carinski referat Granični prijelaz Strmica (Bosansko Grahovo)"
+            },
+            {
+                "sifra": "BA010106",
+                "naziv": "4. Carinska ispostava Velika Kladuša"
+            },
+            {
+                "sifra": "BA010104",
+                "naziv": "4.1. Carinski referat Granični prijelaz Hukića Brdo"
+            },
+            {
+                "sifra": "BA092029",
+                "naziv": "5. Carinska ispostava Novi Grad"
+            },
+            {
+                "sifra": "BA092088",
+                "naziv": "5.1. Carinski referat Granični prijelaz Kostajnica"
+            },
+            {
+                "sifra": "BA092061",
+                "naziv": "5.2. Carinski referat Granični prijelaz Gradina"
+            },
+            {
+                "sifra": "BA092010",
+                "naziv": "5.3. Carinski referat Željeznička stanica Dobrljin"
+            },
+            {
+                "sifra": "BA092037",
+                "naziv": "5.4. Carinski referat Granični prijelaz Novi Grad"
+            },
+            {
+                "sifra": "BA092100",
+                "naziv": "5.5. Carinski referat Granični prijelaz Kozarska Dubica"
+            },
+            {
+                "sifra": "BA094021",
+                "naziv": "6. Carinska ispostava Gradiška"
+            },
+            {
+                "sifra": "BA094161",
+                "naziv": "6.1. Carinski referat Granični prijelaz Gradiška"
+            },
+            {
+                "sifra": "BA098086",
+                "naziv": "7. Carinska ispostava Šamac"
+            },
+            {
+                "sifra": "BA010202",
+                "naziv": "7.1. Carinski referat Granični prijelaz Šamac"
+            },
+            {
+                "sifra": "BA098094",
+                "naziv": "7.2. Carinski referat Željeznička stanica Šamac"
+            },
+            {
+                "sifra": "BA098035",
+                "naziv": "8. Carinska ispostava Brod"
+            },
+            {
+                "sifra": "BA098060",
+                "naziv": "8.1. Carinski referat Granični prijelaz Brod"
+            },
+            {
+                "sifra": "BA092045",
+                "naziv": "9. Carinska ispostava Prijedor"
+            },
+            {
+                "sifra": "BA010205",
+                "naziv": "10. Carinska ispostava Donji Svilaj"
+            },
+            {
+                "sifra": "BA010206",
+                "naziv": "10.1. Carinski referat Granični prijelaz Donji Svilaj"
+            }
+        ]
+    },
+    {
+        "regionalni_centar": "II Regionalni centar SARAJEVO BA010900",
+        "ispostave": [
+            {
+                "sifra": "BA010902",
+                "naziv": "1. Carinska ispostava Sarajevo"
+            },
+            {
+                "sifra": "BA010908",
+                "naziv": "1.1. Carinski referat Slobodna zona Sarajevo"
+            },
+            {
+                "sifra": "BA010903",
+                "naziv": "1.2. Carinski referat Pošta Sarajevo"
+            },
+            {
+                "sifra": "BA010904",
+                "naziv": "2. Carinska ispostava Aerodrom Sarajevo"
+            },
+            {
+                "sifra": "BA096016",
+                "naziv": "3. Carinska ispostava Višegrad"
+            },
+            {
+                "sifra": "BA096024",
+                "naziv": "3.1. Carinski referat Granični prijelaz Vardište"
+            },
+            {
+                "sifra": "BA096040",
+                "naziv": "3.2. Carinski referat Granični prijelaz Uvac"
+            },
+            {
+                "sifra": "BA096059",
+                "naziv": "3.3. Carinski referat Granični prijelaz Ustibar"
+            },
+            {
+                "sifra": "BA096105",
+                "naziv": "3.4. Carinski referat Željeznička stanica Štrpci"
+            },
+            {
+                "sifra": "BA096083",
+                "naziv": "3.5. Carinski referat Granični prijelaz Metaljka"
+            },
+            {
+                "sifra": "BA096091",
+                "naziv": "3.6. Carinski referat Granični prijelaz Vitina"
+            },
+            {
+                "sifra": "BA096075",
+                "naziv": "3.7. Carinski referat Granični prijelaz Hum"
+            },
+            {
+                "sifra": "BA010402",
+                "naziv": "4. Carinska ispostava Zenica"
+            },
+            {
+                "sifra": "BA010608",
+                "naziv": "5. Carinska ispostava Kiseljak"
+            },
+            {
+                "sifra": "BA010407",
+                "naziv": "6. Carinska ispostava Visoko"
+            },
+            {
+                "sifra": "BA010408",
+                "naziv": "6.1. Carinski referat Slobodna zona Visoko"
+            },
+            {
+                "sifra": "BA091049",
+                "naziv": "7. Carinska ispostava Sokolac"
+            },
+            {
+                "sifra": "BA010501",
+                "naziv": "8. Carinska ispostava Goražde"
+            }
+        ]
+    },
+    {
+        "regionalni_centar": "III  Regionalni centar MOSTAR BA01070",
+        "ispostave": [
+            {
+                "sifra": "BA010701",
+                "naziv": "1. Carinska ispostava Mostar"
+            },
+            {
+                "sifra": "BA010705",
+                "naziv": "1.1. Carinski referat Slobodna zona Mostar"
+            },
+            {
+                "sifra": "BA010703",
+                "naziv": "1.2. Carinski referat Pošta Mostar"
+            },
+            {
+                "sifra": "BA010702",
+                "naziv": "1.3. Carinski referat Granični prijelaz Gabela"
+            },
+            {
+                "sifra": "BA010707",
+                "naziv": "1.4. Carinski referat Granični prijelaz Doljani"
+            },
+            {
+                "sifra": "BA010704",
+                "naziv": "2. Carinska ispostava Aerodrom Mostar"
+            },
+            {
+                "sifra": "BA010706",
+                "naziv": "3. Carinska ispostava Čapljina"
+            },
+            {
+                "sifra": "BA010711",
+                "naziv": "3.1. Carinski referat Željeznička stanica Čapljina"
+            },
+            {
+                "sifra": "BA010801",
+                "naziv": "4. Carinska ispostava Grude"
+            },
+            {
+                "sifra": "BA010807",
+                "naziv": "4.1. Carinski referat Granični prijelaz Gorica"
+            },
+            {
+                "sifra": "BA010808",
+                "naziv": "4.2. Carinski referat Granični prijelaz Osoje"
+            },
+            {
+                "sifra": "BA010809",
+                "naziv": "4.3. Carinski referat Granični prijelaz Orahovlje"
+            },
+            {
+                "sifra": "BA010806",
+                "naziv": "4.4. Carinski referat Granični prijelaz Crveni Grm"
+            },
+            {
+                "sifra": "BA010810",
+                "naziv": "4.5. Carinski referat Granični prijelaz Bijača"
+            },
+            {
+                "sifra": "BA010805",
+                "naziv": "4.6. Carinski referat Granični prijelaz Zvirići"
+            },
+            {
+                "sifra": "BA095010",
+                "naziv": "5. Carinska ispostava Trebinje"
+            },
+            {
+                "sifra": "BA095079",
+                "naziv": "5.1. Carinski referat Granični prijelaz Deleuša"
+            },
+            {
+                "sifra": "BA095028",
+                "naziv": "5.2. Carinski referat Granični prijelaz Klobuk"
+            },
+            {
+                "sifra": "BA095036",
+                "naziv": "5.3. Carinski referat Granični prijelaz Zubci"
+            },
+            {
+                "sifra": "BA010802",
+                "naziv": "6. Carinska ispostava Ljubuški"
+            },
+            {
+                "sifra": "BA010001",
+                "naziv": "7. Carinska ispostava Livno"
+            },
+            {
+                "sifra": "BA010003",
+                "naziv": "8. Carinska ispostava Tomislavgrad"
+            },
+            {
+                "sifra": "BA010006",
+                "naziv": "8.1. Carinski referat Granični prijelaz Kamensko"
+            },
+            {
+                "sifra": "BA010008",
+                "naziv": "8.2. Carinski referat Granični prijelaz Prisika"
+            },
+            {
+                "sifra": "BA010601",
+                "naziv": "9. Carinska ispostava Travnik"
+            },
+            {
+                "sifra": "BA010708",
+                "naziv": "10. Carinska ispostava Neum"
+            },
+            {
+                "sifra": "BA010709",
+                "naziv": "10.1. Carinski referat Granični prijelaz Neum I"
+            },
+            {
+                "sifra": "BA010710",
+                "naziv": "10.2. Carinski referat Granični prijelaz Neum II"
+            },
+            {
+                "sifra": "BA095044",
+                "naziv": "10.3. Carinski referat Granični prijelaz Ivanica"
+            },
+            {
+                "sifra": "BA010712",
+                "naziv": "10.4. Carinski referat Granični prijelaz Trebimlja"
+            }
+        ]
+    },
+    {
+        "regionalni_centar": "IV Regionalni centar TUZLA BA010300",
+        "ispostave": [
+            {
+                "sifra": "BA010301",
+                "naziv": "1. Carinska ispostava Tuzla"
+            },
+            {
+                "sifra": "BA010305",
+                "naziv": "1.1. Carinski referat Slobodna zona Tuzla"
+            },
+            {
+                "sifra": "BA010304",
+                "naziv": "2. Carinska ispostava Aerodrom Tuzla"
+            },
+            {
+                "sifra": "BA010201",
+                "naziv": "3. Carinska ispostava Orašje"
+            },
+            {
+                "sifra": "BA010204",
+                "naziv": "3.1. Carinski referat Granični prijelaz Orašje"
+            },
+            {
+                "sifra": "BA097039",
+                "naziv": "4. Carinska ispostava Brčko"
+            },
+            {
+                "sifra": "BA097063",
+                "naziv": "4.1. Carinski referat Granični prijelaz Brčko"
+            },
+            {
+                "sifra": "BA097047",
+                "naziv": "4.2. Carinski referat Željeznička stanica Brčko"
+            },
+            {
+                "sifra": "BA093017",
+                "naziv": "5. Carinska ispostava Zvornik"
+            },
+            {
+                "sifra": "BA093041",
+                "naziv": "5.1. Carinski referat Granični prijelaz Karakaj"
+            },
+            {
+                "sifra": "BA093033",
+                "naziv": "5.2. Carinski referat Granični prijelaz Šepak"
+            },
+            {
+                "sifra": "BA093025",
+                "naziv": "5.3. Carinski referat Željeznička stanica Zvornik"
+            },
+            {
+                "sifra": "BA097012",
+                "naziv": "6. Carinska ispostava Bijeljina"
+            },
+            {
+                "sifra": "BA097071",
+                "naziv": "6.1. Carinski referat Granični prijelaz Pavlovića Most (Popovi)"
+            },
+            {
+                "sifra": "BA097098",
+                "naziv": "6.2. Carinski referat Granični prijelaz Rača"
+            },
+            {
+                "sifra": "BA097020",
+                "naziv": "6.3. Carinski referat Željeznička stanica Bijeljina"
+            },
+            {
+                "sifra": "BA098019",
+                "naziv": "7. Carinska ispostava Doboj"
+            },
+            {
+                "sifra": "BA010406",
+                "naziv": "8. Carinska ispostava Tešanj"
+            },
+            {
+                "sifra": "BA093070",
+                "naziv": "9. Carinska ispostava Bratunac"
+            },
+            {
+                "sifra": "BA093078",
+                "naziv": "9.1. Carinski referat Granični prijelaz Bratunac - Novi Most"
+            },
+            {
+                "sifra": "BA093076",
+                "naziv": "9.2. Carinski referat Granični prijelaz Bratunac"
+            },
+            {
+                "sifra": "BA093068",
+                "naziv": "9.3. Carinski referat Granični prijelaz Skelani"
+            }
+        ]
+    }
+]
