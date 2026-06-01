@@ -141,3 +141,4 @@ dist_client/**/*.pyd
 dist_client/.gitnexus
 installer/
 nuitka_output/
+build_log.txt

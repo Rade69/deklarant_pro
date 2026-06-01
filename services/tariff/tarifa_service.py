@@ -18,17 +18,7 @@ from typing import List, Dict, Optional
 
 logger = logging.getLogger("deklarant_pro.tarifa_service")
 
-def _resolve_db_path() -> str:
-    # __file__ radi u PyArmor 8.x; fallback na cwd ako putanja ne postoji
-    try:
-        p = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'database', 'deklarant_sistem.db'))
-        if os.path.exists(p):
-            return p
-    except Exception:
-        pass
-    return os.path.join(os.getcwd(), 'database', 'deklarant_sistem.db')
-
-DB_PATH = _resolve_db_path()
+DB_PATH = os.path.join(os.path.dirname(__file__), '..', '..', 'database', 'deklarant_sistem.db')
 
 # Jedna dijeljenja read-only konekcija — tarifa_2026 se nikad ne mijenja za vrijeme rada
 _shared_conn: sqlite3.Connection | None = None

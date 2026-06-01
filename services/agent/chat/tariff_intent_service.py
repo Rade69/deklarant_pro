@@ -72,23 +72,17 @@ class TariffIntentService:
         self._activity(f"🔍 Tražim tarifne brojeve za {len(bez_tarife)} stavki...")
 
         from services.tariff_mapping_service import TariffMappingService
-        from services.agent.tariff.tariff_suggestion_service import HybridMatchingService
         svc = TariffMappingService()
-        hybrid = HybridMatchingService() if exporter_name else None
         proposals: List[TariffProposal] = []
         bez_lokalne: List[Tuple[int, Any]] = []
-
-        # ── Batch lookup po product_code (1 SQL umjesto N) ──
-        all_codes = [getattr(l, 'product_code', '') or '' for _, l in bez_tarife]
-        batch_hits = svc.find_batch_by_product_codes(all_codes)
 
         istorijskih = 0
 
         for idx, line in bez_tarife:
             # ── 1. Prvo proveri istoriju dobavljača ──
-            if exporter_name and hybrid:
+            if exporter_name:
                 hist_match = self._try_history_match(
-                    hybrid, exporter_name, line.product_code, line.naziv_robe,
+                    exporter_name, line.product_code, line.naziv_robe,
                     getattr(line, 'zemlja_porijekla', '')
                 )
                 if hist_match:
@@ -97,21 +91,7 @@ class TariffIntentService:
                     istorijskih += 1
                     continue
 
-            # ── 2. Batch hit po product_code ──
-            code_key = (line.product_code or '').strip().upper()
-            batch_mapping = batch_hits.get(code_key)
-            if batch_mapping:
-                proposals.append(TariffProposal(
-                    line_index=idx,
-                    naziv_robe=line.naziv_robe[:60],
-                    product_code=line.product_code,
-                    proposed_tariff=batch_mapping.tarifni_broj,
-                    confidence=1.0,
-                    source="baza_znanja"
-                ))
-                continue
-
-            # ── 3. Lokalna baza — fuzzy/vote za linije bez product_code hita ──
+            # ── 2. Lokalna baza znanja ──
             mapping = svc.find_mapping(
                 product_code=line.product_code,
                 naziv_robe=line.naziv_robe,
@@ -166,15 +146,9 @@ class TariffIntentService:
         self._activity(f"🔍 Nađeno {len(filtrirane)} stavki s '{keyword}', tražim tarifne...")
 
         from services.tariff_mapping_service import TariffMappingService
-        from services.agent.tariff.tariff_suggestion_service import HybridMatchingService
         svc = TariffMappingService()
-        hybrid = HybridMatchingService() if exporter_name else None
         proposals: List[TariffProposal] = []
         bez_lokalne: List[Tuple[int, Any]] = []
-
-        # ── Batch lookup po product_code (1 SQL umjesto N) ──
-        all_codes = [getattr(l, 'product_code', '') or '' for _, l in filtrirane]
-        batch_hits = svc.find_batch_by_product_codes(all_codes)
 
         istorijskih = 0
 
@@ -184,9 +158,9 @@ class TariffIntentService:
             country = getattr(line, 'zemlja_porijekla', '') or ''
 
             # ── 1. Prvo istorija dobavljača ──
-            if exporter_name and hybrid:
+            if exporter_name:
                 hist_match = self._try_history_match(
-                    hybrid, exporter_name, product_code, naziv, country
+                    exporter_name, product_code, naziv, country
                 )
                 if hist_match:
                     hist_match.line_index = idx
@@ -194,20 +168,7 @@ class TariffIntentService:
                     istorijskih += 1
                     continue
 
-            # ── 2. Batch hit po product_code ──
-            batch_mapping = batch_hits.get(product_code.upper())
-            if batch_mapping:
-                proposals.append(TariffProposal(
-                    line_index=idx,
-                    naziv_robe=naziv[:60],
-                    product_code=product_code,
-                    proposed_tariff=batch_mapping.tarifni_broj,
-                    confidence=1.0,
-                    source="baza_znanja"
-                ))
-                continue
-
-            # ── 3. Lokalna baza — fuzzy/vote za linije bez product_code hita ──
+            # ── 2. Lokalna baza ──
             mapping = svc.find_mapping(
                 product_code=product_code,
                 naziv_robe=naziv,
@@ -251,13 +212,15 @@ class TariffIntentService:
         return ""
 
     def _try_history_match(
-        self, hybrid, exporter_name: str, product_code: str, naziv_robe: str, country: str
+        self, exporter_name: str, product_code: str, naziv_robe: str, country: str
     ) -> Optional[TariffProposal]:
         """
         Pokušaj da nađeš tarifni broj iz istorije dobavljača.
         Koristi HybridMatchingService sa težinom na istorijskom match-u.
         """
         try:
+            from services.agent.tariff.tariff_suggestion_service import HybridMatchingService
+            hybrid = HybridMatchingService()
             match = hybrid.find_hybrid_mapping(
                 product_code=product_code,
                 naziv_robe=naziv_robe,

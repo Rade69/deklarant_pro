@@ -83,27 +83,18 @@ class OriginStatementDetector:
         },
     ]
 
-    # Class-level cache — DB se pita samo jednom po sesiji aplikacije
-    _db_patterns_cache: Optional[List] = None
-    _db_unavailable: bool = False  # True = DB nije dostupan, koristi samo builtin
-
     def __init__(self):
-        # Učitaj iz DB samo ako još nije pokušano (ili je ranije uspjelo)
-        if not OriginStatementDetector._db_unavailable and OriginStatementDetector._db_patterns_cache is None:
-            OriginStatementDetector._db_patterns_cache = self._load_patterns_from_db()
-
-        self._patterns = list(OriginStatementDetector._db_patterns_cache or [])
-
+        self._patterns = self._load_patterns_from_db()
         # Uvijek dodaj ugrađene pattern-e (merged, bez duplikata po id)
         existing_ids = {p['id'] for p in self._patterns}
         for bp in self._BUILTIN_PATTERNS:
             if bp['id'] not in existing_ids:
                 self._patterns.append(bp)
         logger.info(f"✅ OriginStatementDetector inicijalizovan sa {len(self._patterns)} pattern-a "
-                    f"({'DB' if not OriginStatementDetector._db_unavailable else 'fallback'} + {len(self._BUILTIN_PATTERNS)} ugrađenih)")
-
+                    f"({len(self._BUILTIN_PATTERNS)} ugrađenih)")
+    
     def _load_patterns_from_db(self) -> List[Dict]:
-        """Učitaj regex pattern-e iz baze. Poziva se samo jednom po sesiji."""
+        """Učitaj regex pattern-e iz baze."""
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
@@ -115,6 +106,7 @@ class OriginStatementDetector:
                           AND regex_pattern != ''
                         ORDER BY sifra
                     """)
+
                     patterns = []
                     for row in cur.fetchall():
                         patterns.append({
@@ -123,10 +115,10 @@ class OriginStatementDetector:
                             'tip_izjave': row['tip_izjave'],
                             'pattern': row['regex_pattern'],
                         })
+
                     return patterns
         except Exception as e:
             logger.error(f"Greška pri učitavanju pattern-a iz baze: {e}")
-            OriginStatementDetector._db_unavailable = True  # ne pokušavaj ponovo
             return []
     
     def detect_in_text(self, text: str) -> Optional[OriginStatementMatch]:

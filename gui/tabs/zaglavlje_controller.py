@@ -475,6 +475,14 @@ class ZaglavljeController:
             # Load data from XML via service
             data = self.service.load_from_xml(filename)
 
+            # Blokiraj zastarjele šifre dokumenata — FAK i CMR su zamijenjeni novim šiframa
+            _BLOCKED_CODES = {"FAK", "CMR"}
+            if 'attached_documents' in data:
+                data['attached_documents'] = [
+                    d for d in data['attached_documents']
+                    if (d.get('code') or '').upper() not in _BLOCKED_CODES
+                ]
+
             # Rb.22 — iznos se uvijek uzima iz fakture/naim., ne iz XML-a
             # XML može sadržavati zastarjeli iznos iz prethodne deklaracije
             draft = self._get_draft_fn() if self._get_draft_fn else None
@@ -594,7 +602,7 @@ class ZaglavljeController:
             return
 
         pe_entries: list[tuple[str, str]] = []
-        seen: set[tuple[str, str]] = set()
+        seen: set[str] = set()
         for item in items:
             doc4 = (getattr(item, "attached_document4", "") or "").strip()
             candidates = [doc4] if _pe_doc_code(doc4) else [
@@ -608,9 +616,8 @@ class ZaglavljeController:
                 sifra = parts[0].strip().upper()
                 broj = parts[1].strip() if len(parts) > 1 else ""
                 if sifra in _PE_DOC_CODES:
-                    key = (sifra, broj)
-                    if key not in seen:
-                        seen.add(key)
+                    if sifra not in seen:  # dedup po šifri — jedna deklaracija = jedan EUR.1
+                        seen.add(sifra)
                         pe_entries.append(key)
 
         if not pe_entries:
@@ -677,7 +684,6 @@ class ZaglavljeController:
                 "name": d.get("name", ""),
                 "number": d.get("number", ""),
                 "from_rule": bool(d.get("from_rule", False)),
-                "_user_entered": True,  # čuva referencu pri XML uvozu
             })
 
         for hd in draft_header_docs:

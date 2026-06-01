@@ -12,7 +12,7 @@ from .machine_id import get_machine_id
 
 
 FINGERPRINT_VERSION = 2
-DEFAULT_MIN_SCORE = 60  # 60% omogućava da 1 signal nedostaje bez gubitka validnosti
+DEFAULT_MIN_SCORE = 70
 SIGNAL_WEIGHTS = {
     "machine_id": 30,
     "disk_id": 30,
@@ -98,56 +98,24 @@ def _hash_signal(name: str, value: str) -> str:
 
 
 def _get_disk_id() -> str | None:
-    system = platform.system().lower()
-
-    if system == "linux":
+    if platform.system().lower() == "linux":
         for args in (
             ["findmnt", "-no", "UUID", "/"],
             ["findmnt", "-no", "SOURCE", "/"],
         ):
             try:
                 result = subprocess.run(
-                    args, check=False, capture_output=True, text=True, timeout=2,
+                    args,
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                    timeout=1,
                 )
                 value = result.stdout.strip()
                 if value:
                     return value
             except Exception:
                 continue
-
-    elif system == "windows":
-        # Pokušaj 1: serijski broj fizičkog diska putem wmic
-        for args in (
-            ["wmic", "diskdrive", "get", "SerialNumber", "/value"],
-            ["wmic", "logicaldisk", "where", "DeviceID='C:'", "get", "VolumeSerialNumber", "/value"],
-        ):
-            try:
-                result = subprocess.run(
-                    args, check=False, capture_output=True,
-                    text=True, timeout=5, creationflags=0x08000000,  # CREATE_NO_WINDOW
-                )
-                for line in result.stdout.splitlines():
-                    if "=" in line:
-                        value = line.split("=", 1)[1].strip()
-                        if value:
-                            return value
-            except Exception:
-                continue
-
-        # Pokušaj 2: PowerShell volume serial
-        try:
-            result = subprocess.run(
-                ["powershell", "-NoProfile", "-Command",
-                 "(Get-Volume -DriveLetter C).UniqueId"],
-                check=False, capture_output=True, text=True,
-                timeout=5, creationflags=0x08000000,
-            )
-            value = result.stdout.strip()
-            if value:
-                return value
-        except Exception:
-            pass
-
     return None
 
 
@@ -160,9 +128,7 @@ def _get_mac_id() -> str | None:
 
 def _get_cpu_id() -> str | None:
     parts = [platform.machine(), platform.processor()]
-    system = platform.system().lower()
-
-    if system == "linux":
+    if platform.system().lower() == "linux":
         try:
             with open("/proc/cpuinfo", encoding="utf-8") as f:
                 for line in f:
@@ -171,22 +137,6 @@ def _get_cpu_id() -> str | None:
                         break
         except Exception:
             pass
-
-    elif system == "windows":
-        try:
-            result = subprocess.run(
-                ["wmic", "cpu", "get", "ProcessorId,Name", "/value"],
-                check=False, capture_output=True, text=True,
-                timeout=5, creationflags=0x08000000,
-            )
-            for line in result.stdout.splitlines():
-                if "=" in line:
-                    value = line.split("=", 1)[1].strip()
-                    if value:
-                        parts.append(value)
-        except Exception:
-            pass
-
     value = "|".join(p for p in parts if p)
     return value or None
 

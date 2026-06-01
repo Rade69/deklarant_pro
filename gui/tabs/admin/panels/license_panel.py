@@ -18,7 +18,7 @@ from core.licensing.license_importer import import_license
 from core.licensing.license_paths import get_license_path
 from core.licensing.license_validator import validate_license_file
 from core.licensing.machine_fingerprint import format_fingerprint_payload
-from core.licensing.machine_id import get_machine_id  # zadržano za prikaz Machine ID labele
+from core.licensing.machine_id import get_machine_id
 from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
 
 
@@ -33,8 +33,8 @@ class LicensePanel(QWidget):
         self.features_label = QLabel()
         self.fingerprint_label = QLabel()
 
+        self.copy_machine_id_button = QPushButton("Kopiraj Machine ID")
         self.copy_fingerprint_button = QPushButton("Kopiraj fingerprint")
-        self.save_fingerprint_button = QPushButton("Sačuvaj fingerprint (JSON)")
         self.import_license_button = QPushButton("Uvezi licencu")
         self.refresh_button = QPushButton("Osvježi status")
 
@@ -66,8 +66,8 @@ class LicensePanel(QWidget):
         card_layout.addWidget(self.fingerprint_label)
 
         buttons = QHBoxLayout()
+        buttons.addWidget(self.copy_machine_id_button)
         buttons.addWidget(self.copy_fingerprint_button)
-        buttons.addWidget(self.save_fingerprint_button)
         buttons.addWidget(self.import_license_button)
         buttons.addWidget(self.refresh_button)
         buttons.addStretch(1)
@@ -77,8 +77,8 @@ class LicensePanel(QWidget):
         root.addStretch(1)
 
     def _connect_signals(self) -> None:
+        self.copy_machine_id_button.clicked.connect(self.copy_machine_id)
         self.copy_fingerprint_button.clicked.connect(self.copy_fingerprint)
-        self.save_fingerprint_button.clicked.connect(self.save_fingerprint)
         self.import_license_button.clicked.connect(self.import_license)
         self.refresh_button.clicked.connect(self.refresh_status)
 
@@ -106,24 +106,14 @@ class LicensePanel(QWidget):
 
         self.status_label.setText(f"Status: {result.message}")
 
+    def copy_machine_id(self) -> None:
+        machine_id = get_machine_id()
+        QApplication.clipboard().setText(machine_id)
+        QMessageBox.information(self, "Machine ID", "Machine ID je kopiran.")
+
     def copy_fingerprint(self) -> None:
         QApplication.clipboard().setText(format_fingerprint_payload())
-        QMessageBox.information(self, "Fingerprint", "Fingerprint je kopiran u clipboard.")
-
-    def save_fingerprint(self) -> None:
-        file_path, _ = QFileDialog.getSaveFileName(
-            self,
-            "Sačuvaj fingerprint",
-            "fingerprint.json",
-            "JSON fajlovi (*.json);;Svi fajlovi (*.*)",
-        )
-        if not file_path:
-            return
-        try:
-            Path(file_path).write_text(format_fingerprint_payload(), encoding="utf-8")
-            QMessageBox.information(self, "Fingerprint", f"Fingerprint sačuvan:\n{file_path}")
-        except Exception as e:
-            QMessageBox.warning(self, "Greška", f"Nije moguće sačuvati fajl:\n{e}")
+        QMessageBox.information(self, "Fingerprint", "Fingerprint je kopiran.")
 
     def import_license(self) -> None:
         file_path, _ = QFileDialog.getOpenFileName(
