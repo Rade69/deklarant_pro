@@ -982,10 +982,13 @@ class SifarniciView(BaseTabView):
                 QTreeWidget {
                     font-size: 20pt;
                     border: 2px solid #333;
+                    color: #1a1a1a;
+                    background: #ffffff;
                 }
                 QTreeWidget::item {
                     padding: 10px 5px;
                     min-height: 40px;
+                    color: #1a1a1a;
                 }
                 QTreeWidget::item:selected {
                     background: #0078d7;
@@ -993,6 +996,7 @@ class SifarniciView(BaseTabView):
                 }
                 QHeaderView::section {
                     background: #f5f5f5;
+                    color: #1a1a1a;
                     padding: 12px;
                     border: 1px solid #333;
                     font-weight: bold;
