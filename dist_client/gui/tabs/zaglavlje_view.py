@@ -189,6 +189,23 @@ class _ArrowComboBox(QComboBox):
             """
         )
 
+    def mousePressEvent(self, event):
+        # Absorbiraj press — popup otvaramo tek pri releasu da ne bi odmah nestao
+        if event.button() == Qt.MouseButton.LeftButton:
+            event.accept()
+        else:
+            super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        # Klik bilo gdje na widgetu otvara/zatvara popup
+        if event.button() == Qt.MouseButton.LeftButton:
+            if self.view().isVisible():
+                self.hidePopup()
+            else:
+                self.showPopup()
+        else:
+            super().mouseReleaseEvent(event)
+
     def paintEvent(self, event):
         super().paintEvent(event)
         painter = QPainter(self)
