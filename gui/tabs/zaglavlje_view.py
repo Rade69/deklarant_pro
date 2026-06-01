@@ -181,6 +181,13 @@ class _ArrowComboBox(QComboBox):
             """
         )
 
+    def mousePressEvent(self, event):
+        # Klik bilo gdje na widgetu otvara popup (ne samo na strelici)
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.showPopup()
+        else:
+            super().mousePressEvent(event)
+
     def paintEvent(self, event):
         super().paintEvent(event)
         painter = QPainter(self)
