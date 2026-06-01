@@ -1313,7 +1313,7 @@ class ZaglavljeView(BaseTabView):
             label.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
             col_layout.addWidget(label)
             field = QLineEdit()
-            field.setPlaceholderText("")
+            field.setPlaceholderText(str(num))
             col_layout.addWidget(field)
             self.field_widgets[f"zem_{num}"] = field
             layout.addWidget(col)
