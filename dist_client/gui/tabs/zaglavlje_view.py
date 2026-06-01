@@ -1577,7 +1577,7 @@ class ZaglavljeView(BaseTabView):
                 self.field_widgets["trosak_1_valuta"] = cb_valuta
 
             label_naziv = QLabel(naziv)
-            label_naziv.setStyleSheet("font-size: 10pt; color: #333333;")
+            label_naziv.setStyleSheet("font-size: 16pt; color: #333333;")
             row_layout.addWidget(label_naziv)
             row_layout.addStretch()
 
