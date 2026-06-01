@@ -85,6 +85,97 @@ class ImportWorker(QThread):
             self.error.emit(error_message)
 
 
+class ManualBatchImportWorker(QThread):
+    """
+    Background thread za ručni grupni uvoz (Faktura tab).
+
+    Parsira sve fajlove u pozadini — GUI thread ostaje responsivan.
+    NE prikazuje dijaloge (EUR1/PE2) — to radi main thread u _on_batch_done.
+
+    Signals:
+        progress(int, str): (file_index, filename) — ažurira progress dialog
+        all_done(list):     lista record dict-ova za post-processing na main threadu
+        parse_error(str, str): (filepath, poruka) — non-fatal, dodaje se u failed listu
+    """
+
+    progress    = Signal(int, str)
+    all_done    = Signal(list)
+    parse_error = Signal(str, str)
+
+    def __init__(self, sorted_filepaths: list, parent=None):
+        super().__init__(parent)
+        self.sorted_filepaths = sorted_filepaths
+        self._cancelled = False
+
+    def cancel(self):
+        self._cancelled = True
+
+    def run(self):
+        from pathlib import Path
+        from services.import_service import ImportService
+        from importers.import_result import ImportResult
+
+        # Privatna instanca — ne singleton (race condition sa main threadom)
+        svc = ImportService()
+
+        consumed_paths: set = set()
+        records: list = []
+
+        for i, filepath in enumerate(self.sorted_filepaths):
+            if self._cancelled:
+                break
+
+            if filepath in consumed_paths:
+                self.progress.emit(i + 1, Path(filepath).name)
+                continue
+
+            self.progress.emit(i, Path(filepath).name)
+            try:
+                result = svc.import_file(filepath)
+            except Exception as exc:
+                self.parse_error.emit(filepath, str(exc))
+                continue
+
+            is_import_result = isinstance(result, ImportResult)
+            items      = result.items if is_import_result else list(result)
+            bruto_kg   = (result.bruto_kg or 0.0) if is_import_result else 0.0
+            neto_kg    = (result.neto_kg  or 0.0) if is_import_result else 0.0
+            inv_name   = (result.invoice_name or "") if is_import_result else ""
+            is_auth    = getattr(result, "is_authorized_exporter", False)
+            has_origin = getattr(result, "has_origin_statement", False)
+            warnings   = list(result.warnings) if is_import_result else []
+
+            if inv_name:
+                for item in items:
+                    if not item.invoice_number:
+                        item.invoice_number = inv_name
+
+            consumed_from = (
+                list(getattr(result, "consumed_paths", []) or [])
+                if is_import_result else []
+            )
+            for cp in consumed_from:
+                consumed_paths.add(cp)
+                for rec in records:
+                    if rec["filepath"] == cp:
+                        rec["skipped"] = True
+                        rec["items"] = []
+
+            records.append({
+                "filepath":    filepath,
+                "items":       items,
+                "bruto_kg":    bruto_kg,
+                "neto_kg":     neto_kg,
+                "invoice_name": inv_name or Path(filepath).stem,
+                "is_authorized_exporter": is_auth,
+                "has_origin_statement":   has_origin,
+                "parser_warnings":        warnings,
+                "skipped": False,
+            })
+
+        self.all_done.emit(records)
+
+
 # ============================================================
 # USAGE EXAMPLE (za Qt GUI aplikaciju)
 # ============================================================

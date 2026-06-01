@@ -95,8 +95,9 @@ class TabFactory:
             return tab
 
         except Exception as e:
-            self.logger.error(f"❌ Greška pri kreiranju taba {tab_type}: {e}")
-            return None
+            import traceback
+            self.logger.error(f"❌ Greška pri kreiranju taba {tab_type}: {e}\n{traceback.format_exc()}")
+            raise
 
     def _create_zaglavlje_tab(self,
                               draft: Optional[DeclarationDraft],

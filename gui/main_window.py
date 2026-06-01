@@ -45,45 +45,59 @@ class MainWindow(QMainWindow):
         from PySide6.QtWidgets import QSizePolicy
         tabs.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         
-        # Font za tab kartice (stilovi su u main_tabs.qss — bez inline setStyleSheet koji bi kreirao QSS bubble)
-        from PySide6.QtGui import QFont
-        tabs.setFont(QFont("Arial", 16, QFont.Bold))
+        # Font za tab kartice
+        from PySide6.QtGui import QFont, QIcon
+        tab_font = QFont("Arial", 16, QFont.Bold)
+        tabs.setFont(tab_font)
 
         self.setCentralWidget(tabs)
+
+        # Ikone za tabove (qtawesome — radi na Linux i Windows)
+        try:
+            import qtawesome as qta
+            icon_faktura      = qta.icon('fa5s.file-invoice', color='#1E3A5F')
+            icon_naimenovanja = qta.icon('fa5s.boxes', color='#1E3A5F')
+            icon_zaglavlje    = qta.icon('fa5s.file-alt', color='#1E3A5F')
+            icon_sifarnici    = qta.icon('fa5s.list-alt', color='#1E3A5F')
+            icon_admin        = qta.icon('fa5s.cog', color='#1E3A5F')
+            icon_agent        = qta.icon('fa5s.robot', color='#1E3A5F')
+        except Exception:
+            icon_faktura = icon_naimenovanja = icon_zaglavlje = QIcon()
+            icon_sifarnici = icon_admin = icon_agent = QIcon()
 
         # Kreiranje tabova koristeći TabFactory
         tab_factory = get_tab_factory()
 
         # Faktura tab — kreira se odmah (prikazuje se pri pokretanju)
         self.faktura_tab = tab_factory.create_tab('faktura', self.draft, self._on_dirty, tabs)
-        tabs.addTab(self.faktura_tab, "📄 Faktura")
+        tabs.addTab(self.faktura_tab, icon_faktura, "Faktura")
 
         # Naimenovanja — lazy (QUiLoader + widget cache, inicijalizuje se pri prvom kliku)
         self.naimenovanje_tab = LazyTab(
             lambda: tab_factory.create_tab('naimenovanja', self.draft, self._on_dirty),
             parent=tabs,
         )
-        tabs.addTab(self.naimenovanje_tab, "📦 Naimenovanja")
+        tabs.addTab(self.naimenovanje_tab, icon_naimenovanja, "Naimenovanja")
 
         # Zaglavlje — lazy (5 DB upita pri inicijalizaciji)
         self.zaglavlje_tab = LazyTab(
             lambda: tab_factory.create_tab('zaglavlje', self.draft, self._on_dirty),
             parent=tabs,
         )
-        tabs.addTab(self.zaglavlje_tab, "🗂️ Zaglavlje")
+        tabs.addTab(self.zaglavlje_tab, icon_zaglavlje, "Zaglavlje")
 
         # Šifrarnici — lazy
         self.sifarnici_tab = LazyTab(
             lambda: tab_factory.create_tab('sifarnici', self.draft, self._on_dirty),
             parent=tabs,
         )
-        tabs.addTab(self.sifarnici_tab, "📋 Šifrarnici")
+        tabs.addTab(self.sifarnici_tab, icon_sifarnici, "Šifrarnici")
 
-        # Admin tab (novi - plugin manager, settings, database, analytics, logs, system info)
+        # Admin tab
         self.admin_tab = AdminTab(self)
-        tabs.addTab(self.admin_tab, "⚙️ Admin")
+        tabs.addTab(self.admin_tab, icon_admin, "Admin")
 
-        # Agent tab (novi - AI agent za automatsko procesiranje faktura)
+        # Agent tab
         self.agent_tab = AgentTab(
             self,
             draft=self.draft,
@@ -91,7 +105,7 @@ class MainWindow(QMainWindow):
             naimenovanje_tab=self.naimenovanje_tab,
             zaglavlje_tab=self.zaglavlje_tab,
         )
-        tabs.addTab(self.agent_tab, "🤖 Agent")
+        tabs.addTab(self.agent_tab, icon_agent, "Agent")
 
         # Poveži FakturaView signal na agent controller za auto-provjeru naimenovanja
         # Vidi: docs/decisions/002-tool-dispatcher-integration.md
@@ -313,7 +327,27 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event) -> None:
         """Sačuvaj stanje prozora pre zatvaranja."""
+        # Zaustavi aktivne workere u Faktura i Agent tabu
+        try:
+            fw = getattr(self.faktura_tab, 'view', self.faktura_tab)
+            for attr in ('import_worker', '_batch_worker'):
+                w = getattr(fw, attr, None)
+                if w and hasattr(w, 'isRunning') and w.isRunning():
+                    w.cancel() if hasattr(w, 'cancel') else w.quit()
+                    w.wait(2000)
+        except Exception:
+            pass
+        try:
+            ctrl = getattr(self.agent_tab, 'controller', None)
+            if ctrl:
+                pw = getattr(ctrl, '_processing_worker', None)
+                if pw and hasattr(pw, 'isRunning') and pw.isRunning():
+                    pw.cancel()
+                    pw.wait(2000)
+        except Exception:
+            pass
+
         settings = QSettings("DeklarantPro", "MainWindow")
         settings.setValue("geometry", self.saveGeometry())
-        settings.sync()  # Prisili trenutno pisanje na disk
+        settings.sync()
         super().closeEvent(event)

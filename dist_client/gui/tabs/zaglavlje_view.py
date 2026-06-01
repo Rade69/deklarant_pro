@@ -175,24 +175,6 @@ class _ArrowComboBox(QComboBox):
         super().__init__(parent)
         self.setStyleSheet(
             """
-            QComboBox {
-                background: #fafcfa;
-                color: #1a1a1a;
-                border: 1px solid #a0c4a0;
-                border-radius: 3px;
-                padding-left: 4px;
-                min-height: 24px;
-            }
-            QComboBox:focus {
-                background: #e8f2e8;
-                border-color: #5a8060;
-            }
-            QComboBox QLineEdit {
-                background: #fafcfa;
-                color: #1a1a1a;
-                border: none;
-                padding-left: 2px;
-            }
             QComboBox::drop-down {
                 width: 18px;
                 border: none;

@@ -126,17 +126,12 @@ class ZaglavljeService:
         try:
             tree = ET.parse(filepath)
             root = tree.getroot()
-
-            # Auto-detekcija formata po root elementu
-            root_tag = root.tag.split('}')[-1] if '}' in root.tag else root.tag
-            if format_type.lower() == "world" and root_tag == "AsycudaDocument":
-                format_type = "pro"
-
+            
             if format_type.lower() == "pro":
                 return self._parse_pro_xml(root)
             else:
                 return self._parse_xml(root)
-
+            
         except ET.ParseError as e:
             raise ValueError(f"Neispravan XML format: {e}")
     
@@ -178,7 +173,7 @@ class ZaglavljeService:
         if decl_type is not None and decl_type.text:
             data['vrsta_deklaracije'] = decl_type.text.strip()
         
-        # Izvoznik — ključ mora odgovarati field_widgets (izvoznik_r1, ne izvoznik_naziv)
+        # Izvoznik — ključevi moraju odgovarati field_widgets (izvoznik_r1, ne izvoznik_naziv)
         exporter = find_with_ns(root, 'Exporter')
         if exporter is not None:
             data['izvoznik_id'] = self._get_text_from_element(exporter, ['ID', 'Code'])
@@ -1135,9 +1130,6 @@ class ZaglavljeService:
                 ref = _txt(att_el, "Attached_document_reference")
                 from_rule_str = _txt(att_el, "Attached_document_from_rule")
                 from_rule = (from_rule_str == "1")
-                # Blokiraj zastarjele šifre (zamijenjene novim ASYCUDA kodovima)
-                if code.upper() in {"FAK", "CMR", "SAN", "VET", "UVK"}:
-                    continue
                 # Deduplicate by (code, ref)
                 doc_key = (code, ref)
                 if doc_key not in seen_docs and code:

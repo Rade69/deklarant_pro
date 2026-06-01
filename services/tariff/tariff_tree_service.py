@@ -23,7 +23,16 @@ from typing import List, Dict, Optional
 
 logger = logging.getLogger("deklarant_pro.tariff_tree")
 
-DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'database', 'deklarant_sistem.db')
+def _resolve_db_path() -> str:
+    try:
+        p = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'database', 'deklarant_sistem.db'))
+        if os.path.exists(p):
+            return p
+    except Exception:
+        pass
+    return os.path.join(os.getcwd(), 'database', 'deklarant_sistem.db')
+
+DB_PATH = _resolve_db_path()
 
 
 def _get_conn() -> sqlite3.Connection:

@@ -115,10 +115,14 @@ try:
     import qtawesome as qta
 
     QTAWESOME_AVAILABLE = True
-    logger.warning("✅ [NaimenovanjaTab] QtAwesome učitan (verzija: %s)", qta.__version__)
+    sys.stderr.write(
+        f"✅ [NaimenovanjaTab] QtAwesome učitan (verzija: {qta.__version__})\n"
+    )
+    sys.stderr.flush()
 except ImportError as e:
     QTAWESOME_AVAILABLE = False
-    logger.warning("❌ [NaimenovanjaTab] QtAwesome import FAILED: %s", e)
+    sys.stderr.write(f"❌ [NaimenovanjaTab] QtAwesome import FAILED: {e}\n")
+    sys.stderr.flush()
 
 
 class BlackLineWidget(QWidget):
@@ -262,7 +266,8 @@ class NaimenovanjaView(BaseTabView):
                 btn.setIcon(QIcon(pixmap))
                 btn.setIconSize(QSize(16, 16))
             except Exception as e:
-                logger.warning("❌ Could not load icon %s: %s", icon_name, e)
+                sys.stderr.write(f"❌ Could not load icon {icon_name}: {e}\n")
+                sys.stderr.flush()
 
         return btn
 
@@ -272,7 +277,8 @@ class NaimenovanjaView(BaseTabView):
         Loguje grešku, prikazuje korisniku i šalje u stderr.
         """
         error_msg = f"Greška {context}: {str(error)}"
-        logger.error("❌ %s", error_msg)
+        sys.stderr.write(f"❌ {error_msg}\n")
+        sys.stderr.flush()
 
         # Prikaz korisniku (samo ako nema UI ili ako je glavni thread)
         try:
@@ -289,9 +295,13 @@ class NaimenovanjaView(BaseTabView):
         """Dohvati PostgreSQL connection pool koristeći get_connection_pool()"""
         try:
             self.connection_pool = get_connection_pool()
-            logger.warning("✅ PostgreSQL connection pool dohvaćen (get_connection_pool)")
+            sys.stderr.write(
+                f"✅ PostgreSQL connection pool dohvaćen (get_connection_pool)\n"
+            )
+            sys.stderr.flush()
         except Exception as e:
-            logger.warning("⚠️  PostgreSQL connection pool nije uspešan: %s", e)
+            sys.stderr.write(f"⚠️  PostgreSQL connection pool nije uspešan: {e}\n")
+            sys.stderr.flush()
             self.connection_pool = None
 
     def _init_field_mapping(self) -> None:
@@ -675,20 +685,8 @@ class NaimenovanjaView(BaseTabView):
             logger.info(f" ✅ Grid extended: {new_height}px → {final_height}px (added {extra_height}px to fill gap)")
             logger.info(f"  ✅ Added 2px border around grid using BlackLineWidget (4 lines)")
 
-            # Repozicioniraj status bar odmah ispod grida (Windows DPI može pomijeriti poziciju)
-            if hasattr(self, 'status_bar') and self.status_bar:
-                sb_geom = self.status_bar.geometry()
-                self.status_bar.setGeometry(
-                    sb_geom.x(),
-                    self.grid_bottom_y,
-                    sb_geom.width(),
-                    sb_geom.height()
-                )
-                self.status_bar.raise_()
-                self.status_bar.show()
-                logger.debug(f" 🎯 Status bar repozicioniran na y={self.grid_bottom_y} (grid bottom)")
-            else:
-                logger.debug(f" 🎯 Status bar at y=715, grid ends at y={current_geom.y() + final_height}")
+            # Status bar is now IN .ui FILE with absolute geometry (y=715) - no positioning needed!
+            logger.debug(f" 🎯 Status bar in .ui file at y=715, grid ends at y={current_geom.y() + final_height}")
 
         # Clear ALL input fields to ensure they're empty
         self._clear_all_input_fields()
@@ -2961,9 +2959,9 @@ class NaimenovanjaView(BaseTabView):
         if header_docs is None:
             return
 
-        # 1. Sakupi sve jedinstvene PE šifre iz svih naimenovanja (dedup po šifri)
+        # 1. Sakupi sve jedinstvene (sifra, broj) parove iz svih naimenovanja
         pe_entries: list[tuple[str, str]] = []
-        seen: set[str] = set()
+        seen: set[tuple[str, str]] = set()
         for item in self.draft.items:
             _clear_secondary_pe_documents(item)
             doc4 = _normalize_pe_document_text(getattr(item, 'attached_document4', '') or '')
@@ -2976,8 +2974,9 @@ class NaimenovanjaView(BaseTabView):
             sifra = parts[0].strip()
             broj = parts[1].strip() if len(parts) > 1 else ''
             if sifra in _PE_DOC_CODES:
-                if sifra not in seen:  # dedup po šifri — jedna deklaracija = jedan EUR.1
-                    seen.add(sifra)
+                key = (sifra, broj)
+                if key not in seen:
+                    seen.add(key)
                     pe_entries.append(key)
 
         # 2. Ukloni postojeće PE1/PE2/PE3 unose iz header_attached_documents
