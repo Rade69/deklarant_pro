@@ -16,8 +16,8 @@ GUI je identičan originalu (zaglavlje_tab_original.py):
 """
 
 import sys
-import logging
 import os
+import logging
 from pathlib import Path
 from datetime import date
 
@@ -188,22 +188,6 @@ class _ArrowComboBox(QComboBox):
             }
             """
         )
-
-
-    def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            event.accept()
-        else:
-            super().mousePressEvent(event)
-
-    def mouseReleaseEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            if self.view().isVisible():
-                self.hidePopup()
-            else:
-                self.showPopup()
-        else:
-            super().mouseReleaseEvent(event)
 
     def paintEvent(self, event):
         super().paintEvent(event)
@@ -509,7 +493,7 @@ class ZaglavljeView(BaseTabView):
         column.setFixedWidth(540)
         column.setObjectName("left_column")
         column.setAttribute(Qt.WA_StyledBackground, True)
-        column.setStyleSheet("QFrame#left_column { background-color: #f5f9f5; }" + """
+        column.setStyleSheet(("QFrame#left_column { background-color: #f5f9f5; }" + """
     QLineEdit {
         background: #fafcfa;
         border: 1px solid #a0c4a0;
@@ -548,7 +532,7 @@ class ZaglavljeView(BaseTabView):
         padding: 5px 10px;
         min-height: 24px;
     }
-""".replace("__ARROW_CSS__", _DOWN_ARROW_CSS))
+""").replace("__ARROW_CSS__", _DOWN_ARROW_CSS))
         layout = QVBoxLayout(column)
         layout.setContentsMargins(4, 4, 4, 4)
         layout.setSpacing(4)
@@ -953,7 +937,7 @@ class ZaglavljeView(BaseTabView):
         column.setFixedWidth(580)
         column.setObjectName("middle_column")
         column.setAttribute(Qt.WA_StyledBackground, True)
-        column.setStyleSheet("QFrame#middle_column { background-color: #f5f9f5; }" + """
+        column.setStyleSheet(("QFrame#middle_column { background-color: #f5f9f5; }" + """
     QLineEdit {
         background: #fafcfa;
         border: 1px solid #a0c4a0;
@@ -992,7 +976,7 @@ class ZaglavljeView(BaseTabView):
         padding: 5px 10px;
         min-height: 24px;
     }
-""".replace("__ARROW_CSS__", _DOWN_ARROW_CSS))
+""").replace("__ARROW_CSS__", _DOWN_ARROW_CSS))
         layout = QVBoxLayout(column)
         layout.setContentsMargins(4, 4, 4, 4)
         layout.setSpacing(5)
@@ -1329,7 +1313,7 @@ class ZaglavljeView(BaseTabView):
             label.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
             col_layout.addWidget(label)
             field = QLineEdit()
-            field.setPlaceholderText("")
+            field.setPlaceholderText(str(num))
             col_layout.addWidget(field)
             self.field_widgets[f"zem_{num}"] = field
             layout.addWidget(col)
@@ -1593,7 +1577,7 @@ class ZaglavljeView(BaseTabView):
                 self.field_widgets["trosak_1_valuta"] = cb_valuta
 
             label_naziv = QLabel(naziv)
-            label_naziv.setStyleSheet("font-size: 10pt; color: #333333;")
+            label_naziv.setStyleSheet("font-size: 16pt; color: #333333;")
             row_layout.addWidget(label_naziv)
             row_layout.addStretch()
 
@@ -1650,7 +1634,7 @@ class ZaglavljeView(BaseTabView):
         column.setLineWidth(2)
         column.setObjectName("right_column")
         column.setAttribute(Qt.WA_StyledBackground, True)
-        column.setStyleSheet("QFrame#right_column { background-color: #f5f9f5; }" + """
+        column.setStyleSheet(("QFrame#right_column { background-color: #f5f9f5; }" + """
     QLineEdit {
         background: #fafcfa;
         border: 1px solid #a0c4a0;
@@ -1689,7 +1673,7 @@ class ZaglavljeView(BaseTabView):
         padding: 5px 10px;
         min-height: 24px;
     }
-""".replace("__ARROW_CSS__", _DOWN_ARROW_CSS))
+""").replace("__ARROW_CSS__", _DOWN_ARROW_CSS))
         layout = QVBoxLayout(column)
         layout.setContentsMargins(4, 4, 4, 4)
         layout.setSpacing(0)
@@ -2161,6 +2145,11 @@ class ZaglavljeView(BaseTabView):
         if not attached_docs:
             return
 
+        # Osiguraj dovoljno redova — bez toga setItem na nepostojećem redu tiho propada
+        needed = min(max(len(attached_docs), self.table.rowCount()), 20)
+        if self.table.rowCount() < needed:
+            self.table.setRowCount(needed)
+
         # Očisti sadržaj bez mijenjanja broja redova — sprečava skupljanje prozora
         for row in range(self.table.rowCount()):
             for col in range(self.table.columnCount()):
@@ -2173,6 +2162,7 @@ class ZaglavljeView(BaseTabView):
             code = doc.get('code', '')
             name = doc.get('name', '')
             number = doc.get('number', '')
+            user_entered = doc.get('_user_entered', False)
 
             # Kolona 0 — Šifra
             code_item = QTableWidgetItem(code)
@@ -2184,9 +2174,9 @@ class ZaglavljeView(BaseTabView):
             self.table.setItem(idx, 1, name_item)
 
             # Kolona 2 — Referenca
-            # Pri XML uvozu: brišemo stale ref-ove osim za DIS/N380/OST/PE
+            # Pri XML uvozu: brišemo stale ref-ove osim za DIS/N380/OST/PE i korisničkih unosa
             # Pri load_from_draft: uvijek čuvamo što je u draftu
-            if clear_refs_on_import and code not in self._PRESERVE_REFS:
+            if clear_refs_on_import and code not in self._PRESERVE_REFS and not user_entered:
                 ref_item = QTableWidgetItem("")
             else:
                 ref_item = QTableWidgetItem(number)

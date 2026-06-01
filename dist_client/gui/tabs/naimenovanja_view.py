@@ -675,20 +675,8 @@ class NaimenovanjaView(BaseTabView):
             logger.info(f" ✅ Grid extended: {new_height}px → {final_height}px (added {extra_height}px to fill gap)")
             logger.info(f"  ✅ Added 2px border around grid using BlackLineWidget (4 lines)")
 
-            # Repozicioniraj status bar odmah ispod grida (Windows DPI može pomijeriti poziciju)
-            if hasattr(self, 'status_bar') and self.status_bar:
-                sb_geom = self.status_bar.geometry()
-                self.status_bar.setGeometry(
-                    sb_geom.x(),
-                    self.grid_bottom_y,
-                    sb_geom.width(),
-                    sb_geom.height()
-                )
-                self.status_bar.raise_()
-                self.status_bar.show()
-                logger.debug(f" 🎯 Status bar repozicioniran na y={self.grid_bottom_y} (grid bottom)")
-            else:
-                logger.debug(f" 🎯 Status bar at y=715, grid ends at y={current_geom.y() + final_height}")
+            # Status bar is now IN .ui FILE with absolute geometry (y=715) - no positioning needed!
+            logger.debug(f" 🎯 Status bar in .ui file at y=715, grid ends at y={current_geom.y() + final_height}")
 
         # Clear ALL input fields to ensure they're empty
         self._clear_all_input_fields()

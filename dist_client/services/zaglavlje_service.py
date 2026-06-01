@@ -1135,8 +1135,8 @@ class ZaglavljeService:
                 ref = _txt(att_el, "Attached_document_reference")
                 from_rule_str = _txt(att_el, "Attached_document_from_rule")
                 from_rule = (from_rule_str == "1")
-                # Blokiraj zastarjele šifre (zamijenjene novim ASYCUDA kodovima)
-                if code.upper() in {"FAK", "CMR", "SAN", "VET", "UVK"}:
+                # Blokiraj zastarjele šifre (FAK → N380, CMR → nova šifra)
+                if code.upper() in {"FAK", "CMR"}:
                     continue
                 # Deduplicate by (code, ref)
                 doc_key = (code, ref)

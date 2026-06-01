@@ -475,8 +475,8 @@ class ZaglavljeController:
             # Load data from XML via service
             data = self.service.load_from_xml(filename)
 
-            # Blokiraj zastarjele šifre dokumenata — zamijenjene novim ASYCUDA kodovima
-            _BLOCKED_CODES = {"FAK", "CMR", "SAN", "VET", "UVK"}
+            # Blokiraj zastarjele šifre dokumenata — FAK i CMR su zamijenjeni novim šiframa
+            _BLOCKED_CODES = {"FAK", "CMR"}
             if 'attached_documents' in data:
                 data['attached_documents'] = [
                     d for d in data['attached_documents']
