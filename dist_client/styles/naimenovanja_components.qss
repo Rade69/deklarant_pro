@@ -18,24 +18,24 @@ QWidget#navBar {
 QLabel.nav-label {
     font-weight: 600;
     color: #212529;
-    font-size: 14px;
+    font-size: 12px;
 }
 
 /* Navigation counter (lighter, gray) */
 QLabel.nav-counter {
     color: #1a1a2e;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 700;
     margin-left: 4px;
 }
 
 /* Dropdown selector in navigation */
 QComboBox[class="nav-combo"] {
-    padding: 6px 10px;
+    padding: 3px 8px;
     border: 1px solid #ced4da;
     border-radius: 4px;
     background: white;
-    font-size: 13px;
+    font-size: 12px;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -50,7 +50,7 @@ QWidget#sectionHeading {
 /* Section heading label ("📋 Naimenovanje #X") */
 QLabel.section-heading-label {
     color: white;
-    font-size: 15px;
+    font-size: 13px;
     font-weight: bold;
 }
 
@@ -92,14 +92,14 @@ QWidget#naimenovanjaUiWidget QGroupBox {
 }
 
 QWidget#naimenovanjaUiWidget QLabel {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: bold;
     color: #2e7d32;
 }
 
 QWidget#naimenovanjaUiWidget QLineEdit {
-    font-size: 14px;
-    padding: 4px;
+    font-size: 13px;
+    padding: 3px;
     color: #333;
     background-color: white;
 }
@@ -108,19 +108,37 @@ QLineEdit#le_r31_vrsta_naziv {
     background-color: #e3f2fd;
     border: 2px solid #2196f3;
     border-radius: 4px;
-    padding: 3px 6px;
+    padding: 2px 5px;
     font-weight: bold;
-    font-size: 14px;
+    font-size: 13px;
     color: #1565c0;
 }
 
 QWidget#naimenovanjaUiWidget QComboBox {
-    font-size: 14px;
+    font-size: 13px;
     color: #333;
 }
 
 QWidget#naimenovanjaUiWidget QComboBox QLineEdit {
     color: #333;
+}
+
+QWidget#naimenovanjaUiWidget QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 20px;
+    border-left: 1px solid #9bbf9b;
+    background: #ffffff;
+}
+
+QWidget#naimenovanjaUiWidget QComboBox::down-arrow {
+    image: none;
+    width: 0px;
+    height: 0px;
+    margin-right: 5px;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 6px solid #4a4a4a;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -163,11 +181,11 @@ QWidget#naimenovanjaUiWidget QTextEdit {
 QComboBox#le_r31_vrsta {
     border: 2px solid #28a745;
     border-radius: 6px;
-    padding: 5px 15px;
+    padding: 2px 18px 2px 6px;
     background-color: #ffffff;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
-    min-width: 80px;
+    min-width: 64px;
 }
 
 QComboBox#le_r31_vrsta:hover {
@@ -186,10 +204,11 @@ QComboBox#le_r31_vrsta:editable {
 QComboBox#le_r31_vrsta::drop-down {
     subcontrol-origin: padding;
     subcontrol-position: top right;
-    width: 30px;
+    width: 18px;
     border-left: 1px solid #28a745;
     border-top-right-radius: 6px;
     border-bottom-right-radius: 6px;
+    background: #ffffff;
 }
 
 /* CSS triangle arrow for le_r31_vrsta */
@@ -197,10 +216,7 @@ QComboBox#le_r31_vrsta::down-arrow {
     image: none;
     width: 0px;
     height: 0px;
-    margin-right: 6px;
-    border-left: 5px solid transparent;
-    border-right: 5px solid transparent;
-    border-top: 7px solid #4a4a4a;
+    border: none;
 }
 
 QComboBox#le_r31_vrsta QAbstractItemView {
@@ -233,9 +249,9 @@ QComboBox#le_r31_vrsta QAbstractItemView::item:hover {
 
 /* Navigation dropdown - uses dynamic property class="nav-combo" */
 QComboBox[class="nav-combo"] {
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 600;
-    padding: 4px 10px;
+    padding: 2px 8px;
     border: 2px solid #4A7FA5;
     border-radius: 5px;
     background: white;
@@ -248,7 +264,7 @@ QComboBox[class="nav-combo"]:focus {
 }
 
 QComboBox[class="nav-combo"]::drop-down {
-    width: 28px;
+    width: 22px;
     border-left: 1px solid #4A7FA5;
 }
 
@@ -257,10 +273,10 @@ QComboBox[class="nav-combo"]::down-arrow {
     image: none;
     width: 0px;
     height: 0px;
-    margin-right: 6px;
-    border-left: 5px solid transparent;
-    border-right: 5px solid transparent;
-    border-top: 7px solid #4a4a4a;
+    margin-right: 4px;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 6px solid #4a4a4a;
 }
 
 /* ═══════════════════════════════════════════════════════════

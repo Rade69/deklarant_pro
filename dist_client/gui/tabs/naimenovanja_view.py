@@ -59,7 +59,7 @@ class _ScrollableCombo(QComboBox):
             self.view().setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import QFile, Qt, Signal, QTimer, QPoint, QSize
-from PySide6.QtGui import QColor, QIcon, QPainter, QTextOption
+from PySide6.QtGui import QColor, QIcon, QPainter, QPolygon, QTextOption
 
 from services.naimenovanja.tariff_service import TariffService
 from services.naimenovanja.constants import NaimenovanjaConstants
@@ -127,6 +127,27 @@ class BlackLineWidget(QWidget):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.fillRect(self.rect(), QColor("#000000"))
+        painter.end()
+
+
+class PaintedArrowCombo(QComboBox):
+    """ComboBox with a manually painted arrow for stable Windows rendering."""
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        painter.setBrush(QColor("#4a4a4a"))
+        painter.setPen(Qt.PenStyle.NoPen)
+        cx = self.width() - 10
+        cy = self.height() // 2 + 1
+        painter.drawPolygon(
+            QPolygon([
+                QPoint(cx - 4, cy - 3),
+                QPoint(cx + 4, cy - 3),
+                QPoint(cx, cy + 3),
+            ])
+        )
         painter.end()
 
 
@@ -560,12 +581,14 @@ class NaimenovanjaView(BaseTabView):
         # Scale up the main grid frame AND all widgets inside it (1.30x)
         main_grid = self.ui.findChild(QFrame, "main_grid_frame")
         if main_grid:
-            scale_factor = 1.00 if __import__("os").name == "nt" else 1.30
+            is_windows = __import__("os").name == "nt"
+            scale_x = 1.30
+            scale_y = 1.10 if is_windows else 1.30
 
             # Scale the frame itself
             current_geom = main_grid.geometry()
-            new_width = int(current_geom.width() * scale_factor)
-            new_height = int(current_geom.height() * scale_factor)
+            new_width = int(current_geom.width() * scale_x)
+            new_height = int(current_geom.height() * scale_y)
 
             # OPCIJA B: Back to setGeometry() - we'll position status bar manually too
             main_grid.setGeometry(
@@ -576,10 +599,10 @@ class NaimenovanjaView(BaseTabView):
             for widget in main_grid.findChildren(QWidget):
                 geom = widget.geometry()
                 widget.setGeometry(
-                    int(geom.x() * scale_factor),
-                    int(geom.y() * scale_factor),
-                    int(geom.width() * scale_factor),
-                    int(geom.height() * scale_factor),
+                    int(geom.x() * scale_x),
+                    int(geom.y() * scale_y),
+                    int(geom.width() * scale_x),
+                    int(geom.height() * scale_y),
                 )
 
             # Replace all VLine/HLine separators with BlackLineWidget (stylesheet doesn't work)
@@ -743,47 +766,59 @@ class NaimenovanjaView(BaseTabView):
         geometry = old_widget.geometry()
 
         # Create QComboBox with wider width for better visibility
-        self.combo_vrsta_pakovanja = QComboBox(parent)
+        self.combo_vrsta_pakovanja = PaintedArrowCombo(parent)
         self.combo_vrsta_pakovanja.setObjectName(
             "le_r31_vrsta"
         )  # Keep same name for mapping
         # Increase width for better visibility
-        geometry.setWidth(50)
+        geometry.setWidth(64)
         self.combo_vrsta_pakovanja.setGeometry(geometry)
         self.combo_vrsta_pakovanja.setEditable(True)  # Allow manual entry
         self.combo_vrsta_pakovanja.setStyleSheet(
             """
+            QComboBox#le_r31_vrsta {
+                border: 2px solid #28a745;
+                border-radius: 6px;
+                padding: 2px 18px 2px 6px;
+                background-color: #ffffff;
+                font-size: 13px;
+                font-weight: 500;
+                color: #333333;
+            }
             QComboBox#le_r31_vrsta::drop-down {
+                subcontrol-origin: padding;
+                subcontrol-position: top right;
                 width: 18px;
-                border: none;
-                background: transparent;
+                border-left: 1px solid #28a745;
+                background: #ffffff;
             }
             QComboBox#le_r31_vrsta::down-arrow {
                 image: none;
                 width: 0px;
                 height: 0px;
+                border: none;
             }
             """
         )
 
-        self.combo_vrsta_pakovanja_arrow = QLabel("▼", parent)
+        self.combo_vrsta_pakovanja_arrow = QLabel("", parent)
         self.combo_vrsta_pakovanja_arrow.setGeometry(
-            geometry.x() + geometry.width() - 18,
-            geometry.y(),
-            18,
-            geometry.height(),
+            geometry.x() + geometry.width() - 15,
+            geometry.y() + 3,
+            12,
+            max(1, geometry.height() - 6),
         )
         self.combo_vrsta_pakovanja_arrow.setAlignment(
             Qt.AlignmentFlag.AlignCenter
         )
         self.combo_vrsta_pakovanja_arrow.setStyleSheet(
-            "color: #4a4a4a; background: transparent; font-size: 10px;"
+            "color: #4a4a4a; background: #ffffff; font-size: 11px; border: none;"
         )
         self.combo_vrsta_pakovanja_arrow.setAttribute(
             Qt.WidgetAttribute.WA_TransparentForMouseEvents, True
         )
         self.combo_vrsta_pakovanja_arrow.raise_()
-        self.combo_vrsta_pakovanja_arrow.show()
+        self.combo_vrsta_pakovanja_arrow.hide()
 
         # Store package names for lookup
         self.package_names = {}  # {code: name}
@@ -952,20 +987,16 @@ class NaimenovanjaView(BaseTabView):
         Redoslijed: [X/Y/Z] [Šifra dokumenta] [Prethodni dokument tekst]
         """
         from PySide6.QtCore import QRect, QPoint
-        from PySide6.QtGui import QPainter, QPolygon, QColor
 
         if not hasattr(self, "ui"):
             return
 
         # TASK-002: add __init__ to hide QSS arrow, see agent_reports/2026-05-03_style-refactor-task-002-004.md
-        class _ArrowCombo(QComboBox):
+        class _ArrowCombo(PaintedArrowCombo):
             """QComboBox sa ručno iscrtanom strelicom (otporno na QSS override)."""
 
             def __init__(self, parent=None):
                 super().__init__(parent)
-
-            def paintEvent(self, event):
-                super().paintEvent(event)
 
         # ── Polje 40.1: X / Y / Z ───────────────────────────────────────────
         old1 = self.ui.findChild(QLineEdit, "le_rubrika40_1")
@@ -990,8 +1021,8 @@ class NaimenovanjaView(BaseTabView):
                 }}
                 QComboBox#le_rubrika40_1::drop-down {{
                     width: 14px;
-                    border: none;
-                    background: transparent;
+                    border-left: 1px solid #17a2b8;
+                    background: #f0f9ff;
                 }}
                 QComboBox#le_rubrika40_1::down-arrow {{
                     image: none;
@@ -1364,11 +1395,11 @@ class NaimenovanjaView(BaseTabView):
         self.nav_bar.setObjectName(
             "navBar"
         )  # CSS styling in naimenovanja_components.qss
-        self.nav_bar.setFixedHeight(42)
+        self.nav_bar.setFixedHeight(38)
 
         nav_layout = QHBoxLayout(self.nav_bar)
-        nav_layout.setContentsMargins(10, 4, 10, 4)
-        nav_layout.setSpacing(8)
+        nav_layout.setContentsMargins(10, 3, 10, 3)
+        nav_layout.setSpacing(7)
 
         # Section 1: Dropdown selector
         lbl_nav = QLabel("Naimenovanje:")
@@ -1377,7 +1408,7 @@ class NaimenovanjaView(BaseTabView):
 
         self.combo_items = _ScrollableCombo()
         self.combo_items.setMinimumWidth(380)
-        self.combo_items.setFixedHeight(30)
+        self.combo_items.setFixedHeight(28)
         self.combo_items.setMaxVisibleItems(99)
         self.combo_items.setProperty(
             "class", "nav-combo"
@@ -1407,14 +1438,14 @@ class NaimenovanjaView(BaseTabView):
         self.btn_previous.setObjectName(
             "btnPrethodno"
         )  # žuta/braon — navigacija unazad
-        self.btn_previous.setFixedHeight(34)
+        self.btn_previous.setFixedHeight(30)
         self.btn_previous.clicked.connect(self._on_previous)
         nav_layout.addWidget(self.btn_previous)
 
         # Next button
         self.btn_next = self._create_icon_button("Sljedeće", "fa5s.arrow-right")
         self.btn_next.setObjectName("btnSljedece")  # teal — navigacija naprijed
-        self.btn_next.setFixedHeight(34)
+        self.btn_next.setFixedHeight(30)
         self.btn_next.clicked.connect(self._on_next)
         nav_layout.addWidget(self.btn_next)
 
@@ -1424,13 +1455,13 @@ class NaimenovanjaView(BaseTabView):
         # Section 3: CRUD buttons
         self.btn_add = self._create_icon_button("Dodaj", "fa5s.plus")
         self.btn_add.setObjectName("btnDodaj")  # zelena
-        self.btn_add.setFixedHeight(34)
+        self.btn_add.setFixedHeight(30)
         self.btn_add.clicked.connect(self._on_add_item)
         nav_layout.addWidget(self.btn_add)
 
         self.btn_delete = self._create_icon_button("Obriši", "fa5s.trash-alt")
         self.btn_delete.setObjectName("btnObrisi")  # crvena
-        self.btn_delete.setFixedHeight(34)
+        self.btn_delete.setFixedHeight(30)
         self.btn_delete.clicked.connect(self._on_delete_item)
         nav_layout.addWidget(self.btn_delete)
 
@@ -1440,7 +1471,7 @@ class NaimenovanjaView(BaseTabView):
         # Section 4: Action buttons
         self.btn_suggest = self._create_icon_button("Sugeriši tarifu", "fa5s.lightbulb")
         self.btn_suggest.setObjectName("btnAutoPopuni")  # ljubičasta (AI)
-        self.btn_suggest.setFixedHeight(34)
+        self.btn_suggest.setFixedHeight(30)
         self.btn_suggest.clicked.connect(self._on_suggest_tariff)
         nav_layout.addWidget(self.btn_suggest)
 
@@ -1448,7 +1479,7 @@ class NaimenovanjaView(BaseTabView):
         self.btn_import_xml = self._create_icon_button("Uvezi XML", "fa5s.file-import")
         self.btn_import_xml.setObjectName("btnUveziXMLNaim")  # teal/zelena
         self.btn_import_xml.setToolTip("Uvezi naimenovanja iz ASYCUDA XML fajla")
-        self.btn_import_xml.setFixedHeight(34)
+        self.btn_import_xml.setFixedHeight(30)
         self.btn_import_xml.clicked.connect(self._on_import_xml)
         nav_layout.addWidget(self.btn_import_xml)
 
@@ -1456,7 +1487,7 @@ class NaimenovanjaView(BaseTabView):
         self.btn_inspekcije = self._create_icon_button("Inspekcije", "fa5s.clipboard-check")
         self.btn_inspekcije.setObjectName("btnInspekcije")
         self.btn_inspekcije.setToolTip("Pregled naimenovanja koja zahtijevaju inspekciju")
-        self.btn_inspekcije.setFixedHeight(34)
+        self.btn_inspekcije.setFixedHeight(30)
         self.btn_inspekcije.clicked.connect(self._on_inspekcije)
         nav_layout.addWidget(self.btn_inspekcije)
 
@@ -1473,7 +1504,7 @@ class NaimenovanjaView(BaseTabView):
 
         heading_layout = QHBoxLayout(self.section_heading)
         heading_layout.setContentsMargins(20, 2, 20, 2)
-        heading_layout.setSpacing(10)
+        heading_layout.setSpacing(8)
 
         # Left: Heading label
         self.lbl_heading = QLabel("📋 Naimenovanje #1")
@@ -1587,7 +1618,7 @@ class NaimenovanjaView(BaseTabView):
                 if label:
                     label.setFixedHeight(30)
                     label.setStyleSheet(
-                        "font-size: 12px; font-weight: 600; padding: 2px 8px;"
+                        "font-size: 12px; font-weight: 700; padding: 2px 8px;"
                     )
 
             main_grid = self.ui.findChild(QFrame, "main_grid_frame")
@@ -1595,7 +1626,7 @@ class NaimenovanjaView(BaseTabView):
                 grid_geo = main_grid.geometry()
                 self.status_bar.setGeometry(
                     grid_geo.x(),
-                    grid_geo.y() + grid_geo.height() + 8,
+                    grid_geo.y() + grid_geo.height() + 6,
                     grid_geo.width(),
                     status_h,
                 )
@@ -2548,12 +2579,12 @@ class NaimenovanjaView(BaseTabView):
                 msg += f" (+{len(errors) - 3})"
             self.lbl_status_validation.setText(f"⚠️ {msg}")
             self.lbl_status_validation.setStyleSheet(
-                "color: #856404; background: #fff3cd; padding: 2px 6px; border-radius: 3px;"
+                "color: #856404; background: #fff3cd; font-size: 12px; font-weight: 700; padding: 2px 6px; border-radius: 3px;"
             )
         else:
             self.lbl_status_validation.setText("✅ Sva naimenovanja kompletna")
             self.lbl_status_validation.setStyleSheet(
-                "color: #155724; background: #d4edda; padding: 2px 6px; border-radius: 3px;"
+                "color: #155724; background: #d4edda; font-size: 12px; font-weight: 700; padding: 2px 6px; border-radius: 3px;"
             )
 
     def _sync_header_packages(self) -> None:
@@ -2715,8 +2746,8 @@ class NaimenovanjaView(BaseTabView):
             }
             QComboBox#le_rubrika40_2::drop-down {
                 width: 16px;
-                border: none;
-                background: transparent;
+                border-left: 1px solid #17a2b8;
+                background: #f0f9ff;
             }
             QComboBox#le_rubrika40_2::down-arrow {
                 image: none;
@@ -2761,8 +2792,8 @@ class NaimenovanjaView(BaseTabView):
                 }}
                 QComboBox#le_rubrika40_1::drop-down {{
                     width: 14px;
-                    border: none;
-                    background: transparent;
+                    border-left: 1px solid #17a2b8;
+                    background: #f0f9ff;
                 }}
                 QComboBox#le_rubrika40_1::down-arrow {{
                     image: none;
