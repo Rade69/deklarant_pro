@@ -153,9 +153,9 @@ Kada hook injektuje `[DOC-GUARD]` poruku:
 ---
 
 <!-- gitnexus:start -->
-## GitNexus — Code Intelligence
+# GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **deklarant_pro** (18002 symbols, 30260 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **deklarant_pro** (18389 symbols, 30765 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
@@ -177,7 +177,7 @@ This project is indexed by GitNexus as **deklarant_pro** (18002 symbols, 30260 r
 ## Resources
 
 | Resource | Use for |
-| --- | --- |
+|----------|---------|
 | `gitnexus://repo/deklarant_pro/context` | Codebase overview, check index freshness |
 | `gitnexus://repo/deklarant_pro/clusters` | All functional areas |
 | `gitnexus://repo/deklarant_pro/processes` | All execution flows |
@@ -186,7 +186,7 @@ This project is indexed by GitNexus as **deklarant_pro** (18002 symbols, 30260 r
 ## CLI
 
 | Task | Read this skill file |
-| --- | --- |
+|------|---------------------|
 | Understand architecture / "How does X work?" | `.claude/skills/gitnexus/gitnexus-exploring/SKILL.md` |
 | Blast radius / "What breaks if I change X?" | `.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md` |
 | Trace bugs / "Why is X failing?" | `.claude/skills/gitnexus/gitnexus-debugging/SKILL.md` |
