@@ -430,12 +430,12 @@ class ZaglavljeView(BaseTabView):
     def _create_toolbar(self) -> QFrame:
         """Kreiraj toolbar sa dugmadima."""
         toolbar = QFrame()
-        toolbar.setFixedHeight(50)
+        toolbar.setFixedHeight(42)
         toolbar.setObjectName("toolbar")
 
         layout = QHBoxLayout(toolbar)
-        layout.setContentsMargins(8, 8, 8, 8)
-        layout.setSpacing(15)
+        layout.setContentsMargins(8, 5, 8, 5)
+        layout.setSpacing(12)
 
         self.btn_novi = self._create_icon_button("Novi", "fa5s.plus-square")
         self.btn_novi.setObjectName("btnNovi")
@@ -1577,7 +1577,7 @@ class ZaglavljeView(BaseTabView):
                 self.field_widgets["trosak_1_valuta"] = cb_valuta
 
             label_naziv = QLabel(naziv)
-            label_naziv.setStyleSheet("font-size: 16pt; color: #333333;")
+            label_naziv.setStyleSheet("font-size: 10pt; color: #333333;")
             row_layout.addWidget(label_naziv)
             row_layout.addStretch()
 

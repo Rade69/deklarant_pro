@@ -560,7 +560,7 @@ class NaimenovanjaView(BaseTabView):
         # Scale up the main grid frame AND all widgets inside it (1.30x)
         main_grid = self.ui.findChild(QFrame, "main_grid_frame")
         if main_grid:
-            scale_factor = 1.30
+            scale_factor = 1.00 if __import__("os").name == "nt" else 1.30
 
             # Scale the frame itself
             current_geom = main_grid.geometry()
@@ -675,8 +675,12 @@ class NaimenovanjaView(BaseTabView):
             logger.info(f" ✅ Grid extended: {new_height}px → {final_height}px (added {extra_height}px to fill gap)")
             logger.info(f"  ✅ Added 2px border around grid using BlackLineWidget (4 lines)")
 
-            # Status bar is now IN .ui FILE with absolute geometry (y=715) - no positioning needed!
-            logger.debug(f" 🎯 Status bar in .ui file at y=715, grid ends at y={current_geom.y() + final_height}")
+            # Repozicioniraj status bar odmah ispod grida
+            if hasattr(self, 'status_bar') and self.status_bar:
+                sb = self.status_bar.geometry()
+                self.status_bar.setGeometry(sb.x(), self.grid_bottom_y, sb.width(), sb.height())
+                self.status_bar.raise_()
+                self.status_bar.show()
 
         # Clear ALL input fields to ensure they're empty
         self._clear_all_input_fields()
@@ -747,6 +751,39 @@ class NaimenovanjaView(BaseTabView):
         geometry.setWidth(50)
         self.combo_vrsta_pakovanja.setGeometry(geometry)
         self.combo_vrsta_pakovanja.setEditable(True)  # Allow manual entry
+        self.combo_vrsta_pakovanja.setStyleSheet(
+            """
+            QComboBox#le_r31_vrsta::drop-down {
+                width: 18px;
+                border: none;
+                background: transparent;
+            }
+            QComboBox#le_r31_vrsta::down-arrow {
+                image: none;
+                width: 0px;
+                height: 0px;
+            }
+            """
+        )
+
+        self.combo_vrsta_pakovanja_arrow = QLabel("▼", parent)
+        self.combo_vrsta_pakovanja_arrow.setGeometry(
+            geometry.x() + geometry.width() - 18,
+            geometry.y(),
+            18,
+            geometry.height(),
+        )
+        self.combo_vrsta_pakovanja_arrow.setAlignment(
+            Qt.AlignmentFlag.AlignCenter
+        )
+        self.combo_vrsta_pakovanja_arrow.setStyleSheet(
+            "color: #4a4a4a; background: transparent; font-size: 10px;"
+        )
+        self.combo_vrsta_pakovanja_arrow.setAttribute(
+            Qt.WidgetAttribute.WA_TransparentForMouseEvents, True
+        )
+        self.combo_vrsta_pakovanja_arrow.raise_()
+        self.combo_vrsta_pakovanja_arrow.show()
 
         # Store package names for lookup
         self.package_names = {}  # {code: name}
@@ -926,39 +963,9 @@ class NaimenovanjaView(BaseTabView):
 
             def __init__(self, parent=None):
                 super().__init__(parent)
-                self.setStyleSheet(
-                    """
-                    QComboBox::drop-down {
-                        width: 18px;
-                        border: none;
-                        background: transparent;
-                    }
-                    QComboBox::down-arrow {
-                        image: none;
-                        width: 0px;
-                        height: 0px;
-                        border: none;
-                    }
-                    """
-                )
 
             def paintEvent(self, event):
                 super().paintEvent(event)
-                painter = QPainter(self)
-                painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-                r = self.rect()
-                cx = r.right() - 9
-                cy = r.center().y() + 1
-                tri = QPolygon(
-                    [
-                        QPoint(cx - 5, cy - 3),
-                        QPoint(cx + 5, cy - 3),
-                        QPoint(cx, cy + 4),
-                    ]
-                )
-                painter.setPen(QColor(74, 74, 74))
-                painter.setBrush(QColor(74, 74, 74))
-                painter.drawPolygon(tri)
 
         # ── Polje 40.1: X / Y / Z ───────────────────────────────────────────
         old1 = self.ui.findChild(QLineEdit, "le_rubrika40_1")
@@ -1357,11 +1364,11 @@ class NaimenovanjaView(BaseTabView):
         self.nav_bar.setObjectName(
             "navBar"
         )  # CSS styling in naimenovanja_components.qss
-        self.nav_bar.setFixedHeight(50)  # Increased from 40 to 50
+        self.nav_bar.setFixedHeight(42)
 
         nav_layout = QHBoxLayout(self.nav_bar)
-        nav_layout.setContentsMargins(12, 8, 12, 8)  # Increased vertical margins
-        nav_layout.setSpacing(10)  # Increased spacing
+        nav_layout.setContentsMargins(10, 4, 10, 4)
+        nav_layout.setSpacing(8)
 
         # Section 1: Dropdown selector
         lbl_nav = QLabel("Naimenovanje:")
@@ -1370,7 +1377,7 @@ class NaimenovanjaView(BaseTabView):
 
         self.combo_items = _ScrollableCombo()
         self.combo_items.setMinimumWidth(380)
-        self.combo_items.setFixedHeight(34)
+        self.combo_items.setFixedHeight(30)
         self.combo_items.setMaxVisibleItems(99)
         self.combo_items.setProperty(
             "class", "nav-combo"
@@ -1400,12 +1407,14 @@ class NaimenovanjaView(BaseTabView):
         self.btn_previous.setObjectName(
             "btnPrethodno"
         )  # žuta/braon — navigacija unazad
+        self.btn_previous.setFixedHeight(34)
         self.btn_previous.clicked.connect(self._on_previous)
         nav_layout.addWidget(self.btn_previous)
 
         # Next button
         self.btn_next = self._create_icon_button("Sljedeće", "fa5s.arrow-right")
         self.btn_next.setObjectName("btnSljedece")  # teal — navigacija naprijed
+        self.btn_next.setFixedHeight(34)
         self.btn_next.clicked.connect(self._on_next)
         nav_layout.addWidget(self.btn_next)
 
@@ -1415,11 +1424,13 @@ class NaimenovanjaView(BaseTabView):
         # Section 3: CRUD buttons
         self.btn_add = self._create_icon_button("Dodaj", "fa5s.plus")
         self.btn_add.setObjectName("btnDodaj")  # zelena
+        self.btn_add.setFixedHeight(34)
         self.btn_add.clicked.connect(self._on_add_item)
         nav_layout.addWidget(self.btn_add)
 
         self.btn_delete = self._create_icon_button("Obriši", "fa5s.trash-alt")
         self.btn_delete.setObjectName("btnObrisi")  # crvena
+        self.btn_delete.setFixedHeight(34)
         self.btn_delete.clicked.connect(self._on_delete_item)
         nav_layout.addWidget(self.btn_delete)
 
@@ -1429,6 +1440,7 @@ class NaimenovanjaView(BaseTabView):
         # Section 4: Action buttons
         self.btn_suggest = self._create_icon_button("Sugeriši tarifu", "fa5s.lightbulb")
         self.btn_suggest.setObjectName("btnAutoPopuni")  # ljubičasta (AI)
+        self.btn_suggest.setFixedHeight(34)
         self.btn_suggest.clicked.connect(self._on_suggest_tariff)
         nav_layout.addWidget(self.btn_suggest)
 
@@ -1436,6 +1448,7 @@ class NaimenovanjaView(BaseTabView):
         self.btn_import_xml = self._create_icon_button("Uvezi XML", "fa5s.file-import")
         self.btn_import_xml.setObjectName("btnUveziXMLNaim")  # teal/zelena
         self.btn_import_xml.setToolTip("Uvezi naimenovanja iz ASYCUDA XML fajla")
+        self.btn_import_xml.setFixedHeight(34)
         self.btn_import_xml.clicked.connect(self._on_import_xml)
         nav_layout.addWidget(self.btn_import_xml)
 
@@ -1443,6 +1456,7 @@ class NaimenovanjaView(BaseTabView):
         self.btn_inspekcije = self._create_icon_button("Inspekcije", "fa5s.clipboard-check")
         self.btn_inspekcije.setObjectName("btnInspekcije")
         self.btn_inspekcije.setToolTip("Pregled naimenovanja koja zahtijevaju inspekciju")
+        self.btn_inspekcije.setFixedHeight(34)
         self.btn_inspekcije.clicked.connect(self._on_inspekcije)
         nav_layout.addWidget(self.btn_inspekcije)
 
@@ -1455,11 +1469,11 @@ class NaimenovanjaView(BaseTabView):
         self.section_heading.setObjectName(
             "sectionHeading"
         )  # CSS in naimenovanja_components.qss
-        self.section_heading.setFixedHeight(32)
+        self.section_heading.setFixedHeight(30)
 
         heading_layout = QHBoxLayout(self.section_heading)
-        heading_layout.setContentsMargins(20, 4, 20, 4)
-        heading_layout.setSpacing(12)
+        heading_layout.setContentsMargins(20, 2, 20, 2)
+        heading_layout.setSpacing(10)
 
         # Left: Heading label
         self.lbl_heading = QLabel("📋 Naimenovanje #1")
@@ -1486,12 +1500,14 @@ class NaimenovanjaView(BaseTabView):
         # Action buttons (Sačuvaj, Poništi) - positioned above group_32_39
         self.btn_sacuvaj = self._create_icon_button("Sačuvaj", "fa5.save")
         self.btn_sacuvaj.setObjectName("btnSnimi")  # zelena
+        self.btn_sacuvaj.setFixedHeight(26)
         self.btn_sacuvaj.clicked.connect(self._on_save)
         self.btn_sacuvaj.raise_()  # Bring to front
         button_layout.addWidget(self.btn_sacuvaj)
 
         self.btn_ponisti = self._create_icon_button("Poništi", "fa5s.undo-alt")
         self.btn_ponisti.setObjectName("btnIzlaz")  # siva
+        self.btn_ponisti.setFixedHeight(26)
         self.btn_ponisti.clicked.connect(self._on_ponisti)
         self.btn_ponisti.raise_()  # Bring to front
         button_layout.addWidget(self.btn_ponisti)
@@ -1558,6 +1574,33 @@ class NaimenovanjaView(BaseTabView):
             # Use the validation label for temporary messages
             if hasattr(self, "lbl_status_validation"):
                 self.lbl_status_message = self.lbl_status_validation
+
+            status_h = 48
+            self.status_bar.setFixedHeight(status_h)
+            for label in (
+                self.lbl_status_total,
+                self.lbl_status_items,
+                self.lbl_status_bruto,
+                self.lbl_status_netto,
+                self.lbl_status_validation,
+            ):
+                if label:
+                    label.setFixedHeight(30)
+                    label.setStyleSheet(
+                        "font-size: 12px; font-weight: 600; padding: 2px 8px;"
+                    )
+
+            main_grid = self.ui.findChild(QFrame, "main_grid_frame")
+            if main_grid:
+                grid_geo = main_grid.geometry()
+                self.status_bar.setGeometry(
+                    grid_geo.x(),
+                    grid_geo.y() + grid_geo.height() + 8,
+                    grid_geo.width(),
+                    status_h,
+                )
+                self.status_bar.raise_()
+                self.status_bar.show()
 
             logger.debug("  🎯 Grid ends at y=715, status bar at y=715 → GAP = 0px!")
         else:

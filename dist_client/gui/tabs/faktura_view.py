@@ -297,7 +297,7 @@ class FakturaView(BaseTabView):
             # Create HEADER label for this section
             header_label = QPushButton(section_name)
             header_label.setEnabled(False)
-            header_label.setFixedHeight(40)
+            header_label.setFixedHeight(30)
 
             # Border radius for first/last
             if idx == 0:
@@ -313,8 +313,8 @@ class FakturaView(BaseTabView):
                     background-color: {color};
                     color: {text_color};
                     font-weight: bold;
-                    font-size: 17px;
-                    padding: 10px 6px;
+                    font-size: 14px;
+                    padding: 5px 6px;
                     border: none;
                     border-bottom: 2px solid {self._darken_color(color)};
                     {border_radius}
@@ -332,8 +332,8 @@ class FakturaView(BaseTabView):
             # Create TOOLBAR section for this column
             toolbar_container = QWidget()
             toolbar_layout = QHBoxLayout(toolbar_container)
-            toolbar_layout.setContentsMargins(8, 8, 8, 8)
-            toolbar_layout.setSpacing(6)
+            toolbar_layout.setContentsMargins(6, 5, 6, 5)
+            toolbar_layout.setSpacing(5)
 
             # Border radius for toolbar
             if idx == 0:
@@ -468,7 +468,7 @@ class FakturaView(BaseTabView):
             layout.addWidget(self.btn_export_pdf)
 
             self.btn_create_naimenovanja = self._create_button(
-                "Kreiraj Naimenovanja",
+                "Kreiraj Naim.",
                 "Kreiraj naimenovanja iz faktura (grupisi po tarifi + zemlji + povlastici)",
                 object_name="btnKreirajNaimenovanja",
                 icon_name="fa5s.clipboard-list",
@@ -485,9 +485,9 @@ class FakturaView(BaseTabView):
             bruto_row = QHBoxLayout()
             bruto_row.setSpacing(4)
             bruto_label = QLabel("Bruto:")
-            bruto_label.setFixedWidth(50)
+            bruto_label.setFixedWidth(42)
             bruto_label.setStyleSheet(
-                "color: #222; font-size: 14px; font-weight: bold;"
+                "color: #222; font-size: 12px; font-weight: bold;"
             )
             bruto_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
             bruto_row.addWidget(bruto_label)
