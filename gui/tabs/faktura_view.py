@@ -3292,6 +3292,24 @@ class FakturaView(BaseTabView):
         )
         invoice_weights = normalized_invoice_weights(self.draft.invoice_weights)
 
+        # Ako je neto unesen u toolbar a sve sačuvane neto vrijednosti su 0
+        # (neto nije bio dostupan u fajlu), rasporedi toolbar neto proporcionalno.
+        # Ovo pokriva slučaj kad korisnik upiše neto=bruto (ili bilo koji neto)
+        # za fakture gdje ga fajl nije sadržavao (npr. Šumaprom XLS bez neto težine).
+        if neto_total > 0 and invoice_weights:
+            stored_neto_sum = sum(n for _, n in invoice_weights.values())
+            if stored_neto_sum == 0:
+                total_stored_bruto = sum(b for b, _ in invoice_weights.values())
+                if total_stored_bruto > 0:
+                    for key in list(invoice_weights.keys()):
+                        inv_bruto, _ = invoice_weights[key]
+                        proportion = inv_bruto / total_stored_bruto
+                        invoice_weights[key] = (inv_bruto, round(neto_total * proportion, 3))
+                    logger.debug(
+                        f"   ℹ️ Neto iz toolbar-a ({neto_total:.3f} kg) raspoređen proporcionalno "
+                        f"na {len(invoice_weights)} faktura(e)"
+                    )
+
         total_updated = 0
         total_skipped = 0
         no_weight_invoices = []
