@@ -258,6 +258,7 @@ class SifarniciView(BaseTabView):
                     gridline-color: #c8dcc8;
                     font-size: 13pt;
                     background: white;
+                    alternate-background-color: #f0f7f0;
                     color: #1e3820;
                 }
                 QTableWidget::item {
@@ -1163,10 +1164,12 @@ class SifarniciView(BaseTabView):
                 border: 1px solid #ddd;
                 gridline-color: #ddd;
                 font-size: 13pt;
+                alternate-background-color: #f0f7f0;
             }
             QTableWidget::item {
                 padding: 12px 8px;
                 min-height: 35px;
+                color: #1e3820;
             }
             QHeaderView::section {
                 background: #f5f5f5;
