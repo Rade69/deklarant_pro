@@ -483,22 +483,8 @@ class ZaglavljeView(BaseTabView):
             for column in (left_column, middle_column, right_column):
                 self._apply_windows_control_metrics(column)
 
-        # Srednja kolona u ScrollArea — sprječava stiskanje na manjim ekranima
-        if sys.platform.startswith("win"):
-            middle_scroll = QScrollArea()
-            middle_scroll.setWidget(middle_column)
-            middle_scroll.setWidgetResizable(True)
-            middle_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-            middle_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-            middle_scroll.setFixedWidth(482)
-            middle_scroll.setFrameShape(QFrame.Shape.NoFrame)
-            middle_scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
-            grid_layout.addWidget(left_column, 0)
-            grid_layout.addWidget(middle_scroll, 0)
-        else:
-            grid_layout.addWidget(left_column, 0)
-            grid_layout.addWidget(middle_column, 0)
-
+        grid_layout.addWidget(left_column, 0)
+        grid_layout.addWidget(middle_column, 0)
         grid_layout.addWidget(right_column, 1)
 
         return grid_widget
@@ -1029,13 +1015,17 @@ class ZaglavljeView(BaseTabView):
         column.setFixedWidth(465)
         column.setObjectName("middle_column")
         column.setAttribute(Qt.WA_StyledBackground, True)
-        column.setStyleSheet(("QFrame#middle_column { background-color: #f5f9f5; }" + """
+        _win_label_css = (
+            "\n    QLabel { font-size: 9pt; max-height: 18px; padding: 0; margin: 0; }"
+            if sys.platform.startswith("win") else ""
+        )
+        column.setStyleSheet(("QFrame#middle_column { background-color: #f5f9f5; }" + _win_label_css + """
     QLineEdit {
         background: #fafcfa;
         border: 1px solid #a0c4a0;
         border-radius: 3px;
         padding: 3px 8px;
-        min-height: 28px;
+        min-height: 22px;
         color: #1e3820;
     }
     QLineEdit:hover   { background: #eef6ec; border-color: #7aa080; }
@@ -1046,7 +1036,7 @@ class ZaglavljeView(BaseTabView):
         border: 1px solid #a0c4a0;
         border-radius: 3px;
         padding: 3px 8px;
-        min-height: 28px;
+        min-height: 22px;
         font-size: 13px;
         color: #1e3820;
     }
@@ -1073,7 +1063,7 @@ class ZaglavljeView(BaseTabView):
 """).replace("__ARROW_CSS__", _DOWN_ARROW_CSS))
         layout = QVBoxLayout(column)
         layout.setContentsMargins(4, 4, 4, 4)
-        layout.setSpacing(5)
+        layout.setSpacing(2 if sys.platform.startswith("win") else 5)
 
         layout.addWidget(self._create_deklaracija_group())
         layout.addWidget(self._create_hline())
@@ -1565,7 +1555,8 @@ class ZaglavljeView(BaseTabView):
         field22v = QLineEdit()
         field22v.setPlaceholderText("EUR")
         field22v.setFixedWidth(70)
-        field22v.setMinimumHeight(32)
+        if not sys.platform.startswith("win"):
+            field22v.setMinimumHeight(32)
         validator = QRegularExpressionValidator(QRegularExpression("^[A-Z]{3}$"))
         field22v.setValidator(validator)
         col22v_layout.addWidget(field22v)
@@ -1586,7 +1577,8 @@ class ZaglavljeView(BaseTabView):
         field22i = QLineEdit()
         field22i.setPlaceholderText("0.00")
         field22i.setMinimumWidth(140)
-        field22i.setMinimumHeight(32)
+        if not sys.platform.startswith("win"):
+            field22i.setMinimumHeight(32)
         field22i.setAlignment(Qt.AlignmentFlag.AlignRight)
         col22i_layout.addWidget(field22i)
         self.field_widgets["iznos"] = field22i
@@ -1899,7 +1891,7 @@ class ZaglavljeView(BaseTabView):
         line.setFrameShape(QFrame.Shape.HLine)
         line.setFrameShadow(QFrame.Shadow.Plain)
         line.setLineWidth(1)
-        line.setFixedHeight(6)
+        line.setFixedHeight(2 if sys.platform.startswith("win") else 6)
         return line
 
     # ============================================================
