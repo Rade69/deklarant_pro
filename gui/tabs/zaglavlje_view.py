@@ -632,6 +632,12 @@ class ZaglavljeView(BaseTabView):
 
         if with_search:
             search_btn = QPushButton()
+            if sys.platform.startswith("win"):
+                search_btn.setStyleSheet(
+                    "QPushButton { background: #f0f7f0; border: 1px solid #6a9d6a; "
+                    "border-radius: 3px; padding: 0px; margin: 0px; }"
+                    "QPushButton:hover { background: #e0eee0; }"
+                )
             if _QTA:
                 try:
                     search_btn.setIcon(qta.icon("fa5s.search", color="#333333"))
@@ -685,6 +691,12 @@ class ZaglavljeView(BaseTabView):
         self.field_widgets[f"{prefix}_id"] = id_field
 
         layout.addWidget(title_row)
+
+        if sys.platform.startswith("win"):
+            header_sep = QFrame()
+            header_sep.setFixedHeight(1)
+            header_sep.setStyleSheet("background-color: #b8ccb8;")
+            layout.addWidget(header_sep)
 
         # 5 adresnih polja — na Windowsu rastu sa sekcijom
         placeholders = ["Naziv firme", "Adresa", "Grad", "Poštanski broj", "Država"]
