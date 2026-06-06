@@ -1212,6 +1212,8 @@ class ZaglavljeView(BaseTabView):
 
         layout.addWidget(row)
 
+        group.setAttribute(Qt.WA_StyledBackground, True)
+        group.setProperty("section_card", True)
         return group
 
     def _populate_oznaka_combo(self, sifra: str):
@@ -1283,6 +1285,8 @@ class ZaglavljeView(BaseTabView):
         self.field_widgets["tovarni_listovi"] = field4
         layout.addWidget(col4)
 
+        group.setAttribute(Qt.WA_StyledBackground, True)
+        group.setProperty("section_card", True)
         return group
 
     def _create_stavke_group(self) -> QWidget:
@@ -1351,6 +1355,8 @@ class ZaglavljeView(BaseTabView):
         self.field_widgets["ref_br"] = field7
         layout.addWidget(col7)
 
+        group.setAttribute(Qt.WA_StyledBackground, True)
+        group.setProperty("section_card", True)
         return group
 
     def _create_odgovorna_zemlja_group(self) -> QWidget:
@@ -1380,6 +1386,8 @@ class ZaglavljeView(BaseTabView):
             self.field_widgets[f"odg_zemlja_{i}"] = field
 
         layout.addWidget(row)
+        group.setAttribute(Qt.WA_StyledBackground, True)
+        group.setProperty("section_card", True)
         return group
 
     def _create_zem_group(self) -> QWidget:
@@ -1408,6 +1416,8 @@ class ZaglavljeView(BaseTabView):
             self.field_widgets[f"zem_{num}"] = field
             layout.addWidget(col)
 
+        group.setAttribute(Qt.WA_StyledBackground, True)
+        group.setProperty("section_card", True)
         return group
 
     def _create_drzava_izvoza_group(self) -> QWidget:
@@ -1469,6 +1479,8 @@ class ZaglavljeView(BaseTabView):
         row_layout.addWidget(col17s)
 
         layout.addWidget(row)
+        group.setAttribute(Qt.WA_StyledBackground, True)
+        group.setProperty("section_card", True)
         return group
 
     def _create_drzava_porijekla_group(self) -> QWidget:
@@ -1506,6 +1518,8 @@ class ZaglavljeView(BaseTabView):
         self.field_widgets["drzava_odredista_naziv"] = field17
         layout.addWidget(col17)
 
+        group.setAttribute(Qt.WA_StyledBackground, True)
+        group.setProperty("section_card", True)
         return group
 
     def _create_uslovi_group(self) -> QWidget:
@@ -1536,6 +1550,8 @@ class ZaglavljeView(BaseTabView):
         self.field_widgets["uslovi_mjesto"] = field2
 
         layout.addWidget(row)
+        group.setAttribute(Qt.WA_StyledBackground, True)
+        group.setProperty("section_card", True)
         return group
 
     def _create_valuta_group(self) -> QWidget:
@@ -1627,6 +1643,8 @@ class ZaglavljeView(BaseTabView):
         row_layout.addWidget(col24)
 
         layout.addWidget(row)
+        group.setAttribute(Qt.WA_StyledBackground, True)
+        group.setProperty("section_card", True)
         return group
 
     def _create_troski_group(self) -> QWidget:
@@ -1675,6 +1693,8 @@ class ZaglavljeView(BaseTabView):
 
             layout.addWidget(row)
 
+        group.setAttribute(Qt.WA_StyledBackground, True)
+        group.setProperty("section_card", True)
         return group
 
     def _create_odgodjeno_group(self) -> QWidget:
@@ -1712,6 +1732,8 @@ class ZaglavljeView(BaseTabView):
         self.field_widgets["identifikacija_skladista"] = field49
         layout.addWidget(col49)
 
+        group.setAttribute(Qt.WA_StyledBackground, True)
+        group.setProperty("section_card", True)
         return group
 
     # ============================================================
@@ -1948,7 +1970,7 @@ class ZaglavljeView(BaseTabView):
                 border-radius: 4px;
             }
 
-            /* SEKCIJA KARTICE — bijele kartice sa zaobljenim uglovima (SAMO lijeva kolona) */
+            /* SEKCIJA KARTICE — bijele kartice sa zaobljenim uglovima */
             QWidget[section_card="true"] {
                 background-color: rgba(255, 255, 255, 225);
                 border: 1px solid #c8dcc8;
@@ -1958,6 +1980,11 @@ class ZaglavljeView(BaseTabView):
             #left_column QWidget[section_card="true"] {
                 padding: 0px 2px;
                 border-radius: 4px;
+            }
+            #middle_column QWidget[section_card="true"] {
+                padding: 0px 1px;
+                border-radius: 3px;
+                background-color: rgba(255, 255, 255, 180);
             }
 
             /* HORIZONTALNI SEPARATORI — tanka sage linija između sekcija */
