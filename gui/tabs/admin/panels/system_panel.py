@@ -516,7 +516,7 @@ Generisano: {info.get('generated_at', 'N/A')}
                 <li>Učenje iz XML-ova</li>
             </ul>
             <br>
-            <p>© 2026 Deklarant Pro Team</p>
+            <p>© 2026 Radovan Stojanović</p>
             """
         )
 
