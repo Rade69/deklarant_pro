@@ -1012,11 +1012,11 @@ class ZaglavljeView(BaseTabView):
         column.setFrameShape(QFrame.Shape.Box)
         column.setFrameShadow(QFrame.Shadow.Plain)
         column.setLineWidth(2)
-        column.setFixedWidth(465)
+        column.setFixedWidth(560)
         column.setObjectName("middle_column")
         column.setAttribute(Qt.WA_StyledBackground, True)
         _win_label_css = (
-            "\n    QLabel { font-size: 9pt; max-height: 18px; padding: 0; margin: 0; }"
+            "\n    QLabel { font-size: 9pt; }"
             if sys.platform.startswith("win") else ""
         )
         column.setStyleSheet(("QFrame#middle_column { background-color: #f5f9f5; }" + _win_label_css + """
@@ -1190,7 +1190,7 @@ class ZaglavljeView(BaseTabView):
         # Naziv carinske ispostave
         ured_naziv_cb = _ArrowComboBox()
         ured_naziv_cb.setEditable(True)
-        ured_naziv_cb.setFixedWidth(175)
+        ured_naziv_cb.setFixedWidth(140 if sys.platform.startswith("win") else 175)
         ured_naziv_cb.view().setMinimumWidth(300)
         if ured_naziv:
             ured_naziv_cb.addItem(ured_naziv)

@@ -951,7 +951,7 @@ class ZaglavljeView(BaseTabView):
         column.setObjectName("middle_column")
         column.setAttribute(Qt.WA_StyledBackground, True)
         _win_label_css = (
-            "\n    QLabel { font-size: 9pt; max-height: 18px; padding: 0; margin: 0; }"
+            "\n    QLabel { font-size: 9pt; }"
             if sys.platform.startswith("win") else ""
         )
         column.setStyleSheet("QFrame#middle_column { background-color: #f5f9f5; }" + _win_label_css + """
