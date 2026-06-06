@@ -366,7 +366,7 @@ class HistoricalLearningServiceSafe:
 
         xml_files = self.get_xml_files_for_exporter(exporter_name, limit=max_xml_files)
         if not xml_files:
-            logger.warning(f"Nema XML fajlova za exportera '{exporter_name}'")
+            logger.debug(f"Nema XML fajlova za exportera '{exporter_name}'")
             return None
 
         profile = SupplierProfile(

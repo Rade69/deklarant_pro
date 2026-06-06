@@ -84,25 +84,9 @@ class AgentController:
 
         chat = self.view.get_chat_panel()
         
-        # Historical Learning Service
+        # Historical Learning Service — bez preloada pri startu
+        # Profili se uče lazy (on-demand) pri prvom korišćenju
         self.historical_svc = HistoricalLearningServiceSafe()
-        
-        # Preload top exportera u background-u
-        try:
-            # Pokreni u background thread-u da ne blokira UI
-            import threading
-            def preload_in_background():
-                try:
-                    loaded = self.historical_svc.preload_top_exporters(limit=10)
-                    if loaded > 0:
-                        logger.debug(f"✅ Preloaded {loaded} top exportera u background-u")
-                except Exception:
-                    pass  # Silent error
-            
-            thread = threading.Thread(target=preload_in_background, daemon=True)
-            thread.start()
-        except Exception:
-            pass  # Silent error
         
         self.tariff_svc = TariffIntentService(self.draft)
         self.tariff_svc._controller_ref = self
