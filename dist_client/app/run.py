@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import os
 import signal
 import logging
 from PySide6.QtWidgets import QApplication
@@ -8,6 +9,34 @@ from PySide6.QtGui import QPalette, QColor
 from PySide6.QtCore import Qt, QTimer
 
 logger = logging.getLogger("app.run")
+
+# Patch tarifa_service DB_PATH rano — kompajlirani .pyd može imati Linux putanju
+# što uzrokuje "unable to open database file" na Windowsu
+def _patch_tarifa_db():
+    try:
+        import services.tariff.tarifa_service as _m
+        if not os.path.exists(_m.DB_PATH):
+            _base = os.path.dirname(os.path.dirname(__file__))  # dist_client/
+            candidates = [
+                os.path.join(_base, 'database', 'deklarant_sistem.db'),
+                os.path.join(os.path.dirname(_base), 'database', 'deklarant_sistem.db'),
+                os.path.join('database', 'deklarant_sistem.db'),
+            ]
+            for p in candidates:
+                if os.path.exists(p):
+                    _m.DB_PATH = os.path.normpath(p)
+                    _m._shared_conn = None
+                    if hasattr(_m.trazi_po_kodu, 'cache_clear'):
+                        _m.trazi_po_kodu.cache_clear()
+                    logger.info("Tarifa DB_PATH patchovan na: %s", _m.DB_PATH)
+                    break
+            else:
+                logger.warning("deklarant_sistem.db nije pronađen ni na jednoj lokaciji")
+    except Exception as exc:
+        logger.warning("Tarifa DB patch neuspješan: %s", exc)
+
+
+_patch_tarifa_db()
 
 # Global MCP client reference — initialized once, used by all controllers
 _mcp_client = None
