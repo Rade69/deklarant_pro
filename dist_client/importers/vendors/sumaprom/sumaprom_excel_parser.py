@@ -623,6 +623,13 @@ def _parse_item_row(
                 zemlja_iso = "BR"  # Brazil -> BR
             elif zemlja_iso == "IE":
                 zemlja_iso = "IE"
+            elif zemlja_iso == "IR":
+                # Šumaprom koristi "IR" za Irsku (IRSKA), a ne za Iran
+                # Provjera po punom nazivu iza kose crte
+                full_name = zemlja_porijekla_raw.upper()
+                if "IRSKA" in full_name or "IRELAND" in full_name:
+                    zemlja_iso = "IE"
+                # else ostaje "IR" (Iran)
         else:
             # Fallback to normalizer
             zemlja_iso = normalize_country_name(zemlja_porijekla_raw)
