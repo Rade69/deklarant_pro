@@ -329,7 +329,15 @@ class HistoricalTariffSearchService:
             supplier = (row['supplier'] or '').strip()
             usage    = int(row['usage_count'] or 0)
             source   = (row['source'] or '').strip()
+            source_display = supplier or source
             if not tarif:
+                continue
+            if not source_display:
+                logger.info(
+                    "Skipping historical tariff without known source: %s (%s)",
+                    tarif,
+                    naziv_h[:80],
+                )
                 continue
             if not self._tariff_exists(tarif):
                 logger.warning(
@@ -350,7 +358,7 @@ class HistoricalTariffSearchService:
                 tarifni_broj_trenutni='',
                 supplier_match=supplier_matched,
                 usage_count=usage,
-                source=supplier or source,
+                source=source_display,
                 confidence=round(conf, 2),
             ))
         return results

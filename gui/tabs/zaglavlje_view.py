@@ -539,7 +539,7 @@ class ZaglavljeView(BaseTabView):
         padding: 5px 10px;
         min-height: 24px;
     }
-""".replace("__ARROW_CSS__", _DOWN_ARROW_CSS))
+""").replace("__ARROW_CSS__", _DOWN_ARROW_CSS))
         layout = QVBoxLayout(column)
         layout.setContentsMargins(4, 4, 4, 4)
         layout.setSpacing(4)
@@ -671,7 +671,7 @@ class ZaglavljeView(BaseTabView):
 
         if auto:
             auto_label = QLabel("AUTO")
-            auto_label.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+            auto_label.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
             auto_label.setStyleSheet(
                 "background: #5cb85c; color: white; padding: 2px 5px; border-radius: 2px;"
             )
@@ -710,7 +710,7 @@ class ZaglavljeView(BaseTabView):
                 field.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
                 field.setMinimumHeight(22)
                 field.setMaximumHeight(42)
-                field.setFont(QFont("Segoe UI", 9))
+                field.setFont(QFont("Segoe UI", 11))
             else:
                 field.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             if auto:
@@ -924,7 +924,7 @@ class ZaglavljeView(BaseTabView):
         col29_layout.setContentsMargins(0, 0, 0, 0)
         col29_layout.setSpacing(3)
         label29 = QLabel("29. Izlazna carinarnica")
-        label29.setFont(QFont("Segoe UI", 9 if sys.platform.startswith("win") else 11, QFont.Weight.Bold))
+        label29.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
         col29_layout.addWidget(label29)
         field29 = QLineEdit()
         field29.setPlaceholderText("Kod")
@@ -938,7 +938,7 @@ class ZaglavljeView(BaseTabView):
         col30_layout.setContentsMargins(0, 0, 0, 0)
         col30_layout.setSpacing(3)
         label30 = QLabel("30. Lokacija robe")
-        label30.setFont(QFont("Segoe UI", 9 if sys.platform.startswith("win") else 11, QFont.Weight.Bold))
+        label30.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
         col30_layout.addWidget(label30)
         field30 = QLineEdit()
         field30.setPlaceholderText("Lokacija")
@@ -966,7 +966,7 @@ class ZaglavljeView(BaseTabView):
         column.setObjectName("middle_column")
         column.setAttribute(Qt.WA_StyledBackground, True)
         _win_label_css = (
-            "\n    QLabel { font-size: 9pt; }"
+            "\n    QLabel { font-size: 11pt; color: #102814; }"
             if sys.platform.startswith("win") else ""
         )
         column.setStyleSheet("QFrame#middle_column { background-color: #f5f9f5; }" + _win_label_css + """

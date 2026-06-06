@@ -203,6 +203,7 @@ class FakturaView(BaseTabView):
 
         # Track last import item count (for REPLACE logic)
         self.last_import_count: int = 0
+        self._analysis_summary_auto: bool = False
 
         # Provjera konzistentnosti pošiljaoca/uvoznika između uvoza
         # Pamtimo ime iz prvog uvoza i poredimo pri svakom sljedećem
@@ -1180,6 +1181,7 @@ class FakturaView(BaseTabView):
         finally:
             self.table.blockSignals(False)
         self._pending_validate_rows.clear()
+        self._update_status_bar()
         if self._pending_learn_rows:
             self._auto_learn_edits()
         self._notify_data_changed()
@@ -1234,6 +1236,10 @@ class FakturaView(BaseTabView):
         level: 'warning' | 'success' | ''
         Poziva se iz AgentController-a nakon uvoza.
         """
+        self._analysis_summary_auto = bool(text)
+        self._set_analysis_summary_text(text, level)
+
+    def _set_analysis_summary_text(self, text: str, level: str = "warning") -> None:
         if not text:
             self.lbl_analysis.setVisible(False)
             self._sep_analysis.setVisible(False)
@@ -1244,6 +1250,91 @@ class FakturaView(BaseTabView):
         self.lbl_analysis.style().polish(self.lbl_analysis)
         self.lbl_analysis.setVisible(True)
         self._sep_analysis.setVisible(True)
+
+    def _build_analysis_summary_from_draft(self) -> tuple[str, str]:
+        rows = []
+        if hasattr(self, "table") and self.table is not None and self.table.rowCount() > 0:
+            for row in range(self.table.rowCount()):
+                country_item = self.table.item(row, 9)
+                country_text = country_item.text().strip() if country_item else ""
+                rows.append({
+                    "tarifni_broj": self._get_cell_value(row, 4),
+                    "zemlja_porijekla": country_text,
+                    "povlastica": self._get_cell_value(row, 10),
+                    "has_origin_statement": (
+                        row < len(self.draft.invoice_lines)
+                        and bool(getattr(self.draft.invoice_lines[row], "has_origin_statement", False))
+                    ),
+                    "eur1_number": (
+                        getattr(self.draft.invoice_lines[row], "eur1_number", "")
+                        if row < len(self.draft.invoice_lines)
+                        else ""
+                    ),
+                })
+        else:
+            rows = [
+                {
+                    "tarifni_broj": getattr(line, "tarifni_broj", "") or "",
+                    "zemlja_porijekla": getattr(line, "zemlja_porijekla", "") or "",
+                    "povlastica": getattr(line, "povlastica", "") or "",
+                    "has_origin_statement": getattr(line, "has_origin_statement", False),
+                    "eur1_number": getattr(line, "eur1_number", "") or "",
+                }
+                for line in self.draft.invoice_lines
+            ]
+
+        if not rows:
+            return "", ""
+
+        bez_tarife = [
+            row for row in rows
+            if not (row["tarifni_broj"] or "").strip()
+        ]
+        bez_zemlje = [
+            row for row in rows
+            if not (row["zemlja_porijekla"] or "").strip()
+        ]
+        sa_povlasticom = [
+            row for row in rows
+            if (row["povlastica"] or "").strip()
+        ]
+        bez_eur1 = [
+            row for row in sa_povlasticom
+            if not row["has_origin_statement"]
+            and not (row["eur1_number"] or "").strip()
+        ]
+
+        countries: dict[str, int] = {}
+        for row in rows:
+            raw_country = (row["zemlja_porijekla"] or "").strip().upper()
+            match = re.search(r"\b[A-Z]{2}\b", raw_country)
+            country = match.group(0) if match else raw_country
+            country = country or "(nepoznato)"
+            countries[country] = countries.get(country, 0) + 1
+
+        zemlja_str = " | ".join(
+            f"{country}:{count}"
+            for country, count in sorted(countries.items(), key=lambda item: -item[1])[:5]
+        )
+
+        problemi = []
+        if bez_tarife:
+            problemi.append(f"⚠️ {len(bez_tarife)} bez tarife")
+        if bez_zemlje:
+            problemi.append(f"⚠️ {len(bez_zemlje)} bez zemlje")
+        if bez_eur1:
+            problemi.append(f"⚠️ {len(bez_eur1)} bez EUR1")
+
+        text = f"🌍 {zemlja_str}"
+        if problemi:
+            text += "  " + " | ".join(problemi)
+        return text, "warning" if problemi else "success"
+
+    def _refresh_analysis_summary_from_draft(self) -> None:
+        if not self._analysis_summary_auto:
+            return
+        text, level = self._build_analysis_summary_from_draft()
+        self._set_analysis_summary_text(text, level)
 
     def _parse_number(self, value_str: str) -> float:
         """Parse European format number (10.258,23) to float."""
@@ -1350,6 +1441,7 @@ class FakturaView(BaseTabView):
             self.lbl_validation.setText("⚪ Neprovjereno")
             self.status_bar_widget.setProperty("status", "")
             self.status_bar_widget.style().polish(self.status_bar_widget)
+            self._refresh_analysis_summary_from_draft()
             return
 
         # Calculate totals in single pass (OPTIMIZED)
@@ -1449,6 +1541,8 @@ class FakturaView(BaseTabView):
         else:
             self.lbl_assembly.setText("📋 Assembly: N/A")
             self.lbl_assembly.setProperty("status", "")
+
+        self._refresh_analysis_summary_from_draft()
 
         # Refresh style
         self.status_bar_widget.style().polish(self.status_bar_widget)
