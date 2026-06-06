@@ -401,7 +401,7 @@ class ZaglavljeView(BaseTabView):
         """Kreiraj dugme sa ikonom iz QtAwesome."""
         btn = QPushButton(" " + text)
         if sys.platform.startswith("win"):
-            btn.setFixedHeight(30)
+            btn.setFixedHeight(24)
         if _QTA:
             try:
                 qta_icon = qta.icon(icon_name, color="#FFFFFF")
@@ -432,11 +432,11 @@ class ZaglavljeView(BaseTabView):
     def _create_toolbar(self) -> QFrame:
         """Kreiraj toolbar sa dugmadima."""
         toolbar = QFrame()
-        toolbar.setFixedHeight(38)
+        toolbar.setFixedHeight(48)
         toolbar.setObjectName("toolbar")
 
         layout = QHBoxLayout(toolbar)
-        layout.setContentsMargins(8, 4, 8, 4)
+        layout.setContentsMargins(8, 5, 8, 9)
         layout.setSpacing(10)
 
         self.btn_novi = self._create_icon_button("Novi", "fa5s.plus-square")
@@ -2008,38 +2008,56 @@ class ZaglavljeView(BaseTabView):
             QPushButton#btnNovi {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #bbdefb, stop:1 #64b5f6);
-                border: 1px solid #2196f3; color: black; font-weight: 500;
+                border: 1px solid #2196f3;
+                border-bottom: 3px solid #1565c0;
                 border-radius: 3px;
+                padding: 0px 12px;
+                color: black; font-weight: 500;
             }
             QPushButton#btnUveziXML {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #e1bee7, stop:1 #ce93d8);
-                border: 1px solid #9c27b0; color: black; font-weight: 500;
+                border: 1px solid #9c27b0;
+                border-bottom: 3px solid #6a1b9a;
                 border-radius: 3px;
+                padding: 0px 12px;
+                color: black; font-weight: 500;
             }
             QPushButton#btnSnimi {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #5cb85c, stop:1 #449d44);
-                border: 1px solid #398439; color: black; font-weight: bold;
+                border: 1px solid #398439;
+                border-bottom: 3px solid #1b5e20;
                 border-radius: 3px;
+                padding: 0px 12px;
+                color: black; font-weight: bold;
             }
             QPushButton#btnBrisi {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #ffcdd2, stop:1 #ef9a9a);
-                border: 1px solid #f44336; color: black; font-weight: 500;
+                border: 1px solid #f44336;
+                border-bottom: 3px solid #b71c1c;
                 border-radius: 3px;
+                padding: 0px 12px;
+                color: black; font-weight: 500;
             }
             QPushButton#btnIzveziXML {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #b2dfdb, stop:1 #80cbc4);
-                border: 1px solid #009688; color: black; font-weight: 500;
+                border: 1px solid #009688;
+                border-bottom: 3px solid #00695c;
                 border-radius: 3px;
+                padding: 0px 12px;
+                color: black; font-weight: 500;
             }
             QPushButton#btnIzlaz {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #fafafa, stop:1 #e0e0e0);
-                border: 1px solid #999; color: black; font-weight: 500;
+                border: 1px solid #999;
+                border-bottom: 3px solid #666;
                 border-radius: 3px;
+                padding: 0px 12px;
+                color: black; font-weight: 500;
             }
 
             /* INPUT FIELDS — krem pozadina za lako uočavanje */

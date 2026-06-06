@@ -400,6 +400,8 @@ class ZaglavljeView(BaseTabView):
     def _create_icon_button(self, text: str, icon_name: str) -> QPushButton:
         """Kreiraj dugme sa ikonom iz QtAwesome."""
         btn = QPushButton(" " + text)
+        if sys.platform.startswith("win"):
+            btn.setFixedHeight(24)
         if _QTA:
             try:
                 qta_icon = qta.icon(icon_name, color="#FFFFFF")
