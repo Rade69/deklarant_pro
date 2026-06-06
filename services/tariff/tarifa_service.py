@@ -18,7 +18,29 @@ from typing import List, Dict, Optional
 
 logger = logging.getLogger("deklarant_pro.tarifa_service")
 
-DB_PATH = os.path.join(os.path.dirname(__file__), '..', '..', 'database', 'deklarant_sistem.db')
+
+def _resolve_db_path() -> str:
+    """
+    Pronađi deklarant_sistem.db: probaj više lokacija jer compiled .pyd
+    može imati __file__ koji pokazuje na dist_client/services/*.pyd, pa
+    relativna putanja vodi u dist_client/database/ umjesto database/.
+    """
+    candidates = [
+        # Standardna lokacija: 2 nivoa gore od services/tariff/
+        os.path.normpath(os.path.join(os.path.dirname(__file__), '..', '..', 'database', 'deklarant_sistem.db')),
+        # Compiled .pyd lokacija: 1 nivo gore od services/
+        os.path.normpath(os.path.join(os.path.dirname(__file__), '..', 'database', 'deklarant_sistem.db')),
+        # Relativno od CWD
+        os.path.join('database', 'deklarant_sistem.db'),
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            return path
+    # Fallback — prva kandidat putanja (sqlite3.connect je lax sa create)
+    return candidates[0]
+
+
+DB_PATH = _resolve_db_path()
 
 # Jedna dijeljenja read-only konekcija — tarifa_2026 se nikad ne mijenja za vrijeme rada
 _shared_conn: sqlite3.Connection | None = None
