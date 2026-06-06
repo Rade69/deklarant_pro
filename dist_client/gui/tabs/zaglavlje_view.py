@@ -810,11 +810,13 @@ class ZaglavljeView(BaseTabView):
         field_row18_layout.setSpacing(6)
         transport_id = QLineEdit()
         transport_id.setPlaceholderText("npr. E25A456")
+        transport_id.textEdited.connect(lambda t, w=transport_id: w.setText(t.upper()))
         field_row18_layout.addWidget(transport_id, 3)
         self.field_widgets["transport_id"] = transport_id
         nat18 = QLineEdit()
         nat18.setPlaceholderText("BA / RS / DE...")
         nat18.setMaxLength(3)
+        nat18.textEdited.connect(lambda t, w=nat18: w.setText(t.upper()))
         field_row18_layout.addWidget(nat18, 2)
         self.field_widgets["transport_nacionalnost"] = nat18
         layout.addWidget(field_row18)
@@ -842,11 +844,13 @@ class ZaglavljeView(BaseTabView):
         field_row21_layout.setSpacing(6)
         aktivno = QLineEdit()
         aktivno.setPlaceholderText("npr. E25A456")
+        aktivno.textEdited.connect(lambda t, w=aktivno: w.setText(t.upper()))
         field_row21_layout.addWidget(aktivno, 3)
         self.field_widgets["aktivno_transport"] = aktivno
         nat21 = QLineEdit()
         nat21.setPlaceholderText("BA / RS / DE...")
         nat21.setMaxLength(3)
+        nat21.textEdited.connect(lambda t, w=nat21: w.setText(t.upper()))
         field_row21_layout.addWidget(nat21, 2)
         self.field_widgets["aktivno_transport_nat"] = nat21
         layout.addWidget(field_row21)
