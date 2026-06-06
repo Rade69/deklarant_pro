@@ -563,6 +563,7 @@ class ZaglavljeView(BaseTabView):
         layout.addWidget(self._create_hline())
 
         layout.addWidget(self._create_izlaz_group())
+        layout.addStretch(1)
 
         return column
 
@@ -886,6 +887,9 @@ class ZaglavljeView(BaseTabView):
     def _create_izlaz_group(self) -> QWidget:
         """Rb.29-30 Izlazna carinarnica + Lokacija robe — side-by-side (QHBoxLayout)."""
         group = QWidget()
+        if sys.platform.startswith("win"):
+            group.setFixedHeight(56)
+            group.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         layout = QHBoxLayout(group)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(4)
@@ -896,7 +900,7 @@ class ZaglavljeView(BaseTabView):
         col29_layout.setContentsMargins(0, 0, 0, 0)
         col29_layout.setSpacing(3)
         label29 = QLabel("29. Izlazna carinarnica")
-        label29.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+        label29.setFont(QFont("Segoe UI", 9 if sys.platform.startswith("win") else 11, QFont.Weight.Bold))
         col29_layout.addWidget(label29)
         field29 = QLineEdit()
         field29.setPlaceholderText("Kod")
@@ -910,7 +914,7 @@ class ZaglavljeView(BaseTabView):
         col30_layout.setContentsMargins(0, 0, 0, 0)
         col30_layout.setSpacing(3)
         label30 = QLabel("30. Lokacija robe")
-        label30.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+        label30.setFont(QFont("Segoe UI", 9 if sys.platform.startswith("win") else 11, QFont.Weight.Bold))
         col30_layout.addWidget(label30)
         field30 = QLineEdit()
         field30.setPlaceholderText("Lokacija")

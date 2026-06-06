@@ -400,6 +400,8 @@ class ZaglavljeView(BaseTabView):
     def _create_icon_button(self, text: str, icon_name: str) -> QPushButton:
         """Kreiraj dugme sa ikonom iz QtAwesome."""
         btn = QPushButton(" " + text)
+        if sys.platform.startswith("win"):
+            btn.setFixedHeight(30)
         if _QTA:
             try:
                 qta_icon = qta.icon(icon_name, color="#FFFFFF")
@@ -430,12 +432,12 @@ class ZaglavljeView(BaseTabView):
     def _create_toolbar(self) -> QFrame:
         """Kreiraj toolbar sa dugmadima."""
         toolbar = QFrame()
-        toolbar.setFixedHeight(42)
+        toolbar.setFixedHeight(38)
         toolbar.setObjectName("toolbar")
 
         layout = QHBoxLayout(toolbar)
-        layout.setContentsMargins(8, 5, 8, 5)
-        layout.setSpacing(12)
+        layout.setContentsMargins(8, 4, 8, 4)
+        layout.setSpacing(10)
 
         self.btn_novi = self._create_icon_button("Novi", "fa5s.plus-square")
         self.btn_novi.setObjectName("btnNovi")
@@ -471,13 +473,30 @@ class ZaglavljeView(BaseTabView):
         grid_widget.setStyleSheet("QWidget { background-color: #dce8dc; }")
         grid_layout = QHBoxLayout(grid_widget)
         grid_layout.setContentsMargins(6, 6, 6, 6)
-        grid_layout.setSpacing(6)
+        grid_layout.setSpacing(4)
 
-        grid_layout.addWidget(self._create_left_column())
-        grid_layout.addWidget(self._create_middle_column())
-        grid_layout.addWidget(self._create_right_column())
+        left_column = self._create_left_column()
+        middle_column = self._create_middle_column()
+        right_column = self._create_right_column()
+
+        if sys.platform.startswith("win"):
+            for column in (left_column, middle_column, right_column):
+                self._apply_windows_control_metrics(column)
+
+        grid_layout.addWidget(left_column, 0)
+        grid_layout.addWidget(middle_column, 0)
+        grid_layout.addWidget(right_column, 1)
 
         return grid_widget
+
+    def _apply_windows_control_metrics(self, widget: QWidget) -> None:
+        field_height = 22 if widget.objectName() == "left_column" else 27
+        for field in widget.findChildren(QLineEdit):
+            if field.objectName() == "company_address_field":
+                continue
+            field.setFixedHeight(field_height)
+        for combo in widget.findChildren(QComboBox):
+            combo.setFixedHeight(field_height)
 
     # ============================================================
     # LIJEVA KOLONA
@@ -490,7 +509,7 @@ class ZaglavljeView(BaseTabView):
         column.setFrameShape(QFrame.Shape.Box)
         column.setFrameShadow(QFrame.Shadow.Plain)
         column.setLineWidth(2)
-        column.setFixedWidth(540)
+        column.setFixedWidth(470)
         column.setObjectName("left_column")
         column.setAttribute(Qt.WA_StyledBackground, True)
         column.setStyleSheet(("QFrame#left_column { background-color: #f5f9f5; }" + """
@@ -498,7 +517,9 @@ class ZaglavljeView(BaseTabView):
         background: #fafcfa;
         border: 1px solid #a0c4a0;
         border-radius: 3px;
-        padding: 2px 8px;
+        padding: 1px 6px;
+        min-height: 22px;
+        font-size: 11px;
         color: #1e3820;
     }
     QLineEdit:hover   { background: #eef6ec; border-color: #7aa080; }
@@ -508,8 +529,9 @@ class ZaglavljeView(BaseTabView):
         background: #fafcfa;
         border: 1px solid #a0c4a0;
         border-radius: 3px;
-        padding: 2px 8px;
-        font-size: 13px;
+        padding: 1px 6px;
+        min-height: 22px;
+        font-size: 11px;
         color: #1e3820;
     }
     QComboBox:hover { background: #eef6ec; border-color: #7aa080; }
@@ -535,7 +557,7 @@ class ZaglavljeView(BaseTabView):
 """).replace("__ARROW_CSS__", _DOWN_ARROW_CSS))
         layout = QVBoxLayout(column)
         layout.setContentsMargins(4, 4, 4, 4)
-        layout.setSpacing(4)
+        layout.setSpacing(1)
 
         layout.addWidget(
             self._create_company_group(
@@ -563,6 +585,7 @@ class ZaglavljeView(BaseTabView):
         layout.addWidget(self._create_hline())
 
         layout.addWidget(self._create_izlaz_group())
+        layout.addStretch(1)
 
         return column
 
@@ -611,54 +634,77 @@ class ZaglavljeView(BaseTabView):
     ) -> QWidget:
         """Kreiraj grupu za kompaniju: ID + 5 adresnih polja."""
         group = QWidget()
+        if sys.platform.startswith("win"):
+            group.setMinimumHeight(160)
+            group.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
         layout = QVBoxLayout(group)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(4)
+        layout.setSpacing(0)
 
         # Naslov red
         title_row = QWidget()
+        if sys.platform.startswith("win"):
+            title_row.setFixedHeight(28)
         title_layout = QHBoxLayout(title_row)
-        title_layout.setContentsMargins(0, 0, 0, 2)
-        title_layout.setSpacing(4)
+        title_layout.setContentsMargins(0, 2, 0, 2)
+        title_layout.setSpacing(5)
 
         title_label = QLabel(title)
-        title_label.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
+        title_label.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         title_label.setObjectName("section_title")
-        title_layout.addWidget(title_label)
+        if sys.platform.startswith("win"):
+            title_label.setFixedHeight(20)
+            title_label.setMinimumWidth(title_label.fontMetrics().horizontalAdvance(title) + 12)
+            title_label.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
+        title_layout.addWidget(title_label, 0, Qt.AlignmentFlag.AlignVCenter)
 
         if with_search:
             search_btn = QPushButton()
+            if sys.platform.startswith("win"):
+                search_btn.setFixedSize(30, 24)
+                search_btn.setStyleSheet(
+                    "QPushButton { background: #f5faf5; border: 1px solid #8fba8f; "
+                    "border-radius: 3px; padding: 0px; margin: 0px; }"
+                    "QPushButton:hover { background: #e8f2e8; }"
+                )
             if _QTA:
                 try:
                     search_btn.setIcon(qta.icon("fa5s.search", color="#333333"))
-                    search_btn.setIconSize(QSize(16, 16))
+                    search_btn.setIconSize(QSize(14, 14))
                 except Exception:
                     pass
             search_btn.setToolTip("Pretraži")
             search_btn.clicked.connect(
                 lambda checked=False, p=prefix: self.search_company_requested.emit(p)
             )
-            title_layout.addWidget(search_btn)
+            title_layout.addWidget(search_btn, 0, Qt.AlignmentFlag.AlignVCenter)
 
             add_btn = QPushButton()
+            if sys.platform.startswith("win"):
+                add_btn.setFixedSize(38, 24)
             if _QTA:
                 try:
                     add_btn.setIcon(qta.icon("fa5s.plus", color="#333333"))
-                    add_btn.setIconSize(QSize(16, 16))
+                    add_btn.setIconSize(QSize(14, 14))
                 except Exception:
                     pass
             add_btn.setToolTip("Dodaj novi")
             add_btn.setStyleSheet(
-                "background: #5cb85c; color: white; border: 1px solid #449d44;"
+                "QPushButton { background: #5cb85c; color: white; border: 1px solid #449d44; "
+                "border-radius: 3px; padding: 0px; margin: 0px; }"
+                "QPushButton:hover { background: #53a653; }"
             )
             add_btn.clicked.connect(
                 lambda checked=False, p=prefix: self.add_company_requested.emit(p)
             )
-            title_layout.addWidget(add_btn)
+            title_layout.addWidget(add_btn, 0, Qt.AlignmentFlag.AlignVCenter)
 
         if auto:
             auto_label = QLabel("AUTO")
-            auto_label.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+            auto_label.setFont(QFont("Segoe UI", 8, QFont.Weight.Bold))
+            if sys.platform.startswith("win"):
+                auto_label.setFixedHeight(23)
+                auto_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             auto_label.setStyleSheet(
                 "background: #5cb85c; color: white; padding: 2px 5px; border-radius: 2px;"
             )
@@ -673,11 +719,13 @@ class ZaglavljeView(BaseTabView):
         )
         id_field.setFixedWidth(150)
         id_field.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        if sys.platform.startswith("win"):
+            id_field.setFixedHeight(24)
         if auto:
             id_field.setReadOnly(True)
         title_layout.addStretch()
         title_layout.addWidget(id_field)
-        title_layout.setAlignment(id_field, Qt.AlignmentFlag.AlignTop)
+        title_layout.setAlignment(id_field, Qt.AlignmentFlag.AlignVCenter)
         self.field_widgets[f"{prefix}_id"] = id_field
 
         layout.addWidget(title_row)
@@ -687,7 +735,11 @@ class ZaglavljeView(BaseTabView):
         for i, placeholder in enumerate(placeholders, 1):
             field = QLineEdit()
             field.setPlaceholderText(placeholder)
+            field.setObjectName("company_address_field")
             field.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            if sys.platform.startswith("win"):
+                field.setFixedHeight(25)
+                field.setFont(QFont("Segoe UI", 8))
             if auto:
                 field.setReadOnly(True)
             layout.addWidget(field)
@@ -711,11 +763,14 @@ class ZaglavljeView(BaseTabView):
           [19. Kontejner □]  (ako čekirano → polje za broj kontejnera)
         """
         group = QWidget()
+        if sys.platform.startswith("win"):
+            group.setMinimumHeight(118)
+            group.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
         layout = QVBoxLayout(group)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(6)
+        layout.setSpacing(2)
 
-        bold = QFont("Segoe UI", 10, QFont.Weight.Bold)
+        bold = QFont("Segoe UI", 9, QFont.Weight.Bold)
 
         # ── Rb.18 red ────────────────────────────────────────────────
         lbl_row18 = QWidget()
@@ -731,6 +786,8 @@ class ZaglavljeView(BaseTabView):
         layout.addWidget(lbl_row18)
 
         field_row18 = QWidget()
+        if sys.platform.startswith("win"):
+            field_row18.setMinimumHeight(24)
         field_row18_layout = QHBoxLayout(field_row18)
         field_row18_layout.setContentsMargins(0, 0, 0, 0)
         field_row18_layout.setSpacing(6)
@@ -759,6 +816,8 @@ class ZaglavljeView(BaseTabView):
         layout.addWidget(lbl_row21)
 
         field_row21 = QWidget()
+        if sys.platform.startswith("win"):
+            field_row21.setMinimumHeight(24)
         field_row21_layout = QHBoxLayout(field_row21)
         field_row21_layout.setContentsMargins(0, 0, 0, 0)
         field_row21_layout.setSpacing(6)
@@ -775,15 +834,19 @@ class ZaglavljeView(BaseTabView):
 
         # ── Rb.19 red — kontejner checkbox + uvjetno polje ───────────
         kt_row = QWidget()
+        if sys.platform.startswith("win"):
+            kt_row.setMinimumHeight(26)
         kt_layout = QHBoxLayout(kt_row)
-        kt_layout.setContentsMargins(0, 4, 0, 0)
-        kt_layout.setSpacing(8)
+        kt_layout.setContentsMargins(0, 1, 0, 0)
+        kt_layout.setSpacing(6)
 
         lbl19 = QLabel("19. Kontejner")
         lbl19.setFont(bold)
         kt_layout.addWidget(lbl19)
 
         kontejner = QCheckBox()
+        if sys.platform.startswith("win"):
+            kontejner.setFixedSize(18, 18)
         kt_layout.addWidget(kontejner)
         self.field_widgets["kontejner"] = kontejner
 
@@ -794,6 +857,7 @@ class ZaglavljeView(BaseTabView):
 
         kontejner_broj = QLineEdit()
         kontejner_broj.setPlaceholderText("npr. TCKU3953473")
+        kontejner_broj.setMinimumWidth(160)
         kontejner_broj.setVisible(False)
         kt_layout.addWidget(kontejner_broj, 1)
         self.field_widgets["kontejner_broj"] = kontejner_broj
@@ -836,18 +900,23 @@ class ZaglavljeView(BaseTabView):
     def _create_vid_group(self) -> QWidget:
         """Rb.25-26-27 Vid unutra / Vid granica / Mjesto razduženja — 3 polja u jednom redu."""
         group = QWidget()
+        if sys.platform.startswith("win"):
+            group.setFixedHeight(56)
+            group.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
         layout = QVBoxLayout(group)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(3)
+        layout.setSpacing(1)
 
         label = QLabel("25. Vid unutra / 26. Vid granica / 27. Mjesto razduženja")
-        label.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+        label.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         layout.addWidget(label)
 
         row = QWidget()
+        if sys.platform.startswith("win"):
+            row.setFixedHeight(27)
         row_layout = QHBoxLayout(row)
         row_layout.setContentsMargins(0, 0, 0, 0)
-        row_layout.setSpacing(4)
+        row_layout.setSpacing(3)
 
         # Rb.25/26 — helper: popuni combo (dropdown "30 — Cestovni prevoz", u polju samo "30")
         def _make_vid_combo(tooltip: str) -> QComboBox:
@@ -886,6 +955,9 @@ class ZaglavljeView(BaseTabView):
     def _create_izlaz_group(self) -> QWidget:
         """Rb.29-30 Izlazna carinarnica + Lokacija robe — side-by-side (QHBoxLayout)."""
         group = QWidget()
+        if sys.platform.startswith("win"):
+            group.setFixedHeight(56)
+            group.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         layout = QHBoxLayout(group)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(4)
@@ -896,7 +968,7 @@ class ZaglavljeView(BaseTabView):
         col29_layout.setContentsMargins(0, 0, 0, 0)
         col29_layout.setSpacing(3)
         label29 = QLabel("29. Izlazna carinarnica")
-        label29.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+        label29.setFont(QFont("Segoe UI", 9 if sys.platform.startswith("win") else 11, QFont.Weight.Bold))
         col29_layout.addWidget(label29)
         field29 = QLineEdit()
         field29.setPlaceholderText("Kod")
@@ -910,7 +982,7 @@ class ZaglavljeView(BaseTabView):
         col30_layout.setContentsMargins(0, 0, 0, 0)
         col30_layout.setSpacing(3)
         label30 = QLabel("30. Lokacija robe")
-        label30.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+        label30.setFont(QFont("Segoe UI", 9 if sys.platform.startswith("win") else 11, QFont.Weight.Bold))
         col30_layout.addWidget(label30)
         field30 = QLineEdit()
         field30.setPlaceholderText("Lokacija")
@@ -934,7 +1006,7 @@ class ZaglavljeView(BaseTabView):
         column.setFrameShape(QFrame.Shape.Box)
         column.setFrameShadow(QFrame.Shadow.Plain)
         column.setLineWidth(2)
-        column.setFixedWidth(580)
+        column.setFixedWidth(465)
         column.setObjectName("middle_column")
         column.setAttribute(Qt.WA_StyledBackground, True)
         column.setStyleSheet(("QFrame#middle_column { background-color: #f5f9f5; }" + """
@@ -942,7 +1014,8 @@ class ZaglavljeView(BaseTabView):
         background: #fafcfa;
         border: 1px solid #a0c4a0;
         border-radius: 3px;
-        padding: 2px 8px;
+        padding: 3px 8px;
+        min-height: 28px;
         color: #1e3820;
     }
     QLineEdit:hover   { background: #eef6ec; border-color: #7aa080; }
@@ -952,7 +1025,8 @@ class ZaglavljeView(BaseTabView):
         background: #fafcfa;
         border: 1px solid #a0c4a0;
         border-radius: 3px;
-        padding: 2px 8px;
+        padding: 3px 8px;
+        min-height: 28px;
         font-size: 13px;
         color: #1e3820;
     }
@@ -1634,12 +1708,15 @@ class ZaglavljeView(BaseTabView):
         column.setLineWidth(2)
         column.setObjectName("right_column")
         column.setAttribute(Qt.WA_StyledBackground, True)
+        column.setMinimumWidth(420)
+        column.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         column.setStyleSheet(("QFrame#right_column { background-color: #f5f9f5; }" + """
     QLineEdit {
         background: #fafcfa;
         border: 1px solid #a0c4a0;
         border-radius: 3px;
-        padding: 2px 8px;
+        padding: 3px 8px;
+        min-height: 28px;
         color: #1e3820;
     }
     QLineEdit:hover   { background: #eef6ec; border-color: #7aa080; }
@@ -1649,7 +1726,8 @@ class ZaglavljeView(BaseTabView):
         background: #fafcfa;
         border: 1px solid #a0c4a0;
         border-radius: 3px;
-        padding: 2px 8px;
+        padding: 3px 8px;
+        min-height: 28px;
         font-size: 13px;
         color: #1e3820;
     }
@@ -1853,7 +1931,11 @@ class ZaglavljeView(BaseTabView):
                 background-color: rgba(255, 255, 255, 225);
                 border: 1px solid #c8dcc8;
                 border-radius: 8px;
-                padding: 6px 8px;
+                padding: 2px 4px;
+            }
+            #left_column QWidget[section_card="true"] {
+                padding: 0px 2px;
+                border-radius: 4px;
             }
 
             /* HORIZONTALNI SEPARATORI — tanka sage linija između sekcija */
@@ -1862,8 +1944,8 @@ class ZaglavljeView(BaseTabView):
                 border: none;
                 max-height: 1px;
                 min-height: 1px;
-                margin-top: 3px;
-                margin-bottom: 3px;
+                margin-top: 0px;
+                margin-bottom: 0px;
             }
 
             /* TOOLBAR */
@@ -1910,9 +1992,9 @@ class ZaglavljeView(BaseTabView):
                 background: #fafcfa;
                 border: 1px solid #a0c4a0;
                 border-radius: 3px;
-                padding: 2px 8px;
-                font-size: 12pt;
-                min-height: 26px;
+                padding: 1px 6px;
+                font-size: 10pt;
+                min-height: 22px;
                 color: #1e3820;
             }
             QLineEdit:hover { border-color: #7aa080; background: #eef6ec; }
@@ -1923,9 +2005,9 @@ class ZaglavljeView(BaseTabView):
                 background: #fafcfa;
                 border: 1px solid #a0c4a0;
                 border-radius: 3px;
-                padding: 2px 8px;
-                font-size: 12pt;
-                min-height: 26px;
+                padding: 1px 6px;
+                font-size: 10pt;
+                min-height: 22px;
                 color: #1e3820;
             }
             QComboBox:hover { border-color: #7aa080; background: #eef6ec; }
@@ -1952,10 +2034,35 @@ class ZaglavljeView(BaseTabView):
             }
             QLabel#section_title {
                 color: #1e3820;
-                font-size: 13pt;
+                font-size: 10pt;
                 font-weight: bold;
-                padding-bottom: 3px;
+                padding-bottom: 1px;
                 border-bottom: 2px solid #5a8060;
+            }
+            #left_column QLabel#section_title {
+                font-size: 9pt;
+                padding-top: 0px;
+                padding-bottom: 0px;
+                min-height: 21px;
+                max-height: 23px;
+            }
+            #left_column QLineEdit {
+                font-size: 9pt;
+                min-height: 19px;
+                padding: 0px 6px;
+            }
+            #left_column QLineEdit#company_address_field {
+                font-size: 8pt;
+                min-height: 23px;
+                padding: 0px 6px;
+            }
+            #left_column QComboBox {
+                font-size: 9pt;
+                min-height: 19px;
+                padding: 0px 6px;
+            }
+            #left_column QCheckBox {
+                font-size: 9pt;
             }
             QCheckBox {
                 color: #1e3820;
