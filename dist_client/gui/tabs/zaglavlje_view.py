@@ -236,8 +236,9 @@ class IspravaDelegate(QStyledItemDelegate):
         popup.setFont(pfont)
         popup.setMinimumWidth(520)
         popup.setStyleSheet(
-            "QListView { font-size: 15pt; }"
-            "QListView::item { padding: 6px 10px; min-height: 28px; }"
+            "QListView { font-size: 15pt; background-color: #ffffff; color: #1e3820; }"
+            "QListView::item { padding: 6px 10px; min-height: 28px; color: #1e3820; }"
+            "QListView::item:selected { background-color: #c8dcc8; color: #1e3820; }"
         )
 
         completer.activated.connect(
