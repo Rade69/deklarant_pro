@@ -1982,31 +1982,37 @@ class ZaglavljeView(BaseTabView):
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #bbdefb, stop:1 #64b5f6);
                 border: 1px solid #2196f3; color: black; font-weight: 500;
+                border-radius: 3px;
             }
             QPushButton#btnUveziXML {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #e1bee7, stop:1 #ce93d8);
                 border: 1px solid #9c27b0; color: black; font-weight: 500;
+                border-radius: 3px;
             }
             QPushButton#btnSnimi {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #5cb85c, stop:1 #449d44);
                 border: 1px solid #398439; color: black; font-weight: bold;
+                border-radius: 3px;
             }
             QPushButton#btnBrisi {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #ffcdd2, stop:1 #ef9a9a);
                 border: 1px solid #f44336; color: black; font-weight: 500;
+                border-radius: 3px;
             }
             QPushButton#btnIzveziXML {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #b2dfdb, stop:1 #80cbc4);
                 border: 1px solid #009688; color: black; font-weight: 500;
+                border-radius: 3px;
             }
             QPushButton#btnIzlaz {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #fafafa, stop:1 #e0e0e0);
                 border: 1px solid #999; color: black; font-weight: 500;
+                border-radius: 3px;
             }
 
             /* INPUT FIELDS — krem pozadina za lako uočavanje */
