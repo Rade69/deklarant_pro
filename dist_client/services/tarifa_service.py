@@ -11,6 +11,9 @@ if not _os.path.exists(_tarifa_mod.DB_PATH):
         if _os.path.exists(_p):
             _tarifa_mod.DB_PATH = _p
             _tarifa_mod._shared_conn = None
+            # Obriši lru_cache koji je mogao keširati None dok DB nije bio dostupan
+            if hasattr(_tarifa_mod.trazi_po_kodu, 'cache_clear'):
+                _tarifa_mod.trazi_po_kodu.cache_clear()
             break
 
 from services.tariff.tarifa_service import *  # noqa: F401, F403

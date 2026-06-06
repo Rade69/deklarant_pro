@@ -215,8 +215,10 @@ def trazi_po_kodu(kod: str) -> Optional[Dict]:
         return _row_to_dict(row) if row else None
 
     except Exception as e:
-        logger.error(f"Greška pri pretrazi koda {kod}: {e}")
-        return None
+        # Re-raise umjesto return None — lru_cache ne keširuje exception,
+        # pa sljedeći poziv ponovo proba (bitno kad DB nije bila dostupna)
+        logger.debug(f"Greška pri pretrazi koda {kod}: {e}")
+        raise
 
 
 def trazi_poglavlje(poglavlje: str, limit: int = 50) -> List[Dict]:
