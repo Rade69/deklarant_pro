@@ -402,13 +402,19 @@ class ZaglavljeView(BaseTabView):
         """Kreiraj dugme sa ikonom iz QtAwesome."""
         btn = QPushButton(" " + text)
         if sys.platform.startswith("win"):
-            btn.setFixedHeight(24)
+            btn.setFixedHeight(30)
         if _QTA:
             try:
-                qta_icon = qta.icon(icon_name, color="#FFFFFF")
-                pixmap = qta_icon.pixmap(QSize(16, 16))
-                btn.setIcon(QIcon(pixmap))
-                btn.setIconSize(QSize(16, 16))
+                icon_colors = {
+                    "fa5s.plus-square": "#0D47A1",
+                    "fa5s.file-import": "#4A235A",
+                    "fa5s.check-circle": "#0B3D16",
+                    "fa5s.trash-alt": "#7F1D1D",
+                    "fa5s.file-export": "#004D40",
+                    "fa5s.sign-out-alt": "#374151",
+                }
+                btn.setIcon(qta.icon(icon_name, color=icon_colors.get(icon_name, "#1E3A5F")))
+                btn.setIconSize(QSize(20, 20))
             except Exception:
                 pass
         return btn
@@ -433,7 +439,7 @@ class ZaglavljeView(BaseTabView):
     def _create_toolbar(self) -> QFrame:
         """Kreiraj toolbar sa dugmadima."""
         toolbar = QFrame()
-        toolbar.setFixedHeight(48)
+        toolbar.setFixedHeight(50)
         toolbar.setObjectName("toolbar")
 
         layout = QHBoxLayout(toolbar)
@@ -1833,10 +1839,9 @@ class ZaglavljeView(BaseTabView):
 
         hdr = self.table.horizontalHeader()
         hdr.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
-        hdr.setSectionResizeMode(1, QHeaderView.ResizeMode.Interactive)
+        hdr.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         hdr.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         self.table.setColumnWidth(0, 65)
-        self.table.setColumnWidth(1, 160)
 
         self._col_ratio_filter = _ColRatioFilter(self)
         self.table.installEventFilter(self._col_ratio_filter)
@@ -2013,8 +2018,8 @@ class ZaglavljeView(BaseTabView):
                 border: 1px solid #2196f3;
                 border-bottom: 3px solid #1565c0;
                 border-radius: 3px;
-                padding: 0px 12px;
-                color: black; font-weight: 500;
+                padding: 0px 14px;
+                color: black; font-weight: 600; font-size: 12px;
             }
             QPushButton#btnUveziXML {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
@@ -2022,8 +2027,8 @@ class ZaglavljeView(BaseTabView):
                 border: 1px solid #9c27b0;
                 border-bottom: 3px solid #6a1b9a;
                 border-radius: 3px;
-                padding: 0px 12px;
-                color: black; font-weight: 500;
+                padding: 0px 14px;
+                color: black; font-weight: 600; font-size: 12px;
             }
             QPushButton#btnSnimi {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
@@ -2031,8 +2036,8 @@ class ZaglavljeView(BaseTabView):
                 border: 1px solid #398439;
                 border-bottom: 3px solid #1b5e20;
                 border-radius: 3px;
-                padding: 0px 12px;
-                color: black; font-weight: bold;
+                padding: 0px 14px;
+                color: black; font-weight: bold; font-size: 12px;
             }
             QPushButton#btnBrisi {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
@@ -2040,8 +2045,8 @@ class ZaglavljeView(BaseTabView):
                 border: 1px solid #f44336;
                 border-bottom: 3px solid #b71c1c;
                 border-radius: 3px;
-                padding: 0px 12px;
-                color: black; font-weight: 500;
+                padding: 0px 14px;
+                color: black; font-weight: 600; font-size: 12px;
             }
             QPushButton#btnIzveziXML {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
@@ -2049,8 +2054,8 @@ class ZaglavljeView(BaseTabView):
                 border: 1px solid #009688;
                 border-bottom: 3px solid #00695c;
                 border-radius: 3px;
-                padding: 0px 12px;
-                color: black; font-weight: 500;
+                padding: 0px 14px;
+                color: black; font-weight: 600; font-size: 12px;
             }
             QPushButton#btnIzlaz {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
@@ -2058,8 +2063,8 @@ class ZaglavljeView(BaseTabView):
                 border: 1px solid #999;
                 border-bottom: 3px solid #666;
                 border-radius: 3px;
-                padding: 0px 12px;
-                color: black; font-weight: 500;
+                padding: 0px 14px;
+                color: black; font-weight: 600; font-size: 12px;
             }
 
             /* INPUT FIELDS — krem pozadina za lako uočavanje */

@@ -1770,10 +1770,9 @@ class ZaglavljeView(BaseTabView):
 
         hdr = self.table.horizontalHeader()
         hdr.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
-        hdr.setSectionResizeMode(1, QHeaderView.ResizeMode.Interactive)
+        hdr.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         hdr.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         self.table.setColumnWidth(0, 65)
-        self.table.setColumnWidth(1, 160)
 
         self._col_ratio_filter = _ColRatioFilter(self)
         self.table.installEventFilter(self._col_ratio_filter)
