@@ -652,7 +652,7 @@ class ZaglavljeView(BaseTabView):
             group.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
         layout = QVBoxLayout(group)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
+        layout.setSpacing(2 if sys.platform.startswith("win") else 0)
 
         # Naslov red
         title_row = QWidget()
@@ -743,16 +743,19 @@ class ZaglavljeView(BaseTabView):
 
         layout.addWidget(title_row)
 
-        # 5 adresnih polja
+        # 5 adresnih polja — na Windowsu rastu sa sekcijom (min/max umjesto fixed)
         placeholders = ["Naziv firme", "Adresa", "Grad", "Poštanski broj", "Država"]
         for i, placeholder in enumerate(placeholders, 1):
             field = QLineEdit()
             field.setPlaceholderText(placeholder)
             field.setObjectName("company_address_field")
-            field.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             if sys.platform.startswith("win"):
-                field.setFixedHeight(25)
-                field.setFont(QFont("Segoe UI", 8))
+                field.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+                field.setMinimumHeight(22)
+                field.setMaximumHeight(42)
+                field.setFont(QFont("Segoe UI", 9))
+            else:
+                field.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             if auto:
                 field.setReadOnly(True)
             layout.addWidget(field)
@@ -801,6 +804,8 @@ class ZaglavljeView(BaseTabView):
         field_row18 = QWidget()
         if sys.platform.startswith("win"):
             field_row18.setMinimumHeight(24)
+            field_row18.setMaximumHeight(42)
+            field_row18.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
         field_row18_layout = QHBoxLayout(field_row18)
         field_row18_layout.setContentsMargins(0, 0, 0, 0)
         field_row18_layout.setSpacing(6)
@@ -831,6 +836,8 @@ class ZaglavljeView(BaseTabView):
         field_row21 = QWidget()
         if sys.platform.startswith("win"):
             field_row21.setMinimumHeight(24)
+            field_row21.setMaximumHeight(42)
+            field_row21.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
         field_row21_layout = QHBoxLayout(field_row21)
         field_row21_layout.setContentsMargins(0, 0, 0, 0)
         field_row21_layout.setSpacing(6)

@@ -699,12 +699,18 @@ class ZaglavljeView(BaseTabView):
 
         layout.addWidget(title_row)
 
-        # 5 adresnih polja
+        # 5 adresnih polja — na Windowsu rastu sa sekcijom
         placeholders = ["Naziv firme", "Adresa", "Grad", "Poštanski broj", "Država"]
         for i, placeholder in enumerate(placeholders, 1):
             field = QLineEdit()
             field.setPlaceholderText(placeholder)
-            field.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            if sys.platform.startswith("win"):
+                field.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+                field.setMinimumHeight(22)
+                field.setMaximumHeight(42)
+                field.setFont(QFont("Segoe UI", 9))
+            else:
+                field.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             if auto:
                 field.setReadOnly(True)
             layout.addWidget(field)
