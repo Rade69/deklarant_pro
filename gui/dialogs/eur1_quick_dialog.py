@@ -185,11 +185,14 @@ class Eur1QuickDialog(QDialog):
         table.setStyleSheet("""
             QTableWidget {
                 background: #ffffff;
+                alternate-background-color: #f0f4f8;
                 gridline-color: #d7dee8;
                 border: 1px solid #b8c7d8;
                 border-radius: 4px;
                 font-size: 14px;
+                color: #27384a;
             }
+            QTableWidget::item { color: #27384a; }
             QHeaderView::section {
                 background: #eef3f8;
                 color: #27384a;

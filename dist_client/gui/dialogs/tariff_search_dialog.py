@@ -105,9 +105,9 @@ class TariffSearchDialog(QDialog):
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.table.setAlternatingRowColors(True)
         self.table.setStyleSheet(
-            "QTableWidget { border: 1px solid #ddd; font-size: 13px; }"
+            "QTableWidget { border: 1px solid #ddd; font-size: 13px; background: #ffffff; alternate-background-color: #f7f9fc; color: #1e3820; }"
+            "QTableWidget::item { color: #1e3820; }"
             "QTableWidget::item:selected { background-color: #1976D2; color: white; }"
-            "QTableWidget { alternate-background-color: #f7f9fc; }"
         )
         self.table.itemSelectionChanged.connect(self._on_selection_changed)
         self.table.itemDoubleClicked.connect(self._on_double_click)

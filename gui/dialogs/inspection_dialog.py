@@ -323,6 +323,11 @@ class InspectionDialog(QDialog):
         table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         table.setAlternatingRowColors(True)
+        table.setStyleSheet(
+            "QTableWidget { background: #ffffff; alternate-background-color: #f0f4f8; color: #1e3820; }"
+            "QTableWidget::item { color: #1e3820; }"
+            "QTableWidget::item:selected { background-color: #d4e8d4; color: #1e3820; }"
+        )
         table.verticalHeader().setVisible(False)
 
         # Širine kolona — posljednja kolona dobija više prostora

@@ -219,9 +219,10 @@ class QuotaPanel(QWidget):
         self.table.verticalHeader().setVisible(False)
         self.table.setWordWrap(True)
         self.table.setStyleSheet(
-            "QTableWidget { font-size: 12pt; }"
-            "QHeaderView::section { font-size: 12pt; font-weight: bold;"
-            " padding: 6px 8px; }"
+            "QTableWidget { font-size: 12pt; background: #ffffff; alternate-background-color: #f0f7f0; color: #1e3820; }"
+            "QTableWidget::item { color: #1e3820; }"
+            "QTableWidget::item:selected { background-color: #d4e8d4; color: #1e3820; }"
+            "QHeaderView::section { font-size: 12pt; font-weight: bold; padding: 6px 8px; }"
         )
 
         hh = self.table.horizontalHeader()
