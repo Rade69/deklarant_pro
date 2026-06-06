@@ -330,7 +330,9 @@ class ProcessingWorker(QThread):
     def _natural_invoice_parts(value: str) -> tuple:
         token = ProcessingWorker._normalized_invoice_token(value)
         parts = re.findall(r"\d+|[a-z]+", token)
-        return tuple(int(part) if part.isdigit() else part for part in parts)
+        # Sve dijelove pretvoriti u str (brojevi zero-padded) da se izbjegne
+        # TypeError: '<' not supported between instances of 'int' and 'str'
+        return tuple(part.zfill(10) if part.isdigit() else part for part in parts)
 
     @staticmethod
     def _is_mapping_xlsx(filepath: str) -> bool:
