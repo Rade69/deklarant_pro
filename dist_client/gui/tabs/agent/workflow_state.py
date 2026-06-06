@@ -102,7 +102,7 @@ class WorkflowStateManager:
         """
         allowed = _TRANSITIONS.get(self._state, set())
         if new_state not in allowed:
-            logger.warning("Nedozvoljena tranzicija: %s → %s", self._state.value, new_state.value)
+            logger.debug("Nedozvoljena tranzicija: %s → %s", self._state.value, new_state.value)
             return False
         self._state = new_state
         if self.on_state_changed:
