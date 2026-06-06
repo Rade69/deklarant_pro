@@ -473,9 +473,26 @@ class ZaglavljeView(BaseTabView):
         grid_layout.setContentsMargins(6, 6, 6, 6)
         grid_layout.setSpacing(6)
 
-        grid_layout.addWidget(self._create_left_column())
-        grid_layout.addWidget(self._create_middle_column())
-        grid_layout.addWidget(self._create_right_column())
+        left_column = self._create_left_column()
+        middle_column = self._create_middle_column()
+        right_column = self._create_right_column()
+
+        if sys.platform.startswith("win"):
+            middle_scroll = QScrollArea()
+            middle_scroll.setWidget(middle_column)
+            middle_scroll.setWidgetResizable(True)
+            middle_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            middle_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+            middle_scroll.setFixedWidth(482)
+            middle_scroll.setFrameShape(QFrame.Shape.NoFrame)
+            middle_scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
+            grid_layout.addWidget(left_column, 0)
+            grid_layout.addWidget(middle_scroll, 0)
+        else:
+            grid_layout.addWidget(left_column, 0)
+            grid_layout.addWidget(middle_column, 0)
+
+        grid_layout.addWidget(right_column, 1)
 
         return grid_widget
 
@@ -540,30 +557,29 @@ class ZaglavljeView(BaseTabView):
         layout.addWidget(
             self._create_company_group(
                 "2. Izvoznik / Pošiljalac", "izvoznik", with_search=True
-            )
+            ), 3
         )
-        layout.addWidget(self._create_hline())
+        layout.addWidget(self._create_hline(), 0)
 
         layout.addWidget(
             self._create_company_group("8. Primalac", "primalac", with_search=True)
-        )
-        layout.addWidget(self._create_hline())
+        , 3)
+        layout.addWidget(self._create_hline(), 0)
 
         layout.addWidget(
             self._create_company_group(
                 "14. Deklarant / Zastupnik", "deklarant", with_search=False, auto=True
-            )
+            ), 2
         )
-        layout.addWidget(self._create_hline())
+        layout.addWidget(self._create_hline(), 0)
 
-        layout.addWidget(self._create_transport_group())
-        layout.addWidget(self._create_hline())
+        layout.addWidget(self._create_transport_group(), 2)
+        layout.addWidget(self._create_hline(), 0)
 
-        layout.addWidget(self._create_vid_group())
-        layout.addWidget(self._create_hline())
+        layout.addWidget(self._create_vid_group(), 0)
+        layout.addWidget(self._create_hline(), 0)
 
-        layout.addWidget(self._create_izlaz_group())
-        layout.addStretch(1)
+        layout.addWidget(self._create_izlaz_group(), 0)
 
         return column
 
