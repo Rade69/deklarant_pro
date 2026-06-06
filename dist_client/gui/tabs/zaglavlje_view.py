@@ -1888,10 +1888,14 @@ class ZaglavljeView(BaseTabView):
     def _create_hline(self) -> QFrame:
         """Horizontalna linija separator."""
         line = QFrame()
-        line.setFrameShape(QFrame.Shape.HLine)
-        line.setFrameShadow(QFrame.Shadow.Plain)
-        line.setLineWidth(1)
-        line.setFixedHeight(2 if sys.platform.startswith("win") else 6)
+        if sys.platform.startswith("win"):
+            line.setFixedHeight(3)
+            line.setStyleSheet("background-color: #b8ccb8;")
+        else:
+            line.setFrameShape(QFrame.Shape.HLine)
+            line.setFrameShadow(QFrame.Shadow.Plain)
+            line.setLineWidth(1)
+            line.setFixedHeight(6)
         return line
 
     # ============================================================
