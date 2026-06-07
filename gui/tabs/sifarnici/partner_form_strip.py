@@ -125,7 +125,7 @@ class PartnerFormStrip(QWidget):
         h_layout.setContentsMargins(14, 9, 14, 9)
         h_layout.setSpacing(6)
 
-        lbl_jib = QLabel("PDV:")
+        lbl_jib = QLabel("JIB:")
         lbl_jib.setStyleSheet(_LABEL_STYLE)
         lbl_jib.setFixedWidth(32)
         self._jib_field = QLineEdit()
@@ -224,7 +224,7 @@ class PartnerFormStrip(QWidget):
 
         rf.addRow("Telefon:", self._telefon_field)
         rf.addRow("Email:", self._email_field)
-        rf.addRow("JIB:", self._pdv_field)
+        rf.addRow("PDV:", self._pdv_field)
         rf.addRow("Matični:", self._maticni_field)
         rf.addRow("Kontakt:", self._kontakt_field)
         return right
