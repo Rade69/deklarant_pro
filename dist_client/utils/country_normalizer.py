@@ -6,7 +6,16 @@ Koristi se za ASYCUDA sistem koji zahteva 2-slovne kodove.
 """
 
 import re
+import unicodedata
 from typing import Optional
+
+
+def _strip_diacritics(text: str) -> str:
+    """Skini dijakritičke znake (š→s, č→c, ć→c, ž→z, đ→d...) za fallback lookup."""
+    return "".join(
+        c for c in unicodedata.normalize("NFD", text)
+        if unicodedata.category(c) != "Mn"
+    )
 
 # Mapa naziva zemalja → ISO 3166-1 alpha-2 kodovi
 COUNTRY_NAME_TO_CODE = {
@@ -217,6 +226,14 @@ def normalize_country_name(country_name: Optional[str]) -> str:
 
     if iso_code:
         return iso_code
+
+    # Fallback: skini dijakritike (npr. iz Excel-a stiže "ŠPANIJA", a u mapi
+    # postoji samo "spanija") — pokušaj ponovo bez š/č/ć/ž/đ
+    stripped = _strip_diacritics(country_lower)
+    if stripped != country_lower:
+        iso_code = COUNTRY_NAME_TO_CODE.get(stripped)
+        if iso_code:
+            return iso_code
 
     # Not found - return original (uppercase if 2 letters)
     if len(country) == 2:
