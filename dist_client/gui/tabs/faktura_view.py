@@ -486,9 +486,9 @@ class FakturaView(BaseTabView):
             bruto_row = QHBoxLayout()
             bruto_row.setSpacing(4)
             bruto_label = QLabel("Bruto:")
-            bruto_label.setFixedWidth(42)
+            bruto_label.setFixedWidth(50)
             bruto_label.setStyleSheet(
-                "color: #222; font-size: 12px; font-weight: bold;"
+                "color: #222; font-size: 14px; font-weight: bold;"
             )
             bruto_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
             bruto_row.addWidget(bruto_label)
