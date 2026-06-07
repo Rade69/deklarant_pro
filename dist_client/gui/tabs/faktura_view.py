@@ -1384,7 +1384,7 @@ class FakturaView(BaseTabView):
 
         zemlja_str = " | ".join(
             f"{country}:{count}"
-            for country, count in sorted(countries.items(), key=lambda item: -item[1])[:5]
+            for country, count in sorted(countries.items(), key=lambda item: -item[1])
         )
 
         problemi = []
