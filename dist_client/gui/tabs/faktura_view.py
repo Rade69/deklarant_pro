@@ -1094,7 +1094,14 @@ class FakturaView(BaseTabView):
         if not item.country_confidence:
             return  # No confidence data
         
-        color_hex = self._CONFIDENCE_COLORS.get(item.country_confidence, "#ffffff")
+        # Boja/znak na zemlji prati ISKLJUČIVO da li je povlastica EKSPLICITNO
+        # potvrđena za ovu konkretnu stavku (povlastica + prateći dokument:
+        # PE-šifra/EUR.1 broj/izjava o porijeklu) — bez obzira na pouzdanost
+        # podatka o zemlji, podobnost zemlje ili bilo koju drugu izvedenu/
+        # predviđenu vrijednost. Korisnik je eksplicitno tražio da aplikacija
+        # ne nagađa: sve što NEMA eksplicitnu potvrdu dobija istu neutralnu
+        # boju pozadine, bez ikonice. Znak (✅) i zelena boja se prikazuju
+        # ISKLJUČIVO kada je povlastica stvarno potvrđena.
         preference = (getattr(item, "povlastica", "") or "").strip()
         pe_doc = _pe_doc_code(getattr(item, "attached_document4", "") or "")
         has_preferential_doc = bool(
@@ -1105,21 +1112,13 @@ class FakturaView(BaseTabView):
                 or bool(getattr(item, "has_origin_statement", False))
             )
         )
-        icon = "✅" if has_preferential_doc else ""
-
-        # Zelena ✅ na zemlji ne smije izgledati isto za stavke koje IMAJU
-        # potvrđenu povlasticu (sa pratećim dokumentom) i one koje je nemaju —
-        # bilo zato što zemlja fundamentalno nema mogućnost povlastice (npr.
-        # Kina), bilo zato što je roba JESTE iz podobne zemlje (npr. Srbija)
-        # ali povlastica za tu konkretnu stavku (još) nije potvrđena. U oba ta
-        # slučaja ćelija dobija SAMO neutralnu boju pozadine — bez ikonice
-        # (icon je već "" jer has_preferential_doc nije ispunjen). Znak (✅)
-        # ostaje isključivo za stavke kod kojih je povlastica STVARNO potvrđena.
-        country_code = (item.zemlja_porijekla or '').strip()
-        eligible_for_pref = bool(self._suggest_preference_by_country(country_code))
-        neutral_country = item.country_confidence == "HIGH" and not has_preferential_doc
-        if neutral_country:
+        if has_preferential_doc:
+            color_hex = self._CONFIDENCE_COLORS.get(item.country_confidence, "#ffffff")
+            icon = "✅"
+        else:
             color_hex = self._NEUTRAL_COUNTRY_COLOR
+            icon = ""
+        neutral_country = not has_preferential_doc
 
         # Build tooltip
         tooltip_parts = []
@@ -1136,17 +1135,6 @@ class FakturaView(BaseTabView):
                 tooltip_parts.append("✅ Porijeklo potvrđeno EUR.1 sertifikatom (visoka pouzdanost)")
             else:
                 tooltip_parts.append("✅ Visoka pouzdanost")
-            if neutral_country:
-                if eligible_for_pref:
-                    tooltip_parts.append(
-                        "ℹ️ Ova zemlja može imati povlasticu, ali za ovu "
-                        "stavku ona (još) nije potvrđena."
-                    )
-                else:
-                    tooltip_parts.append(
-                        "ℹ️ Ova zemlja (van EU/CEFTA/Turske/Irana) nema mogućnost "
-                        "povlastice u ovom sistemu — kolona Povlastica ostaje prazna."
-                    )
         elif item.country_confidence == "MEDIUM":
             tooltip_parts.append("📋 Podatak o poreklu iz baze znanja (srednja pouzdanost)")
         elif item.country_confidence == "LOW":
@@ -1154,7 +1142,11 @@ class FakturaView(BaseTabView):
         elif item.country_confidence == "CONFLICT":
             tooltip_parts.append(f"🚨 Konflikt porekla: {item.country_conflict_details or 'PDF i baza imaju različite vrednosti'}")
             tooltip_parts.append("ℹ️ Korišćena je vrednost iz PDF-a")
-        
+        if neutral_country:
+            tooltip_parts.append(
+                "ℹ️ Povlastica za ovu stavku nije eksplicitno potvrđena."
+            )
+
         # Apply to zemlja_porijekla column (col 9) - pomjereno zbog dodate kolone Faktura
         cell_item = self.table.item(row, 9)
         if cell_item:
