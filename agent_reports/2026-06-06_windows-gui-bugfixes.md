@@ -165,3 +165,35 @@ dist_client\.venv\Scripts\python.exe -c "import gui.tabs.zaglavlje_view as z; pr
 ```
 
 Na Windows instalaciji očekivano je da putanja bude pod `dist_client/gui/tabs/`.
+
+---
+
+## Nastavak sesije: XML trgovacki naziv i 3D app ikonica
+
+### 13. XML uvoz u Faktura tabelu - prikaz trgovackog naziva
+
+**Problem**: Nakon uvoza ASYCUDA XML-a, kolona `Naziv robe` u tabu Faktura prikazivala je opis iz tarifne nomenklature (`Description_of_goods`). To je pogresno za radni pregled fakture, jer korisnik u tabeli ocekuje trgovacki naziv robe iz XML-a.
+
+**Odluka**: U Faktura tabeli treba prikazati trgovacki naziv iz `Commercial_Description`, a tarifni opis ostaviti kao fallback kada trgovacki naziv ne postoji.
+
+**Fix**:
+- u `dist_client/importers/xml_importer.py` i `importers/xml_importer.py` razdvojeni su `tariff_desc` i `commercial_desc`;
+- dodan je helper `_trade_name_for_table()` koji iz `Commercial_Description` uklanja duplikat tarifnog opisa i liniju `Faktura: ...`;
+- `product_code` i dalje koristi trgovacki opis kada postoji, jer to cuva postojece mapiranje po proizvodu.
+
+**Kljucni razlog**: Tabela Faktura je operativni pregled robe iz fakture/XML-a. Tarifni opis je potreban za Rb.31 i validaciju, ali ne smije zamijeniti trgovacki naziv u tabeli.
+
+### 14. Assets/icons - 3D aplikacijska ikonica
+
+**Problem**: Prvi pokusaj 3D ikonice nije bio dobar: efekat nije bio dovoljno vidljiv, a kljuc je bio podignut previsoko i narusio je citljivost `DL` znaka.
+
+**Odluka**: Ne regenerisati znak "od nule". Koristiti korisnikov gotovi `deklarant_icon_master-3D.png` kao jedini izvor istine i iz njega izvesti sve runtime velicine.
+
+**Fix**:
+- iz `dist_client/assets/icons/deklarant_icon_master-3D.png` generisane su sve standardne PNG velicine od 16 do 512 px;
+- zamijenjeni su `deklarant_icon_master.png` i `deklarant_icon.ico`;
+- male velicine su blago izostrene da ostanu citljive u title baru/taskbaru;
+- Desktop shortcut vec pokazuje na `dist_client/assets/icons/deklarant_icon.ico`;
+- osvjezen je Windows icon cache jer Desktop i dalje moze prikazivati staru ikonicu iz cache-a.
+
+**Kljucni razlog**: App ikonica mora ostati konzistentna kroz sve rezolucije. Izvodjenje iz jednog master PNG-a smanjuje rizik da 16/32/64/256 varijante izgledaju kao razliciti znakovi.
