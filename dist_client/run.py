@@ -54,6 +54,17 @@ def _check_ocr_availability():
     """Proveri da li je OCR (pytesseract) dostupan. Samo log upozorenje."""
     try:
         import pytesseract
+
+        # Učitaj ocr_utils PRIJE provjere — on pri importu auto-detektuje
+        # Tesseract na uobičajenim Windows lokacijama (npr. "C:\Program Files\
+        # Tesseract-OCR\tesseract.exe") i postavlja pytesseract.tesseract_cmd.
+        # Bez ovoga, get_tesseract_version() oslanja se samo na PATH i javlja
+        # lažno upozorenje iako je Tesseract instaliran (samo nije u PATH-u).
+        try:
+            from importers.pdf import ocr_utils  # noqa: F401
+        except ImportError:
+            pass
+
         pytesseract.get_tesseract_version()
         logging.getLogger("deklarant_pro").info("✅ OCR (Tesseract) dostupan")
     except ImportError:
