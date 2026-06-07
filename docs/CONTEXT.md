@@ -54,6 +54,8 @@ umjesto generičkog opisa — daje bolji Rub.31.
 ## 3. ASYCUDA XML export — kritična pravila
 
 ### Rb.31 format — strogo 3 linije
+ASYCUDA Rub.31 XML izlaz mora ostati max 280 karaktera i najviše 3 linije.
+GUI smije prikazati duži pregled radi rada korisnika, ali finalno skraćivanje se radi pri buildanju XML-a.
 ```
 Linija 1: opis robe po tarifi (iz tarifne baze)
 Linija 2: komercijalni nazivi iz fakture

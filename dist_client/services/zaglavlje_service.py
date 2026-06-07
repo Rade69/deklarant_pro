@@ -611,14 +611,36 @@ class ZaglavljeService:
         # Priložene isprave (header_attached_documents)
         data['attached_documents'] = []
         if hasattr(draft, 'header_attached_documents') and draft.header_attached_documents:
+            pe_doc_codes = {"PE1", "PE2", "PE3"}
+
+            def _merge_doc_number(existing: str, new: str) -> str:
+                parts: list[str] = []
+                for value in (existing, new):
+                    for token in (value or "").split("|"):
+                        token = token.strip()
+                        if token and token not in parts:
+                            parts.append(token)
+                return " | ".join(parts)
+
             for doc in draft.header_attached_documents:
+                code = getattr(doc, 'code', '')
+                number = getattr(doc, 'number', '')
+                existing_doc = next(
+                    (
+                        d for d in data['attached_documents']
+                        if (d.get('code') or '').strip().upper() == (code or '').strip().upper()
+                    ),
+                    None,
+                )
+                if existing_doc is not None and (code or '').strip().upper() in pe_doc_codes:
+                    existing_doc['number'] = _merge_doc_number(existing_doc.get('number', ''), number)
+                    if not existing_doc.get('name') and getattr(doc, 'name', ''):
+                        existing_doc['name'] = getattr(doc, 'name', '')
+                    continue
+                if existing_doc is not None:
+                    continue
                 data['attached_documents'].append(
-                    self._attached_doc_dict(
-                        getattr(doc, 'code', ''),
-                        getattr(doc, 'name', ''),
-                        getattr(doc, 'number', ''),
-                        True,
-                    )
+                    self._attached_doc_dict(code, getattr(doc, 'name', ''), number, True)
                 )
 
         # Automatski dodaj N380 (faktura) ako postoje brojevi faktura u draft-u

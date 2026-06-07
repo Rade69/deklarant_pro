@@ -602,7 +602,7 @@ class ZaglavljeController:
             return
 
         pe_entries: list[tuple[str, str]] = []
-        seen: set[str] = set()
+        seen: set[tuple[str, str]] = set()
         for item in items:
             doc4 = (getattr(item, "attached_document4", "") or "").strip()
             candidates = [doc4] if _pe_doc_code(doc4) else [
@@ -616,9 +616,10 @@ class ZaglavljeController:
                 sifra = parts[0].strip().upper()
                 broj = parts[1].strip() if len(parts) > 1 else ""
                 if sifra in _PE_DOC_CODES:
-                    if sifra not in seen:  # dedup po šifri — jedna deklaracija = jedan EUR.1
-                        seen.add(sifra)
-                        pe_entries.append((sifra, broj))
+                    key = (sifra, broj)
+                    if key not in seen:
+                        seen.add(key)
+                        pe_entries.append(key)
 
         if not pe_entries:
             return
@@ -672,6 +673,40 @@ class ZaglavljeController:
         merged: List[Dict[str, Any]] = []
         existing_codes: set[str] = set()
 
+        def _merge_number(existing: str, new: str) -> str:
+            parts: list[str] = []
+            for value in (existing, new):
+                for token in (value or "").split("|"):
+                    token = token.strip()
+                    if token and token not in parts:
+                        parts.append(token)
+            return " | ".join(parts)
+
+        def _add_doc(code: str, name: str, number: str, from_rule: bool, user_entered: bool = False) -> None:
+            normalized_code = code.upper()
+            if normalized_code in existing_codes:
+                if normalized_code in _PE_DOC_CODES:
+                    existing = next(
+                        (doc for doc in merged if (doc.get("code") or "").strip().upper() == normalized_code),
+                        None,
+                    )
+                    if existing is not None:
+                        existing["number"] = _merge_number(existing.get("number", ""), number)
+                        if not existing.get("name") and name:
+                            existing["name"] = name
+                return
+
+            existing_codes.add(normalized_code)
+            entry = {
+                "code": code,
+                "name": name,
+                "number": number,
+                "from_rule": bool(from_rule),
+            }
+            if user_entered:
+                entry["_user_entered"] = True
+            merged.append(entry)
+
         for d in existing_docs:
             if not isinstance(d, dict):
                 continue
@@ -693,15 +728,12 @@ class ZaglavljeController:
             code = (getattr(hd, "code", "") or "").strip()
             if not code:
                 continue
-            if code.upper() in existing_codes:
-                continue
-            existing_codes.add(code.upper())
-            merged.append({
-                "code": code,
-                "name": getattr(hd, "name", ""),
-                "number": getattr(hd, "number", ""),
-                "from_rule": bool(getattr(hd, "from_rule", False)),
-            })
+            _add_doc(
+                code=code,
+                name=getattr(hd, "name", ""),
+                number=getattr(hd, "number", ""),
+                from_rule=bool(getattr(hd, "from_rule", False)),
+            )
 
         for d in imported_docs:
             if not isinstance(d, dict):
@@ -711,15 +743,12 @@ class ZaglavljeController:
                 continue
             if code.upper() == "OST":
                 continue
-            if code.upper() in existing_codes:
-                continue
-            existing_codes.add(code.upper())
-            merged.append({
-                "code": code,
-                "name": d.get("name", ""),
-                "number": d.get("number", ""),
-                "from_rule": bool(d.get("from_rule", False)),
-            })
+            _add_doc(
+                code=code,
+                name=d.get("name", ""),
+                number=d.get("number", ""),
+                from_rule=bool(d.get("from_rule", False)),
+            )
 
         return merged
 

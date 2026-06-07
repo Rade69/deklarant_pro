@@ -71,7 +71,7 @@ class PE2QuickDialog(QDialog):
         layout.addWidget(header)
 
         subheader = QLabel(sub_txt)
-        subheader.setStyleSheet("color: #666; padding: 5px;")
+        subheader.setStyleSheet("font-size: 11px; color: #666; padding: 5px;")
         layout.addWidget(subheader)
         
         # GLOBALNI BROJ FAKTURE/IZJAVE

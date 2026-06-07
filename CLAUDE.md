@@ -82,7 +82,7 @@ query: "arhitektura tabovi refactor status"
 
 ### 4. Naimenovanja tab
 - **Trgovački naziv (le_r31_trg_naziv)**: prikazuje sve nazive proizvoda iz fakture koji pripadaju tom naimenovanju
-- Format: comma-separated, max 550 karaktera, skraćivanje sa "..."
+- Format u GUI-u: comma-separated / multi-line pregled; ASYCUDA XML Rub.31 izlaz mora ostati max 280 karaktera / 3 linije, skraćivanje pri buildanju XML-a
 - Koristi QTextEdit za multi-line prikaz
 
 ### 5. Import servisi
@@ -190,7 +190,7 @@ Kada hook injektuje `[DOC-GUARD]` poruku:
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **deklarant_pro** (37014 symbols, 58584 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **deklarant_pro** (37415 symbols, 59097 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

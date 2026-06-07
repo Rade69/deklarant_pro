@@ -104,7 +104,7 @@ servisna klasa ih omotava kao public API. Controller metode su samo 1-liner pozi
 ### Naimenovanja
 
 - Rb.31 auto-opis se generiše po tarifi, ne prepisuje iz fakture
-- `le_r31_trg_naziv` prikazuje sve comercijalne nazive, max 550 znakova, skraćuje sa "..."
+- `le_r31_trg_naziv` prikazuje komercijalne nazive za pregled, ali ASYCUDA XML Rub.31 mora ostati max 280 znakova / 3 linije; skraćivanje raditi pri buildanju XML-a
 
 ---
 
@@ -155,7 +155,7 @@ Kada hook injektuje `[DOC-GUARD]` poruku:
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **deklarant_pro** (37014 symbols, 58584 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **deklarant_pro** (37415 symbols, 59097 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
