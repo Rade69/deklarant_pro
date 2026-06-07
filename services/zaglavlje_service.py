@@ -652,8 +652,15 @@ class ZaglavljeService:
                     self._attached_doc_dict('N380', 'Faktura', ' | '.join(brojevi), True)
                 )
 
-        # Auto-dodaj PZT i N730 ako nisu prisutni — obavezne isprave u svakoj deklaraciji
-        for _code, _name in [('PZT', 'Zavisni troškovi'), ('N730', 'Tovarni list')]:
+        # Auto-dodaj obavezne isprave ako nisu prisutne — moraju biti u svakoj deklaraciji
+        # (N380 je već dodat gore sa brojevima faktura ako postoje — ovdje samo fallback)
+        for _code, _name in [
+            ('PZT', 'Zavisni troškovi'),
+            ('N730', 'Tovarni list'),
+            ('N380', 'Faktura komercijalna'),
+            ('DIS', 'Dispozicija'),
+            ('DV1', 'Prijava o carinskoj vrijednosti'),
+        ]:
             if not self._has_attached_doc_code(data['attached_documents'], _code):
                 data['attached_documents'].append(
                     self._attached_doc_dict(_code, _name, '', True)
