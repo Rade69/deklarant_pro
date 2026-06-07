@@ -167,6 +167,11 @@ class FakturaView(BaseTabView):
         "CONFLICT": "#f8d7da",
     }
     _CONFIDENCE_ICONS = {"HIGH": "✅", "MEDIUM": "📋", "LOW": "⚠️", "CONFLICT": "🚨"}
+    # Neutralna nijansa (sivo-plava) za zemlje koje su pouzdano prepoznate, ali
+    # NEMAJU mogućnost povlastice (npr. Kina) — namjerno različita od zelene
+    # ("HIGH" pouzdanost), da se vizuelno ne miješa sa zemljama kod kojih
+    # povlastica jeste moguća/potvrđena. Vidi agent_reports/2026-06-07_*.
+    _NEUTRAL_COUNTRY_COLOR = "#dfe4ea"
 
     def __init__(self, draft: DeclarationDraft, on_dirty: Optional[Callable] = None):
         super().__init__()
@@ -1048,10 +1053,22 @@ class FakturaView(BaseTabView):
         """
         if not item.country_confidence:
             return  # No confidence data
-        
+
         color_hex = self._CONFIDENCE_COLORS.get(item.country_confidence, "#ffffff")
         icon = self._CONFIDENCE_ICONS.get(item.country_confidence, "")
-        
+
+        # Zemlja koja fundamentalno nema mogućnost povlastice (npr. Kina) ne
+        # smije izgledati identično (zelena ✅) kao zemlja kod koje povlastica
+        # jeste moguća/potvrđena — korisnici su se zbunjivali misleći da
+        # zelena boja znači "i povlastica je u redu". Koristimo neutralnu
+        # nijansu i drugu ikonicu da se ta dva slučaja vizuelno razlikuju.
+        country_code = (item.zemlja_porijekla or '').strip()
+        eligible_for_pref = bool(self._suggest_preference_by_country(country_code))
+        neutral_country = item.country_confidence == "HIGH" and not eligible_for_pref
+        if neutral_country:
+            color_hex = self._NEUTRAL_COUNTRY_COLOR
+            icon = "🌍"
+
         # Build tooltip
         tooltip_parts = []
         if item.country_confidence == "HIGH":
@@ -1067,6 +1084,11 @@ class FakturaView(BaseTabView):
                 tooltip_parts.append("✅ Porijeklo potvrđeno EUR.1 sertifikatom (visoka pouzdanost)")
             else:
                 tooltip_parts.append("✅ Visoka pouzdanost")
+            if neutral_country:
+                tooltip_parts.append(
+                    "🌍 Ova zemlja (van EU/CEFTA/Turske/Irana) nema mogućnost "
+                    "povlastice u ovom sistemu — kolona Povlastica ostaje prazna."
+                )
         elif item.country_confidence == "MEDIUM":
             tooltip_parts.append("📋 Podatak o poreklu iz baze znanja (srednja pouzdanost)")
         elif item.country_confidence == "LOW":
