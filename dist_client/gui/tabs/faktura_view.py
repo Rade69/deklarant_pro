@@ -1161,8 +1161,14 @@ class FakturaView(BaseTabView):
 
         source = getattr(item, 'country_source', None)
         has_pref = bool(item.povlastica)
+        # Zemlja koja fundamentalno nema mogućnost povlastice (npr. Kina) ne
+        # treba upozorenje "provjerite ručno" — to samo zbunjuje korisnika jer
+        # za tu zemlju povlastica nikad neće postojati. Upozorenje ima smisla
+        # SAMO za zemlje koje su uopšte podobne za neku povlasticu (EU/CEFTA/TR/IR).
+        country_code = (getattr(item, 'zemlja_porijekla', '') or '').strip()
+        eligible_for_pref = bool(self._suggest_preference_by_country(country_code))
 
-        if source == "PDF_OZNAKA" and not has_pref:
+        if source == "PDF_OZNAKA" and not has_pref and eligible_for_pref:
             cell_item.setData(ValidationDelegate.ValidationColorRole, "#fff3cd")
             cell_item.setToolTip(
                 "⚠️ Povlastica NIJE automatski postavljena — dokument sadrži "
