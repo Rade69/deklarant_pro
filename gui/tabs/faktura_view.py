@@ -1158,10 +1158,19 @@ class FakturaView(BaseTabView):
                 invoice_item.bruto_kg = self._parse_number(value) if value else 0.0
             elif col == 8:  # Neto kg (pomjereno za +1)
                 invoice_item.neto_kg = self._parse_number(value) if value else 0.0
-            elif col == 9:  # Zemlja — čisti kod iz UserRole, ne tekst sa emojiem (pomjereno za +1)
-                from PySide6.QtCore import Qt as _Qt
-                user_val = item.data(_Qt.UserRole)
-                invoice_item.zemlja_porijekla = str(user_val).strip() if user_val else value
+            elif col == 9:  # Zemlja porijekla (pomjereno za +1)
+                # VAŽNO: NE čitati Qt.UserRole — ono čuva PRETHODNU vrijednost
+                # koju je upisala _apply_country_confidence_color (auto-bojenje
+                # pri validaciji), pa bi se korisnikova ručna izmjena teksta
+                # odbacila i vraćala na staru vrijednost (korisnik vidi da
+                # "ne može da promijeni" zemlju). Umjesto toga, očisti samo
+                # eventualni ikonica-prefiks (✅/📋/⚠️/🚨) iz upisanog teksta.
+                cleaned = value
+                for _icon in self._CONFIDENCE_ICONS.values():
+                    if cleaned.startswith(_icon):
+                        cleaned = cleaned[len(_icon):].strip()
+                        break
+                invoice_item.zemlja_porijekla = cleaned
             elif col == 10:  # Povlastica (pomjereno za +1)
                 invoice_item.povlastica = value
             elif col == 11:  # Valuta (pomjereno za +1)
