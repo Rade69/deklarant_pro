@@ -585,6 +585,19 @@ class Eur1QuickDialog(QDialog):
                 item.eur1_number = data['eur1_number']
                 item.povlastica = data['preference']  # EUP/CEFTAP/TRP (na osnovu zemlje)
                 item.has_origin_statement = False  # Nema izjavu, ima EUR.1
+
+                # VAŽNO: ažuriraj indikatore pouzdanosti porijekla — bez ovoga
+                # stavka zadržava staru vrijednost iz uvoza (npr. "PDF_OZNAKA",
+                # postavljenu PRIJE potvrde EUR.1), pa korisnik vidi nedosljedne
+                # oznake za suštinski iste slučajeve (potvrđeno preko zvaničnog
+                # EUR.1 sertifikata = treba ista visoka pouzdanost kao kad je
+                # izjava prepoznata direktno iz PDF-a). Izvor namjerno NIJE
+                # "PDF_IZJAVA" jer ovdje nema izjave na fakturi, već zaseban
+                # zvanični dokument (EUR.1).
+                item.country_source = "EUR1_POTVRDA"
+                item.country_confidence = "HIGH"
+                item.country_conflict_details = ""
+
                 if invoice_number:
                     # Sačuvaj broj fakture za referencu (novo i staro polje)
                     item.invoice_number = invoice_number

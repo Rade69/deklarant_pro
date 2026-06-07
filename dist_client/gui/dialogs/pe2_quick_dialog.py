@@ -474,6 +474,17 @@ class PE2QuickDialog(QDialog):
                 item.eur1_number = data['invoice_number']
                 item.has_origin_statement = True
                 item.is_authorized_exporter = (doc_code == 'PE3')
+
+                # VAŽNO: ažuriraj i indikatore pouzdanosti (zelena ✅ oznaka u
+                # tabeli) — bez ovoga stavka zadržava staru vrijednost iz
+                # uvoza (npr. "PDF_OZNAKA", postavljenu PRIJE potvrde PE2),
+                # pa korisnik vidi nedosljedne oznake za suštinski iste
+                # slučajeve (potvrđena izjava o porijeklu = ista pouzdanost
+                # kao kad je izjava prepoznata direktno iz PDF-a).
+                item.country_source = "PDF_IZJAVA"
+                item.country_confidence = "HIGH"
+                item.country_conflict_details = ""
+
                 updated_count += 1
         
         return updated_count

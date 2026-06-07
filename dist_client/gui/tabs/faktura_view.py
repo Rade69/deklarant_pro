@@ -31,6 +31,8 @@ from PySide6.QtWidgets import (
     QProgressBar,
     QProgressDialog,
     QDialog,
+    QTextEdit,
+    QDialogButtonBox,
 )
 from PySide6.QtCore import (
     Qt,
@@ -1070,6 +1072,10 @@ class FakturaView(BaseTabView):
         # DODATNO: Apply country confidence color to zemlja_porijekla column (col 8)
         self._apply_country_confidence_color(row, item)
 
+        # I posebno za kolonu Povlastica — "zemlja potvrđena" NE znači
+        # "povlastica potvrđena" (vidi _apply_preference_confidence_color)
+        self._apply_preference_confidence_color(row, item)
+
     def _apply_country_confidence_color(self, row: int, item: InvoiceLine):
         """
         Apply color coding to zemlja_porijekla column based on country_confidence.
@@ -1084,7 +1090,17 @@ class FakturaView(BaseTabView):
             return  # No confidence data
         
         color_hex = self._CONFIDENCE_COLORS.get(item.country_confidence, "#ffffff")
-        icon = self._CONFIDENCE_ICONS.get(item.country_confidence, "")
+        preference = (getattr(item, "povlastica", "") or "").strip()
+        pe_doc = _pe_doc_code(getattr(item, "attached_document4", "") or "")
+        has_preferential_doc = bool(
+            preference
+            and (
+                pe_doc
+                or (getattr(item, "eur1_number", "") or "").strip()
+                or bool(getattr(item, "has_origin_statement", False))
+            )
+        )
+        icon = "✅" if has_preferential_doc else ""
         
         # Build tooltip
         tooltip_parts = []
@@ -1097,6 +1113,8 @@ class FakturaView(BaseTabView):
                 tooltip_parts.append("✅ Podatak o poreklu iz uvezenog dokumenta; povlasticu provjerava deklarant")
             elif item.country_source == "MATCH":
                 tooltip_parts.append("✅ PDF i baza se poklapaju (visoka pouzdanost)")
+            elif item.country_source == "EUR1_POTVRDA":
+                tooltip_parts.append("✅ Porijeklo potvrđeno EUR.1 sertifikatom (visoka pouzdanost)")
             else:
                 tooltip_parts.append("✅ Visoka pouzdanost")
         elif item.country_confidence == "MEDIUM":
@@ -1121,6 +1139,43 @@ class FakturaView(BaseTabView):
                     cell_item.setToolTip(f"{existing_tooltip}\n\n{' '.join(tooltip_parts)}")
                 else:
                     cell_item.setToolTip(" ".join(tooltip_parts))
+
+    def _apply_preference_confidence_color(self, row: int, item: InvoiceLine):
+        """
+        Vizuelno označi pouzdanost POVLASTICE (kolona 10), odvojeno od
+        pouzdanosti zemlje porijekla (kolona 9).
+
+        Razlog: korisnici su se zbunjivali kad vide ✅ zelenu "CN" oznaku za
+        zemlju i pomisle da je time potvrđena i povlastica — a sistem je
+        (namjerno, vidi merge_country_origin) NIKAD ne postavlja automatski
+        kad dokument nema izjavu o porijeklu (PDF_OZNAKA). Ova oznaka to čini
+        vidljivim direktno na ćeliji Povlastica, bez potrebe za hover-om nad
+        susjednom ćelijom Zemlja.
+
+        - ⚠️ žuto: povlastica namjerno NIJE postavljena — treba ručna provjera
+        - ✅ zeleno: povlastica izvedena iz potvrđenog porijekla (izjava/MATCH)
+        """
+        cell_item = self.table.item(row, 10)
+        if not cell_item:
+            return
+
+        source = getattr(item, 'country_source', None)
+        has_pref = bool(item.povlastica)
+
+        if source == "PDF_OZNAKA" and not has_pref:
+            cell_item.setData(ValidationDelegate.ValidationColorRole, "#fff3cd")
+            cell_item.setToolTip(
+                "⚠️ Povlastica NIJE automatski postavljena — dokument sadrži "
+                "samo oznaku zemlje porijekla, bez izjave o porijeklu.\n"
+                "Provjerite ručno da li roba ima pravo na povlasticu i unesite je."
+            )
+        elif has_pref and source in ("PDF_IZJAVA", "MATCH"):
+            cell_item.setData(ValidationDelegate.ValidationColorRole, "#d4edda")
+            cell_item.setToolTip(
+                "✅ Povlastica izvedena na osnovu potvrđenog porijekla "
+                "(izjava u dokumentu ili poklapanje sa bazom znanja).\n"
+                "Provjerite da li odgovara podacima na fakturi."
+            )
 
     def _on_item_changed(self, item: QTableWidgetItem):
         """Handle when user edits a cell."""
@@ -3157,6 +3212,15 @@ class FakturaView(BaseTabView):
             # Sync table data to draft first (in case user edited cells)
             self._sync_table_to_draft()
 
+            # Auto-popuni tarifne za stavke koje ih nemaju, prije validacije —
+            # korisnik ne mora posebno klikati "Auto-popuni" dugme. Tiho (bez
+            # progress dialoga), ali rezultat se prikazuje da korisnik provjeri
+            # da li je popunjena tarifa ispravna (baza znanja može sadržati
+            # pogrešno naučene mappinge).
+            autofill_result = self._on_auto_fill(auto=True)
+            if not auto and autofill_result and autofill_result.matched_items > 0:
+                self._show_tariff_mapping_result(autofill_result, 0)
+
             # Revalidate all rows
             self.table.blockSignals(True)
             try:
@@ -3530,6 +3594,9 @@ class FakturaView(BaseTabView):
 
         Args:
             auto: Ako True, preskoči dijaloge i preskači ako su sve tarife popunjene.
+
+        Returns:
+            MappingResult ako je popunjavanje izvršeno, inače None.
         """
         if not self.draft.invoice_lines:
             if not auto:
@@ -3538,14 +3605,14 @@ class FakturaView(BaseTabView):
                     "Auto-popuni",
                     "Nema stavki za popunjavanje.\n\nPrvo učitajte fakturu.",
             )
-            return
+            return None
 
         # U auto modu preskači ako su sve tarife već popunjene
         if auto:
             bez_tarife = [l for l in self.draft.invoice_lines if not getattr(l, 'tarifni_broj', None)]
             if not bez_tarife:
                 logger.info("✅ [Auto-popuni] Sve stavke imaju tarifni broj — preskačem")
-                return
+                return None
 
         # Prvo popuni osnovna polja (valuta, jm, iznos)
         basic_filled_count = self.auto_fill_service.fill_basic_fields(
@@ -3619,8 +3686,11 @@ class FakturaView(BaseTabView):
             if not auto:
                 self._show_tariff_mapping_result(result, basic_filled_count)
 
+            return result
+
         except Exception as e:
             self.error_handler.handle_auto_fill_error(e)
+            return None
 
     def _show_tariff_mapping_result(self, result, basic_filled_count: int):
         """
@@ -3642,6 +3712,26 @@ class FakturaView(BaseTabView):
         # Tarifni brojevi
         message += f"📋 Tarifni brojevi:\n"
         message += f"  ✅ Novo popunjeno: {result.matched_items} stavki\n"
+
+        # Prikaži ŠTA je popunjeno — korisnik mora moći provjeriti da li je tarifa
+        # ispravna (baza znanja može sadržati pogrešno naučene mappinge — vidi
+        # agent_reports/2026-06-07_pogresna-tarifa-grejac-spirala.md).
+        # Koristimo naziv_robe iz drafta (čitljiv korisniku), ne šifru proizvoda
+        # koju vraća servis u matched_details — šifre poput "609ER004" korisniku
+        # ništa ne znače, dok naziv ("GREJAC SPIRALA 600W") odmah otkriva grešku.
+        naziv_by_line = {
+            line.line_no: line.naziv_robe
+            for line in self.draft.invoice_lines
+            if getattr(line, 'naziv_robe', None)
+        }
+        if result.matched_details:
+            message += "\nPopunjene stavke (provjerite da li su tarife ispravne):\n"
+            for i, (line_no, product_info, tarif) in enumerate(result.matched_details[:15], 1):
+                naziv = naziv_by_line.get(line_no) or product_info
+                message += f"  {i}. Stavka #{line_no}: {naziv[:40]} → {tarif}\n"
+
+            if len(result.matched_details) > 15:
+                message += f"  ... i još {len(result.matched_details) - 15} stavki\n"
 
         if result.skipped_items > 0:
             message += (
@@ -3680,7 +3770,41 @@ class FakturaView(BaseTabView):
             message += "\n💡 Savjet: Nakon što ručno popunite tarifne brojeve,\n"
             message += "   sistem će ih zapamtiti za buduće uvoza."
 
-        QMessageBox.information(self, "Auto-popuni - Rezultati", message)
+        self._show_scrollable_info_dialog("Auto-popuni - Rezultati", message)
+
+    def _show_scrollable_info_dialog(self, title: str, text: str):
+        """
+        Prikaži duži informativni tekst u dijalogu sa scroll-om.
+
+        QMessageBox se nekontrolisano širi sa dužinom teksta — kod rezultata
+        Auto-popuni sa puno stavki prozor postane veći od ekrana i dugme OK
+        ispadne van vidljivog područja (korisnik ne može zatvoriti dijalog).
+        Ovaj dijalog ima fiksnu maksimalnu veličinu i scroll-ujući QTextEdit.
+        """
+        dialog = QDialog(self)
+        dialog.setWindowTitle(title)
+
+        layout = QVBoxLayout(dialog)
+
+        text_edit = QTextEdit()
+        text_edit.setReadOnly(True)
+        text_edit.setFont(QFont("Segoe UI", 10))
+        text_edit.setPlainText(text)
+        layout.addWidget(text_edit)
+
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok)
+        button_box.accepted.connect(dialog.accept)
+        layout.addWidget(button_box)
+
+        from PySide6.QtWidgets import QApplication
+        screen = self.screen() or QApplication.primaryScreen()
+        available = screen.availableGeometry()
+        dialog.resize(
+            min(560, available.width() - 100),
+            min(620, available.height() - 100),
+        )
+
+        dialog.exec()
 
     def _on_selection_changed(self):
         """Handle table selection change."""
@@ -4115,9 +4239,9 @@ class FakturaView(BaseTabView):
         if header_docs is None:
             return
 
-        # 1. Sakupi sve jedinstvene PE šifre iz svih naimenovanja (dedup po šifri)
+        # 1. Sakupi sve jedinstvene (sifra, broj) parove iz svih naimenovanja
         pe_entries: list[tuple[str, str]] = []
-        seen: set[str] = set()
+        seen: set[tuple[str, str]] = set()
         for item in self.draft.items:
             _clear_secondary_pe_documents(item)
             raw_doc4 = (getattr(item, 'attached_document4', '') or '').strip()
@@ -4130,9 +4254,10 @@ class FakturaView(BaseTabView):
             sifra = parts[0].strip()
             broj = parts[1].strip() if len(parts) > 1 else ''
             if sifra in _PE_DOC_CODES:
-                if sifra not in seen:  # dedup po šifri — jedna deklaracija = jedan EUR.1
-                    seen.add(sifra)
-                    pe_entries.append((sifra, broj))
+                key = (sifra, broj)
+                if key not in seen:
+                    seen.add(key)
+                    pe_entries.append(key)
 
         # 2. Ukloni postojeće PE1/PE2/PE3 unose iz header_attached_documents
         header_docs[:] = [d for d in header_docs if d.code not in _PE_DOC_CODES]
