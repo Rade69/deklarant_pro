@@ -98,9 +98,6 @@ datas = [
     # Zakonska regulativa (PDF dokumenti za knowledge base agenta)
     (str(ROOT / 'data' / 'knowledge_base'),     'data/knowledge_base'),
 
-    # Šifrarnici (JSON podaci za popunjavanje sifarnika)
-    (str(ROOT / 'database' / 'data'),           'database/data'),
-
     # Predložak .env fajla (korisnik kopira i popunjava)
     (str(ROOT / '.env.example'),                '.'),
 ]
