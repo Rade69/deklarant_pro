@@ -62,6 +62,15 @@ class McpClientAdapter(QObject):
             logger.warning("MCP client already running")
             return True
 
+        # U frozen (PyInstaller) buildu sys.executable je sam DeklarantPro.exe,
+        # ne python interpreter — Popen([sys.executable, "-m", ...]) bi samo
+        # ponovo pokrenuo cijelu GUI aplikaciju (koja bi opet pokušala da
+        # pokrene MCP server → beskonačna petlja umnožavanja procesa).
+        if getattr(sys, "frozen", False):
+            logger.info("MCP server preskočen — frozen build nema python interpreter")
+            self.server_error.emit("MCP server nije dostupan u frozen buildu")
+            return False
+
         project_root = Path(__file__).resolve().parent.parent
         venv_python = project_root / ".venv" / "bin" / "python3"
         python_exe = str(venv_python) if venv_python.exists() else sys.executable
