@@ -16,8 +16,8 @@ GUI je identičan originalu (zaglavlje_tab_original.py):
 """
 
 import sys
-import logging
 import os
+import logging
 from pathlib import Path
 from datetime import date
 
@@ -402,13 +402,19 @@ class ZaglavljeView(BaseTabView):
         """Kreiraj dugme sa ikonom iz QtAwesome."""
         btn = QPushButton(" " + text)
         if sys.platform.startswith("win"):
-            btn.setFixedHeight(24)
+            btn.setFixedHeight(30)
         if _QTA:
             try:
-                qta_icon = qta.icon(icon_name, color="#FFFFFF")
-                pixmap = qta_icon.pixmap(QSize(16, 16))
-                btn.setIcon(QIcon(pixmap))
-                btn.setIconSize(QSize(16, 16))
+                icon_colors = {
+                    "fa5s.plus-square": "#0D47A1",
+                    "fa5s.file-import": "#4A235A",
+                    "fa5s.check-circle": "#0B3D16",
+                    "fa5s.trash-alt": "#7F1D1D",
+                    "fa5s.file-export": "#004D40",
+                    "fa5s.sign-out-alt": "#374151",
+                }
+                btn.setIcon(qta.icon(icon_name, color=icon_colors.get(icon_name, "#1E3A5F")))
+                btn.setIconSize(QSize(20, 20))
             except Exception:
                 pass
         return btn
@@ -437,8 +443,8 @@ class ZaglavljeView(BaseTabView):
         toolbar.setObjectName("toolbar")
 
         layout = QHBoxLayout(toolbar)
-        layout.setContentsMargins(8, 8, 8, 8)
-        layout.setSpacing(15)
+        layout.setContentsMargins(8, 5, 8, 9)
+        layout.setSpacing(10)
 
         self.btn_novi = self._create_icon_button("Novi", "fa5s.plus-square")
         self.btn_novi.setObjectName("btnNovi")
@@ -474,17 +480,30 @@ class ZaglavljeView(BaseTabView):
         grid_widget.setStyleSheet("QWidget { background-color: #dce8dc; }")
         grid_layout = QHBoxLayout(grid_widget)
         grid_layout.setContentsMargins(6, 6, 6, 6)
-        grid_layout.setSpacing(6)
+        grid_layout.setSpacing(4)
 
         left_column = self._create_left_column()
         middle_column = self._create_middle_column()
         right_column = self._create_right_column()
+
+        if sys.platform.startswith("win"):
+            for column in (left_column, middle_column, right_column):
+                self._apply_windows_control_metrics(column)
 
         grid_layout.addWidget(left_column, 0)
         grid_layout.addWidget(middle_column, 0)
         grid_layout.addWidget(right_column, 1)
 
         return grid_widget
+
+    def _apply_windows_control_metrics(self, widget: QWidget) -> None:
+        field_height = 22 if widget.objectName() == "left_column" else 27
+        for field in widget.findChildren(QLineEdit):
+            if field.objectName() == "company_address_field":
+                continue
+            field.setFixedHeight(field_height)
+        for combo in widget.findChildren(QComboBox):
+            combo.setFixedHeight(field_height)
 
     # ============================================================
     # LIJEVA KOLONA
@@ -497,7 +516,7 @@ class ZaglavljeView(BaseTabView):
         column.setFrameShape(QFrame.Shape.Box)
         column.setFrameShadow(QFrame.Shadow.Plain)
         column.setLineWidth(2)
-        column.setFixedWidth(540)
+        column.setFixedWidth(470)
         column.setObjectName("left_column")
         column.setAttribute(Qt.WA_StyledBackground, True)
         column.setStyleSheet(("QFrame#left_column { background-color: #f5f9f5; }" + """
@@ -505,7 +524,9 @@ class ZaglavljeView(BaseTabView):
         background: #fafcfa;
         border: 1px solid #a0c4a0;
         border-radius: 3px;
-        padding: 2px 8px;
+        padding: 1px 6px;
+        min-height: 22px;
+        font-size: 14px;
         color: #1e3820;
     }
     QLineEdit:hover   { background: #eef6ec; border-color: #7aa080; }
@@ -515,8 +536,9 @@ class ZaglavljeView(BaseTabView):
         background: #fafcfa;
         border: 1px solid #a0c4a0;
         border-radius: 3px;
-        padding: 2px 8px;
-        font-size: 13px;
+        padding: 1px 6px;
+        min-height: 22px;
+        font-size: 14px;
         color: #1e3820;
     }
     QComboBox:hover { background: #eef6ec; border-color: #7aa080; }
@@ -542,7 +564,7 @@ class ZaglavljeView(BaseTabView):
 """).replace("__ARROW_CSS__", _DOWN_ARROW_CSS))
         layout = QVBoxLayout(column)
         layout.setContentsMargins(4, 4, 4, 4)
-        layout.setSpacing(4)
+        layout.setSpacing(1)
 
         layout.addWidget(
             self._create_company_group(
@@ -618,24 +640,34 @@ class ZaglavljeView(BaseTabView):
     ) -> QWidget:
         """Kreiraj grupu za kompaniju: ID + 5 adresnih polja."""
         group = QWidget()
+        if sys.platform.startswith("win"):
+            group.setMinimumHeight(160)
+            group.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
         layout = QVBoxLayout(group)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(4)
+        layout.setSpacing(2 if sys.platform.startswith("win") else 0)
 
         # Naslov red
         title_row = QWidget()
+        if sys.platform.startswith("win"):
+            title_row.setFixedHeight(31)
         title_layout = QHBoxLayout(title_row)
-        title_layout.setContentsMargins(0, 0, 0, 2)
-        title_layout.setSpacing(4)
+        title_layout.setContentsMargins(0, 2, 0, 2)
+        title_layout.setSpacing(5)
 
         title_label = QLabel(title)
-        title_label.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
+        title_label.setFont(QFont("Segoe UI", 10, QFont.Weight.DemiBold))
         title_label.setObjectName("section_title")
-        title_layout.addWidget(title_label)
+        if sys.platform.startswith("win"):
+            title_label.setFixedHeight(24)
+            title_label.setMinimumWidth(title_label.fontMetrics().horizontalAdvance(title) + 12)
+            title_label.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
+        title_layout.addWidget(title_label, 0, Qt.AlignmentFlag.AlignVCenter)
 
         if with_search:
             search_btn = QPushButton()
             if sys.platform.startswith("win"):
+                search_btn.setFixedSize(34, 28)
                 search_btn.setStyleSheet(
                     "QPushButton { background: #f0f7f0; border: 1px solid #6a9d6a; "
                     "border-radius: 3px; padding: 0px; margin: 0px; }"
@@ -651,27 +683,34 @@ class ZaglavljeView(BaseTabView):
             search_btn.clicked.connect(
                 lambda checked=False, p=prefix: self.search_company_requested.emit(p)
             )
-            title_layout.addWidget(search_btn)
+            title_layout.addWidget(search_btn, 0, Qt.AlignmentFlag.AlignVCenter)
 
             add_btn = QPushButton()
+            if sys.platform.startswith("win"):
+                add_btn.setFixedSize(44, 28)
             if _QTA:
                 try:
                     add_btn.setIcon(qta.icon("fa5s.plus", color="#333333"))
-                    add_btn.setIconSize(QSize(16, 16))
+                    add_btn.setIconSize(QSize(17, 17))
                 except Exception:
                     pass
             add_btn.setToolTip("Dodaj novi")
             add_btn.setStyleSheet(
-                "background: #5cb85c; color: white; border: 1px solid #449d44;"
+                "QPushButton { background: #5cb85c; color: white; border: 1px solid #449d44; "
+                "border-radius: 3px; padding: 0px; margin: 0px; }"
+                "QPushButton:hover { background: #53a653; }"
             )
             add_btn.clicked.connect(
                 lambda checked=False, p=prefix: self.add_company_requested.emit(p)
             )
-            title_layout.addWidget(add_btn)
+            title_layout.addWidget(add_btn, 0, Qt.AlignmentFlag.AlignVCenter)
 
         if auto:
             auto_label = QLabel("AUTO")
-            auto_label.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
+            auto_label.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+            if sys.platform.startswith("win"):
+                auto_label.setFixedHeight(26)
+                auto_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             auto_label.setStyleSheet(
                 "background: #5cb85c; color: white; padding: 2px 5px; border-radius: 2px;"
             )
@@ -686,11 +725,13 @@ class ZaglavljeView(BaseTabView):
         )
         id_field.setFixedWidth(150)
         id_field.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        if sys.platform.startswith("win"):
+            id_field.setFixedHeight(24)
         if auto:
             id_field.setReadOnly(True)
         title_layout.addStretch()
         title_layout.addWidget(id_field)
-        title_layout.setAlignment(id_field, Qt.AlignmentFlag.AlignTop)
+        title_layout.setAlignment(id_field, Qt.AlignmentFlag.AlignVCenter)
         self.field_widgets[f"{prefix}_id"] = id_field
 
         layout.addWidget(title_row)
@@ -701,14 +742,15 @@ class ZaglavljeView(BaseTabView):
             header_sep.setStyleSheet("background-color: #b8ccb8;")
             layout.addWidget(header_sep)
 
-        # 5 adresnih polja — na Windowsu rastu sa sekcijom
+        # 5 adresnih polja — na Windowsu rastu sa sekcijom (min/max umjesto fixed)
         placeholders = ["Naziv firme", "Adresa", "Grad", "Poštanski broj", "Država"]
         for i, placeholder in enumerate(placeholders, 1):
             field = QLineEdit()
             field.setPlaceholderText(placeholder)
+            field.setObjectName("company_address_field")
             if sys.platform.startswith("win"):
                 field.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-                field.setMinimumHeight(22)
+                field.setMinimumHeight(24)
                 field.setMaximumHeight(42)
                 field.setFont(QFont("Segoe UI", 11))
             else:
@@ -736,11 +778,14 @@ class ZaglavljeView(BaseTabView):
           [19. Kontejner □]  (ako čekirano → polje za broj kontejnera)
         """
         group = QWidget()
+        if sys.platform.startswith("win"):
+            group.setMinimumHeight(118)
+            group.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
         layout = QVBoxLayout(group)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(6)
+        layout.setSpacing(2)
 
-        bold = QFont("Segoe UI", 10, QFont.Weight.Bold)
+        bold = QFont("Segoe UI", 10, QFont.Weight.DemiBold)
 
         # ── Rb.18 red ────────────────────────────────────────────────
         lbl_row18 = QWidget()
@@ -756,6 +801,10 @@ class ZaglavljeView(BaseTabView):
         layout.addWidget(lbl_row18)
 
         field_row18 = QWidget()
+        if sys.platform.startswith("win"):
+            field_row18.setMinimumHeight(24)
+            field_row18.setMaximumHeight(42)
+            field_row18.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
         field_row18_layout = QHBoxLayout(field_row18)
         field_row18_layout.setContentsMargins(0, 0, 0, 0)
         field_row18_layout.setSpacing(6)
@@ -786,6 +835,10 @@ class ZaglavljeView(BaseTabView):
         layout.addWidget(lbl_row21)
 
         field_row21 = QWidget()
+        if sys.platform.startswith("win"):
+            field_row21.setMinimumHeight(24)
+            field_row21.setMaximumHeight(42)
+            field_row21.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
         field_row21_layout = QHBoxLayout(field_row21)
         field_row21_layout.setContentsMargins(0, 0, 0, 0)
         field_row21_layout.setSpacing(6)
@@ -804,15 +857,19 @@ class ZaglavljeView(BaseTabView):
 
         # ── Rb.19 red — kontejner checkbox + uvjetno polje ───────────
         kt_row = QWidget()
+        if sys.platform.startswith("win"):
+            kt_row.setMinimumHeight(26)
         kt_layout = QHBoxLayout(kt_row)
-        kt_layout.setContentsMargins(0, 4, 0, 0)
-        kt_layout.setSpacing(8)
+        kt_layout.setContentsMargins(0, 1, 0, 0)
+        kt_layout.setSpacing(6)
 
         lbl19 = QLabel("19. Kontejner")
         lbl19.setFont(bold)
         kt_layout.addWidget(lbl19)
 
         kontejner = QCheckBox()
+        if sys.platform.startswith("win"):
+            kontejner.setFixedSize(18, 18)
         kt_layout.addWidget(kontejner)
         self.field_widgets["kontejner"] = kontejner
 
@@ -823,6 +880,7 @@ class ZaglavljeView(BaseTabView):
 
         kontejner_broj = QLineEdit()
         kontejner_broj.setPlaceholderText("npr. TCKU3953473")
+        kontejner_broj.setMinimumWidth(160)
         kontejner_broj.setVisible(False)
         kt_layout.addWidget(kontejner_broj, 1)
         self.field_widgets["kontejner_broj"] = kontejner_broj
@@ -865,18 +923,23 @@ class ZaglavljeView(BaseTabView):
     def _create_vid_group(self) -> QWidget:
         """Rb.25-26-27 Vid unutra / Vid granica / Mjesto razduženja — 3 polja u jednom redu."""
         group = QWidget()
+        if sys.platform.startswith("win"):
+            group.setFixedHeight(56)
+            group.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
         layout = QVBoxLayout(group)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(3)
+        layout.setSpacing(1)
 
         label = QLabel("25. Vid unutra / 26. Vid granica / 27. Mjesto razduženja")
-        label.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+        label.setFont(QFont("Segoe UI", 10, QFont.Weight.DemiBold))
         layout.addWidget(label)
 
         row = QWidget()
+        if sys.platform.startswith("win"):
+            row.setFixedHeight(27)
         row_layout = QHBoxLayout(row)
         row_layout.setContentsMargins(0, 0, 0, 0)
-        row_layout.setSpacing(4)
+        row_layout.setSpacing(3)
 
         # Rb.25/26 — helper: popuni combo (dropdown "30 — Cestovni prevoz", u polju samo "30")
         def _make_vid_combo(tooltip: str) -> QComboBox:
@@ -928,7 +991,7 @@ class ZaglavljeView(BaseTabView):
         col29_layout.setContentsMargins(0, 0, 0, 0)
         col29_layout.setSpacing(3)
         label29 = QLabel("29. Izlazna carinarnica")
-        label29.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+        label29.setFont(QFont("Segoe UI", 10, QFont.Weight.DemiBold))
         col29_layout.addWidget(label29)
         field29 = QLineEdit()
         field29.setPlaceholderText("Kod")
@@ -942,7 +1005,7 @@ class ZaglavljeView(BaseTabView):
         col30_layout.setContentsMargins(0, 0, 0, 0)
         col30_layout.setSpacing(3)
         label30 = QLabel("30. Lokacija robe")
-        label30.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+        label30.setFont(QFont("Segoe UI", 10, QFont.Weight.DemiBold))
         col30_layout.addWidget(label30)
         field30 = QLineEdit()
         field30.setPlaceholderText("Lokacija")
@@ -966,20 +1029,22 @@ class ZaglavljeView(BaseTabView):
         column.setFrameShape(QFrame.Shape.Box)
         column.setFrameShadow(QFrame.Shadow.Plain)
         column.setLineWidth(2)
-        column.setFixedWidth(580)
+        column.setFixedWidth(560)
         column.setObjectName("middle_column")
         column.setAttribute(Qt.WA_StyledBackground, True)
         _win_label_css = (
-            "\n    QLabel { font-size: 11pt; color: #102814; }"
+            "\n    QLabel { font-size: 10pt; color: #102814; font-weight: 600; }"
             if sys.platform.startswith("win") else ""
         )
-        column.setStyleSheet("QFrame#middle_column { background-color: #f5f9f5; }" + _win_label_css + """
+        column.setStyleSheet(("QFrame#middle_column { background-color: #f5f9f5; }" + _win_label_css + """
     QLineEdit {
         background: #fafcfa;
         border: 1px solid #a0c4a0;
         border-radius: 3px;
-        padding: 2px 8px;
-        color: #1e3820;
+        padding: 3px 8px;
+        min-height: 22px;
+        font-size: 11pt;
+        color: #102814;
     }
     QLineEdit:hover   { background: #eef6ec; border-color: #7aa080; }
     QLineEdit:focus   { background: #e8f2e8; border-color: #5a8060; border-width: 2px; }
@@ -988,9 +1053,10 @@ class ZaglavljeView(BaseTabView):
         background: #fafcfa;
         border: 1px solid #a0c4a0;
         border-radius: 3px;
-        padding: 2px 8px;
-        font-size: 13px;
-        color: #1e3820;
+        padding: 3px 8px;
+        min-height: 22px;
+        font-size: 11pt;
+        color: #102814;
     }
     QComboBox:hover { background: #eef6ec; border-color: #7aa080; }
     QComboBox:focus { background: #e8f2e8; border-color: #5a8060; }
@@ -1012,7 +1078,7 @@ class ZaglavljeView(BaseTabView):
         padding: 5px 10px;
         min-height: 24px;
     }
-""".replace("__ARROW_CSS__", _DOWN_ARROW_CSS))
+""").replace("__ARROW_CSS__", _DOWN_ARROW_CSS))
         layout = QVBoxLayout(column)
         layout.setContentsMargins(4, 4, 4, 4)
         layout.setSpacing(2 if sys.platform.startswith("win") else 5)
@@ -1142,7 +1208,7 @@ class ZaglavljeView(BaseTabView):
         # Naziv carinske ispostave
         ured_naziv_cb = _ArrowComboBox()
         ured_naziv_cb.setEditable(True)
-        ured_naziv_cb.setFixedWidth(175)
+        ured_naziv_cb.setFixedWidth(140 if sys.platform.startswith("win") else 175)
         ured_naziv_cb.view().setMinimumWidth(300)
         if ured_naziv:
             ured_naziv_cb.addItem(ured_naziv)
@@ -1633,7 +1699,7 @@ class ZaglavljeView(BaseTabView):
                 self.field_widgets["trosak_1_valuta"] = cb_valuta
 
             label_naziv = QLabel(naziv)
-            label_naziv.setStyleSheet("font-size: 16pt; color: #333333;")
+            label_naziv.setStyleSheet("font-size: 10pt; color: #333333;")
             row_layout.addWidget(label_naziv)
             row_layout.addStretch()
 
@@ -1694,12 +1760,15 @@ class ZaglavljeView(BaseTabView):
         column.setLineWidth(2)
         column.setObjectName("right_column")
         column.setAttribute(Qt.WA_StyledBackground, True)
-        column.setStyleSheet("QFrame#right_column { background-color: #f5f9f5; }" + """
+        column.setMinimumWidth(420)
+        column.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        column.setStyleSheet(("QFrame#right_column { background-color: #f5f9f5; }" + """
     QLineEdit {
         background: #fafcfa;
         border: 1px solid #a0c4a0;
         border-radius: 3px;
-        padding: 2px 8px;
+        padding: 3px 8px;
+        min-height: 28px;
         color: #1e3820;
     }
     QLineEdit:hover   { background: #eef6ec; border-color: #7aa080; }
@@ -1709,7 +1778,8 @@ class ZaglavljeView(BaseTabView):
         background: #fafcfa;
         border: 1px solid #a0c4a0;
         border-radius: 3px;
-        padding: 2px 8px;
+        padding: 3px 8px;
+        min-height: 28px;
         font-size: 13px;
         color: #1e3820;
     }
@@ -1733,7 +1803,7 @@ class ZaglavljeView(BaseTabView):
         padding: 5px 10px;
         min-height: 24px;
     }
-""".replace("__ARROW_CSS__", _DOWN_ARROW_CSS))
+""").replace("__ARROW_CSS__", _DOWN_ARROW_CSS))
         layout = QVBoxLayout(column)
         layout.setContentsMargins(4, 4, 4, 4)
         layout.setSpacing(0)
@@ -1917,7 +1987,11 @@ class ZaglavljeView(BaseTabView):
                 background-color: rgba(255, 255, 255, 225);
                 border: 1px solid #c8dcc8;
                 border-radius: 8px;
-                padding: 6px 8px;
+                padding: 2px 4px;
+            }
+            #left_column QWidget[section_card="true"] {
+                padding: 0px 2px;
+                border-radius: 4px;
             }
             #middle_column QWidget[section_card="true"] {
                 padding: 0px 1px;
@@ -1931,8 +2005,8 @@ class ZaglavljeView(BaseTabView):
                 border: none;
                 max-height: 1px;
                 min-height: 1px;
-                margin-top: 3px;
-                margin-bottom: 3px;
+                margin-top: 0px;
+                margin-bottom: 0px;
             }
 
             /* TOOLBAR */
@@ -1946,38 +2020,56 @@ class ZaglavljeView(BaseTabView):
             QPushButton#btnNovi {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #bbdefb, stop:1 #64b5f6);
-                border: 1px solid #2196f3; color: black; font-weight: 500;
+                border: 1px solid #2196f3;
+                border-bottom: 3px solid #1565c0;
                 border-radius: 3px;
+                padding: 0px 14px;
+                color: black; font-weight: 600; font-size: 12px;
             }
             QPushButton#btnUveziXML {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #e1bee7, stop:1 #ce93d8);
-                border: 1px solid #9c27b0; color: black; font-weight: 500;
+                border: 1px solid #9c27b0;
+                border-bottom: 3px solid #6a1b9a;
                 border-radius: 3px;
+                padding: 0px 14px;
+                color: black; font-weight: 600; font-size: 12px;
             }
             QPushButton#btnSnimi {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #5cb85c, stop:1 #449d44);
-                border: 1px solid #398439; color: black; font-weight: bold;
+                border: 1px solid #398439;
+                border-bottom: 3px solid #1b5e20;
                 border-radius: 3px;
+                padding: 0px 14px;
+                color: black; font-weight: bold; font-size: 12px;
             }
             QPushButton#btnBrisi {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #ffcdd2, stop:1 #ef9a9a);
-                border: 1px solid #f44336; color: black; font-weight: 500;
+                border: 1px solid #f44336;
+                border-bottom: 3px solid #b71c1c;
                 border-radius: 3px;
+                padding: 0px 14px;
+                color: black; font-weight: 600; font-size: 12px;
             }
             QPushButton#btnIzveziXML {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #b2dfdb, stop:1 #80cbc4);
-                border: 1px solid #009688; color: black; font-weight: 500;
+                border: 1px solid #009688;
+                border-bottom: 3px solid #00695c;
                 border-radius: 3px;
+                padding: 0px 14px;
+                color: black; font-weight: 600; font-size: 12px;
             }
             QPushButton#btnIzlaz {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #fafafa, stop:1 #e0e0e0);
-                border: 1px solid #999; color: black; font-weight: 500;
+                border: 1px solid #999;
+                border-bottom: 3px solid #666;
                 border-radius: 3px;
+                padding: 0px 14px;
+                color: black; font-weight: 600; font-size: 12px;
             }
 
             /* INPUT FIELDS — krem pozadina za lako uočavanje */
@@ -1985,10 +2077,10 @@ class ZaglavljeView(BaseTabView):
                 background: #fafcfa;
                 border: 1px solid #a0c4a0;
                 border-radius: 3px;
-                padding: 2px 8px;
-                font-size: 12pt;
-                min-height: 26px;
-                color: #1e3820;
+                padding: 1px 6px;
+                font-size: 11pt;
+                min-height: 22px;
+                color: #102814;
             }
             QLineEdit:hover { border-color: #7aa080; background: #eef6ec; }
             QLineEdit:focus { background: #e8f2e8; border-color: #5a8060; border-width: 2px; }
@@ -1998,10 +2090,10 @@ class ZaglavljeView(BaseTabView):
                 background: #fafcfa;
                 border: 1px solid #a0c4a0;
                 border-radius: 3px;
-                padding: 2px 8px;
-                font-size: 12pt;
-                min-height: 26px;
-                color: #1e3820;
+                padding: 1px 6px;
+                font-size: 11pt;
+                min-height: 22px;
+                color: #102814;
             }
             QComboBox:hover { border-color: #7aa080; background: #eef6ec; }
             QComboBox:focus { background: #e8f2e8; border-color: #5a8060; }
@@ -2021,20 +2113,45 @@ class ZaglavljeView(BaseTabView):
 
             /* LABELE */
             QLabel {
-                color: #1e3820;
+                color: #102814;
                 font-size: 10pt;
                 background: transparent;
             }
             QLabel#section_title {
-                color: #1e3820;
-                font-size: 13pt;
-                font-weight: bold;
-                padding-bottom: 3px;
+                color: #102814;
+                font-size: 10pt;
+                font-weight: 600;
+                padding-bottom: 1px;
                 border-bottom: 2px solid #5a8060;
             }
-            QCheckBox {
-                color: #1e3820;
+            #left_column QLabel#section_title {
                 font-size: 10pt;
+                padding-top: 0px;
+                padding-bottom: 0px;
+                min-height: 21px;
+                max-height: 23px;
+            }
+            #left_column QLineEdit {
+                font-size: 10pt;
+                min-height: 19px;
+                padding: 0px 6px;
+            }
+            #left_column QLineEdit#company_address_field {
+                font-size: 10pt;
+                min-height: 23px;
+                padding: 0px 6px;
+            }
+            #left_column QComboBox {
+                font-size: 10pt;
+                min-height: 19px;
+                padding: 0px 6px;
+            }
+            #left_column QCheckBox {
+                font-size: 10pt;
+            }
+            QCheckBox {
+                color: #102814;
+                font-size: 11pt;
                 background: transparent;
             }
             QCheckBox::indicator {
@@ -2220,6 +2337,11 @@ class ZaglavljeView(BaseTabView):
         if not attached_docs:
             return
 
+        # Osiguraj dovoljno redova — bez toga setItem na nepostojećem redu tiho propada
+        needed = min(max(len(attached_docs), self.table.rowCount()), 20)
+        if self.table.rowCount() < needed:
+            self.table.setRowCount(needed)
+
         # Očisti sadržaj bez mijenjanja broja redova — sprečava skupljanje prozora
         for row in range(self.table.rowCount()):
             for col in range(self.table.columnCount()):
@@ -2232,6 +2354,7 @@ class ZaglavljeView(BaseTabView):
             code = doc.get('code', '')
             name = doc.get('name', '')
             number = doc.get('number', '')
+            user_entered = doc.get('_user_entered', False)
 
             # Kolona 0 — Šifra
             code_item = QTableWidgetItem(code)
@@ -2243,9 +2366,9 @@ class ZaglavljeView(BaseTabView):
             self.table.setItem(idx, 1, name_item)
 
             # Kolona 2 — Referenca
-            # Pri XML uvozu: brišemo stale ref-ove osim za DIS/N380/OST/PE
+            # Pri XML uvozu: brišemo stale ref-ove osim za DIS/N380/OST/PE i korisničkih unosa
             # Pri load_from_draft: uvijek čuvamo što je u draftu
-            if clear_refs_on_import and code not in self._PRESERVE_REFS:
+            if clear_refs_on_import and code not in self._PRESERVE_REFS and not user_entered:
                 ref_item = QTableWidgetItem("")
             else:
                 ref_item = QTableWidgetItem(number)

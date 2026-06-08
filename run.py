@@ -114,16 +114,21 @@ def main():
     if os.name == 'nt':
         import ctypes
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Carina.DeklarantPro.1")
+        # Fusion stil — identičan izgled na Windows i Linux
+        os.environ.setdefault("QT_STYLE_OVERRIDE", "Fusion")
 
     app = QApplication(sys.argv)
     app.setApplicationName("Deklarant Pro")
     app.setDesktopFileName("deklarant-pro")
     app.setOrganizationName("Carina")
 
+    if os.name == 'nt':
+        app.setStyle("Fusion")
+
     # Globalna paleta: selekcija teksta čitljiva na svim widgetima
     # (QPalette Highlight/HighlightedText važi i za widgete sa inline setStyleSheet())
     from PySide6.QtGui import QPalette, QColor, QFont, QIcon
-    _font_size = 11 if os.name == 'nt' else 13
+    _font_size = 9 if os.name == 'nt' else 13
     app.setFont(QFont("Segoe UI", _font_size))
     icon_path = os.path.join(_script_dir, "assets", "icons", "deklarant_icon_256.png")
     if os.path.exists(icon_path):
@@ -179,6 +184,13 @@ def main():
                 logging.getLogger("deklarant_pro").warning(
                     f"MCP server cleanup nije uspio: {e}"
                 )
+        try:
+            from database.db import close_all_connections
+            close_all_connections()
+        except Exception as e:
+            logging.getLogger("deklarant_pro").warning(
+                f"DB pool cleanup nije uspio: {e}"
+            )
 
     sys.exit(exit_code)
 

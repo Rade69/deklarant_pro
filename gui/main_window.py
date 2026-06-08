@@ -3,11 +3,16 @@ from copy import deepcopy
 from dataclasses import fields
 from pathlib import Path
 from PySide6.QtWidgets import QMainWindow, QTabWidget, QApplication, QMessageBox
-from PySide6.QtCore import QFile, QTextStream, QIODevice, QSettings
+from PySide6.QtCore import QFile, QTextStream, QIODevice, QSettings, QSize
 
 import logging
 
 logger = logging.getLogger("deklarant_pro.main_window")
+
+try:
+    import qtawesome as qta
+except ImportError:
+    qta = None
 
 from config.settings import get_path_settings
 
@@ -47,7 +52,8 @@ class MainWindow(QMainWindow):
         
         # Font za tab kartice (stilovi su u main_tabs.qss — bez inline setStyleSheet koji bi kreirao QSS bubble)
         from PySide6.QtGui import QFont
-        tabs.setFont(QFont("Arial", 16, QFont.Bold))
+        tabs.setFont(QFont("Segoe UI", 9))
+        tabs.setIconSize(QSize(20, 20))
 
         self.setCentralWidget(tabs)
 
@@ -56,32 +62,32 @@ class MainWindow(QMainWindow):
 
         # Faktura tab — kreira se odmah (prikazuje se pri pokretanju)
         self.faktura_tab = tab_factory.create_tab('faktura', self.draft, self._on_dirty, tabs)
-        tabs.addTab(self.faktura_tab, "📄 Faktura")
+        tabs.addTab(self.faktura_tab, self._tab_icon("fa5s.file-alt"), "Faktura")
 
         # Naimenovanja — lazy (QUiLoader + widget cache, inicijalizuje se pri prvom kliku)
         self.naimenovanje_tab = LazyTab(
             lambda: tab_factory.create_tab('naimenovanja', self.draft, self._on_dirty),
             parent=tabs,
         )
-        tabs.addTab(self.naimenovanje_tab, "📦 Naimenovanja")
+        tabs.addTab(self.naimenovanje_tab, self._tab_icon("fa5s.boxes"), "Naimenovanja")
 
         # Zaglavlje — lazy (5 DB upita pri inicijalizaciji)
         self.zaglavlje_tab = LazyTab(
             lambda: tab_factory.create_tab('zaglavlje', self.draft, self._on_dirty),
             parent=tabs,
         )
-        tabs.addTab(self.zaglavlje_tab, "🗂️ Zaglavlje")
+        tabs.addTab(self.zaglavlje_tab, self._tab_icon("fa5s.folder-open"), "Zaglavlje")
 
         # Šifrarnici — lazy
         self.sifarnici_tab = LazyTab(
             lambda: tab_factory.create_tab('sifarnici', self.draft, self._on_dirty),
             parent=tabs,
         )
-        tabs.addTab(self.sifarnici_tab, "📋 Šifrarnici")
+        tabs.addTab(self.sifarnici_tab, self._tab_icon("fa5s.list-alt"), "Šifrarnici")
 
         # Admin tab (novi - plugin manager, settings, database, analytics, logs, system info)
         self.admin_tab = AdminTab(self)
-        tabs.addTab(self.admin_tab, "⚙️ Admin")
+        tabs.addTab(self.admin_tab, self._tab_icon("fa5s.cog"), "Admin")
 
         # Agent tab (novi - AI agent za automatsko procesiranje faktura)
         self.agent_tab = AgentTab(
@@ -91,7 +97,7 @@ class MainWindow(QMainWindow):
             naimenovanje_tab=self.naimenovanje_tab,
             zaglavlje_tab=self.zaglavlje_tab,
         )
-        tabs.addTab(self.agent_tab, "🤖 Agent")
+        tabs.addTab(self.agent_tab, self._tab_icon("fa5s.robot"), "Agent")
 
         # Poveži FakturaView signal na agent controller za auto-provjeru naimenovanja
         # Vidi: docs/decisions/002-tool-dispatcher-integration.md
@@ -109,6 +115,12 @@ class MainWindow(QMainWindow):
         # Osvježi naimenovanja izračune (Rb.44/46) kad se tab aktivira
         self.tabs_widget = tabs
         tabs.currentChanged.connect(self._on_tab_changed)
+
+    def _tab_icon(self, icon_name):
+        from PySide6.QtGui import QIcon
+        if qta is None:
+            return QIcon()
+        return qta.icon(icon_name, color="#1E3A5F")
 
     def continue_with_pending_declaration(self) -> bool:
         # Docs: docs/sections/asycuda-99-item-limit.md
