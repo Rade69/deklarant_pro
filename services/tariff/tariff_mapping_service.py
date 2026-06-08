@@ -318,6 +318,63 @@ class TariffMappingService:
 
         return result
 
+    def find_batch_by_product_codes(
+        self, product_codes: List[str]
+    ) -> Dict[str, "TariffMapping"]:
+        """
+        Batch lookup po product_code — jedan SQL umjesto N.
+
+        Vraća dict {product_code_upper: TariffMapping} samo za tačne i prefix matcheve.
+        Linije bez hita trebaju proći kroz find_mapping() za fuzzy/vote matching.
+        """
+        codes = [c.strip() for c in product_codes if c and c.strip()]
+        if not codes:
+            return {}
+
+        result: Dict[str, TariffMapping] = {}
+        try:
+            with get_db_connection() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("""
+                        SELECT DISTINCT ON (input_code)
+                               input_code,
+                               product_code, naziv_robe, commodity_code,
+                               precision_1, zemlja_porijekla, povlastica, usage_count,
+                               match_type
+                        FROM (
+                            SELECT
+                                unnest(%s::text[]) AS input_code,
+                                m.product_code, m.naziv_robe, m.commodity_code,
+                                m.precision_1, m.zemlja_porijekla, m.povlastica,
+                                m.usage_count,
+                                CASE WHEN m.product_code ILIKE unnest(%s::text[])
+                                     THEN 0 ELSE 1 END AS match_type
+                            FROM catalogs.product_tariff_mapping m
+                            WHERE EXISTS (
+                                SELECT 1 FROM unnest(%s::text[]) AS q
+                                WHERE m.product_code ILIKE q
+                                   OR q ILIKE m.product_code || '%%'
+                            )
+                        ) sub
+                        ORDER BY input_code, match_type, usage_count DESC
+                    """, (codes, codes, codes))
+
+                    for row in cursor.fetchall():
+                        result[row["input_code"].upper()] = TariffMapping(
+                            product_code=row["product_code"],
+                            naziv_robe=row["naziv_robe"],
+                            tarifni_broj=row["commodity_code"],
+                            precision_1=row["precision_1"],
+                            zemlja_porijekla=row["zemlja_porijekla"] or "",
+                            povlastica=row["povlastica"] or "",
+                            usage_count=row["usage_count"],
+                            similarity=1.0,
+                        )
+        except Exception as e:
+            logger.debug(f"⚠️ find_batch_by_product_codes greška: {e}")
+
+        return result
+
     def find_mapping(
         self,
         product_code: str,

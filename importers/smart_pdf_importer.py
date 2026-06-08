@@ -17,6 +17,16 @@ from importers.generic_pdf_importer import parse_generic_pdf
 
 logger = logging.getLogger("deklarant_pro.import.smart_pdf")
 
+# Cache teksta prvih stranica po putanji — punjen u _detect_pdf_format,
+# dostupan specijalizovanim parserima koji inače čitaju iste stranice ponovo.
+# Format: {filepath: (text_raw, text_upper, text_norm)}
+_pdf_text_cache: dict = {}
+
+
+def get_cached_pdf_text(pdf_path: str):
+    """Vrati (text, text_upper, text_norm) iz cache-a ili None."""
+    return _pdf_text_cache.get(str(pdf_path))
+
 
 # SECTION: pdf_parse_pipeline
 # PURPOSE: 5-koračni pipeline sa fallback lancem: specijalizirani → generic → OCR
@@ -147,6 +157,9 @@ def parse_smart_pdf(pdf_path: str) -> ImportResult:
         logger.warning("❌ Parsiranje nije uspjelo - nema rezultata")
         result = ImportResult(items=[], bruto_kg=0.0, neto_kg=0.0, invoice_name="", currency="EUR")
 
+    # Oslobodi cache — fajl je parsiran, tekst više nije potreban
+    _pdf_text_cache.pop(str(pdf_path), None)
+
     return result
 
 
@@ -176,6 +189,9 @@ def _detect_pdf_format(pdf_path: str) -> str:
                 c for c in unicodedata.normalize("NFD", text_upper)
                 if unicodedata.category(c) != "Mn"
             )
+
+            # Sačuvaj u cache — specijalizovani parseri mogu preskočiti re-čitanje
+            _pdf_text_cache[str(pdf_path)] = (text, text_upper, text_norm)
 
             # BLAGIĆ ATTOS - specifičan format (provjeri prije generičkog Blagić)
             # Koristimo text_norm jer PDF može imati BLAGIĆ (dijakritik) umjesto BLAGIC
