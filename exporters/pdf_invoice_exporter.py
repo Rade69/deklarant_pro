@@ -6,10 +6,13 @@ Author: Radovan + Claude
 Date: February 2026
 """
 
+import logging
 from pathlib import Path
 from typing import List, Dict, Optional
 from datetime import datetime
 from collections import defaultdict
+
+logger = logging.getLogger(__name__)
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
@@ -70,13 +73,12 @@ class PDFInvoiceExporter:
                 self.font_bold = 'LibSans-Bold'
                 self.font_italic = 'LibSans-Italic'
                 self.font_bold_italic = 'LibSans-BoldItalic'
-                print(f"✅ Liberation Sans fontovi registrovani: {font_dir}")
+                logger.info("Liberation Sans fontovi registrovani: %s", font_dir)
                 return
 
-            print("⚠️ Liberation Sans nije pronađen, koristim ReportLab default fontove")
+            logger.warning("Liberation Sans nije pronađen, koristim ReportLab default fontove")
         except Exception as e:
-            print(f"⚠️ Greška pri registrovanju fontova: {e}")
-            print("   Koristim ReportLab default fontove")
+            logger.warning("Greška pri registrovanju fontova: %s — koristim ReportLab default", e)
 
     def _setup_styles(self):
         """Postavi custom stilove za PDF."""
@@ -176,7 +178,7 @@ class PDFInvoiceExporter:
             return True
 
         except Exception as e:
-            print(f"❌ Greška pri export-u PDF-a: {e}")
+            logger.error("Greška pri export-u PDF-a: %s", e, exc_info=True)
             import traceback
             traceback.print_exc()
             return False

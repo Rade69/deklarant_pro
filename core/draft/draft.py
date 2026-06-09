@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Tuple, Callable
 import uuid as _uuid
+
+logger = logging.getLogger(__name__)
 
 
 def _s(v: Any) -> str:
@@ -468,7 +471,7 @@ class DeclarationDraft:
             try:
                 callback()
             except Exception as e:
-                print(f"⚠️ Greška u data change callback-u: {e}")
+                logger.warning("Greška u data change callback-u: %s", e)
 
     def mark_dirty(self) -> None:
         """Označi draft kao promijenjen i obavesti sve callback-ove."""

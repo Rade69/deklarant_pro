@@ -1187,7 +1187,7 @@ def export_to_xml(draft: DeclarationDraft, output_path: str) -> bool:
             _f.write(xml_str)
 
         file_size = Path(output_path).stat().st_size
-        print(f"XML exportovan: {output_path} ({file_size:,} bytes, {len(draft.items)} stavki)")
+        logger.info("XML exportovan: %s (%s bytes, %s stavki)", output_path, file_size, len(draft.items))
 
         # Auto-učenje: zabilježi korištene dokumente po tarifnom broju
         try:
@@ -1207,5 +1207,5 @@ def export_to_xml(draft: DeclarationDraft, output_path: str) -> bool:
 
     except Exception as e:
         logger.error(f"Greska pri exportu XML: {e}", exc_info=True)
-        print(f"GRESKA pri exportu XML: {e}")
+        logger.error("Greska pri exportu XML: %s", e, exc_info=True)
         return False
