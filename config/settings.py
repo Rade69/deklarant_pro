@@ -12,13 +12,18 @@ from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
 import os
+import sys
 
 
 # ============================================================
 # PROJECT ROOT
 # ============================================================
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+# U PyInstaller frozen buildu __file__ je u _internal/ — koristimo exe direktorij
+if getattr(sys, 'frozen', False):
+    PROJECT_ROOT = Path(sys.executable).resolve().parent
+else:
+    PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 # Eksplicitno učitaj .env iz root-a
 _env_file = PROJECT_ROOT / ".env"
