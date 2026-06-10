@@ -8,7 +8,7 @@ import logging
 import xml.etree.ElementTree as ET
 from math import ceil
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from core.draft.draft import AttachedDocument, DeclarationDraft, NaimenovanjeDraft
 from services.naimenovanja.rub31_builder import (
@@ -118,6 +118,44 @@ def _fmt_thousands(v: float) -> str:
 def _fmt_weight(v: float) -> str:
     """Formatira teÅ¾inu sa 2 decimale: 516.0â†’'516.00', 6.28â†’'6.28', 7171.2â†’'7171.20'."""
     return f"{round(v, 2):.2f}"
+
+
+def _doc_value(doc: Any, *names: str) -> str:
+    if isinstance(doc, dict):
+        for name in names:
+            value = doc.get(name)
+            if value is not None:
+                return str(value).strip()
+        return ""
+    for name in names:
+        value = getattr(doc, name, None)
+        if value is not None:
+            return str(value).strip()
+    return ""
+
+
+def _doc_bool(doc: Any, *names: str) -> bool:
+    value = _doc_value(doc, *names).lower()
+    if value in {"1", "true", "yes", "da"}:
+        return True
+    if value in {"0", "false", "no", "ne", ""}:
+        return False
+    return bool(value)
+
+
+def _normalize_attached_document(doc: Any) -> Optional[AttachedDocument]:
+    if isinstance(doc, AttachedDocument):
+        return doc
+
+    code = _doc_value(doc, "code", "sifra", "document_code", "Attached_document_code")
+    if not code:
+        return None
+    return AttachedDocument(
+        code=code,
+        name=_doc_value(doc, "name", "naziv", "document_name", "Attached_document_name"),
+        number=_doc_value(doc, "number", "reference", "ref", "broj", "Attached_document_reference"),
+        from_rule=_doc_bool(doc, "from_rule", "Attached_document_from_rule"),
+    )
 
 
 def _gs_cost_section(
@@ -239,9 +277,17 @@ class AsycudaXMLBuilder:
                         f"Rb.{rb}: Tarifni broj '{code8}' nije pronaÄ‘en u Carinskoj tarifi 2026."
                     )
 
-        docs = list(getattr(self.draft, "header_attached_documents", []) or [])
+        docs = [
+            doc
+            for raw_doc in (getattr(self.draft, "header_attached_documents", []) or [])
+            if (doc := _normalize_attached_document(raw_doc)) is not None
+        ]
         for item in self.draft.items:
-            docs.extend(getattr(item, "attached_documents", []) or [])
+            docs.extend(
+                doc
+                for raw_doc in (getattr(item, "attached_documents", []) or [])
+                if (doc := _normalize_attached_document(raw_doc)) is not None
+            )
         for doc in docs:
             if (doc.code or "").strip() and not (doc.number or "").strip():
                 warnings.append(f"PriloÅ¾eni dokument '{doc.code}' nema broj/reference.")
@@ -687,7 +733,11 @@ class AsycudaXMLBuilder:
 
     def _add_items(self) -> None:
         """Dodaje <Item> za svako naimenovanje."""
-        header_docs = list(getattr(self.draft, "header_attached_documents", []) or [])
+        header_docs = [
+            doc
+            for raw_doc in (getattr(self.draft, "header_attached_documents", []) or [])
+            if (doc := _normalize_attached_document(raw_doc)) is not None
+        ]
 
         # Skupi dokumente o porijeklu sa svih stavki i dodaj na prvu stavku.
         # ASYCUDA World standard: svi Attached_documents idu samo na prvu stavku.
@@ -747,8 +797,10 @@ class AsycudaXMLBuilder:
 
         # 2. Strukturirani dokumenti stavke (bez pref_doc â€” ti su prebaÄeni na prvu stavku)
         if item.attached_documents:
-            for doc in item.attached_documents:
-                self._add_attached_doc(item_elem, doc)
+            for raw_doc in item.attached_documents:
+                doc = _normalize_attached_document(raw_doc)
+                if doc is not None:
+                    self._add_attached_doc(item_elem, doc)
 
         # Packages
         packages = ET.SubElement(item_elem, "Packages")
@@ -1124,6 +1176,9 @@ class AsycudaXMLBuilder:
 
     def _add_attached_doc(self, item_elem: ET.Element, doc: AttachedDocument) -> None:
         """Dodaje <Attached_documents> element."""
+        doc = _normalize_attached_document(doc)
+        if doc is None:
+            return
         attached = ET.SubElement(item_elem, "Attached_documents")
         _val(attached, "Attached_document_code", doc.code)
         doc_code = (doc.code or "").strip().upper()
@@ -1173,7 +1228,11 @@ def export_to_xml(draft: DeclarationDraft, output_path: str) -> bool:
         try:
             from services.tariff_doc_history_service import get_tariff_doc_history_service
             svc = get_tariff_doc_history_service()
-            header_docs = list(getattr(draft, "header_attached_documents", []) or [])
+            header_docs = [
+                doc
+                for raw_doc in (getattr(draft, "header_attached_documents", []) or [])
+                if (doc := _normalize_attached_document(raw_doc)) is not None
+            ]
             doc_codes = [d.code for d in header_docs if d.code]
             if doc_codes:
                 for item in (draft.items or []):

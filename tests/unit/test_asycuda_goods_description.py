@@ -382,6 +382,27 @@ def test_from_rule_attached_document_exports_flag():
     assert doc.findtext("Attached_document_from_rule") == "1"
 
 
+def test_dict_attached_document_exports_without_crash():
+    draft = DeclarationDraft()
+    draft.header_attached_documents = [
+        {
+            "code": "N380",
+            "name": "Faktura",
+            "number": "893/26",
+            "from_rule": True,
+        }
+    ]
+    draft.items = [NaimenovanjeDraft(item_id="1", ordinal_no=1)]
+
+    root = AsycudaXMLBuilder(draft).build()
+    doc = root.find("./Item/Attached_documents")
+
+    assert doc is not None
+    assert doc.findtext("Attached_document_code") == "N380"
+    assert doc.findtext("Attached_document_reference") == "893/26"
+    assert doc.findtext("Attached_document_from_rule") == "1"
+
+
 def test_free_text_1_keeps_pe_document_code_and_reference():
     draft = DeclarationDraft()
     draft.items = [
