@@ -55,7 +55,10 @@ def build_asycuda_rub31(
     )
 
     return Rub31Result(
-        description_of_goods=description or ".",
+        # ASYCUDA Rub.31 editor (Description of goods) prihvata samo jednu
+        # kratku liniju (~_MAX_LINE karaktera) — duži tekst u jednoj liniji
+        # uzrokuje da editor pri otvaranju obriše sadržaj polja.
+        description_of_goods=_clip(description, _MAX_LINE) or ".",
         commercial_description="\n".join(commercial_lines) or ".",
     )
 

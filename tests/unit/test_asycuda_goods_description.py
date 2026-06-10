@@ -265,12 +265,16 @@ def test_commercial_description_uses_goods_description_when_tariff_heading_is_ge
     goods_desc = builder._build_description_of_goods(item, 280)
     desc = builder._build_commercial_description(item, 280)
 
-    assert goods_desc == "Prehrambeni proizvodi koji nisu spomenuti niti uključeni na drugom mjestu:"
+    # Description_of_goods je skraćen na _MAX_LINE (ASYCUDA Rub.31 editor
+    # gubi sadržaj polja kad je u jednoj liniji duže od ~55 karaktera) —
+    # zato je identičan prvoj liniji commercial_description.
+    assert goods_desc == "Prehrambeni proizvodi koji nisu spomenuti niti uklju..."
     assert desc == (
         "Prehrambeni proizvodi koji nisu spomenuti niti uklju...\n"
         "SUSSINA 650 tbl., SUSSINA 200 tbl., SUSSINA 1200 tbl...\n"
         "Faktura: 893/26 (rb. 1, 2, 17, 26)"
     )
+    assert desc.startswith(goods_desc)
 
 
 def test_rub31_builder_splits_tariff_description_from_invoice_goods():
@@ -611,7 +615,11 @@ def test_choose_tariff_description_not_filtered_when_contains_numbers():
 
     rub31 = build_asycuda_rub31(item)
 
-    assert "27,6" in rub31.description_of_goods
+    # "27,6" je dio dužeg tarifnog opisa — description_of_goods je skraćen
+    # na _MAX_LINE, ali ova provjera potvrđuje da kandidat sa "27,6" nije
+    # filtriran kao naziv proizvoda (inače bi description_of_goods bio
+    # drugačiji tekst ili ".").
+    assert rub31.description_of_goods == "- - savitljive cijevi i crijeva, koji mogu podnijeti..."
     assert rub31.description_of_goods != "."
 
 
