@@ -78,6 +78,12 @@ Mijenjati samo `TEMPLATE_FIELDS` whitelist u `xml_template_service.py`.
 Svi header dokumenti (faktura, CMR, EUR.1...) moraju biti u `Attached_doc_item`.
 Ne samo dokumenti specifični za naimenovanje.
 
+### AttachedDocument normalizacija
+`header_attached_documents` i `item.attached_documents` u XML exportu mogu doci kao
+`AttachedDocument` objekti ili dict strukture iz GUI/import toka. `AsycudaXMLBuilder`
+mora normalizovati oba oblika prije pristupa `code`, `number` i `from_rule`, inace
+GUI/EXE moze prikazati samo genericku poruku "Greska pri eksportu".
+
 ---
 
 ## 4. EUR.1 i povlastice
