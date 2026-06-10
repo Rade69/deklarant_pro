@@ -2425,14 +2425,16 @@ class FakturaView(BaseTabView):
         PE2 slučaj (has_origin_statement=True):
           - Sve stavke sa has_origin_statement=True → povlastica po zemlji, dokument PE2.
         EUR1 slučaj (has_origin_statement=False):
-          - Postavi povlasticu (EUP/CEFTAP/TRP) na osnovu zemlje.
-          - eur1_number ostaje prazan — korisnik popunjava ručno.
+          - Povlastica se NE postavlja bez PE1/PE2/PE3 dokaza (Faza 2, vidi
+            agent_tasks/2026-06-10_plan_unapredjenja_carinskog_agenta.md) — stavka
+            ostaje neutralna dok korisnik ne potvrdi EUR.1/izjavu, a postojeća žuta
+            oznaka (_apply_preference_confidence_color) na to upozorava.
+          - eur1_pending broji stavke koje bi imale povlasticu DA postoji EUR.1.
 
         Returns:
-            dict: {'pe2': int, 'eur1': int, 'eur1_pending': int}
+            dict: {'pe2': int, 'eur1_pending': int}
         """
         updated_pe2 = 0
-        updated_eur1 = 0
         eur1_pending = 0
 
         # Pokušaj da dobiješ exporter name iz fakture
@@ -2441,7 +2443,7 @@ class FakturaView(BaseTabView):
             exporter_name = self.draft.exporter
         elif self.draft.invoice_lines and hasattr(self.draft.invoice_lines[0], 'exporter'):
             exporter_name = self.draft.invoice_lines[0].exporter
-        
+
         for item in self.draft.invoice_lines:
             item_has_statement = getattr(item, 'has_origin_statement', has_origin_statement)
             if item_has_statement:
@@ -2450,19 +2452,17 @@ class FakturaView(BaseTabView):
                     item.povlastica = self._suggest_preference_by_country(item.zemlja_porijekla, exporter_name)
                 updated_pe2 += 1
             elif item.zemlja_porijekla:
-                # EUR1: nema izjave → postavi povlasticu, EUR1 broj fali
+                # EUR1: nema izjave i nema PE1/PE2/PE3 → povlastica ostaje prazna,
+                # samo evidentiraj da stavka čeka EUR.1 broj
                 pov = self._suggest_preference_by_country(item.zemlja_porijekla, exporter_name)
-                if pov and not getattr(item, 'povlastica', None):
-                    item.povlastica = pov
-                    updated_eur1 += 1
-                if pov and not getattr(item, 'eur1_number', None):
+                if pov and not getattr(item, 'povlastica', None) and not getattr(item, 'eur1_number', None):
                     eur1_pending += 1
 
         logger.info(
-            f"🤖 [agent] Auto-povlastice: PE2={updated_pe2}, EUR1={updated_eur1}, "
-            f"EUR1_pending={eur1_pending}"
+            f"🤖 [agent] Auto-povlastice: PE2={updated_pe2}, EUR1_pending={eur1_pending} "
+            f"(bez PE dokaza povlastica ostaje neutralna)"
         )
-        return {'pe2': updated_pe2, 'eur1': updated_eur1, 'eur1_pending': eur1_pending}
+        return {'pe2': updated_pe2, 'eur1_pending': eur1_pending}
 
     def _should_show_eur1_dialog(self, items) -> bool:
         """
@@ -2830,8 +2830,6 @@ class FakturaView(BaseTabView):
                     result = self._auto_handle_povlastice_agent(items, has_origin_statement)
                     if result['pe2'] > 0:
                         logger.info(f"🤖 PE2 auto-postavljeno za {result['pe2']} stavki")
-                    if result['eur1'] > 0:
-                        logger.info(f"🤖 EUR1 povlastica auto-postavljena za {result['eur1']} stavki, {result['eur1_pending']} čeka EUR1 broj")
                     self._load_data_from_draft()
                     # Ako ima stavki koje čekaju EUR1 broj → prikaži dialog
                     if result.get('eur1_pending', 0) > 0 and self._should_show_eur1_dialog(items):
