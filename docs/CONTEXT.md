@@ -228,6 +228,16 @@ ne instalira lokalnu bazu. `.env` na Windows mora imati `DB_HOST=192.168.0.41`.
 
 ---
 
+## 12. Encoding i PowerShell bulk izmjene
+
+Tokom Windows portovanja potvrđeno je da bulk skripte koje čitaju/pišu tekst preko
+PowerShell `Get-Content`/`Set-Content` mogu proizvesti mojibake u UTF-8/BOM fajlovima.
+Za masovne tekstualne izmjene koristiti byte-preserving Python alat ili eksplicitno
+`-Encoding utf8`; prije commita obavezno skenirati `Ã`, `Ä`, `Å` i C1 kontrolne znakove.
+BOM fajlove ne konvertovati slijepo u LF/bez BOM-a jer dio Windows toka očekuje postojeći format.
+
+---
+
 ## 13. Kako ažurirati ovaj fajl
 
 Claude ažurira CONTEXT.md na kraju svake sesije gdje je:

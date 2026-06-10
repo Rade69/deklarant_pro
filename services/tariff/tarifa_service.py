@@ -1,12 +1,12 @@
 ﻿# services/tarifa_service.py
 
 """
-TarifaService â€” pretraga carinske tarife 2026 iz SQLite baze.
+TarifaService — pretraga carinske tarife 2026 iz SQLite baze.
 
 Metode:
-  pretrazi(upit)         â€” FTS pretraga po nazivu robe
-  trazi_po_kodu(kod)     â€” exacta/prefix pretraga po tarifnoj oznaci
-  opis_poglavlja(br)     â€” naziv poglavlja (npr. "33" â†’ "Ulja...")
+  pretrazi(upit)         — FTS pretraga po nazivu robe
+  trazi_po_kodu(kod)     — exacta/prefix pretraga po tarifnoj oznaci
+  opis_poglavlja(br)     — naziv poglavlja (npr. "33" → "Ulja...")
 """
 
 import sqlite3
@@ -21,8 +21,8 @@ logger = logging.getLogger("deklarant_pro.tarifa_service")
 
 def _resolve_db_path() -> str:
     """
-    PronaÄ‘i deklarant_sistem.db: probaj viÅ¡e lokacija jer compiled .pyd
-    moÅ¾e imati __file__ koji pokazuje na dist_client/services/*.pyd, pa
+    Pronađi deklarant_sistem.db: probaj više lokacija jer compiled .pyd
+    može imati __file__ koji pokazuje na dist_client/services/*.pyd, pa
     relativna putanja vodi u dist_client/database/ umjesto database/.
     """
     candidates = [
@@ -36,13 +36,13 @@ def _resolve_db_path() -> str:
     for path in candidates:
         if os.path.exists(path):
             return path
-    # Fallback â€” prva kandidat putanja (sqlite3.connect je lax sa create)
+    # Fallback — prva kandidat putanja (sqlite3.connect je lax sa create)
     return candidates[0]
 
 
 DB_PATH = _resolve_db_path()
 
-# Jedna dijeljenja read-only konekcija â€” tarifa_2026 se nikad ne mijenja za vrijeme rada
+# Jedna dijeljenja read-only konekcija — tarifa_2026 se nikad ne mijenja za vrijeme rada
 _shared_conn: sqlite3.Connection | None = None
 
 
@@ -69,13 +69,13 @@ def _row_to_dict(row) -> Dict:
 
 def _stem_word(word: str) -> str:
     """
-    Minimalni stemmer za bosanski/srpski â€” uzima korijen rijeÄi
-    uklanjajuÄ‡i Äeste nastavke kako bi LIKE pretraga radila bolje.
-    Npr: "kozmetika" â†’ "kozmet", "lijekovi" â†’ "lijek", "krema" â†’ "krem"
+    Minimalni stemmer za bosanski/srpski — uzima korijen riječi
+    uklanjajući česte nastavke kako bi LIKE pretraga radila bolje.
+    Npr: "kozmetika" → "kozmet", "lijekovi" → "lijek", "krema" → "krem"
     """
     word = word.lower()
     suffixes = [
-        'iÄkih', 'iÄke', 'iÄko', 'iÄki', 'iÄka',
+        'ičkih', 'ičke', 'ičko', 'ički', 'ička',
         'skih', 'ske', 'sko', 'ski', 'ska',
         'nih', 'nog', 'nom', 'nih', 'nim',
         'ima', 'ama', 'ovi', 'evi', 'ova', 'eva',
@@ -97,12 +97,12 @@ def _stem_word(word: str) -> str:
 def pretrazi(upit: str, limit: int = 10, samo_podbroj: bool = False) -> List[Dict]:
     """
     Pretraga tarife po opisu robe.
-    Koristi AND-LIKE pretragu po svakoj rijeÄi (bolje za bosanski/srpski jezik).
+    Koristi AND-LIKE pretragu po svakoj riječi (bolje za bosanski/srpski jezik).
 
     Args:
         upit: Tekst za pretragu (npr. "medicinski gel", "kozmetika krema")
         limit: Maks broj rezultata
-        samo_podbroj: Ako True, vraÄ‡a samo pune tarifne oznake (10 cifara)
+        samo_podbroj: Ako True, vraća samo pune tarifne oznake (10 cifara)
 
     Returns:
         Lista dict sa: kod, poglavlje, naziv, stopa_uvozna, stopa_eu, stopa_cefta, nivo
@@ -130,7 +130,7 @@ def pretrazi(upit: str, limit: int = 10, samo_podbroj: bool = False) -> List[Dic
             LIMIT ?
         """
 
-        # AND pretraga â€” sve rijeÄi moraju biti u nazivu
+        # AND pretraga — sve riječi moraju biti u nazivu
         where_and = " AND ".join(["naziv LIKE ?" for _ in words])
         rows = conn.execute(
             f"SELECT kod,poglavlje,naziv,dopunska_jm,stopa_uvozna,stopa_eu,stopa_cefta,nivo "
@@ -138,7 +138,7 @@ def pretrazi(upit: str, limit: int = 10, samo_podbroj: bool = False) -> List[Dic
             [f"%{w}%" for w in words] + [limit]
         ).fetchall()
 
-        # Ako nema AND rezultata, OR pretraga po svakoj rijeÄi zasebno
+        # Ako nema AND rezultata, OR pretraga po svakoj riječi zasebno
         if not rows:
             seen = set()
             or_rows = []
@@ -157,7 +157,7 @@ def pretrazi(upit: str, limit: int = 10, samo_podbroj: bool = False) -> List[Dic
         return [_row_to_dict(r) for r in rows]
 
     except Exception as e:
-        logger.error(f"GreÅ¡ka pri pretrazi tarife: {e}")
+        logger.error(f"Greška pri pretrazi tarife: {e}")
         return _pretrazi_like(upit, limit, samo_podbroj)
 
 
@@ -183,13 +183,13 @@ def _pretrazi_like(upit: str, limit: int = 10, samo_podbroj: bool = False) -> Li
 @lru_cache(maxsize=512)
 def trazi_po_kodu(kod: str) -> Optional[Dict]:
     """
-    PronaÄ‘i tarifnu oznaku po kodu (exact ili prefix).
+    Pronađi tarifnu oznaku po kodu (exact ili prefix).
 
     Args:
         kod: Tarifna oznaka (npr. "3304990000" ili "330499")
 
     Returns:
-        Dict sa podacima ili None ako nije pronaÄ‘eno
+        Dict sa podacima ili None ako nije pronađeno
     """
     kod_clean = re.sub(r'\s+', '', kod.strip())
     if not kod_clean or not re.match(r'^\d{4,12}$', kod_clean):
@@ -204,7 +204,7 @@ def trazi_po_kodu(kod: str) -> Optional[Dict]:
         ).fetchone()
 
         if not row and len(kod_clean) < 10:
-            # Prefix match â€” uzmi najduÅ¾i koji poÄinje sa tim kodom
+            # Prefix match — uzmi najduži koji počinje sa tim kodom
             row = conn.execute("""
                 SELECT * FROM tarifa_2026
                 WHERE kod LIKE ?
@@ -215,9 +215,9 @@ def trazi_po_kodu(kod: str) -> Optional[Dict]:
         return _row_to_dict(row) if row else None
 
     except Exception as e:
-        # Re-raise umjesto return None â€” lru_cache ne keÅ¡iruje exception,
-        # pa sljedeÄ‡i poziv ponovo proba (bitno kad DB nije bila dostupna)
-        logger.debug(f"GreÅ¡ka pri pretrazi koda {kod}: {e}")
+        # Re-raise umjesto return None — lru_cache ne keširuje exception,
+        # pa sljedeći poziv ponovo proba (bitno kad DB nije bila dostupna)
+        logger.debug(f"Greška pri pretrazi koda {kod}: {e}")
         raise
 
 
@@ -241,7 +241,7 @@ def trazi_poglavlje(poglavlje: str, limit: int = 50) -> List[Dict]:
         """, (poglavlje, limit)).fetchall()
         return [_row_to_dict(r) for r in rows]
     except Exception as e:
-        logger.error(f"GreÅ¡ka pri pretrazi poglavlja {poglavlje}: {e}")
+        logger.error(f"Greška pri pretrazi poglavlja {poglavlje}: {e}")
         return []
 
 
@@ -275,7 +275,7 @@ def validiraj_tarifni_broj(kod: str) -> Dict:
             'kod': kod,
             'naziv': '',
             'stopa_uvozna': '',
-            'poruka': f"Tarifna oznaka {kod} nije pronaÄ‘ena u tarifi 2026."
+            'poruka': f"Tarifna oznaka {kod} nije pronađena u tarifi 2026."
         }
 
     return {
@@ -285,7 +285,7 @@ def validiraj_tarifni_broj(kod: str) -> Dict:
         'stopa_uvozna': rezultat['stopa_uvozna'],
         'stopa_eu': rezultat['stopa_eu'],
         'stopa_cefta': rezultat['stopa_cefta'],
-        'poruka': f"âœ… PronaÄ‘eno: {rezultat['naziv']}"
+        'poruka': f"✅ Pronađeno: {rezultat['naziv']}"
     }
 
 
@@ -294,35 +294,35 @@ def formatiraj_rezultate(rows: List[Dict], max_rows: int = 8) -> str:
     Formatira rezultate pretrage za prikaz u chat panelu.
     """
     if not rows:
-        return "Nije pronaÄ‘en nijedan rezultat u carinskoj tarifi."
+        return "Nije pronađen nijedan rezultat u carinskoj tarifi."
 
     lines = []
     prikazano = rows[:max_rows]
 
     for r in prikazano:
-        stopa = r['stopa_uvozna'] or 'â€”'
-        eu = r['stopa_eu'] or 'â€”'
+        stopa = r['stopa_uvozna'] or '—'
+        eu = r['stopa_eu'] or '—'
         # Dodaj % ako je broj
-        if stopa and stopa != 'â€”' and not stopa.endswith('%'):
+        if stopa and stopa != '—' and not stopa.endswith('%'):
             stopa = stopa + '%'
-        if eu and eu != 'â€”' and not eu.endswith('%'):
+        if eu and eu != '—' and not eu.endswith('%'):
             eu = eu + '%'
 
         nivo_oznaka = ''
         if r['nivo'] == 'glava':
-            nivo_oznaka = ' ðŸ“‚'
+            nivo_oznaka = ' 📂'
         elif r['nivo'] == 'podglava':
-            nivo_oznaka = ' ðŸ“'
+            nivo_oznaka = ' 📁'
 
         lines.append(
-            f"<b>{r['kod']}</b>{nivo_oznaka} â€” {r['naziv']}<br>"
+            f"<b>{r['kod']}</b>{nivo_oznaka} — {r['naziv']}<br>"
             f"&nbsp;&nbsp;Stopa: <b>{stopa}</b> | EU: {eu}"
             + (f" | JM: {r['dopunska_jm']}" if r['dopunska_jm'] else "")
         )
 
     result = "<br><br>".join(lines)
     if len(rows) > max_rows:
-        result += f"<br><br><i>... i joÅ¡ {len(rows) - max_rows} rezultata. Precizniraj pretragu.</i>"
+        result += f"<br><br><i>... i još {len(rows) - max_rows} rezultata. Precizniraj pretragu.</i>"
 
     return result
 

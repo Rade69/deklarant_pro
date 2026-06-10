@@ -53,17 +53,17 @@ _DATE_RE = re.compile(r"\b(\d{1,2}/\d{1,2}/\d{4})\b")
 _TOTAL_VALUE_RE = re.compile(
     r"\bVrednost\s*\((?P<cur>[A-Z]{3})\)\s*:\s*(?P<val>[\d\.,]+)", re.IGNORECASE
 )
-_GROSS_RE = re.compile(r"\bBruto teÅ¾ina:\s*(?P<val>[\d\.,]+)\s*KG\b", re.IGNORECASE)
-_NET_RE = re.compile(r"\bNeto teÅ¾ina:\s*(?P<val>[\d\.,]+)\s*KG\b", re.IGNORECASE)
+_GROSS_RE = re.compile(r"\bBruto težina:\s*(?P<val>[\d\.,]+)\s*KG\b", re.IGNORECASE)
+_NET_RE = re.compile(r"\bNeto težina:\s*(?P<val>[\d\.,]+)\s*KG\b", re.IGNORECASE)
 _INCOTERM_RE = re.compile(r"\bParitet isporuke:\s*(?P<term>[A-Z]{3})\b", re.IGNORECASE)
 
 # unit + qty + price + amount
-# PodrÅ¾ava: "kom", "k om", "k o m", "kg", "k g"
+# Podržava: "kom", "k om", "k o m", "kg", "k g"
 # Alternacija:
-#   1) 1 slovo + 0-2 puta (razmak + 1 slovo) â†’ "k o m", "k om"
-#   2) 2-3 slova bez razmaka â†’ "kom", "kg"
-# Ovo sprjeÄava da 2-slovna oznaka modela (npr. "RX" u
-# "GACC RX kom 1.00") bude greÅ¡kom prepoznata kao prefiks JM.
+#   1) 1 slovo + 0-2 puta (razmak + 1 slovo) → "k o m", "k om"
+#   2) 2-3 slova bez razmaka → "kom", "kg"
+# Ovo sprječava da 2-slovna oznaka modela (npr. "RX" u
+# "GACC RX kom 1.00") bude greškom prepoznata kao prefiks JM.
 _TAIL_NUMS_RE = re.compile(
     r"\s(?P<unit>[A-Za-z](?:\s+[A-Za-z]){0,2}|[A-Za-z]{2,3})\s+"
     r"(?P<qty>[\d\.,]+)\s+(?P<price>[\d\.,]+)\s+(?P<amount>[\d\.,]+)\b"
@@ -74,8 +74,8 @@ _TAIL_NUMS_RE = re.compile(
 
 def _read_tariff_code(value) -> str:
     """
-    ÄŒita tarifni broj iz Excel Ä‡elije uz Äuvanje vodeÄ‡ih nula.
-    TARIC kodovi su 8 ili 10 cifara; 9/7 cifara znaÄi izgubljena vodeÄ‡a nula.
+    Čita tarifni broj iz Excel ćelije uz čuvanje vodećih nula.
+    TARIC kodovi su 8 ili 10 cifara; 9/7 cifara znači izgubljena vodeća nula.
     """
     if value is None:
         return ""
@@ -128,11 +128,11 @@ def _extract_invoice_no(lines: List[str]) -> str:
 def _normalize_header_name(name: str) -> str:
     name = (name or "").strip().lower()
     name = (
-        name.replace("Å¡", "s")
-        .replace("Ä‘", "dj")
-        .replace("Ä", "c")
-        .replace("Ä‡", "c")
-        .replace("Å¾", "z")
+        name.replace("š", "s")
+        .replace("đ", "dj")
+        .replace("č", "c")
+        .replace("ć", "c")
+        .replace("ž", "z")
     )
     name = re.sub(r"\s+", " ", name)
     return name
@@ -145,14 +145,14 @@ def _normalize_preferential(raw: str) -> str:
         return ""
     u = s.upper()
     if u in {"DA", "YES", "Y", "1", "TRUE", "T"}:
-        return ""  # "DA" je interni flag â€” specifiÄan EFTA kod dodaje dijalog/auto-handle
+        return ""  # "DA" je interni flag — specifičan EFTA kod dodaje dijalog/auto-handle
     if u in {"NE", "NO", "N", "0", "FALSE", "F"}:
         return ""
     return s
 
 
 def _read_mapping_xlsx(xlsx_path: str) -> Dict[str, Dict[str, str]]:
-    """ÄŒita mapping Excel: Å ifra â†’ tarifa/porijeklo/povlastica"""
+    """Čita mapping Excel: Šifra → tarifa/porijeklo/povlastica"""
     wb = openpyxl.load_workbook(xlsx_path, data_only=True)
 
     try:
@@ -170,7 +170,7 @@ def _read_mapping_xlsx(xlsx_path: str) -> Dict[str, Dict[str, str]]:
                     return c
             return None
 
-        code_col = find_col("Å ifra", "Sifra") or 2
+        code_col = find_col("Šifra", "Sifra") or 2
         tariff_col = find_col("Tarifni br", "Tarifni broj") or 6
         origin_col = find_col("Zemlja porekla", "Zemlja porijekla", "Zemlja por")
         if origin_col is None:
@@ -185,7 +185,7 @@ def _read_mapping_xlsx(xlsx_path: str) -> Dict[str, Dict[str, str]]:
                 )
             else:
                 origin_col = 7  # posljednji fallback
-        pref_col = find_col("Preferencijal", "Povlastica", "PovlaÅ¡Ä‡ica") or 8
+        pref_col = find_col("Preferencijal", "Povlastica", "Povlašćica") or 8
 
         out: Dict[str, Dict[str, str]] = {}
         for r in range(2, ws.max_row + 1):
@@ -200,13 +200,13 @@ def _read_mapping_xlsx(xlsx_path: str) -> Dict[str, Dict[str, str]]:
                 ),
             }
 
-            # Primarno mapiranje po Å¡ifri artikla
+            # Primarno mapiranje po šifri artikla
             if code:
                 code_s = str(code).strip().replace("\n", "").replace("\r", "")
                 if code_s:
                     out[code_s] = row_map
 
-            # Fallback mapiranje po Rbr (za redove gdje Excel nema "Å ifra")
+            # Fallback mapiranje po Rbr (za redove gdje Excel nema "Šifra")
             try:
                 rbr = int(rbr_val)
             except (TypeError, ValueError):
@@ -223,7 +223,7 @@ def _read_mapping_xlsx(xlsx_path: str) -> Dict[str, Dict[str, str]]:
 def _find_code_and_desc(
     prefix_after_rbr: str, known_codes_sorted: List[str]
 ) -> Tuple[str, str]:
-    """Pronalazi kod i opis (kod moÅ¾e imati razmake)"""
+    """Pronalazi kod i opis (kod može imati razmake)"""
     s = prefix_after_rbr.strip()
     for code in known_codes_sorted:
         if s.startswith(code + " "):
@@ -257,9 +257,9 @@ def parse_master_frigo_pdf(
     origin_statements = _detect_all_origin_statements(full_text)
     header["has_origin_statement"] = len(origin_statements) > 0
     header["origin_statements"] = origin_statements
-    logger.info(f"  âœ… Detekcija izjave o poreklu: {header['has_origin_statement']} ({len(origin_statements)} izjava)")
+    logger.info(f"  ✅ Detekcija izjave o poreklu: {header['has_origin_statement']} ({len(origin_statements)} izjava)")
 
-    # Parsiraj plain-text "Zemlja porekla X" format (specifiÄan za MGM)
+    # Parsiraj plain-text "Zemlja porekla X" format (specifičan za MGM)
     zemlja_porekla_data = _parse_zemlja_porekla_text(full_text)
     header["zemlja_porekla_data"] = zemlja_porekla_data
 
@@ -330,14 +330,14 @@ def parse_master_frigo_pdf(
     items: List[ImportedLine] = []
     current: Optional[ImportedLine] = None
     collecting_serials = False
-    skip_page_header = False  # True izmeÄ‘u "Licenca:" i sljedeÄ‡eg "Rbr Sifra..." headera
+    skip_page_header = False  # True između "Licenca:" i sljedećeg "Rbr Sifra..." headera
 
     for ln in lines[start_idx:]:
         s = (ln or "").strip()
         if not s:
             continue
 
-        # PreskoÄi ponavljanje zaglavlja stranice (Licenca: ... Rbr Sifra... Iznos)
+        # Preskoči ponavljanje zaglavlja stranice (Licenca: ... Rbr Sifra... Iznos)
         if s.lower().startswith("licenca:"):
             skip_page_header = True
             continue
@@ -416,8 +416,8 @@ def parse_master_frigo_pdf(
             items.append(current)
         else:
             if current and not s.startswith(("56:", "57:", "59:")):
-                # Provjeri da li red nastavlja nepotpunu Å¡ifru (npr. "GT-" + "GACC050.2/...")
-                # PDF ponekad prelomi Å¡ifru u dvije linije; Excel ima kompletnu Å¡ifru
+                # Provjeri da li red nastavlja nepotpunu šifru (npr. "GT-" + "GACC050.2/...")
+                # PDF ponekad prelomi šifru u dvije linije; Excel ima kompletnu šifru
                 code_completed = False
                 if current.code.endswith("-") and known_codes_sorted:
                     # Probaj dva formata spajanja:
@@ -438,7 +438,7 @@ def parse_master_frigo_pdf(
                                 remainder = s[len(suffix):].strip()
                                 if remainder:
                                     current.description = (current.description + " " + remainder).strip()
-                                # AÅ¾uriraj tariff/porijeklo za kompletnu Å¡ifru
+                                # Ažuriraj tariff/porijeklo za kompletnu šifru
                                 full_map = mapping.get(known_code, {})
                                 if full_map.get("tariff"):
                                     current.tariff = full_map["tariff"]
@@ -462,14 +462,14 @@ def parse_master_frigo_pdf(
 def convert_to_invoice_lines(
     imported_lines: List[ImportedLine], currency: str = "EUR"
 ) -> List[InvoiceLine]:
-    """Konvertuje ImportedLine â†’ InvoiceLine"""
+    """Konvertuje ImportedLine → InvoiceLine"""
     invoice_lines = []
     master_frigo_party = Party(name="MASTER FRIGO")
 
     for idx, item in enumerate(imported_lines):
         invoice_line = InvoiceLine(
             line_no=idx + 1,
-            product_code=item.code,  # Za assembly matching po Å¡ifri
+            product_code=item.code,  # Za assembly matching po šifri
             naziv_robe=item.description,
             tarifni_broj=item.tariff,
             zemlja_porijekla=normalize_country_name(item.origin),  # Normalize to ISO code
@@ -479,7 +479,7 @@ def convert_to_invoice_lines(
             cijena_jed=item.price,
             iznos=item.amount,
             valuta=currency,
-            bruto_kg=0.0,  # Nema pojedinaÄnih teÅ¾ina po stavci
+            bruto_kg=0.0,  # Nema pojedinačnih težina po stavci
             neto_kg=0.0,
             exporter=master_frigo_party,
         )
@@ -511,7 +511,7 @@ def import_master_frigo(
     invoice_lines = convert_to_invoice_lines(imported_items, currency=currency)
 
     _exp = Party(name="MASTER FRIGO")
-    _imp = Party(name="MASTER FRIGO D.O.O. BANJA LUKA")  # domaÄ‡a BiH firma
+    _imp = Party(name="MASTER FRIGO D.O.O. BANJA LUKA")  # domaća BiH firma
     for line in invoice_lines:
         line.exporter = _exp
         line.importer = _imp
@@ -532,13 +532,13 @@ def import_master_frigo(
 
 def _parse_zemlja_porekla_text(text: str) -> Dict[str, Any]:
     """
-    Parsira plain-text format izjave o porijeklu specifiÄan za MGM fakture.
+    Parsira plain-text format izjave o porijeklu specifičan za MGM fakture.
 
     Primjer:
       "Zemlja porekla Srbija, osim stavke broj 43-46 Zemlja porekla Srbija
        bez pref. porekla i stavke broj 47 - Zemlja porekla Francuska bez pref. porekla."
 
-    VraÄ‡a:
+    Vraća:
       {
         "default_origin": "RS",
         "ranges": [
@@ -551,10 +551,10 @@ def _parse_zemlja_porekla_text(text: str) -> Dict[str, Any]:
     _COUNTRY_MAP = {
         "srbija": "RS", "bosna": "BA", "hrvatska": "HR", "slovenija": "SI",
         "makedonija": "MK", "crna gora": "ME", "albanija": "AL",
-        "njemaÄka": "DE", "nemacka": "DE", "njemaÄka": "DE",
+        "njemačka": "DE", "nemacka": "DE", "njemačka": "DE",
         "francuska": "FR", "italija": "IT", "austrija": "AT",
-        "maÄ‘arska": "HU", "madjarska": "HU", "rumunija": "RO",
-        "bugarska": "BG", "grÄka": "GR", "grcka": "GR",
+        "mađarska": "HU", "madjarska": "HU", "rumunija": "RO",
+        "bugarska": "BG", "grčka": "GR", "grcka": "GR",
         "turska": "TR", "kina": "CN", "japan": "JP",
         "usa": "US", "sad": "US",
     }
@@ -563,10 +563,10 @@ def _parse_zemlja_porekla_text(text: str) -> Dict[str, Any]:
         key = name.lower().strip()
         return _COUNTRY_MAP.get(key, normalize_country_name(name))
 
-    # PronaÄ‘i "Zemlja porekla X" pattern â€” samo jedna-dvije rijeÄi, bez novog reda
-    zp_re = re.compile(r"[Zz]emlja[ \t]+porekla[ \t]+([A-Za-zÃ€-Å¾ÄÄ‡Å¡Ä‘Å¾ÄŒÄ†Å ÄÅ½]+(?:[ \t]+[A-Za-zÃ€-Å¾ÄÄ‡Å¡Ä‘Å¾ÄŒÄ†Å ÄÅ½]+)?)", re.IGNORECASE)
+    # Pronađi "Zemlja porekla X" pattern — samo jedna-dvije riječi, bez novog reda
+    zp_re = re.compile(r"[Zz]emlja[ \t]+porekla[ \t]+([A-Za-zÀ-žčćšđžČĆŠĐŽ]+(?:[ \t]+[A-Za-zÀ-žčćšđžČĆŠĐŽ]+)?)", re.IGNORECASE)
     stavka_re = re.compile(
-        r"stavk[ea]\s+broj[a]?\s+(\d+)\s*[-â€“]\s*(\d+)|stavk[ea]\s+broj[a]?\s+(\d+)",
+        r"stavk[ea]\s+broj[a]?\s+(\d+)\s*[-–]\s*(\d+)|stavk[ea]\s+broj[a]?\s+(\d+)",
         re.IGNORECASE
     )
 
@@ -577,9 +577,9 @@ def _parse_zemlja_porekla_text(text: str) -> Dict[str, Any]:
     default_origin = _map_country(matches[0].group(1).strip())
     ranges = []
 
-    # TraÅ¾i "stavke broj X-Y ... Zemlja porekla Z bez pref"
+    # Traži "stavke broj X-Y ... Zemlja porekla Z bez pref"
     chunk_re = re.compile(
-        r"stavk[ea]\s+broj[a]?\s+(\d+)\s*[-â€“]?\s*(\d+)?\s*[-â€“]?\s*[Zz]emlja\s+porekla\s+(\w+)(.*?)(?=stavk[ea]\s+broj|\Z)",
+        r"stavk[ea]\s+broj[a]?\s+(\d+)\s*[-–]?\s*(\d+)?\s*[-–]?\s*[Zz]emlja\s+porekla\s+(\w+)(.*?)(?=stavk[ea]\s+broj|\Z)",
         re.IGNORECASE | re.DOTALL
     )
     for m in chunk_re.finditer(text):
@@ -592,7 +592,7 @@ def _parse_zemlja_porekla_text(text: str) -> Dict[str, Any]:
     if not ranges and not default_origin:
         return None
 
-    logger.info(f"  ðŸ“ Parsirana Zemlja porekla: default={default_origin}, ranges={ranges}")
+    logger.info(f"  📍 Parsirana Zemlja porekla: default={default_origin}, ranges={ranges}")
     return {"default_origin": default_origin, "ranges": ranges}
 
 
@@ -638,11 +638,11 @@ def _detect_all_origin_statements(text: str) -> list:
         statements = detector.detect_all_in_text(text)
 
         for stmt in statements:
-            logger.info(f"  âœ… NaÄ‘ena izjava: {stmt.jezik} / {stmt.tip_izjave} / origin={stmt.origin_country}")
+            logger.info(f"  ✅ Nađena izjava: {stmt.jezik} / {stmt.tip_izjave} / origin={stmt.origin_country}")
 
         return statements
 
     except Exception as e:
-        logger.warning(f"  âš ï¸  GreÅ¡ka tokom detekcije izjava: {e}")
+        logger.warning(f"  ⚠️  Greška tokom detekcije izjava: {e}")
         return []
 

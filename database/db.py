@@ -7,16 +7,16 @@ from psycopg2.pool import ThreadedConnectionPool, PoolError
 from contextlib import contextmanager
 from typing import Optional
 
-_POOL_WAIT_TIMEOUT = 30  # sekundi Äekanja kad je pool iscrpljen
+_POOL_WAIT_TIMEOUT = 30  # sekundi čekanja kad je pool iscrpljen
 
 from config.settings import get_db_settings
 
 
 # =========================================================
-# CIRCUIT BREAKER â€” sprjeÄava uzastopne timeout blokade
+# CIRCUIT BREAKER — sprječava uzastopne timeout blokade
 # =========================================================
-# Ako se konekcija ne moÅ¾e uspostaviti, Äekamo _CB_COOLDOWN sekundi
-# prije sljedeÄ‡eg pokuÅ¡aja. Bez ovoga svaka operacija Äeka connect_timeout.
+# Ako se konekcija ne može uspostaviti, čekamo _CB_COOLDOWN sekundi
+# prije sljedećeg pokušaja. Bez ovoga svaka operacija čeka connect_timeout.
 
 _CB_COOLDOWN = 15.0       # sekundi pauze nakon neuspjeha
 _cb_open_until: float = 0.0   # monotonic timestamp do kada je circuit otvoren
@@ -36,7 +36,7 @@ def _trip_circuit() -> None:
 
 
 def _reset_circuit() -> None:
-    """Zatvori circuit breaker (uspjeÅ¡na konekcija)."""
+    """Zatvori circuit breaker (uspješna konekcija)."""
     global _cb_open_until
     _cb_open_until = 0.0
 
@@ -85,8 +85,8 @@ def get_connection():
     """
     Dohvata konekciju iz pool-a.
     
-    VAÅ½NO: Konekcija se MORA vratiti u pool pozivom pool.putconn(conn).
-    PreporuÄuje se koriÅ¡tenje get_db_connection() context manager-a umjesto ove funkcije.
+    VAŽNO: Konekcija se MORA vratiti u pool pozivom pool.putconn(conn).
+    Preporučuje se korištenje get_db_connection() context manager-a umjesto ove funkcije.
     
     Returns:
         psycopg2.connection: DB konekcija
@@ -99,17 +99,17 @@ def get_connection():
 def get_db_connection():
     """
     Context manager za DB konekcije.
-    Automatski commit/rollback i vraÄ‡anje u pool.
-    Circuit breaker: ako je DB nedostupan, odmah baci greÅ¡ku bez Äekanja.
+    Automatski commit/rollback i vraćanje u pool.
+    Circuit breaker: ako je DB nedostupan, odmah baci grešku bez čekanja.
 
     Usage:
         with get_db_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(...)
     """
-    # Circuit breaker â€” ne Äekaj timeout ako znamo da DB nije dostupan
+    # Circuit breaker — ne čekaj timeout ako znamo da DB nije dostupan
     if _circuit_open():
-        raise PoolError("DB circuit breaker aktivan â€” server privremeno nedostupan")
+        raise PoolError("DB circuit breaker aktivan — server privremeno nedostupan")
 
     conn = None
     try:
@@ -122,7 +122,7 @@ def get_db_connection():
             except PoolError:
                 if time.monotonic() >= deadline:
                     raise PoolError(
-                        f"Connection pool iscrpljen â€” konekcija nije dostupna za {_POOL_WAIT_TIMEOUT}s"
+                        f"Connection pool iscrpljen — konekcija nije dostupna za {_POOL_WAIT_TIMEOUT}s"
                     )
                 time.sleep(0.1)
 
@@ -132,7 +132,7 @@ def get_db_connection():
 
         yield conn
         conn.commit()
-        _reset_circuit()  # uspjeÅ¡na konekcija â€” zatvori circuit
+        _reset_circuit()  # uspješna konekcija — zatvori circuit
 
     except (psycopg2.OperationalError, psycopg2.DatabaseError) as e:
         if conn:
@@ -203,7 +203,7 @@ def normalize_tarifni_kod(value: str) -> str:
 
 def generate_fallback_codes(tarifni_kod: str):
     """
-    GeneriÅ¡e listu fallback kodova od najpreciznijeg ka opÅ¡tijem.
+    Generiše listu fallback kodova od najpreciznijeg ka opštijem.
     """
     codes = []
     code = normalize_tarifni_kod(tarifni_kod)
@@ -212,26 +212,26 @@ def generate_fallback_codes(tarifni_kod: str):
         codes.append(code)
         code = code[:-1]
 
-    # osiguraj da 8-cifreni + 000 uvijek bude ukljuÄen
+    # osiguraj da 8-cifreni + 000 uvijek bude uključen
     if len(tarifni_kod) >= 8:
         base = tarifni_kod[:8] + "000"
         if base not in codes:
             codes.append(base)
 
-    return list(dict.fromkeys(codes))  # bez duplikata, zadrÅ¾i redoslijed
+    return list(dict.fromkeys(codes))  # bez duplikata, zadrži redoslijed
 
 
 # =========================================================
-# ZVANIÄŒNA TARIFA (ZAKON)
+# ZVANIČNA TARIFA (ZAKON)
 # =========================================================
 
 
 def get_tarifa_opis(tarifni_kod: str):
     """
-    VraÄ‡a zakonski opis tarife iz catalogs.zvanicna_tarifa.
+    Vraća zakonski opis tarife iz catalogs.zvanicna_tarifa.
 
-    Ako taÄan tarifni kod ne postoji, koristi fallback (viÅ¡i nivo tarife).
-    Sve kandidate traÅ¾i u jednom upitu, sortira po specifiÄnosti (duÅ¾i kod = specifiÄniji).
+    Ako tačan tarifni kod ne postoji, koristi fallback (viši nivo tarife).
+    Sve kandidate traži u jednom upitu, sortira po specifičnosti (duži kod = specifičniji).
     """
     fallback_codes = generate_fallback_codes(tarifni_kod)
     if not fallback_codes:
@@ -254,7 +254,7 @@ def get_tarifa_opis(tarifni_kod: str):
 
 def search_tarife_by_text(query: str, limit: int = 20):
     """
-    Pretraga zvaniÄne tarife po opisu (ILIKE).
+    Pretraga zvanične tarife po opisu (ILIKE).
     """
     q = (query or "").strip()
     if not q:
@@ -275,13 +275,13 @@ def search_tarife_by_text(query: str, limit: int = 20):
 
 
 # =========================================================
-# TARIFA â†” NAZIV ROBE (PRAKSA) â€” C2
+# TARIFA ↔ NAZIV ROBE (PRAKSA) — C2
 # =========================================================
 
 
 def get_nazivi_robe_za_tarifu(tarifni_kod: str, limit: int = 10):
     """
-    VraÄ‡a nazive robe za tarifni kod (iz prakse).
+    Vraća nazive robe za tarifni kod (iz prakse).
     """
     kod = normalize_tarifni_kod(tarifni_kod)
     if not kod:
@@ -331,7 +331,7 @@ def search_nazivi_robe(query: str, limit: int = 20):
 
 def get_partner_by_jib(jib: str):
     """
-    VraÄ‡a partnera po JIB-u iz zajedniÄke tabele.
+    Vraća partnera po JIB-u iz zajedničke tabele.
     """
     j = (jib or "").strip()
     if not j:
@@ -352,11 +352,11 @@ def get_partner_by_jib(jib: str):
 
 def search_partnere(query: str, limit: int = 20):
     """
-    Pretraga partnera po nazivu iz zajedniÄke tabele.
+    Pretraga partnera po nazivu iz zajedničke tabele.
     """
     q = (query or "").strip()
     if not q:
-        # Ako je query prazan, uÄitaj sve partnere
+        # Ako je query prazan, učitaj sve partnere
         sql = """
             SELECT jib, naziv, adresa, grad, postanski_broj, drzava
             FROM catalogs.partneri
@@ -382,7 +382,7 @@ def search_partnere(query: str, limit: int = 20):
 
 def get_trader_by_code(code: str, trader_type: str | None = None):
     """
-    VraÄ‡a trgovca po Å¡ifri i opcionalno tipu.
+    Vraća trgovca po šifri i opcionalno tipu.
     """
     c = (code or "").strip()
     if not c:
@@ -417,7 +417,7 @@ def search_traders(query: str, trader_type: str | None = None, limit: int = 20):
     """
     q = (query or "").strip()
     if not q:
-        # Ako je query prazan, uÄitaj sve trgovce (ili sve odreÄ‘enog tipa)
+        # Ako je query prazan, učitaj sve trgovce (ili sve određenog tipa)
         if trader_type:
             sql = """
                 SELECT code AS jib, name AS naziv, address AS adresa, city AS grad, '' AS postanski_broj, country AS drzava
@@ -436,7 +436,7 @@ def search_traders(query: str, trader_type: str | None = None, limit: int = 20):
             """
             params = (limit,)
     else:
-        # Ako postoji query, pretraÅ¾i po nazivu
+        # Ako postoji query, pretraži po nazivu
         if trader_type:
             sql = """
                 SELECT code AS jib, name AS naziv, address AS adresa, city AS grad, '' AS postanski_broj, country AS drzava
@@ -478,7 +478,7 @@ def search_consignees(query: str, limit: int = 20):
 
 def get_izvoznik_by_jib(jib: str):
     """
-    VraÄ‡a izvoznika po JIB-u.
+    Vraća izvoznika po JIB-u.
     """
     j = (jib or "").strip()
     if not j:
@@ -499,7 +499,7 @@ def get_izvoznik_by_jib(jib: str):
 
 def get_uvoznik_by_jib(jib: str):
     """
-    VraÄ‡a uvoznika po JIB-u.
+    Vraća uvoznika po JIB-u.
     """
     j = (jib or "").strip()
     if not j:

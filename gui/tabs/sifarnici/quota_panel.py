@@ -1,7 +1,7 @@
 ﻿"""
-QuotaPanel â€” panel za pregled tarifnih kvota (UINO).
+QuotaPanel — panel za pregled tarifnih kvota (UINO).
 
-Lokacija: Å ifrarnici â†’ Tarifne kvote
+Lokacija: Šifrarnici → Tarifne kvote
 
 Dokumentacija: scripts/quota_module_2026-04-26.md
 """
@@ -31,7 +31,7 @@ logger = logging.getLogger("deklarant_pro.quota_panel")
 
 # Status pragovi
 _RISK_HIGH   = 0.10   # < 10%
-_RISK_MEDIUM = 0.50   # 10â€“50%
+_RISK_MEDIUM = 0.50   # 10–50%
 
 
 def _risk_color(remaining: Optional[float], approved: Optional[float]) -> Optional[QColor]:
@@ -39,19 +39,19 @@ def _risk_color(remaining: Optional[float], approved: Optional[float]) -> Option
         return None
     pct = remaining / approved
     if remaining == 0:
-        return QColor("#fecaca")   # crvena â€” potroÅ¡eno
+        return QColor("#fecaca")   # crvena — potrošeno
     if pct < _RISK_HIGH:
-        return QColor("#fed7aa")   # narandÅ¾asta â€” visok rizik
+        return QColor("#fed7aa")   # narandžasta — visok rizik
     if pct < _RISK_MEDIUM:
-        return QColor("#fef08a")   # Å¾uta â€” srednji rizik
-    return QColor("#bbf7d0")       # zelena â€” nizak rizik
+        return QColor("#fef08a")   # žuta — srednji rizik
+    return QColor("#bbf7d0")       # zelena — nizak rizik
 
 
 def _risk_label(remaining: Optional[float], approved: Optional[float]) -> str:
     if approved is None or approved == 0 or remaining is None:
-        return "â€”"
+        return "—"
     if remaining == 0:
-        return "PotroÅ¡eno"
+        return "Potrošeno"
     pct = remaining / approved
     if pct < _RISK_HIGH:
         return "Visok rizik"
@@ -68,9 +68,9 @@ def _risk_icon(remaining: Optional[float], approved: Optional[float]) -> Optiona
     else:
         pct = remaining / approved
         if pct < _RISK_HIGH:
-            color = "#f97316"   # narandÅ¾asta
+            color = "#f97316"   # narandžasta
         elif pct < _RISK_MEDIUM:
-            color = "#eab308"   # Å¾uta
+            color = "#eab308"   # žuta
         else:
             color = "#22c55e"   # zelena
 
@@ -87,13 +87,13 @@ def _risk_icon(remaining: Optional[float], approved: Optional[float]) -> Optiona
 
 def _fmt_qty(val: Optional[float]) -> str:
     if val is None:
-        return "â€”"
+        return "—"
     return f"{val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
 def _fmt_pct(remaining: Optional[float], approved: Optional[float]) -> str:
     if approved is None or approved == 0 or remaining is None:
-        return "â€”"
+        return "—"
     return f"{remaining / approved * 100:.1f}%"
 
 
@@ -111,7 +111,7 @@ class _RefreshWorker(QThread):
             sid, status = refresh_quota_data()
             self.success.emit(sid, status)
         except Exception as e:
-            logger.error(f"Refresh greÅ¡ka: {e}")
+            logger.error(f"Refresh greška: {e}")
             self.error.emit(str(e))
 
 
@@ -121,7 +121,7 @@ class _RefreshWorker(QThread):
 
 class QuotaPanel(QWidget):
     """
-    Panel za prikaz informativnog stanja tarifnih kvota prema UINO PDF izvjeÅ¡taju.
+    Panel za prikaz informativnog stanja tarifnih kvota prema UINO PDF izvještaju.
     """
 
     COLUMNS = [
@@ -129,7 +129,7 @@ class QuotaPanel(QWidget):
         ("Opis",         320),
         ("JM",            50),
         ("Odobreno",     100),
-        ("IskoriÅ¡te.",   100),
+        ("Iskorište.",   100),
         ("Preostalo",    100),
         ("% prest.",      80),
         ("Status",       110),
@@ -154,10 +154,10 @@ class QuotaPanel(QWidget):
         layout.setContentsMargins(16, 12, 16, 12)
         layout.setSpacing(8)
 
-        # â”€â”€ Toolbar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ── Toolbar ──────────────────────────────────────────
         toolbar = QHBoxLayout()
 
-        self.btn_refresh = QPushButton("OsvjeÅ¾i stanje sa UINO")
+        self.btn_refresh = QPushButton("Osvježi stanje sa UINO")
         self.btn_refresh.setFixedHeight(32)
         self.btn_refresh.setStyleSheet(
             "QPushButton { background:#2563eb; color:white; border-radius:4px;"
@@ -169,21 +169,21 @@ class QuotaPanel(QWidget):
         toolbar.addWidget(self.btn_refresh)
 
         toolbar.addSpacing(16)
-        self.lbl_status = QLabel("UÄitavam podatke iz bazeâ€¦")
+        self.lbl_status = QLabel("Učitavam podatke iz baze…")
         self.lbl_status.setStyleSheet("color: #6b7280; font-size: 12px;")
         toolbar.addWidget(self.lbl_status)
         toolbar.addStretch()
 
         # Pretraga
         self.le_search = QLineEdit()
-        self.le_search.setPlaceholderText("PretraÅ¾i po tarifnom broju ili opisuâ€¦")
+        self.le_search.setPlaceholderText("Pretraži po tarifnom broju ili opisu…")
         self.le_search.setFixedWidth(280)
         self.le_search.textChanged.connect(self._apply_filter)
         toolbar.addWidget(self.le_search)
 
         layout.addLayout(toolbar)
 
-        # â”€â”€ Info bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ── Info bar ─────────────────────────────────────────
         self.info_bar = QFrame()
         self.info_bar.setFrameShape(QFrame.StyledPanel)
         self.info_bar.setStyleSheet(
@@ -194,10 +194,10 @@ class QuotaPanel(QWidget):
         info_layout.setContentsMargins(8, 4, 8, 4)
 
         self.lbl_source      = QLabel("Izvor: UINO")
-        self.lbl_report_dt   = QLabel("Zadnje objavljeno stanje: â€”")
-        self.lbl_download_dt = QLabel("Preuzeto u aplikaciju: â€”")
+        self.lbl_report_dt   = QLabel("Zadnje objavljeno stanje: —")
+        self.lbl_download_dt = QLabel("Preuzeto u aplikaciju: —")
         self.lbl_napomena    = QLabel(
-            "Napomena: Informativno stanje prema javno objavljenom PDF izvjeÅ¡taju."
+            "Napomena: Informativno stanje prema javno objavljenom PDF izvještaju."
         )
         self.lbl_napomena.setStyleSheet("color:#92400e; font-style:italic;")
 
@@ -210,7 +210,7 @@ class QuotaPanel(QWidget):
         info_layout.addStretch()
         layout.addWidget(self.info_bar)
 
-        # â”€â”€ Tabela â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # ── Tabela ───────────────────────────────────────────
         self.table = QTableWidget(0, len(self.COLUMNS))
         self.table.setHorizontalHeaderLabels([c[0] for c in self.COLUMNS])
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
@@ -243,37 +243,37 @@ class QuotaPanel(QWidget):
         sep.setStyleSheet("color: #bfdbfe;")
         return sep
 
-    # â”€â”€ Punjenje podataka â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── Punjenje podataka ─────────────────────────────────────
 
     def _load_from_db(self):
-        """UÄitaj posljednji snapshot iz baze (ako postoji)."""
+        """Učitaj posljednji snapshot iz baze (ako postoji)."""
         try:
             from services.quota_service import ensure_tables, get_latest_snapshot_meta, get_snapshot_items
             ensure_tables()
             meta = get_latest_snapshot_meta()
             if not meta:
-                self.lbl_status.setText("Nema preuzetih podataka. Kliknite 'OsvjeÅ¾i stanje sa UINO'.")
+                self.lbl_status.setText("Nema preuzetih podataka. Kliknite 'Osvježi stanje sa UINO'.")
                 return
             self._snapshot_id = meta["id"]
             self._update_info_bar(meta)
             rows = get_snapshot_items(self._snapshot_id)
             self._all_rows = [dict(r) for r in rows]
             self._populate_table(self._all_rows)
-            self.lbl_status.setText(f"{len(self._all_rows)} kvota uÄitano iz baze.")
+            self.lbl_status.setText(f"{len(self._all_rows)} kvota učitano iz baze.")
         except Exception as e:
-            logger.warning(f"DB uÄitavanje neuspjeÅ¡no: {e}")
-            self.lbl_status.setText("Nije moguÄ‡e uÄitati podatke iz baze.")
+            logger.warning(f"DB učitavanje neuspješno: {e}")
+            self.lbl_status.setText("Nije moguće učitati podatke iz baze.")
 
     def _update_info_bar(self, meta: dict):
         rdt = meta.get("report_datetime")
         ddt = meta.get("downloaded_at")
         self.lbl_report_dt.setText(
             f"Zadnje objavljeno stanje: "
-            f"{rdt.strftime('%d.%m.%Y %H:%M') if isinstance(rdt, datetime) else 'â€”'}"
+            f"{rdt.strftime('%d.%m.%Y %H:%M') if isinstance(rdt, datetime) else '—'}"
         )
         self.lbl_download_dt.setText(
             f"Preuzeto u aplikaciju: "
-            f"{ddt.strftime('%d.%m.%Y %H:%M') if isinstance(ddt, datetime) else 'â€”'}"
+            f"{ddt.strftime('%d.%m.%Y %H:%M') if isinstance(ddt, datetime) else '—'}"
         )
 
     def _populate_table(self, rows: list[dict]):
@@ -309,7 +309,7 @@ class QuotaPanel(QWidget):
                     cell.setBackground(color)
                 self.table.setItem(r, c, cell)
 
-    # â”€â”€ Pretraga â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── Pretraga ──────────────────────────────────────────────
 
     def _apply_filter(self, text: str):
         q = text.strip().lower()
@@ -323,13 +323,13 @@ class QuotaPanel(QWidget):
         ]
         self._populate_table(filtered)
 
-    # â”€â”€ OsvjeÅ¾i â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── Osvježi ───────────────────────────────────────────────
 
     def _on_refresh_clicked(self):
         if self._worker and self._worker.isRunning():
             return
         self.btn_refresh.setEnabled(False)
-        self.lbl_status.setText("Preuzimanje UINO PDF izvjeÅ¡tajaâ€¦")
+        self.lbl_status.setText("Preuzimanje UINO PDF izvještaja…")
 
         self._worker = _RefreshWorker(parent=self)
         self._worker.success.connect(self._on_refresh_success)
@@ -343,7 +343,7 @@ class QuotaPanel(QWidget):
 
         if status == "duplicate":
             self.lbl_status.setText(
-                "Ovaj izvjeÅ¡taj je veÄ‡ preuzet. Prikazano je posljednje dostupno stanje."
+                "Ovaj izvještaj je već preuzet. Prikazano je posljednje dostupno stanje."
             )
         else:
             try:
@@ -354,23 +354,23 @@ class QuotaPanel(QWidget):
                 rows = get_snapshot_items(snapshot_id)
                 self._all_rows = [dict(r) for r in rows]
                 self._populate_table(self._all_rows)
-                self.lbl_status.setText(f"OsvjeÅ¾eno: {len(self._all_rows)} kvota uÄitano.")
+                self.lbl_status.setText(f"Osvježeno: {len(self._all_rows)} kvota učitano.")
             except Exception as e:
-                self.lbl_status.setText(f"GreÅ¡ka pri prikazu: {e}")
+                self.lbl_status.setText(f"Greška pri prikazu: {e}")
 
     def _on_refresh_error(self, msg: str):
         self.btn_refresh.setEnabled(True)
-        self.lbl_status.setText("GreÅ¡ka pri preuzimanju.")
+        self.lbl_status.setText("Greška pri preuzimanju.")
 
         if "preuzeti" in msg.lower() or "internet" in msg.lower() or "connect" in msg.lower():
-            user_msg = "Nije moguÄ‡e preuzeti UINO PDF. Provjerite internet konekciju."
+            user_msg = "Nije moguće preuzeti UINO PDF. Provjerite internet konekciju."
         elif "parser" in msg.lower() or "format" in msg.lower():
             user_msg = (
-                "PDF je preuzet, ali parser nije mogao proÄitati podatke.\n"
-                "MoguÄ‡e je da je UINO promijenio format izvjeÅ¡taja."
+                "PDF je preuzet, ali parser nije mogao pročitati podatke.\n"
+                "Moguće je da je UINO promijenio format izvještaja."
             )
         else:
             user_msg = f"UINO PDF trenutno nije dostupan.\n\n{msg}"
 
-        QMessageBox.warning(self, "GreÅ¡ka pri preuzimanju kvota", user_msg)
+        QMessageBox.warning(self, "Greška pri preuzimanju kvota", user_msg)
 

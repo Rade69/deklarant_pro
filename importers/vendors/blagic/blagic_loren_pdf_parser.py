@@ -1,9 +1,9 @@
 ﻿# importers/blagic_loren_pdf_parser.py
 
 """
-BlagiÄ‡ Loren PDF Parser
+Blagić Loren PDF Parser
 
-Parsira BlagiÄ‡ Loren PDF fakture (dobavljaÄ iz Beograda).
+Parsira Blagić Loren PDF fakture (dobavljač iz Beograda).
 Format: tabela sa kolonama: Num, Code, Article, U.N., QTY, Price, Amount
 """
 
@@ -34,7 +34,7 @@ def _extract_statement_item_numbers(context_text: str) -> Set[int]:
     """
     Izvuci redne brojeve stavki iz teksta izjave.
 
-    PodrÅ¾ani primjeri:
+    Podržani primjeri:
     - "Stavka pod rednim brojem 1 ..."
     - "Stavke pod rednim brojevima 2, 4, 5 i 7 ..."
     - "Stavke 3-6 ..."
@@ -64,7 +64,7 @@ def _extract_statement_item_numbers(context_text: str) -> Set[int]:
                 for n in range(start, end + 1):
                     numbers.add(n)
 
-        # PojedinaÄni brojevi i liste: "2, 4, 5 i 7"
+        # Pojedinačni brojevi i liste: "2, 4, 5 i 7"
         for n_s in re.findall(r"\b(\d{1,3})\b", chunk):
             numbers.add(int(n_s))
 
@@ -73,7 +73,7 @@ def _extract_statement_item_numbers(context_text: str) -> Set[int]:
 
 def parse_blagic_loren_pdf(pdf_path: str) -> ImportResult:
     """
-    Parsira BlagiÄ‡ Loren PDF fakturu.
+    Parsira Blagić Loren PDF fakturu.
 
     Format tabele:
     Num. | Code | ARTICLE | U.N. | QTY | Price (EURO) | Amount (EURO)
@@ -84,7 +84,7 @@ def parse_blagic_loren_pdf(pdf_path: str) -> ImportResult:
     Returns:
         ImportResult sa stavkama
     """
-    logger.info(f"Parsing BlagiÄ‡ Loren PDF: {pdf_path}")
+    logger.info(f"Parsing Blagić Loren PDF: {pdf_path}")
 
     items: List[InvoiceLine] = []
     invoice_number = ""
@@ -118,7 +118,7 @@ def parse_blagic_loren_pdf(pdf_path: str) -> ImportResult:
 
         current_item = None
         # Pattern: Num Code Description Unit Qty Price Amount
-        # Unit moÅ¾e biti bilo koja rijeÄ (1-10 karaktera) - fleksibilno za sve varijacije pakovanja
+        # Unit može biti bilo koja riječ (1-10 karaktera) - fleksibilno za sve varijacije pakovanja
         item_pattern = re.compile(
             r'^(\d+)\s+([A-Z0-9][A-Z0-9./-]*)\s+(.+?)\s+([a-zA-Z]{1,10})\s+([\d,\.]+)\s+([\d,\.]+)\s+([\d,\.]+)',
             re.IGNORECASE
@@ -148,9 +148,9 @@ def parse_blagic_loren_pdf(pdf_path: str) -> ImportResult:
                 price = _parse_number(match.group(6))
                 amount = _parse_number(match.group(7))
 
-                # PreskoÄi troÅ¡kove koji nisu roba (Å¡pedicija, transport, itd.)
+                # Preskoči troškove koji nisu roba (špedicija, transport, itd.)
                 if any(kw in article.upper() for kw in ['SPEDICIJ', 'FREIGHT COST', 'TRANSPORT COST', 'SHIPPING COST']):
-                    logger.debug(f"PreskaÄem non-product stavku {num}: {article[:50]}")
+                    logger.debug(f"Preskačem non-product stavku {num}: {article[:50]}")
                     current_item = None
                     continue
 
@@ -173,14 +173,14 @@ def parse_blagic_loren_pdf(pdf_path: str) -> ImportResult:
 
             elif current_item and line:
                 # Multi-line description continuation
-                # Skip footer redove i redove koji liÄe na zbir
+                # Skip footer redove i redove koji liče na zbir
                 _skip_kw = [
                     'TOTAL', 'SUBTOTAL', 'VAT', 'NET', 'GROSS',
                     'AMOUNT:', 'STRANA ', 'PHONE:', 'FAX:', 'WWW.',
                     'EMAIL:', 'IDN:', 'B4K-',
                 ]
                 line_upper = line.upper()
-                # "Amount:" ili "Total:" oznaÄava kraj stavki â€” saÄuvaj i zatvori item
+                # "Amount:" ili "Total:" označava kraj stavki — sačuvaj i zatvori item
                 if 'AMOUNT:' in line_upper or ('TOTAL' in line_upper and ':' in line):
                     items.append(current_item)
                     current_item = None
@@ -215,7 +215,7 @@ def parse_blagic_loren_pdf(pdf_path: str) -> ImportResult:
         # DETEKTUJ SVE izjave o poreklu
         origin_statements = _detect_all_origin_statements(full_text)
         has_origin_statement = len(origin_statements) > 0
-        logger.info(f"  âœ… Detekcija izjave o poreklu: {has_origin_statement} ({len(origin_statements)} izjava)")
+        logger.info(f"  ✅ Detekcija izjave o poreklu: {has_origin_statement} ({len(origin_statements)} izjava)")
 
         # Mapiraj izjave na konkretne redne brojeve stavki (ako su navedeni u tekstu)
         # Primjer iz Loren faktura:
@@ -232,7 +232,7 @@ def parse_blagic_loren_pdf(pdf_path: str) -> ImportResult:
                 if idx + 1 < len(sorted_statements)
                 else len(full_text)
             )
-            # Segment: od poÄetka ove izjave do poÄetka naredne (ili kraj teksta)
+            # Segment: od početka ove izjave do početka naredne (ili kraj teksta)
             context = full_text[pos:next_pos]
             line_numbers = _extract_statement_item_numbers(context)
             for ln in line_numbers:
@@ -240,7 +240,7 @@ def parse_blagic_loren_pdf(pdf_path: str) -> ImportResult:
 
         if statement_by_line:
             logger.info(
-                f"  âœ… Izjava mapirana po stavkama: {sorted(statement_by_line.keys())}"
+                f"  ✅ Izjava mapirana po stavkama: {sorted(statement_by_line.keys())}"
             )
             for item in items:
                 line_no = int(getattr(item, "line_no", 0) or 0)
@@ -253,12 +253,12 @@ def parse_blagic_loren_pdf(pdf_path: str) -> ImportResult:
                 else:
                     item.raw["has_origin_statement"] = False
         else:
-            # Fallback na ranije ponaÅ¡anje kada statement ne navodi redne brojeve
+            # Fallback na ranije ponašanje kada statement ne navodi redne brojeve
             for item in items:
                 item.has_origin_statement = has_origin_statement
                 item.raw["has_origin_statement"] = has_origin_statement
 
-        # Raspodjeli teÅ¾ine proporcionalno po iznosima (za XML export)
+        # Raspodjeli težine proporcionalno po iznosima (za XML export)
         if items and (bruto_kg > 0 or neto_kg > 0):
             total_amount = sum(item.iznos for item in items)
             if total_amount > 0:
@@ -271,10 +271,10 @@ def parse_blagic_loren_pdf(pdf_path: str) -> ImportResult:
     logger.info(f"Parsed {len(items)} items from Loren PDF")
     logger.info(f"Weights: Gross={bruto_kg} kg, Net={neto_kg} kg")
 
-    # PokuÅ¡aj detektovati naziv exportera iz teksta
+    # Pokušaj detektovati naziv exportera iz teksta
     exporter_name = _detect_exporter(full_text, fallback="LOREN")
 
-    _imp = Party(name="BLAGIÄ† D.O.O.")
+    _imp = Party(name="BLAGIĆ D.O.O.")
     _exp = Party(name=exporter_name)
     for item in items:
         item.exporter = _exp
@@ -298,7 +298,7 @@ def _detect_exporter(full_text: str, fallback: str = "") -> str:
     """Try to detect company name from invoice header."""
     lines = [l.strip() for l in full_text.split('\n')[:10] if l.strip()]
     for line in lines:
-        for prefix in ['Seller:', 'Vendor:', 'From:', 'FROM:', 'Prodavac:', 'DobavljaÄ:']:
+        for prefix in ['Seller:', 'Vendor:', 'From:', 'FROM:', 'Prodavac:', 'Dobavljač:']:
             if line.startswith(prefix):
                 name = line[len(prefix):].strip()
                 if name:
@@ -347,17 +347,17 @@ def _parse_number(s: str) -> float:
 
 def detect_blagic_loren_pdf(filepath: str) -> bool:
     """
-    Detektuje da li je PDF BlagiÄ‡ Loren format.
+    Detektuje da li je PDF Blagić Loren format.
 
     Kriteriji:
-    - SadrÅ¾i "LOREN, DOO, Beograd"
-    - SadrÅ¾i "Invoice:" i broj fakture
+    - Sadrži "LOREN, DOO, Beograd"
+    - Sadrži "Invoice:" i broj fakture
 
     Args:
         filepath: Putanja do PDF fajla
 
     Returns:
-        True ako je BlagiÄ‡ Loren PDF
+        True ako je Blagić Loren PDF
     """
     try:
         with pdfplumber.open(filepath) as pdf:
@@ -370,13 +370,13 @@ def detect_blagic_loren_pdf(filepath: str) -> bool:
             # Debug: Print first 500 chars
             logger.debug(f"PDF text sample: {text[:500]}")
 
-            # Check for Loren signature (viÅ¡e varijanti)
+            # Check for Loren signature (više varijanti)
             has_loren = ("LOREN, DOO, Beograd" in text or
                         "LOREN DOO" in text or
                         "LOREN, D.O.O" in text or
                         "Loren" in text)
 
-            # Check for invoice format (viÅ¡e varijanti)
+            # Check for invoice format (više varijanti)
             has_invoice = ("Invoice:" in text or "INVOICE" in text or "invoice" in text)
             has_table = ("Code" in text or "CODE" in text or "A R T I C" in text or "ARTICLE" in text)
 
@@ -391,14 +391,14 @@ def detect_blagic_loren_pdf(filepath: str) -> bool:
                                 "GROSS" in text.upper() and "NET" in text.upper())
 
             if has_loren and (has_invoice or has_vp_number) and (has_table or has_weight_fields):
-                logger.debug(f"âœ… Loren PDF detected: loren={has_loren}, invoice={has_invoice}, vp_num={has_vp_number}, table={has_table}, weights={has_weight_fields}")
+                logger.debug(f"✅ Loren PDF detected: loren={has_loren}, invoice={has_invoice}, vp_num={has_vp_number}, table={has_table}, weights={has_weight_fields}")
                 return True
 
-        logger.debug(f"âŒ Not Loren PDF: loren={has_loren}, invoice={has_invoice}, table={has_table}")
+        logger.debug(f"❌ Not Loren PDF: loren={has_loren}, invoice={has_invoice}, table={has_table}")
         return False
 
     except Exception as e:
-        logger.warning(f"Error detecting BlagiÄ‡ Loren PDF: {e}")
+        logger.warning(f"Error detecting Blagić Loren PDF: {e}")
         return False
 
 
@@ -421,13 +421,13 @@ def _detect_all_origin_statements(text: str) -> List:
         return statements
 
     except Exception as e:
-        logger.warning(f"  âš ï¸  GreÅ¡ka tokom detekcije izjava: {e}")
+        logger.warning(f"  ⚠️  Greška tokom detekcije izjava: {e}")
         return []
 
 
 def _detect_origin_statement(text: str) -> bool:
     """
-    Detektuj da li PDF sadrÅ¾i izjavu o preferencijalnom poreklu.
+    Detektuj da li PDF sadrži izjavu o preferencijalnom poreklu.
 
     Koristi OriginStatementDetector servis.
 
@@ -435,7 +435,7 @@ def _detect_origin_statement(text: str) -> bool:
         text: Tekst PDF fakture
 
     Returns:
-        True ako je naÄ‘ena izjava, False inaÄe
+        True ako je nađena izjava, False inače
     """
     try:
         from services.tariff.origin_statement_detector import OriginStatementDetector
@@ -444,14 +444,14 @@ def _detect_origin_statement(text: str) -> bool:
         result = detector.detect_in_text(text)
 
         if result:
-            logger.info(f"  âœ… NaÄ‘ena izjava o poreklu: {result.jezik} / {result.tip_izjave} / origin={result.origin_country}")
+            logger.info(f"  ✅ Nađena izjava o poreklu: {result.jezik} / {result.tip_izjave} / origin={result.origin_country}")
             return True
         else:
-            logger.debug("  â„¹ï¸  Nije naÄ‘ena izjava o poreklu")
+            logger.debug("  ℹ️  Nije nađena izjava o poreklu")
             return False
 
     except Exception as e:
-        logger.warning(f"  âš ï¸  GreÅ¡ka tokom detekcije izjave: {e}")
+        logger.warning(f"  ⚠️  Greška tokom detekcije izjave: {e}")
         return False
 
 
@@ -471,7 +471,7 @@ if __name__ == "__main__":
     test_file = "najavauvoza/blagic-loren/702VP-2025 BLAGIC.pdf"
 
     logger.debug("\n" + "=" * 70)
-    logger.debug("BLAGIÄ† LOREN PDF PARSER - Test")
+    logger.debug("BLAGIĆ LOREN PDF PARSER - Test")
     logger.debug("=" * 70 + "\n")
 
     try:
@@ -483,7 +483,7 @@ if __name__ == "__main__":
             # Test parsing
             result = parse_blagic_loren_pdf(test_file)
 
-            logger.info(f"\nâœ… Parsed: {len(result.items)} items")
+            logger.info(f"\n✅ Parsed: {len(result.items)} items")
             logger.debug(f"Invoice: {result.invoice_name}")
             logger.debug(f"Currency: {result.currency}")
 
@@ -494,7 +494,7 @@ if __name__ == "__main__":
                 logger.debug(f"   Qty: {item.kolicina} {item.jm}, Price: {item.cijena_jed} EUR, Amount: {item.iznos} EUR")
 
     except Exception as e:
-        logger.error(f"\nâŒ Error: {e}")
+        logger.error(f"\n❌ Error: {e}")
         import traceback
         traceback.print_exc()
 

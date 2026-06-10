@@ -2,8 +2,8 @@
 Tariff Suggestion Service
 
 Konsolidovani modul koji kombinuje:
-1. HybridMatchingService â€” nisko-nivo matching (istorijsko, keyword, semantic, rules)
-2. EnhancedTariffSuggestionService â€” visoko-nivo orchestracija sa dialogom i kontekstom
+1. HybridMatchingService — nisko-nivo matching (istorijsko, keyword, semantic, rules)
+2. EnhancedTariffSuggestionService — visoko-nivo orchestracija sa dialogom i kontekstom
 
 Originalni fajlovi: hybrid_matching_service.py + enhanced_tariff_suggestion_service.py
 """
@@ -36,12 +36,12 @@ def _is_known_tariff_code(tariff_code: str) -> bool:
 
         return bool(trazi_po_kodu(digits[:8]))
     except Exception as exc:
-        logger.warning("Provjera zvaniÄne tarife nije uspjela za %s: %s", tariff_code, exc)
+        logger.warning("Provjera zvanične tarife nije uspjela za %s: %s", tariff_code, exc)
         return True
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─────────────────────────────────────────────────────────────────────────────
 # Dataclasses
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─────────────────────────────────────────────────────────────────────────────
 
 @dataclass
 class HybridMatch:
@@ -54,7 +54,7 @@ class HybridMatch:
 
 @dataclass
 class HybridMatchingResult:
-    """Rezultat hybrid matching-a za viÅ¡e stavki."""
+    """Rezultat hybrid matching-a za više stavki."""
     matches: List[HybridMatch]
     avg_confidence: float
     method_distribution: Dict[str, int]
@@ -70,17 +70,17 @@ class EnhancedSuggestionResult:
     explanation: str = ""
 
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-# HybridMatchingService â€” nisko-nivo matching engine
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─────────────────────────────────────────────────────────────────────────────
+# HybridMatchingService — nisko-nivo matching engine
+# ─────────────────────────────────────────────────────────────────────────────
 
 class HybridMatchingService:
     """
-    Hybrid Matching Service koji kombinira viÅ¡e metoda.
+    Hybrid Matching Service koji kombinira više metoda.
 
     Weight distribucija:
-    - Istorijsko: 40% (Å¡ta je ovaj dobavljaÄ ranije koristio)
-    - Semantic: 30% (LLM embedding sliÄnost)
+    - Istorijsko: 40% (šta je ovaj dobavljač ranije koristio)
+    - Semantic: 30% (LLM embedding sličnost)
     - Keyword: 20% (tradicionalni matching)
     - Rules: 10% (carinska pravila)
     """
@@ -93,7 +93,7 @@ class HybridMatchingService:
             'keyword': 0.20,
             'rules': 0.10
         }
-        logger.info("âœ… HybridMatchingService inicijalizovan")
+        logger.info("✅ HybridMatchingService inicijalizovan")
 
     def find_hybrid_mapping(
         self,
@@ -103,23 +103,23 @@ class HybridMatchingService:
         country: str = "",
         min_confidence: float = 0.60
     ) -> Optional[HybridMatch]:
-        """PronaÄ‘i najbolji mapping koristeÄ‡i hybrid pristup."""
-        logger.debug(f"ðŸ” Hybrid mapping za: '{product_code}', '{naziv_robe[:40]}', supplier='{supplier}'")
+        """Pronađi najbolji mapping koristeći hybrid pristup."""
+        logger.debug(f"🔍 Hybrid mapping za: '{product_code}', '{naziv_robe[:40]}', supplier='{supplier}'")
 
         all_candidates = self._get_all_candidates(product_code, naziv_robe, supplier, country)
 
         if not all_candidates:
-            logger.debug(f"â„¹ï¸ Nema kandidata za '{naziv_robe[:40]}'")
+            logger.debug(f"ℹ️ Nema kandidata za '{naziv_robe[:40]}'")
             return None
 
         best_match = self._combine_candidates(all_candidates)
 
         if best_match and best_match.confidence >= min_confidence:
-            logger.debug(f"âœ… Hybrid match: {best_match.tariff_mapping.tarifni_broj} "
+            logger.debug(f"✅ Hybrid match: {best_match.tariff_mapping.tarifni_broj} "
                          f"(confidence: {best_match.confidence:.1%}, method: {best_match.method})")
             return best_match
         else:
-            logger.debug(f"âš ï¸ Hybrid match below threshold: "
+            logger.debug(f"⚠️ Hybrid match below threshold: "
                          f"{best_match.confidence if best_match else 0:.1%} (min: {min_confidence:.1%})")
             return None
 
@@ -129,7 +129,7 @@ class HybridMatchingService:
         supplier: str = "",
         min_confidence: float = 0.60
     ) -> HybridMatchingResult:
-        """Batch hybrid mapping za viÅ¡e stavki."""
+        """Batch hybrid mapping za više stavki."""
         matches = []
         method_counts = {'historical': 0, 'semantic': 0, 'keyword': 0, 'rules': 0}
 
@@ -155,7 +155,7 @@ class HybridMatchingService:
                 logger.debug(f"  [{i+1}] {naziv_robe[:40]}: NO MATCH")
 
         avg_confidence = sum(m.confidence for m in matches) / len(matches) if matches else 0.0
-        logger.info(f"âœ… Batch hybrid mapping: {len(matches)}/{len(items)} match-eva "
+        logger.info(f"✅ Batch hybrid mapping: {len(matches)}/{len(items)} match-eva "
                     f"(avg confidence: {avg_confidence:.1%})")
 
         return HybridMatchingResult(
@@ -183,10 +183,10 @@ class HybridMatchingService:
                 'historical_service_available': self.historical_service.is_available()
             }
         except Exception as e:
-            logger.debug(f"âš ï¸ Error getting matching stats: {e}")
+            logger.debug(f"⚠️ Error getting matching stats: {e}")
             return {}
 
-    # â”€â”€ Private helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── Private helpers ───────────────────────────────────────────────────────
 
     def _get_all_candidates(self, product_code, naziv_robe, supplier, country):
         candidates = []
@@ -263,10 +263,10 @@ class HybridMatchingService:
                                 confidence = similarity * self.weights['historical']
                                 candidates.append(HybridMatch(
                                     tariff_mapping=mapping, confidence=confidence, method='historical',
-                                    explanation=f"Supplier {supplier} koristio sliÄan proizvod: {row['naziv_robe'][:50]}"
+                                    explanation=f"Supplier {supplier} koristio sličan proizvod: {row['naziv_robe'][:50]}"
                                 ))
         except Exception as e:
-            logger.debug(f"âš ï¸ Error u istorijskom matching-u za {supplier}: {e}")
+            logger.debug(f"⚠️ Error u istorijskom matching-u za {supplier}: {e}")
         return candidates
 
     def _get_keyword_candidates(self, product_code, naziv_robe):
@@ -283,7 +283,7 @@ class HybridMatchingService:
                     explanation=f"Keyword match: similarity={mapping.similarity:.1%}"
                 ))
         except Exception as e:
-            logger.debug(f"âš ï¸ Error u keyword matching-u: {e}")
+            logger.debug(f"⚠️ Error u keyword matching-u: {e}")
         return candidates
 
     def _get_semantic_candidates(self, naziv_robe):
@@ -321,10 +321,10 @@ class HybridMatchingService:
                                 candidates.append(HybridMatch(
                                     tariff_mapping=mapping, confidence=self.weights['rules'],
                                     method='rules',
-                                    explanation=f"Carinsko pravilo: {product_keyword} iz {country} â†’ {tariff_code}"
+                                    explanation=f"Carinsko pravilo: {product_keyword} iz {country} → {tariff_code}"
                                 ))
         except Exception as e:
-            logger.debug(f"âš ï¸ Error u rules matching-u: {e}")
+            logger.debug(f"⚠️ Error u rules matching-u: {e}")
         return candidates
 
     def _combine_candidates(self, candidates):
@@ -353,7 +353,7 @@ class HybridMatchingService:
     def _extract_keywords(self, text):
         if not text:
             return []
-        cleaned = re.sub(r'[^a-zA-ZÄÄ‡Å¾Å¡Ä‘ÄŒÄ†Å½Å Ä\s]', ' ', text)
+        cleaned = re.sub(r'[^a-zA-ZčćžšđČĆŽŠĐ\s]', ' ', text)
         stop_words = {'i', 'ili', 'sa', 'bez', 'za', 'od', 'do', 'na', 'u', 'po', 'iz', 'kao'}
         return [w for w in cleaned.lower().split() if w not in stop_words and len(w) > 2]
 
@@ -363,9 +363,9 @@ class HybridMatchingService:
         return SequenceMatcher(None, text1.lower(), text2.lower()).ratio()
 
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-# EnhancedTariffSuggestionService â€” visoko-nivo orchestracija
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─────────────────────────────────────────────────────────────────────────────
+# EnhancedTariffSuggestionService — visoko-nivo orchestracija
+# ─────────────────────────────────────────────────────────────────────────────
 
 class EnhancedTariffSuggestionService:
     """
@@ -390,7 +390,7 @@ class EnhancedTariffSuggestionService:
         invoice_lines: List[Dict] = None,
         use_enhanced_dialog: bool = True
     ) -> Optional[EnhancedSuggestionResult]:
-        """SugeriÅ¡i tarifni broj sa kontekstualnim informacijama."""
+        """Sugeriši tarifni broj sa kontekstualnim informacijama."""
         basic_suggestions = self._get_basic_suggestions(product_name, origin_country)
         agent_suggestions = self._get_agent_suggestions(
             product_name, supplier_name, origin_country, invoice_lines
@@ -441,7 +441,7 @@ class EnhancedTariffSuggestionService:
                     })
             return suggestions
         except Exception as e:
-            print(f"âš ï¸ GreÅ¡ka pri dobavljanju basic suggestions: {e}")
+            print(f"⚠️ Greška pri dobavljanju basic suggestions: {e}")
             return []
 
     def _get_agent_suggestions(self, product_name, supplier_name, origin_country, invoice_lines):
@@ -472,12 +472,12 @@ class EnhancedTariffSuggestionService:
                             'source': 'historical',
                             'explanation': (
                                 f"{supplier_name} ranije koristio ovaj tarifni broj "
-                                f"({product_profile.usage_count} puta) za sliÄan proizvod"
+                                f"({product_profile.usage_count} puta) za sličan proizvod"
                             ),
                             'needs_review': similarity < 0.8
                         })
         except Exception as e:
-            print(f"âš ï¸ GreÅ¡ka pri dobavljanju istorijskih suggestions: {e}")
+            print(f"⚠️ Greška pri dobavljanju istorijskih suggestions: {e}")
         return suggestions
 
     def _get_hybrid_matching_suggestions(self, product_name, supplier_name, origin_country):
@@ -499,7 +499,7 @@ class EnhancedTariffSuggestionService:
                     'needs_review': match_result.confidence < 0.70
                 })
         except Exception as e:
-            print(f"âš ï¸ GreÅ¡ka pri hybrid matching: {e}")
+            print(f"⚠️ Greška pri hybrid matching: {e}")
         return suggestions
 
     def _get_contextual_suggestions(self, product_name, supplier_name, invoice_lines):
@@ -531,8 +531,8 @@ class EnhancedTariffSuggestionService:
                         'confidence': best_match['similarity'],
                         'source': 'contextual',
                         'explanation': (
-                            f"SliÄan proizvod u fakturi: {best_match['name']}. "
-                            f"PreporuÄuje se isti tarifni broj za konzistentnost."
+                            f"Sličan proizvod u fakturi: {best_match['name']}. "
+                            f"Preporučuje se isti tarifni broj za konzistentnost."
                         ),
                         'needs_review': best_match['similarity'] < 0.7
                     })
@@ -546,13 +546,13 @@ class EnhancedTariffSuggestionService:
                     'source': 'contextual_warning',
                     'explanation': (
                         f"Proizvod je {category}, ali faktura je uglavnom {main_category}. "
-                        f"Provjeri da li je proizvod stvarno dio ove poÅ¡iljke."
+                        f"Provjeri da li je proizvod stvarno dio ove pošiljke."
                     ),
                     'needs_review': True,
                     'is_warning': True
                 })
         except Exception as e:
-            print(f"âš ï¸ GreÅ¡ka pri kontekstualnim suggestions: {e}")
+            print(f"⚠️ Greška pri kontekstualnim suggestions: {e}")
         return suggestions
 
     def _get_best_suggestion(self, basic_suggestions, agent_suggestions, context):
@@ -579,12 +579,12 @@ class EnhancedTariffSuggestionService:
 
     def _detect_product_category(self, product_name):
         p = product_name.lower()
-        if any(w in p for w in ['alat', 'Å¡raf', 'ÄekiÄ‡', 'kljuÄ']):
-            return "ruÄni alati"
-        elif any(w in p for w in ['elektron', 'baterij', 'kabl', 'prikljuÄ']):
+        if any(w in p for w in ['alat', 'šraf', 'čekić', 'ključ']):
+            return "ručni alati"
+        elif any(w in p for w in ['elektron', 'baterij', 'kabl', 'priključ']):
             return "elektronika"
-        elif any(w in p for w in ['keram', 'ploÄ', 'cigl']):
-            return "keramiÄki proizvodi"
+        elif any(w in p for w in ['keram', 'ploč', 'cigl']):
+            return "keramički proizvodi"
         elif any(w in p for w in ['tekstil', 'pamuk', 'tkanin']):
             return "tekstil"
         return "ostalo"
@@ -602,7 +602,7 @@ class EnhancedTariffSuggestionService:
         method = result.get('method', '')
         explanation = result.get('explanation', '')
         if method == 'mapping':
-            return f"Fuzzy match sa postojeÄ‡im mapiranjem: {explanation}"
+            return f"Fuzzy match sa postojećim mapiranjem: {explanation}"
         elif method == 'rag':
             return f"Preuzeto iz istorijskih podataka: {explanation}"
         elif method == 'ai':
@@ -625,12 +625,12 @@ class EnhancedTariffSuggestionService:
 
     def clear_cache(self):
         self.supplier_cache.clear()
-        print("ðŸ§¹ Enhanced suggestion cache cleared")
+        print("🧹 Enhanced suggestion cache cleared")
 
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─────────────────────────────────────────────────────────────────────────────
 # Helper funkcije (javni API)
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─────────────────────────────────────────────────────────────────────────────
 
 def get_enhanced_suggestion_for_naimenovanja(
     product_name: str,

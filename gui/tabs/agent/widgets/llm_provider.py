@@ -1,11 +1,11 @@
 ﻿"""
-LLMProvider â€” Apstrakcija nad LLM providerima (Groq + Gemini + OpenRouter + DeepSeek).
+LLMProvider — Apstrakcija nad LLM providerima (Groq + Gemini + OpenRouter + DeepSeek).
 
 Redoslijed:
-  1. Groq (llama-3.3-70b-versatile) â€” primarni free provider
-  2. Gemini (gemini-2.5-flash-lite) â€” sekundarni fallback
-  3. OpenRouter (openrouter/free) â€” treÄ‡i fallback
-  4. DeepSeek (deepseek-chat) â€” opcioni plaÄ‡eni fallback
+  1. Groq (llama-3.3-70b-versatile) — primarni free provider
+  2. Gemini (gemini-2.5-flash-lite) — sekundarni fallback
+  3. OpenRouter (openrouter/free) — treći fallback
+  4. DeepSeek (deepseek-chat) — opcioni plaćeni fallback
 
 Upotreba:
     provider = LLMProvider()
@@ -25,7 +25,7 @@ logger = logging.getLogger("deklarant_pro.agent.llm")
 
 
 def _load_env() -> dict:
-    """UÄitaj .env iz root projekta."""
+    """Učitaj .env iz root projekta."""
     try:
         from dotenv import dotenv_values
         env_path = Path(__file__).parent.parent.parent.parent.parent / ".env"
@@ -39,7 +39,7 @@ def _is_rate_limit(exc) -> bool:
 
 
 def parse_llm_error(exc) -> str:
-    """Pretvori LLM API greÅ¡ku u poruku Äitljivu korisniku."""
+    """Pretvori LLM API grešku u poruku čitljivu korisniku."""
     msg = str(exc)
     if '429' in msg or 'rate_limit_exceeded' in msg or 'RESOURCE_EXHAUSTED' in msg:
         wait = re.search(r'Please try again in ([^\'".]+)', msg)
@@ -48,25 +48,25 @@ def parse_llm_error(exc) -> str:
         limit = re.search(r'Limit (\d+)', msg)
         if used and limit:
             return (
-                f"â³ Dnevni limit tokena iskoriÅ¡ten ({used.group(1)}/{limit.group(1)}).\n"
-                f"SaÄekaj {wait_str} pa pokuÅ¡aj ponovo.\n"
-                f"ðŸ’¡ Savjet: priÄekaj do ponoÄ‡i kad se limit resetuje."
+                f"⏳ Dnevni limit tokena iskorišten ({used.group(1)}/{limit.group(1)}).\n"
+                f"Sačekaj {wait_str} pa pokušaj ponovo.\n"
+                f"💡 Savjet: pričekaj do ponoći kad se limit resetuje."
             )
-        return f"â³ AI limit dostignut. PokuÅ¡aj za: {wait_str}"
+        return f"⏳ AI limit dostignut. Pokušaj za: {wait_str}"
     if '401' in msg or 'invalid_api_key' in msg or 'API_KEY_INVALID' in msg:
-        return "ðŸ”‘ Neispravan API kljuÄ. Provjeri .env (GROQ_API_KEY, GEMINI_API_KEY, OPENROUTER_API_KEY ili DEEPSEEK_API_KEY)."
+        return "🔑 Neispravan API ključ. Provjeri .env (GROQ_API_KEY, GEMINI_API_KEY, OPENROUTER_API_KEY ili DEEPSEEK_API_KEY)."
     if 'timeout' in msg.lower() or 'connection' in msg.lower():
-        return "ðŸŒ GreÅ¡ka veze sa AI serverom. Provjeri internet i pokuÅ¡aj ponovo."
-    return f"âš ï¸ AI greÅ¡ka: {msg[:200]}"
+        return "🌐 Greška veze sa AI serverom. Provjeri internet i pokušaj ponovo."
+    return f"⚠️ AI greška: {msg[:200]}"
 
 
 class LLMProvider:
     """
-    Wrapper koji transparentno prebacuje izmeÄ‘u Groq, Gemini, OpenRouter i DeepSeek.
+    Wrapper koji transparentno prebacuje između Groq, Gemini, OpenRouter i DeepSeek.
 
-    Streaming radi za Groq; Gemini vraÄ‡a token po token simulacijom
-    (Gemini streaming je podrÅ¾an ali se ovdje koristi non-streaming radi
-    jednostavnosti â€” response se Å¡alje odjednom).
+    Streaming radi za Groq; Gemini vraća token po token simulacijom
+    (Gemini streaming je podržan ali se ovdje koristi non-streaming radi
+    jednostavnosti — response se šalje odjednom).
     """
 
     DEEPSEEK_MODEL = "deepseek-chat"
@@ -109,7 +109,7 @@ class LLMProvider:
             return "deepseek"
         return "none"
 
-    # â”€â”€ DeepSeek implementacija â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── DeepSeek implementacija ─────────────────────────────────────────────
 
     def _deepseek_stream(self, messages: list, max_tokens: int):
         from openai import OpenAI
@@ -137,17 +137,17 @@ class LLMProvider:
         )
         return resp.choices[0].message.content or ""
 
-    # â”€â”€ Streaming chat â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── Streaming chat ────────────────────────────────────────────────
 
     def stream_chat(self, messages: list, max_tokens: int = 1500):
-        """Generator koji yield-uje tokene jedan po jedan. Groq â†’ Gemini â†’ OpenRouter â†’ DeepSeek."""
+        """Generator koji yield-uje tokene jedan po jedan. Groq → Gemini → OpenRouter → DeepSeek."""
         last_error = None
         if self.has_groq():
             try:
                 yield from self._groq_stream(messages, max_tokens)
                 return
             except Exception as e:
-                logger.warning("Groq greÅ¡ka (%s) â†’ prelazim na Gemini", e)
+                logger.warning("Groq greška (%s) → prelazim na Gemini", e)
                 last_error = e
 
         if self.has_gemini():
@@ -155,7 +155,7 @@ class LLMProvider:
                 yield from self._gemini_stream(messages, max_tokens)
                 return
             except Exception as e:
-                logger.warning("Gemini greÅ¡ka (%s) â†’ prelazim na OpenRouter", e)
+                logger.warning("Gemini greška (%s) → prelazim na OpenRouter", e)
                 last_error = e
 
         if self.has_openrouter():
@@ -163,7 +163,7 @@ class LLMProvider:
                 yield from self._openrouter_stream(messages, max_tokens)
                 return
             except Exception as e:
-                logger.warning("OpenRouter greÅ¡ka (%s) â†’ prelazim na DeepSeek", e)
+                logger.warning("OpenRouter greška (%s) → prelazim na DeepSeek", e)
                 last_error = e
 
         if self.has_deepseek():
@@ -181,31 +181,31 @@ class LLMProvider:
             "Dodaj GROQ_API_KEY, GEMINI_API_KEY, OPENROUTER_API_KEY ili DEEPSEEK_API_KEY u .env."
         )
 
-    # â”€â”€ Batch complete (za TariffLLMWorker) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── Batch complete (za TariffLLMWorker) ───────────────────────────────────
 
     def complete(self, messages: list, max_tokens: int = 1200,
                  use_small_model: bool = True) -> str:
-        """Jednokratni poziv bez streaminga. Groq â†’ Gemini â†’ OpenRouter â†’ DeepSeek."""
+        """Jednokratni poziv bez streaminga. Groq → Gemini → OpenRouter → DeepSeek."""
         last_error = None
         if self.has_groq():
             try:
                 return self._groq_complete(messages, max_tokens, use_small_model)
             except Exception as e:
-                logger.warning("Groq greÅ¡ka (%s) â†’ prelazim na Gemini (batch)", e)
+                logger.warning("Groq greška (%s) → prelazim na Gemini (batch)", e)
                 last_error = e
 
         if self.has_gemini():
             try:
                 return self._gemini_complete(messages, max_tokens)
             except Exception as e:
-                logger.warning("Gemini greÅ¡ka (%s) â†’ prelazim na OpenRouter (batch)", e)
+                logger.warning("Gemini greška (%s) → prelazim na OpenRouter (batch)", e)
                 last_error = e
 
         if self.has_openrouter():
             try:
                 return self._openrouter_complete(messages, max_tokens)
             except Exception as e:
-                logger.warning("OpenRouter greÅ¡ka (%s) â†’ prelazim na DeepSeek (batch)", e)
+                logger.warning("OpenRouter greška (%s) → prelazim na DeepSeek (batch)", e)
                 last_error = e
 
         if self.has_deepseek():
@@ -222,7 +222,7 @@ class LLMProvider:
             "Dodaj GROQ_API_KEY, GEMINI_API_KEY, OPENROUTER_API_KEY ili DEEPSEEK_API_KEY u .env."
         )
 
-    # â”€â”€ Groq implementacija â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── Groq implementacija ───────────────────────────────────────────────────
 
     def _groq_stream(self, messages: list, max_tokens: int):
         from groq import Groq
@@ -252,7 +252,7 @@ class LLMProvider:
         )
         return resp.choices[0].message.content or ""
 
-    # â”€â”€ OpenRouter implementacija â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── OpenRouter implementacija ─────────────────────────────────────────────
 
     def _openrouter_stream(self, messages: list, max_tokens: int):
         from openai import OpenAI
@@ -282,7 +282,7 @@ class LLMProvider:
         )
         return resp.choices[0].message.content or ""
 
-    # â”€â”€ Gemini implementacija â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── Gemini implementacija ─────────────────────────────────────────────────
 
     def _gemini_messages(self, messages: list) -> tuple:
         """
@@ -308,7 +308,7 @@ class LLMProvider:
         return system_instruction, contents
 
     def _gemini_stream(self, messages: list, max_tokens: int):
-        """Gemini streaming â€” yield tokeni."""
+        """Gemini streaming — yield tokeni."""
         import google.genai as genai
         from google.genai import types
 
@@ -330,7 +330,7 @@ class LLMProvider:
                 yield chunk.text
 
     def _gemini_complete(self, messages: list, max_tokens: int) -> str:
-        """Gemini bez streaminga â€” vraÄ‡a kompletan tekst."""
+        """Gemini bez streaminga — vraća kompletan tekst."""
         import google.genai as genai
         from google.genai import types
 

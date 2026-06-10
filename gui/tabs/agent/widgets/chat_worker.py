@@ -1,7 +1,7 @@
 ﻿"""
 ChatWorker - background thread za LLM pozive (Groq API).
 
-ENHANCED: Dodato pamÄ‡enje konteksta chat sesije.
+ENHANCED: Dodato pamćenje konteksta chat sesije.
 """
 
 import re
@@ -11,44 +11,44 @@ from psycopg2 import sql as pg_sql
 from PySide6.QtCore import QThread, Signal
 
 
-# Kompatibilnost â€” stari kod koji importuje ovo ime
+# Kompatibilnost — stari kod koji importuje ovo ime
 def _parse_groq_error(exc) -> str:
     from .llm_provider import parse_llm_error
     return parse_llm_error(exc)
 
 
-# â”€â”€ Prompt injection zaÅ¡tita â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Prompt injection zaštita ─────────────────────────────────────────────────
 
-_MAX_MESSAGE_LEN = 2000  # Carinska pitanja nikad ne trebaju viÅ¡e od ovoga
+_MAX_MESSAGE_LEN = 2000  # Carinska pitanja nikad ne trebaju više od ovoga
 
-# Parovi (pattern, opis) â€” samo kombinacije koje su nedvosmisleno injection.
-# "zanemari stavku/red/naimenovanje" su legitimne naredbe â€” ne blokiramo ih.
+# Parovi (pattern, opis) — samo kombinacije koje su nedvosmisleno injection.
+# "zanemari stavku/red/naimenovanje" su legitimne naredbe — ne blokiramo ih.
 _INJECTION_PATTERNS = [
     # Zanemari + sistemski kontekst (ne stavku/red)
     (r'zanemari\s+.{0,40}(instrukcij|sistem[a-z]*\s+prompt|prethodni\s+kontekst|gore\s+napisano|pravil[a-z]*)',
-     "pokuÅ¡aj poniÅ¡tavanja sistemskih instrukcija"),
+     "pokušaj poništavanja sistemskih instrukcija"),
     # Ignore previous instructions
     (r'ignore\s+.{0,30}(previous|all\s+prior|above|system)\s*(instructions|prompt|context|rules)',
      "ignore instructions attempt"),
     # Forget everything / all instructions
     (r'forget\s+(everything|all\s+previous|all\s+instructions|above)',
      "forget instructions attempt"),
-    # System role injection na poÄetku poruke
+    # System role injection na početku poruke
     (r'^\s*(system\s*:|<\s*system\s*>|\[system\]|\[inst\])',
      "system role injection"),
-    # "Ti si sada slobodan/neograniÄen/drugaÄiji AI"
-    (r'ti\s+si\s+sada\s+.{0,30}(slobodan|bez\s+ograniÄen|drugaÄij|nov[i]?\s+ai|drukÄij)',
+    # "Ti si sada slobodan/neograničen/drugačiji AI"
+    (r'ti\s+si\s+sada\s+.{0,30}(slobodan|bez\s+ograničen|drugačij|nov[i]?\s+ai|drukčij)',
      "uloga injection (sr)"),
     (r'you\s+are\s+now\s+.{0,30}(free|uncensored|different|new\s+ai|without\s+restrict)',
      "role injection (en)"),
-    # IzvlaÄenje system prompta
-    (r'(ispisi|pokaÅ¾i|prikaÅ¾i|napiÅ¡i|reproduce|print|reveal|output|show)\s+.{0,30}'
+    # Izvlačenje system prompta
+    (r'(ispisi|pokaži|prikaži|napiši|reproduce|print|reveal|output|show)\s+.{0,30}'
      r'(system\s*prompt|cijeli\s+kontekst|sve\s+instrukcij|gornji\s+tekst|initial\s+prompt)',
-     "pokuÅ¡aj izvlaÄenja system prompta"),
-    # Jailbreak kljuÄne rijeÄi
+     "pokušaj izvlačenja system prompta"),
+    # Jailbreak ključne riječi
     (r'\b(jailbreak|do\s+anything\s+now|\bDAN\b|developer\s+mode\s+enabled)',
      "jailbreak keyword"),
-    # Ponavljanje specijalnih znakova (obiÄno dio injection payloada)
+    # Ponavljanje specijalnih znakova (obično dio injection payloada)
     (r'[<>\[\]{}]{6,}',
      "sumnjivi specijalni znakovi"),
 ]
@@ -63,18 +63,18 @@ def check_injection(message: str) -> str | None:
     Provjeri da li poruka izgleda kao prompt injection napad.
 
     Returns:
-        None  â€” poruka je uredna
-        str   â€” opis problema (ne Å¡alji LLM-u, prikaÅ¾i korisniku)
+        None  — poruka je uredna
+        str   — opis problema (ne šalji LLM-u, prikaži korisniku)
     """
     if len(message) > _MAX_MESSAGE_LEN:
-        return f"Poruka je predugaÄka ({len(message)} znakova). Maksimum je {_MAX_MESSAGE_LEN}."
+        return f"Poruka je predugačka ({len(message)} znakova). Maksimum je {_MAX_MESSAGE_LEN}."
 
     for pattern, opis in _INJECTION_RE:
         if pattern.search(message):
-            print(f"[SecurityFilter] Blokirana poruka â€” {opis}: {message[:80]!r}")
+            print(f"[SecurityFilter] Blokirana poruka — {opis}: {message[:80]!r}")
             return (
-                "âš ï¸ Poruka je blokirana iz sigurnosnih razloga.\n"
-                "Ako imaÅ¡ legitimno pitanje o carinjenju, molim te preformuliÅ¡i ga."
+                "⚠️ Poruka je blokirana iz sigurnosnih razloga.\n"
+                "Ako imaš legitimno pitanje o carinjenju, molim te preformuliši ga."
             )
     return None
 
@@ -111,7 +111,7 @@ class ChatWorker(QThread):
             provider = LLMProvider()
             if provider.active_provider() == "none":
                 self.error_occurred.emit(
-                    "Nema dostupnog AI kljuÄa. Dodaj GROQ_API_KEY, GEMINI_API_KEY ili OPENROUTER_API_KEY u .env."
+                    "Nema dostupnog AI ključa. Dodaj GROQ_API_KEY, GEMINI_API_KEY ili OPENROUTER_API_KEY u .env."
                 )
                 return
 
@@ -125,14 +125,14 @@ class ChatWorker(QThread):
 
             messages = self._build_messages(context, chat_history)
 
-            # Provjera token budÅ¾eta prije poziva
+            # Provjera token budžeta prije poziva
             tokens_in = estimate_tokens_messages(messages)
             budget_err = check_budget(tokens_in)
             if budget_err:
                 self.error_occurred.emit(budget_err)
                 return
 
-            # === STREAMING â€” DeepSeek primarni, Groq/Gemini fallback ===
+            # === STREAMING — DeepSeek primarni, Groq/Gemini fallback ===
             self.stream_started.emit()
             full_text = ""
             for token in provider.stream_chat(messages, max_tokens=1500):
@@ -143,7 +143,7 @@ class ChatWorker(QThread):
             if self.memory_service:
                 self.memory_service.add_assistant_message(text)
 
-            # Audit log â€” bez sadrÅ¾aja, samo metapodaci
+            # Audit log — bez sadržaja, samo metapodaci
             log_call(
                 provider=provider.active_provider(),
                 tokens_in=tokens_in,
@@ -155,7 +155,7 @@ class ChatWorker(QThread):
         except Exception as e:
             import traceback
             from .llm_provider import parse_llm_error
-            print(f"[ChatWorker] GREÅ KA: {e}")
+            print(f"[ChatWorker] GREŠKA: {e}")
             print(traceback.format_exc())
             self.error_occurred.emit(parse_llm_error(e))
 
@@ -166,7 +166,7 @@ class ChatWorker(QThread):
         Format:
         1. System prompt (kontekst + sistemske instrukcije)
         2. Chat istorija (zadnjih 10 poruka)
-        3. Trenutna korisniÄka poruka
+        3. Trenutna korisnička poruka
         """
         system = {"role": "system", "content": self._system_prompt(context)}
         
@@ -187,7 +187,7 @@ class ChatWorker(QThread):
 
     def _build_context(self) -> str:
         if not self.draft:
-            return "Draft je prazan â€” nisu uvezene fakture."
+            return "Draft je prazan — nisu uvezene fakture."
 
         lines = getattr(self.draft, 'invoice_lines', [])
         naim_items = getattr(self.draft, 'items', [])
@@ -212,11 +212,11 @@ class ChatWorker(QThread):
             countries[c] = countries.get(c, 0) + 1
         country_str = ", ".join(f"{k}:{v}" for k, v in sorted(countries.items()))
 
-        # === STAVKE â€” pametno skraÄ‡ivanje za velike fakture ===
-        _MAX_FULL = 15  # Smanjeno sa 30 na 15 da se uÅ¡tede tokeni
+        # === STAVKE — pametno skraćivanje za velike fakture ===
+        _MAX_FULL = 15  # Smanjeno sa 30 na 15 da se uštede tokeni
 
         def _fmt_line(i, l):
-            """Kompaktni format â€” Å¡tedi ~40% tokena."""
+            """Kompaktni format — štedi ~40% tokena."""
             naziv = getattr(l, 'naziv_robe', '') or ''
             tarifa = getattr(l, 'tarifni_broj', '') or '?'
             zemlja = getattr(l, 'zemlja_porijekla', '') or '?'
@@ -226,15 +226,15 @@ class ChatWorker(QThread):
             eur1 = getattr(l, 'eur1_number', '') or ''
             kol_str = f"{kolicina}{jm}".strip() if kolicina else '?'
             eur1_str = f" eur1={eur1}" if eur1 else ""
-            tarifa_marker = "" if tarifa != '?' else " âš ï¸NEMA_TARIFE"
-            zemlja_marker = "" if zemlja != '?' else " âš ï¸NEMA_ZEMLJE"
+            tarifa_marker = "" if tarifa != '?' else " ⚠️NEMA_TARIFE"
+            zemlja_marker = "" if zemlja != '?' else " ⚠️NEMA_ZEMLJE"
             # Kompaktni format: "  1. Mandarine | 08052190 | TR | 100kg | pov=P"
             return (
                 f"  {i:3d}. {naziv[:40]:<40} | {tarifa}{tarifa_marker} | "
                 f"{zemlja}{zemlja_marker} | {kol_str} | pov={pov}{eur1_str}"
             )
 
-        # Identifikuj problematiÄne stavke (prioritet za AI)
+        # Identifikuj problematične stavke (prioritet za AI)
         def _is_problematic(l):
             no_tariff = not getattr(l, 'tarifni_broj', None)
             no_country = not getattr(l, 'zemlja_porijekla', None)
@@ -247,26 +247,26 @@ class ChatWorker(QThread):
 
         sve_stavke = []
         if total <= _MAX_FULL:
-            # Mala faktura â€” Å¡alji sve
+            # Mala faktura — šalji sve
             ctx_header = f"=== SVE STAVKE ({total}) ==="
             for i, l in enumerate(lines, 1):
                 sve_stavke.append(_fmt_line(i, l))
         else:
-            # Velika faktura â€” prioritizuj problematiÄne
+            # Velika faktura — prioritizuj problematične
             problematic = [(i, l) for i, l in enumerate(lines, 1) if _is_problematic(l)]
             ok_lines = [(i, l) for i, l in enumerate(lines, 1) if not _is_problematic(l)]
 
             ctx_header = (
-                f"=== PROBLEMATIÄŒNE STAVKE ({len(problematic)}/{total}) ===\n"
-                f"  (Prikazane stavke koje zahtijevaju paÅ¾nju; "
+                f"=== PROBLEMATIČNE STAVKE ({len(problematic)}/{total}) ===\n"
+                f"  (Prikazane stavke koje zahtijevaju pažnju; "
                 f"preostalih {len(ok_lines)} urednih stavki dato je kao sumarnik)"
             )
-            for i, l in problematic[:50]:  # max 50 problematiÄnih
+            for i, l in problematic[:50]:  # max 50 problematičnih
                 sve_stavke.append(_fmt_line(i, l))
 
             if ok_lines:
                 sve_stavke.append("")
-                sve_stavke.append(f"  --- Uredne stavke â€” sumarnik po tarifi ({len(ok_lines)} stavki) ---")
+                sve_stavke.append(f"  --- Uredne stavke — sumarnik po tarifi ({len(ok_lines)} stavki) ---")
                 tariff_counts: dict = {}
                 for _, l in ok_lines:
                     t = getattr(l, 'tarifni_broj', '?') or '?'
@@ -274,22 +274,22 @@ class ChatWorker(QThread):
                 for t, cnt in sorted(tariff_counts.items(), key=lambda x: -x[1])[:20]:
                     sve_stavke.append(f"  tarifa={t}: {cnt} stavki")
 
-        # === ZONE KONTEKSTA â€” selektivno po tipu upita ===
+        # === ZONE KONTEKSTA — selektivno po tipu upita ===
         msg_lower = self.message.lower()
         zones = self._determine_context_zones(msg_lower)
 
-        # Zone A: db_context â€” uvijek ukljuÄen
+        # Zone A: db_context — uvijek uključen
         ctx = [
             f"=== STANJE DRAFTA ===",
             f"Ukupno stavki: {total}",
             f"Bez tarifnog broja: {len(bez_tarife_list)}",
             f"Bez zemlje porijekla: {len(bez_zemlje_list)}",
             f"Sa povlasticom: {sa_povlasticom}",
-            f"ÄŒeka EUR1 broj: {bez_eur1}",
+            f"Čeka EUR1 broj: {bez_eur1}",
             f"Zemlja distribucija: {country_str}",
         ]
 
-        # Zone B: session_context â€” poÅ¡iljalac/uvoznik/XML (uvijek ako postoji)
+        # Zone B: session_context — pošiljalac/uvoznik/XML (uvijek ako postoji)
         session_lines = self._build_session_zone(lines)
         if session_lines:
             ctx.append("")
@@ -304,17 +304,17 @@ class ChatWorker(QThread):
         ctx.extend(["", ctx_header])
         ctx.extend(sve_stavke)
 
-        # Zone C: knowledge_context â€” KB + RAG prijedlozi (samo za tarif upite, ne za zakonska pitanja)
+        # Zone C: knowledge_context — KB + RAG prijedlozi (samo za tarif upite, ne za zakonska pitanja)
         if 'knowledge' in zones:
             knowledge_lines = self._build_knowledge_zone(bez_tarife_list)
             if knowledge_lines:
                 ctx.append("")
                 ctx.extend(knowledge_lines)
 
-        # === NAIMENOVANJA (draft.items) â€” grupisane stavke za deklaraciju ===
-        naim_pg_desc: dict = {}  # zvaniÄni opisi tarifa za naimenovanja
+        # === NAIMENOVANJA (draft.items) — grupisane stavke za deklaraciju ===
+        naim_pg_desc: dict = {}  # zvanični opisi tarifa za naimenovanja
         if naim_items:
-            # Dohvati zvaniÄne opise tarifa za sva naimenovanja odjednom
+            # Dohvati zvanične opise tarifa za sva naimenovanja odjednom
             naim_tariff_codes = [
                 (getattr(it, 'tariff_code', '') or '').strip()
                 for it in naim_items if getattr(it, 'tariff_code', None)
@@ -325,22 +325,22 @@ class ChatWorker(QThread):
             ctx.append(
                 f"=== NAIMENOVANJA ({len(naim_items)} stavki u deklaraciji) ===\n"
                 f"  (Naimenovanje = grupirana stavka carinske deklaracije; "
-                f"viÅ¡e redova fakture sa istim tarifnim brojem spaja se u jedno naimenovanje)"
+                f"više redova fakture sa istim tarifnim brojem spaja se u jedno naimenovanje)"
             )
             ctx.append(
                 f"  {'Rb.':<5} {'Tarifni br.':<12} {'Opis robe (u deklaraciji)':<40} "
-                f"{'ZvaniÄni opis tarife':<40} {'Z.':<4} {'Povl.':<7} {'Bruto':>8} {'Neto':>8} {'Fakt.lin.':>9}"
+                f"{'Zvanični opis tarife':<40} {'Z.':<4} {'Povl.':<7} {'Bruto':>8} {'Neto':>8} {'Fakt.lin.':>9}"
             )
             ctx.append("  " + "-" * 135)
             for item in naim_items:
                 rb    = getattr(item, 'ordinal_no', '?')
-                tarif = getattr(item, 'tariff_code', '') or 'âš ï¸NEMA'
+                tarif = getattr(item, 'tariff_code', '') or '⚠️NEMA'
                 opis  = (getattr(item, 'goods_description', '') or '')[:39]
                 zemlja = getattr(item, 'origin_country_code', '') or '?'
                 pov   = getattr(item, 'preference_code', '') or '-'
                 bruto = getattr(item, 'gross_mass_kg', 0) or 0
                 neto  = getattr(item, 'net_mass_kg', 0) or 0
-                zv_opis = naim_pg_desc.get(tarif, '')[:39] if tarif != 'âš ï¸NEMA' else '(nema tarife)'
+                zv_opis = naim_pg_desc.get(tarif, '')[:39] if tarif != '⚠️NEMA' else '(nema tarife)'
                 n_lines = sum(
                     1 for l in lines
                     if getattr(l, 'assigned_naimenovanje_ordinal', 0) == rb
@@ -350,10 +350,10 @@ class ChatWorker(QThread):
                     f"{zemlja:<4} {pov:<7} {bruto:>8.2f} {neto:>8.2f} {n_lines:>9}"
                 )
 
-            # â­ DETALJNE RUBRIKE â€” KOMPAKTNI FORMAT (Å¡tedi ~60% tokena)
-            # Detalji se Å¡alju samo kad korisnik eksplicitno traÅ¾i
+            # ⭐ DETALJNE RUBRIKE — KOMPAKTNI FORMAT (štedi ~60% tokena)
+            # Detalji se šalju samo kad korisnik eksplicitno traži
             ctx.append("")
-            ctx.append("=== NAIMENOVANJA â€” SAÅ½ETO (detalji na zahtjev) ===")
+            ctx.append("=== NAIMENOVANJA — SAŽETO (detalji na zahtjev) ===")
             for item in naim_items:
                 rb = getattr(item, 'ordinal_no', '?')
                 tarif = getattr(item, 'tariff_code', '') or 'NEMA'
@@ -376,7 +376,7 @@ class ChatWorker(QThread):
 
         msg = self.message.lower()
 
-        # === ZAKONSKA REGULATIVA â€” samo kada pitanje traÅ¾i zakonski/proceduralni kontekst ===
+        # === ZAKONSKA REGULATIVA — samo kada pitanje traži zakonski/proceduralni kontekst ===
         if self._is_regulatory_question(msg):
             kb_regulativa = self._search_knowledge_base(self.message)
             if kb_regulativa:
@@ -384,15 +384,15 @@ class ChatWorker(QThread):
                 ctx.append("=== ZAKONSKA REGULATIVA (relevantni odlomci) ===")
                 ctx.extend(kb_regulativa)
 
-        # === DETALJI KONKRETNIH NAIMENOVANJA â€” kad korisnik pita za Rb. X, Y ===
+        # === DETALJI KONKRETNIH NAIMENOVANJA — kad korisnik pita za Rb. X, Y ===
         if self._is_review_request(msg):
             # Pretvori redne brojeve (prvi, drugi...) i kardinalne (1, 2...) u listu indeksa
             _REDNI_MAP = {
                 'prvi': 1, 'prvog': 1, 'prvo': 1, 'prva': 1,
                 'drugi': 2, 'drugog': 2, 'drugo': 2, 'druga': 2,
-                'treÄ‡i': 3, 'treÄ‡eg': 3, 'treÄ‡e': 3, 'treca': 3, 'treceg': 3,
-                'Äetvrti': 4, 'cetvrti': 4, 'Äetvrtog': 4,
-                'peti': 5, 'petog': 5, 'Å¡esti': 6, 'sedmi': 7,
+                'treći': 3, 'trećeg': 3, 'treće': 3, 'treca': 3, 'treceg': 3,
+                'četvrti': 4, 'cetvrti': 4, 'četvrtog': 4,
+                'peti': 5, 'petog': 5, 'šesti': 6, 'sedmi': 7,
                 'osmi': 8, 'deveti': 9, 'deseti': 10,
                 'posljednji': len(naim_items), 'zadnji': len(naim_items),
             }
@@ -402,9 +402,9 @@ class ChatWorker(QThread):
             mentioned_indices = list(dict.fromkeys(_digit_indices + _ordinal_indices))
 
             if mentioned_indices and naim_items:
-                # Korisnik pita za konkretna naimenovanja â€” prikaÅ¾i detalje sa fakturnih linija
+                # Korisnik pita za konkretna naimenovanja — prikaži detalje sa fakturnih linija
                 ctx.append("")
-                ctx.append(f"=== DETALJI TRAÅ½ENIH NAIMENOVANJA (Rb. {', '.join(map(str, mentioned_indices))}) ===")
+                ctx.append(f"=== DETALJI TRAŽENIH NAIMENOVANJA (Rb. {', '.join(map(str, mentioned_indices))}) ===")
                 for i in mentioned_indices:
                     if 0 < i <= len(naim_items):
                         item = naim_items[i - 1]
@@ -414,13 +414,13 @@ class ChatWorker(QThread):
                         pov = getattr(item, 'preference_code', '') or '-'
                         bruto = getattr(item, 'gross_mass_kg', 0) or 0
                         neto = getattr(item, 'net_mass_kg', 0) or 0
-                        zv_opis = naim_pg_desc.get(tarif, '(nije naÄ‘en u tarifi)')
+                        zv_opis = naim_pg_desc.get(tarif, '(nije nađen u tarifi)')
 
                         ctx.append(f"  Rb.{i}: tarifa={tarif} | opis='{opis}' | zemlja={zemlja} | povl={pov}")
                         ctx.append(f"         bruto={bruto:.3f}kg | neto={neto:.3f}kg")
-                        ctx.append(f"         ZvaniÄni opis tarife {tarif}: {zv_opis}")
+                        ctx.append(f"         Zvanični opis tarife {tarif}: {zv_opis}")
 
-                        # PronaÄ‘i fakturne linije koje su grupisane u ovo naimenovanje
+                        # Pronađi fakturne linije koje su grupisane u ovo naimenovanje
                         matching_lines = [
                             l for l in lines
                             if getattr(l, 'assigned_naimenovanje_ordinal', 0) == i
@@ -440,14 +440,14 @@ class ChatWorker(QThread):
                         else:
                             ctx.append(f"         Fakturne linije: 0 (naimenovanje bez dodjele)")
             else:
-                # Generalni pregled â€” tarife za prvih 15 stavki (prioritet: bez tarife)
+                # Generalni pregled — tarife za prvih 15 stavki (prioritet: bez tarife)
                 bez = [l for l in lines if not getattr(l, 'tarifni_broj', None)]
                 sa  = [l for l in lines if getattr(l, 'tarifni_broj', None)]
                 target_lines = (bez + sa)[:15]
                 tariff_validation = self._build_tariff_validation_context(target_lines)
                 if tariff_validation:
                     ctx.append("")
-                    ctx.append("=== TARIFNI BROJEVI â€” opisi iz Carinske tarife 2026 ===")
+                    ctx.append("=== TARIFNI BROJEVI — opisi iz Carinske tarife 2026 ===")
                     ctx.extend(tariff_validation)
 
         # === PRETRAGA XML DEKLARACIJA + BAZE ===
@@ -459,12 +459,12 @@ class ChatWorker(QThread):
 
         return "\n".join(ctx)
 
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    # ZONE KONTEKSTA â€” selektivno ukljuÄivanje po tipu upita
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ─────────────────────────────────────────────────────────────────────
+    # ZONE KONTEKSTA — selektivno uključivanje po tipu upita
+    # ─────────────────────────────────────────────────────────────────────
 
     def _build_zaglavlje_zone(self) -> list:
-        """Zaglavlje deklaracije â€” Rb.1-49 polja koja agent nije vidio."""
+        """Zaglavlje deklaracije — Rb.1-49 polja koja agent nije vidio."""
         d = self.draft
         if not d:
             return []
@@ -500,7 +500,7 @@ class ChatWorker(QThread):
 
         drzava_iz = getattr(d, 'drzava_izvoza_naziv', '') or getattr(d, 'drzava_izvoza_sifra', '')
         if drzava_iz:
-            lines.append(f"  DrÅ¾ava izvoza (Rb.15):     {drzava_iz}")
+            lines.append(f"  Država izvoza (Rb.15):     {drzava_iz}")
 
         troskovi = []
         for i, attr in enumerate(['trosak_1','trosak_2','trosak_3','trosak_4','trosak_5'], 1):
@@ -508,11 +508,11 @@ class ChatWorker(QThread):
             if v not in ('0,00', '0', '', '0.00'):
                 troskovi.append(f"T{i}={v}")
         if troskovi:
-            lines.append(f"  TroÅ¡kovi:                  {', '.join(troskovi)}")
+            lines.append(f"  Troškovi:                  {', '.join(troskovi)}")
 
         header_docs = getattr(d, 'header_attached_documents', []) or []
         if header_docs:
-            lines.append(f"  PriloÅ¾ene isprave (Rb.44):")
+            lines.append(f"  Priložene isprave (Rb.44):")
             for doc in header_docs:
                 name   = getattr(doc, 'name', '') or ''
                 number = getattr(doc, 'number', '') or ''
@@ -526,26 +526,26 @@ class ChatWorker(QThread):
         Odredi koje zone konteksta su potrebne za dati upit.
 
         Zone:
-          'knowledge'  â€” KB + RAG prijedlozi tarife (za upite o tarifi/prijedlogu)
-          'regulatory' â€” zakonski odlomci (za zakonska pitanja)
-          'tariff_val' â€” opisi tarifa iz tarife 2026 (za pregled/validaciju)
-          'declarations' â€” pretraga XML deklaracija
+          'knowledge'  — KB + RAG prijedlozi tarife (za upite o tarifi/prijedlogu)
+          'regulatory' — zakonski odlomci (za zakonska pitanja)
+          'tariff_val' — opisi tarifa iz tarife 2026 (za pregled/validaciju)
+          'declarations' — pretraga XML deklaracija
 
-        db_context i session_context su uvijek ukljuÄeni.
+        db_context i session_context su uvijek uključeni.
         """
         zones = set()
 
-        # Tarif/prijedlog â†’ knowledge zona
+        # Tarif/prijedlog → knowledge zona
         tariff_kw = [
-            'tarif', 'tarifni', 'hs kod', 'hs code', 'predloÅ¾i', 'predlozi',
+            'tarif', 'tarifni', 'hs kod', 'hs code', 'predloži', 'predlozi',
             'popuni', 'procijeni', 'koji kod', 'koja tarifa', 'razvrstaj',
         ]
         if any(k in msg for k in tariff_kw):
             zones.add('knowledge')
 
-        # Zakonska pitanja â†’ regulatory zona (ali NE knowledge)
+        # Zakonska pitanja → regulatory zona (ali NE knowledge)
         regulatory_kw = [
-            'zakon', 'pravilnik', 'propis', 'uredba', 'Älan', 'procedur',
+            'zakon', 'pravilnik', 'propis', 'uredba', 'član', 'procedur',
             'postupak', 'uvjet', 'uslov', 'rok', 'slobodan promet', 'regulat',
             'konvencija', 'sporazum',
         ]
@@ -555,7 +555,7 @@ class ChatWorker(QThread):
             # Za neregulativna pitanja dodaj knowledge ako ima stavki bez tarife
             zones.add('knowledge')
 
-        # Pregled/validacija â†’ tariff_val zona
+        # Pregled/validacija → tariff_val zona
         review_kw = [
             'provjeri', 'pregledaj', 'validiraj', 'ispravan', 'da li je sve',
             'sve u redu', 'review', 'check', 'pregled',
@@ -572,15 +572,15 @@ class ChatWorker(QThread):
 
     def _build_knowledge_zone(self, bez_tarife_list: list) -> list:
         """
-        Zone C â€” KB + RAG prijedlozi tarife za stavke bez tarifnog broja.
-        PreskaÄi se za Äisto zakonska pitanja.
+        Zone C — KB + RAG prijedlozi tarife za stavke bez tarifnog broja.
+        Preskači se za čisto zakonska pitanja.
         """
         if not bez_tarife_list:
             return []
 
         result = []
 
-        # KB prijedlozi â€” docs/architecture/TARIFF_FACADE_REFACTORING.md
+        # KB prijedlozi — docs/architecture/TARIFF_FACADE_REFACTORING.md
         kb_prijedlozi = []
         try:
             from services.tariff_facade import TariffFacade
@@ -592,16 +592,16 @@ class ChatWorker(QThread):
                 fast = facade.suggest_fast(naziv, product_code)
                 if fast and fast.tarifni_broj:
                     kb_prijedlozi.append(
-                        f"  '{naziv[:50]}' â†’ tarifa={fast.tarifni_broj} "
-                        f"(sliÄnost={fast.confidence:.0%})"
+                        f"  '{naziv[:50]}' → tarifa={fast.tarifni_broj} "
+                        f"(sličnost={fast.confidence:.0%})"
                     )
                 else:
-                    kb_prijedlozi.append(f"  '{naziv[:50]}' â†’ (nije u bazi znanja)")
+                    kb_prijedlozi.append(f"  '{naziv[:50]}' → (nije u bazi znanja)")
         except Exception as e:
-            kb_prijedlozi.append(f"  (greÅ¡ka pri upitu baze znanja: {e})")
+            kb_prijedlozi.append(f"  (greška pri upitu baze znanja: {e})")
 
         if kb_prijedlozi:
-            result.append("=== BAZA ZNANJA â€” prijedlozi tarife za stavke bez tarife ===")
+            result.append("=== BAZA ZNANJA — prijedlozi tarife za stavke bez tarife ===")
             result.extend(kb_prijedlozi)
 
         # RAG prijedlozi (istorija deklaracija)
@@ -617,7 +617,7 @@ class ChatWorker(QThread):
                     historija = facade.rag_candidates(naziv, limit=4)
                     for r in historija:
                         rag_prijedlozi.append(
-                            f"  '{naziv[:40]}' â†’ tarifa={r.get('tarifni_kod', '?')} "
+                            f"  '{naziv[:40]}' → tarifa={r.get('tarifni_kod', '?')} "
                             f"(istorija: {r.get('naziv_robe', '')[:40]})"
                         )
         except Exception:
@@ -626,16 +626,16 @@ class ChatWorker(QThread):
         if rag_prijedlozi:
             if result:
                 result.append("")
-            result.append("=== ISTORIJA DEKLARACIJA â€” prijedlozi tarife ===")
+            result.append("=== ISTORIJA DEKLARACIJA — prijedlozi tarife ===")
             result.extend(rag_prijedlozi)
 
         return result
 
     def _build_session_zone(self, lines: list) -> list:
         """
-        Zone B â€” poÅ¡iljalac/uvoznik + XML predloÅ¾ak.
+        Zone B — pošiljalac/uvoznik + XML predložak.
 
-        JIB se nikad ne Å¡alje LLM-u â€” koristi se samo lokalno za XML lookup.
+        JIB se nikad ne šalje LLM-u — koristi se samo lokalno za XML lookup.
         Ako je SEND_SENSITIVE_DATA=false (default), imena partnera se maskiraju.
         """
         result = []
@@ -656,7 +656,7 @@ class ChatWorker(QThread):
             if not consignee_jib:
                 consignee_jib = getattr(self.draft, 'izvoznik_id', '') or ''
 
-        # XML lookup â€” lokalna operacija, koristi puna imena i JIB
+        # XML lookup — lokalna operacija, koristi puna imena i JIB
         if exporter_name:
             try:
                 from services.agent.exporter_xml_indexer import find_xml_for_pair
@@ -669,7 +669,7 @@ class ChatWorker(QThread):
                     import os
                     fname = os.path.basename(match['xml_filepath'])
                     xml_lookup_info = (
-                        f"PronaÄ‘en XML predloÅ¾ak: {fname} "
+                        f"Pronađen XML predložak: {fname} "
                         f"(match: {match['match_type']})"
                         # consignee_original se namjerno izostavlja iz LLM konteksta
                     )
@@ -682,48 +682,48 @@ class ChatWorker(QThread):
         # Provjeri da li je dozvoljeno slanje osjetljivih podataka eksternom LLM-u
         send_sensitive = self._allow_sensitive_data()
 
-        result.append("=== POÅ ILJALAC / UVOZNIK ===")
+        result.append("=== POŠILJALAC / UVOZNIK ===")
 
         if send_sensitive:
             if exporter_name:
-                result.append(f"PoÅ¡iljalac (iz fakture): {exporter_name}")
+                result.append(f"Pošiljalac (iz fakture): {exporter_name}")
             if consignee_name:
-                # JIB se nikad ne Å¡alje â€” nije potreban LLM-u
+                # JIB se nikad ne šalje — nije potreban LLM-u
                 result.append(f"Uvoznik (rubrika 8): {consignee_name}")
             elif consignee_jib:
                 result.append("Uvoznik (rubrika 8): [postoji, ime nije dostupno]")
         else:
-            # Maskiranje â€” LLM zna da partneri postoje, ali ne zna ko su
+            # Maskiranje — LLM zna da partneri postoje, ali ne zna ko su
             if exporter_name:
-                result.append("PoÅ¡iljalac (iz fakture): [ime skriveno â€” SEND_SENSITIVE_DATA=false]")
+                result.append("Pošiljalac (iz fakture): [ime skriveno — SEND_SENSITIVE_DATA=false]")
             if consignee_name or consignee_jib:
-                result.append("Uvoznik (rubrika 8): [ime skriveno â€” SEND_SENSITIVE_DATA=false]")
+                result.append("Uvoznik (rubrika 8): [ime skriveno — SEND_SENSITIVE_DATA=false]")
 
         if xml_lookup_info:
-            result.append(f"XML predloÅ¾ak: {xml_lookup_info}")
+            result.append(f"XML predložak: {xml_lookup_info}")
         elif exporter_name:
-            result.append("XML predloÅ¾ak: nije pronaÄ‘en u bazi")
+            result.append("XML predložak: nije pronađen u bazi")
 
         return result
 
     @staticmethod
     def _is_review_request(msg: str) -> bool:
-        """Da li korisnik traÅ¾i pregled/validaciju/prijedlog tarife?"""
+        """Da li korisnik traži pregled/validaciju/prijedlog tarife?"""
         keywords = [
             'pregled', 'pregledaj', 'provjeri', 'provjera', 'validiraj', 'validacija',
-            'uskladi', 'usklaÄ‘', 'tarifni broj', 'tarife', 'ispravan', 'ispravnost',
-            'greÅ¡ka', 'greÅ¡k', 'da li je sve', 'sve u redu', 'review', 'check',
+            'uskladi', 'usklađ', 'tarifni broj', 'tarife', 'ispravan', 'ispravnost',
+            'greška', 'grešk', 'da li je sve', 'sve u redu', 'review', 'check',
             # Prijedlog tarife
-            'predloÅ¾i', 'predlozi', 'procijeni', 'procjeni', 'koji tarif', 'koja tarif',
+            'predloži', 'predlozi', 'procijeni', 'procjeni', 'koji tarif', 'koja tarif',
             'tarifa za', 'hs kod', 'naimenovanj', 'stavk',
         ]
         return any(k in msg for k in keywords)
 
     @staticmethod
     def _is_regulatory_question(msg: str) -> bool:
-        """Da li pitanje traÅ¾i zakonski/proceduralni odgovor?"""
+        """Da li pitanje traži zakonski/proceduralni odgovor?"""
         keywords = [
-            'zakon', 'pravilnik', 'propis', 'uredba', 'Älan', 'procedur', 'postupak',
+            'zakon', 'pravilnik', 'propis', 'uredba', 'član', 'procedur', 'postupak',
             'uvjet', 'uslov', 'dokument', 'rok', 'privremeni', 'carinski', 'uvoz',
             'izvoz', 'povlastica', 'porijeklo', 'carinska vrijednost', 'eur1', 'pe1', 'pe2',
             'konvencija', 'sporazum', 'tarifa', 'obrada', 'slobodan promet', 'regulat'
@@ -732,18 +732,18 @@ class ChatWorker(QThread):
 
     def _build_tariff_validation_context(self, lines: list) -> list:
         """
-        Za svaki tarifni broj iz drafta dohvata zvaniÄni opis iz Carinske tarife.
+        Za svaki tarifni broj iz drafta dohvata zvanični opis iz Carinske tarife.
 
         Primarni izvor: PostgreSQL catalogs.zvanicna_tarifa (opis po tarifnom kodu).
         Fallback: KnowledgeBase PDF tarife.
 
-        OmoguÄ‡ava LLM-u da poredi naziv robe sa zvaniÄnim opisom tarife i procijeni
+        Omogućava LLM-u da poredi naziv robe sa zvaničnim opisom tarife i procijeni
         da li je tarifni broj ispravan.
         """
         if not lines:
             return []
 
-        # Skupi sve tarifne kodove sa njihovim nazivima (po viÅ¡e stavki po tarifi)
+        # Skupi sve tarifne kodove sa njihovim nazivima (po više stavki po tarifi)
         # Format: {kod: [naziv1, naziv2, ...]}
         tariff_to_names: dict = {}
         for l in lines:
@@ -778,12 +778,12 @@ class ChatWorker(QThread):
 
         lines_out = []
         lines_out.append(
-            f"  {'Tarif. br.':<12} {'Naziv robe (u deklaraciji)':<48} {'ZvaniÄni opis iz tarife'}"
+            f"  {'Tarif. br.':<12} {'Naziv robe (u deklaraciji)':<48} {'Zvanični opis iz tarife'}"
         )
         lines_out.append("  " + "-" * 120)
 
         for code, nazivi in tariff_to_names.items():
-            opis = pg_descriptions.get(code) or kb_descriptions.get(code) or "(nije pronaÄ‘en u tarifi)"
+            opis = pg_descriptions.get(code) or kb_descriptions.get(code) or "(nije pronađen u tarifi)"
             # Sve nazive robe grupisane pod jedan tarifni kod
             for i, naziv in enumerate(nazivi[:3]):  # max 3 naziva po tarifi
                 prefix = code if i == 0 else " " * len(code)
@@ -796,8 +796,8 @@ class ChatWorker(QThread):
         """
         Dohvati opise tarifnih brojeva iz PostgreSQL catalogs.zvanicna_tarifa.
 
-        Baza Äuva 10-cifrene kodove (npr. '0805219000').
-        Draft moÅ¾e imati 8-cifrene (npr. '08052190') â€” dodajemo '00' na kraj.
+        Baza čuva 10-cifrene kodove (npr. '0805219000').
+        Draft može imati 8-cifrene (npr. '08052190') — dodajemo '00' na kraj.
 
         Returns:
             {originalni_kod: opis_string}
@@ -811,12 +811,12 @@ class ChatWorker(QThread):
             def only_digits(c):
                 return ''.join(ch for ch in c if ch.isdigit())
 
-            # Gradi mapu: 10-cifreni_u_bazi â†’ originalni_kod
+            # Gradi mapu: 10-cifreni_u_bazi → originalni_kod
             lookup: dict = {}  # {10-digit: original_code}
             for code in codes:
                 d = only_digits(code)
                 if len(d) == 8:
-                    lookup[d + '00'] = code  # 08052190 â†’ 0805219000
+                    lookup[d + '00'] = code  # 08052190 → 0805219000
                 elif len(d) == 10:
                     lookup[d] = code
                 elif len(d) == 6:
@@ -845,13 +845,13 @@ class ChatWorker(QThread):
                     result[orig] = (row['opis'] or '')[:150]
 
         except Exception as e:
-            print(f"[ChatWorker] PG tariff lookup greÅ¡ka: {e}")
+            print(f"[ChatWorker] PG tariff lookup greška: {e}")
 
         return result
 
     @staticmethod
     def _extract_tariff_line(code: str, chunk_text: str) -> str:
-        """Iz chunka izvlaÄi redove koji sadrÅ¾e tarifni kod ili opis pored koda."""
+        """Iz chunka izvlači redove koji sadrže tarifni kod ili opis pored koda."""
         # Formatirani oblik koda za pretragu u tekstu (npr. "0201 10 00")
         digits = "".join(c for c in code if c.isdigit())
         patterns = []
@@ -881,13 +881,13 @@ class ChatWorker(QThread):
             'istorij', 'prethodn', 'ranije', 'deklaracij', 'xml', 'asycuda',
             'starih', 'arhiv', 'uvoz', 'izvoz',
             # Pretraga robe
-            'pronaÄ‘i', 'pretraÅ¾i', 'naÄ‘i', 'potraÅ¾i', 'koji tarifni',
+            'pronađi', 'pretraži', 'nađi', 'potraži', 'koji tarifni',
             'koja tarifa', 'tarifa za', 'broj za', 'tarifni broj za',
-            # Partneri / dobavljaÄi
-            'dobavljaÄ', 'izvoznik', 'primalac', 'partner', 'firma',
-            'kompanij', 'ko nam isporuÄuje', 'ko Å¡alje',
+            # Partneri / dobavljači
+            'dobavljač', 'izvoznik', 'primalac', 'partner', 'firma',
+            'kompanij', 'ko nam isporučuje', 'ko šalje',
             # Statistika
-            'statistik', 'koliko puta', 'koliko deklaracij', 'najÄeÅ¡Ä‡e',
+            'statistik', 'koliko puta', 'koliko deklaracij', 'najčešće',
             'koliko smo', 'ukupno', 'porijek',
             # Zemlja
             'zemlja porijekla', 'porijeklom iz', 'roba iz',
@@ -895,7 +895,7 @@ class ChatWorker(QThread):
         return any(k in msg for k in keywords)
 
     def _search_declarations_context(self, query: str) -> list:
-        """PretraÅ¾uje XML deklaracije i PostgreSQL bazu, vraÄ‡a kontekst za AI."""
+        """Pretražuje XML deklaracije i PostgreSQL bazu, vraća kontekst za AI."""
         ctx = []
         msg = query.lower()
 
@@ -925,11 +925,11 @@ class ChatWorker(QThread):
                             f"fajl={r.get('filename','?')}"
                         )
 
-            # Pretraga po opisu robe (ako nije Äisto pitanje o tarifi)
-            if not tariff_match or 'pronaÄ‘i' in msg or 'pretraÅ¾i' in msg or 'naÄ‘i' in msg:
+            # Pretraga po opisu robe (ako nije čisto pitanje o tarifi)
+            if not tariff_match or 'pronađi' in msg or 'pretraži' in msg or 'nađi' in msg:
                 results = svc.search_by_goods(query, limit=8)
                 if results:
-                    ctx.append(f"\nRoba pronaÄ‘ena u istorijskim deklaracijama:")
+                    ctx.append(f"\nRoba pronađena u istorijskim deklaracijama:")
                     seen = set()
                     for r in results:
                         key = r.get('hs_code', '') + r.get('commercial_desc', '')[:30]
@@ -944,13 +944,13 @@ class ChatWorker(QThread):
                         )
 
             # Pretraga po partneru
-            partner_keywords = ['dobavljaÄ', 'izvoznik', 'primalac', 'partner',
-                                 'firma', 'kompanij', 'ko nam', 'ko Å¡alje']
+            partner_keywords = ['dobavljač', 'izvoznik', 'primalac', 'partner',
+                                 'firma', 'kompanij', 'ko nam', 'ko šalje']
             if any(k in msg for k in partner_keywords):
                 send_sensitive = self._allow_sensitive_data()
                 results = svc.search_by_partner(query, limit=6)
                 if results:
-                    ctx.append(f"\nPartneri pronaÄ‘eni u istorijskim deklaracijama:")
+                    ctx.append(f"\nPartneri pronađeni u istorijskim deklaracijama:")
                     for r in results:
                         jib_display = r.get('consignee_jib', '?') if send_sensitive else "[JIB skriven]"
                         exporter_display = r.get('exporter_name', '?')[:50] if send_sensitive else "[ime skriveno]"
@@ -985,15 +985,15 @@ class ChatWorker(QThread):
                 ctx.extend(pg_results)
 
         except Exception as e:
-            ctx.append(f"  (greÅ¡ka pri pretrazi arhiva: {e})")
+            ctx.append(f"  (greška pri pretrazi arhiva: {e})")
 
         return ctx
 
     @staticmethod
     def _extract_tariff_code(text: str) -> str:
-        """IzvlaÄi tarifni broj iz upita (npr. '16010099' ili '1601 10 00')."""
+        """Izvlači tarifni broj iz upita (npr. '16010099' ili '1601 10 00')."""
         digits = re.sub(r'\D', '', text)
-        # TraÅ¾i kontinuiranu sekvencu od 6-11 cifara
+        # Traži kontinuiranu sekvencu od 6-11 cifara
         match = re.search(r'\b(\d{6,11})\b', text.replace(' ', ''))
         if match:
             return match.group(1)
@@ -1004,11 +1004,11 @@ class ChatWorker(QThread):
 
     @staticmethod
     def _extract_country_code(text: str) -> str:
-        """IzvlaÄi ISO kod zemlje iz upita (npr. 'TR', 'DE', 'RS')."""
+        """Izvlači ISO kod zemlje iz upita (npr. 'TR', 'DE', 'RS')."""
         known = {
             'tursk': 'TR', 'turkey': 'TR', 'turci': 'TR',
             'srbij': 'RS', 'srbija': 'RS',
-            'njemaÄk': 'DE', 'germany': 'DE', 'njemacka': 'DE',
+            'njemačk': 'DE', 'germany': 'DE', 'njemacka': 'DE',
             'kina': 'CN', 'china': 'CN', 'kineski': 'CN',
             'italij': 'IT', 'italy': 'IT',
             'slovenij': 'SI', 'slovenija': 'SI',
@@ -1047,7 +1047,7 @@ class ChatWorker(QThread):
                     cur.execute(query, patterns)
                     results = []
                     for row in cur.fetchall():
-                        name_display = row['name'] if send_sensitive else "[ime skriveno â€” SEND_SENSITIVE_DATA=false]"
+                        name_display = row['name'] if send_sensitive else "[ime skriveno — SEND_SENSITIVE_DATA=false]"
                         results.append(
                             f"  [{row['type']}] {name_display} (kod: {row['code']})"
                         )
@@ -1056,7 +1056,7 @@ class ChatWorker(QThread):
             return []
 
     def _search_knowledge_base(self, query: str) -> list:
-        """PretraÅ¾uje carinske dokumente (FTS5) i KnowledgeBase, vraÄ‡a odlomke za kontekst."""
+        """Pretražuje carinske dokumente (FTS5) i KnowledgeBase, vraća odlomke za kontekst."""
         lines = []
 
         # Primarni izvor: FTS5 indeks carinskih dokumenata (BiH propisi)
@@ -1099,73 +1099,73 @@ class ChatWorker(QThread):
         
         return (
             "Ti si AI asistent za carinsku deklaraciju u aplikaciji Deklarant Pro (Bosna i Hercegovina).\n"
-            "OdgovaraÅ¡ na srpskom jeziku (latinica), konkretno i korisno.\n\n"
-            "POJMOVI KOJE MORAÅ  RAZUMJETI:\n"
-            "- FAKTURNE LINIJE (invoice_lines): PojedinaÄni redovi iz uvozne fakture â€” svaki red je jedan proizvod.\n"
+            "Odgovaraš na srpskom jeziku (latinica), konkretno i korisno.\n\n"
+            "POJMOVI KOJE MORAŠ RAZUMJETI:\n"
+            "- FAKTURNE LINIJE (invoice_lines): Pojedinačni redovi iz uvozne fakture — svaki red je jedan proizvod.\n"
             "  Polja: naziv_robe, tarifni_broj, zemlja_porijekla, povlastica, kolicina, jm, bruto_kg, neto_kg.\n\n"
             "- NAIMENOVANJA (items): Grupisane stavke CARINSKE DEKLARACIJE.\n"
-            "  PRAVILO GRUPIRANJA: Fakturne linije se grupiÅ¡u po kombinaciji:\n"
+            "  PRAVILO GRUPIRANJA: Fakturne linije se grupišu po kombinaciji:\n"
             "    (tarifni_broj + zemlja_porijekla + povlastica + eur1_number)\n"
-            "  Sve linije sa ISTOM tom kombinacijom â†’ JEDNO naimenovanje.\n"
-            "  Ako se razlikuje ijedan od ta 4 kljuÄa â†’ RAZLIÄŒITA naimenovanja.\n"
-            "  Primjer: 5 linija mandarina (sve tarifa=08052190, TR, TRP) â†’ 1 naimenovanje\n"
-            "           3 linije jabuka (08081000, RS, CEFTAP) + 5 mandarina â†’ 2 naimenovanja\n"
+            "  Sve linije sa ISTOM tom kombinacijom → JEDNO naimenovanje.\n"
+            "  Ako se razlikuje ijedan od ta 4 ključa → RAZLIČITA naimenovanja.\n"
+            "  Primjer: 5 linija mandarina (sve tarifa=08052190, TR, TRP) → 1 naimenovanje\n"
+            "           3 linije jabuka (08081000, RS, CEFTAP) + 5 mandarina → 2 naimenovanja\n"
             "  Masa se SABIRA od svih linija u grupi.\n"
             "  Opis = prvih 3 naziva robe spojeni sa '; '\n"
             "  Svako naimenovanje ima redni broj (Rb.). Rb.1 = prvo, Rb.10 = deseto.\n\n"
-            "- ZAÅ TO JE VIÅ E NAIMENOVANJA nego Å¡to korisnik oÄekuje:\n"
-            "  â†’ RazliÄite povlastice (npr. TRP vs EUP) â†’ odvojeno\n"
-            "  â†’ RazliÄite zemlje porijekla â†’ odvojeno\n"
-            "  â†’ RazliÄiti tarifni brojevi â†’ odvojeno\n"
-            "  â†’ RazliÄiti EUR.1 brojevi â†’ odvojeno\n\n"
-            "- Kad korisnik kaÅ¾e 'naimenovanje 10 i 11' â€” misli na Rb. 10 i Rb. 11 u tabeli NAIMENOVANJA\n"
-            "- Tarifni broj (HS kod): 8-10 cifara, format bez taÄaka (npr. 84713000)\n\n"
+            "- ZAŠTO JE VIŠE NAIMENOVANJA nego što korisnik očekuje:\n"
+            "  → Različite povlastice (npr. TRP vs EUP) → odvojeno\n"
+            "  → Različite zemlje porijekla → odvojeno\n"
+            "  → Različiti tarifni brojevi → odvojeno\n"
+            "  → Različiti EUR.1 brojevi → odvojeno\n\n"
+            "- Kad korisnik kaže 'naimenovanje 10 i 11' — misli na Rb. 10 i Rb. 11 u tabeli NAIMENOVANJA\n"
+            "- Tarifni broj (HS kod): 8-10 cifara, format bez tačaka (npr. 84713000)\n\n"
             "TVOJE SPOSOBNOSTI:\n"
-            "- VidiÅ¡ SVE fakturne linije i SVA naimenovanja iz aktivnog drafta â€” sa tarifima, zemljama, teÅ¾inama\n"
-            "- ImaÅ¡ pristup bazi znanja (product_tariff_mapping) â€” prijedlozi tarife za nepoznate proizvode\n"
-            "- ImaÅ¡ pristup istoriji deklaracija â€” tarife koje su ranije koriÅ¡Ä‡ene za iste/sliÄne proizvode\n"
-            "- ImaÅ¡ pristup zakonskoj regulativi (carinski zakoni, pravilnici BiH) â€” relevantni odlomci su priloÅ¾eni u kontekstu\n"
-            "- MoÅ¾eÅ¡ pretraÅ¾ivati arhiv od 2500+ istorijskih XML deklaracija iz sistema ASYCUDA\n"
-            "- MoÅ¾eÅ¡ pretraÅ¾ivati PostgreSQL bazu podataka: partnere (izvoznike, primaoce), tarifne mappinge\n"
-            "- VidiÅ¡ poÅ¡iljaoca (iz fakture) i uvoznika (JIB iz rubrike 8) â€” na osnovu toga pronalaÅ¾en XML predloÅ¾ak iz baze\n"
-            "- MoÅ¾eÅ¡ analizirati probleme i predlagati rjeÅ¡enja\n\n"
-            "OBLASTI PODRÅ KE:\n"
+            "- Vidiš SVE fakturne linije i SVA naimenovanja iz aktivnog drafta — sa tarifima, zemljama, težinama\n"
+            "- Imaš pristup bazi znanja (product_tariff_mapping) — prijedlozi tarife za nepoznate proizvode\n"
+            "- Imaš pristup istoriji deklaracija — tarife koje su ranije korišćene za iste/slične proizvode\n"
+            "- Imaš pristup zakonskoj regulativi (carinski zakoni, pravilnici BiH) — relevantni odlomci su priloženi u kontekstu\n"
+            "- Možeš pretraživati arhiv od 2500+ istorijskih XML deklaracija iz sistema ASYCUDA\n"
+            "- Možeš pretraživati PostgreSQL bazu podataka: partnere (izvoznike, primaoce), tarifne mappinge\n"
+            "- Vidiš pošiljaoca (iz fakture) i uvoznika (JIB iz rubrike 8) — na osnovu toga pronalažen XML predložak iz baze\n"
+            "- Možeš analizirati probleme i predlagati rješenja\n\n"
+            "OBLASTI PODRŠKE:\n"
             "- Tarifni brojevi (HS/TARIC): koji tarifni broj odgovara kom proizvodu\n"
             "- Zemlja porijekla: koji ISO kod odgovara kojoj zemlji\n"
             "- Povlastice: EUP (EU), CEFTAP (CEFTA), TRP (Turska), PE2 (izjava o porijeklu), EUR1 (obrazac)\n"
-            "- Validacija: provjera ispravnosti stavki, upozorenja na greÅ¡ke\n"
-            "- OpÅ¡ta pitanja o carinjenju u BIH\n"
-            "- Pretraga arhiva: 'Koji tarifni broj smo koristili za X?', 'PronaÄ‘i deklaracije sa TR porijeklom'\n"
-            "- Pretraga partnera: 'Ko nam isporuÄuje Y?', 'PronaÄ‘i dobavljaÄa Z'\n"
-            "- TumaÄenje zakonskih odredbi (koristi odlomke iz sekcije ZAKONSKA REGULATIVA)\n"
-            "- Pregled i validacija deklaracije â€” provjera usklaÄ‘enosti tarifnih brojeva sa robom\n\n"
+            "- Validacija: provjera ispravnosti stavki, upozorenja na greške\n"
+            "- Opšta pitanja o carinjenju u BIH\n"
+            "- Pretraga arhiva: 'Koji tarifni broj smo koristili za X?', 'Pronađi deklaracije sa TR porijeklom'\n"
+            "- Pretraga partnera: 'Ko nam isporučuje Y?', 'Pronađi dobavljača Z'\n"
+            "- Tumačenje zakonskih odredbi (koristi odlomke iz sekcije ZAKONSKA REGULATIVA)\n"
+            "- Pregled i validacija deklaracije — provjera usklađenosti tarifnih brojeva sa robom\n\n"
             "PRAVILA:\n"
-            "- Odgovaraj KRATKO i KONKRETNO â€” bez dugih analiza, bez zakljuÄaka, bez ponavljanja pitanja\n"
+            "- Odgovaraj KRATKO i KONKRETNO — bez dugih analiza, bez zaključaka, bez ponavljanja pitanja\n"
             "- Ako korisnik pita za tarifni broj: daj konkretnu opciju iz svog znanja o HS, "
             "navedi kao 8 cifara (npr. 56079090). Ako nisi siguran, daj 2-3 opcije.\n"
-            "- Tarifne prijedloge iz baze znanja (kontekst) preferuj nad opÅ¡tim znanjem\n"
-            "- Ako korisnik pita neÅ¡to opÅ¡te o carinjenju â€” odgovori normalno, bez liste tarifa\n"
-            "- Kad vidiÅ¡ zaglavlje (Rb.2, Rb.8, valuta, kurs...) â€” koristi te podatke u odgovorima\n"
-            "- Kad vidiÅ¡ Rub.44 dokumente â€” ukljuÄi ih u provjeru kompletnosti\n\n"
+            "- Tarifne prijedloge iz baze znanja (kontekst) preferuj nad opštim znanjem\n"
+            "- Ako korisnik pita nešto opšte o carinjenju — odgovori normalno, bez liste tarifa\n"
+            "- Kad vidiš zaglavlje (Rb.2, Rb.8, valuta, kurs...) — koristi te podatke u odgovorima\n"
+            "- Kad vidiš Rub.44 dokumente — uključi ih u provjeru kompletnosti\n\n"
             "PRIMJERI DOBRIH ODGOVORA (koristi ovaj stil):\n"
-            "K: 'Koji tarifni broj za pamuÄne Äarape?'\n"
-            "O: '61159600 â€” ÄŒarape i sliÄni proizvodi, pleteni, od pamuka (poglavlje 61, CarT BiH).'\n\n"
+            "K: 'Koji tarifni broj za pamučne čarape?'\n"
+            "O: '61159600 — Čarape i slični proizvodi, pleteni, od pamuka (poglavlje 61, CarT BiH).'\n\n"
             "K: 'Koliko naimenovanja ima deklaracija?'\n"
-            "O: 'Deklaracija ima 7 naimenovanja. Rb.3 i Rb.5 nemaju tarifni broj â€” potrebno popuniti.'\n\n"
+            "O: 'Deklaracija ima 7 naimenovanja. Rb.3 i Rb.5 nemaju tarifni broj — potrebno popuniti.'\n\n"
             "K: 'Je li EUR1 potreban za TR robu?'\n"
-            "O: 'Da â€” roba turskog porijekla (TR) uz povlasticu TRP zahtijeva EUR1 obrazac ili izjavu o porijeklu na fakturi.'\n\n"
+            "O: 'Da — roba turskog porijekla (TR) uz povlasticu TRP zahtijeva EUR1 obrazac ili izjavu o porijeklu na fakturi.'\n\n"
             "K: 'Provjeri naimenovanje 4'\n"
-            "O: 'Rb.4: tarifa 62034200 (MuÅ¡ka odijela, od vune) â€” âœ… usklaÄ‘eno s opisom. Zemlja: TR, povlastica: TRP.'\n\n"
+            "O: 'Rb.4: tarifa 62034200 (Muška odijela, od vune) — ✅ usklađeno s opisom. Zemlja: TR, povlastica: TRP.'\n\n"
             "ANALIZA NAIMENOVANJA I TARIFE:\n"
-            "U kontekstu imaÅ¡ sekciju NAIMENOVANJA sa kolonama: Rb. | Tarifni br. | Opis | ZvaniÄni opis tarife | ...\n"
-            "Kada korisnik pita za konkretna naimenovanja (npr. 'naimenovanje 10 i 11'), imaÅ¡ i sekciju\n"
-            "'DETALJI TRAÅ½ENIH NAIMENOVANJA' sa svim podacima za ta naimenovanja.\n\n"
+            "U kontekstu imaš sekciju NAIMENOVANJA sa kolonama: Rb. | Tarifni br. | Opis | Zvanični opis tarife | ...\n"
+            "Kada korisnik pita za konkretna naimenovanja (npr. 'naimenovanje 10 i 11'), imaš i sekciju\n"
+            "'DETALJI TRAŽENIH NAIMENOVANJA' sa svim podacima za ta naimenovanja.\n\n"
             "OBAVEZNO za svako pomenuto naimenovanje:\n"
-            "1. Navedi Rb., tarifni broj, opis robe i zvaniÄni opis tarife iz konteksta\n"
-            "2. Procijeni usklaÄ‘enost: âœ… UsklaÄ‘eno | âš ï¸ Provjeri | âŒ NeusklaÄ‘eno\n"
-            "3. Ako tarife nema ili je netaÄna â€” predloÅ¾i konkretan tarifni broj (samo cifre, npr. 84713000)\n"
-            "4. ObrazloÅ¾i zaÅ¡to taj tarifni broj odgovara tom proizvodu\n"
-            "Za opÄ‡i pregled svih naimenovanja: tabela Rb. | Tarif. br. | Opis | Status | Komentar\n\n"
+            "1. Navedi Rb., tarifni broj, opis robe i zvanični opis tarife iz konteksta\n"
+            "2. Procijeni usklađenost: ✅ Usklađeno | ⚠️ Provjeri | ❌ Neusklađeno\n"
+            "3. Ako tarife nema ili je netačna — predloži konkretan tarifni broj (samo cifre, npr. 84713000)\n"
+            "4. Obrazloži zašto taj tarifni broj odgovara tom proizvodu\n"
+            "Za opći pregled svih naimenovanja: tabela Rb. | Tarif. br. | Opis | Status | Komentar\n\n"
             f"{context}"
             f"{memory_info}"
         )

@@ -1,7 +1,7 @@
 ﻿"""
-QuotaService â€” preuzimanje i Äuvanje tarifnih kvota sa UINO sajta.
+QuotaService — preuzimanje i čuvanje tarifnih kvota sa UINO sajta.
 
-Tok: download PDF â†’ hash check â†’ parse â†’ insert PostgreSQL
+Tok: download PDF → hash check → parse → insert PostgreSQL
 
 Dokumentacija: scripts/quota_module_2026-04-26.md
 """
@@ -56,11 +56,11 @@ def _parse_qty(text: str) -> Optional[float]:
 
 
 def _parse_report_datetime(words: list) -> Optional[datetime]:
-    """IzvlaÄi 'Datum kreiranja izvjeÅ¡taja: 26.4.2026 7:00:18' iz words liste."""
+    """Izvlači 'Datum kreiranja izvještaja: 26.4.2026 7:00:18' iz words liste."""
     texts = [w["text"] for w in words]
     for i, t in enumerate(texts):
-        if "kreiranja" in t.lower() or "izvjeÅ¡taja:" in t.lower():
-            # Uzmi sljedeÄ‡e 2 tokene (datum i vrijeme)
+        if "kreiranja" in t.lower() or "izvještaja:" in t.lower():
+            # Uzmi sljedeće 2 tokene (datum i vrijeme)
             date_tok = texts[i + 1] if i + 1 < len(texts) else ""
             time_tok = texts[i + 2] if i + 2 < len(texts) else ""
             try:
@@ -83,14 +83,14 @@ def _parse_report_datetime(words: list) -> Optional[datetime]:
 
 def parse_uino_quota_pdf(pdf_path: str) -> QuotaSnapshot:
     """
-    Parsira UINO PDF izvjeÅ¡taj o tarifnim kvotama.
+    Parsira UINO PDF izvještaj o tarifnim kvotama.
 
     Koordinatni pragovi (x0):
-      - tarifni kod: 4 grupe cifara na x0 â‰ˆ 44, 64, 75, 86
+      - tarifni kod: 4 grupe cifara na x0 ≈ 44, 64, 75, 86
       - opis: x0 < 545
       - JM: 545 < x0 < 600
       - Odobreno: 600 < x0 < 670
-      - IskoriÅ¡teno: 670 < x0 < 745
+      - Iskorišteno: 670 < x0 < 745
       - Preostalo: x0 > 745
     """
     import pdfplumber
@@ -102,7 +102,7 @@ def parse_uino_quota_pdf(pdf_path: str) -> QuotaSnapshot:
 
     report_dt = _parse_report_datetime(all_words)
 
-    # GrupiÅ¡i rijeÄi po redu (round top na 1px â€” PDF ima sub-pixel razliku izmeÄ‘u
+    # Grupiši riječi po redu (round top na 1px — PDF ima sub-pixel razliku između
     # lijevih i desnih kolona iste vizuelne linije, npr. 163.013 vs 162.981)
     rows: dict[int, list] = defaultdict(list)
     for w in all_words:
@@ -117,8 +117,8 @@ def parse_uino_quota_pdf(pdf_path: str) -> QuotaSnapshot:
     for top in sorted(rows.keys()):
         ws = sorted(rows[top], key=lambda w: w["x0"])
 
-        # Provjeri da li red poÄinje tarifnim kodom:
-        # prvi token = 4 cifre, a zatim joÅ¡ 3 grupe cifara (2-4 cifre) na x0 < 110
+        # Provjeri da li red počinje tarifnim kodom:
+        # prvi token = 4 cifre, a zatim još 3 grupe cifara (2-4 cifre) na x0 < 110
         leading = [w for w in ws if w["x0"] < 110 and DIGIT_PATTERN.match(w["text"])]
         if len(leading) < 4:
             continue
@@ -129,7 +129,7 @@ def parse_uino_quota_pdf(pdf_path: str) -> QuotaSnapshot:
         code_parts = [w["text"] for w in leading[:4]]
         tariff_code = " ".join(code_parts)
 
-        # JM, koliÄine
+        # JM, količine
         jm_words   = [w for w in ws if 545 < w["x0"] < 600]
         odo_words  = [w for w in ws if 600 < w["x0"] < 670]
         isko_words = [w for w in ws if 670 < w["x0"] < 745]
@@ -140,10 +140,10 @@ def parse_uino_quota_pdf(pdf_path: str) -> QuotaSnapshot:
         used      = _parse_qty(isko_words[0]["text"]) if isko_words else None
         remaining = _parse_qty(pre_words[0]["text"])  if pre_words  else None
 
-        # Opis: sve rijeÄi izmeÄ‘u koda i JM kolone (x0 izmeÄ‘u 100 i 545)
+        # Opis: sve riječi između koda i JM kolone (x0 između 100 i 545)
         desc_words = [w["text"] for w in ws if 100 <= w["x0"] < 545]
         # Ukloni soft-hyphen separator
-        desc_words = [t for t in desc_words if t not in ("\xad", "-", "Â­")]
+        desc_words = [t for t in desc_words if t not in ("\xad", "-", "­")]
         description = " ".join(desc_words)
 
         items.append(QuotaItem(
@@ -214,7 +214,7 @@ def ensure_tables():
 
 
 def snapshot_exists(pdf_hash: str) -> Optional[int]:
-    """VraÄ‡a snapshot_id ako PDF sa tim hashom veÄ‡ postoji, inaÄe None."""
+    """Vraća snapshot_id ako PDF sa tim hashom već postoji, inače None."""
     from database.db import get_db_connection
     with get_db_connection() as conn:
         with conn.cursor() as cur:
@@ -227,7 +227,7 @@ def snapshot_exists(pdf_hash: str) -> Optional[int]:
 
 
 def insert_snapshot(snapshot: QuotaSnapshot) -> int:
-    """Upisuje snapshot i stavke, vraÄ‡a snapshot_id."""
+    """Upisuje snapshot i stavke, vraća snapshot_id."""
     from database.db import get_db_connection
     with get_db_connection() as conn:
         with conn.cursor() as cur:
@@ -258,7 +258,7 @@ def insert_snapshot(snapshot: QuotaSnapshot) -> int:
 
 
 def get_latest_snapshot_meta() -> Optional[dict]:
-    """VraÄ‡a metapodatke posljednjeg snapshota."""
+    """Vraća metapodatke posljednjeg snapshota."""
     from database.db import get_db_connection
     with get_db_connection() as conn:
         with conn.cursor() as cur:
@@ -272,7 +272,7 @@ def get_latest_snapshot_meta() -> Optional[dict]:
 
 
 def get_snapshot_items(snapshot_id: int) -> list[dict]:
-    """VraÄ‡a sve stavke za dati snapshot."""
+    """Vraća sve stavke za dati snapshot."""
     from database.db import get_db_connection
     with get_db_connection() as conn:
         with conn.cursor() as cur:
@@ -295,9 +295,9 @@ def refresh_quota_data() -> tuple[int, str]:
     Preuzima PDF, parsira i upisuje u bazu.
 
     Returns:
-        (snapshot_id, status_msg)  gdje status_msg opisuje Å¡ta se desilo.
+        (snapshot_id, status_msg)  gdje status_msg opisuje šta se desilo.
     Raises:
-        Exception na mreÅ¾nu ili parse greÅ¡ku.
+        Exception na mrežnu ili parse grešku.
     """
     import urllib.request
 
@@ -318,15 +318,15 @@ def refresh_quota_data() -> tuple[int, str]:
         logger.info(f"PDF preuzet: {len(data)} bajtova")
     except Exception as e:
         Path(tmp_path).unlink(missing_ok=True)
-        raise ConnectionError(f"Nije moguÄ‡e preuzeti UINO PDF: {e}") from e
+        raise ConnectionError(f"Nije moguće preuzeti UINO PDF: {e}") from e
 
     try:
         snapshot = parse_uino_quota_pdf(tmp_path)
     except Exception as e:
         Path(tmp_path).unlink(missing_ok=True)
         raise ValueError(
-            "PDF je preuzet, ali parser nije mogao proÄitati podatke. "
-            "MoguÄ‡e je da je UINO promijenio format izvjeÅ¡taja."
+            "PDF je preuzet, ali parser nije mogao pročitati podatke. "
+            "Moguće je da je UINO promijenio format izvještaja."
         ) from e
     finally:
         Path(tmp_path).unlink(missing_ok=True)

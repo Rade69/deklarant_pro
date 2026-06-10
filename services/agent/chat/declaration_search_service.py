@@ -1,10 +1,10 @@
 ﻿"""
-DeclarationSearchService â€” pretraga istorijskih XML deklaracija.
+DeclarationSearchService — pretraga istorijskih XML deklaracija.
 
 Indeksira 2500+ XML fajlova iz NOVA ASIKUDA foldera u SQLite bazu
 (gradi se jednom, obnavljuje se samo kad ima novih fajlova).
 
-PodrÅ¾ava pretragu po:
+Podržava pretragu po:
 - Tarifnom broju (HScode)
 - Nazivu/opisu robe (Commercial_Description, Description_of_goods)
 - Izvozniku / primaocu
@@ -25,7 +25,7 @@ logger = logging.getLogger("deklarant_pro.agent.declaration_search")
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
-# PoveÄ‡ati kad se mijenja shema â€” triggeriÅ¡e rebuild postojeÄ‡eg indeksa
+# Povećati kad se mijenja shema — triggeriše rebuild postojećeg indeksa
 _SCHEMA_VERSION = 2
 
 GENERIC_SEARCH_TOKENS = {
@@ -37,7 +37,7 @@ GENERIC_SEARCH_TOKENS = {
 # Putanja do XML fajlova
 XML_DIR = PROJECT_ROOT / "data" / "knowledge_base" / "NOVA ASIKUDA"
 
-# SQLite index â€” u istom folderu kao XML-ovi
+# SQLite index — u istom folderu kao XML-ovi
 INDEX_DB = PROJECT_ROOT / "data" / "knowledge_base" / "declaration_index.db"
 
 
@@ -53,7 +53,7 @@ def _resolve_xml_dir() -> Path:
     path = _path_from_env("XML_ARCHIVE_DIR", XML_DIR)
     if not path.exists():
         raise FileNotFoundError(
-            f"XML arhiv nije pronaÄ‘en: {path}. Postavite XML_ARCHIVE_DIR u .env."
+            f"XML arhiv nije pronađen: {path}. Postavite XML_ARCHIVE_DIR u .env."
         )
     return path
 
@@ -63,7 +63,7 @@ def _resolve_index_db() -> Path:
 
 
 def _txt(element, path: str, default: str = "") -> str:
-    """Sigurno Äita text iz XML elementa po xpath-u."""
+    """Sigurno čita text iz XML elementa po xpath-u."""
     try:
         el = element.find(path)
         if el is not None and el.text:
@@ -132,26 +132,26 @@ class DeclarationSearchService:
     Servis za pretragu istorijskih XML deklaracija.
 
     Pri prvom pozivu gradi SQLite indeks (30-60s za 2500 fajlova).
-    Svaki naredni poziv koristi keÅ¡iran indeks (brz).
+    Svaki naredni poziv koristi keširan indeks (brz).
     """
 
     def __init__(self):
         self._db: Optional[sqlite3.Connection] = None
         self._indexed = False
 
-    # â”€â”€â”€ PUBLIC API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ─── PUBLIC API ────────────────────────────────────────────────────────────
 
     def search_by_goods(self, query: str, limit: int = 8) -> List[Dict]:
         """
         Pretraga po opisu / komercijalnom nazivu robe.
-        VraÄ‡a stavke sa tarifnim brojem, zemljom, povlasticom.
+        Vraća stavke sa tarifnim brojem, zemljom, povlasticom.
         """
         self._ensure_index()
         words = _search_words(query)
         if not words:
             return []
 
-        # FTS5 MATCH â€” inverted index, viÅ¡estruko brÅ¾e od LIKE za veliku arhivu
+        # FTS5 MATCH — inverted index, višestruko brže od LIKE za veliku arhivu
         fts_query = " ".join(words)
         sql = """
             SELECT i.hs_code, i.commercial_desc, i.description,
@@ -195,7 +195,7 @@ class DeclarationSearchService:
         return [row for _, row in scored[:limit]]
 
     def search_by_tariff(self, tariff_code: str, limit: int = 10) -> List[Dict]:
-        """Pronalazi sve istorijske stavke sa odreÄ‘enim tarifnim brojem."""
+        """Pronalazi sve istorijske stavke sa određenim tarifnim brojem."""
         self._ensure_index()
         clean = re.sub(r'\D', '', tariff_code)
         prefix = clean[:8] if len(clean) >= 8 else clean
@@ -257,7 +257,7 @@ class DeclarationSearchService:
         return self._fetchall(sql, [code, limit])
 
     def get_stats(self) -> Dict:
-        """VraÄ‡a statistiku indeksa."""
+        """Vraća statistiku indeksa."""
         self._ensure_index()
         cur = self._db.cursor()
         decl_count = cur.execute("SELECT COUNT(*) FROM declarations").fetchone()[0]
@@ -275,10 +275,10 @@ class DeclarationSearchService:
             "top_countries": [(r[0], r[1]) for r in countries],
         }
 
-    # â”€â”€â”€ INDEXER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ─── INDEXER ───────────────────────────────────────────────────────────────
 
     def _ensure_index(self):
-        """Gradi ili uÄitava SQLite indeks."""
+        """Gradi ili učitava SQLite indeks."""
         if self._indexed:
             return
 
@@ -290,7 +290,7 @@ class DeclarationSearchService:
 
         self._create_schema()
 
-        # Provjeri schema verziju â€” zastarjela shema triggeriÅ¡e rebuild
+        # Provjeri schema verziju — zastarjela shema triggeriše rebuild
         stored_ver = self._db.execute(
             "SELECT value FROM schema_meta WHERE key='version'"
         ).fetchone()
@@ -309,7 +309,7 @@ class DeclarationSearchService:
                 (str(_SCHEMA_VERSION),)
             )
             self._db.commit()
-            logger.info("Indeksiranje zavrÅ¡eno.")
+            logger.info("Indeksiranje završeno.")
 
         self._indexed = True
 
@@ -391,7 +391,7 @@ class DeclarationSearchService:
                     "VALUES (?, ?, ?, ?, ?, ?)",
                     [(decl_id,) + item for item in items]
                 )
-                # FTS5 â€” upiÅ¡i commercial_desc + description za pretragu
+                # FTS5 — upiši commercial_desc + description za pretragu
                 last_id = cur.lastrowid
                 first_id = last_id - len(items) + 1
                 cur.executemany(
@@ -405,7 +405,7 @@ class DeclarationSearchService:
         self._db.commit()
 
     def _parse_xml(self, xml_path: Path):
-        """Parsira jedan XML fajl â€” vraÄ‡a (decl_tuple, [item_tuples])."""
+        """Parsira jedan XML fajl — vraća (decl_tuple, [item_tuples])."""
         tree = ET.parse(str(xml_path))
         root = tree.getroot()
 
@@ -415,7 +415,7 @@ class DeclarationSearchService:
         consignee = _txt(root, "Traders/Consignee/Consignee_name")
         jib       = _txt(root, "Traders/Consignee/Consignee_code")
 
-        # Normalizuj viÅ¡elinijska polja
+        # Normalizuj višelinijska polja
         exporter  = " ".join(exporter.split())
         consignee = " ".join(consignee.split())
 
@@ -432,7 +432,7 @@ class DeclarationSearchService:
             commercial = _txt(item_el, "Goods_description/Commercial_Description")
             description = _txt(item_el, "Goods_description/Description_of_goods")
 
-            # Normalizuj viÅ¡elinijska polja
+            # Normalizuj višelinijska polja
             commercial  = " ".join(commercial.split())[:200]
             description = " ".join(description.split())[:150]
 
@@ -441,7 +441,7 @@ class DeclarationSearchService:
 
         return decl, items
 
-    # â”€â”€â”€ HELPERS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ─── HELPERS ───────────────────────────────────────────────────────────────
 
     def _fetchall(self, sql: str, params: list) -> List[Dict]:
         try:
@@ -449,6 +449,6 @@ class DeclarationSearchService:
             cur.execute(sql, params)
             return [dict(row) for row in cur.fetchall()]
         except Exception as e:
-            logger.error(f"SQL greÅ¡ka: {e}")
+            logger.error(f"SQL greška: {e}")
             return []
 
