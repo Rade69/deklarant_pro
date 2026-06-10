@@ -1,4 +1,4 @@
-﻿# CLAUDE.md - Projektne instrukcije za AI asistenta
+# CLAUDE.md - Projektne instrukcije za AI asistenta
 
 ## ⚠️ JEZIK: ISKLJUČIVO SRPSKI LATINICA
 
@@ -190,7 +190,7 @@ Kada hook injektuje `[DOC-GUARD]` poruku:
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **deklarant_pro** (37575 symbols, 59350 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **deklarant_pro** (37864 symbols, 59838 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
@@ -230,4 +230,3 @@ This project is indexed by GitNexus as **deklarant_pro** (37575 symbols, 59350 r
 | Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
 
 <!-- gitnexus:end -->
-
