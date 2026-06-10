@@ -173,6 +173,15 @@ class TariffValidationDialog(QDialog):
         reason_label.setTextFormat(Qt.RichText)
         reason_label.setWordWrap(True)
 
+        evidence_label = None
+        evidence = getattr(match, "evidence", None)
+        if evidence is not None:
+            evidence_label = QLabel(
+                f"<span style='color:#9ca3af; font-size:12px;'>"
+                f"Status dokaza: {evidence.confidence.value}</span>"
+            )
+            evidence_label.setTextFormat(Qt.RichText)
+
         weak_label = None
         if self._is_weak_match(match):
             weak_label = QLabel(
@@ -198,6 +207,8 @@ class TariffValidationDialog(QDialog):
         info.addWidget(tarif_label)
         info.addWidget(meta_label)
         info.addWidget(reason_label)
+        if evidence_label is not None:
+            info.addWidget(evidence_label)
         if supplier_badge is not None:
             info.addWidget(supplier_badge)
         if weak_label is not None:

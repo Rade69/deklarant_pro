@@ -20,6 +20,7 @@ from collections import Counter
 from dataclasses import dataclass
 from typing import Dict, List
 
+from services.agent.validation.evidence_model import Evidence, evidence_from_tariff_decision
 from services.agent.validation.tariff_decision_model import (
     TariffDecisionThresholds,
     decide_tariff_match,
@@ -51,6 +52,7 @@ class TariffHistoryMatch:
     decision_reason: str = ""      # kratak razlog zašto je prijedlog prošao filter
     decision_outcome: str = ""     # show_strong/show_weak/suppress
     decision_score: int = 0
+    evidence: Evidence | None = None
 
 
 class HistoricalTariffSearchService:
@@ -298,6 +300,9 @@ class HistoricalTariffSearchService:
         match.decision_reason = decision.reason
         match.decision_outcome = decision.outcome.value
         match.decision_score = decision.score
+        match.evidence = evidence_from_tariff_decision(
+            decision.outcome.value, match.supplier_match, match.usage_count, match.source,
+        )
         return decision.should_show
 
     @staticmethod
