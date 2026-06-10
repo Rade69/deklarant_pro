@@ -103,3 +103,56 @@ def evidence_from_tariff_decision(
         "Prijedlog potisnut ili izvor nije prepoznat.",
         data,
     )
+
+
+def evidence_from_preference(item: Any) -> Evidence:
+    """
+    Izvedi Evidence za povlasticu (Rub.36) jedne stavke fakture (InvoiceLine).
+
+    Povlastica smije biti potvrdjena SAMO dokazom — PE1 (EUR.1 broj), PE2 (izjava
+    o porijeklu) ili PE3 (izjava ovlascenog izvoznika). Sama zemlja porijekla NIJE
+    dokaz: ako je povlastica predlozena samo na osnovu zemlje, vraca se
+    weak_guess/requires_confirmation=True (Faza 2, vidi
+    agent_tasks/2026-06-10_plan_unapredjenja_carinskog_agenta.md).
+    """
+    eur1_number = (getattr(item, "eur1_number", "") or "").strip()
+    has_statement = bool(getattr(item, "has_origin_statement", False))
+    is_authorized_exporter = bool(getattr(item, "is_authorized_exporter", False))
+    povlastica = (getattr(item, "povlastica", "") or "").strip()
+    country = (getattr(item, "zemlja_porijekla", "") or "").strip()
+    data = {"country": country, "povlastica": povlastica}
+
+    if has_statement and is_authorized_exporter:
+        return build_evidence(
+            DecisionSource.DOCUMENT,
+            DecisionConfidence.CONFIRMED_FROM_DOCUMENT,
+            "Potvrdjeno izjavom ovlascenog izvoznika (PE3) na fakturi.",
+            {**data, "doc_code": "PE3", "invoice_reference": eur1_number},
+        )
+    if has_statement:
+        return build_evidence(
+            DecisionSource.DOCUMENT,
+            DecisionConfidence.CONFIRMED_FROM_DOCUMENT,
+            "Potvrdjeno izjavom o porijeklu (PE2) na fakturi.",
+            {**data, "doc_code": "PE2", "invoice_reference": eur1_number},
+        )
+    if eur1_number:
+        return build_evidence(
+            DecisionSource.DOCUMENT,
+            DecisionConfidence.CONFIRMED_FROM_DOCUMENT,
+            "Potvrdjeno EUR.1 obrascem (PE1).",
+            {**data, "doc_code": "PE1", "eur1_number": eur1_number},
+        )
+    if povlastica:
+        return build_evidence(
+            DecisionSource.SIMILARITY,
+            DecisionConfidence.WEAK_GUESS,
+            "Povlastica izvedena samo iz zemlje porijekla, bez PE1/PE2/PE3 dokaza.",
+            data,
+        )
+    return build_evidence(
+        DecisionSource.TARIFF_DATABASE,
+        DecisionConfidence.UNKNOWN,
+        "Nema povlastice niti dokaza o porijeklu.",
+        data,
+    )

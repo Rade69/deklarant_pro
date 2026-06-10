@@ -859,10 +859,10 @@ class ComplianceCheckService:
                         f"Bruto težina fakture ({ukupno_bruto:.3f} kg) i naimenovanja ({naim_bruto:.3f} kg) se razlikuju za >{razlika_bruto*100:.0f}%."))
 
     def _check_eur1_povlastica(self, lines, result: ComplianceResult):
+        from services.agent.validation.evidence_model import evidence_from_preference
         needs_doc = [i for i, l in enumerate(lines, 1)
                      if getattr(l, 'povlastica', None)
-                     and not getattr(l, 'has_origin_statement', False)
-                     and not getattr(l, 'eur1_number', None)]
+                     and evidence_from_preference(l).requires_confirmation]
         if needs_doc:
             indices = ", ".join(str(i) for i in needs_doc[:5])
             msg = f"Stavke sa povlasticom ali bez EUR.1/izjave: {indices}" if len(needs_doc) <= 5 else f"{len(needs_doc)} stavki ima povlasticu ali nema EUR.1 ni izjavu o porijeklu."

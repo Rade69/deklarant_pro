@@ -1,8 +1,10 @@
+from core.draft.draft import InvoiceLine
 from services.agent.validation.evidence_model import (
     DecisionConfidence,
     DecisionSource,
     Evidence,
     build_evidence,
+    evidence_from_preference,
     evidence_from_tariff_decision,
 )
 
@@ -71,3 +73,86 @@ def test_unknown_for_suppressed_decision():
     assert evidence.confidence is DecisionConfidence.UNKNOWN
     assert evidence.source is DecisionSource.TARIFF_DATABASE
     assert evidence.requires_confirmation is True
+
+
+def test_evidence_from_preference_pe1_eur1_confirmed():
+    item = InvoiceLine(
+        zemlja_porijekla="DE",
+        povlastica="EUP",
+        eur1_number="A-123456",
+        has_origin_statement=False,
+    )
+
+    evidence = evidence_from_preference(item)
+
+    assert evidence.source is DecisionSource.DOCUMENT
+    assert evidence.confidence is DecisionConfidence.CONFIRMED_FROM_DOCUMENT
+    assert evidence.requires_confirmation is False
+    assert evidence.data["doc_code"] == "PE1"
+
+
+def test_evidence_from_preference_pe2_origin_statement():
+    item = InvoiceLine(
+        zemlja_porijekla="RS",
+        povlastica="CEFTAP",
+        has_origin_statement=True,
+        is_authorized_exporter=False,
+    )
+
+    evidence = evidence_from_preference(item)
+
+    assert evidence.source is DecisionSource.DOCUMENT
+    assert evidence.confidence is DecisionConfidence.CONFIRMED_FROM_DOCUMENT
+    assert evidence.requires_confirmation is False
+    assert evidence.data["doc_code"] == "PE2"
+
+
+def test_evidence_from_preference_pe3_authorized_exporter():
+    item = InvoiceLine(
+        zemlja_porijekla="TR",
+        povlastica="TRP",
+        has_origin_statement=True,
+        is_authorized_exporter=True,
+    )
+
+    evidence = evidence_from_preference(item)
+
+    assert evidence.source is DecisionSource.DOCUMENT
+    assert evidence.confidence is DecisionConfidence.CONFIRMED_FROM_DOCUMENT
+    assert evidence.requires_confirmation is False
+    assert evidence.data["doc_code"] == "PE3"
+
+
+def test_evidence_from_preference_eu_bez_dokumenta_je_weak_guess():
+    """Povlastica izvedena samo iz zemlje (EU), bez PE1/PE2/PE3 — slab dokaz."""
+    item = InvoiceLine(
+        zemlja_porijekla="DE",
+        povlastica="EUP",
+        eur1_number="",
+        has_origin_statement=False,
+        is_authorized_exporter=False,
+    )
+
+    evidence = evidence_from_preference(item)
+
+    assert evidence.source is DecisionSource.SIMILARITY
+    assert evidence.confidence is DecisionConfidence.WEAK_GUESS
+    assert evidence.requires_confirmation is True
+
+
+def test_evidence_from_preference_cn_bez_povlastice_je_unknown():
+    """Kina nema povlasticu niti PE dokaz — unknown, ali nema šta da se potvrdi."""
+    item = InvoiceLine(
+        zemlja_porijekla="CN",
+        povlastica="",
+        eur1_number="",
+        has_origin_statement=False,
+        is_authorized_exporter=False,
+    )
+
+    evidence = evidence_from_preference(item)
+
+    assert evidence.source is DecisionSource.TARIFF_DATABASE
+    assert evidence.confidence is DecisionConfidence.UNKNOWN
+    assert evidence.requires_confirmation is True
+    assert item.povlastica == ""
