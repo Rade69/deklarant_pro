@@ -151,6 +151,11 @@ Pronađena i ispravljena 4 mjesta (Maj 2026) — provjeriti svaki novi SQL.
 `_puna_auto_pipeline` je jedini aktivni put u agent pipelinu.
 `_uvezi_u_deklaraciju` i `_izracunaj_tezine_interno` su mrtav kod — nikad nisu bili aktivni.
 
+### Tool-first agent
+Agent prvo koristi lokalni router/tool/servis. Ako tool rezultat ima status `unknown`
+ili `needs_review`, LLM ne smije dopuniti tarifni broj, porijeklo, povlasticu ili zaključak.
+`TOOL_RESULT` je autoritativan; LLM ga smije samo formatirati za korisnika.
+
 ### Lozinka u git historiji
 Commit `produkcijska-ociscenja` (Maj 2026) — lozinka je mogla biti eksponirana.
 Rotirati DB lozinku ako još nije urađeno!

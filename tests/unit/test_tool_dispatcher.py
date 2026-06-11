@@ -94,3 +94,5 @@ def test_chat_worker_prompt_forbids_unknown_hallucination():
 
     assert "servis vrati nepoznato/unknown" in prompt
     assert "nemoj izmišljati šifru" in prompt
+    assert "strukturisani TOOL_RESULT" in prompt
+    assert "Ne mijenjaj status" in prompt

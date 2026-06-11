@@ -9,6 +9,7 @@ import os
 import logging
 from psycopg2 import sql as pg_sql
 from PySide6.QtCore import QThread, Signal
+from services.agent.chat.tool_result import TOOL_RESULT_PROMPT_RULE
 
 
 # Kompatibilnost — stari kod koji importuje ovo ime
@@ -1145,6 +1146,7 @@ class ChatWorker(QThread):
             "lokalne baze, istorije ili jasno navedenog izvora.\n"
             "- Ako u kontekstu nema lokalnog izvora ili servis vrati nepoznato/unknown, reci da nema "
             "dovoljno potvrđenih podataka i nemoj izmišljati šifru, zemlju porijekla ili povlasticu.\n"
+            f"- {TOOL_RESULT_PROMPT_RULE}\n"
             "- Tarifne prijedloge iz baze znanja (kontekst) preferuj nad opštim znanjem\n"
             "- Ako korisnik pita nešto opšte o carinjenju — odgovori normalno, bez liste tarifa\n"
             "- Kad vidiš zaglavlje (Rb.2, Rb.8, valuta, kurs...) — koristi te podatke u odgovorima\n"

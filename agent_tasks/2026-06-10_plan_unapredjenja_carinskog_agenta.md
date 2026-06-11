@@ -192,15 +192,17 @@ pokazati da li je riječ o snažnom ili slabom prijedlogu.
 
 ## Faza 4 — Tool-first agent
 
-**Status:** DJELIMIČNO ZAVRŠENO 2026-06-11
+**Status:** ZAVRŠENO 2026-06-11
 
 **Urađeno:**
 
 - lokalni router prije DeepSeek tool-use fallbacka
 - testovi za lokalno routanje najčešćih sigurnih namjera
 - ChatWorker prompt guard: LLM ne smije izmišljati tarifni broj, porijeklo ili povlasticu kad je izvor nepoznat/unknown
-
-**Ostaje za nastavak:** strukturisani tool rezultat koji LLM samo formatira, bez promjene značenja, za sve servise koji vrate `unknown` ili `needs_review`.
+- zajednički `ToolResult` model za `ok`, `needs_review`, `unknown` i `error`
+- renderer koji u chatu uvijek prikazuje izvor i status strukturisanog tool rezultata
+- ChatWorker prompt pravilo: LLM smije samo formatirati `TOOL_RESULT`, bez promjene statusa, izvora ili carinskog zaključka
+- `unknown` i `needs_review` slučajevi u tool execution sloju više ne idu kao slobodan tekst bez izvora
 
 ### Cilj
 
