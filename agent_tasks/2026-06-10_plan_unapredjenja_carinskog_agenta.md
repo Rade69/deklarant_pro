@@ -57,6 +57,15 @@ Prioritet izvora:
 
 ## Faza 1 — Evidence model
 
+**Status:** ZAVRŠENO 2026-06-11
+
+**Urađeno:**
+
+- postojeći `Evidence` model je proširen umjesto uvođenja paralelnog modela
+- `DecisionSource` sada pokriva dokument, istoriju istog izvoznika, tarifnu bazu, sličnost, parser, korisnika i LLM
+- `Evidence.to_dict()` daje strukturisan payload za Agent UI i buduće tool rezultate
+- LLM izvor ne može proizvesti potvrđen dokaz; takav pokušaj se spušta na `weak_guess`
+
 ### Cilj
 
 Uvesti zajednički model za dokazni trag svake preporuke.
@@ -214,6 +223,15 @@ Uvesti jasan tok:
 ---
 
 ## Faza 5 — Scoring i confidence
+
+**Status:** ZAVRŠENO 2026-06-11
+
+**Urađeno:**
+
+- `Evidence` ima numerički `score` i `score_category`
+- pragovi su implementirani kao zajednička funkcija `evidence_score_category()`
+- `should_recommend` krije `unknown` i score `<50` iz preporuka
+- `auto_applicable` je dozvoljen samo za potvrđene dokaze sa score `>=85`
 
 ### Cilj
 
