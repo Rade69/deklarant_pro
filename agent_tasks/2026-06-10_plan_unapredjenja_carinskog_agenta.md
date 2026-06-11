@@ -243,6 +243,10 @@ Uvesti jasan tok:
 - pragovi su implementirani kao zajednička funkcija `evidence_score_category()`
 - `should_recommend` krije `unknown` i score `<50` iz preporuka
 - `auto_applicable` je dozvoljen samo za potvrđene dokaze sa score `>=85`
+- `evidence_badge_colors()` mapira `score_category` na (boja teksta, boja pozadine);
+  `TariffValidationDialog` prikazuje "Pouzdanost prijedloga" kao obojeni badge sa
+  numeričkim score-om (npr. "jak (90%)" plavo, "slab (60%)" sivo, "nepoznat (0%)" crveno) —
+  zatvara acceptance kriterijum o vizuelnoj razlici 95% vs 60%.
 
 ### Cilj
 
@@ -272,6 +276,24 @@ Uvesti jedinstven scoring koji agent koristi za tarife, porijeklo i validaciju.
 ---
 
 ## Faza 6 — Agent UI prikaz
+
+**Status:** DJELIMIČNO ZAVRŠENO 2026-06-11
+
+**Urađeno:**
+
+- `TariffValidationDialog` prikazuje "Pouzdanost prijedloga" kao obojeni badge
+  (boja + numerički score) na osnovu `Evidence.score_category` —
+  `evidence_badge_colors()` u `evidence_model.py`.
+- Pokriva acceptance kriterijum "Slabi prijedlozi su vizuelno drugačiji od potvrđenih"
+  za istorijsku validaciju tarifa.
+
+**Ostaje za nastavak:**
+
+- Poruke u Agent chatu (`chat_panel.py`/`chat_worker.py`/`agent_controller.py`/
+  `processing_worker.py`) još ne slijede format zaključak/izvor/pouzdanost/akcija
+  iz primjera ispod — namjerno ostavljeno van scope-a da se izbjegne sukob sa
+  Faza 4 nastavkom (vidi `agent_tasks/2026-06-11_faza4-handoff.md`).
+- Faktura tab prikaz povlastice/tarife nije mijenjan u ovom koraku.
 
 ### Cilj
 
