@@ -172,6 +172,16 @@ pokazati da li je riječ o snažnom ili slabom prijedlogu.
 
 ## Faza 4 — Tool-first agent
 
+**Status:** DJELIMIČNO ZAVRŠENO 2026-06-11
+
+**Urađeno:**
+
+- lokalni router prije DeepSeek tool-use fallbacka
+- testovi za lokalno routanje najčešćih sigurnih namjera
+- ChatWorker prompt guard: LLM ne smije izmišljati tarifni broj, porijeklo ili povlasticu kad je izvor nepoznat/unknown
+
+**Ostaje za nastavak:** strukturisani tool rezultat koji LLM samo formatira, bez promjene značenja, za sve servise koji vrate `unknown` ili `needs_review`.
+
 ### Cilj
 
 Agent mora prvo pozvati lokalne servise i alate, pa tek onda LLM za formulaciju odgovora.

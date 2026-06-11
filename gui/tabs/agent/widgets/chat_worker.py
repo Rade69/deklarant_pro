@@ -1141,8 +1141,10 @@ class ChatWorker(QThread):
             "- Pregled i validacija deklaracije — provjera usklađenosti tarifnih brojeva sa robom\n\n"
             "PRAVILA:\n"
             "- Odgovaraj KRATKO i KONKRETNO — bez dugih analiza, bez zaključaka, bez ponavljanja pitanja\n"
-            "- Ako korisnik pita za tarifni broj: daj konkretnu opciju iz svog znanja o HS, "
-            "navedi kao 8 cifara (npr. 56079090). Ako nisi siguran, daj 2-3 opcije.\n"
+            "- Za tarifne brojeve, porijeklo, povlastice i validaciju koristi samo podatke iz konteksta, "
+            "lokalne baze, istorije ili jasno navedenog izvora.\n"
+            "- Ako u kontekstu nema lokalnog izvora ili servis vrati nepoznato/unknown, reci da nema "
+            "dovoljno potvrđenih podataka i nemoj izmišljati šifru, zemlju porijekla ili povlasticu.\n"
             "- Tarifne prijedloge iz baze znanja (kontekst) preferuj nad opštim znanjem\n"
             "- Ako korisnik pita nešto opšte o carinjenju — odgovori normalno, bez liste tarifa\n"
             "- Kad vidiš zaglavlje (Rb.2, Rb.8, valuta, kurs...) — koristi te podatke u odgovorima\n"
@@ -1186,4 +1188,3 @@ class ChatWorker(QThread):
         except Exception:
             return False
         return True
-
