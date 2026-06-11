@@ -120,6 +120,30 @@ servisna klasa ih omotava kao public API. Controller metode su samo 1-liner pozi
 
 ---
 
+## Handoff visokog rizika (HIGH/CRITICAL GitNexus impact)
+
+Kada `gitnexus_impact()` vrati `HIGH` ili `CRITICAL` rizik za simbol koji mijenjaš,
+prijavi korisniku rizik u ovom formatu PRIJE izmjene (ne nakon):
+
+> "GitNexus impact za `<simbol>` je `<risk>`: zavise od njega `<broj>` simbola/procesa
+> (`<koji>`). Promjena je mala/velika po obimu ali `<visoka/niska>` po sistemskoj
+> važnosti jer `<razlog>`. Scope ostaje ograničen na: `<šta NE diraš>`.
+> Obavezni izlaz: `<šta MORA postojati — npr. ciljane izmjene + test pokrivenost>`."
+
+Za svaku planiranu izmjenu odredi i navedi:
+
+| Polje | Pitanje na koje odgovara |
+| --- | --- |
+| **Tip promjene** | bugfix / behavior adjustment / mapping correction / safety patch / refactor? |
+| **Prihvatljiv ishod (scope lock)** | šta MORA ostati identično (npr. "validacija ostaje ista osim novog izvora dokaza", "GUI ne mijenja ponašanje osim prikaza") |
+| **Nivo dozvole** | draft change only / no auto-merge / mandatory review / test gate required |
+
+Ovo dopunjuje pravilo "MUST warn the user if impact analysis returns HIGH or
+CRITICAL risk" (GitNexus sekcija ispod) — daje konkretan format umjesto generičkog
+upozorenja i tjera agenta da prije izmjene eksplicitno zapiše granice zadatka.
+
+---
+
 ## Format outputa
 
 ```text
@@ -155,7 +179,7 @@ Kada hook injektuje `[DOC-GUARD]` poruku:
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **deklarant_pro** (38597 symbols, 60607 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **deklarant_pro** (38734 symbols, 60830 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

@@ -77,6 +77,7 @@ from services.faktura.weight_guards import (
     normalize_invoice_key,
     normalized_invoice_weights,
 )
+from services.agent.validation.evidence_model import evidence_from_preference
 
 _PE_DOC_CODES = {"PE1", "PE2", "PE3"}
 
@@ -1105,15 +1106,8 @@ class FakturaView(BaseTabView):
         # boju pozadine, bez ikonice. Znak (✅) i zelena boja se prikazuju
         # ISKLJUČIVO kada je povlastica stvarno potvrđena.
         preference = (getattr(item, "povlastica", "") or "").strip()
-        pe_doc = _pe_doc_code(getattr(item, "attached_document4", "") or "")
-        has_preferential_doc = bool(
-            preference
-            and (
-                pe_doc
-                or (getattr(item, "eur1_number", "") or "").strip()
-                or bool(getattr(item, "has_origin_statement", False))
-            )
-        )
+        evidence = evidence_from_preference(item)
+        has_preferential_doc = bool(preference and not evidence.requires_confirmation)
         if has_preferential_doc:
             color_hex = self._CONFIDENCE_COLORS.get(item.country_confidence, "#ffffff")
             icon = "✅"
@@ -1184,6 +1178,7 @@ class FakturaView(BaseTabView):
             return
 
         source = getattr(item, 'country_source', None)
+        evidence = evidence_from_preference(item)
         has_pref = bool(item.povlastica)
         # Zemlja koja fundamentalno nema mogućnost povlastice (npr. Kina) ne
         # treba upozorenje "provjerite ručno" — to samo zbunjuje korisnika jer
@@ -1199,11 +1194,10 @@ class FakturaView(BaseTabView):
                 "samo oznaku zemlje porijekla, bez izjave o porijeklu.\n"
                 "Provjerite ručno da li roba ima pravo na povlasticu i unesite je."
             )
-        elif has_pref and source in ("PDF_IZJAVA", "MATCH"):
+        elif has_pref and not evidence.requires_confirmation:
             cell_item.setData(ValidationDelegate.ValidationColorRole, "#d4edda")
             cell_item.setToolTip(
-                "✅ Povlastica izvedena na osnovu potvrđenog porijekla "
-                "(izjava u dokumentu ili poklapanje sa bazom znanja).\n"
+                "✅ Povlastica je potvrđena PE1/PE2/PE3 dokazom.\n"
                 "Provjerite da li odgovara podacima na fakturi."
             )
 
@@ -2422,10 +2416,10 @@ class FakturaView(BaseTabView):
 
     def _auto_handle_povlastice_agent(self, items, has_origin_statement: bool) -> dict:
         """
-        Agent mod: automatski postavi povlastice bez GUI dijaloga.
+        Agent mod: evidentiraj PE2/EUR1 kandidate bez primjene povlastice.
 
         PE2 slučaj (has_origin_statement=True):
-          - Sve stavke sa has_origin_statement=True → povlastica po zemlji, dokument PE2.
+          - Stavke ostaju bez povlastice dok deklarant ne potvrdi PE2/PE3 dijalog.
         EUR1 slučaj (has_origin_statement=False):
           - Povlastica se NE postavlja bez PE1/PE2/PE3 dokaza (Faza 2, vidi
             agent_tasks/2026-06-10_plan_unapredjenja_carinskog_agenta.md) — stavka
@@ -2449,9 +2443,6 @@ class FakturaView(BaseTabView):
         for item in self.draft.invoice_lines:
             item_has_statement = getattr(item, 'has_origin_statement', has_origin_statement)
             if item_has_statement:
-                # PE2: izjava o porijeklu → samo postavi povlasticu po zemlji
-                if not getattr(item, 'povlastica', None) and item.zemlja_porijekla:
-                    item.povlastica = self._suggest_preference_by_country(item.zemlja_porijekla, exporter_name)
                 updated_pe2 += 1
             elif item.zemlja_porijekla:
                 # EUR1: nema izjave i nema PE1/PE2/PE3 → povlastica ostaje prazna,

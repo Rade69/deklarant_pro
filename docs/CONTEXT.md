@@ -88,6 +88,15 @@ GUI/EXE moze prikazati samo genericku poruku "Greska pri eksportu".
 
 ## 4. EUR.1 i povlastice
 
+### Povlastica zahtijeva eksplicitnu potvrdu deklaranta
+Parser smije samo detektovati PE2/PE3 izjavu ili potrebu za EUR1 obrascem.
+Zemlja porijekla, EU/CEFTA porijeklo, istorija, product master list ili tariff mapping
+NISU dokaz za automatsko popunjavanje Rub.36.
+
+Povlastica se primjenjuje tek nakon eksplicitne potvrde deklaranta kroz PE2/PE3/EUR1
+dijalog ili rucni unos. Agent i auto-fill smiju prikazati kandidata, ali ne smiju sami
+upisati `povlastica`.
+
 ### Tok
 - Faktura NEMA izjavu o poreklu → EUR.1 dialog (PE1 + broj)
 - Faktura IMA izjavu → PE2 dialog (samo zemlja, bez broja)

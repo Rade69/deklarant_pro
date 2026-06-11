@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QDialog, QFrame, QHBoxLayout, QLabel,
     QPushButton, QScrollArea, QVBoxLayout, QWidget,
 )
+from services.agent.validation.evidence_model import evidence_from_preference
 
 
 @dataclass
@@ -71,9 +72,13 @@ def analyse_preflight(invoice_lines: list) -> PreFlightResult:
             bez_tarife.append(PreFlightIssue(rb, naziv[:55], "Nema tarifnog broja"))
         if not zemlja:
             bez_porijekla.append(PreFlightIssue(rb, naziv[:55], "Nema zemlje porijekla"))
-        if povlastica and povlastica not in ('0', '') and not eur1:
+        if (
+            povlastica
+            and povlastica not in ('0', '')
+            and evidence_from_preference(line).requires_confirmation
+        ):
             povlastica_bez_eur1.append(
-                PreFlightIssue(rb, naziv[:55], f"Povlastica '{povlastica}' bez EUR1/PE broja")
+                PreFlightIssue(rb, naziv[:55], f"Povlastica '{povlastica}' bez PE1/PE2/PE3 dokaza")
             )
 
         key = (tarifa, zemlja, povlastica, eur1)

@@ -39,14 +39,14 @@ def test_cn_bez_dokumenta_ostaje_bez_povlastice_i_bez_pending():
     assert result == {"pe2": 0, "eur1_pending": 0}
 
 
-def test_pe2_izjava_o_porijeklu_postavlja_povlasticu():
-    """Stavka sa izjavom o porijeklu (PE2) -> povlastica se postavlja po zemlji."""
+def test_pe2_izjava_o_porijeklu_ne_postavlja_povlasticu_bez_potvrde():
+    """Stavka sa izjavom ostaje bez povlastice dok deklarant ne potvrdi PE2/PE3 dialog."""
     item = InvoiceLine(zemlja_porijekla="RS", has_origin_statement=True, exporter="")
     fake_self = _fake_view([item])
 
     result = FakturaView._auto_handle_povlastice_agent(fake_self, [item], has_origin_statement=True)
 
-    assert item.povlastica == "CEFTAP"
+    assert item.povlastica == ""
     assert result == {"pe2": 1, "eur1_pending": 0}
 
 

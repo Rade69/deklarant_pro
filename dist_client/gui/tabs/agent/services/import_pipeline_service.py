@@ -329,30 +329,24 @@ def _auto_handle_povlastice(ctrl, invoice_lines: list, chat,
         if not pov:
             continue
 
-        existing_pov = getattr(line, 'povlastica', None)
         line_has_stmt = has_origin_statement or getattr(line, 'has_origin_statement', False)
 
         if line_has_stmt:
-            if not existing_pov:
-                line.povlastica = pov
             updated_pe2 += 1
         else:
-            if not existing_pov:
-                line.povlastica = pov
-                updated_eur1 += 1
             if not getattr(line, 'eur1_number', None):
                 eur1_pending += 1
 
     result = {'pe2': updated_pe2, 'eur1': updated_eur1, 'eur1_pending': eur1_pending}
 
     lines_with_country = sum(1 for l in invoice_lines if getattr(l, 'zemlja_porijekla', None))
-    if updated_pe2 > 0 or updated_eur1 > 0:
+    if updated_pe2 > 0:
         chat.add_activity(
-            f"🌍 Povlastice auto-postavljene: PE2={updated_pe2}, EUR1={updated_eur1}"
+            f"🌍 PE2/PE3 kandidati: {updated_pe2} stavki ceka potvrdu deklaranta"
             + (f" (has_origin_statement={has_origin_statement})" if has_origin_statement else "")
         )
     elif lines_with_country > 0:
-        chat.add_activity(f"ℹ️ {lines_with_country} stavki ima zemlja_porijekla — povlastice već postavljene")
+        chat.add_activity(f"ℹ️ {lines_with_country} stavki ima zemlja_porijekla — povlastice se primjenjuju tek nakon potvrde deklaranta")
     else:
         chat.add_activity(f"⚠️ Povlastice: 0 stavki ima zemlja_porijekla — nije moguće auto-postavljanje")
 

@@ -103,6 +103,17 @@ Svaka preporuka mora nositi:
 
 ## Faza 2 — Povlastice i porijeklo
 
+**Status:** ZAVRŠENO 2026-06-11
+
+**Urađeno:**
+
+- Faktura tab i Agent import pipeline vise ne primjenjuju povlasticu samo zato sto parser vidi zemlju porijekla ili PE2 kandidat.
+- Automatski izvori (`auto-fill`, tariff mapping i product master list) vise ne pisu Rub.36/povlasticu u aktivni draft.
+- Potvrda povlastice se vizuelno prikazuje samo kada postoji PE1/PE2/PE3 dokaz koji je korisnik/deklarant prihvatio kroz dijalog ili rucni unos.
+- Preflight upozorenje sada razlikuje povlasticu sa PE dokazom od povlastice bez PE1/PE2/PE3 dokaza.
+
+**Kljucna odluka:** parser je samo detektor kandidata. Povlastica se primjenjuje tek nakon eksplicitne potvrde deklaranta.
+
 ### Cilj
 
 Agent i tabela fakture ne smiju tretirati zemlju porijekla kao dokaz povlastice.
