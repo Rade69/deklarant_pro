@@ -1,3 +1,4 @@
+import re
 from types import SimpleNamespace
 
 from PySide6.QtGui import QGuiApplication
@@ -8,6 +9,7 @@ from services.agent.validation.evidence_model import (
     DecisionConfidence,
     DecisionSource,
     build_evidence,
+    evidence_badge_colors,
 )
 
 
@@ -145,3 +147,35 @@ def test_confirmed_exporter_history_shows_jak_label(qtbot):
     rendered = "\n".join(labels)
     assert "Pouzdanost prijedloga" in rendered
     assert "jak" in rendered
+
+
+def test_evidence_badge_shows_score_and_differs_strong_vs_weak(qtbot):
+    """Faza 5/6: jak (90%) i slab (60%) prijedlog ne smiju imati isti badge."""
+    strong = build_evidence(
+        DecisionSource.EXPORTER_HISTORY,
+        DecisionConfidence.CONFIRMED_FROM_SAME_EXPORTER_HISTORY,
+        "Potvrdjeno iz istorije istog izvoznika.",
+    )
+    weak = build_evidence(
+        DecisionSource.SIMILARITY,
+        DecisionConfidence.WEAK_GUESS,
+        "Slabiji prijedlog.",
+    )
+    strong_match = _match(0, "show_strong", evidence=strong)
+    weak_match = _match(1, "show_weak", evidence=weak)
+
+    dialog = TariffValidationDialog([strong_match, weak_match])
+    qtbot.addWidget(dialog)
+
+    labels = [label.text() for label in dialog.findChildren(QLabel)]
+    strong_label = next(t for t in labels if "Pouzdanost prijedloga" in t and "jak" in t)
+    weak_label = next(t for t in labels if "Pouzdanost prijedloga" in t and "slab" in t)
+
+    assert "90%" in strong_label
+    assert "60%" in weak_label
+
+    badge_pattern = r"background:(#[0-9a-fA-F]+); color:(#[0-9a-fA-F]+)"
+    strong_bg, strong_color = re.search(badge_pattern, strong_label).groups()
+    weak_bg, _ = re.search(badge_pattern, weak_label).groups()
+    assert strong_bg != weak_bg
+    assert (strong_color, strong_bg) == evidence_badge_colors(strong)

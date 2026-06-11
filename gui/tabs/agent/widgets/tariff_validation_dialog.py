@@ -14,7 +14,11 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QGuiApplication
 
-from services.agent.validation.evidence_model import DecisionConfidence, tariff_confidence_label
+from services.agent.validation.evidence_model import (
+    DecisionConfidence,
+    evidence_badge_colors,
+    tariff_confidence_label,
+)
 
 
 class TariffValidationDialog(QDialog):
@@ -183,9 +187,12 @@ class TariffValidationDialog(QDialog):
 
         evidence_label = None
         if evidence is not None:
+            badge_color, badge_bg = evidence_badge_colors(evidence)
             evidence_label = QLabel(
-                f"<span style='color:#9ca3af; font-size:12px;'>"
-                f"Pouzdanost prijedloga: <b>{tariff_confidence_label(evidence)}</b></span>"
+                f"<span style='color:#888; font-size:12px;'>Pouzdanost prijedloga: </span>"
+                f"<span style='background:{badge_bg}; color:{badge_color}; font-size:12px; "
+                f"padding:2px 8px; border-radius:4px; font-weight:600;'>"
+                f"{tariff_confidence_label(evidence)} ({evidence.score}%)</span>"
             )
             evidence_label.setTextFormat(Qt.RichText)
 

@@ -7,6 +7,7 @@ from services.agent.validation.evidence_model import (
     DecisionSource,
     Evidence,
     build_evidence,
+    evidence_badge_colors,
     evidence_score_category,
     evidence_from_preference,
     evidence_from_tariff_decision,
@@ -281,3 +282,21 @@ def test_evidence_model_covers_required_decision_sources():
         DecisionSource.USER.value,
         DecisionSource.LLM.value,
     } <= {source.value for source in DecisionSource}
+
+
+def test_evidence_badge_colors_distinct_per_score_category():
+    """Faza 5/6: 95% dokaz i 60% pretpostavka ne smiju imati isti badge stil."""
+    seen = set()
+    for category in DecisionScoreCategory:
+        evidence = Evidence(
+            source=DecisionSource.TARIFF_DATABASE,
+            confidence=DecisionConfidence.UNKNOWN,
+            score=0,
+            score_category=category,
+        )
+        text_color, background_color = evidence_badge_colors(evidence)
+        assert text_color.startswith("#")
+        assert background_color.startswith("#")
+        seen.add((text_color, background_color))
+
+    assert len(seen) == len(list(DecisionScoreCategory))

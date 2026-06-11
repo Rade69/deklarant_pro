@@ -62,6 +62,16 @@ _TARIFF_CONFIDENCE_LABELS: dict[DecisionConfidence, str] = {
     DecisionConfidence.UNKNOWN: "nepoznat",
 }
 
+# (tekst, pozadina) za badge u Agent UI — svaka score_category mora imati
+# vizuelno drugaciji stil (Faza 5 acceptance: 95% dokaz != 60% pretpostavka).
+_SCORE_CATEGORY_BADGE_COLORS: dict[DecisionScoreCategory, tuple[str, str]] = {
+    DecisionScoreCategory.CONFIRMED: ("#065f46", "#d1fae5"),
+    DecisionScoreCategory.STRONG_HISTORY: ("#1e3a5f", "#dbeafe"),
+    DecisionScoreCategory.NEEDS_REVIEW: ("#92400e", "#fef3c7"),
+    DecisionScoreCategory.WEAK_INFORMATIONAL: ("#6b7280", "#f3f4f6"),
+    DecisionScoreCategory.HIDDEN: ("#b91c1c", "#fee2e2"),
+}
+
 
 @dataclass(frozen=True)
 class Evidence:
@@ -173,6 +183,13 @@ def evidence_from_tariff_decision(
 def tariff_confidence_label(evidence: Evidence) -> str:
     """Mapira Evidence.confidence na jak/srednji/slab/nepoznat (Faza 3)."""
     return _TARIFF_CONFIDENCE_LABELS.get(evidence.confidence, "nepoznat")
+
+
+def evidence_badge_colors(evidence: Evidence) -> tuple[str, str]:
+    """(boja teksta, boja pozadine) za badge na osnovu score_category (Faza 6)."""
+    return _SCORE_CATEGORY_BADGE_COLORS.get(
+        evidence.score_category, _SCORE_CATEGORY_BADGE_COLORS[DecisionScoreCategory.HIDDEN]
+    )
 
 
 def evidence_score_category(score: int) -> DecisionScoreCategory:
