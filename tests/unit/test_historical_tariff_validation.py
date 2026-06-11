@@ -12,6 +12,10 @@ from services.agent.validation.historical_tariff_search_service import (
     HistoricalTariffSearchService,
     TariffHistoryMatch,
 )
+from services.agent.validation.evidence_model import (
+    DecisionConfidence,
+    DecisionSource,
+)
 from services.agent.validation.tariff_decision_model import (
     TariffDecisionOutcome,
     TariffDecisionThresholds,
@@ -202,6 +206,37 @@ def test_historical_validation_allows_strong_cross_chapter_match(monkeypatch):
     assert len(matches) == 1
     assert matches[0].tarifni_broj_historijski == "17049081"
     assert "Promjena poglavlja" in matches[0].decision_reason
+
+
+def test_historical_validation_marks_placeholder_source_as_unknown(monkeypatch):
+    svc = HistoricalTariffSearchService()
+    line = InvoiceLine(
+        line_no=52,
+        naziv_robe="DIXI dekstroza 7vit bomb a40",
+        tarifni_broj="21069092",
+    )
+
+    monkeypatch.setattr(
+        svc,
+        "_search_one",
+        lambda *_: [
+            _match(
+                "DIXI dekstroza 7vit bomb a40",
+                "17049081",
+                usage=10,
+                source="HISTORIJA",
+                confidence=0.68,
+            )
+        ],
+    )
+    monkeypatch.setattr(svc, "_feedback_action", lambda m: "")
+
+    matches = svc.validate_lines([line])
+
+    assert len(matches) == 1
+    assert matches[0].evidence is not None
+    assert matches[0].evidence.confidence is DecisionConfidence.UNKNOWN
+    assert matches[0].evidence.source is DecisionSource.TARIFF_DATABASE
 
 
 def test_historical_validation_uses_invoice_profile_for_cross_chapter_noise(monkeypatch):

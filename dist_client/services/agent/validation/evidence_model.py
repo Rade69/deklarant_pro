@@ -12,6 +12,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
+from services.agent.validation.tariff_decision_model import has_meaningful_source
+
 
 class DecisionSource(Enum):
     DOCUMENT = "document"
@@ -34,6 +36,13 @@ _CONFIRMED_STATUSES = frozenset({
     DecisionConfidence.CONFIRMED_FROM_DOCUMENT,
     DecisionConfidence.CONFIRMED_FROM_SAME_EXPORTER_HISTORY,
 })
+
+_TARIFF_CONFIDENCE_LABELS: dict[DecisionConfidence, str] = {
+    DecisionConfidence.CONFIRMED_FROM_SAME_EXPORTER_HISTORY: "jak",
+    DecisionConfidence.SUGGESTED_BY_SIMILARITY: "srednji",
+    DecisionConfidence.WEAK_GUESS: "slab",
+    DecisionConfidence.UNKNOWN: "nepoznat",
+}
 
 
 @dataclass(frozen=True)
@@ -73,6 +82,14 @@ def evidence_from_tariff_decision(
     """Mapira ishod decide_tariff_match() (show_strong/show_weak/suppress) na Evidence."""
     data = {"usage_count": usage_count, "source": source, "supplier_match": supplier_match}
 
+    if not has_meaningful_source(source):
+        return build_evidence(
+            DecisionSource.TARIFF_DATABASE,
+            DecisionConfidence.UNKNOWN,
+            "Istorijski zapis nema poznat izvor (izvoznik/XML) — prijedlog se ne moze potvrditi kao istorija.",
+            data,
+        )
+
     if decision_outcome == "show_strong":
         if supplier_match:
             return build_evidence(
@@ -103,6 +120,11 @@ def evidence_from_tariff_decision(
         "Prijedlog potisnut ili izvor nije prepoznat.",
         data,
     )
+
+
+def tariff_confidence_label(evidence: Evidence) -> str:
+    """Mapira Evidence.confidence na jak/srednji/slab/nepoznat (Faza 3)."""
+    return _TARIFF_CONFIDENCE_LABELS.get(evidence.confidence, "nepoznat")
 
 
 def evidence_from_preference(item: Any) -> Evidence:

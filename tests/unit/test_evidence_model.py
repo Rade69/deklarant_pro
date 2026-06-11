@@ -1,4 +1,6 @@
 from core.draft.draft import InvoiceLine
+import pytest
+
 from services.agent.validation.evidence_model import (
     DecisionConfidence,
     DecisionSource,
@@ -6,6 +8,7 @@ from services.agent.validation.evidence_model import (
     build_evidence,
     evidence_from_preference,
     evidence_from_tariff_decision,
+    tariff_confidence_label,
 )
 
 
@@ -41,12 +44,41 @@ def test_suggested_by_similarity():
         decision_outcome="show_strong",
         supplier_match=False,
         usage_count=8,
-        source="HISTORIJA",
+        source="MEDICO PHARM SERVIS",
     )
 
     assert evidence.source is DecisionSource.SIMILARITY
     assert evidence.confidence is DecisionConfidence.SUGGESTED_BY_SIMILARITY
     assert evidence.requires_confirmation is True
+
+
+@pytest.mark.parametrize("source", ["", "HISTORIJA", "+", "A"])
+def test_unknown_source_placeholders_are_unknown(source):
+    evidence = evidence_from_tariff_decision(
+        decision_outcome="show_strong",
+        supplier_match=False,
+        usage_count=8,
+        source=source,
+    )
+
+    assert evidence.confidence is DecisionConfidence.UNKNOWN
+    assert evidence.source is DecisionSource.TARIFF_DATABASE
+    assert evidence.requires_confirmation is True
+
+
+@pytest.mark.parametrize(
+    ("confidence", "label"),
+    [
+        (DecisionConfidence.CONFIRMED_FROM_SAME_EXPORTER_HISTORY, "jak"),
+        (DecisionConfidence.SUGGESTED_BY_SIMILARITY, "srednji"),
+        (DecisionConfidence.WEAK_GUESS, "slab"),
+        (DecisionConfidence.UNKNOWN, "nepoznat"),
+    ],
+)
+def test_tariff_confidence_label(confidence, label):
+    evidence = build_evidence(DecisionSource.TARIFF_DATABASE, confidence)
+
+    assert tariff_confidence_label(evidence) == label
 
 
 def test_weak_guess():
