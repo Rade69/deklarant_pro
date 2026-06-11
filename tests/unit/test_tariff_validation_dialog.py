@@ -1,11 +1,17 @@
 from types import SimpleNamespace
 
 from PySide6.QtGui import QGuiApplication
+from PySide6.QtWidgets import QLabel
 
 from gui.tabs.agent.widgets.tariff_validation_dialog import TariffValidationDialog
+from services.agent.validation.evidence_model import (
+    DecisionConfidence,
+    DecisionSource,
+    build_evidence,
+)
 
 
-def _match(line_index: int, outcome: str):
+def _match(line_index: int, outcome: str, evidence=None):
     return SimpleNamespace(
         line_index=line_index,
         naziv_robe_original=f"Roba {line_index}",
@@ -18,6 +24,7 @@ def _match(line_index: int, outcome: str):
         decision_reason="Ista tarifna glava; istorija ukazuje na precizniji broj.",
         decision_outcome=outcome,
         decision_score=50,
+        evidence=evidence,
     )
 
 
@@ -101,3 +108,40 @@ def test_copy_report_includes_decision_outcome_and_score(qtbot):
     assert "Odluka: show_weak" in report
     assert "Score: 50" in report
     assert "Razlog: Ista tarifna glava; istorija ukazuje na precizniji broj." in report
+
+
+def test_unknown_evidence_blocks_accept_all_and_shows_unknown_label(qtbot):
+    evidence = build_evidence(
+        DecisionSource.TARIFF_DATABASE,
+        DecisionConfidence.UNKNOWN,
+        "Istorijski zapis nema poznat izvor.",
+    )
+    match = _match(0, "show_strong", evidence=evidence)
+    match.source = "HISTORIJA"
+
+    dialog = TariffValidationDialog([match])
+    qtbot.addWidget(dialog)
+
+    assert dialog._can_accept_all(match) is False
+    assert dialog._accept_all_btn.isEnabled() is False
+    labels = [label.text() for label in dialog.findChildren(QLabel)]
+    rendered = "\n".join(labels)
+    assert "izvor nepoznat" in rendered
+    assert "nepoznat" in rendered
+
+
+def test_confirmed_exporter_history_shows_jak_label(qtbot):
+    evidence = build_evidence(
+        DecisionSource.EXPORTER_HISTORY,
+        DecisionConfidence.CONFIRMED_FROM_SAME_EXPORTER_HISTORY,
+        "Potvrdjeno iz istorije istog izvoznika.",
+    )
+    match = _match(0, "show_strong", evidence=evidence)
+
+    dialog = TariffValidationDialog([match])
+    qtbot.addWidget(dialog)
+
+    labels = [label.text() for label in dialog.findChildren(QLabel)]
+    rendered = "\n".join(labels)
+    assert "Pouzdanost prijedloga" in rendered
+    assert "jak" in rendered

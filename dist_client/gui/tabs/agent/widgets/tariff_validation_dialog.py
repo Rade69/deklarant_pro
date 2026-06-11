@@ -14,6 +14,8 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QGuiApplication
 
+from services.agent.validation.evidence_model import DecisionConfidence, tariff_confidence_label
+
 
 class TariffValidationDialog(QDialog):
     """
@@ -149,9 +151,15 @@ class TariffValidationDialog(QDialog):
         tarif_label.setStyleSheet("font-size: 14px;")
 
         # Meta info — supplier ima prednost, fallback na source (XML filename)
+        evidence = getattr(match, "evidence", None)
+        is_unknown_source = (
+            evidence.confidence is DecisionConfidence.UNKNOWN
+            if evidence is not None
+            else not (match.source or '').strip()
+        )
         supplier = (match.source or '').strip()
-        if not supplier:
-            source_lbl = "<span style='color:#aaa; font-size:13px;'>nepoznat izvoznik</span>"
+        if is_unknown_source or not supplier:
+            source_lbl = "<span style='color:#b45309; font-size:13px;'>izvor nepoznat — nije potvrđena historija</span>"
         elif supplier.lower().endswith('.xml'):
             # source je XML filename — prikaži ga bez ekstenzije kao "iz XML: ime"
             xml_name = supplier.rsplit('.', 1)[0][:40]
@@ -174,11 +182,10 @@ class TariffValidationDialog(QDialog):
         reason_label.setWordWrap(True)
 
         evidence_label = None
-        evidence = getattr(match, "evidence", None)
         if evidence is not None:
             evidence_label = QLabel(
                 f"<span style='color:#9ca3af; font-size:12px;'>"
-                f"Status dokaza: {evidence.confidence.value}</span>"
+                f"Pouzdanost prijedloga: <b>{tariff_confidence_label(evidence)}</b></span>"
             )
             evidence_label.setTextFormat(Qt.RichText)
 
@@ -338,7 +345,12 @@ class TariffValidationDialog(QDialog):
         return getattr(match, "decision_outcome", "") == "show_weak"
 
     def _can_accept_all(self, match) -> bool:
-        return not self._is_weak_match(match)
+        if self._is_weak_match(match):
+            return False
+        evidence = getattr(match, "evidence", None)
+        if evidence is not None and evidence.confidence is DecisionConfidence.UNKNOWN:
+            return False
+        return True
 
     def _copy_report(self):
         lines = []
