@@ -12,17 +12,24 @@ screenChanged handlera.
 """
 from __future__ import annotations
 
+import re
 from typing import Optional
 
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QApplication, QWidget
 
 # Logička širina (px) koju zahtijeva najširi toolbar (Faktura tab, mjereno
-# minimumSizeHint ≈ 2057px).
-REFERENCE_WIDTH = 2060
+# minimumSizeHint ≈ 2247px KAD JE UČITAN globalni QSS — vidi napomenu kod
+# _scale_stylesheet o tome zašto sam app.setFont() nije bio dovoljan).
+REFERENCE_WIDTH = 2250
 
 # Ne dozvoli da font padne ispod ovog faktora — ostaje čitljiv.
 MIN_SCALE = 0.6
+
+# Hvata "13px", "8.5px", "13pt" itd. iz QSS-a — koristi se za proporcionalno
+# skaliranje svih veličina definisanih u stylesheet-u (font-size, padding,
+# min-width/min-height, border-radius...).
+_SIZE_RE = re.compile(r"(\d+(?:\.\d+)?)(px|pt)\b")
 
 
 class ScaleManager:
@@ -38,6 +45,10 @@ class ScaleManager:
         self._scale = 1.0
         # widget -> (bazna_sirina, bazna_visina) u 100% pikselima
         self._fixed_widgets: dict[QWidget, tuple[Optional[int], Optional[int]]] = {}
+        # Originalni (100%) globalni stylesheet — popunjava se lijeno, pri
+        # prvom apply_scale() pozivu (load_stylesheet() se izvrši prije
+        # showEvent-a, pa je app.styleSheet() već popunjen u tom trenutku).
+        self._base_stylesheet: Optional[str] = None
 
     @classmethod
     def init(cls, app: QApplication) -> "ScaleManager":
@@ -71,10 +82,14 @@ class ScaleManager:
         self._apply_fixed_size(widget, width, height)
 
     def apply_scale(self, scale: float) -> None:
-        """Primijeni novi faktor skaliranja na font aplikacije i sve
-        registrovane fiksne widgete. Bez efekta ako se faktor nije
-        promijenio."""
+        """Primijeni novi faktor skaliranja na font aplikacije, globalni
+        stylesheet i sve registrovane fiksne widgete. Bez efekta ako se
+        faktor nije promijenio."""
         scale = max(MIN_SCALE, min(1.0, scale))
+
+        if self._base_stylesheet is None:
+            self._base_stylesheet = self._app.styleSheet()
+
         if abs(scale - self._scale) < 0.005:
             return
         self._scale = scale
@@ -83,10 +98,37 @@ class ScaleManager:
         font.setPointSizeF(max(1.0, self._base_point_size * scale))
         self._app.setFont(font)
 
+        if self._base_stylesheet:
+            self._app.setStyleSheet(self._scale_stylesheet(self._base_stylesheet, scale))
+
         for widget, (w, h) in list(self._fixed_widgets.items()):
             self._apply_fixed_size(widget, w, h)
 
         self._repolish_and_relayout()
+
+    @staticmethod
+    def _scale_stylesheet(css: str, scale: float) -> str:
+        """Proporcionalno skaliraj sve px/pt vrijednosti u QSS-u.
+
+        Globalni stylesheet (button_system.qss, unified_color_system.qss...)
+        postavlja `font-size`, `padding`, `min-width/min-height` itd. u
+        apsolutnim px/pt jedinicama. QStyleSheetStyle te vrijednosti
+        primjenjuje NEZAVISNO od QApplication.setFont() (font sa
+        pixelSize-om iz QSS-a se ne mijenja kad app font promijeni
+        pointSize) — zato samo `app.setFont()` nije smanjivao dugmadi u
+        toolbaru. Rewrite cijelog stylesheet-a je jedini način da se
+        toolbar stvarno smanji na malom ekranu.
+        """
+
+        def repl(match: "re.Match[str]") -> str:
+            value = float(match.group(1))
+            unit = match.group(2)
+            scaled = value * scale
+            if unit == "px":
+                return f"{max(1, round(scaled))}px"
+            return f"{round(scaled, 1)}pt"
+
+        return _SIZE_RE.sub(repl, css)
 
     def _repolish_and_relayout(self) -> None:
         """Forsiraj Qt da ponovo izračuna sizeHint/minimumSizeHint nakon
