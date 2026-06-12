@@ -22,7 +22,6 @@ from gui.tabs.lazy_tab import LazyTab
 from gui.tabs.admin_tab import AdminTab
 from gui.tabs.agent_tab import AgentTab
 from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
-from gui.utils.scaling import ScaleManager
 
 
 class MainWindow(QMainWindow):
@@ -36,10 +35,6 @@ class MainWindow(QMainWindow):
 
         # Vrati geometriju prozora iz prethodne sesije
         self._restore_window_state()
-
-        # Runtime skaliranje fontova/veličina prema ekranu na kojem je
-        # prozor — primjenjuje se u showEvent() i na promjenu monitora
-        ScaleManager.init(QApplication.instance())
 
         # 1. Učitaj stilove
         self.load_stylesheet()
@@ -317,14 +312,6 @@ class MainWindow(QMainWindow):
         """Sačuvaj geometriju kada se prozor prikaže (backup za closeEvent)."""
         super().showEvent(event)
 
-        # Runtime skaliranje — prati prebacivanje prozora na drugi monitor
-        if not getattr(self, '_screen_scale_connected', False):
-            self._screen_scale_connected = True
-            handle = self.windowHandle()
-            if handle is not None:
-                handle.screenChanged.connect(self._apply_scale_for_screen)
-                self._apply_scale_for_screen(handle.screen())
-
         # Samo pri prvom prikazivanju
         if getattr(self, '_first_show_done', False):
             return
@@ -335,36 +322,6 @@ class MainWindow(QMainWindow):
         if not settings.value("geometry"):
             settings.setValue("geometry", self.saveGeometry())
             settings.sync()
-
-    def _apply_scale_for_screen(self, screen) -> None:
-        """Skaliraj fontove i registrovane veličine prema ekranu na kojem se
-        prozor trenutno nalazi (poziva se pri prikazivanju i pri svakoj
-        promjeni monitora). Na malom ekranu (< REFERENCE_WIDTH logičkih px)
-        smanji sve i maksimizuj prozor; na velikom ekranu vrati 100% i
-        de-maksimizuj (samo ako je maksimizacija bila automatska, ne ako je
-        korisnik sam maksimizovao prozor).
-
-        Koristi se showMaximized()/showNormal() umjesto setGeometry(avail) —
-        setGeometry(avail) postavlja geometriju widgeta BEZ frame-a (title
-        bar) na (avail.x(), avail.y()), pa Qt na Windowsu dodaje title bar
-        IZNAD te tačke i gura ga van vidljivog ekrana (negativan y) —
-        korisnik gubi dugmiće za minimiziranje/zatvaranje. showMaximized()
-        prepušta window manageru da ispravno smjesti frame unutar ekrana."""
-        if screen is None:
-            return
-        mgr = ScaleManager.instance()
-        if mgr is None:
-            return
-        avail = screen.availableGeometry()
-        scale = mgr.scale_for_width(avail.width())
-        mgr.apply_scale(scale)
-        if scale < 1.0:
-            if not self.isMaximized():
-                self._auto_maximized = True
-            self.showMaximized()
-        elif getattr(self, '_auto_maximized', False):
-            self._auto_maximized = False
-            self.showNormal()
 
     def closeEvent(self, event) -> None:
         """Sačuvaj stanje prozora pre zatvaranja."""

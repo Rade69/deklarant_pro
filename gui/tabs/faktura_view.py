@@ -65,7 +65,6 @@ from exporters.pdf_invoice_exporter import export_invoice_to_pdf
 from exporters.pdf_faktura_pregled import export_faktura_pregled
 from gui.delegates import ValidationDelegate
 from gui.dialogs import AddItemDialog
-from gui.utils.scaling import register_fixed_size
 from importers.import_result import ImportResult
 from gui.tabs.base_view import BaseTabView
 from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
@@ -270,30 +269,25 @@ class FakturaView(BaseTabView):
         main_layout.addWidget(self.status_bar_widget)
 
     def _create_controls_section(self) -> QWidget:
-        """Create the controls section with header bar and colored buttons using GRID LAYOUT for perfect alignment."""
-        from PySide6.QtWidgets import QGridLayout
+        """Create the controls section — toolbar sekcije su "kartice"
+        (header + dugmići) u FlowLayout-u koji prelama kartice u nove redove
+        kad nema dovoljno horizontalnog prostora (analogija CSS flex-wrap),
+        umjesto globalnog smanjivanja fonta/QSS-a cijele aplikacije."""
+        from gui.widgets.flow_layout import FlowLayout
 
         container = QWidget()
         container.setObjectName("controlsContainer")
 
-        # Main GRID layout - header and toolbar share same columns!
-        grid = QGridLayout(container)
-        grid.setContentsMargins(0, 0, 0, 0)
-        grid.setSpacing(0)
-        grid.setColumnStretch(0, 1)  # Glavna lista
-        grid.setColumnStretch(2, 3)  # Uvezi
-        grid.setColumnStretch(4, 3)  # Uredi
-        grid.setColumnStretch(6, 5)  # Izvezi
-        grid.setColumnStretch(8, 3)  # Pametna pomoć
-
-        # Create header and toolbar sections that share columns
-        self._populate_grid_sections(grid)
+        outer_flow = FlowLayout(container, margin=0, h_spacing=12, v_spacing=12)
+        self._populate_grid_sections(outer_flow)
 
         return container
 
-    def _populate_grid_sections(self, grid):
-        """Populate grid with header and toolbar sections sharing same columns for PERFECT alignment."""
-        from PySide6.QtWidgets import QGridLayout
+    def _populate_grid_sections(self, outer_flow):
+        """Napravi svaku toolbar sekciju kao samostalnu karticu (header +
+        dugmići) i dodaj je u vanjski FlowLayout — kartice se prelamaju u
+        nove redove kad ne stanu u trenutnu širinu prozora."""
+        from gui.widgets.flow_layout import FlowLayout
 
         # Sekcije: (naziv, pozadina, boja teksta) — unified_color_system v3.0 paleta
         sections = [
@@ -304,21 +298,17 @@ class FakturaView(BaseTabView):
             ("Pametna pomoć", "#EDE4F5", "#4A2E6B"),  # ljubičasta (AI)
         ]
 
-        col = 0
         for idx, (section_name, color, text_color) in enumerate(sections):
-            # Create HEADER label for this section
+            card = QWidget()
+            card.setObjectName("toolbarCard")
+            card_layout = QVBoxLayout(card)
+            card_layout.setContentsMargins(0, 0, 0, 0)
+            card_layout.setSpacing(0)
+
+            # Header dugme — naziv sekcije
             header_label = QPushButton(section_name)
             header_label.setEnabled(False)
             header_label.setFixedHeight(40)
-
-            # Border radius for first/last
-            if idx == 0:
-                border_radius = "border-top-left-radius: 6px;"
-            elif idx == len(sections) - 1:
-                border_radius = "border-top-right-radius: 6px;"
-            else:
-                border_radius = ""
-
             header_label.setStyleSheet(
                 f"""
                 QPushButton {{
@@ -329,7 +319,8 @@ class FakturaView(BaseTabView):
                     padding: 10px 6px;
                     border: none;
                     border-bottom: 2px solid {self._darken_color(color)};
-                    {border_radius}
+                    border-top-left-radius: 6px;
+                    border-top-right-radius: 6px;
                 }}
                 QPushButton:disabled {{
                     background-color: {color};
@@ -337,45 +328,29 @@ class FakturaView(BaseTabView):
                 }}
             """
             )
+            card_layout.addWidget(header_label)
 
-            # Add header to row 0
-            grid.addWidget(header_label, 0, col)
-
-            # Create TOOLBAR section for this column
+            # Toolbar — FlowLayout: dugmići te sekcije prelamaju u novi red
+            # ako sama kartica nije dovoljno široka
             toolbar_container = QWidget()
-            toolbar_layout = QHBoxLayout(toolbar_container)
-            toolbar_layout.setContentsMargins(8, 8, 8, 8)
-            toolbar_layout.setSpacing(6)
-
-            # Border radius for toolbar
-            if idx == 0:
-                t_border_radius = "border-bottom-left-radius: 6px;"
-            elif idx == len(sections) - 1:
-                t_border_radius = "border-bottom-right-radius: 6px;"
-            else:
-                t_border_radius = ""
-
+            toolbar_container.setObjectName("toolbarCardBody")
+            toolbar_container.setAttribute(Qt.WA_StyledBackground, True)
             toolbar_container.setStyleSheet(
-                f"""
-                QWidget {{
-                    {t_border_radius}
-                }}
+                """
+                QWidget#toolbarCardBody {
+                    background-color: #ffffff;
+                    border: 1px solid #ccc;
+                    border-top: none;
+                    border-bottom-left-radius: 6px;
+                    border-bottom-right-radius: 6px;
+                }
             """
             )
+            toolbar_flow = FlowLayout(toolbar_container, margin=8, h_spacing=6, v_spacing=6)
+            self._populate_toolbar_section(toolbar_flow, idx)
+            card_layout.addWidget(toolbar_container)
 
-            # Populate toolbar content based on section
-            self._populate_toolbar_section(toolbar_layout, idx)
-
-            # Add toolbar to row 1
-            grid.addWidget(toolbar_container, 1, col)
-
-            # Add separator (spanning both rows)
-            if idx < len(sections) - 1:
-                col += 1
-                sep = self._create_thick_separator()
-                grid.addWidget(sep, 0, col, 2, 1)  # Span rows 0-1
-
-            col += 1
+            outer_flow.addWidget(card)
 
     def _populate_toolbar_section(self, layout, section_idx):
         """Populate toolbar section content based on index."""
@@ -498,13 +473,12 @@ class FakturaView(BaseTabView):
             bruto_row.setSpacing(4)
             bruto_label = QLabel("Bruto:")
             # Bez fiksne sirine i bez fiksnog font-size — sizeHint() prati
-            # skalirani app font (vidi gui/utils/scaling.py), pa se "Bruto:"
-            # ne odsijeca kad se cijela aplikacija smanji na malom ekranu.
+            # app font, pa se "Bruto:" ne odsijeca.
             bruto_label.setStyleSheet("color: #222; font-weight: bold;")
             bruto_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
             bruto_row.addWidget(bruto_label)
             self.input_bruto = QLineEdit()
-            register_fixed_size(self.input_bruto, width=90)
+            self.input_bruto.setFixedWidth(90)
             self.input_bruto.setToolTip("Ukupna bruto težina sa fakture (kg)")
             bruto_row.addWidget(self.input_bruto)
             weights_layout.addLayout(bruto_row)
@@ -516,7 +490,7 @@ class FakturaView(BaseTabView):
             neto_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
             neto_row.addWidget(neto_label)
             self.input_neto = QLineEdit()
-            register_fixed_size(self.input_neto, width=90)
+            self.input_neto.setFixedWidth(90)
             self.input_neto.setToolTip("Ukupna neto težina sa fakture (kg)")
             neto_row.addWidget(self.input_neto)
             weights_layout.addLayout(neto_row)
@@ -869,23 +843,6 @@ class FakturaView(BaseTabView):
         sep = QFrame()
         sep.setProperty("class", "separator")
         sep.setFrameShape(QFrame.VLine)
-        return sep
-
-    def _create_thick_separator(self) -> QFrame:
-        """Create a thick vertical separator between sections."""
-        sep = QFrame()
-        sep.setFrameShape(QFrame.VLine)
-        sep.setFrameShadow(QFrame.Sunken)
-        sep.setLineWidth(2)
-        sep.setMidLineWidth(1)
-        sep.setStyleSheet(
-            """
-            QFrame {
-                color: #999;
-                margin: 0px 8px;
-            }
-        """
-        )
         return sep
 
     # ============================================================
