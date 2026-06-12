@@ -96,12 +96,69 @@ nakon AskUserQuestion: "Dinamičko runtime skaliranje").
 |---|---|
 | `833c1f5` | feat(gui): dinamicko runtime skaliranje GUI-a prema velicini ekrana |
 | `c678084` | fix(gui): registruj Bruto/Neto polja faktura taba u ScaleManager |
+| `365d06e` | fix(gui): skaliraj globalni QSS proporcionalno umjesto samo app fonta |
+
+## DOPUNA (isti dan) — fix iznad NIJE radio u stvarnoj app
+
+Korisnik je odmah nakon prvog izvještaja poslao screenshot sa laptopa:
+toolbar identično skršen kao prije fixa ("Kreiraj N...", "Validac",
+"Prethodna deklaraci..." skraćeno, Bruto/Neto polja stisnuta), i korisnik
+NIJE MOGAO ručno smanjiti prozor da ga prebaci na drugi monitor.
+
+### Pravi uzrok
+
+Offscreen verifikacija iz prvog kruga NIKAD nije učitavala globalni QSS
+(`MainWindow.load_stylesheet()` — 10 fajlova). Ti QSS fajlovi
+(`button_system.qss`, `unified_color_system.qss`, `QSS_header_toolbar_sistem.qss`...)
+postavljaju `font-size`, `padding`, `min-width/min-height` u **apsolutnim
+px/pt jedinicama** na `QPushButton.btn_*` klase. `QStyleSheetStyle` te
+vrijednosti primjenjuje NEZAVISNO od `QApplication.setFont()` — font sa
+pixelSize-om iz QSS-a se ne mijenja kad app font promijeni pointSize.
+
+Mjereno SA učitanim QSS-om (isti diagnostic kao prvi put, ali sa
+`app.setStyleSheet(combined_style)`):
+
+- `minimumSizeHint` na scale=1.0 = **2247x286** (ne 2057 kao bez QSS-a).
+- `apply_scale(0.7456)` (1536px ekran) ga je smanjio na samo **2211x286**
+  — tek ~1.6% redukcije. Praktično bez efekta.
+
+Isti uzrok objašnjava i "ne mogu smanjiti prozor": Qt-ov default layout size
+constraint čini layout-ov `minimumSize` (≈2247px) EFEKTIVNIM minimumom
+prozora, nadjačavajući `setMinimumSize(1200,700)` iz `main_window.py:37`.
+
+### Drugi fix (commit `365d06e`)
+
+`ScaleManager._scale_stylesheet(css, scale)` — regex preskalira SVE `px`/`pt`
+vrijednosti u CIJELOM globalnom stylesheet-u proporcionalno scale faktoru
+(font-size, padding, min-width/min-height, border-radius...).
+`apply_scale()` čuva originalni `app.styleSheet()` (lijeno, pri prvom pozivu)
+i pri svakoj promjeni scale-a re-primjenjuje preskalirani QSS +
+`_repolish_and_relayout()`. `REFERENCE_WIDTH` ažuriran 2060 → **2250**
+(stvarni minimumSizeHint sa QSS-om).
+
+### Verifikacija (offscreen, SA učitanim QSS-om)
+
+| Ekran | scale | minimumSizeHint | redukcija vs 2247 |
+| --- | --- | --- | --- |
+| 2250px (referenca) | 1.0000 | 2247x286 | 0% |
+| 2200px | 0.9778 | 2244x288 | ~0% |
+| 1920px | 0.8533 | 1986x272 | ~12% |
+| 1536px (laptop) | 0.6827 | 1648x251 | ~27% |
+| 1366px | 0.6071 | 1523x244 | ~32% (blizu MIN_SCALE=0.6) |
 
 ## Napomena / mogući follow-up
 
-- 1536px ekran i dalje ima ~260px "viška" (1797 vs 1536) jer pojedini
-  elementi (npr. inline QSS `font-size: 14px/17px` na bruto/neto labelama i
-  section header dugmadima) ne reaguju na `QApplication.setFont()`. Ako
-  korisnik i dalje primijeti squishing na malom ekranu, sljedeći korak bi bio
-  da `ScaleManager` rewrituje i te inline QSS font-size vrijednosti
-  proporcionalno scale faktoru.
+- Na 1536px ekranu ostaje ~112px (7%) viška (1648 vs 1536) — od layout
+  spacing/margins (`toolbar_layout.setSpacing(6)`,
+  `setContentsMargins(8,8,8,8)`) i qtawesome icon size-ova POSTAVLJENIH U
+  PYTHON KODU, koje `_scale_stylesheet` ne dodiruje (samo QSS). Ako korisnik
+  i dalje vidi squishing/truncation nakon ovog fixa, sljedeći korak je
+  skalirati i te Python-side vrijednosti kroz `register_fixed_size()` ili
+  analogni mehanizam.
+- Efektivni minimum prozora bi trebao pasti sa ~2247px na ~1648px na malom
+  ekranu — i dalje iznad `setMinimumSize(1200,700)`, ali korisnik bi sada
+  trebao moći smanjiti prozor znatno više nego prije (za prebacivanje na
+  drugi monitor).
+- **POTREBNA POTVRDA NA STVARNOM LAPTOPU** — offscreen diagnostika ne može
+  vizuelno potvrditi izgled; potrebno je da korisnik restartuje app i provjeri
+  da li su dugmad/Bruto/Neto polja sada vidljiva bez skraćivanja.
