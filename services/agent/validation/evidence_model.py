@@ -192,6 +192,13 @@ def evidence_badge_colors(evidence: Evidence) -> tuple[str, str]:
     )
 
 
+def badge_colors_for_score(score: int) -> tuple[str, str]:
+    """(boja teksta, boja pozadine) direktno iz numerickog score-a (0-100), bez Evidence objekta."""
+    return _SCORE_CATEGORY_BADGE_COLORS.get(
+        evidence_score_category(score), _SCORE_CATEGORY_BADGE_COLORS[DecisionScoreCategory.HIDDEN]
+    )
+
+
 def evidence_score_category(score: int) -> DecisionScoreCategory:
     score = _normalize_score(score)
     if score >= 95:

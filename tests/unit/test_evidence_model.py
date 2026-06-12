@@ -6,6 +6,7 @@ from services.agent.validation.evidence_model import (
     DecisionScoreCategory,
     DecisionSource,
     Evidence,
+    badge_colors_for_score,
     build_evidence,
     evidence_badge_colors,
     evidence_score_category,
@@ -300,3 +301,24 @@ def test_evidence_badge_colors_distinct_per_score_category():
         seen.add((text_color, background_color))
 
     assert len(seen) == len(list(DecisionScoreCategory))
+
+
+def test_badge_colors_for_score_matches_evidence_badge_colors():
+    """Faza 6: chat prijedlozi koriste isti badge stil kao TariffValidationDialog."""
+    for score, confidence in [
+        (95, DecisionConfidence.CONFIRMED_FROM_DOCUMENT),
+        (90, DecisionConfidence.CONFIRMED_FROM_SAME_EXPORTER_HISTORY),
+        (75, DecisionConfidence.SUGGESTED_BY_SIMILARITY),
+        (60, DecisionConfidence.WEAK_GUESS),
+        (0, DecisionConfidence.UNKNOWN),
+    ]:
+        evidence = Evidence(
+            source=DecisionSource.TARIFF_DATABASE,
+            confidence=confidence,
+            score=score,
+            score_category=evidence_score_category(score),
+        )
+        assert badge_colors_for_score(score) == evidence_badge_colors(evidence)
+
+    # jak (90%) i slab (60%) prijedlog moraju biti vizuelno razliciti
+    assert badge_colors_for_score(90) != badge_colors_for_score(60)
