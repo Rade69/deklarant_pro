@@ -117,6 +117,19 @@ def main():
         # Fusion stil — identičan izgled na Windows i Linux
         os.environ.setdefault("QT_STYLE_OVERRIDE", "Fusion")
 
+        # Skaliranje cijele aplikacije na manjim ekranima — ako je logička
+        # širina primarnog ekrana manja od minimuma koji traži toolbar Faktura
+        # taba (~2057px), QT_SCALE_FACTOR umanjuje fontove i sve fiksne
+        # veličine tako da kompletan sadržaj stane, a prozor se otvara preko
+        # cijelog (skaliranog) ekrana. Mora se postaviti PRIJE QApplication.
+        try:
+            _screen_w = ctypes.windll.user32.GetSystemMetrics(0)  # SM_CXSCREEN
+            _TOOLBAR_MIN_W = 2060
+            if 0 < _screen_w < _TOOLBAR_MIN_W:
+                os.environ["QT_SCALE_FACTOR"] = f"{_screen_w / _TOOLBAR_MIN_W:.4f}"
+        except Exception:
+            pass
+
     app = QApplication(sys.argv)
     app.setApplicationName("Deklarant Pro")
     app.setDesktopFileName("deklarant-pro")

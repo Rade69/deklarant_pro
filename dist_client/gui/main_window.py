@@ -29,12 +29,19 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Deklarant Pro")
 
-        # Postavi podrazumevanu veličinu (80% Full HD 1920x1080)
-        self.resize(1536, 823)
-        self.setMinimumSize(1200, 700)
+        if os.environ.get("QT_SCALE_FACTOR"):
+            # Mali ekran — cijela aplikacija je skalirana (QT_SCALE_FACTOR,
+            # postavljen u run.py prije QApplication). Prozor uvijek puni
+            # (skalirani) ekran da stane sav sadržaj toolbara.
+            self.setMinimumSize(1200, 700)
+            self.setGeometry(QApplication.primaryScreen().availableGeometry())
+        else:
+            # Postavi podrazumevanu veličinu (80% Full HD 1920x1080)
+            self.resize(1536, 823)
+            self.setMinimumSize(1200, 700)
 
-        # Vrati geometriju prozora iz prethodne sesije
-        self._restore_window_state()
+            # Vrati geometriju prozora iz prethodne sesije
+            self._restore_window_state()
 
         # 1. Učitaj stilove
         self.load_stylesheet()
