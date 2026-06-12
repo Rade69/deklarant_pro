@@ -213,3 +213,101 @@ potvrdu smjera od korisnika kao follow-up.
 | Hash | Poruka |
 | --- | --- |
 | `726b9db` | fix(gui): popravi minimize/close dugmice i odsjecene Bruto/Neto labele |
+
+## DOPUNA 3 (isti dan, commits `07a6755`, `347a8de`) — FlowLayout redizajn, ScaleManager UKLONJEN
+
+Nakon Dopune 2, korisnik je pitao može li se primijeniti "web-like
+responsiveness" (flex-wrap stil) na Faktura toolbar umjesto daljeg
+podešavanja `ScaleManager`-a. Korisnikova Codex-analiza je pokazala da OBA
+realna ekrana (laptop 1536x816@125%, scale=0.6827; ASUS VX239 1920x1032@100%,
+scale=0.8533) padaju ispod `REFERENCE_WIDTH=2250`, pa `ScaleManager` OBA
+ekrana smanjuje i prisilno maksimizira — standardni 1920px monitor je
+ispadao "sitan, gotovo nečitljiv" jer je već-smanjen UI razvučen preko cijelog
+velikog ekrana. Korisnik je odobrio redizajn ("Hajde da vidimo kako će to
+izgledati") — plan: `C:\Users\38765\.claude\plans\atomic-inventing-duckling.md`.
+
+### Šta je urađeno (dopuna 3)
+
+1. Novi `FlowLayout` widget — `gui/widgets/flow_layout.py` +
+   `dist_client/gui/widgets/flow_layout.py` (standardni Qt "Flow Layout"
+   recept portovan na PySide6).
+2. Redizajn `_create_controls_section`/`_populate_grid_sections` u
+   `gui/tabs/faktura_view.py` i `dist_client/gui/tabs/faktura_view.py` — 5
+   toolbar sekcija postaju "kartice" (header `QPushButton` + `FlowLayout`
+   toolbar), sve kartice u vanjskom `FlowLayout`-u. `_create_thick_separator`
+   uklonjen iz oba fajla.
+3. Potpuno uklonjen `ScaleManager` — obrisani `gui/utils/scaling.py` i
+   `dist_client/gui/utils/scaling.py`; uklonjen import/init/
+   `_apply_scale_for_screen`/`screenChanged`-connect iz `gui/main_window.py`
+   i `dist_client/gui/main_window.py`; `register_fixed_size(...)` pozivi u
+   oba `faktura_view.py` zamijenjeni sa `setFixedWidth(90)` za Bruto/Neto
+   polja.
+
+### Kako je urađeno (dopuna 3)
+
+- **"Kartica"**: `QWidget` (objectName="toolbarCard") sa `QVBoxLayout` —
+  header `QPushButton` (disabled, boja po sekciji, zaokruženi uglovi na vrhu,
+  `font-size: 17px`, `padding: 10px 6px`, `setFixedHeight(40)`) + tijelo
+  (`QWidget` objectName="toolbarCardBody", `WA_StyledBackground`, bijela
+  pozadina, zaokruženi donji uglovi) čiji layout je
+  `FlowLayout(margin=8, h_spacing=6, v_spacing=6)`. Svih 5 kartica ide u
+  vanjski `FlowLayout(container, margin=0, h_spacing=12, v_spacing=12)`.
+  `_populate_toolbar_section(toolbar_flow, idx)` ostaje NEPROMIJENJEN —
+  `addWidget()` radi identično u `FlowLayout` kao u `QHBoxLayout`.
+- `hasHeightForWidth=True` u `FlowLayout` je ključan — `QVBoxLayout` (glavni
+  layout `FakturaView`) ga poštuje i automatski daje containeru više visine
+  kad se širina smanji i kartice se prelome u više redova.
+- **ScaleManager uklanjanje**: grep potvrdio NULA referenci na
+  `ScaleManager`/`register_fixed_size`/`gui.utils.scaling` u cijelom repou
+  nakon brisanja.
+- Redizajn je prirodno otklonio pred-postojeću razliku gui/ vs dist_client/
+  (header height=40/font=17px vs 30/14px) — oba sada koriste isti novi stil.
+- `gitnexus_impact` provjeren za sve mijenjane simbole — svi LOW risk.
+  `gitnexus_detect_changes(scope="staged")` za commit `347a8de`: risk_level
+  "low", 31 promijenjenih simbola, 4 fajla, 0 affected_processes.
+- Partial-patch staging (kao u `726b9db`) korišten da se NE dirne pred-postojeći
+  unstaged WIP u oba `faktura_view.py` fajla (validation-issue-counts feature
+  i nezavisni Blagic Attos dedup WIP) — `git diff HEAD -- <file> | head -N`,
+  `git apply --cached --check`, `git apply --cached`.
+
+### Verifikacija (offscreen, SA učitanim pravim QSS-om)
+
+| Mjera | Prije | Posle |
+| --- | --- | --- |
+| `controlsContainer.minimumSizeHint()` | 2247x286 | 260x128 |
+| `view.minimumSizeHint()` | 2247x286 | 1358x286 |
+
+Broj redova kartica prema širini containera:
+
+| Širina | Redovi kartica |
+| --- | --- |
+| ≥1200px | 1 |
+| 1000px | 2 |
+| 700px | 2 |
+| 500px | 3 |
+
+Bez Python exception-a pri konstrukciji/resize-u.
+
+## Zašto (dopuna 3)
+
+Sa `FlowLayout` toolbar adaptira širinu na BILO KOJOJ veličini ekrana
+prelamanjem kartica u redove — globalno smanjivanje fonta/QSS-a
+(`ScaleManager`) više nije potrebno niti poželjno, jer je upravo ono
+uzrokovalo da standardni 1920px monitor izgleda "sitan". Prozor ostaje
+slobodno smanjiv do `setMinimumSize(1200,700)` bez ikakvog auto-maximize-a.
+
+## Napomena / preostalo
+
+- **POTREBNA VIZUELNA POTVRDA NA STVARNOM HARDVERU** (oba monitora — laptop
+  1536x816@125% i ASUS VX239 1920x1032@100%) — offscreen verifikacija
+  potvrđuje samo geometriju/prelamanje, ne boje/razmake.
+- Ako se ista "sitan UI na velikom monitoru" pojava primijeti na drugim
+  tabovima (Naimenovanja/Zaglavlje/Šifrarnici), isti FlowLayout "kartica"
+  pattern je direktno prenosiv (pomenuto u memory fajlu).
+
+### Commitovi (dopuna 3)
+
+| Hash | Poruka |
+| --- | --- |
+| `07a6755` | feat(gui): dodaj FlowLayout widget za responzivni toolbar |
+| `347a8de` | refactor(gui): Faktura toolbar koristi FlowLayout, ukloni ScaleManager auto-skaliranje |
