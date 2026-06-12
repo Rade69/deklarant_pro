@@ -63,6 +63,7 @@ from exporters.pdf_invoice_exporter import export_invoice_to_pdf
 from exporters.pdf_faktura_pregled import export_faktura_pregled
 from gui.delegates import ValidationDelegate
 from gui.dialogs import AddItemDialog
+from gui.utils.scaling import register_fixed_size
 from importers.import_result import ImportResult
 from gui.tabs.base_view import BaseTabView
 from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
@@ -494,14 +495,14 @@ class FakturaView(BaseTabView):
             bruto_row = QHBoxLayout()
             bruto_row.setSpacing(4)
             bruto_label = QLabel("Bruto:")
-            bruto_label.setFixedWidth(50)
+            register_fixed_size(bruto_label, width=50)
             bruto_label.setStyleSheet(
                 "color: #222; font-size: 14px; font-weight: bold;"
             )
             bruto_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
             bruto_row.addWidget(bruto_label)
             self.input_bruto = QLineEdit()
-            self.input_bruto.setFixedWidth(90)
+            register_fixed_size(self.input_bruto, width=90)
             self.input_bruto.setToolTip("Ukupna bruto težina sa fakture (kg)")
             bruto_row.addWidget(self.input_bruto)
             weights_layout.addLayout(bruto_row)
@@ -509,12 +510,12 @@ class FakturaView(BaseTabView):
             neto_row = QHBoxLayout()
             neto_row.setSpacing(4)
             neto_label = QLabel("Neto:")
-            neto_label.setFixedWidth(50)
+            register_fixed_size(neto_label, width=50)
             neto_label.setStyleSheet("color: #222; font-size: 14px; font-weight: bold;")
             neto_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
             neto_row.addWidget(neto_label)
             self.input_neto = QLineEdit()
-            self.input_neto.setFixedWidth(90)
+            register_fixed_size(self.input_neto, width=90)
             self.input_neto.setToolTip("Ukupna neto težina sa fakture (kg)")
             neto_row.addWidget(self.input_neto)
             weights_layout.addLayout(neto_row)
