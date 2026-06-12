@@ -6,6 +6,7 @@ Non-blocking import sa progress reporting za PySide6 Qt aplikaciju
 """
 
 from PySide6.QtCore import QThread, Signal
+import os
 from typing import List, Union
 import logging
 
@@ -118,14 +119,17 @@ class ManualBatchImportWorker(QThread):
         # Privatna instanca — ne singleton (race condition sa main threadom)
         svc = ImportService()
 
-        consumed_paths: set = set()
+        def canonical_path(value) -> str:
+            return os.path.normcase(str(Path(value).resolve()))
+
+        consumed_paths: set[str] = set()
         records: list = []
 
         for i, filepath in enumerate(self.sorted_filepaths):
             if self._cancelled:
                 break
 
-            if filepath in consumed_paths:
+            if canonical_path(filepath) in consumed_paths:
                 self.progress.emit(i + 1, Path(filepath).name)
                 continue
 
@@ -155,9 +159,10 @@ class ManualBatchImportWorker(QThread):
                 if is_import_result else []
             )
             for cp in consumed_from:
-                consumed_paths.add(cp)
+                canonical_cp = canonical_path(cp)
+                consumed_paths.add(canonical_cp)
                 for rec in records:
-                    if rec["filepath"] == cp:
+                    if canonical_path(rec["filepath"]) == canonical_cp:
                         rec["skipped"] = True
                         rec["items"] = []
 

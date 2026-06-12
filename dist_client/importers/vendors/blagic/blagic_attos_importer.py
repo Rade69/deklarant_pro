@@ -643,6 +643,7 @@ def parse_blagic_attos_with_auto_combine(invoice_pdf_path: str) -> ImportResult:
         origin_statements=header.get("origin_statements", []),
         exporter=Party(name="ATTOS"),
         importer=_imp,
+        is_combined=bool(packing_list_path),
         consumed_paths=[packing_list_path] if packing_list_path else [],
     )
 

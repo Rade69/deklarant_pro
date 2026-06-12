@@ -1422,6 +1422,47 @@ class FakturaView(BaseTabView):
         text, level = self._build_analysis_summary_from_draft()
         self._set_analysis_summary_text(text, level)
 
+    def _validation_issue_counts(self) -> tuple[dict[str, int], dict[str, int]]:
+        errors: dict[str, int] = {}
+        warnings: dict[str, int] = {}
+        for row, line in enumerate(self.draft.invoice_lines):
+            result = self.validation_cache.get(row) or self.validator.validate(line)
+            for err in result.errors:
+                label = self._validation_issue_label(err.field, err.message)
+                errors[label] = errors.get(label, 0) + 1
+            for warn in result.warnings:
+                label = self._validation_issue_label(warn.field, warn.message)
+                warnings[label] = warnings.get(label, 0) + 1
+        return errors, warnings
+
+    @staticmethod
+    def _validation_issue_label(field: str, message: str) -> str:
+        msg = (message or "").lower()
+        if field == "tarifni_broj":
+            return "bez tarife" if "obavezan" in msg else "neispravna tarifa"
+        if field == "zemlja_porijekla":
+            return "bez zemlje"
+        if field == "naziv_robe":
+            return "bez naziva robe"
+        if field == "bruto":
+            return "bruto < neto"
+        if field == "cijena":
+            return "cijena 0/negativna"
+        return message or field or "nepoznata greška"
+
+    @staticmethod
+    def _format_issue_counts(counts: dict[str, int], limit: int = 3) -> str:
+        if not counts:
+            return ""
+        parts = [
+            f"{count} {label}"
+            for label, count in sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+        ]
+        if len(parts) > limit:
+            hidden = len(parts) - limit
+            parts = parts[:limit] + [f"+{hidden} tip"]
+        return " | ".join(parts)
+
     def _parse_number(self, value_str: str) -> float:
         """Parse European format number (10.258,23) to float."""
         if not value_str:
@@ -1590,22 +1631,31 @@ class FakturaView(BaseTabView):
         error_count = self.validation_cache.get_error_count()
         warning_count = self.validation_cache.get_warning_count()
         valid_count = self.validation_cache.get_valid_count()
+        error_issues, warning_issues = self._validation_issue_counts()
 
         # Validation status and color
         if error_count > 0:
-            self.lbl_validation.setText(f"❌ {error_count} greška")
+            details = self._format_issue_counts(error_issues)
+            self.lbl_validation.setText(f"❌ {details or f'{error_count} greška'}")
+            if details:
+                self.lbl_validation.setToolTip(f"Greške: {details}")
             self.status_bar_widget.setProperty("status", "error")
             self.lbl_validation.setProperty("status", "error")
         elif warning_count > 0:
-            self.lbl_validation.setText(f"⚠️ {warning_count} upozorenja")
+            details = self._format_issue_counts(warning_issues)
+            self.lbl_validation.setText(f"⚠️ {details or f'{warning_count} upozorenja'}")
+            if details:
+                self.lbl_validation.setToolTip(f"Upozorenja: {details}")
             self.status_bar_widget.setProperty("status", "warning")
             self.lbl_validation.setProperty("status", "warning")
         elif valid_count == item_count:
             self.lbl_validation.setText("✅ Sve validne")
+            self.lbl_validation.setToolTip("")
             self.status_bar_widget.setProperty("status", "success")
             self.lbl_validation.setProperty("status", "success")
         else:
             self.lbl_validation.setText("⚪ Neprovjereno")
+            self.lbl_validation.setToolTip("")
             self.status_bar_widget.setProperty("status", "")
             self.lbl_validation.setProperty("status", "")
 
@@ -3238,15 +3288,6 @@ class FakturaView(BaseTabView):
             # Sync table data to draft first (in case user edited cells)
             self._sync_table_to_draft()
 
-            # Auto-popuni tarifne za stavke koje ih nemaju, prije validacije —
-            # korisnik ne mora posebno klikati "Auto-popuni" dugme. Tiho (bez
-            # progress dialoga), ali rezultat se prikazuje da korisnik provjeri
-            # da li je popunjena tarifa ispravna (baza znanja može sadržati
-            # pogrešno naučene mappinge).
-            autofill_result = self._on_auto_fill(auto=True)
-            if not auto and autofill_result and autofill_result.matched_items > 0:
-                self._show_tariff_mapping_result(autofill_result, 0)
-
             # Revalidate all rows
             self.table.blockSignals(True)
             try:
@@ -3266,6 +3307,7 @@ class FakturaView(BaseTabView):
             error_count = self.validation_cache.get_error_count()
             warning_count = self.validation_cache.get_warning_count()
             valid_count = self.validation_cache.get_valid_count()
+            error_issues, warning_issues = self._validation_issue_counts()
 
             # Show summary
             message = "╔══════════════════════════════════════╗\n"
@@ -3278,6 +3320,14 @@ class FakturaView(BaseTabView):
             message += f"║  🔴 Greške:      {error_count:>4}                ║\n"
             message += f"║  🟡 Upozorenja:  {warning_count:>4}                ║\n"
             message += "╚══════════════════════════════════════╝\n"
+            if error_issues:
+                message += "\nGreške po tipu:\n"
+                for label, count in sorted(error_issues.items(), key=lambda item: (-item[1], item[0])):
+                    message += f"  • {count} {label}\n"
+            if warning_issues:
+                message += "\nUpozorenja po tipu:\n"
+                for label, count in sorted(warning_issues.items(), key=lambda item: (-item[1], item[0])):
+                    message += f"  • {count} {label}\n"
 
             if not auto:
                 if error_count > 0:

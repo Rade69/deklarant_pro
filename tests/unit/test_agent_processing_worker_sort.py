@@ -116,3 +116,28 @@ def test_agent_controller_dedupe_skips_excel_pair_when_combined_pdf_exists():
     assert result == [pdf]
     assert excel.status == "Skipped"
     assert excel.invoice_lines == []
+
+
+def test_agent_controller_dedupe_honors_consumed_path_without_combined_flag():
+    controller = AgentController.__new__(AgentController)
+    table = MagicMock()
+    doc = MagicMock()
+    doc.file_table = table
+    view = MagicMock()
+    view.get_document_panel.return_value = doc
+    controller.view = view
+
+    packing = _mk("/tmp/Pak lista 2419 - Blagic.pdf")
+    packing.status = "Completed"
+    packing.invoice_lines = [object()]
+
+    invoice = _mk("/tmp/Faktura 2419 - Blagic.pdf")
+    invoice.status = "Completed"
+    invoice.invoice_lines = [object()]
+    invoice.consumed_paths = [packing.filepath]
+
+    result = controller._dedupe_completed_import_files([packing, invoice])
+
+    assert result == [invoice]
+    assert packing.status == "Skipped"
+    assert packing.invoice_lines == []
