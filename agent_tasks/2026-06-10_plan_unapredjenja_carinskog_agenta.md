@@ -347,6 +347,23 @@ Potrebna potvrda korisnika prije upisa.
 
 ## Faza 7 — Test dataset
 
+**Status:** ZAVRŠENO 2026-06-12
+
+**Urađeno:**
+
+- `tests/fixtures/agent/agent_decision_regression_cases.json` — 9 anonimizovanih
+  slučajeva koji pokrivaju svih 7 predloženih scenarija (PE2, EUR.1/PE1, bez
+  dokaza porijekla, CN bez povlastice, dva izvoznika/isti proizvod x2, Blagić/Loren
+  multi-faktura x2, slab istorijski prijedlog), sa `expected` poljima za
+  `Evidence` (source/confidence/score/score_category/requires_confirmation/
+  should_recommend/auto_applicable/doc_code).
+- `tests/unit/test_agent_decision_regression.py` — data-driven test preko
+  `evidence_from_preference()` i `evidence_from_tariff_decision()` (čiste funkcije
+  iz Faze 1/2, bez LLM/DB/API), plus 3 dodatna scenario-testa: dva izvoznika ne
+  dijele evidenciju za istu tarifu, stavke iz različitih faktura u istoj
+  deklaraciji imaju nezavisnu evidenciju, slab istorijski prijedlog nikad nije
+  `auto_applicable`.
+
 ### Cilj
 
 Napraviti minimalni set stvarnih ili anonimizovanih slučajeva za regresiju agenta.
