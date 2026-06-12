@@ -311,3 +311,48 @@ slobodno smanjiv do `setMinimumSize(1200,700)` bez ikakvog auto-maximize-a.
 | --- | --- |
 | `07a6755` | feat(gui): dodaj FlowLayout widget za responzivni toolbar |
 | `347a8de` | refactor(gui): Faktura toolbar koristi FlowLayout, ukloni ScaleManager auto-skaliranje |
+
+## DOPUNA 4 (isti dan, commit `6788444`) — REZULTAT: korisnik odbio FlowLayout, sve vraćeno na original
+
+Korisnik je testirao FlowLayout redizajn na stvarnom hardveru (laptop +
+ASUS VX239 monitor) i odgovorio: **"Potpuni debakl ideje, vrati sve na
+staro oboje užasno"** — redizajn odbijen na OBA ekrana, bez detalja šta
+konkretno nije valjalo (boje/razmaci/veličine).
+
+Na pitanje koje "staro" stanje vratiti, korisnik je izabrao **najradikalniju
+opciju**: revert SVIH commit-a iz cijele sesije skaliranja (`c62601b` do
+`347a8de` — QT_SCALE_FACTOR, ScaleManager, FlowLayout), ne samo FlowLayout.
+
+### Šta je vraćeno
+
+- `gui/tabs/faktura_view.py` + dist_client: originalni `QGridLayout`
+  toolbar (stretch 1:3:3:5:3, `_create_thick_separator()` separatori,
+  `setFixedWidth(90)` na Bruto/Neto bez `register_fixed_size`).
+- `gui/widgets/flow_layout.py` + dist_client: obrisani (novi fajlovi ove
+  sesije, nikad nisu postojali prije).
+- `gui/main_window.py`/`run.py` + dist_client: bez promjena potrebnih —
+  neto diff između stanja prije `c62601b` i `347a8de` (HEAD) za ove fajlove
+  je NULA (uzastopni commitovi su se međusobno poništili).
+- `gui/utils/scaling.py` + dist_client: ostaju obrisani (već obrisani u
+  `347a8de`, nisu postojali ni prije `c62601b`).
+
+### Tehnika (partial-revert uz nepovezan WIP)
+
+`faktura_view.py` ima nepovezan unstaged WIP (`_validation_issue_counts`)
+preko cijelog toolbar redizajna. Korišten `git stash push -- <files>` →
+`git checkout 05354ef -- <files>` (vraća na pre-scaling stanje) →
+`git stash pop` (3-way merge WIP-a, bez konflikta) → INDEX eksplicitno
+resetovan na čisti `05354ef` (`cp` worktree u temp, ponovni checkout, `cp`
+nazad) prije commit-a, da revert NE pokupi dio WIP-a slučajno.
+
+### Rezultat
+
+Originalni problem (toolbar ~2247px, ne stane na 1536px laptop) je PONOVO
+PRISUTAN — nije riješen, vraćeno je na stanje od početka sesije. Svi
+commitovi sesije ostaju u historiji (revert, ne reset/rebase).
+
+### Commit (dopuna 4)
+
+| Hash | Poruka |
+| --- | --- |
+| `6788444` | revert(gui): vrati Faktura toolbar na originalni QGridLayout, ukloni skaliranje |
