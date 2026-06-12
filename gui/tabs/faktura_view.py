@@ -497,10 +497,10 @@ class FakturaView(BaseTabView):
             bruto_row = QHBoxLayout()
             bruto_row.setSpacing(4)
             bruto_label = QLabel("Bruto:")
-            register_fixed_size(bruto_label, width=50)
-            bruto_label.setStyleSheet(
-                "color: #222; font-size: 14px; font-weight: bold;"
-            )
+            # Bez fiksne sirine i bez fiksnog font-size — sizeHint() prati
+            # skalirani app font (vidi gui/utils/scaling.py), pa se "Bruto:"
+            # ne odsijeca kad se cijela aplikacija smanji na malom ekranu.
+            bruto_label.setStyleSheet("color: #222; font-weight: bold;")
             bruto_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
             bruto_row.addWidget(bruto_label)
             self.input_bruto = QLineEdit()
@@ -512,8 +512,7 @@ class FakturaView(BaseTabView):
             neto_row = QHBoxLayout()
             neto_row.setSpacing(4)
             neto_label = QLabel("Neto:")
-            register_fixed_size(neto_label, width=50)
-            neto_label.setStyleSheet("color: #222; font-size: 14px; font-weight: bold;")
+            neto_label.setStyleSheet("color: #222; font-weight: bold;")
             neto_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
             neto_row.addWidget(neto_label)
             self.input_neto = QLineEdit()

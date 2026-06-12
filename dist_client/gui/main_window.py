@@ -340,8 +340,16 @@ class MainWindow(QMainWindow):
         """Skaliraj fontove i registrovane veličine prema ekranu na kojem se
         prozor trenutno nalazi (poziva se pri prikazivanju i pri svakoj
         promjeni monitora). Na malom ekranu (< REFERENCE_WIDTH logičkih px)
-        smanji sve i otvori prozor preko cijelog ekrana; na velikom ekranu
-        vrati 100% i ostavi veličinu prozora kakva je."""
+        smanji sve i maksimizuj prozor; na velikom ekranu vrati 100% i
+        de-maksimizuj (samo ako je maksimizacija bila automatska, ne ako je
+        korisnik sam maksimizovao prozor).
+
+        Koristi se showMaximized()/showNormal() umjesto setGeometry(avail) —
+        setGeometry(avail) postavlja geometriju widgeta BEZ frame-a (title
+        bar) na (avail.x(), avail.y()), pa Qt na Windowsu dodaje title bar
+        IZNAD te tačke i gura ga van vidljivog ekrana (negativan y) —
+        korisnik gubi dugmiće za minimiziranje/zatvaranje. showMaximized()
+        prepušta window manageru da ispravno smjesti frame unutar ekrana."""
         if screen is None:
             return
         mgr = ScaleManager.instance()
@@ -351,7 +359,12 @@ class MainWindow(QMainWindow):
         scale = mgr.scale_for_width(avail.width())
         mgr.apply_scale(scale)
         if scale < 1.0:
-            self.setGeometry(avail)
+            if not self.isMaximized():
+                self._auto_maximized = True
+            self.showMaximized()
+        elif getattr(self, '_auto_maximized', False):
+            self._auto_maximized = False
+            self.showNormal()
 
     def closeEvent(self, event) -> None:
         """Sačuvaj stanje prozora pre zatvaranja."""
