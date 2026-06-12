@@ -55,6 +55,12 @@ def parse_llm_error(exc) -> str:
         return f"⏳ AI limit dostignut. Pokušaj za: {wait_str}"
     if '401' in msg or 'invalid_api_key' in msg or 'API_KEY_INVALID' in msg:
         return "🔑 Neispravan API ključ. Provjeri .env (GROQ_API_KEY, GEMINI_API_KEY, OPENROUTER_API_KEY ili DEEPSEEK_API_KEY)."
+    if '402' in msg or 'insufficient_balance' in msg.lower() or 'insufficient balance' in msg.lower():
+        return (
+            "💳 Nedovoljno kredita na AI nalogu (402 Insufficient Balance).\n"
+            "Dopuni kredit za trenutni provider ili podesi drugi (GROQ_API_KEY, GEMINI_API_KEY "
+            "ili OPENROUTER_API_KEY) u .env."
+        )
     if 'timeout' in msg.lower() or 'connection' in msg.lower():
         return "🌐 Greška veze sa AI serverom. Provjeri internet i pokušaj ponovo."
     return f"⚠️ AI greška: {msg[:200]}"

@@ -388,6 +388,32 @@ Napraviti minimalni set stvarnih ili anonimizovanih slučajeva za regresiju agen
 
 ## Faza 8 — LLM provider fallback
 
+**Status:** ZAVRŠENO 2026-06-12
+
+**Urađeno:**
+
+- `gui/tabs/agent/widgets/llm_provider.py` (+ `dist_client` mirror) —
+  `parse_llm_error()` dobio novu granu za HTTP 402 / "Insufficient Balance":
+  jasna poruka na srpskom ("💳 Nedovoljno kredita na AI nalogu...") bez
+  stack trace-a, smještena između postojećih 401 i timeout/connection grana.
+- `tests/unit/test_llm_provider_fallback.py` (novo, 10 testova):
+  - `parse_llm_error` — 402 (novo), 429 (sa i bez Used/Limit), 401, timeout,
+    generički fallback (regresija).
+  - `LLMProvider.stream_chat()` / `.complete()` — fallback lanac
+    Groq → Gemini → OpenRouter → DeepSeek poziva svaki provider TAČNO JEDNOM
+    pa baca posljednju grešku (nema beskonačnih retry petlji); test i za
+    slučaj kad nijedan provider nije podešen (`RuntimeError`).
+  - `ToolDispatcherWorker._dispatch()` — kad DeepSeek vrati 402, dispatcher
+    vraća `DispatchResult(error=...)` sa prevedenom porukom (💳, bez
+    "Traceback"), umjesto da propagira izuzetak.
+- Provjereno (bez izmjene koda — već postojeća arhitektura): "lokalni tool
+  prije LLM-a" je već implementirano — `route_local_tool()` se provjerava
+  PRIJE bilo kakvog LLM poziva u `_dispatch()`, a `_on_error` u
+  `chat_intent_handler.py` rutira 402/429/timeout greške na
+  `_handle_message_regex_fallback` (lokalni DB tool-ovi) umjesto direktno na
+  `ChatWorker`, osim kad greška znači da DeepSeek ključ nije podešen. Pokriveno
+  postojećim `test_dispatch_uses_local_router_before_llm`.
+
 ### Cilj
 
 Agent mora civilizovano raditi kad API vrati 402, 429 ili timeout.
