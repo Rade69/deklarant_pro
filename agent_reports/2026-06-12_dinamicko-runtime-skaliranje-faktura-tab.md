@@ -162,3 +162,54 @@ i pri svakoj promjeni scale-a re-primjenjuje preskalirani QSS +
 - **POTREBNA POTVRDA NA STVARNOM LAPTOPU** — offscreen diagnostika ne može
   vizuelno potvrditi izgled; potrebno je da korisnik restartuje app i provjeri
   da li su dugmad/Bruto/Neto polja sada vidljiva bez skraćivanja.
+
+## DOPUNA 2 (isti dan, commit `726b9db`) — 2 nova bug-a iz screenshot-a NAKON `365d06e`
+
+Korisnik je poslao novi screenshot: toolbar sekcije/dugmici sada VIDNO
+staju (bez mid-word skraćenja) — velika promjena nabolje. Prijavio je 2
+preostala problema:
+
+### Bug A — "Bruto:"/"Neto:" labele odsječene na "uto:"/"eto:"
+
+`bruto_label`/`neto_label` u `gui/tabs/faktura_view.py` (i `dist_client/`
+mirror) imale su `register_fixed_size(width=50)` (na scale=0.6827 →
+container = 34px) KOMBINOVANO sa inline `setStyleSheet("...font-size: 14px;
+font-weight: bold;")`. Inline per-widget stylesheet NIJE dio
+`app.styleSheet()` pa ga `_scale_stylesheet` ne dodiruje — font ostaje
+zakucan na 14px bold, dok se kontejner smanjio na 34px. "Bruto:" na 14px
+bold treba ~45-50px → desno-alignovan tekst se odsijeca slijeva.
+
+**Fix**: uklonjen `register_fixed_size()` i fiksni `font-size: 14px` (ostalo
+samo `color: #222; font-weight: bold;`). `sizeHint()` sada prati skalirani
+`app.font()` — labela se ne odsijeca na bilo kojem scale-u. Verifikovano
+offscreen sa QSS: `fits_bruto=True`/`fits_neto=True` na 1920/1536/1366px,
+minimumSizeHint @1536px = 1652px (bilo 1648, +4px negligibly).
+
+### Bug B — nema minimize/close dugmica na malom ekranu
+
+`_apply_scale_for_screen` je (od PRVOG fixa, `833c1f5`) pri `scale < 1.0`
+zvao `self.setGeometry(avail)`. `QWidget.setGeometry()` za top-level prozor
+postavlja geometriju BEZ window frame-a na `(avail.x(), avail.y())` — Qt na
+Windowsu zatim crta title bar (minimize/maximize/close) IZNAD te tačke, na
+negativan `y` (van vidljivog ekrana). Korisnik je ovo prijavio u OBA
+screenshot-a ("I dalje" = "still") — bug postoji od prvog commit-a ove
+sesije, nije novi regres.
+
+**Fix**: `setGeometry(avail)` → `self.showMaximized()` (scale < 1.0) /
+`self.showNormal()` (scale vraćen na 1.0, samo ako je maksimizacija bila
+automatska — flag `self._auto_maximized`, da se ne poremeti prozor koji je
+korisnik RUČNO maksimizovao). `showMaximized()` prepušta window manageru da
+korektno smjesti frame unutar ekrana.
+
+### Otvoreno pitanje — "web-like responsiveness"
+
+Korisnik je pitao može li se primijeniti "neka vrsta responzivnosti kao kod
+web aplikacija" (flex-wrap stil). Odgovoreno preporukom (Qt `QFlowLayout` za
+toolbar sekcije kao analogija CSS flex-wrap) BEZ implementacije — čeka
+potvrdu smjera od korisnika kao follow-up.
+
+### Commit (dopuna 2)
+
+| Hash | Poruka |
+| --- | --- |
+| `726b9db` | fix(gui): popravi minimize/close dugmice i odsjecene Bruto/Neto labele |
