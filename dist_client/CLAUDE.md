@@ -156,11 +156,19 @@ Svaki agent koji radi na ovom projektu MORA slijediti ovaj redosljed nakon što 
 
 ### Korak 3 — Agent report
 - Kreirati izvještaj u `agent_reports/YYYY-MM-DD_naziv-zadatka.md`
-- Izvještaj mora sadržavati:
-  - **Šta** je urađeno (kratki pregled promjena)
-  - **Kako** je urađeno (tehnički pristup, koje funkcije/fajlovi)
-  - **Zašto** (poslovni razlog, bug uzrok, odluka i alternativa)
-  - Tabelu commitova sa hashovima
+- Izvještaj mora pratiti ovu strukturu (sekcije kao `##`):
+  - **Datum**, **Agent**, **Scope** — fajlovi/moduli na koje se zadatak odnosi
+  - **GitNexus impact** — rezultat `gitnexus_impact` provjere prije izmjene (rizik, broj pogođenih simbola/procesa)
+  - **Šta je urađeno** — kratki pregled promjena
+  - **Zašto je urađeno** — poslovni razlog, bug uzrok, odluka i alternativa
+  - **Kako je urađeno** — tehnički pristup, koje funkcije/fajlovi
+  - **Šta nije dirano** — eksplicitno navesti šta je OSTAVLJENO netaknuto (npr. nepovezan WIP), da se spriječi širenje scope-a
+  - **Verifikacija** — kako je agent dokazao da promjena radi (testovi, offscreen provjere, py_compile...)
+  - **Pronađeni problemi** — uključujući lažno pozitivne zaključke (npr. verifikacija koja je krivo pokazala uspjeh)
+  - **Commitovi** — tabela hash/poruka
+  - **Rizici / ograničenja**
+  - **Potreban follow-up** — šta NIJE zatvoreno
+  - **Potrebna korisnička potvrda** — šta korisnik treba ručno provjeriti (npr. vizuelni izgled na stvarnom hardveru)
 - Commitovati izvještaj odmah nakon pisanja
 
 ### Korak 4 — Link u kodu (opcionalno, za kompleksne odluke)
