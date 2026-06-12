@@ -25,7 +25,7 @@ def _agent_invoice_sort_key(file_item) -> tuple:
     raw = getattr(file_item, "invoice_number", "") or getattr(file_item, "filepath", "")
     token = _agent_invoice_token(raw)
     parts = re.findall(r"\d+|[a-z]+", token)
-    natural = tuple(int(part) if part.isdigit() else part for part in parts)
+    natural = tuple((0, int(part)) if part.isdigit() else (1, part) for part in parts)
     return (natural, token, Path(getattr(file_item, "filepath", "")).name.lower())
 
 
