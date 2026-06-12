@@ -279,7 +279,7 @@ Uvesti jedinstven scoring koji agent koristi za tarife, porijeklo i validaciju.
 
 ## Faza 6 — Agent UI prikaz
 
-**Status:** DJELIMIČNO ZAVRŠENO 2026-06-11
+**Status:** ZAVRŠENO 2026-06-12
 
 **Urađeno:**
 
@@ -288,14 +288,24 @@ Uvesti jedinstven scoring koji agent koristi za tarife, porijeklo i validaciju.
   `evidence_badge_colors()` u `evidence_model.py`.
 - Pokriva acceptance kriterijum "Slabi prijedlozi su vizuelno drugačiji od potvrđenih"
   za istorijsku validaciju tarifa.
+- Prijedlozi tarifa u Agent chatu (`TariffIntentService._show_proposals`) sada
+  prikazuju "Pouzdanost X%" kao obojeni badge istim paletom boja kao
+  `TariffValidationDialog` — `badge_colors_for_score()` (novi helper u
+  `evidence_model.py`, koristi `_SCORE_CATEGORY_BADGE_COLORS` po
+  `evidence_score_category(score)`). Pokriva acceptance kriterijum "Slabi
+  prijedlozi su vizuelno drugačiji od potvrđenih" i za chat prijedloge.
+- `ChatPanel` ima novo dugme "Kopiraj izvještaj" (`copy_report_btn`) u traci
+  memorije — kopira posljednju poruku agenta (i streamovanu i statičnu) bez
+  HTML oznaka u clipboard. Pokriva acceptance kriterijum "Korisnik može
+  kopirati kratki izvještaj odluke".
+- "Nema poruka tipa 'mislim da je' bez izvora" — postojeće chat poruke već
+  navode "Izvor: ..." (verifikovano grep-om, bez novih neoznačenih poruka).
 
-**Ostaje za nastavak:**
+**Ostaje za nastavak (van scope-a Faze 6, opciono):**
 
-- Poruke u Agent chatu (`chat_panel.py`/`chat_worker.py`/`agent_controller.py`/
-  `processing_worker.py`) još ne slijede format zaključak/izvor/pouzdanost/akcija
-  iz primjera ispod — namjerno ostavljeno van scope-a da se izbjegne sukob sa
-  Faza 4 nastavkom (vidi `agent_tasks/2026-06-11_faza4-handoff.md`).
-- Faktura tab prikaz povlastice/tarife nije mijenjan u ovom koraku.
+- Faktura tab prikaz povlastice/tarife nije mijenjan u ovom koraku — badge
+  stil je dostupan (`badge_colors_for_score`) ako se odluči da se i tamo
+  prikazuje vizuelna pouzdanost.
 
 ### Cilj
 
