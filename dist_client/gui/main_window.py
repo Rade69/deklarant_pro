@@ -21,6 +21,7 @@ from gui.tabs.tab_factory import get_tab_factory
 from gui.tabs.lazy_tab import LazyTab
 from gui.tabs.admin_tab import AdminTab
 from gui.tabs.agent_tab import AgentTab
+from gui.utils.display_profile import display_key_for_screen, profile_for_screen
 from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
 
 
@@ -29,12 +30,13 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Deklarant Pro")
 
-        # Postavi podrazumevanu veličinu (80% Full HD 1920x1080)
-        self.resize(1536, 823)
-        self.setMinimumSize(1200, 700)
-
-        # Vrati geometriju prozora iz prethodne sesije
-        self._restore_window_state()
+        self._window_settings = QSettings("DeklarantPro", "MainWindow")
+        self._active_screen = self._preferred_startup_screen()
+        self._display_profile = profile_for_screen(self._active_screen)
+        self._display_key = display_key_for_screen(self._active_screen)
+        self._restore_maximized = False
+        self.setProperty("displayProfile", self._display_profile.name)
+        self._restore_window_state(self._active_screen)
 
         # 1. Učitaj stilove
         self.load_stylesheet()
@@ -45,6 +47,7 @@ class MainWindow(QMainWindow):
 
         # 3. Kreiranje tabova (redosled: Faktura, Zaglavlje, Naimenovanja, Šifrarnici)
         tabs = QTabWidget()
+        tabs.setObjectName("mainTabs")
 
         # Omogući responsive resizing za tab widget
         from PySide6.QtWidgets import QSizePolicy
@@ -53,7 +56,7 @@ class MainWindow(QMainWindow):
         # Font za tab kartice (stilovi su u main_tabs.qss — bez inline setStyleSheet koji bi kreirao QSS bubble)
         from PySide6.QtGui import QFont
         tabs.setFont(QFont("Segoe UI", 9))
-        tabs.setIconSize(QSize(20, 20))
+        tabs.setIconSize(QSize(self._display_profile.tab_icon_size, self._display_profile.tab_icon_size))
 
         self.setCentralWidget(tabs)
 
@@ -63,6 +66,7 @@ class MainWindow(QMainWindow):
         # Faktura tab — kreira se odmah (prikazuje se pri pokretanju)
         self.faktura_tab = tab_factory.create_tab('faktura', self.draft, self._on_dirty, tabs)
         tabs.addTab(self.faktura_tab, self._tab_icon("fa5s.file-alt"), "Faktura")
+        self._apply_faktura_display_profile()
 
         # Naimenovanja — lazy (QUiLoader + widget cache, inicijalizuje se pri prvom kliku)
         self.naimenovanje_tab = LazyTab(
@@ -197,6 +201,7 @@ class MainWindow(QMainWindow):
             "faktura_tab_v2.qss",  # Osnovni stilovi Faktura taba
             "QSS_header_toolbar_sistem.qss",  # Inputi, scrollbari, tabela, kombo
             "unified_color_system.qss",  # Unificirana paleta boja (najviši prioritet)
+            "display_profiles.qss",
         ]
 
         combined_style = ""
@@ -283,30 +288,81 @@ class MainWindow(QMainWindow):
         # Osveži UI da se osigura da su sve promene prikazane
         self.zaglavlje_tab.update()
 
-    def _restore_window_state(self) -> None:
-        """Vrati geometriju i poziciju prozora iz prethodne sesije."""
-        settings = QSettings("DeklarantPro", "MainWindow")
+    def _settings_group_for_screen(self, screen) -> str:
+        return f"displays/{display_key_for_screen(screen)}"
 
-        # Vrati geometriju (pozicija + veličina)
+    def _preferred_startup_screen(self):
+        last_display_key = self._window_settings.value("lastDisplayKey", "")
+        for screen in QApplication.screens():
+            if display_key_for_screen(screen) == last_display_key:
+                return screen
+        return QApplication.primaryScreen()
+
+    def _restore_window_state(self, screen) -> None:
+        available = screen.availableGeometry()
+        self.setMinimumSize(min(1200, available.width()), min(700, available.height()))
+
+        settings = self._window_settings
+        settings.beginGroup(self._settings_group_for_screen(screen))
         geometry = settings.value("geometry")
-        if geometry:
-            # Pokušaj da vratiš, ali validiraj veličinu
-            success = self.restoreGeometry(geometry)
+        maximized = settings.value("maximized", None)
+        settings.endGroup()
 
-            if not success:
-                self._center_on_primary_screen()
-            elif not success:
-                self._center_on_primary_screen()
-        else:
-            # Prvo pokretanje - centriraj prozor na primarnom ekranu
-            self._center_on_primary_screen()
+        restored = bool(geometry and self.restoreGeometry(geometry))
+        if restored and not available.intersects(self.frameGeometry()):
+            restored = False
 
-    def _center_on_primary_screen(self) -> None:
-        """Centriraj prozor na primarnom ekranu."""
-        screen = QApplication.primaryScreen().geometry()
-        x = (screen.width() - self.width()) // 2
-        y = (screen.height() - self.height()) // 2
-        self.move(x, y)
+        if not restored:
+            self._apply_default_window_geometry(screen)
+
+        self._restore_maximized = (
+            self._display_profile.maximize_by_default
+            if maximized is None
+            else str(maximized).lower() in {"1", "true", "yes"}
+        )
+
+    def _apply_default_window_geometry(self, screen) -> None:
+        available = screen.availableGeometry()
+        width = min(available.width(), max(self.minimumWidth(), int(available.width() * self._display_profile.width_ratio)))
+        height = min(available.height(), max(self.minimumHeight(), int(available.height() * self._display_profile.height_ratio)))
+        self.resize(width, height)
+        self.move(
+            available.x() + (available.width() - width) // 2,
+            available.y() + (available.height() - height) // 2,
+        )
+
+    def _apply_display_profile(self, screen) -> None:
+        self._active_screen = screen
+        self._display_profile = profile_for_screen(screen)
+        self._display_key = display_key_for_screen(screen)
+        self.setProperty("displayProfile", self._display_profile.name)
+        if hasattr(self, "tabs_widget"):
+            size = self._display_profile.tab_icon_size
+            self.tabs_widget.setIconSize(QSize(size, size))
+        self._apply_faktura_display_profile()
+        app = QApplication.instance()
+        if app and app.styleSheet():
+            app.setStyleSheet(app.styleSheet())
+
+    def _apply_faktura_display_profile(self) -> None:
+        faktura_view = getattr(getattr(self, "faktura_tab", None), "view", None)
+        if faktura_view and hasattr(faktura_view, "apply_display_profile"):
+            faktura_view.apply_display_profile(self._display_profile.name)
+
+    def _save_window_state(self, screen) -> None:
+        settings = self._window_settings
+        settings.beginGroup(self._settings_group_for_screen(screen))
+        settings.setValue("geometry", self.saveGeometry())
+        settings.setValue("maximized", self.isMaximized())
+        settings.setValue("profile", profile_for_screen(screen).name)
+        settings.setValue("screenName", screen.name())
+        settings.endGroup()
+        settings.setValue("lastDisplayKey", display_key_for_screen(screen))
+        settings.sync()
+
+    def _on_screen_changed(self, screen) -> None:
+        if screen is not None:
+            self._apply_display_profile(screen)
 
     def showEvent(self, event) -> None:
         """Sačuvaj geometriju kada se prozor prikaže (backup za closeEvent)."""
@@ -317,15 +373,18 @@ class MainWindow(QMainWindow):
             return
         self._first_show_done = True
 
-        # Sačuvaj početnu poziciju nakon prvog prikazivanja
-        settings = QSettings("DeklarantPro", "MainWindow")
-        if not settings.value("geometry"):
-            settings.setValue("geometry", self.saveGeometry())
-            settings.sync()
+        handle = self.windowHandle()
+        if handle:
+            handle.screenChanged.connect(self._on_screen_changed)
+            if handle.screen() is not None:
+                self._apply_display_profile(handle.screen())
+
+        if self._restore_maximized:
+            self.showMaximized()
 
     def closeEvent(self, event) -> None:
         """Sačuvaj stanje prozora pre zatvaranja."""
-        settings = QSettings("DeklarantPro", "MainWindow")
-        settings.setValue("geometry", self.saveGeometry())
-        settings.sync()  # Prisili trenutno pisanje na disk
+        screen = self.windowHandle().screen() if self.windowHandle() else self._active_screen
+        if screen is not None:
+            self._save_window_state(screen)
         super().closeEvent(event)

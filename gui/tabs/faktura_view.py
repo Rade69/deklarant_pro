@@ -33,6 +33,7 @@ from PySide6.QtWidgets import (
     QDialog,
     QTextEdit,
     QDialogButtonBox,
+    QSizePolicy,
 )
 from PySide6.QtCore import (
     Qt,
@@ -247,6 +248,7 @@ class FakturaView(BaseTabView):
     def _setup_ui(self):
         """Setup the complete UI layout."""
         main_layout = QVBoxLayout(self)
+        self._main_layout = main_layout
         main_layout.setContentsMargins(12, 12, 12, 12)
         main_layout.setSpacing(12)
 
@@ -279,11 +281,15 @@ class FakturaView(BaseTabView):
         grid = QGridLayout(container)
         grid.setContentsMargins(0, 0, 0, 0)
         grid.setSpacing(0)
-        grid.setColumnStretch(0, 1)  # Glavna lista
+        self._controls_grid = grid
+        grid.setColumnStretch(0, 2)  # Glavna lista
         grid.setColumnStretch(2, 3)  # Uvezi
         grid.setColumnStretch(4, 3)  # Uredi
         grid.setColumnStretch(6, 5)  # Izvezi
-        grid.setColumnStretch(8, 3)  # Pametna pomoć
+        grid.setColumnStretch(8, 4)  # Pametna pomoć
+
+        self._toolbar_headers = []
+        self._toolbar_layouts = []
 
         # Create header and toolbar sections that share columns
         self._populate_grid_sections(grid)
@@ -336,6 +342,10 @@ class FakturaView(BaseTabView):
                 }}
             """
             )
+            header_label.setProperty("headerColor", color)
+            header_label.setProperty("headerTextColor", text_color)
+            header_label.setProperty("headerRadius", border_radius)
+            self._toolbar_headers.append(header_label)
 
             # Add header to row 0
             grid.addWidget(header_label, 0, col)
@@ -345,6 +355,7 @@ class FakturaView(BaseTabView):
             toolbar_layout = QHBoxLayout(toolbar_container)
             toolbar_layout.setContentsMargins(8, 8, 8, 8)
             toolbar_layout.setSpacing(6)
+            self._toolbar_layouts.append(toolbar_layout)
 
             # Border radius for toolbar
             if idx == 0:
@@ -489,6 +500,7 @@ class FakturaView(BaseTabView):
 
             # Bruto/Neto weights
             weights_widget = QWidget()
+            weights_widget.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
             weights_layout = QVBoxLayout(weights_widget)
             weights_layout.setContentsMargins(4, 0, 4, 0)
             weights_layout.setSpacing(2)
@@ -520,6 +532,9 @@ class FakturaView(BaseTabView):
             self.input_neto.setToolTip("Ukupna neto težina sa fakture (kg)")
             neto_row.addWidget(self.input_neto)
             weights_layout.addLayout(neto_row)
+
+            self._weight_labels = (bruto_label, neto_label)
+            self._weights_widget = weights_widget
 
             layout.addWidget(weights_widget)
 
@@ -559,6 +574,70 @@ class FakturaView(BaseTabView):
             )
             self.btn_load_mappings.clicked.connect(self._on_load_previous_declaration)
             layout.addWidget(self.btn_load_mappings)
+
+    def apply_display_profile(self, profile_name: str) -> None:
+        compact = profile_name == "compact"
+        margins = (1, 4, 1, 4) if compact else (6, 5, 6, 5)
+        spacing = 2 if compact else 5
+
+        main_layout = getattr(self, "_main_layout", None)
+        if main_layout is not None:
+            main_layout.setContentsMargins(*(2, 6, 2, 6) if compact else (12, 12, 12, 12))
+            main_layout.setSpacing(6 if compact else 12)
+
+        grid = getattr(self, "_controls_grid", None)
+        if grid is not None:
+            stretches = (2, 3, 3, 5, 4) if compact else (1, 3, 3, 5, 3)
+            for column, stretch in zip((0, 2, 4, 6, 8), stretches):
+                grid.setColumnStretch(column, stretch)
+
+        for toolbar_layout in getattr(self, "_toolbar_layouts", []):
+            toolbar_layout.setContentsMargins(*margins)
+            toolbar_layout.setSpacing(spacing)
+
+        for button in self.findChildren(QPushButton):
+            standard_text = button.property("standardText")
+            if not standard_text:
+                continue
+            prefix = "" if compact or button.icon().isNull() else " "
+            button.setText(prefix + standard_text)
+            button.setIconSize(QSize(12, 12) if compact else QSize(16, 16))
+
+        label_width = 80 if compact else 74
+        input_width = 62 if compact else 90
+        for label in getattr(self, "_weight_labels", ()):
+            label.setFixedWidth(label_width)
+        for field in (getattr(self, "input_bruto", None), getattr(self, "input_neto", None)):
+            if field is not None:
+                field.setFixedWidth(input_width)
+
+        weights_widget = getattr(self, "_weights_widget", None)
+        if weights_widget is not None:
+            weights_widget.setFixedWidth(weights_widget.sizeHint().width())
+
+        header_font_size = 15 if compact else 17
+        for header in getattr(self, "_toolbar_headers", []):
+            color = header.property("headerColor")
+            text_color = header.property("headerTextColor")
+            border_radius = header.property("headerRadius") or ""
+            header.setStyleSheet(
+                f"""
+                QPushButton {{
+                    background-color: {color};
+                    color: {text_color};
+                    font-weight: bold;
+                    font-size: {header_font_size}px;
+                    padding: 8px 4px;
+                    border: none;
+                    border-bottom: 2px solid {self._darken_color(color)};
+                    {border_radius}
+                }}
+                QPushButton:disabled {{
+                    background-color: {color};
+                    color: {text_color};
+                }}
+                """
+            )
 
     def _create_table(self) -> QTableWidget:
         """Create the main items table."""
@@ -783,6 +862,7 @@ class FakturaView(BaseTabView):
         btn_text = (" " + text) if icon_name else text
         btn = QPushButton(btn_text)
         btn.setToolTip(tooltip)
+        btn.setProperty("standardText", text)
 
         # Add icon if QtAwesome is available and icon_name is provided
         if icon_name:

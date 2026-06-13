@@ -1,0 +1,19 @@
+QMainWindow[displayProfile="compact"] QTabBar::tab {
+    font-size: 12px;
+    padding: 6px 14px;
+}
+
+QMainWindow[displayProfile="compact"] QWidget#controlsContainer QPushButton {
+    font-size: 10px;
+    padding: 4px 0px;
+}
+
+QMainWindow[displayProfile="standard"] QTabBar::tab {
+    font-size: 13px;
+    padding: 7px 22px;
+}
+
+QMainWindow[displayProfile="large"] QTabBar::tab {
+    font-size: 14px;
+    padding: 8px 24px;
+}
