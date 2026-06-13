@@ -43,7 +43,7 @@ from PySide6.QtCore import (
     QSize,
     QTimer,
 )
-from PySide6.QtGui import QColor, QFont, QIcon
+from PySide6.QtGui import QColor, QFont, QFontMetrics, QIcon
 
 try:
     import qtawesome as qta
@@ -534,6 +534,8 @@ class FakturaView(BaseTabView):
             weights_layout.addLayout(neto_row)
 
             self._weight_labels = (bruto_label, neto_label)
+            self._weight_rows = (bruto_row, neto_row)
+            self._weights_layout = weights_layout
             self._weights_widget = weights_widget
 
             layout.addWidget(weights_widget)
@@ -603,10 +605,28 @@ class FakturaView(BaseTabView):
             button.setText(prefix + standard_text)
             button.setIconSize(QSize(12, 12) if compact else QSize(16, 16))
 
-        label_width = 80 if compact else 74
+        weight_font_size = 15 if compact else 14
         input_width = 62 if compact else 90
-        for label in getattr(self, "_weight_labels", ()):
-            label.setFixedWidth(label_width)
+        weight_labels = getattr(self, "_weight_labels", ())
+        for label in weight_labels:
+            font = label.font()
+            font.setPixelSize(weight_font_size)
+            font.setWeight(QFont.Weight.Bold)
+            label.setFont(font)
+            label.setStyleSheet("color: #111;")
+            label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        if weight_labels:
+            label_width = max(
+                QFontMetrics(label.font()).horizontalAdvance(label.text())
+                for label in weight_labels
+            ) + 6
+            for label in weight_labels:
+                label.setFixedWidth(label_width)
+        weights_layout = getattr(self, "_weights_layout", None)
+        if weights_layout is not None:
+            weights_layout.setContentsMargins(*(0, 0, 0, 0) if compact else (4, 0, 4, 0))
+        for row in getattr(self, "_weight_rows", ()):
+            row.setSpacing(2 if compact else 4)
         for field in (getattr(self, "input_bruto", None), getattr(self, "input_neto", None)):
             if field is not None:
                 field.setFixedWidth(input_width)
