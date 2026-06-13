@@ -244,6 +244,9 @@ class IspravaDelegate(QStyledItemDelegate):
         completer.activated.connect(
             lambda display_text: self._on_selected(display_text, index.row(), editor)
         )
+        editor.textEdited.connect(
+            lambda text: self._on_text_edited(text, index.row(), completer)
+        )
 
         # Enter tipka — potvrdi označenu stavku, ili prvu u popupu ako nema označene
         def _on_enter():
@@ -264,6 +267,17 @@ class IspravaDelegate(QStyledItemDelegate):
     def _on_selected(self, display_text: str, row: int, editor: QLineEdit):
         kod = self._display_map.get(display_text, display_text.split(" — ")[0].strip())
         editor.setText(kod)
+        self._set_document_name(row, kod)
+
+    def _on_text_edited(self, text: str, row: int, completer: QCompleter):
+        text = text.strip()
+        completer.setCompletionPrefix(text)
+        completer.complete()
+        kod = text.upper()
+        if kod in self._isprave:
+            self._set_document_name(row, kod)
+
+    def _set_document_name(self, row: int, kod: str):
         naziv = self._isprave.get(kod, "")
         if naziv:
             item = self._table.item(row, 1)
