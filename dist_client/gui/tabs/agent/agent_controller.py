@@ -472,6 +472,11 @@ class AgentController:
             self.draft.invoice_lines.clear()
             self.draft.invoice_lines.extend(lines)
 
+            # Popuni zaglavlje (izvoznik/uvoznik/valuta) iz ove fakture - samo prazna polja
+            fw = self.faktura_tab.view if hasattr(self.faktura_tab, 'view') else self.faktura_tab
+            if fw and hasattr(fw, '_apply_import_result_to_header'):
+                fw._apply_import_result_to_header(file_item)
+
             chat.add_activity(f"📥 [{invoice_name}] Uvoz {len(lines)} stavki...")
             QApplication.processEvents()
 

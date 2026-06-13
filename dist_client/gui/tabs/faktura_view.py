@@ -1892,6 +1892,23 @@ class FakturaView(BaseTabView):
             )
         ]
 
+        # Mapping Excel (tarife/porekla/podela/ptp/15467) nije faktura — preskoči ga
+        # u grupnom ručnom uvozu ako je u istom folderu sa PDF fakturama u ovom batch-u
+        # (ista logika kao agent uvoz, vidi ProcessingWorker._is_mapping_xlsx).
+        pdf_folders = {
+            str(Path(p).parent)
+            for p in sorted_filepaths
+            if Path(p).suffix.lower() == ".pdf"
+        }
+        skipped_mapping = [
+            p for p in sorted_filepaths
+            if ProcessingWorker._is_mapping_xlsx(p) and str(Path(p).parent) in pdf_folders
+        ]
+        if skipped_mapping:
+            for p in skipped_mapping:
+                logger.info(f"⏭️ Preskačem mapping Excel (grupni ručni uvoz): {Path(p).name}")
+            sorted_filepaths = [p for p in sorted_filepaths if p not in skipped_mapping]
+
         self._batch_progress = QProgressDialog(
             f"Uvoz {len(sorted_filepaths)} faktura...", "Otkaži",
             0, len(sorted_filepaths), self
@@ -1926,9 +1943,55 @@ class FakturaView(BaseTabView):
             self._batch_progress.close()
         self._process_batch_records(records)
 
+    def _postprocess_master_frigo_pairs_records(self, records: list) -> None:
+        """Sparuj Master Frigo PDF + Excel u grupnom ručnom uvozu (kao agent uvoz).
+
+        Finansije (cijena/iznos/kolicina) prepisuju se iz Excel-a u PDF stavke,
+        a Excel record se markira kao 'skipped' da ne uđe kao posebna faktura.
+        """
+        from gui.tabs.agent.widgets.processing_worker import ProcessingWorker
+
+        excel_by_token: dict[str, list[dict]] = {}
+        for rec in records:
+            if rec.get("skipped") or not rec.get("items"):
+                continue
+            if Path(rec["filepath"]).suffix.lower() not in (".xlsx", ".xls", ".xlsm"):
+                continue
+            token = ProcessingWorker._normalized_invoice_token(rec["filepath"])
+            excel_by_token.setdefault(token, []).append(rec)
+
+        for pdf_rec in records:
+            if pdf_rec.get("skipped") or not pdf_rec.get("items"):
+                continue
+            if Path(pdf_rec["filepath"]).suffix.lower() != ".pdf":
+                continue
+            import_result = pdf_rec.get("_import_result")
+            detected_format = (getattr(import_result, "_detected_format", "") or "").lower()
+            if "master_frigo" not in detected_format:
+                continue
+
+            token = ProcessingWorker._normalized_invoice_token(pdf_rec["filepath"])
+            candidates = excel_by_token.get(token) or []
+            if not candidates:
+                continue
+
+            excel_rec = candidates[0]
+            enriched = ProcessingWorker._apply_excel_financials(pdf_rec["items"], excel_rec["items"])
+            if enriched <= 0:
+                continue
+
+            excel_rec["skipped"] = True
+            excel_rec["items"] = []
+            logger.info(
+                f"🔗 Master Frigo pair (grupni ručni uvoz): {Path(pdf_rec['filepath']).name} + "
+                f"{Path(excel_rec['filepath']).name} (ažurirano finansija: {enriched} stavki)"
+            )
+
     def _process_batch_records(self, records: list) -> None:
         """Post-processing batch uvoza na main threadu: header, dijalozi, draft, display."""
         from importers.import_result import ImportResult
+
+        self._postprocess_master_frigo_pairs_records(records)
 
         final_records = [r for r in records if not r.get("skipped") and r.get("items")]
         final_records = sorted(final_records, key=_manual_invoice_record_sort_key)
@@ -2683,6 +2746,10 @@ class FakturaView(BaseTabView):
 
             # Track file type
             self._track_file_type()
+
+            # Popuni zaglavlje (izvoznik/uvoznik/valuta) iz ImportResult - samo prazna polja
+            if isinstance(result, ImportResult):
+                self._apply_import_result_to_header(result)
 
             # Provjeri konzistentnost pošiljaoca/uvoznika
             if not self._check_partner_consistency(exporter_name, importer_name):

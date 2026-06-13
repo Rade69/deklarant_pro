@@ -122,6 +122,9 @@ class ProcessingWorker(QThread):
                     )
                     file_item.is_combined = result.is_combined  # ⭐ KLJUČNO za duplikat detekciju
                     file_item.consumed_paths = list(getattr(result, "consumed_paths", []) or [])
+                    file_item.exporter = getattr(result, "exporter", None)
+                    file_item.importer = getattr(result, "importer", None)
+                    file_item.currency = getattr(result, "currency", "") or ""
                     file_item.invoice_lines = invoice_lines
                     file_item.status = 'Completed'
                     file_item.detected_parser = getattr(result, '_detected_format', 'auto') or 'auto'

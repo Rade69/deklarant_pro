@@ -41,6 +41,11 @@ class FileItem:
     is_combined: bool = False  # Da li je import_service kombinovao Excel+PDF
     consumed_paths: List[str] = field(default_factory=list)
 
+    # ⭐ Zaglavlje (iz ImportResult) - za _apply_import_result_to_header
+    exporter: Optional[object] = None  # Party - izvoznik/pošiljalac
+    importer: Optional[object] = None  # Party - uvoznik/primalac
+    currency: str = ""  # Valuta sa fakture
+
     @property
     def size_str(self) -> str:
         """Format file size."""
