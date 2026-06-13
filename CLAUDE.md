@@ -136,6 +136,28 @@ deklarant_pro/
 
 ---
 
+## Format zadatka za agenta (preporučeno)
+
+Za netrivijalne i debug zadatke, korisnik formuliše zadatak po ovom obrascu.
+Agent ga prepoznaje i direktno mapira na sekcije iz Koraka 3 (agent report):
+
+- **Zadatak** — šta treba popraviti/promijeniti
+- **Moja radna pretpostavka** — korisnikova hipoteza o uzroku/rješenju
+- **Provjeri hipotezu** — agent PRIJE izmjene potvrđuje ili odbacuje
+  hipotezu dokazima (baza, kod, logovi) → puni "Zašto je urađeno" i
+  "Verifikacija" u izvještaju
+- **Granice** — šta agent NE smije dirati (van scope-a) → puni
+  "Šta nije dirano"
+- **Šta je dobar ishod** — opis vidljivog/testabilnog rezultata
+- **Obavezno** — agent prikazuje impact/rizik i ostavlja agent_report
+  → puni "GitNexus impact" i "Rizici / ograničenja"
+
+Ovaj format je preporuka, ne zamjena za Korak 1-5: za sitne, jednolinijske
+ispravke (npr. jedan red u bazi, jedna konstanta) format je nepotreban
+overhead — koristiti procjenu.
+
+---
+
 ## ⚠️ OBAVEZNA PROCEDURA: Nakon završenog zadatka
 
 Svaki agent koji radi na ovom projektu MORA slijediti ovaj redosljed nakon što završi zadatak:
