@@ -809,7 +809,7 @@ class AsycudaXMLBuilder:
         _val(packages, "Marks1_of_packages", item.package_marks or "X")
         _val(packages, "Marks2_of_packages", "X")
         _val(packages, "Kind_of_packages_code", item.package_code or "PP")
-        _val(packages, "Kind_of_packages_name", item.package_name or "Komadi")
+        _val(packages, "Kind_of_packages_name", item.package_name or "Komad")
 
         # IncoTerms (na nivou stavke = isti kao zaglavlje)
         incoterms = ET.SubElement(item_elem, "IncoTerms")

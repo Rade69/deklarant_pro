@@ -50,7 +50,7 @@ def test_create_smart_group_keeps_grouped_count_under_limit_without_pending_draf
     assert not hasattr(draft, "pending_next_declaration")
 
 
-def test_created_naimenovanja_default_to_pp_komadi_packaging():
+def test_created_naimenovanja_default_to_pp_komad_packaging():
     draft = DeclarationDraft()
     draft.invoice_lines = [_line(1), _line(2)]
 
@@ -58,4 +58,4 @@ def test_created_naimenovanja_default_to_pp_komadi_packaging():
     service.create_one_to_one()
 
     assert {item.package_code for item in draft.items} == {"PP"}
-    assert {item.package_name for item in draft.items} == {"Komadi"}
+    assert {item.package_name for item in draft.items} == {"Komad"}

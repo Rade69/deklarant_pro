@@ -499,14 +499,14 @@ def test_export_warns_but_does_not_block_attached_document_without_reference():
     assert any("N380" in warning for warning in draft.warnings)
 
 
-def test_export_defaults_empty_package_type_to_pp_komadi():
+def test_export_defaults_empty_package_type_to_pp_komad():
     draft = DeclarationDraft()
     draft.items = [NaimenovanjeDraft(item_id="1", ordinal_no=1, package_qty=3)]
 
     root = AsycudaXMLBuilder(draft).build()
 
     assert root.findtext("./Item/Packages/Kind_of_packages_code") == "PP"
-    assert root.findtext("./Item/Packages/Kind_of_packages_name") == "Komadi"
+    assert root.findtext("./Item/Packages/Kind_of_packages_name") == "Komad"
 
 
 def test_tariff_heading_falls_back_to_4digit_when_specific_is_generic():
