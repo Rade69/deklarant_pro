@@ -88,7 +88,6 @@ class ZaglavljeController:
         - import_xml_requested → _on_import_xml
         - export_xml_requested → _on_export_xml
         - new_requested → _on_new
-        - close_requested → _on_close
         - search_company_requested → _on_search_company
         - add_company_requested → _on_add_company
         """
@@ -98,7 +97,6 @@ class ZaglavljeController:
         self.view.import_xml_requested.connect(self._on_import_xml)
         self.view.export_xml_requested.connect(self._on_export_xml)
         self.view.new_requested.connect(self._on_new)
-        self.view.close_requested.connect(self._on_close)
         self.view.search_company_requested.connect(self._on_search_company)
         self.view.add_company_requested.connect(self._on_add_company)
         self.view.deklaracija_sifra_changed.connect(self._on_dekl_sifra_changed)
@@ -920,19 +918,6 @@ class ZaglavljeController:
             self.view.show_error(f"Greška: {e}")
         finally:
             restore_window_geometry_queued(geometry_state)
-
-    def _on_close(self):
-        """Izlaz — snimi podatke u draft i obavijesti korisnika."""
-        try:
-            self.logger.info("Close requested")
-            if self._save_draft_fn:
-                self._save_draft_fn()
-            # Zatvori glavni prozor (ako smo u standalone modu) ili ignoriši
-            parent = self.view.window()
-            if parent and parent is not self.view:
-                parent.close()
-        except Exception as e:
-            self.logger.error(f"Close failed: {e}", exc_info=True)
 
     def _on_search_company(self, company_type: str):
         """

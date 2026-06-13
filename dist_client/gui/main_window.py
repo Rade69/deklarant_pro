@@ -2,8 +2,8 @@ import os
 from copy import deepcopy
 from dataclasses import fields
 from pathlib import Path
-from PySide6.QtWidgets import QMainWindow, QTabWidget, QApplication, QMessageBox
-from PySide6.QtCore import QFile, QTextStream, QIODevice, QSettings, QSize
+from PySide6.QtWidgets import QMainWindow, QTabWidget, QApplication, QMessageBox, QPushButton
+from PySide6.QtCore import QFile, QTextStream, QIODevice, QSettings, QSize, Qt
 
 import logging
 
@@ -113,6 +113,10 @@ class MainWindow(QMainWindow):
         # Postavi Admin Tab kao trenutni tab za testiranje (opciono - za development)
         # tabs.setCurrentWidget(self.admin_tab)
 
+        # Dugme za bezbjedno gašenje aplikacije — desni ugao trake tabova, pored Agent taba
+        self.btn_exit_app = self._create_exit_button()
+        tabs.setCornerWidget(self.btn_exit_app, Qt.TopRightCorner)
+
         # Registruj callback da ažurira sve tabove kada se draft podaci promene
         self.draft.register_data_change_callback(self._on_draft_data_changed)
 
@@ -125,6 +129,47 @@ class MainWindow(QMainWindow):
         if qta is None:
             return QIcon()
         return qta.icon(icon_name, color="#1E3A5F")
+
+    def _create_exit_button(self) -> QPushButton:
+        """Dugme za bezbjedno gašenje aplikacije — gornji desni ugao trake tabova."""
+        btn = QPushButton()
+        btn.setObjectName("btnExitApp")
+        btn.setToolTip("Zatvori aplikaciju")
+        btn.setFlat(True)
+        btn.setCursor(Qt.PointingHandCursor)
+        btn.setFixedSize(32, 32)
+        if qta is not None:
+            btn.setIcon(qta.icon("fa5s.power-off", color="#7F1D1D"))
+            btn.setIconSize(QSize(20, 20))
+        btn.clicked.connect(self._on_exit_clicked)
+        return btn
+
+    def _on_exit_clicked(self) -> None:
+        """Provjeri da je bezbjedno zatvoriti aplikaciju, snimi Zaglavlje draft i zatvori prozor."""
+        if not self._confirm_safe_to_exit():
+            return
+        try:
+            self.zaglavlje_tab.save_to_draft()
+        except Exception as e:
+            logger.error(f"Snimanje Zaglavlje drafta pri izlasku nije uspjelo: {e}", exc_info=True)
+        self.close()
+
+    def _confirm_safe_to_exit(self) -> bool:
+        """Upozori korisnika ako Agent još procesira fajlove u pozadini."""
+        worker = getattr(self.agent_tab.controller, "_worker", None)
+        if worker is not None and worker.isRunning():
+            answer = QMessageBox.question(
+                self,
+                "Agent još radi",
+                "Agent još procesira fajlove u pozadini. Ako sada zatvorite "
+                "aplikaciju, procesiranje će biti prekinuto.\n\n"
+                "Da li sigurno želite da zatvorite aplikaciju?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No,
+            )
+            if answer != QMessageBox.Yes:
+                return False
+        return True
 
     def continue_with_pending_declaration(self) -> bool:
         # Docs: docs/sections/asycuda-99-item-limit.md

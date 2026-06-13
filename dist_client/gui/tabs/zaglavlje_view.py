@@ -320,7 +320,6 @@ class ZaglavljeView(BaseTabView):
     import_xml_requested = Signal(str)
     export_xml_requested = Signal()
     new_requested = Signal()
-    close_requested = Signal()
     validation_requested = Signal()
     search_company_requested = Signal(str)
     add_company_requested = Signal(str)
@@ -345,7 +344,6 @@ class ZaglavljeView(BaseTabView):
         self.btn_snimi: Optional[QPushButton] = None
         self.btn_brisi: Optional[QPushButton] = None
         self.btn_izvezi: Optional[QPushButton] = None
-        self.btn_izlaz: Optional[QPushButton] = None
 
         # Table for attached documents
         self.table: Optional[QTableWidget] = None
@@ -411,7 +409,6 @@ class ZaglavljeView(BaseTabView):
                     "fa5s.check-circle": "#0B3D16",
                     "fa5s.trash-alt": "#7F1D1D",
                     "fa5s.file-export": "#004D40",
-                    "fa5s.sign-out-alt": "#374151",
                 }
                 btn.setIcon(qta.icon(icon_name, color=icon_colors.get(icon_name, "#1E3A5F")))
                 btn.setIconSize(QSize(20, 20))
@@ -461,15 +458,11 @@ class ZaglavljeView(BaseTabView):
         self.btn_izvezi = self._create_icon_button("Izvezi XML", "fa5s.file-export")
         self.btn_izvezi.setObjectName("btnIzveziXML")
 
-        self.btn_izlaz = self._create_icon_button("Izlaz", "fa5s.sign-out-alt")
-        self.btn_izlaz.setObjectName("btnIzlaz")
-
         layout.addWidget(self.btn_novi)
         layout.addWidget(self.btn_import)
         layout.addWidget(self.btn_snimi)
         layout.addWidget(self.btn_brisi)
         layout.addWidget(self.btn_izvezi)
-        layout.addWidget(self.btn_izlaz)
 
         return toolbar
 
@@ -1949,7 +1942,6 @@ class ZaglavljeView(BaseTabView):
         self.btn_snimi.clicked.connect(self.validation_requested.emit)
         self.btn_brisi.clicked.connect(self.delete_requested.emit)
         self.btn_izvezi.clicked.connect(self.export_xml_requested.emit)
-        self.btn_izlaz.clicked.connect(self.close_requested.emit)
 
     def _on_import_clicked(self):
         geometry_state = capture_window_geometry(self)
