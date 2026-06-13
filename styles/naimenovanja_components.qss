@@ -14,6 +14,15 @@ QWidget#navBar {
     border-bottom: 2px solid #dee2e6;
 }
 
+/* Globalni QPushButton min-height (QSS_header_toolbar_sistem.qss) nadjacava
+   setFixedHeight(30) na nav dugmicima (minimumHeight > maximumHeight), pa se
+   dugme renderuje vise nego sto stane u navBar i prelazi u sectionHeading
+   ispod. Ovo pravilo (ID selektor) ima vecu specificnost od globalnog. */
+QWidget#navBar QPushButton {
+    min-height: 16px;
+    padding: 4px 12px;
+}
+
 /* Navigation labels (bold, dark text) */
 QLabel.nav-label {
     font-weight: 600;
