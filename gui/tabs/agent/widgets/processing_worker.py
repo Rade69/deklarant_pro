@@ -485,56 +485,6 @@ class ProcessingWorker(QThread):
             )
             self.file_completed.emit(excel_item)
 
-    @staticmethod
-    def _normalized_invoice_token(filepath: str) -> str:
-        """Normalizuje naziv fajla za sparivanje parova (isti princip kao import_service)."""
-        stem = Path(filepath).stem.lower()
-        stem = stem.replace("-", "").replace("_", "").replace(" ", "")
-        for kw in ("packing", "list", "pl", "invoice", "inv", "faktura"):
-            stem = stem.replace(kw, "")
-        stem = re.sub(r"[^a-z0-9]", "", stem)
-        return stem
-
-    @staticmethod
-    def _is_mapping_xlsx(filepath: str) -> bool:
-        """Da li je ovo globalni mapping excel (Master Frigo i slični)."""
-        p = Path(filepath)
-        if p.suffix.lower() not in (".xlsx", ".xls", ".xlsm"):
-            return False
-        name = p.name.lower()
-        return any(
-            marker in name
-            for marker in (
-                "tarife",
-                "podela",
-                "porekla",
-                "poreklu",
-                "poreklo",
-                "porijekla",
-                "porijeklu",
-            )
-        )
-
-    @classmethod
-    def _pair_sort_key(cls, file_item: FileItem):
-        p = Path(file_item.filepath)
-        ext = p.suffix.lower()
-        token = cls._normalized_invoice_token(file_item.filepath)
-        is_mapping = cls._is_mapping_xlsx(file_item.filepath)
-
-        # Normalni Excel prije PDF (za combine slučajeve), mapping Excel na kraj grupe
-        if is_mapping:
-            priority = 2
-        elif ext in (".xlsx", ".xls", ".xlsm"):
-            priority = 0
-        elif ext == ".pdf":
-            priority = 1
-        else:
-            priority = 3
-
-        # Mapping fajlovi idu globalno na kraj reda da ne kvare sequence previous+current.
-        return (1 if is_mapping else 0, token, priority, p.name.lower())
-
     def _parse_xml(self, file_item: FileItem, filepath: Path) -> list:
         """Parsira XML fajl."""
         try:
