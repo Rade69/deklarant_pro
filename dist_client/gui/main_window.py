@@ -132,12 +132,12 @@ class MainWindow(QMainWindow):
 
     def _create_exit_button(self) -> QPushButton:
         """Dugme za bezbjedno gašenje aplikacije — gornji desni ugao trake tabova."""
-        btn = QPushButton()
+        btn = QPushButton(" Izlaz")
         btn.setObjectName("btnExitApp")
         btn.setToolTip("Zatvori aplikaciju")
-        btn.setFlat(True)
         btn.setCursor(Qt.PointingHandCursor)
-        btn.setFixedSize(32, 32)
+        btn.setFixedHeight(30)
+        btn.setMinimumWidth(90)
         if qta is not None:
             btn.setIcon(qta.icon("fa5s.power-off", color="#7F1D1D"))
             btn.setIconSize(QSize(20, 20))
