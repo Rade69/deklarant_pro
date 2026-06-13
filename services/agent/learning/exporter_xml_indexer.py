@@ -484,11 +484,11 @@ def find_xml_for_pair(exporter_hint: str, consignee_jib: str = "", consignee_hin
                 row = cursor.fetchone()
                 if row:
                     return {
-                        'xml_filepath': row[3],
-                        'exporter_original': row[0],
-                        'consignee_original': row[1],
-                        'consignee_jib': row[2],
-                        'declaration_date': row[4],
+                        'xml_filepath': row['xml_filepath'],
+                        'exporter_original': row['exporter_original'],
+                        'consignee_original': row['consignee_original'],
+                        'consignee_jib': row['consignee_jib'],
+                        'declaration_date': row['declaration_date'],
                         'match_type': 'exact_jib'
                     }
 
@@ -506,11 +506,11 @@ def find_xml_for_pair(exporter_hint: str, consignee_jib: str = "", consignee_hin
                 row = cursor.fetchone()
                 if row:
                     return {
-                        'xml_filepath': row[3],
-                        'exporter_original': row[0],
-                        'consignee_original': row[1],
-                        'consignee_jib': row[2],
-                        'declaration_date': row[4],
+                        'xml_filepath': row['xml_filepath'],
+                        'exporter_original': row['exporter_original'],
+                        'consignee_original': row['consignee_original'],
+                        'consignee_jib': row['consignee_jib'],
+                        'declaration_date': row['declaration_date'],
                         'match_type': 'exact_name'
                     }
 
@@ -527,11 +527,11 @@ def find_xml_for_pair(exporter_hint: str, consignee_jib: str = "", consignee_hin
             row = cursor.fetchone()
             if row:
                 return {
-                    'xml_filepath': row[3],
-                    'exporter_original': row[0],
-                    'consignee_original': row[1],
-                    'consignee_jib': row[2],
-                    'declaration_date': row[4],
+                    'xml_filepath': row['xml_filepath'],
+                    'exporter_original': row['exporter_original'],
+                    'consignee_original': row['consignee_original'],
+                    'consignee_jib': row['consignee_jib'],
+                    'declaration_date': row['declaration_date'],
                     'match_type': 'exporter_only'
                 }
 
@@ -549,18 +549,18 @@ def find_xml_for_pair(exporter_hint: str, consignee_jib: str = "", consignee_hin
             best_score = 0.0
 
             for row in rows:
-                score = _similarity_score(exp_norm, row[0])
+                score = _similarity_score(exp_norm, row['exporter_normalized'])
                 if score > best_score and score >= FUZZY_MATCH_THRESHOLD:
                     best_score = score
                     best_match = row
 
             if best_match:
                 return {
-                    'xml_filepath': best_match[4],
-                    'exporter_original': best_match[1],
-                    'consignee_original': best_match[2],
-                    'consignee_jib': best_match[3],
-                    'declaration_date': best_match[5],
+                    'xml_filepath': best_match['xml_filepath'],
+                    'exporter_original': best_match['exporter_original'],
+                    'consignee_original': best_match['consignee_original'],
+                    'consignee_jib': best_match['consignee_jib'],
+                    'declaration_date': best_match['declaration_date'],
                     'match_type': f'fuzzy ({best_score:.0%})'
                 }
 
@@ -606,11 +606,11 @@ def find_xml_by_consignee(consignee_jib: str = "", consignee_hint: str = "") -> 
                 row = cursor.fetchone()
                 if row:
                     return {
-                        'xml_filepath': row[3],
-                        'exporter_original': row[0],
-                        'consignee_original': row[1],
-                        'consignee_jib': row[2],
-                        'declaration_date': row[4],
+                        'xml_filepath': row['xml_filepath'],
+                        'exporter_original': row['exporter_original'],
+                        'consignee_original': row['consignee_original'],
+                        'consignee_jib': row['consignee_jib'],
+                        'declaration_date': row['declaration_date'],
                         'match_type': 'consignee_jib'
                     }
 
@@ -627,11 +627,11 @@ def find_xml_by_consignee(consignee_jib: str = "", consignee_hint: str = "") -> 
                 row = cursor.fetchone()
                 if row:
                     return {
-                        'xml_filepath': row[3],
-                        'exporter_original': row[0],
-                        'consignee_original': row[1],
-                        'consignee_jib': row[2],
-                        'declaration_date': row[4],
+                        'xml_filepath': row['xml_filepath'],
+                        'exporter_original': row['exporter_original'],
+                        'consignee_original': row['consignee_original'],
+                        'consignee_jib': row['consignee_jib'],
+                        'declaration_date': row['declaration_date'],
                         'match_type': 'consignee_name'
                     }
 
@@ -648,17 +648,17 @@ def find_xml_by_consignee(consignee_jib: str = "", consignee_hint: str = "") -> 
                 best_match = None
                 best_score = 0.0
                 for row in rows:
-                    score = _similarity_score(cons_norm, row[0])
+                    score = _similarity_score(cons_norm, row['consignee_normalized'])
                     if score > best_score and score >= FUZZY_MATCH_THRESHOLD:
                         best_score = score
                         best_match = row
                 if best_match:
                     return {
-                        'xml_filepath': best_match[4],
-                        'exporter_original': best_match[1],
-                        'consignee_original': best_match[2],
-                        'consignee_jib': best_match[3],
-                        'declaration_date': best_match[5],
+                        'xml_filepath': best_match['xml_filepath'],
+                        'exporter_original': best_match['exporter_original'],
+                        'consignee_original': best_match['consignee_original'],
+                        'consignee_jib': best_match['consignee_jib'],
+                        'declaration_date': best_match['declaration_date'],
                         'match_type': f'consignee_fuzzy ({best_score:.0%})'
                     }
     except Exception as e:
@@ -786,15 +786,15 @@ def get_all_pairs() -> List[Dict]:
             rows = cursor.fetchall()
             return [
                 {
-                    'exporter_normalized': r[0],
-                    'consignee_normalized': r[1],
-                    'consignee_jib': r[2],
-                    'exporter_original': r[3],
-                    'consignee_original': r[4],
-                    'xml_filepath': r[5],
-                    'declaration_date': r[6],
-                    'use_count': r[7],
-                    'last_used': r[8]
+                    'exporter_normalized': r['exporter_normalized'],
+                    'consignee_normalized': r['consignee_normalized'],
+                    'consignee_jib': r['consignee_jib'],
+                    'exporter_original': r['exporter_original'],
+                    'consignee_original': r['consignee_original'],
+                    'xml_filepath': r['xml_filepath'],
+                    'declaration_date': r['declaration_date'],
+                    'use_count': r['use_count'],
+                    'last_used': r['last_used']
                 }
                 for r in rows
             ]
@@ -826,12 +826,12 @@ def get_stats() -> Dict:
             """)
             row = cursor.fetchone()
             stats = {
-                'total_pairs': row[0],
-                'total_uses': row[1] or 0,
-                'last_used_any': row[2],
-                'unique_exporters': row[3],
-                'unique_jibs': row[4],
-                'unique_consignees': row[5]
+                'total_pairs': row['total'],
+                'total_uses': row['total_uses'] or 0,
+                'last_used_any': row['last_used_any'],
+                'unique_exporters': row['unique_exporters'],
+                'unique_jibs': row['unique_jibs'],
+                'unique_consignees': row['unique_consignees']
             }
         conn.commit()
         return stats
