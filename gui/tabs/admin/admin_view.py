@@ -138,7 +138,6 @@ class AdminView(BaseTabView):
         self.nav_list.currentRowChanged.connect(self._on_nav_changed)
 
         layout.addWidget(self.nav_list)
-        layout.addStretch()
 
         return sidebar
 
