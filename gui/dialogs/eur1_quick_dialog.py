@@ -228,7 +228,17 @@ class Eur1QuickDialog(QDialog):
         row_height = 48
         header_height = 46
         total_h = header_height + len(countries) * row_height
-        table.setMinimumHeight(total_h)
+
+        # Ograniči visinu tabele na osnovu ekrana, da dugmići OK/Cancel
+        # ostanu vidljivi i kad ima puno grupa (faktura x zemlja) — vidi
+        # agent_reports/2026-06-13_eur1-dialog-velicina-i-zaglavlje.md
+        from PySide6.QtGui import QGuiApplication
+        screen = QGuiApplication.primaryScreen()
+        available_h = (screen.availableGeometry().height() - 80) if screen else 700
+        max_table_h = max(header_height + row_height * 3, available_h - 300)
+        table_h = min(total_h, max_table_h)
+        table.setMinimumHeight(table_h)
+        table.setMaximumHeight(table_h)
         return table
 
     def _populate_group_row(self, table: QTableWidget, row: int, key: str, items: List[InvoiceLine]) -> None:
