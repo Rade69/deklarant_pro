@@ -20,6 +20,7 @@ from collections import Counter
 from dataclasses import dataclass
 from typing import Dict, List
 
+from services.agent.validation.evidence_model import Evidence, evidence_from_tariff_decision
 from services.agent.validation.tariff_decision_model import (
     TariffDecisionThresholds,
     decide_tariff_match,
@@ -51,6 +52,7 @@ class TariffHistoryMatch:
     decision_reason: str = ""      # kratak razlog zašto je prijedlog prošao filter
     decision_outcome: str = ""     # show_strong/show_weak/suppress
     decision_score: int = 0
+    evidence: Evidence | None = None
 
 
 class HistoricalTariffSearchService:
@@ -86,51 +88,40 @@ class HistoricalTariffSearchService:
         results = []
         self.last_auto_applied = []
         invoice_profile = self._build_invoice_profile(invoice_lines)
+        for idx, line in enumerate(invoice_lines):
+            naziv = (getattr(line, 'naziv_robe', '') or '').strip()
+            if not naziv:
+                continue
+            trenutni = (getattr(line, 'tarifni_broj', '') or '').strip()
+            exporter_line = (
+                getattr(getattr(line, 'exporter', None), 'name', '') or ''
+            ).strip()
 
-        # Jedna konekcija za cijeli batch + cache po (naziv, izvoznik)
-        from database.db import get_db_connection
-        _cache: dict = {}
-        with get_db_connection() as conn:
-            with conn.cursor() as cur:
-                for idx, line in enumerate(invoice_lines):
-                    naziv = (getattr(line, 'naziv_robe', '') or '').strip()
-                    if not naziv:
-                        continue
-                    trenutni = (getattr(line, 'tarifni_broj', '') or '').strip()
-                    exporter_line = (
-                        getattr(getattr(line, 'exporter', None), 'name', '') or ''
-                    ).strip()
+            izvoznik = exporter_line or izvoznik_naziv
+            matches = self._search_one(naziv, izvoznik, uvoznik_naziv)
+            if not matches:
+                continue
 
-                    izvoznik = exporter_line or izvoznik_naziv
-                    cache_key = (naziv, izvoznik)
-                    if cache_key in _cache:
-                        matches = _cache[cache_key]
-                    else:
-                        matches = self._search_one(naziv, izvoznik, uvoznik_naziv, cur=cur)
-                        _cache[cache_key] = matches
-                    if not matches:
-                        continue
+            actionable = [
+                match for match in matches
+                if self._is_actionable_match(match, trenutni, invoice_profile)
+            ]
+            if not actionable:
+                continue
 
-                    actionable = [
-                        match for match in matches
-                        if self._is_actionable_match(match, trenutni, invoice_profile)
-                    ]
-                    if not actionable:
-                        continue
+            best = actionable[0]
+            best.line_index = idx
+            best.tarifni_broj_trenutni = trenutni
 
-                    best = actionable[0]
-                    best.line_index = idx
-                    best.tarifni_broj_trenutni = trenutni
+            feedback_action = self._feedback_action(best)
+            if feedback_action == "reject":
+                continue
+            if feedback_action == "accept":
+                line.tarifni_broj = best.tarifni_broj_historijski
+                self.last_auto_applied.append((idx, best.tarifni_broj_historijski))
+                continue
 
-                    feedback_action = self._feedback_action(best)
-                    if feedback_action == "reject":
-                        continue
-                    if feedback_action == "accept":
-                        line.tarifni_broj = best.tarifni_broj_historijski
-                        self.last_auto_applied.append((idx, best.tarifni_broj_historijski))
-                        continue
-
-                    results.append(best)
+            results.append(best)
 
         return results
 
@@ -139,41 +130,38 @@ class HistoricalTariffSearchService:
         naziv_robe: str,
         izvoznik: str = "",
         uvoznik: str = "",
-        cur=None,
     ) -> List[TariffHistoryMatch]:
         """Pretraži bazu za jedan naziv robe. Vraća max MAX_RESULTS_PER_LINE.
 
         Ako je izvoznik poznat, prijedlozi dolaze ISKLJUČIVO iz historije tog
         izvoznika — nema fallback na druge firme. Bolje bez prijedloga nego
         pogrešan prijedlog od drugog dobavljača.
-
-        cur: opcioni psycopg2 cursor; ako nije zadan otvara privatnu konekciju.
         """
-        def _run(cur_):
+        try:
+            from database.db import get_db_connection
             words = self._extract_keywords(naziv_robe)
             if not words:
                 return []
-            supplier_key = self._supplier_key(izvoznik)
-            if supplier_key:
-                rows = self._query_strict(cur_, words, izvoznik, uvoznik,
-                                          supplier_key=supplier_key)
-                if not rows:
-                    rows = self._query_broad(cur_, words, izvoznik, uvoznik,
-                                             supplier_key=supplier_key)
-                return self._to_matches(rows, naziv_robe, supplier_matched=True)
-            else:
-                rows = self._query_strict(cur_, words, izvoznik, uvoznik)
-                if not rows:
-                    rows = self._query_broad(cur_, words, izvoznik, uvoznik)
-                return self._to_matches(rows, naziv_robe, supplier_matched=False)
 
-        try:
-            if cur is not None:
-                return _run(cur)
-            from database.db import get_db_connection
+            supplier_key = self._supplier_key(izvoznik)
+
             with get_db_connection() as conn:
-                with conn.cursor() as c:
-                    return _run(c)
+                with conn.cursor() as cur:
+                    if supplier_key:
+                        # Strogi filter: SAMO isti izvoznik
+                        rows = self._query_strict(cur, words, izvoznik, uvoznik,
+                                                  supplier_key=supplier_key)
+                        if not rows:
+                            rows = self._query_broad(cur, words, izvoznik, uvoznik,
+                                                     supplier_key=supplier_key)
+                        # Nema fallback na druge izvoznike — vraćamo što ima (ili [])
+                        return self._to_matches(rows, naziv_robe, supplier_matched=True)
+                    else:
+                        # Nepoznat izvoznik — staro ponašanje (pretražuj sve)
+                        rows = self._query_strict(cur, words, izvoznik, uvoznik)
+                        if not rows:
+                            rows = self._query_broad(cur, words, izvoznik, uvoznik)
+                        return self._to_matches(rows, naziv_robe, supplier_matched=False)
         except Exception as e:
             logger.warning("HistoricalTariffSearch greška za '%s': %s", naziv_robe[:40], e)
             return []
@@ -298,6 +286,9 @@ class HistoricalTariffSearchService:
         match.decision_reason = decision.reason
         match.decision_outcome = decision.outcome.value
         match.decision_score = decision.score
+        match.evidence = evidence_from_tariff_decision(
+            decision.outcome.value, match.supplier_match, match.usage_count, match.source,
+        )
         return decision.should_show
 
     @staticmethod
