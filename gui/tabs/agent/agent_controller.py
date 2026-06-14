@@ -7,6 +7,7 @@ Agent Controller - business logic za tri pipeline moda.
 
 from PySide6.QtWidgets import QFileDialog, QApplication
 from pathlib import Path
+import os
 import re
 from .agent_view import AgentView
 from .widgets.processing_worker import ProcessingWorker
@@ -25,7 +26,7 @@ def _agent_invoice_sort_key(file_item) -> tuple:
     raw = getattr(file_item, "invoice_number", "") or getattr(file_item, "filepath", "")
     token = _agent_invoice_token(raw)
     parts = re.findall(r"\d+|[a-z]+", token)
-    natural = tuple(int(part) if part.isdigit() else part for part in parts)
+    natural = tuple((0, int(part)) if part.isdigit() else (1, part) for part in parts)
     return (natural, token, Path(getattr(file_item, "filepath", "")).name.lower())
 
 
@@ -387,21 +388,21 @@ class AgentController:
 
     def _dedupe_completed_import_files(self, completed: list) -> list:
         combined = [f for f in completed if getattr(f, "is_combined", False)]
-        if not combined:
-            return completed
-
         consumed = {
-            str(Path(path).resolve())
-            for f in combined
+            os.path.normcase(str(Path(path).resolve()))
+            for f in completed
             for path in (getattr(f, "consumed_paths", []) or [])
         }
+        if not combined and not consumed:
+            return completed
+
         combined_tokens = {
             _agent_invoice_token(getattr(f, "invoice_number", "") or getattr(f, "filepath", ""))
             for f in combined
         }
         filtered = []
         for file_item in completed:
-            resolved = str(Path(file_item.filepath).resolve())
+            resolved = os.path.normcase(str(Path(file_item.filepath).resolve()))
             token = _agent_invoice_token(getattr(file_item, "invoice_number", "") or file_item.filepath)
             is_excel_pair = file_item.file_type == "Excel" and token in combined_tokens
             if file_item not in combined and (resolved in consumed or is_excel_pair):
@@ -486,6 +487,11 @@ class AgentController:
             # Privremeno uvezi u draft za dijalog
             self.draft.invoice_lines.clear()
             self.draft.invoice_lines.extend(lines)
+
+            # Popuni zaglavlje (izvoznik/uvoznik/valuta) iz ove fakture - samo prazna polja
+            fw = self.faktura_tab.view if hasattr(self.faktura_tab, 'view') else self.faktura_tab
+            if fw and hasattr(fw, '_apply_import_result_to_header'):
+                fw._apply_import_result_to_header(file_item)
 
             chat.add_activity(f"📥 [{invoice_name}] Uvoz {len(lines)} stavki...")
             QApplication.processEvents()
