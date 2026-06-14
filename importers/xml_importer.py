@@ -4,6 +4,7 @@ logger = logging.getLogger(__name__)
 
 from pathlib import Path
 from typing import Any, Dict, List
+import re
 import xml.etree.ElementTree as ET
 
 from core.draft import InvoiceLine
@@ -240,20 +241,21 @@ class XMLImporter:
                     'Item_Number', 'SequenceNumeric', 'LineID'
                 ], default=str(idx))
 
-                # Goods description - rubrika 31, Commercial_Description ima prednost
-                goods_desc = self._get_text(item_elem, [
-                    'Goods_description/Commercial_Description',
+                tariff_desc = self._get_text(item_elem, [
                     'Goods_description/Description_of_goods',
                     'Goods_description',
                     'Description',
                     'Commodity/Description'
                 ], default="")
-                
-                # Product code - koristi prvi dio Commercial_Description ili generiši iz broja stavke
-                product_code = self._get_text(item_elem, [
+                commercial_desc = self._get_text(item_elem, [
                     'Goods_description/Commercial_Description',
-                    'Goods_description/Description_of_goods'
+                    'Commercial_Description',
+                    'CommercialDescription',
                 ], default="")
+                goods_desc = self._trade_name_for_table(commercial_desc, tariff_desc)
+
+                # Product code - koristi prvi dio Commercial_Description ili generiši iz broja stavke
+                product_code = commercial_desc or tariff_desc
                 if product_code:
                     # Uzmi prvi dio opisa (do zareza, tačke-zareza ili novog reda)
                     # Prvo zamijeni novi red sa zarezom i stripuj whitespace
@@ -527,19 +529,18 @@ class XMLImporter:
                 # Broj stavke
                 item_number = self._get_text(item_elem, ['ItemNumber', 'SequenceNumber', 'Number'], default=str(idx))
                 
-                # Opis robe
-                description = self._get_text(item_elem, [
+                tariff_desc = self._get_text(item_elem, [
+                    'GoodsDescription',
                     'Description',
-                    'GoodsDescription',
-                    'CommercialDescription'
                 ], default="")
-                
-                # Product code - koristi prvi dio opisa ili generiši iz broja stavke
-                product_code = self._get_text(item_elem, [
+                commercial_desc = self._get_text(item_elem, [
                     'CommercialDescription',
-                    'GoodsDescription',
-                    'Description'
+                    'Commercial_Description',
                 ], default="")
+                description = self._trade_name_for_table(commercial_desc, tariff_desc)
+
+                # Product code - koristi prvi dio opisa ili generiši iz broja stavke
+                product_code = commercial_desc or tariff_desc
                 if product_code:
                     # Uzmi prvi dio opisa (do zareza, tačke-zareza ili novog reda)
                     # Prvo zamijeni novi red sa zarezom i stripuj whitespace
@@ -633,3 +634,33 @@ class XMLImporter:
         """Parsira dokumente."""
         # TODO: Implementirati
         return []
+
+    @staticmethod
+    def _trade_name_for_table(commercial_desc: str, tariff_desc: str) -> str:
+        """Izvuci trgovački naziv iz Commercial_Description (Rub.31 3-linije format).
+
+        Uklanja liniju koja duplira tarifni opis i liniju "Faktura: ...",
+        ostavljajući samo stvarni trgovački naziv robe.
+        """
+        commercial_desc = (commercial_desc or "").strip()
+        tariff_desc = (tariff_desc or "").strip()
+        if not commercial_desc:
+            return tariff_desc
+
+        def norm(text: str) -> str:
+            return re.sub(r"\s+", " ", (text or "")).strip().lower()
+
+        tariff_norm = norm(tariff_desc)
+        trade_lines = []
+        for raw_line in commercial_desc.splitlines():
+            line = re.sub(r"\s+", " ", raw_line).strip()
+            if not line:
+                continue
+            line_norm = norm(line)
+            if line_norm.startswith("faktura:"):
+                continue
+            if tariff_norm and line_norm == tariff_norm:
+                continue
+            trade_lines.append(line)
+
+        return " ".join(trade_lines).strip() or commercial_desc
