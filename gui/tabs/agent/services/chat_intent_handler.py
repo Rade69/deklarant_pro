@@ -15,6 +15,8 @@ import re
 import logging
 from html import escape
 
+from services.agent.chat.tool_result import ToolResult, render_tool_result_html
+
 logger = logging.getLogger("deklarant_pro.agent.chat_intent")
 
 # Mapa sinonima kolona → (atribut, tab)
@@ -1120,6 +1122,9 @@ def _execute_tool(ctrl, name: str, args: dict) -> None:
     """
     chat = ctrl.view.get_chat_panel()
 
+    def _emit(result: ToolResult) -> None:
+        chat.add_agent_message(render_tool_result_html(result))
+
     if name == "predlozi_tarife":
         filter_kw = args.get("filter", "")
         if filter_kw:
@@ -1139,14 +1144,28 @@ def _execute_tool(ctrl, name: str, args: dict) -> None:
         if naziv:
             _pretrazi_tarifu(ctrl, naziv)
         else:
-            chat.add_agent_message("⚠️ Navedi naziv proizvoda za pretragu tarife.")
+            result = ToolResult.needs_review(
+                "pretrazi_tarifu",
+                "Navedi naziv proizvoda za pretragu tarife.",
+                "lokalni tool router",
+                args=args,
+            )
+            result.next_action = "Primjer: tarifni broj za startno uze"
+            _emit(result)
 
     elif name == "pretrazi_porijeklo":
         naziv = args.get("naziv", "")
         if naziv:
             _pretrazi_porijeklo(ctrl, naziv)
         else:
-            chat.add_agent_message("⚠️ Navedi naziv proizvoda za pretragu porijekla.")
+            result = ToolResult.needs_review(
+                "pretrazi_porijeklo",
+                "Navedi naziv proizvoda za pretragu porijekla.",
+                "lokalni tool router",
+                args=args,
+            )
+            result.next_action = "Primjer: porijeklo za kondenzator GCVC"
+            _emit(result)
 
     elif name == "validuj_deklaraciju":
         _compliance_check(ctrl)
@@ -1163,18 +1182,29 @@ def _execute_tool(ctrl, name: str, args: dict) -> None:
         tab = args.get("tab", "faktura")
 
         if not kolona or not vrijednost:
-            chat.add_agent_message("⚠️ Navedi kolonu i vrijednost za upis.")
+            result = ToolResult.needs_review(
+                "upisi_u_kolonu",
+                "Navedi kolonu i vrijednost za upis.",
+                "lokalni tool router",
+                args=args,
+            )
+            result.next_action = "Primjer: upisi zemlja porijekla RS u faktura"
+            _emit(result)
             return
 
         # Koristi NaimenovanjaIntentService._resolve_kolona za mapiranje
         svc = ctrl.naim_intent_svc
         atribut, resolved_tab = svc._resolve_kolona(kolona, tab_hint=tab)
         if not atribut:
-            chat.add_agent_message(
-                f"⚠️ Kolona '{kolona}' nije prepoznata. "
-                f"Pokušaj: tarifni broj, zemlja porijekla, povlastica, "
-                f"procedura, oznake, pakovanje, valuta, napomena..."
+            result = ToolResult.unknown(
+                "upisi_u_kolonu",
+                f"Kolona '{kolona}' nije prepoznata.",
+                "NaimenovanjaIntentService._resolve_kolona",
+                kolona=kolona,
+                tab=tab,
             )
+            result.next_action = "Pokušaj: tarifni broj, zemlja porijekla, povlastica, procedura, oznake, pakovanje, valuta, napomena"
+            _emit(result)
             return
 
         svc.execute(atribut, vrijednost, resolved_tab)
@@ -1190,11 +1220,23 @@ def _execute_tool(ctrl, name: str, args: dict) -> None:
         if naziv:
             _pronadji_slicne_proizvode(ctrl, naziv)
         else:
-            chat.add_agent_message("⚠️ Navedi naziv robe za pretragu sličnih proizvoda.")
+            result = ToolResult.needs_review(
+                "pronadji_slicne_proizvode",
+                "Navedi naziv robe za pretragu sličnih proizvoda.",
+                "lokalni tool router",
+                args=args,
+            )
+            result.next_action = "Primjer: slicni proizvodi za grejac 2000w"
+            _emit(result)
 
     else:
         logger.warning(f"[ToolUse] Nepoznat alat: {name}")
-        chat.add_agent_message(f"⚠️ Nepoznata akcija: {name}")
+        _emit(ToolResult.unknown(
+            "tool_dispatch",
+            f"Nepoznata akcija: {name}",
+            "ToolDispatcher",
+            args=args,
+        ))
 
 
 def _start_chat_worker(ctrl, message: str) -> None:
