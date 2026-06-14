@@ -14,6 +14,12 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QGuiApplication
 
+from services.agent.validation.evidence_model import (
+    DecisionConfidence,
+    evidence_badge_colors,
+    tariff_confidence_label,
+)
+
 
 class TariffValidationDialog(QDialog):
     """
@@ -149,9 +155,15 @@ class TariffValidationDialog(QDialog):
         tarif_label.setStyleSheet("font-size: 14px;")
 
         # Meta info — supplier ima prednost, fallback na source (XML filename)
+        evidence = getattr(match, "evidence", None)
+        is_unknown_source = (
+            evidence.confidence is DecisionConfidence.UNKNOWN
+            if evidence is not None
+            else not (match.source or '').strip()
+        )
         supplier = (match.source or '').strip()
-        if not supplier:
-            source_lbl = "<span style='color:#aaa; font-size:13px;'>nepoznat izvoznik</span>"
+        if is_unknown_source or not supplier:
+            source_lbl = "<span style='color:#b45309; font-size:13px;'>izvor nepoznat — nije potvrđena historija</span>"
         elif supplier.lower().endswith('.xml'):
             # source je XML filename — prikaži ga bez ekstenzije kao "iz XML: ime"
             xml_name = supplier.rsplit('.', 1)[0][:40]
@@ -172,6 +184,17 @@ class TariffValidationDialog(QDialog):
         reason_label = QLabel(f"<span style='color:#6b7280; font-size:13px;'>Razlog: {reason[:90]}</span>")
         reason_label.setTextFormat(Qt.RichText)
         reason_label.setWordWrap(True)
+
+        evidence_label = None
+        if evidence is not None:
+            badge_color, badge_bg = evidence_badge_colors(evidence)
+            evidence_label = QLabel(
+                f"<span style='color:#888; font-size:12px;'>Pouzdanost prijedloga: </span>"
+                f"<span style='background:{badge_bg}; color:{badge_color}; font-size:12px; "
+                f"padding:2px 8px; border-radius:4px; font-weight:600;'>"
+                f"{tariff_confidence_label(evidence)} ({evidence.score}%)</span>"
+            )
+            evidence_label.setTextFormat(Qt.RichText)
 
         weak_label = None
         if self._is_weak_match(match):
@@ -198,6 +221,8 @@ class TariffValidationDialog(QDialog):
         info.addWidget(tarif_label)
         info.addWidget(meta_label)
         info.addWidget(reason_label)
+        if evidence_label is not None:
+            info.addWidget(evidence_label)
         if supplier_badge is not None:
             info.addWidget(supplier_badge)
         if weak_label is not None:
@@ -327,7 +352,12 @@ class TariffValidationDialog(QDialog):
         return getattr(match, "decision_outcome", "") == "show_weak"
 
     def _can_accept_all(self, match) -> bool:
-        return not self._is_weak_match(match)
+        if self._is_weak_match(match):
+            return False
+        evidence = getattr(match, "evidence", None)
+        if evidence is not None and evidence.confidence is DecisionConfidence.UNKNOWN:
+            return False
+        return True
 
     def _copy_report(self):
         lines = []

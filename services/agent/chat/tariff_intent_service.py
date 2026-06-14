@@ -329,6 +329,8 @@ class TariffIntentService:
             )
             return svi
 
+        from services.agent.validation.evidence_model import badge_colors_for_score
+
         linije = []
         for p in svi:
             pct = int(p.confidence * 100)
@@ -341,9 +343,14 @@ class TariffIntentService:
             else:
                 izvor = "🤖 AI"
                 detail = ""
+            badge_color, badge_bg = badge_colors_for_score(pct)
+            pouzdanost = (
+                f"<span style='background:{badge_bg}; color:{badge_color}; "
+                f"padding:1px 6px; border-radius:4px; font-weight:600;'>{pct}%</span>"
+            )
             linije.append(
                 f"&nbsp;&nbsp;• <b>{p.proposed_tariff}</b> — {p.naziv_robe} "
-                f"<small>({izvor}, {pct}% pouzdanost{detail})</small>"
+                f"<small>({izvor}{detail}, pouzdanost {pouzdanost})</small>"
             )
 
         nema = ukupno_bez - len(svi)

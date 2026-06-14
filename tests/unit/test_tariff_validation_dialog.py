@@ -1,11 +1,19 @@
+import re
 from types import SimpleNamespace
 
 from PySide6.QtGui import QGuiApplication
+from PySide6.QtWidgets import QLabel
 
 from gui.tabs.agent.widgets.tariff_validation_dialog import TariffValidationDialog
+from services.agent.validation.evidence_model import (
+    DecisionConfidence,
+    DecisionSource,
+    build_evidence,
+    evidence_badge_colors,
+)
 
 
-def _match(line_index: int, outcome: str):
+def _match(line_index: int, outcome: str, evidence=None):
     return SimpleNamespace(
         line_index=line_index,
         naziv_robe_original=f"Roba {line_index}",
@@ -18,6 +26,7 @@ def _match(line_index: int, outcome: str):
         decision_reason="Ista tarifna glava; istorija ukazuje na precizniji broj.",
         decision_outcome=outcome,
         decision_score=50,
+        evidence=evidence,
     )
 
 
@@ -101,3 +110,72 @@ def test_copy_report_includes_decision_outcome_and_score(qtbot):
     assert "Odluka: show_weak" in report
     assert "Score: 50" in report
     assert "Razlog: Ista tarifna glava; istorija ukazuje na precizniji broj." in report
+
+
+def test_unknown_evidence_blocks_accept_all_and_shows_unknown_label(qtbot):
+    evidence = build_evidence(
+        DecisionSource.TARIFF_DATABASE,
+        DecisionConfidence.UNKNOWN,
+        "Istorijski zapis nema poznat izvor.",
+    )
+    match = _match(0, "show_strong", evidence=evidence)
+    match.source = "HISTORIJA"
+
+    dialog = TariffValidationDialog([match])
+    qtbot.addWidget(dialog)
+
+    assert dialog._can_accept_all(match) is False
+    assert dialog._accept_all_btn.isEnabled() is False
+    labels = [label.text() for label in dialog.findChildren(QLabel)]
+    rendered = "\n".join(labels)
+    assert "izvor nepoznat" in rendered
+    assert "nepoznat" in rendered
+
+
+def test_confirmed_exporter_history_shows_jak_label(qtbot):
+    evidence = build_evidence(
+        DecisionSource.EXPORTER_HISTORY,
+        DecisionConfidence.CONFIRMED_FROM_SAME_EXPORTER_HISTORY,
+        "Potvrdjeno iz istorije istog izvoznika.",
+    )
+    match = _match(0, "show_strong", evidence=evidence)
+
+    dialog = TariffValidationDialog([match])
+    qtbot.addWidget(dialog)
+
+    labels = [label.text() for label in dialog.findChildren(QLabel)]
+    rendered = "\n".join(labels)
+    assert "Pouzdanost prijedloga" in rendered
+    assert "jak" in rendered
+
+
+def test_evidence_badge_shows_score_and_differs_strong_vs_weak(qtbot):
+    """Faza 5/6: jak (90%) i slab (60%) prijedlog ne smiju imati isti badge."""
+    strong = build_evidence(
+        DecisionSource.EXPORTER_HISTORY,
+        DecisionConfidence.CONFIRMED_FROM_SAME_EXPORTER_HISTORY,
+        "Potvrdjeno iz istorije istog izvoznika.",
+    )
+    weak = build_evidence(
+        DecisionSource.SIMILARITY,
+        DecisionConfidence.WEAK_GUESS,
+        "Slabiji prijedlog.",
+    )
+    strong_match = _match(0, "show_strong", evidence=strong)
+    weak_match = _match(1, "show_weak", evidence=weak)
+
+    dialog = TariffValidationDialog([strong_match, weak_match])
+    qtbot.addWidget(dialog)
+
+    labels = [label.text() for label in dialog.findChildren(QLabel)]
+    strong_label = next(t for t in labels if "Pouzdanost prijedloga" in t and "jak" in t)
+    weak_label = next(t for t in labels if "Pouzdanost prijedloga" in t and "slab" in t)
+
+    assert "90%" in strong_label
+    assert "60%" in weak_label
+
+    badge_pattern = r"background:(#[0-9a-fA-F]+); color:(#[0-9a-fA-F]+)"
+    strong_bg, strong_color = re.search(badge_pattern, strong_label).groups()
+    weak_bg, _ = re.search(badge_pattern, weak_label).groups()
+    assert strong_bg != weak_bg
+    assert (strong_color, strong_bg) == evidence_badge_colors(strong)
