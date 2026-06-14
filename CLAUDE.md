@@ -158,6 +158,33 @@ overhead — koristiti procjenu.
 
 ---
 
+## Plan prije izmjene — HIGH/CRITICAL GitNexus impact
+
+Ako `gitnexus_impact` za simbol koji se mijenja vrati **HIGH** ili
+**CRITICAL**, agent PRIJE izmjene napravi JEDAN kratki fajl (ne cijeli
+"project room" sa više fajlova):
+
+```
+project_rooms/YYYY-MM-DD_kratak-naziv-zadatka.md
+```
+
+sa sekcijama:
+
+- **Cilj** — šta se mijenja i zašto
+- **Pogođeno** — simboli/procesi iz `gitnexus_impact` (broj, koji, rizik)
+- **Plan** — fajlovi i redoslijed izmjena
+- **Šta NE dirati** — eksplicitne granice (scope lock — vidi AGENTS.md
+  "Handoff visokog rizika" za format prijave rizika korisniku)
+- **Konflikti** — ako postoje kontradiktorni izvori (stari agent_report,
+  memorija, kod), navesti oba, koji se tretira kao važeći i zašto, i da li
+  je potrebna korisnička potvrda (DA/NE)
+
+Fajl se na kraju može spojiti u `agent_report` (Korak 3) ili obrisati —
+nije trajna dokumentacija. Za MEDIUM ili niži impact ovaj korak se
+preskače — dovoljan je "Format zadatka" iznad i `agent_report` na kraju.
+
+---
+
 ## ⚠️ OBAVEZNA PROCEDURA: Nakon završenog zadatka
 
 Svaki agent koji radi na ovom projektu MORA slijediti ovaj redosljed nakon što završi zadatak:
@@ -180,6 +207,9 @@ Svaki agent koji radi na ovom projektu MORA slijediti ovaj redosljed nakon što 
 - Kreirati izvještaj u `agent_reports/YYYY-MM-DD_naziv-zadatka.md`
 - Izvještaj mora pratiti ovu strukturu (sekcije kao `##`):
   - **Datum**, **Agent**, **Scope** — fajlovi/moduli na koje se zadatak odnosi
+  - **Status izvora** (samo za kompleksne/rizične zadatke) — koji raniji
+    agent_reports/memory/kod fajlovi su korišćeni kao osnova i njihov status:
+    aktivan / zastario / duplikat / treba potvrdu
   - **GitNexus impact** — rezultat `gitnexus_impact` provjere prije izmjene (rizik, broj pogođenih simbola/procesa)
   - **Šta je urađeno** — kratki pregled promjena
   - **Zašto je urađeno** — poslovni razlog, bug uzrok, odluka i alternativa
@@ -187,6 +217,9 @@ Svaki agent koji radi na ovom projektu MORA slijediti ovaj redosljed nakon što 
   - **Šta nije dirano** — eksplicitno navesti šta je OSTAVLJENO netaknuto (npr. nepovezan WIP), da se spriječi širenje scope-a
   - **Verifikacija** — kako je agent dokazao da promjena radi (testovi, offscreen provjere, py_compile...)
   - **Pronađeni problemi** — uključujući lažno pozitivne zaključke (npr. verifikacija koja je krivo pokazala uspjeh)
+  - **Konflikti / kontradiktorni izvori** (ako postoje) — dva izvora koja se
+    ne slažu (stari report vs. kod, dvije memorije...), koji je tretiran kao
+    važeći i zašto, i da li treba korisnička potvrda (DA/NE)
   - **Commitovi** — tabela hash/poruka
   - **Rizici / ograničenja**
   - **Potreban follow-up** — šta NIJE zatvoreno
@@ -220,7 +253,7 @@ Kada hook injektuje `[DOC-GUARD]` poruku:
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **deklarant_pro** (39383 symbols, 61832 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **deklarant_pro** (41233 symbols, 63672 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
