@@ -13,6 +13,7 @@ sa jednim Tool Use pozivom DeepSeek-u.
 
 import json
 import logging
+import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
@@ -36,6 +37,82 @@ class DispatchResult:
     tool_call: Optional[ToolCall] = None   # Ako je model pozvao alat
     plain_text: str = ""                   # Ako je model odgovorio direktno
     error: str = ""                        # Ako je došlo do greške
+
+
+def _clean_query(value: str) -> str:
+    text = re.sub(r"[?.!,;:]+$", "", value or "").strip()
+    text = re.sub(
+        r"^(?:taj|ta|to|ovu|ove|ovaj|proizvod|robu|artikl)\s+",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    )
+    return text.strip()
+
+
+def _extract_after_patterns(message: str, patterns: tuple[str, ...]) -> str:
+    for pattern in patterns:
+        match = re.search(pattern, message, flags=re.IGNORECASE)
+        if match:
+            return _clean_query(match.group(1))
+    return ""
+
+
+def route_local_tool(message: str) -> Optional[ToolCall]:
+    text = (message or "").strip()
+    if not text:
+        return None
+    msg = text.lower()
+
+    if any(k in msg for k in ("stanje aplikacije", "sta je ucitano", "šta je učitano")):
+        return ToolCall("pregled_stanja_aplikacije", {"scope": "all"})
+    if any(k in msg for k in ("tab faktura", "faktura tab", "u fakturi")):
+        return ToolCall("pregled_stanja_aplikacije", {"scope": "faktura"})
+    if any(k in msg for k in ("zaglavlje", "u zaglavlju")):
+        return ToolCall("pregled_stanja_aplikacije", {"scope": "zaglavlje"})
+    if any(k in msg for k in ("naimenovanja", "naimenovanje")) and any(
+        k in msg for k in ("pogledaj", "pokazi", "pokaži", "prikazi", "prikaži", "sta je", "šta je")
+    ):
+        return ToolCall("pregled_stanja_aplikacije", {"scope": "naimenovanja"})
+
+    if any(k in msg for k in ("analiziraj tarifne", "historija tarifa", "istorija tarifa")):
+        return ToolCall("analiziraj_tarifne", {})
+    if "uporedi" in msg and "tarif" in msg and any(k in msg for k in ("histor", "istor")):
+        return ToolCall("analiziraj_tarifne", {})
+
+    if any(k in msg for k in ("provjeri tarife", "provjeri tarifne", "provjeru tarifa")):
+        return ToolCall("provjeri_tarife", {})
+    if "tarif" in msg and any(k in msg for k in ("isprav", "valid")):
+        return ToolCall("provjeri_tarife", {})
+
+    if any(k in msg for k in ("popuni sve tarif", "predlozi tarife", "predloži tarife")):
+        return ToolCall("predlozi_tarife", {})
+    if "tarif" in msg and any(k in msg for k in ("popuni sve", "za sve stavke", "batch")):
+        return ToolCall("predlozi_tarife", {})
+
+    origin_query = _extract_after_patterns(text, (
+        r"(?:porijeklo|poreklo|origin|zemlja porijekla|zemlja porekla)\s+(?:proizvoda|robe|za)?\s+(.+)$",
+        r"(?:za)\s+(.+?)\s+(?:porijeklo|poreklo|origin)$",
+    ))
+    if origin_query and len(origin_query) >= 3:
+        return ToolCall("pretrazi_porijeklo", {"naziv": origin_query})
+
+    similar_query = _extract_after_patterns(text, (
+        r"(?:slicni|slični|raniji slicni|raniji slični)\s+(?:proizvodi|slucajevi|slučajevi)?\s*(?:za)?\s+(.+)$",
+        r"(?:sta istorijski lici na|šta istorijski liči na|sta istorijski slici na|šta istorijski sliči na)\s+(.+)$",
+    ))
+    if similar_query and len(similar_query) >= 3:
+        return ToolCall("pronadji_slicne_proizvode", {"naziv": similar_query})
+
+    tariff_query = _extract_after_patterns(text, (
+        r"(?:koji je|koja je|pronadji|pronađi|nadji|nađi|trazi|traži|predlozi|predloži)\s+"
+        r"(?:mi\s+)?(?:tarifni broj|tarifu|tarif)\s+(?:za)?\s+(.+)$",
+        r"(?:tarifni broj|tarifa|tarif)\s+(?:za)\s+(.+)$",
+    ))
+    if tariff_query and len(tariff_query) >= 3 and "sve" not in tariff_query.lower():
+        return ToolCall("pretrazi_tarifu", {"naziv": tariff_query})
+
+    return None
 
 
 class ToolDispatcherWorker(QThread):
@@ -83,6 +160,11 @@ class ToolDispatcherWorker(QThread):
 
         Statička metoda radi lakšeg testiranja bez Qt zavisnosti.
         """
+        local_tool = route_local_tool(message)
+        if local_tool is not None:
+            logger.debug("[ToolDispatcher] Local tool routed: %s(%s)", local_tool.name, local_tool.arguments)
+            return DispatchResult(tool_call=local_tool)
+
         from gui.tabs.agent.widgets.llm_provider import LLMProvider
 
         provider = LLMProvider()
