@@ -405,6 +405,7 @@ class LearningPanel(QWidget):
         self.lbl_stat_tarife.setText(f"{stats['tarife']:,}")
         self.lbl_stat_uvoznici.setText(f"{stats['uvoznici']:,}")
         self.lbl_stat_izvoznici.setText(f"{stats['izvoznici']:,}")
+        self._log("✅ Statistika osvježena")
 
     def _refresh_xml_count(self):
         if XML_FOLDER.exists():
