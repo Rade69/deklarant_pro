@@ -126,12 +126,17 @@ class ZaglavljeService:
         try:
             tree = ET.parse(filepath)
             root = tree.getroot()
-            
+
+            # Auto-detekcija formata po root elementu
+            root_tag = root.tag.split('}')[-1] if '}' in root.tag else root.tag
+            if format_type.lower() == "world" and root_tag == "AsycudaDocument":
+                format_type = "pro"
+
             if format_type.lower() == "pro":
                 return self._parse_pro_xml(root)
             else:
                 return self._parse_xml(root)
-            
+
         except ET.ParseError as e:
             raise ValueError(f"Neispravan XML format: {e}")
     
@@ -173,17 +178,17 @@ class ZaglavljeService:
         if decl_type is not None and decl_type.text:
             data['vrsta_deklaracije'] = decl_type.text.strip()
         
-        # Izvoznik
+        # Izvoznik — ključevi moraju odgovarati field_widgets (izvoznik_r1, ne izvoznik_naziv)
         exporter = find_with_ns(root, 'Exporter')
         if exporter is not None:
             data['izvoznik_id'] = self._get_text_from_element(exporter, ['ID', 'Code'])
-            data['izvoznik_naziv'] = self._get_text_from_element(exporter, ['Name', 'CompanyName'])
-        
-        # Primalac
+            data['izvoznik_r1'] = self._get_text_from_element(exporter, ['Name', 'CompanyName'])
+
+        # Primalac — isti razlog
         consignee = find_with_ns(root, 'Consignee')
         if consignee is not None:
             data['primalac_id'] = self._get_text_from_element(consignee, ['ID', 'Code'])
-            data['primalac_naziv'] = self._get_text_from_element(consignee, ['Name', 'CompanyName'])
+            data['primalac_r1'] = self._get_text_from_element(consignee, ['Name', 'CompanyName'])
         
         # Transport
         transport = find_with_ns(root, 'TransportMeans')
@@ -606,14 +611,36 @@ class ZaglavljeService:
         # Priložene isprave (header_attached_documents)
         data['attached_documents'] = []
         if hasattr(draft, 'header_attached_documents') and draft.header_attached_documents:
+            pe_doc_codes = {"PE1", "PE2", "PE3"}
+
+            def _merge_doc_number(existing: str, new: str) -> str:
+                parts: list[str] = []
+                for value in (existing, new):
+                    for token in (value or "").split("|"):
+                        token = token.strip()
+                        if token and token not in parts:
+                            parts.append(token)
+                return " | ".join(parts)
+
             for doc in draft.header_attached_documents:
+                code = getattr(doc, 'code', '')
+                number = getattr(doc, 'number', '')
+                existing_doc = next(
+                    (
+                        d for d in data['attached_documents']
+                        if (d.get('code') or '').strip().upper() == (code or '').strip().upper()
+                    ),
+                    None,
+                )
+                if existing_doc is not None and (code or '').strip().upper() in pe_doc_codes:
+                    existing_doc['number'] = _merge_doc_number(existing_doc.get('number', ''), number)
+                    if not existing_doc.get('name') and getattr(doc, 'name', ''):
+                        existing_doc['name'] = getattr(doc, 'name', '')
+                    continue
+                if existing_doc is not None:
+                    continue
                 data['attached_documents'].append(
-                    self._attached_doc_dict(
-                        getattr(doc, 'code', ''),
-                        getattr(doc, 'name', ''),
-                        getattr(doc, 'number', ''),
-                        True,
-                    )
+                    self._attached_doc_dict(code, getattr(doc, 'name', ''), number, True)
                 )
 
         # Automatski dodaj N380 (faktura) ako postoje brojevi faktura u draft-u
@@ -647,8 +674,15 @@ class ZaglavljeService:
                     self._attached_doc_dict('N380', 'Faktura', ' | '.join(brojevi), True)
                 )
 
-        # Auto-dodaj PZT i N730 ako nisu prisutni — obavezne isprave u svakoj deklaraciji
-        for _code, _name in [('PZT', 'Zavisni troškovi'), ('N730', 'Tovarni list')]:
+        # Auto-dodaj obavezne isprave ako nisu prisutne — moraju biti u svakoj deklaraciji
+        # (N380 je već dodat gore sa brojevima faktura ako postoje — ovdje samo fallback)
+        for _code, _name in [
+            ('PZT', 'Zavisni troškovi'),
+            ('N730', 'Tovarni list'),
+            ('N380', 'Faktura komercijalna'),
+            ('DIS', 'Dispozicija'),
+            ('DV1', 'Prijava o carinskoj vrijednosti'),
+        ]:
             if not self._has_attached_doc_code(data['attached_documents'], _code):
                 data['attached_documents'].append(
                     self._attached_doc_dict(_code, _name, '', True)
@@ -1130,6 +1164,9 @@ class ZaglavljeService:
                 ref = _txt(att_el, "Attached_document_reference")
                 from_rule_str = _txt(att_el, "Attached_document_from_rule")
                 from_rule = (from_rule_str == "1")
+                # Blokiraj zastarjele šifre (zamijenjene novim ASYCUDA kodovima)
+                if code.upper() in {"FAK", "CMR", "SAN", "VET", "UVK"}:
+                    continue
                 # Deduplicate by (code, ref)
                 doc_key = (code, ref)
                 if doc_key not in seen_docs and code:
