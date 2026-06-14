@@ -1,0 +1,215 @@
+[
+  {
+    "name": "pe2_izjava_o_porijeklu",
+    "scenario": "Faktura sa PE2 izjavom",
+    "description": "Izjava o porijeklu na fakturi potvrdjuje povlasticu bez EUR.1 obrasca.",
+    "kind": "preference",
+    "invoice_line": {
+      "invoice_number": "FA-2026-001",
+      "naziv_robe": "Industrijski proizvod A",
+      "zemlja_porijekla": "RS",
+      "povlastica": "CEFTAP",
+      "has_origin_statement": true,
+      "is_authorized_exporter": false
+    },
+    "expected": {
+      "source": "document",
+      "confidence": "confirmed_from_document",
+      "score": 100,
+      "score_category": "confirmed",
+      "requires_confirmation": false,
+      "should_recommend": true,
+      "auto_applicable": true,
+      "doc_code": "PE2"
+    }
+  },
+  {
+    "name": "eur1_obrazac_pe1",
+    "scenario": "Faktura sa EUR.1 obrascem",
+    "description": "EUR.1 broj na fakturi potvrdjuje povlasticu (PE1).",
+    "kind": "preference",
+    "invoice_line": {
+      "invoice_number": "FA-2026-002",
+      "naziv_robe": "Industrijski proizvod B",
+      "zemlja_porijekla": "DE",
+      "povlastica": "EUP",
+      "eur1_number": "A-123456",
+      "has_origin_statement": false,
+      "is_authorized_exporter": false
+    },
+    "expected": {
+      "source": "document",
+      "confidence": "confirmed_from_document",
+      "score": 100,
+      "score_category": "confirmed",
+      "requires_confirmation": false,
+      "should_recommend": true,
+      "auto_applicable": true,
+      "doc_code": "PE1"
+    }
+  },
+  {
+    "name": "eu_zemlja_bez_dokaza_porijekla",
+    "scenario": "Faktura bez dokaza porijekla",
+    "description": "Povlastica predlozena samo na osnovu zemlje (EU), bez PE1/PE2/PE3 - slab prijedlog koji trazi potvrdu.",
+    "kind": "preference",
+    "invoice_line": {
+      "invoice_number": "FA-2026-003",
+      "naziv_robe": "Industrijski proizvod C",
+      "zemlja_porijekla": "DE",
+      "povlastica": "EUP",
+      "eur1_number": "",
+      "has_origin_statement": false,
+      "is_authorized_exporter": false
+    },
+    "expected": {
+      "source": "similarity",
+      "confidence": "weak_guess",
+      "score": 60,
+      "score_category": "weak_informational",
+      "requires_confirmation": true,
+      "should_recommend": true,
+      "auto_applicable": false,
+      "doc_code": null
+    }
+  },
+  {
+    "name": "cn_roba_bez_povlastice",
+    "scenario": "CN roba bez povlastice",
+    "description": "Kina nema povlasticu niti dokaz o porijeklu - nema sta da se potvrdi.",
+    "kind": "preference",
+    "invoice_line": {
+      "invoice_number": "FA-2026-004",
+      "naziv_robe": "Roba iz Kine",
+      "zemlja_porijekla": "CN",
+      "povlastica": "",
+      "eur1_number": "",
+      "has_origin_statement": false,
+      "is_authorized_exporter": false
+    },
+    "expected": {
+      "source": "tariff_database",
+      "confidence": "unknown",
+      "score": 0,
+      "score_category": "hidden",
+      "requires_confirmation": true,
+      "should_recommend": false,
+      "auto_applicable": false,
+      "doc_code": null
+    }
+  },
+  {
+    "name": "izvoznik_a_potvrdjena_istorija_tarife",
+    "scenario": "Isti proizvod kod dva izvoznika sa razlicitim tarifama",
+    "description": "Izvoznik A ima jaku istoriju za ovaj proizvod - prijedlog je potvrdjen iz njegove istorije.",
+    "kind": "tariff_decision",
+    "tariff_decision": {
+      "decision_outcome": "show_strong",
+      "supplier_match": true,
+      "usage_count": 12,
+      "source": "IZVOZNIK_A"
+    },
+    "expected": {
+      "source": "exporter_history",
+      "confidence": "confirmed_from_same_exporter_history",
+      "score": 90,
+      "score_category": "strong_history",
+      "requires_confirmation": false,
+      "should_recommend": true,
+      "auto_applicable": true,
+      "doc_code": null
+    }
+  },
+  {
+    "name": "izvoznik_b_bez_sopstvene_istorije",
+    "scenario": "Isti proizvod kod dva izvoznika sa razlicitim tarifama",
+    "description": "Izvoznik B nema sopstvenu istoriju za ovaj proizvod - ne smije naslijediti tarifu izvoznika A (nema fallback na drugog izvoznika).",
+    "kind": "tariff_decision",
+    "tariff_decision": {
+      "decision_outcome": "suppress",
+      "supplier_match": false,
+      "usage_count": 0,
+      "source": ""
+    },
+    "expected": {
+      "source": "tariff_database",
+      "confidence": "unknown",
+      "score": 0,
+      "score_category": "hidden",
+      "requires_confirmation": true,
+      "should_recommend": false,
+      "auto_applicable": false,
+      "doc_code": null
+    }
+  },
+  {
+    "name": "blagic_faktura_46_pe2_potvrdjeno",
+    "scenario": "Blagic/Loren scenario sa vise faktura i izjavama",
+    "description": "Stavka iz fakture 46VP-2026 ima izjavu o porijeklu (PE2) - potvrdjeno.",
+    "kind": "preference",
+    "invoice_line": {
+      "invoice_number": "46VP-2026",
+      "naziv_robe": "Tekstilni proizvod 1",
+      "zemlja_porijekla": "MK",
+      "povlastica": "CEFTAP",
+      "has_origin_statement": true,
+      "is_authorized_exporter": false
+    },
+    "expected": {
+      "source": "document",
+      "confidence": "confirmed_from_document",
+      "score": 100,
+      "score_category": "confirmed",
+      "requires_confirmation": false,
+      "should_recommend": true,
+      "auto_applicable": true,
+      "doc_code": "PE2"
+    }
+  },
+  {
+    "name": "blagic_faktura_703_bez_izjave",
+    "scenario": "Blagic/Loren scenario sa vise faktura i izjavama",
+    "description": "Stavka iz druge fakture (703VP-2025) u istoj deklaraciji nema izjavu/povlasticu - dokaz ove stavke ostaje nezavisan od fakture 46VP-2026.",
+    "kind": "preference",
+    "invoice_line": {
+      "invoice_number": "703VP-2025",
+      "naziv_robe": "Tekstilni proizvod 2",
+      "zemlja_porijekla": "CN",
+      "povlastica": "",
+      "has_origin_statement": false,
+      "is_authorized_exporter": false
+    },
+    "expected": {
+      "source": "tariff_database",
+      "confidence": "unknown",
+      "score": 0,
+      "score_category": "hidden",
+      "requires_confirmation": true,
+      "should_recommend": false,
+      "auto_applicable": false,
+      "doc_code": null
+    }
+  },
+  {
+    "name": "istorija_slab_prijedlog_zahtjeva_potvrdu",
+    "scenario": "Slucaj gdje istorija daje slab prijedlog",
+    "description": "Mali broj koristenja (2x) kod istog izvoznika - slab prijedlog se ne smije automatski primijeniti.",
+    "kind": "tariff_decision",
+    "tariff_decision": {
+      "decision_outcome": "show_weak",
+      "supplier_match": true,
+      "usage_count": 2,
+      "source": "MEDIKO"
+    },
+    "expected": {
+      "source": "exporter_history",
+      "confidence": "weak_guess",
+      "score": 60,
+      "score_category": "weak_informational",
+      "requires_confirmation": true,
+      "should_recommend": true,
+      "auto_applicable": false,
+      "doc_code": null
+    }
+  }
+]

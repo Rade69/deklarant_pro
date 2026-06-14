@@ -108,9 +108,8 @@ class AutoFillService:
                     povlastica_baza=mapping.povlastica
                 )
 
-                # Ažuriraj zemlju, povlasticu i confidence polja
+                # Ažuriraj zemlju i confidence polja
                 line.zemlja_porijekla = validation_result.final_country
-                line.povlastica = validation_result.final_preference
                 line.country_confidence = validation_result.confidence.value
                 line.country_source = validation_result.source
                 if validation_result.conflict_details:
