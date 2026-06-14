@@ -539,7 +539,7 @@ class FakturaView(BaseTabView):
             layout.addWidget(weights_widget)
 
             self.btn_validate = self._create_button(
-                "Validacija",
+                "Provjeri",
                 "Provaliziraj sve stavke",
                 object_name="btnValidacija",
                 icon_name="fa5s.check-circle",
