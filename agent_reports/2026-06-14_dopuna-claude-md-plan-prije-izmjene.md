@@ -124,7 +124,7 @@ dva paralelna "izvora istine" za isti koncept.
 
 | Hash | Poruka |
 |------|--------|
-| (popunjava se nakon commita) | `docs(agent): dodaj "Plan prije izmjene" i Status izvora/Konflikti u agent_report` |
+| `03f78f1` | `docs(agent): dodaj "Plan prije izmjene" i Status izvora/Konflikti u agent_report` |
 
 ## Rizici / ograničenja
 
