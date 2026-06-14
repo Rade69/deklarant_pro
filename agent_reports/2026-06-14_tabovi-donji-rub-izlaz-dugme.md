@@ -127,6 +127,7 @@ kombinovanim QSS-om iz `load_stylesheet()`, `displayProfile="compact"`,
 |-----------|-----------------------------------------------------------------------------|
 | `e5ca8bc` | `fix(gui): popravi traku tabova - donji rub, pozicija i boja Izlaz dugmeta` |
 | `d84af78` | `fix(gui): donja linija tab dugmica + nova boja Izlaz ikonice (#7a2525)`    |
+| `d0709dc` | `fix(gui): posvijetli boju ikonice Izlaz dugmeta (#7a2525 -> #ad2323)`      |
 
 ---
 
@@ -187,6 +188,43 @@ donju ivicu neaktivnih tabova — linija je u potpunosti nestala (ne samo
   korisnik treba provjeriti da je donja linija SADA vidljiva na svim
   tabovima na stvarnom ekranu.
 
+---
+
+## DOPUNA — treći krug (d0709dc)
+
+Korisnik je nakon `d84af78` javio: "Ikonica je i ka pretamna pokušaj sa
+ovom bojom #ad2323" (boja `#7a2525` je i dalje bila premračna na pozadini
+dugmeta).
+
+### GitNexus impact (treći krug)
+
+`gitnexus_detect_changes(scope="unstaged")` PRIJE commita: `risk_level:
+"low"`, `affected_count: 0`, `affected_processes: []`. Isti simbol
+(`_create_exit_button`) — treća izmjena vrijednosti boje u istoj liniji,
+nije ponovo provjeravan zasebno (već LOW u prvom krugu).
+
+### Šta je urađeno (treći krug)
+
+- `main_window.py` (gui + dist_client): boja ikonice "Izlaz" promijenjena
+  sa `#7a2525` na `#ad2323` (korisnikov eksplicitan zahtjev, finalna boja).
+
+### Verifikacija (treći krug)
+
+- `python -m py_compile gui/main_window.py dist_client/gui/main_window.py`
+  → OK.
+- Jednolinijska izmjena vrijednosti boje (isti obrazac kao prethodna dva
+  kruga) — vizuelna provjera ostavljena korisniku na stvarnom ekranu.
+
+### Šta nije dirano (treći krug)
+
+- Sve ostalo iz prvog i drugog kruga (pozicija "Izlaz" dugmeta, donja
+  linija tab dugmadi) — nepromijenjeno.
+
+### Ažurirana korisnička potvrda (treći krug)
+
+- Tačka 3 iz prvog kruga (boja ikonice) je PONOVO ZAMIJENJENA: finalna
+  boja je `#ad2323`.
+
 ## Rizici / ograničenja
 - `_position_exit_button()` koristi `tabBar().geometry()` koja je
   ispravna SAMO nakon prvog layout prolaza — pozicioniranje se zato
@@ -210,8 +248,8 @@ donju ivicu neaktivnih tabova — linija je u potpunosti nestala (ne samo
      linije koja ih presijeca.
   2. "Izlaz" dugme je odmah pored "Agent" taba (mali razmak), ne na ivici
      prozora.
-  3. Ikonica unutar "Izlaz" dugmeta je vidljivo crvenija (`#DC2626`) — ako
-     nijansa nije po ukusu, javiti za podešavanje.
+  3. Ikonica unutar "Izlaz" dugmeta je u boji `#ad2323` (finalna, treći
+     krug) — ako nijansa i dalje nije po ukusu, javiti za podešavanje.
   4. (Opciono) Provjeriti da li se "Š" u "Šifrarnici" prikazuje normalno na
      stvarnom hardveru (vidi "Pronađeni problemi" — pretpostavka je da je
      to samo offscreen artefakt).
