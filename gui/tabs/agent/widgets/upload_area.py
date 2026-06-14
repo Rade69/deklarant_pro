@@ -27,14 +27,16 @@ class ModeCard(QFrame):
     def _setup_ui(self, icon_name: str, description: str):
         self.setFrameShape(QFrame.NoFrame)
         self.setCursor(Qt.PointingHandCursor)
+        self.setMinimumHeight(112)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(14, 12, 14, 12)
-        layout.setSpacing(6)
+        layout.setContentsMargins(14, 8, 14, 8)
+        layout.setSpacing(4)
         layout.setAlignment(Qt.AlignHCenter)
 
         icon_lbl = QLabel()
         icon_lbl.setPixmap(qta.icon(icon_name, color=COLOR_SAGE_DARK).pixmap(28, 28))
+        icon_lbl.setFixedHeight(30)
         icon_lbl.setAlignment(Qt.AlignCenter)
         icon_lbl.setStyleSheet("background: transparent;")
 
@@ -49,6 +51,7 @@ class ModeCard(QFrame):
         """)
 
         desc_lbl = QLabel(description)
+        desc_lbl.setMinimumHeight(28)
         desc_lbl.setAlignment(Qt.AlignCenter)
         desc_lbl.setWordWrap(True)
         desc_lbl.setStyleSheet(f"""
