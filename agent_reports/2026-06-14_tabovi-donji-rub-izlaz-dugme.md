@@ -123,9 +123,69 @@ kombinovanim QSS-om iz `load_stylesheet()`, `displayProfile="compact"`,
   zadatka, spomenuto kao mogući kozmetički follow-up.
 
 ## Commitovi
-| Hash | Poruka |
-|------|--------|
+| Hash      | Poruka                                                                      |
+|-----------|-----------------------------------------------------------------------------|
 | `e5ca8bc` | `fix(gui): popravi traku tabova - donji rub, pozicija i boja Izlaz dugmeta` |
+| `d84af78` | `fix(gui): donja linija tab dugmica + nova boja Izlaz ikonice (#7a2525)`    |
+
+---
+
+## DOPUNA — drugi krug (d84af78)
+
+Korisnik je nakon `e5ca8bc` javio: "Promjeni boju ikonice u #7a2525. I
+dalje se ne vidi donja linija kod TAB dugmadi (Faktura, Naimenovanja,
+Zaglavlje ...)."
+
+### GitNexus impact (drugi krug)
+
+`gitnexus_detect_changes(scope="unstaged")` PRIJE commita: `risk_level:
+"low"`, `affected_count: 0`, `affected_processes: []`. Isti simbol
+(`_create_exit_button`) već provjeren kao LOW u prvom krugu — nije ponovo
+provjeravan jer izmjena ostaje u istoj metodi (samo vrijednost boje).
+
+### Zašto fix iz e5ca8bc nije bio dovoljan
+
+`QTabBar::tab { border: 2px solid #0078d4; border-bottom: none; ... }` —
+SVAKI neaktivni tab nije imao donju ivicu border-a. Kad je u prvom krugu
+uklonjen `QTabWidget::pane`-ov `border-top`, ništa više nije obilježavalo
+donju ivicu neaktivnih tabova — linija je u potpunosti nestala (ne samo
+"sjekla" tekst kao prije).
+
+### Šta je urađeno (drugi krug)
+
+- `main_tabs.qss` (gui + dist_client): uklonjen `border-bottom: none;` iz
+  base `QTabBar::tab` pravila → svaki tab ima kompletan `border: 2px solid
+  #0078d4` na sve 4 strane. `:selected` pravilo (koje već ima eksplicitan
+  `border-bottom: 2px solid #0078d4`) ostaje nepromijenjeno — i dalje se
+  vizuelno spaja sa panelom ispod.
+- `main_window.py` (gui + dist_client): boja ikonice "Izlaz" promijenjena
+  sa `#DC2626` na `#7a2525` (korisnikov eksplicitan zahtjev).
+
+### Verifikacija (drugi krug)
+
+- Offscreen render sa kombinovanim pravim QSS-om (11 fajlova), dva stanja
+  (Faktura selektovan / Zaglavlje selektovan) — u oba slučaja NEAKTIVNI
+  tabovi imaju jasno vidljivu donju plavu liniju, AKTIVNI tab se spaja sa
+  panelom. Ikonica "Izlaz" prikazana u `#7a2525`.
+- `python -m py_compile gui/main_window.py dist_client/gui/main_window.py`
+  → OK.
+- Privremeni `_tmp_diag4.py` / `_tmp_crop4*.png` obrisani nakon provjere.
+
+### Šta nije dirano (drugi krug)
+
+- `:selected` pravilo u main_tabs.qss — već je imalo `border-bottom: 2px
+  solid #0078d4`, ostaje (sada redundantno sa base `border`, ali
+  bezopasno, minimalan diff).
+- Pozicioniranje "Izlaz" dugmeta (`_position_exit_button`) iz prvog kruga
+  — nepromijenjeno, i dalje radi ispravno.
+
+### Ažurirana korisnička potvrda
+
+- Tačka 3 iz prvog kruga (boja `#DC2626`) je ZAMIJENJENA: finalna boja je
+  `#7a2525`.
+- Tačka 1 iz prvog kruga (donji dio tabova) je DOPUNJENA ovim fix-om —
+  korisnik treba provjeriti da je donja linija SADA vidljiva na svim
+  tabovima na stvarnom ekranu.
 
 ## Rizici / ograničenja
 - `_position_exit_button()` koristi `tabBar().geometry()` koja je
