@@ -9,10 +9,15 @@ zelene i druge pozadine tab widgeta.
 ═══════════════════════════════════════════════════════════════
 */
 
-/* Tab widget pane — samo border, BEZ background-color */
+/* Tab widget pane — samo border, BEZ background-color
+   border-top je uklonjen jer se inače crta preko donjeg dijela
+   trake tabova (sjeklo ikonice/tekst neaktivnih tabova) */
 QTabWidget::pane {
     border: 2px solid #0078d4;
+    border-top: none;
     border-radius: 8px;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
 }
 
 /* Individual tab */

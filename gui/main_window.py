@@ -115,16 +115,20 @@ class MainWindow(QMainWindow):
         # Postavi Admin Tab kao trenutni tab za testiranje (opciono - za development)
         # tabs.setCurrentWidget(self.admin_tab)
 
-        # Dugme za bezbjedno gašenje aplikacije — desni ugao trake tabova, pored Agent taba
-        self.btn_exit_app = self._create_exit_button()
-        tabs.setCornerWidget(self.btn_exit_app, Qt.TopRightCorner)
-
         # Registruj callback da ažurira sve tabove kada se draft podaci promene
         self.draft.register_data_change_callback(self._on_draft_data_changed)
 
         # Osvježi naimenovanja izračune (Rb.44/46) kad se tab aktivira
         self.tabs_widget = tabs
         tabs.currentChanged.connect(self._on_tab_changed)
+
+        # Dugme za bezbjedno gašenje aplikacije — odmah desno od trake tabova,
+        # pored "Agent" (NE u uglu cijelog prozora — vidi _position_exit_button)
+        self.btn_exit_app = self._create_exit_button()
+        self.btn_exit_app.setParent(tabs)
+        self.btn_exit_app.raise_()
+        self.btn_exit_app.show()
+        self._position_exit_button()
 
     def _tab_icon(self, icon_name):
         from PySide6.QtGui import QIcon
@@ -141,10 +145,20 @@ class MainWindow(QMainWindow):
         btn.setFixedHeight(30)
         btn.setMinimumWidth(90)
         if qta is not None:
-            btn.setIcon(qta.icon("fa5s.power-off", color="#7F1D1D"))
+            btn.setIcon(qta.icon("fa5s.power-off", color="#DC2626"))
             btn.setIconSize(QSize(20, 20))
         btn.clicked.connect(self._on_exit_clicked)
         return btn
+
+    def _position_exit_button(self) -> None:
+        """Postavi 'Izlaz' dugme odmah desno od trake tabova (pored 'Agent')."""
+        if not hasattr(self, "btn_exit_app") or not hasattr(self, "tabs_widget"):
+            return
+        bar_rect = self.tabs_widget.tabBar().geometry()
+        btn = self.btn_exit_app
+        x = bar_rect.right() + 12
+        y = bar_rect.y() + max(0, (bar_rect.height() - btn.height()) // 2)
+        btn.move(x, y)
 
     def _on_exit_clicked(self) -> None:
         """Provjeri da je bezbjedno zatvoriti aplikaciju, snimi Zaglavlje draft i zatvori prozor."""
@@ -390,6 +404,7 @@ class MainWindow(QMainWindow):
         app = QApplication.instance()
         if app and app.styleSheet():
             app.setStyleSheet(app.styleSheet())
+        self._position_exit_button()
 
     def _apply_faktura_display_profile(self) -> None:
         faktura_view = getattr(getattr(self, "faktura_tab", None), "view", None)
@@ -428,6 +443,10 @@ class MainWindow(QMainWindow):
 
         if self._restore_maximized:
             self.showMaximized()
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self._position_exit_button()
 
     def closeEvent(self, event) -> None:
         """Sačuvaj stanje prozora pre zatvaranja."""
