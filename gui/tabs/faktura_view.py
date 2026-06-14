@@ -249,7 +249,7 @@ class FakturaView(BaseTabView):
         """Setup the complete UI layout."""
         main_layout = QVBoxLayout(self)
         self._main_layout = main_layout
-        main_layout.setContentsMargins(12, 12, 12, 12)
+        main_layout.setContentsMargins(12, 4, 12, 12)
         main_layout.setSpacing(12)
 
         # Controls section
