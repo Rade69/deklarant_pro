@@ -9,6 +9,7 @@ race condition sa main threadom oko last_import_type stanja:
 """
 from PySide6.QtCore import QThread, Signal
 from pathlib import Path
+import os
 import re
 from gui.tabs.agent.models.file_item import FileItem
 
@@ -59,6 +60,9 @@ class ProcessingWorker(QThread):
         #   - mapping xlsx (tarife/porekla/podela) ide POSLIJE PDF-a da ne pravi lažne standalone uvoze
         sorted_files = sorted(self.files, key=self._pair_sort_key)
 
+        def canonical_path(value) -> str:
+            return os.path.normcase(str(Path(value).resolve()))
+
         # ⭐ TRACKING: Koji fajlovi su već "potrošeni" kroz kombinaciju
         consumed_files: set[str] = set()
         pdf_folders: set[str] = {
@@ -86,7 +90,7 @@ class ProcessingWorker(QThread):
                 continue
 
             # ⭐ PRESKOČI ako je već potrošen kroz kombinaciju fakture
-            if file_item.filepath in consumed_files:
+            if canonical_path(file_item.filepath) in consumed_files:
                 self.progress.emit(f"   ⏭️ Preskačem (već kombinovano sa fakturu): {file_item.filename}")
                 file_item.status = 'Skipped'
                 file_item.invoice_lines = []
@@ -118,6 +122,9 @@ class ProcessingWorker(QThread):
                     )
                     file_item.is_combined = result.is_combined  # ⭐ KLJUČNO za duplikat detekciju
                     file_item.consumed_paths = list(getattr(result, "consumed_paths", []) or [])
+                    file_item.exporter = getattr(result, "exporter", None)
+                    file_item.importer = getattr(result, "importer", None)
+                    file_item.currency = getattr(result, "currency", "") or ""
                     file_item.invoice_lines = invoice_lines
                     file_item.status = 'Completed'
                     file_item.detected_parser = getattr(result, '_detected_format', 'auto') or 'auto'
@@ -144,7 +151,7 @@ class ProcessingWorker(QThread):
                     if 'blagic_attos' in detected_format.lower() or 'attos' in detected_format.lower():
                         packing_path = find_matching_packing_list(str(file_item.filepath))
                         if packing_path:
-                            consumed_files.add(packing_path)
+                            consumed_files.add(canonical_path(packing_path))
                             self.progress.emit(f"   📎 Packing list označen kao potrošen: {Path(packing_path).name}")
 
                     # ⭐ FIX: Ako je import interno koristio drugi fajl (npr. Leburić Excel čita PDF),
@@ -152,10 +159,11 @@ class ProcessingWorker(QThread):
                     #   Ako je fajl VEĆ obrađen (npr. Excel koji je bio par za PDF), retroaktivno
                     #   ga označi kao Skipped i očisti linije da se ne duplikata u draftu.
                     for cp in getattr(result, 'consumed_paths', []):
-                        consumed_files.add(cp)
+                        canonical_cp = canonical_path(cp)
+                        consumed_files.add(canonical_cp)
                         # Retroaktivno označi file_item ako je već obrađen
                         for prev in sorted_files:
-                            if prev.filepath == cp and prev.status == 'Completed':
+                            if canonical_path(prev.filepath) == canonical_cp and prev.status == 'Completed':
                                 prev.status = 'Skipped'
                                 prev.invoice_lines = []
                                 self.progress.emit(f"   🔗 Kombinirani par — preskačem prethodni: {Path(cp).name}")
@@ -335,7 +343,9 @@ class ProcessingWorker(QThread):
     def _natural_invoice_parts(value: str) -> tuple:
         token = ProcessingWorker._normalized_invoice_token(value)
         parts = re.findall(r"\d+|[a-z]+", token)
-        return tuple(int(part) if part.isdigit() else part for part in parts)
+        # Sve dijelove pretvoriti u str (brojevi zero-padded) da se izbjegne
+        # TypeError: '<' not supported between instances of 'int' and 'str'
+        return tuple(part.zfill(10) if part.isdigit() else part for part in parts)
 
     @staticmethod
     def _is_mapping_xlsx(filepath: str) -> bool:
