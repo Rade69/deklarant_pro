@@ -143,7 +143,7 @@ class MainWindow(QMainWindow):
         btn.setFixedHeight(30)
         btn.setMinimumWidth(90)
         if qta is not None:
-            btn.setIcon(qta.icon("fa5s.power-off", color="#DC2626"))
+            btn.setIcon(qta.icon("fa5s.power-off", color="#7a2525"))
             btn.setIconSize(QSize(20, 20))
         btn.clicked.connect(self._on_exit_clicked)
         return btn

@@ -20,11 +20,10 @@ QTabWidget::pane {
     border-top-right-radius: 0;
 }
 
-/* Individual tab */
+/* Individual tab — border na sve 4 strane (donja linija mora biti vidljiva) */
 QTabBar::tab {
     background-color: #f0f0f0;
     border: 2px solid #0078d4;
-    border-bottom: none;
     border-top-left-radius: 8px;
     border-top-right-radius: 8px;
     padding: 12px 24px;
