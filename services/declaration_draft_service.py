@@ -105,7 +105,11 @@ def suggested_filename(draft: DeclarationDraft) -> str:
 
 def default_drafts_directory() -> Path:
     path = Path.home() / "Documents" / "Deklarant Pro" / "Nacrti"
-    path.mkdir(parents=True, exist_ok=True)
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        path = Path.home() / "Deklarant Pro" / "Nacrti"
+        path.mkdir(parents=True, exist_ok=True)
     return path
 
 
