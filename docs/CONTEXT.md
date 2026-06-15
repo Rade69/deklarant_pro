@@ -261,3 +261,13 @@ Claude ažurira CONTEXT.md na kraju svake sesije gdje je:
 
 Format dodavanja: kratka sekcija u odgovarajućoj temi, max 5-6 linija.
 Ne dodavati: šta kod radi (to se vidi iz koda), git historiju, privremeno stanje.
+
+---
+
+## 14. Radni nacrti deklaracije
+
+Radni nacrt se čuva kao prenosivi `DeklarantProDraft` XML na lokaciji koju korisnik izabere.
+Ne čuva se u PostgreSQL-u i nema posebno dugme za listu nacrta.
+`Uvezi XML` razlikuje Deklarant Pro nacrt od ASYCUDA XML-a: nacrt obnavlja cijeli
+`DeclarationDraft`, dok ASYCUDA XML ostaje u postojećem import toku.
+Podrazumijevani folder je `Documents/Deklarant Pro/Nacrti`; pamti se posljednja lokacija.

@@ -58,7 +58,7 @@ class _ScrollableCombo(QComboBox):
             popup.setMinimumHeight(min(desired, screen_h - 120))
             self.view().setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
 from PySide6.QtUiTools import QUiLoader
-from PySide6.QtCore import QFile, Qt, Signal, QTimer, QPoint, QSize
+from PySide6.QtCore import QFile, Qt, Signal, QTimer, QPoint, QSize, QSettings
 from PySide6.QtGui import QColor, QIcon, QPainter, QPolygon, QTextOption
 
 from services.naimenovanja.tariff_service import TariffService
@@ -1478,7 +1478,9 @@ class NaimenovanjaView(BaseTabView):
         # Section 5: Import XML
         self.btn_import_xml = self._create_icon_button("Uvezi XML", "fa5s.file-import")
         self.btn_import_xml.setObjectName("btnUveziXMLNaim")  # teal/zelena
-        self.btn_import_xml.setToolTip("Uvezi naimenovanja iz ASYCUDA XML fajla")
+        self.btn_import_xml.setToolTip(
+            "Uvezi ASYCUDA XML ili otvori sačuvani Deklarant Pro nacrt"
+        )
         self.btn_import_xml.setFixedHeight(30)
         self.btn_import_xml.clicked.connect(self._on_import_xml)
         nav_layout.addWidget(self.btn_import_xml)
@@ -1571,8 +1573,10 @@ class NaimenovanjaView(BaseTabView):
         # small inner padding so it doesn't sit exactly on the border
         pad = 10
 
-        self.btn_sacuvaj.move(target_x + pad, y)
-        self.btn_ponisti.move(target_x + pad + self.btn_sacuvaj.width() + 12, y)
+        save_x = target_x + pad
+        cancel_x = save_x + self.btn_sacuvaj.width() + 12
+        self.btn_sacuvaj.move(save_x, y)
+        self.btn_ponisti.move(cancel_x, y)
 
         # Debug (da vidiš da se X mijenja realno)
         # print(f"DEBUG: group_32_39.x(self)={gx_in_self}, heading.x(self)={heading_x_in_self}, target_x={target_x}")
@@ -2283,6 +2287,39 @@ class NaimenovanjaView(BaseTabView):
                 ).strip():
                     item.attached_document4 = master_pe
 
+    def _apply_xml_import_to_zaglavlje(self, filename: str) -> None:
+        """Popuni Zaglavlje tab iz uvezenog ASYCUDA XML-a.
+
+        Rb.18/21 (prevoz) se ne preuzimaju — prevoz za novu deklaraciju može
+        biti drugačiji. U tabeli Priloženih dokumenata (Rb.40) šifra i naziv
+        se preuzimaju za sve stavke, ali referenca se prazni za sve osim DIS
+        (broj dispozicije), jer se nova referenca upisuje za novu deklaraciju.
+        """
+        main_window = self.window()
+        zaglavlje_tab = getattr(main_window, "zaglavlje_tab", None)
+        if zaglavlje_tab is None:
+            return
+
+        from services.zaglavlje_service import ZaglavljeService
+        service = getattr(zaglavlje_tab, "service", None) or ZaglavljeService()
+
+        try:
+            data = service.load_from_xml(filename)
+        except Exception as e:
+            logger.error(f"Greška pri uvozu zaglavlja iz XML-a: {e}", exc_info=True)
+            return
+
+        data.pop("transport_id", None)
+        data.pop("aktivno_transport", None)
+        data.pop("aktivno_transport_nat", None)
+
+        for doc in data.get("attached_documents", []) or []:
+            if (doc.get("code") or "").strip().upper() != "DIS":
+                doc["number"] = ""
+
+        zaglavlje_tab.view.set_data(data, _from_import=True)
+        zaglavlje_tab.save_to_draft()
+
     def _load_current_item(self) -> None:
         """Load current item from draft into form fields"""
         if len(self.draft.items) == 0 or not hasattr(self, "ui"):
@@ -2673,9 +2710,52 @@ class NaimenovanjaView(BaseTabView):
             self._update_all_ui()
 
     def _on_save(self) -> None:
-        """Save button clicked"""
+        """Save the complete declaration as a portable XML working draft."""
+        from PySide6.QtWidgets import QFileDialog
+        from services.declaration_draft_service import (
+            DeclarationDraftService,
+            default_drafts_directory,
+            suggested_filename,
+        )
+
         self._save_current_item()
-        QMessageBox.information(self, "Uspjeh", "✅ Naimenovanje sačuvano!")
+        main_window = self.window()
+        zaglavlje_tab = getattr(main_window, "zaglavlje_tab", None)
+        if hasattr(zaglavlje_tab, "save_to_draft"):
+            zaglavlje_tab.save_to_draft()
+
+        settings = QSettings("DeklarantPro", "DeklarantPro")
+        last_directory = Path(
+            settings.value("drafts/lastDirectory", str(default_drafts_directory()))
+        )
+        suggested_path = last_directory / suggested_filename(self.draft)
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            "Sačuvaj nacrt deklaracije",
+            str(suggested_path),
+            "Deklarant Pro nacrt (*.xml);;XML datoteke (*.xml)",
+        )
+        if not filename:
+            return
+
+        try:
+            saved_path = DeclarationDraftService().save(self.draft, filename)
+        except Exception as exc:
+            QMessageBox.critical(
+                self,
+                "Greška pri čuvanju",
+                f"Nacrt deklaracije nije sačuvan.\n\n{exc}",
+            )
+            return
+
+        settings.setValue("drafts/lastDirectory", str(saved_path.parent))
+        self.draft._persistent_draft_path = str(saved_path)
+        self.draft.dirty = False
+        QMessageBox.information(
+            self,
+            "Nacrt sačuvan",
+            f"Kompletna deklaracija je sačuvana u:\n{saved_path}",
+        )
 
     def _on_field_changed(self) -> None:
         """Debounced field change handler - spašava nakon 300ms pauze u kucanju"""
@@ -3163,15 +3243,44 @@ class NaimenovanjaView(BaseTabView):
         import traceback
         from PySide6.QtWidgets import QFileDialog
         from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
+        from services.declaration_draft_service import (
+            DeclarationDraftService,
+            default_drafts_directory,
+            is_draft_file,
+        )
 
         try:
+            settings = QSettings("DeklarantPro", "DeklarantPro")
+            last_directory = settings.value(
+                "drafts/lastDirectory", str(default_drafts_directory())
+            )
             filename, _ = QFileDialog.getOpenFileName(
                 self,
-                "Uvezi naimenovanja iz XML fajla",
-                "",
+                "Uvezi XML ili otvori nacrt",
+                str(last_directory),
                 "XML Files (*.xml);;All Files (*)",
             )
             if not filename:
+                return
+            settings.setValue("drafts/lastDirectory", str(Path(filename).parent))
+
+            if is_draft_file(filename):
+                if self.draft.dirty:
+                    reply = QMessageBox.question(
+                        self,
+                        "Otvori nacrt deklaracije",
+                        "Nesačuvane izmjene trenutne deklaracije biće zamijenjene. Nastaviti?",
+                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                        QMessageBox.StandardButton.No,
+                    )
+                    if reply == QMessageBox.StandardButton.No:
+                        return
+
+                loaded = DeclarationDraftService().load(filename)
+                main_window = self.window()
+                main_window._replace_draft_contents(loaded)
+                main_window._reload_all_tabs_from_draft()
+                self.show_success(f"Otvoren je nacrt deklaracije:\n{filename}")
                 return
 
             # 1. Parsiraj naimenovanja iz XML
@@ -3201,6 +3310,7 @@ class NaimenovanjaView(BaseTabView):
 
             # 3. Zamijeni draft.items
             self._apply_xml_import_global_documents(items)
+            self._apply_xml_import_to_zaglavlje(filename)
             self.draft.items = items
             self.draft.mark_dirty()
 
