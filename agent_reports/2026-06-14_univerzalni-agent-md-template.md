@@ -140,7 +140,7 @@ Nema.
 
 | Hash | Poruka |
 |------|--------|
-| (popunjava se nakon commita) | `docs(template): dodaj univerzalni CLAUDE.md/AGENTS.md template za nove projekte` |
+| `d0738ee` | `docs(template): dodaj univerzalni CLAUDE.md/AGENTS.md template za nove projekte` |
 
 ## Rizici / ograničenja
 
