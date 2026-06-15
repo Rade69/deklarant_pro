@@ -47,6 +47,7 @@ class ValidationCategory(Enum):
     LEGAL = "legal"
     CONTEXTUAL = "contextual"
     DOCUMENTATION = "documentation"
+    COMPLETENESS = "completeness"
 
 
 @dataclass
@@ -88,11 +89,16 @@ class ValidationReport:
     
     # Preporuke za popravke
     recommendations: List[str] = None
-    
+
+    # ComplianceCheckService stavke (Završna provjera - sistem 2)
+    compliance_items: List[ValidationItem] = None
+
     def __post_init__(self):
         if self.recommendations is None:
             self.recommendations = []
-    
+        if self.compliance_items is None:
+            self.compliance_items = []
+
     def to_dict(self) -> Dict[str, Any]:
         """Konvertuj u dict za prikaz u UI."""
         return {
@@ -108,7 +114,8 @@ class ValidationReport:
                 len(self.naimenovanja_items) +
                 len(self.historical_items) +
                 len(self.legal_items) +
-                len(self.contextual_items)
+                len(self.contextual_items) +
+                len(self.compliance_items)
             )
         }
 
@@ -979,3 +986,73 @@ class ComplianceCheckService:
 
         result.issues.append(Issue('info', 'docs_ok',
             f"Rubrika 44: {ukupno_docs} dokument(a) priloženo."))
+
+
+# ---------------------------------------------------------------------------
+# Završna provjera: spoj DeclarationValidatorService + ComplianceCheckService
+# ---------------------------------------------------------------------------
+
+_COMPLIANCE_SEVERITY_MAP = {
+    'error': ValidationSeverity.ERROR,
+    'warning': ValidationSeverity.WARNING,
+    'info': ValidationSeverity.INFO,
+}
+
+
+def _compliance_issue_to_validation_item(issue: Issue) -> ValidationItem:
+    """Konvertuj ComplianceCheckService Issue u ValidationItem za EnhancedValidationDialog."""
+    return ValidationItem(
+        severity=_COMPLIANCE_SEVERITY_MAP.get(issue.severity, ValidationSeverity.INFO),
+        category=ValidationCategory.COMPLETENESS,
+        rule="Kompletnost",
+        field=issue.code,
+        message=issue.message,
+    )
+
+
+def validate_declaration_full(
+    zaglavlje_data: Dict[str, Any],
+    naimenovanja_data: List[Dict[str, Any]],
+    invoice_lines: List[Dict[str, Any]],
+    draft: Any = None
+) -> ValidationReport:
+    """
+    Završna provjera deklaracije — spaja DeclarationValidatorService
+    (zaglavlje/naimenovanja/pravne/kontekstualne provjere) i
+    ComplianceCheckService (tarife, zemlja porijekla, težine, EUR.1,
+    izvoznik/uvoznik, priloženi dokumenti) u jedan ValidationReport.
+
+    Args:
+        zaglavlje_data: Podaci zaglavlja
+        naimenovanja_data: Lista naimenovanja
+        invoice_lines: Stavke fakture
+        draft: DeclarationDraft (opciono, potreban za ComplianceCheckService)
+
+    Returns:
+        ValidationReport sa popunjenim compliance_items i spojenim brojačima
+    """
+    report = validate_declaration_with_agent(
+        zaglavlje_data=zaglavlje_data,
+        naimenovanja_data=naimenovanja_data,
+        invoice_lines=invoice_lines,
+        draft=draft
+    )
+
+    if draft is not None:
+        compliance_result = ComplianceCheckService().check(draft)
+        report.compliance_items = [
+            _compliance_issue_to_validation_item(issue)
+            for issue in compliance_result.issues
+        ]
+        report.error_count += len(compliance_result.errors)
+        report.warning_count += len(compliance_result.warnings)
+        report.info_count += sum(
+            1 for issue in compliance_result.issues if issue.severity == 'info'
+        )
+        report.valid = report.error_count == 0
+        report.summary = DeclarationValidatorService()._generate_summary(
+            report.error_count, report.warning_count,
+            report.info_count, report.suggestion_count
+        )
+
+    return report
