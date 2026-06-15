@@ -1068,7 +1068,14 @@ class ZaglavljeService:
                 if dest_el is not None:
                     data['drzava_odredista_sifra'] = _txt(dest_el, "Destination_country_code")
                     data['drzava_odredista_naziv'] = _txt(dest_el, "Destination_country_name")
-            data['drzava_porijekla'] = _txt(gen_info, "Country_of_origin_name")
+                # Rb. 10, 11: Zem.otp. / Trgov.zem.
+                data['zem_10'] = _txt(country_el, "Country_first_destination")
+                data['zem_11'] = _txt(country_el, "Trading_country")
+                # Rb. 16: Država porijekla (nalazi se unutar Country, ne direktno u General_information)
+                data['drzava_porijekla'] = _txt(country_el, "Country_of_origin_name")
+            # Rb. 12, 13: Vrijednost / CAP
+            data['zem_12'] = _txt(gen_info, "Value_details")
+            data['zem_13'] = _txt(gen_info, "CAP")
 
         # ── Rb. 19, 20, 25, 26, 29, 30 ───────────────────────────────
         transport_el = _find(root, "Transport")
