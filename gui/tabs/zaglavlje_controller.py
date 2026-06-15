@@ -162,42 +162,39 @@ class ZaglavljeController:
         """
         try:
             from services.agent.declaration_validator_service import (
-                validate_declaration_with_agent
+                validate_declaration_full
             )
             from gui.dialogs.enhanced_validation_dialog import (
                 show_enhanced_validation_dialog,
                 DialogConfig
             )
-            
+
             # Dobavi sve potrebne podatke
             naimenovanja_data = self._get_naimenovanja_data()
             invoice_lines = self._get_invoice_lines(draft)
-            
-            # Pokreni agent validaciju
-            report = validate_declaration_with_agent(
+
+            # Pokreni završnu provjeru (agent validacija + ComplianceCheckService)
+            report = validate_declaration_full(
                 zaglavlje_data=view_data,
                 naimenovanja_data=naimenovanja_data,
                 invoice_lines=invoice_lines,
                 draft=draft
             )
-            
-            # Prikaži enhanced dijalog
+
+            # Prikaži enhanced dijalog — čista provjera, export ostaje
+            # iskljucivo na zasebnom dugmetu "Izvezi XML" (deklarant odlučuje)
             config = DialogConfig(
                 show_details=True,
                 show_recommendations=True,
                 allow_auto_fix=True,
-                show_export_button=report.valid
+                show_export_button=False
             )
-            
+
             result = show_enhanced_validation_dialog(report, self.view, config)
-            
+
             if result:
                 self.logger.info(f"Enhanced validation completed: {report.error_count} errors")
-                
-                # Ako je validno i korisnik želi export, pokreni export
-                if report.valid:
-                    self._on_export_xml()
-                
+
             return True
             
         except ImportError:

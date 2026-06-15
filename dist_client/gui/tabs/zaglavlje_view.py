@@ -463,7 +463,7 @@ class ZaglavljeView(BaseTabView):
         self.btn_import = self._create_icon_button("Uvezi XML", "fa5s.file-import")
         self.btn_import.setObjectName("btnUveziXML")
 
-        self.btn_snimi = self._create_icon_button("Provjeri", "fa5s.check-circle")
+        self.btn_snimi = self._create_icon_button("Završna provjera", "fa5s.check-circle")
         self.btn_snimi.setObjectName("btnSnimi")
 
         self.btn_brisi = self._create_icon_button("Briši", "fa5s.trash-alt")
