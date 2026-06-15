@@ -2277,6 +2277,10 @@ class NaimenovanjaView(BaseTabView):
                 if code in _PE_DOC_CODES and not master_pe:
                     master_pe = _normalize_pe_document_text(f"{code} {number}".strip())
 
+        for doc in global_docs:
+            if doc.code != "DIS":
+                doc.number = ""
+
         if global_docs:
             self.draft.header_attached_documents = global_docs
 
@@ -2309,16 +2313,19 @@ class NaimenovanjaView(BaseTabView):
             logger.error(f"Greška pri uvozu zaglavlja iz XML-a: {e}", exc_info=True)
             return
 
-        data.pop("transport_id", None)
-        data.pop("aktivno_transport", None)
-        data.pop("aktivno_transport_nat", None)
+        # Rb.18/21 (prevoz) zadržava postojeću vrijednost iz drafta — ne preuzima se iz XML-a
+        data["transport_id"] = getattr(self.draft, "transport_id", "") or ""
+        data["aktivno_transport"] = getattr(self.draft, "aktivno_transport", "") or ""
+        data["aktivno_transport_nat"] = getattr(self.draft, "aktivno_transport_nat", "") or ""
 
         for doc in data.get("attached_documents", []) or []:
             if (doc.get("code") or "").strip().upper() != "DIS":
                 doc["number"] = ""
 
-        zaglavlje_tab.view.set_data(data, _from_import=True)
-        zaglavlje_tab.save_to_draft()
+        self.draft = service.save_to_draft(self.draft, data)
+
+        if hasattr(zaglavlje_tab, "load_from_draft"):
+            zaglavlje_tab.load_from_draft(self.draft)
 
     def _load_current_item(self) -> None:
         """Load current item from draft into form fields"""
