@@ -806,15 +806,26 @@ class ComplianceCheckService:
     def check(self, draft) -> ComplianceResult:
         result = ComplianceResult()
         lines = getattr(draft, 'invoice_lines', []) or []
-        if not lines:
-            result.issues.append(Issue('warning', 'empty', "Nema uvezenih stavki fakture."))
+        items = getattr(draft, 'items', []) or []
+
+        if not lines and not items:
+            result.issues.append(Issue('warning', 'empty', "Nema uvezenih stavki fakture ni naimenovanja."))
             return result
-        self._check_tariff_codes(lines, result)
-        self._check_zemlja_porijekla(lines, result)
-        self._check_tezine(draft, lines, result)
-        self._check_eur1_povlastica(lines, result)
+
+        if not lines:
+            # Radni tok bez ATB fakture (npr. uvoz XML direktno u Naimenovanja) —
+            # provjere koje zavise od stavki fakture se preskaču, ali se
+            # nastavlja sa provjerom naimenovanja i priloženih dokumenata.
+            result.issues.append(Issue('info', 'no_invoice_lines',
+                "Nema uvezenih stavki fakture (ATB) — provjera nastavlja na osnovu naimenovanja."))
+        else:
+            self._check_tariff_codes(lines, result)
+            self._check_zemlja_porijekla(lines, result)
+            self._check_tezine(draft, lines, result)
+            self._check_eur1_povlastica(lines, result)
+            self._check_izvoznik_uvoznik(draft, lines, result)
+
         self._check_naimenovanja(draft, result)
-        self._check_izvoznik_uvoznik(draft, lines, result)
         self._check_attached_docs(draft, result)
         return result
 
