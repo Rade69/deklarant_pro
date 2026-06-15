@@ -294,6 +294,8 @@ class LearningPanel(QWidget):
         XML_FOLDER.mkdir(parents=True, exist_ok=True)
         kopirano = 0
         preskoceno = 0
+        identicni = 0
+        apply_to_all: bool | None = None
         for src in files:
             src_path = Path(src)
             if not self._is_valid_learning_xml(src_path):
@@ -307,18 +309,36 @@ class LearningPanel(QWidget):
 
             dst = XML_FOLDER / src_path.name
             if dst.exists():
-                odg = QMessageBox.question(
-                    self, "Fajl postoji",
-                    f"{dst.name} već postoji. Prepiši?",
-                    QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
-                )
-                if odg != QMessageBox.Yes:
+                if _file_hash(dst) == _file_hash(src_path):
+                    # Isto ime, isti sadržaj — tiho preskoči, nema potrebe pitati
+                    identicni += 1
+                    continue
+
+                if apply_to_all is not None:
+                    prepisi = apply_to_all
+                else:
+                    odg = QMessageBox.question(
+                        self, "Fajl postoji",
+                        f"{dst.name} već postoji sa drugačijim sadržajem. Prepiši?",
+                        QMessageBox.Yes | QMessageBox.No
+                        | QMessageBox.YesToAll | QMessageBox.NoToAll,
+                        QMessageBox.No,
+                    )
+                    if odg == QMessageBox.YesToAll:
+                        apply_to_all = True
+                    elif odg == QMessageBox.NoToAll:
+                        apply_to_all = False
+                    prepisi = odg in (QMessageBox.Yes, QMessageBox.YesToAll)
+
+                if not prepisi:
                     preskoceno += 1
                     continue
             shutil.copy2(src, dst)
             kopirano += 1
 
         self._log(f"✅ Kopirano {kopirano} fajl(ova) u {XML_FOLDER.name}")
+        if identicni:
+            self._log(f"ℹ️ Već postoji (identičan sadržaj), preskočeno: {identicni}")
         if preskoceno:
             self._log(f"⚠️ Preskočeno {preskoceno} fajl(ova)")
         self._refresh_xml_count()
@@ -385,6 +405,7 @@ class LearningPanel(QWidget):
         self.lbl_stat_tarife.setText(f"{stats['tarife']:,}")
         self.lbl_stat_uvoznici.setText(f"{stats['uvoznici']:,}")
         self.lbl_stat_izvoznici.setText(f"{stats['izvoznici']:,}")
+        self._log("✅ Statistika osvježena")
 
     def _refresh_xml_count(self):
         if XML_FOLDER.exists():
