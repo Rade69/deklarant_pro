@@ -47,6 +47,7 @@ class ValidationCategory(Enum):
     LEGAL = "legal"
     CONTEXTUAL = "contextual"
     DOCUMENTATION = "documentation"
+    COMPLETENESS = "completeness"
 
 
 @dataclass
@@ -82,17 +83,22 @@ class ValidationReport:
     historical_items: List[ValidationItem]
     legal_items: List[ValidationItem]
     contextual_items: List[ValidationItem]
-    
+
+    # ComplianceCheckService stavke (Završna provjera - sistem 2)
+    compliance_items: List[ValidationItem] = None
+
     # Sažetak
     summary: str = ""
-    
+
     # Preporuke za popravke
     recommendations: List[str] = None
-    
+
     def __post_init__(self):
         if self.recommendations is None:
             self.recommendations = []
-    
+        if self.compliance_items is None:
+            self.compliance_items = []
+
     def to_dict(self) -> Dict[str, Any]:
         """Konvertuj u dict za prikaz u UI."""
         return {
@@ -108,7 +114,8 @@ class ValidationReport:
                 len(self.naimenovanja_items) +
                 len(self.historical_items) +
                 len(self.legal_items) +
-                len(self.contextual_items)
+                len(self.contextual_items) +
+                len(self.compliance_items)
             )
         }
 
@@ -799,15 +806,26 @@ class ComplianceCheckService:
     def check(self, draft) -> ComplianceResult:
         result = ComplianceResult()
         lines = getattr(draft, 'invoice_lines', []) or []
-        if not lines:
-            result.issues.append(Issue('warning', 'empty', "Nema uvezenih stavki fakture."))
+        items = getattr(draft, 'items', []) or []
+
+        if not lines and not items:
+            result.issues.append(Issue('warning', 'empty', "Nema uvezenih stavki fakture ni naimenovanja."))
             return result
-        self._check_tariff_codes(lines, result)
-        self._check_zemlja_porijekla(lines, result)
-        self._check_tezine(draft, lines, result)
-        self._check_eur1_povlastica(lines, result)
+
+        if not lines:
+            # Radni tok bez ATB fakture (npr. uvoz XML direktno u Naimenovanja) —
+            # provjere koje zavise od stavki fakture se preskaču, ali se
+            # nastavlja sa provjerom naimenovanja i priloženih dokumenata.
+            result.issues.append(Issue('info', 'no_invoice_lines',
+                "Nema uvezenih stavki fakture (ATB) — provjera nastavlja na osnovu naimenovanja."))
+        else:
+            self._check_tariff_codes(lines, result)
+            self._check_zemlja_porijekla(lines, result)
+            self._check_tezine(draft, lines, result)
+            self._check_eur1_povlastica(lines, result)
+            self._check_izvoznik_uvoznik(draft, lines, result)
+
         self._check_naimenovanja(draft, result)
-        self._check_izvoznik_uvoznik(draft, lines, result)
         self._check_attached_docs(draft, result)
         return result
 
@@ -979,3 +997,73 @@ class ComplianceCheckService:
 
         result.issues.append(Issue('info', 'docs_ok',
             f"Rubrika 44: {ukupno_docs} dokument(a) priloženo."))
+
+
+# ---------------------------------------------------------------------------
+# Završna provjera: spoj DeclarationValidatorService + ComplianceCheckService
+# ---------------------------------------------------------------------------
+
+_COMPLIANCE_SEVERITY_MAP = {
+    'error': ValidationSeverity.ERROR,
+    'warning': ValidationSeverity.WARNING,
+    'info': ValidationSeverity.INFO,
+}
+
+
+def _compliance_issue_to_validation_item(issue: Issue) -> ValidationItem:
+    """Konvertuj ComplianceCheckService Issue u ValidationItem za EnhancedValidationDialog."""
+    return ValidationItem(
+        severity=_COMPLIANCE_SEVERITY_MAP.get(issue.severity, ValidationSeverity.INFO),
+        category=ValidationCategory.COMPLETENESS,
+        rule="Kompletnost",
+        field=issue.code,
+        message=issue.message,
+    )
+
+
+def validate_declaration_full(
+    zaglavlje_data: Dict[str, Any],
+    naimenovanja_data: List[Dict[str, Any]],
+    invoice_lines: List[Dict[str, Any]],
+    draft: Any = None
+) -> ValidationReport:
+    """
+    Završna provjera deklaracije — spaja DeclarationValidatorService
+    (zaglavlje/naimenovanja/pravne/kontekstualne provjere) i
+    ComplianceCheckService (tarife, zemlja porijekla, težine, EUR.1,
+    izvoznik/uvoznik, priloženi dokumenti) u jedan ValidationReport.
+
+    Args:
+        zaglavlje_data: Podaci zaglavlja
+        naimenovanja_data: Lista naimenovanja
+        invoice_lines: Stavke fakture
+        draft: DeclarationDraft (opciono, potreban za ComplianceCheckService)
+
+    Returns:
+        ValidationReport sa popunjenim compliance_items i spojenim brojačima
+    """
+    report = validate_declaration_with_agent(
+        zaglavlje_data=zaglavlje_data,
+        naimenovanja_data=naimenovanja_data,
+        invoice_lines=invoice_lines,
+        draft=draft
+    )
+
+    if draft is not None:
+        compliance_result = ComplianceCheckService().check(draft)
+        report.compliance_items = [
+            _compliance_issue_to_validation_item(issue)
+            for issue in compliance_result.issues
+        ]
+        report.error_count += len(compliance_result.errors)
+        report.warning_count += len(compliance_result.warnings)
+        report.info_count += sum(
+            1 for issue in compliance_result.issues if issue.severity == 'info'
+        )
+        report.valid = report.error_count == 0
+        report.summary = DeclarationValidatorService()._generate_summary(
+            report.error_count, report.warning_count,
+            report.info_count, report.suggestion_count
+        )
+
+    return report

@@ -164,42 +164,39 @@ class ZaglavljeController:
         """
         try:
             from services.agent.declaration_validator_service import (
-                validate_declaration_with_agent
+                validate_declaration_full
             )
             from gui.dialogs.enhanced_validation_dialog import (
                 show_enhanced_validation_dialog,
                 DialogConfig
             )
-            
+
             # Dobavi sve potrebne podatke
             naimenovanja_data = self._get_naimenovanja_data()
             invoice_lines = self._get_invoice_lines(draft)
-            
-            # Pokreni agent validaciju
-            report = validate_declaration_with_agent(
+
+            # Pokreni završnu provjeru (agent validacija + ComplianceCheckService)
+            report = validate_declaration_full(
                 zaglavlje_data=view_data,
                 naimenovanja_data=naimenovanja_data,
                 invoice_lines=invoice_lines,
                 draft=draft
             )
-            
-            # Prikaži enhanced dijalog
+
+            # Prikaži enhanced dijalog — čista provjera, export ostaje
+            # iskljucivo na zasebnom dugmetu "Izvezi XML" (deklarant odlučuje)
             config = DialogConfig(
                 show_details=True,
                 show_recommendations=True,
                 allow_auto_fix=True,
-                show_export_button=report.valid
+                show_export_button=False
             )
-            
+
             result = show_enhanced_validation_dialog(report, self.view, config)
-            
+
             if result:
                 self.logger.info(f"Enhanced validation completed: {report.error_count} errors")
-                
-                # Ako je validno i korisnik želi export, pokreni export
-                if report.valid:
-                    self._on_export_xml()
-                
+
             return True
             
         except ImportError:
@@ -475,6 +472,14 @@ class ZaglavljeController:
             # Load data from XML via service
             data = self.service.load_from_xml(filename)
 
+            # Blokiraj zastarjele šifre dokumenata — zamijenjene novim ASYCUDA kodovima
+            _BLOCKED_CODES = {"FAK", "CMR", "SAN", "VET", "UVK"}
+            if 'attached_documents' in data:
+                data['attached_documents'] = [
+                    d for d in data['attached_documents']
+                    if (d.get('code') or '').upper() not in _BLOCKED_CODES
+                ]
+
             # Rb.22 — iznos se uvijek uzima iz fakture/naim., ne iz XML-a
             # XML može sadržavati zastarjeli iznos iz prethodne deklaracije
             draft = self._get_draft_fn() if self._get_draft_fn else None
@@ -665,11 +670,47 @@ class ZaglavljeController:
         merged: List[Dict[str, Any]] = []
         existing_codes: set[str] = set()
 
+        def _merge_number(existing: str, new: str) -> str:
+            parts: list[str] = []
+            for value in (existing, new):
+                for token in (value or "").split("|"):
+                    token = token.strip()
+                    if token and token not in parts:
+                        parts.append(token)
+            return " | ".join(parts)
+
+        def _add_doc(code: str, name: str, number: str, from_rule: bool, user_entered: bool = False) -> None:
+            normalized_code = code.upper()
+            if normalized_code in existing_codes:
+                if normalized_code in _PE_DOC_CODES:
+                    existing = next(
+                        (doc for doc in merged if (doc.get("code") or "").strip().upper() == normalized_code),
+                        None,
+                    )
+                    if existing is not None:
+                        existing["number"] = _merge_number(existing.get("number", ""), number)
+                        if not existing.get("name") and name:
+                            existing["name"] = name
+                return
+
+            existing_codes.add(normalized_code)
+            entry = {
+                "code": code,
+                "name": name,
+                "number": number,
+                "from_rule": bool(from_rule),
+            }
+            if user_entered:
+                entry["_user_entered"] = True
+            merged.append(entry)
+
         for d in existing_docs:
             if not isinstance(d, dict):
                 continue
             code = (d.get("code") or "").strip()
             if not code:
+                continue
+            if code.upper() in existing_codes:  # dedupliciraj existing_docs po šifri
                 continue
             existing_codes.add(code.upper())
             merged.append({
@@ -677,21 +718,19 @@ class ZaglavljeController:
                 "name": d.get("name", ""),
                 "number": d.get("number", ""),
                 "from_rule": bool(d.get("from_rule", False)),
+                "_user_entered": True,  # čuva referencu pri XML uvozu
             })
 
         for hd in draft_header_docs:
             code = (getattr(hd, "code", "") or "").strip()
             if not code:
                 continue
-            if code.upper() in existing_codes:
-                continue
-            existing_codes.add(code.upper())
-            merged.append({
-                "code": code,
-                "name": getattr(hd, "name", ""),
-                "number": getattr(hd, "number", ""),
-                "from_rule": bool(getattr(hd, "from_rule", False)),
-            })
+            _add_doc(
+                code=code,
+                name=getattr(hd, "name", ""),
+                number=getattr(hd, "number", ""),
+                from_rule=bool(getattr(hd, "from_rule", False)),
+            )
 
         for d in imported_docs:
             if not isinstance(d, dict):
@@ -701,15 +740,12 @@ class ZaglavljeController:
                 continue
             if code.upper() == "OST":
                 continue
-            if code.upper() in existing_codes:
-                continue
-            existing_codes.add(code.upper())
-            merged.append({
-                "code": code,
-                "name": d.get("name", ""),
-                "number": d.get("number", ""),
-                "from_rule": bool(d.get("from_rule", False)),
-            })
+            _add_doc(
+                code=code,
+                name=d.get("name", ""),
+                number=d.get("number", ""),
+                from_rule=bool(d.get("from_rule", False)),
+            )
 
         return merged
 
