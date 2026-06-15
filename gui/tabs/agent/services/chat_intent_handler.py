@@ -2483,7 +2483,7 @@ def _compliance_check(ctrl) -> None:
 
     chat.add_activity("🔍 Kompleksna provjera deklaracije u toku...")
     try:
-        from services.agent.compliance_check_service import ComplianceCheckService
+        from services.agent.validation.declaration_validator_service import ComplianceCheckService
         from gui.tabs.agent.widgets.compliance_report_dialog import ComplianceReportDialog
 
         result = ComplianceCheckService().check(ctrl.draft)
