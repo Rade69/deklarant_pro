@@ -2305,7 +2305,7 @@ class NaimenovanjaView(BaseTabView):
             return
 
         from services.zaglavlje_service import ZaglavljeService
-        service = getattr(zaglavlje_tab, "service", None) or ZaglavljeService()
+        service = ZaglavljeService()
 
         try:
             data = service.load_from_xml(filename)
