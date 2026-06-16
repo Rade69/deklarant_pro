@@ -3945,22 +3945,6 @@ class FakturaView(BaseTabView):
         try:
             from services.tariff_facade import TariffFacade
 
-            if not auto:
-                progress = QProgressDialog(
-                    "Auto-popunjavanje tarifnih brojeva...",
-                    "Otkaži",
-                    0,
-                    len(target_lines),
-                    self,
-                )
-                progress.setWindowTitle("Auto-popuni tarifne")
-                progress.setWindowModality(Qt.WindowModal)
-                progress.setMinimumDuration(500)
-                progress.setValue(0)
-                QCoreApplication.processEvents()
-            else:
-                progress = None
-
             facade = TariffFacade.get_instance()
 
             # Skupi skipped stavke (već imaju tarifni broj)
@@ -3978,6 +3962,46 @@ class FakturaView(BaseTabView):
             if target_lines:
                 supplier_name = target_lines[0].exporter.name or ""
 
+            # U interaktivnom modu: preview prijedloga PRIJE pisanja
+            if not auto:
+                progress = QProgressDialog(
+                    "Tražim prijedloge tarifnih brojeva...",
+                    "Otkaži",
+                    0,
+                    len(target_lines),
+                    self,
+                )
+                progress.setWindowTitle("Auto-popuni tarifne")
+                progress.setWindowModality(Qt.WindowModal)
+                progress.setMinimumDuration(300)
+                progress.setValue(0)
+                QCoreApplication.processEvents()
+
+                preview_details = self._collect_tariff_previews(target_lines, facade)
+                progress.setValue(len(target_lines))
+
+                if not preview_details:
+                    # Nema prijedloga — prikaži poruku i završi bez pisanja
+                    from services.tariff_mapping_service import MappingResult
+                    empty = MappingResult(
+                        total_items=len(target_lines),
+                        matched_items=0,
+                        unmatched_items=len(target_lines) - len(skipped_details),
+                    )
+                    empty.skipped_items = len(skipped_details)
+                    empty.skipped_details = skipped_details
+                    self._show_tariff_mapping_result(empty, basic_filled_count)
+                    return empty
+
+                # Prikaži dijalog potvrde s opisima tarifa PRIJE popunjavanja
+                confirmed = self._show_tariff_preview_dialog(target_lines, preview_details)
+                if not confirmed:
+                    return None
+
+            else:
+                progress = None
+
+            # Primijeni (ili auto mod bez potvrde)
             result = facade.auto_populate_tariffs(
                 target_lines,
                 min_similarity=0.70,
@@ -4023,7 +4047,7 @@ class FakturaView(BaseTabView):
                 if self.on_dirty:
                     self.on_dirty()
 
-            # Show detailed result dialog (samo u interaktivnom modu)
+            # Izvještaj poslije popunjavanja (samo u interaktivnom modu)
             if not auto:
                 self._show_tariff_mapping_result(result, basic_filled_count)
 
@@ -4112,6 +4136,144 @@ class FakturaView(BaseTabView):
             message += "   sistem će ih zapamtiti za buduće uvoza."
 
         self._show_scrollable_info_dialog("Auto-popuni - Rezultati", message)
+
+    def _get_tariff_description(self, tariff_code: str) -> str:
+        """Dohvati kratki opis tarifnog broja iz tarifa_2026 (hijerarhijski)."""
+        if not tariff_code or not tariff_code.isdigit():
+            return ""
+        try:
+            import sqlite3, re
+            from pathlib import Path
+            db_path = Path(__file__).parent.parent.parent / "database" / "deklarant_sistem.db"
+            if not db_path.exists():
+                return ""
+            conn = sqlite3.connect(str(db_path))
+            cur = conn.cursor()
+            code10 = tariff_code.ljust(10, '0')
+            pog4 = tariff_code[:4]
+            pod6 = tariff_code[:6]
+            cur.execute(
+                "SELECT naziv FROM tarifa_2026 WHERE kod IN (?, ?, ?) ORDER BY length(kod)",
+                (pog4, pod6, code10)
+            )
+            parts = [r[0] for r in cur.fetchall()]
+            conn.close()
+            labels = []
+            for naziv in parts:
+                clean = re.sub(r'^[\s�▪•→»\xa0]+', '', naziv or '').strip().rstrip(':')
+                if clean:
+                    labels.append(clean)
+            return " / ".join(labels) if labels else tariff_code
+        except Exception:
+            return tariff_code
+
+    def _collect_tariff_previews(self, target_lines: list, facade) -> list:
+        """
+        Dohvati prijedloge tarifnih za svaku stavku BEZ pisanja u draft.
+        Vraća listu tuple-ova (line_no, naziv, predloženi_tarifni_broj).
+        Koristi suggest_fast() (Level 1 baza znanja) — radi i na kompajliranoj i .py verziji servisa.
+        """
+        preview = []
+        for line in target_lines:
+            if getattr(line, 'tarifni_broj', None):
+                continue
+            try:
+                result = facade.suggest_fast(
+                    naziv_robe=getattr(line, 'naziv_robe', '') or '',
+                    product_code=getattr(line, 'product_code', '') or '',
+                )
+                if result and getattr(result, 'tarifni_broj', None):
+                    preview.append((
+                        line.line_no,
+                        getattr(line, 'naziv_robe', '') or getattr(line, 'product_code', '') or '',
+                        result.tarifni_broj,
+                    ))
+            except Exception:
+                pass
+        return preview
+
+    def _show_tariff_preview_dialog(self, target_lines: list, preview_details: list) -> bool:
+        """
+        Prikaži dijalog potvrde PRIJE auto-popunjavanja.
+        Tabela: Rb | Naziv proizvoda | Predložena tarifa | Opis tarife
+        preview_details: lista tuple (line_no, naziv, tarifa)
+        Vraća True ako korisnik potvrdi, False ako odustane.
+        """
+        from PySide6.QtWidgets import (
+            QDialog, QVBoxLayout, QHBoxLayout, QLabel,
+            QPushButton, QTableWidget, QTableWidgetItem, QHeaderView,
+        )
+        from PySide6.QtCore import Qt
+        from PySide6.QtGui import QFont
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Potvrda auto-popunjavanja tarifnih brojeva")
+        layout = QVBoxLayout(dialog)
+        layout.setSpacing(10)
+
+        label = QLabel(
+            f"Pronađeno <b>{len(preview_details)}</b> prijedloga tarifnih brojeva.<br>"
+            "Provjerite opise tarifa — ako je opis netačan za dati proizvod, kliknite <b>Odustani</b>."
+        )
+        label.setWordWrap(True)
+        layout.addWidget(label)
+
+        table = QTableWidget()
+        table.setColumnCount(4)
+        table.setHorizontalHeaderLabels(["Rb.", "Naziv proizvoda", "Tarifa", "Opis tarife (provjeri!)"])
+        table.setRowCount(len(preview_details))
+        table.setEditTriggers(QTableWidget.NoEditTriggers)
+        table.setAlternatingRowColors(True)
+        table.verticalHeader().setVisible(False)
+        table.setSelectionBehavior(QTableWidget.SelectRows)
+
+        bold_font = QFont()
+        bold_font.setBold(True)
+
+        for i, (line_no, naziv, tarif) in enumerate(preview_details):
+            opis = self._get_tariff_description(tarif)
+
+            item_rb = QTableWidgetItem(str(line_no))
+            item_rb.setTextAlignment(Qt.AlignCenter)
+            item_naziv = QTableWidgetItem(naziv[:60])
+            item_tarif = QTableWidgetItem(tarif)
+            item_tarif.setFont(bold_font)
+            item_tarif.setTextAlignment(Qt.AlignCenter)
+            item_opis = QTableWidgetItem(opis)
+
+            table.setItem(i, 0, item_rb)
+            table.setItem(i, 1, item_naziv)
+            table.setItem(i, 2, item_tarif)
+            table.setItem(i, 3, item_opis)
+
+        table.setColumnWidth(0, 45)
+        table.setColumnWidth(2, 90)
+        table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)
+        table.resizeRowsToContents()
+        layout.addWidget(table)
+
+        btn_layout = QHBoxLayout()
+        btn_ok = QPushButton("Potvrdi i popuni")
+        btn_ok.setDefault(True)
+        btn_cancel = QPushButton("Odustani")
+        btn_layout.addStretch()
+        btn_layout.addWidget(btn_cancel)
+        btn_layout.addWidget(btn_ok)
+        layout.addLayout(btn_layout)
+
+        btn_ok.clicked.connect(dialog.accept)
+        btn_cancel.clicked.connect(dialog.reject)
+
+        from PySide6.QtWidgets import QApplication
+        screen = self.screen() or QApplication.primaryScreen()
+        available = screen.availableGeometry()
+        dialog.resize(
+            min(950, available.width() - 80),
+            min(600, available.height() - 80),
+        )
+
+        return dialog.exec() == QDialog.Accepted
 
     def _show_scrollable_info_dialog(self, title: str, text: str):
         """
