@@ -3717,11 +3717,7 @@ class NaimenovanjaView(BaseTabView):
 
         self._load_current_item()
         self._update_all_ui()
-        if hasattr(self, "ui") and self.ui:
-            self.ui.update()
-            self.ui.repaint()
         self.update()
-        self.repaint()
         logger.info("  ✅ Naimenovanja Tab reloaded: %d items", len(self.draft.items))
 
     def eventFilter(self, obj, event):

@@ -3253,6 +3253,12 @@ class FakturaView(BaseTabView):
             auto: Ako True, preskoči sve dijaloge (za punu automatizaciju).
         """
         geometry_state = capture_window_geometry(self) if not auto else None
+        button_text = None
+        if not auto and hasattr(self, "btn_create_naimenovanja"):
+            button_text = self.btn_create_naimenovanja.text()
+            self.btn_create_naimenovanja.setEnabled(False)
+            self.btn_create_naimenovanja.setText("Kreiram...")
+            QCoreApplication.processEvents()
         from services.create_naimenovanja_service import CreateNaimenovanjaService
         from services.faktura.declaration_split_service import group_label as _group_label
 
@@ -3389,6 +3395,9 @@ class FakturaView(BaseTabView):
                 self, "Greška", f"Greška prilikom kreiranja naimenovanja:\n\n{str(e)}"
             )
         finally:
+            if button_text is not None and hasattr(self, "btn_create_naimenovanja"):
+                self.btn_create_naimenovanja.setText(button_text)
+                self.btn_create_naimenovanja.setEnabled(True)
             restore_window_geometry_queued(geometry_state)
 
     def _set_weight_inputs_from_draft(self):

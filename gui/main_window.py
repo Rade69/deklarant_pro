@@ -3,7 +3,7 @@ from copy import deepcopy
 from dataclasses import fields
 from pathlib import Path
 from PySide6.QtWidgets import QMainWindow, QTabWidget, QApplication, QMessageBox, QPushButton
-from PySide6.QtCore import QFile, QTextStream, QIODevice, QSettings, QSize, Qt
+from PySide6.QtCore import QFile, QTextStream, QIODevice, QSettings, QSize, Qt, QTimer
 
 import logging
 
@@ -303,7 +303,7 @@ class MainWindow(QMainWindow):
         if current_widget is self.naimenovanje_tab:
             naim_view = getattr(inner, "view", None)
             if naim_view and hasattr(naim_view, "_load_current_item"):
-                naim_view._load_current_item()
+                QTimer.singleShot(0, naim_view._load_current_item)
 
         elif current_widget is self.zaglavlje_tab:
             # Uzmi aktivni draft iz FakturaView (može biti split draft, ne nužno self.draft)
@@ -312,7 +312,7 @@ class MainWindow(QMainWindow):
             if faktura_view and hasattr(faktura_view, "draft"):
                 active_draft = faktura_view.draft
             if hasattr(self.zaglavlje_tab, "load_from_draft"):
-                self.zaglavlje_tab.load_from_draft(active_draft)
+                QTimer.singleShot(0, lambda draft=active_draft: self.zaglavlje_tab.load_from_draft(draft))
 
     def _on_draft_data_changed(self) -> None:
         """Poziva se kada se draft podaci promene - ažurira sve tabove koji treba da se osveže."""
