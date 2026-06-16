@@ -2032,6 +2032,20 @@ class ZaglavljeView(BaseTabView):
                 padding: 0px 14px;
                 color: black; font-weight: 600; font-size: 12px;
             }
+            QPushButton#btnNovi:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #d6ecff, stop:1 #7fc4ff);
+                border: 1px solid #1976d2;
+                border-bottom: 3px solid #0d47a1;
+            }
+            QPushButton#btnNovi:pressed {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #42a5f5, stop:1 #1e88e5);
+                border: 1px solid #1565c0;
+                border-top: 3px solid #0d47a1;
+                border-bottom: 1px solid #1565c0;
+                color: white;
+            }
             QPushButton#btnUveziXML {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #e1bee7, stop:1 #ce93d8);
@@ -2040,6 +2054,20 @@ class ZaglavljeView(BaseTabView):
                 border-radius: 3px;
                 padding: 0px 14px;
                 color: black; font-weight: 600; font-size: 12px;
+            }
+            QPushButton#btnUveziXML:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #f0d4f5, stop:1 #dc9fe6);
+                border: 1px solid #8e24aa;
+                border-bottom: 3px solid #4a148c;
+            }
+            QPushButton#btnUveziXML:pressed {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #ab47bc, stop:1 #8e24aa);
+                border: 1px solid #6a1b9a;
+                border-top: 3px solid #4a148c;
+                border-bottom: 1px solid #6a1b9a;
+                color: white;
             }
             QPushButton#btnSnimi {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
@@ -2050,6 +2078,20 @@ class ZaglavljeView(BaseTabView):
                 padding: 0px 14px;
                 color: black; font-weight: bold; font-size: 12px;
             }
+            QPushButton#btnSnimi:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #70c970, stop:1 #55ad55);
+                border: 1px solid #2e7d32;
+                border-bottom: 3px solid #0b3d16;
+            }
+            QPushButton#btnSnimi:pressed {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #388e3c, stop:1 #2e7d32);
+                border: 1px solid #1b5e20;
+                border-top: 3px solid #0b3d16;
+                border-bottom: 1px solid #1b5e20;
+                color: white;
+            }
             QPushButton#btnBrisi {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #ffcdd2, stop:1 #ef9a9a);
@@ -2058,6 +2100,20 @@ class ZaglavljeView(BaseTabView):
                 border-radius: 3px;
                 padding: 0px 14px;
                 color: black; font-weight: 600; font-size: 12px;
+            }
+            QPushButton#btnBrisi:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #ffd9dd, stop:1 #f5a8a8);
+                border: 1px solid #d32f2f;
+                border-bottom: 3px solid #7f1d1d;
+            }
+            QPushButton#btnBrisi:pressed {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #e57373, stop:1 #d32f2f);
+                border: 1px solid #b71c1c;
+                border-top: 3px solid #7f1d1d;
+                border-bottom: 1px solid #b71c1c;
+                color: white;
             }
             QPushButton#btnIzveziXML {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
@@ -2068,6 +2124,20 @@ class ZaglavljeView(BaseTabView):
                 padding: 0px 14px;
                 color: black; font-weight: 600; font-size: 12px;
             }
+            QPushButton#btnIzveziXML:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #c6ece8, stop:1 #91d8d1);
+                border: 1px solid #00897b;
+                border-bottom: 3px solid #004d40;
+            }
+            QPushButton#btnIzveziXML:pressed {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #4db6ac, stop:1 #00897b);
+                border: 1px solid #00695c;
+                border-top: 3px solid #004d40;
+                border-bottom: 1px solid #00695c;
+                color: white;
+            }
             QPushButton#btnIzlaz {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #fafafa, stop:1 #e0e0e0);
@@ -2076,6 +2146,20 @@ class ZaglavljeView(BaseTabView):
                 border-radius: 3px;
                 padding: 0px 14px;
                 color: black; font-weight: 600; font-size: 12px;
+            }
+            QPushButton#btnIzlaz:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #ffffff, stop:1 #eeeeee);
+                border: 1px solid #777;
+                border-bottom: 3px solid #444;
+            }
+            QPushButton#btnIzlaz:pressed {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #bdbdbd, stop:1 #9e9e9e);
+                border: 1px solid #666;
+                border-top: 3px solid #444;
+                border-bottom: 1px solid #666;
+                color: white;
             }
 
             /* INPUT FIELDS — krem pozadina za lako uočavanje */

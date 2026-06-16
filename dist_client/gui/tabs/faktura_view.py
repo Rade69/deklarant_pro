@@ -42,6 +42,8 @@ from PySide6.QtCore import (
     QSignalBlocker,
     QSize,
     QTimer,
+    QItemSelection,
+    QItemSelectionModel,
 )
 from PySide6.QtGui import QColor, QFont, QFontMetrics, QIcon
 
@@ -79,6 +81,55 @@ from services.faktura.weight_guards import (
 from services.agent.validation.evidence_model import evidence_from_preference
 
 _PE_DOC_CODES = {"PE1", "PE2", "PE3"}
+
+
+class _InvoiceTableWidget(QTableWidget):
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            modifiers = event.modifiers()
+            if modifiers & (Qt.ShiftModifier | Qt.ControlModifier):
+                row = self.rowAt(event.position().toPoint().y())
+                if row >= 0:
+                    self._select_row_with_modifier(row, modifiers)
+                    event.accept()
+                    return
+        super().mousePressEvent(event)
+
+    def _select_row_with_modifier(self, row: int, modifiers: Qt.KeyboardModifiers) -> None:
+        selection_model = self.selectionModel()
+        if selection_model is None:
+            return
+
+        model = self.model()
+        current_index = model.index(row, 0)
+
+        if modifiers & Qt.ShiftModifier:
+            anchor = self.currentRow()
+            if anchor < 0:
+                anchor = row
+            start, end = sorted((anchor, row))
+            selection = QItemSelection(
+                model.index(start, 0),
+                model.index(end, self.columnCount() - 1),
+            )
+            selection_model.select(
+                selection,
+                QItemSelectionModel.ClearAndSelect | QItemSelectionModel.Rows,
+            )
+            selection_model.setCurrentIndex(current_index, QItemSelectionModel.NoUpdate)
+            return
+
+        row_selection = QItemSelection(
+            model.index(row, 0),
+            model.index(row, self.columnCount() - 1),
+        )
+        command = (
+            QItemSelectionModel.Deselect
+            if selection_model.isRowSelected(row, current_index.parent())
+            else QItemSelectionModel.Select
+        )
+        selection_model.select(row_selection, command | QItemSelectionModel.Rows)
+        selection_model.setCurrentIndex(current_index, QItemSelectionModel.NoUpdate)
 
 
 def _normalize_pe_document_text(value: str) -> str:
@@ -659,7 +710,7 @@ class FakturaView(BaseTabView):
 
     def _create_table(self) -> QTableWidget:
         """Create the main items table."""
-        table = QTableWidget()
+        table = _InvoiceTableWidget()
         table.setColumnCount(12)
 
         # Set headers
@@ -708,7 +759,7 @@ class FakturaView(BaseTabView):
             False
         )  # Isključeno - koristimo validacione boje umjesto
         table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        table.setSelectionMode(QAbstractItemView.SingleSelection)
+        table.setSelectionMode(QAbstractItemView.ExtendedSelection)
         table.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
         table.verticalHeader().setVisible(False)
 
@@ -3866,9 +3917,28 @@ class FakturaView(BaseTabView):
                 logger.info("✅ [Auto-popuni] Sve stavke imaju tarifni broj — preskačem")
                 return None
 
+        selected_row = -1
+        selected_row_indexes = []
+        target_lines = self.draft.invoice_lines
+        if not auto and hasattr(self, "table"):
+            selection = self.table.selectionModel()
+            selected_rows = selection.selectedRows() if selection else []
+            if selected_rows:
+                row_indexes = sorted(
+                    {
+                        idx.row()
+                        for idx in selected_rows
+                        if 0 <= idx.row() < len(self.draft.invoice_lines)
+                    }
+                )
+                if row_indexes:
+                    selected_row_indexes = row_indexes
+                    selected_row = row_indexes[0]
+                    target_lines = [self.draft.invoice_lines[row] for row in row_indexes]
+
         # Prvo popuni osnovna polja (valuta, jm, iznos)
         basic_filled_count = self.auto_fill_service.fill_basic_fields(
-            self.draft.invoice_lines
+            target_lines
         )
 
         # Auto-popuni tarifne iz baze znanja — docs/architecture/TARIFF_FACADE_REFACTORING.md
@@ -3880,7 +3950,7 @@ class FakturaView(BaseTabView):
                     "Auto-popunjavanje tarifnih brojeva...",
                     "Otkaži",
                     0,
-                    len(self.draft.invoice_lines),
+                    len(target_lines),
                     self,
                 )
                 progress.setWindowTitle("Auto-popuni tarifne")
@@ -3900,16 +3970,16 @@ class FakturaView(BaseTabView):
                     line.product_code or line.naziv_robe[:30],
                     line.tarifni_broj,
                 )
-                for line in self.draft.invoice_lines
+                for line in target_lines
                 if line.tarifni_broj
             ]
 
             supplier_name = ""
-            if self.draft.invoice_lines:
-                supplier_name = self.draft.invoice_lines[0].exporter.name or ""
+            if target_lines:
+                supplier_name = target_lines[0].exporter.name or ""
 
             result = facade.auto_populate_tariffs(
-                self.draft.invoice_lines,
+                target_lines,
                 min_similarity=0.70,
                 overwrite_existing=False,
                 supplier=supplier_name,
@@ -3920,10 +3990,29 @@ class FakturaView(BaseTabView):
             result.skipped_details = skipped_details
 
             if progress is not None:
-                progress.setValue(len(self.draft.invoice_lines))
+                progress.setValue(len(target_lines))
 
             # Reload table to show changes
             self._load_data_from_draft()
+            if selected_row_indexes:
+                selection_model = self.table.selectionModel()
+                if selection_model is not None:
+                    selection_model.clearSelection()
+                    for row in selected_row_indexes:
+                        if 0 <= row < self.table.rowCount():
+                            selection = QItemSelection(
+                                self.table.model().index(row, 0),
+                                self.table.model().index(row, self.table.columnCount() - 1),
+                            )
+                            selection_model.select(
+                                selection,
+                                QItemSelectionModel.Select | QItemSelectionModel.Rows,
+                            )
+                    if selected_row >= 0 and selected_row < self.table.rowCount():
+                        selection_model.setCurrentIndex(
+                            self.table.model().index(selected_row, 0),
+                            QItemSelectionModel.NoUpdate,
+                        )
 
             # Update status bar
             self._update_status_bar()
