@@ -468,12 +468,16 @@ class AgentController:
                     if not line.invoice_number:
                         line.invoice_number = explicit_invoice_number
 
-            # Privremeno uvezi u draft za dijalog
+            # Normalizuj tarifne brojeve na 8 cifara (agent putanja prethodno preskakala normalizaciju)
+            fw = self.faktura_tab.view if hasattr(self.faktura_tab, 'view') else self.faktura_tab
+            if fw and hasattr(fw, '_normalize_item_tariffs'):
+                fw._normalize_item_tariffs(lines)
+
+            # Uvezi u draft za dijalog
             self.draft.invoice_lines.clear()
             self.draft.invoice_lines.extend(lines)
 
             # Popuni zaglavlje (izvoznik/uvoznik/valuta) iz ove fakture - samo prazna polja
-            fw = self.faktura_tab.view if hasattr(self.faktura_tab, 'view') else self.faktura_tab
             if fw and hasattr(fw, '_apply_import_result_to_header'):
                 fw._apply_import_result_to_header(file_item)
 
