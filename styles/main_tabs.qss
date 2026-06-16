@@ -45,3 +45,19 @@ QTabBar::tab:selected {
 QTabBar::tab:hover:!selected {
     background-color: #e0e0e0;
 }
+
+/* Kontekstni meniji — spriječi nasljeđivanje color:white od tab selektora */
+QMenu {
+    background-color: #ffffff;
+    color: #333333;
+    border: 1px solid #bdc3c7;
+}
+
+QMenu::item:selected {
+    background-color: #0078d4;
+    color: white;
+}
+
+QMenu::item:disabled {
+    color: #aaaaaa;
+}
