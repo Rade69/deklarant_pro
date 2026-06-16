@@ -161,8 +161,8 @@ class EnhancedValidationDialog(QDialog):
     def _create_tab_widget(self) -> QTabWidget:
         """Kreiraj tab widget sa kategorijama validacije."""
         tab_widget = QTabWidget()
-        tab_widget.setTabPosition(QTabWidget.West)
-        
+        tab_widget.setTabPosition(QTabWidget.North)
+
         # Stilovi za tabove
         tab_widget.setStyleSheet("""
             QTabWidget::pane {
@@ -183,6 +183,7 @@ class EnhancedValidationDialog(QDialog):
             QTabBar::tab:selected {
                 background-color: #3498db;
                 color: white;
+                border-bottom-color: #3498db;
             }
             QTabBar::tab:hover {
                 background-color: #d6dbdf;
