@@ -120,6 +120,7 @@ class ImportService:
             combined = self._try_combine_with_previous(filepath)
             if combined is not None:
                 self._validate_or_raise(combined, filepath.name)
+                self._normalize_tariffs_in_result(combined)
                 self.logger.info(f"✅ Kombinovani import: {filepath.name}")
                 return combined
 
@@ -130,6 +131,7 @@ class ImportService:
                 packing_result = self._try_import_as_packing_list(filepath)
                 if packing_result is not None:
                     self._validate_or_raise(packing_result, filepath.name, allow_empty=True)
+                    self._normalize_tariffs_in_result(packing_result)
                     self.last_import_result = packing_result
                     self.last_import_path = str(filepath)
                     self.last_import_type = "packing_list"
@@ -144,6 +146,7 @@ class ImportService:
                         self.logger.info("📊 Medicopharm Excel — direktan import")
                         med_result = parse_medicopharm_excel(str(filepath))
                         self._validate_or_raise(med_result, filepath.name)
+                        self._normalize_tariffs_in_result(med_result)
                         self.last_import_result = med_result
                         self.last_import_path = str(filepath)
                         self.last_import_type = "medicopharm_excel"
@@ -158,6 +161,7 @@ class ImportService:
             self._validate_or_raise(result, filepath.name)
 
             # 4. Sačuvaj stanje za sljedeći import
+            self._normalize_tariffs_in_result(result)
             self._save_import_state(filepath, result)
 
             has_os = getattr(result, "has_origin_statement", False)
@@ -182,6 +186,21 @@ class ImportService:
             raise ImportException(
                 f"Parsiranje '{filename}' nije uspješno: {'; '.join(errors)}"
             )
+
+    def _normalize_tariffs_in_result(self, result) -> None:
+        """In-place normalizacija tarifnih brojeva svih stavki u ImportResult na 8/10 cifara."""
+        if not isinstance(result, ImportResult):
+            return
+        from importers.invoice_line_utils import normalize_tariff_number
+        for item in result.items:
+            code = getattr(item, 'tarifni_broj', '') or ''
+            if not code:
+                continue
+            normalized = normalize_tariff_number(code)
+            if normalized and normalized.isdigit() and 4 <= len(normalized) < 8:
+                normalized = normalized.zfill(8)
+            if normalized != code:
+                item.tarifni_broj = normalized
 
     # SECTION: packing_list_gate
     # PURPOSE: Kapija koja odlučuje da li je PDF packing lista PRIJE slanja u registry
