@@ -18,8 +18,16 @@ GUI je identičan originalu (zaglavlje_tab_original.py):
 import sys
 import logging
 from datetime import date
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+# Strelica za QComboBox dropdown — cross-platform SVG
+_ARROW_SVG = str(
+    Path(__file__).parent.parent.parent / "assets" / "icons" / "chevron-down.svg"
+).replace("\\", "/")
+_DOWN_ARROW_CSS = f"image: url({_ARROW_SVG});" if Path(_ARROW_SVG).exists() else ""
+
 from database.db import get_db_connection
 from gui.tabs.base_view import BaseTabView
 
@@ -80,7 +88,7 @@ def _load_vrste_deklaracija_from_db() -> dict:
                         result[sifra] = []
                     result[sifra].append((row["oznaka"], row["opis"]))
     except Exception as e:
-        sys.stderr.write(f"⚠️ [ZaglavljeView] vrste_deklaracija DB greška: {e}\n")
+        logger.warning("⚠️ [ZaglavljeView] vrste_deklaracija DB greška: %s", e)
     return result
 
 
@@ -94,7 +102,7 @@ def _load_tipovi_deklaracija_from_db() -> list:
                 )
                 result = [(r["sifra"], r["opis"]) for r in cur.fetchall()]
     except Exception as e:
-        sys.stderr.write(f"⚠️ [ZaglavljeView] tipovi_deklaracija DB greška: {e}\n")
+        logger.warning("⚠️ [ZaglavljeView] tipovi_deklaracija DB greška: %s", e)
     return result
 
 
@@ -108,7 +116,7 @@ def _load_vrste_prijevoza_from_db() -> list:
                 )
                 result = [(r["sifra"], r["opis"]) for r in cur.fetchall()]
     except Exception as e:
-        sys.stderr.write(f"⚠️ [ZaglavljeView] vrste_prijevoza DB greška: {e}\n")
+        logger.warning("⚠️ [ZaglavljeView] vrste_prijevoza DB greška: %s", e)
     return result
 
 
@@ -137,7 +145,7 @@ def _load_ured_odredista_from_db() -> tuple[str, str]:
                         clean = naziv
                     return (row['sifra'], clean)
     except Exception as e:
-        sys.stderr.write(f"⚠️ [ZaglavljeView] ured_odredista DB greška: {e}\n")
+        logger.warning("⚠️ [ZaglavljeView] ured_odredista DB greška: %s", e)
     return ("", "")
 
 
@@ -151,7 +159,7 @@ def _load_isprave_from_db() -> dict:
                 rows = cur.fetchall()
         return {r["sifra"]: r["opis"] for r in rows}
     except Exception as e:
-        sys.stderr.write(f"⚠️ [ZaglavljeView] isprave DB greška: {e}\n")
+        logger.warning("⚠️ [ZaglavljeView] isprave DB greška: %s", e)
         return {}
 
 
@@ -270,6 +278,9 @@ class IspravaDelegate(QStyledItemDelegate):
         completer.activated.connect(
             lambda display_text: self._on_selected(display_text, index.row(), editor)
         )
+        editor.textEdited.connect(
+            lambda text: self._on_text_edited(text, index.row(), completer)
+        )
 
         # Enter tipka — potvrdi označenu stavku, ili prvu u popupu ako nema označene
         def _on_enter():
@@ -290,6 +301,17 @@ class IspravaDelegate(QStyledItemDelegate):
     def _on_selected(self, display_text: str, row: int, editor: QLineEdit):
         kod = self._display_map.get(display_text, display_text.split(" — ")[0].strip())
         editor.setText(kod)
+        self._set_document_name(row, kod)
+
+    def _on_text_edited(self, text: str, row: int, completer: QCompleter):
+        text = text.strip()
+        completer.setCompletionPrefix(text)
+        completer.complete()
+        kod = text.upper()
+        if kod in self._isprave:
+            self._set_document_name(row, kod)
+
+    def _set_document_name(self, row: int, kod: str):
         naziv = self._isprave.get(kod, "")
         if naziv:
             item = self._table.item(row, 1)
@@ -346,7 +368,6 @@ class ZaglavljeView(BaseTabView):
     import_xml_requested = Signal(str)
     export_xml_requested = Signal()
     new_requested = Signal()
-    close_requested = Signal()
     validation_requested = Signal()
     search_company_requested = Signal(str)
     add_company_requested = Signal(str)
@@ -371,7 +392,6 @@ class ZaglavljeView(BaseTabView):
         self.btn_snimi: Optional[QPushButton] = None
         self.btn_brisi: Optional[QPushButton] = None
         self.btn_izvezi: Optional[QPushButton] = None
-        self.btn_izlaz: Optional[QPushButton] = None
 
         # Table for attached documents
         self.table: Optional[QTableWidget] = None
@@ -470,7 +490,7 @@ class ZaglavljeView(BaseTabView):
         self.btn_import = self._create_icon_button("Uvezi XML", "fa5s.file-import")
         self.btn_import.setObjectName("btnUveziXML")
 
-        self.btn_snimi = self._create_icon_button("Provjeri", "fa5s.check-circle")
+        self.btn_snimi = self._create_icon_button("Završna provjera", "fa5s.check-circle")
         self.btn_snimi.setObjectName("btnSnimi")
 
         self.btn_brisi = self._create_icon_button("Briši", "fa5s.trash-alt")
@@ -479,15 +499,11 @@ class ZaglavljeView(BaseTabView):
         self.btn_izvezi = self._create_icon_button("Izvezi XML", "fa5s.file-export")
         self.btn_izvezi.setObjectName("btnIzveziXML")
 
-        self.btn_izlaz = self._create_icon_button("Izlaz", "fa5s.sign-out-alt")
-        self.btn_izlaz.setObjectName("btnIzlaz")
-
         layout.addWidget(self.btn_novi)
         layout.addWidget(self.btn_import)
         layout.addWidget(self.btn_snimi)
         layout.addWidget(self.btn_brisi)
         layout.addWidget(self.btn_izvezi)
-        layout.addWidget(self.btn_izlaz)
 
         return toolbar
 
@@ -500,11 +516,28 @@ class ZaglavljeView(BaseTabView):
         grid_layout.setContentsMargins(6, 6, 6, 6)
         grid_layout.setSpacing(6)
 
-        grid_layout.addWidget(self._create_left_column())
-        grid_layout.addWidget(self._create_middle_column())
-        grid_layout.addWidget(self._create_right_column())
+        left_column = self._create_left_column()
+        middle_column = self._create_middle_column()
+        right_column = self._create_right_column()
+
+        if sys.platform.startswith("win"):
+            for column in (left_column, middle_column, right_column):
+                self._apply_windows_control_metrics(column)
+
+        grid_layout.addWidget(left_column, 0)
+        grid_layout.addWidget(middle_column, 0)
+        grid_layout.addWidget(right_column, 1)
 
         return grid_widget
+
+    def _apply_windows_control_metrics(self, widget: QWidget) -> None:
+        field_height = 22 if widget.objectName() == "left_column" else 27
+        for field in widget.findChildren(QLineEdit):
+            if field.objectName() == "company_address_field":
+                continue
+            field.setFixedHeight(field_height)
+        for combo in widget.findChildren(QComboBox):
+            combo.setFixedHeight(field_height)
 
     # ============================================================
     # LIJEVA KOLONA
@@ -517,7 +550,7 @@ class ZaglavljeView(BaseTabView):
         column.setFrameShape(QFrame.Shape.Box)
         column.setFrameShadow(QFrame.Shadow.Plain)
         column.setLineWidth(2)
-        column.setFixedWidth(540)
+        column.setFixedWidth(470)
         column.setObjectName("left_column")
         column.setAttribute(Qt.WA_StyledBackground, True)
         column.setStyleSheet("QFrame#left_column { background-color: #f5f9f5; }" + """
@@ -543,7 +576,7 @@ class ZaglavljeView(BaseTabView):
     QComboBox:focus { background: #e8f2e8; border-color: #5a8060; }
     QComboBox::drop-down { border: none; width: 20px; }
     QComboBox::down-arrow {
-        image: url(/usr/share/icons/Adwaita/symbolic/ui/pan-down-symbolic.svg);
+        __ARROW_CSS__
         width: 14px;
         height: 14px;
         margin-right: 5px;
@@ -559,17 +592,17 @@ class ZaglavljeView(BaseTabView):
         padding: 5px 10px;
         min-height: 24px;
     }
-""")
+""".replace("__ARROW_CSS__", _DOWN_ARROW_CSS))
         layout = QVBoxLayout(column)
         layout.setContentsMargins(4, 4, 4, 4)
-        layout.setSpacing(4)
+        layout.setSpacing(1)
 
         layout.addWidget(
             self._create_company_group(
                 "2. Izvoznik / Pošiljalac", "izvoznik", with_search=True
-            )
+            ), 3
         )
-        layout.addWidget(self._create_hline())
+        layout.addWidget(self._create_hline(), 0)
 
         layout.addWidget(
             self._create_company_group("8. Primalac", "primalac", with_search=True)
@@ -763,11 +796,13 @@ class ZaglavljeView(BaseTabView):
         field_row18_layout.setSpacing(6)
         transport_id = QLineEdit()
         transport_id.setPlaceholderText("npr. E25A456")
+        transport_id.textEdited.connect(lambda t, w=transport_id: w.setText(t.upper()))
         field_row18_layout.addWidget(transport_id, 3)
         self.field_widgets["transport_id"] = transport_id
         nat18 = QLineEdit()
         nat18.setPlaceholderText("BA / RS / DE...")
         nat18.setMaxLength(3)
+        nat18.textEdited.connect(lambda t, w=nat18: w.setText(t.upper()))
         field_row18_layout.addWidget(nat18, 2)
         self.field_widgets["transport_nacionalnost"] = nat18
         layout.addWidget(field_row18)
@@ -791,11 +826,13 @@ class ZaglavljeView(BaseTabView):
         field_row21_layout.setSpacing(6)
         aktivno = QLineEdit()
         aktivno.setPlaceholderText("npr. E25A456")
+        aktivno.textEdited.connect(lambda t, w=aktivno: w.setText(t.upper()))
         field_row21_layout.addWidget(aktivno, 3)
         self.field_widgets["aktivno_transport"] = aktivno
         nat21 = QLineEdit()
         nat21.setPlaceholderText("BA / RS / DE...")
         nat21.setMaxLength(3)
+        nat21.textEdited.connect(lambda t, w=nat21: w.setText(t.upper()))
         field_row21_layout.addWidget(nat21, 2)
         self.field_widgets["aktivno_transport_nat"] = nat21
         layout.addWidget(field_row21)
@@ -1498,7 +1535,8 @@ class ZaglavljeView(BaseTabView):
         field22v = QLineEdit()
         field22v.setPlaceholderText("EUR")
         field22v.setFixedWidth(70)
-        field22v.setMinimumHeight(32)
+        if not sys.platform.startswith("win"):
+            field22v.setMinimumHeight(32)
         validator = QRegularExpressionValidator(QRegularExpression("^[A-Z]{3}$"))
         field22v.setValidator(validator)
         col22v_layout.addWidget(field22v)
@@ -1519,7 +1557,8 @@ class ZaglavljeView(BaseTabView):
         field22i = QLineEdit()
         field22i.setPlaceholderText("0.00")
         field22i.setMinimumWidth(140)
-        field22i.setMinimumHeight(32)
+        if not sys.platform.startswith("win"):
+            field22i.setMinimumHeight(32)
         field22i.setAlignment(Qt.AlignmentFlag.AlignRight)
         col22i_layout.addWidget(field22i)
         self.field_widgets["iznos"] = field22i
@@ -1604,7 +1643,7 @@ class ZaglavljeView(BaseTabView):
                 self.field_widgets["trosak_1_valuta"] = cb_valuta
 
             label_naziv = QLabel(naziv)
-            label_naziv.setStyleSheet("font-size: 16pt; color: #333333;")
+            label_naziv.setStyleSheet("font-size: 10pt; color: #333333;")
             row_layout.addWidget(label_naziv)
             row_layout.addStretch()
 
@@ -1742,7 +1781,7 @@ class ZaglavljeView(BaseTabView):
         hdr = self.table.horizontalHeader()
         hdr.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
         hdr.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        hdr.setSectionResizeMode(2, QHeaderView.ResizeMode.Interactive)
+        hdr.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         self.table.setColumnWidth(0, 65)
 
         self._col_ratio_filter = _ColRatioFilter(self)
@@ -1825,10 +1864,14 @@ class ZaglavljeView(BaseTabView):
     def _create_hline(self) -> QFrame:
         """Horizontalna linija separator."""
         line = QFrame()
-        line.setFrameShape(QFrame.Shape.HLine)
-        line.setFrameShadow(QFrame.Shadow.Plain)
-        line.setLineWidth(1)
-        line.setFixedHeight(6)
+        if sys.platform.startswith("win"):
+            line.setFixedHeight(3)
+            line.setStyleSheet("background-color: #b8ccb8;")
+        else:
+            line.setFrameShape(QFrame.Shape.HLine)
+            line.setFrameShadow(QFrame.Shadow.Plain)
+            line.setLineWidth(1)
+            line.setFixedHeight(6)
         return line
 
     # ============================================================
@@ -1842,7 +1885,6 @@ class ZaglavljeView(BaseTabView):
         self.btn_snimi.clicked.connect(self.validation_requested.emit)
         self.btn_brisi.clicked.connect(self.delete_requested.emit)
         self.btn_izvezi.clicked.connect(self.export_xml_requested.emit)
-        self.btn_izlaz.clicked.connect(self.close_requested.emit)
 
     def _on_import_clicked(self):
         geometry_state = capture_window_geometry(self)
