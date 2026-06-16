@@ -19,7 +19,6 @@ Usage:
 
 import logging
 import re
-import os
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from datetime import datetime
@@ -28,35 +27,41 @@ from typing import Optional, List, Dict, Tuple
 from difflib import SequenceMatcher
 
 import psycopg2
-from psycopg2.extras import RealDictCursor
 
 logger = logging.getLogger("deklarant_pro.exporter_indexer")
 
+FUZZY_MATCH_THRESHOLD = 0.92
+
 
 def get_db_connection():
-    """Konekcija na bazu koristeći .env config."""
-    env_path = Path(__file__).parent.parent.parent / ".env"
-    db_config = {}
-    if env_path.exists():
-        for line in env_path.read_text().split('\n'):
-            if '=' in line and not line.startswith('#'):
-                key, val = line.split('=', 1)
-                db_config[key.strip()] = val.strip()
-    
-    host = db_config.get('DB_HOST', '/var/run/postgresql')
-    port = db_config.get('DB_PORT', '5432')
-    dbname = db_config.get('DB_NAME', 'deklarant_pro')
-    user = db_config.get('DB_USER', 'radovan')
-    password = db_config.get('DB_PASSWORD', 'postgres')
-    
-    if host.startswith('/'):
-        return psycopg2.connect(host=host, port=port, database=dbname, user=user, password=password)
-    else:
-        return psycopg2.connect(host=host, port=port, database=dbname, user=user, password=password)
+    """Konekcija na bazu koristeći centralni config."""
+    from config.settings import get_db_settings
+    from psycopg2.extras import RealDictCursor
+
+    settings = get_db_settings()
+    return psycopg2.connect(
+        host=settings.host,
+        port=settings.port,
+        database=settings.database,
+        user=settings.user,
+        password=settings.password,
+        sslmode=settings.sslmode,
+        cursor_factory=RealDictCursor,
+    )
 
 
-# Putanja do XML foldera (4 nivoa gore: learning/agent/services/deklarant_pro)
-XML_FOLDER = Path(__file__).parent.parent.parent.parent / "docs" / "NOVA ASIKUDA"
+def get_xml_folder() -> Path:
+    """Vrati folder za XML učenje iz env override-a ili projektne strukture."""
+    import os
+    from config.settings import PROJECT_ROOT
+
+    override = os.getenv("XML_LEARNING_FOLDER", "").strip()
+    if override:
+        return Path(override).expanduser()
+    return PROJECT_ROOT / "docs" / "NOVA ASIKUDA"
+
+
+XML_FOLDER = get_xml_folder()
 
 # Godišnji filter — gornja granica je tekuća + 1 da pokrije nove deklaracije
 YEAR_FROM = 2020
@@ -288,41 +293,76 @@ def scan_xml_folder() -> Dict[Tuple[str, str], ExporterEntry]:
     return pairs
 
 
+def _ensure_table(cursor) -> None:
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS catalogs.exporter_xml_index (
+            id SERIAL PRIMARY KEY,
+            exporter_normalized TEXT NOT NULL,
+            consignee_normalized TEXT NOT NULL DEFAULT '',
+            consignee_jib TEXT NOT NULL DEFAULT '',
+            exporter_original TEXT NOT NULL,
+            consignee_original TEXT NOT NULL DEFAULT '',
+            xml_filepath TEXT NOT NULL,
+            declaration_date DATE,
+            last_used TIMESTAMP DEFAULT NOW(),
+            use_count INT DEFAULT 1,
+            created_at TIMESTAMP DEFAULT NOW(),
+            UNIQUE(exporter_normalized, consignee_jib, consignee_normalized)
+        )
+    """)
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_exporter_xml_exp
+        ON catalogs.exporter_xml_index (exporter_normalized)
+    """)
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_exporter_xml_jib
+        ON catalogs.exporter_xml_index (consignee_jib)
+    """)
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_exporter_xml_pair_jib
+        ON catalogs.exporter_xml_index (exporter_normalized, consignee_jib)
+    """)
+
+
 def create_table_if_not_exists():
-    """Kreira tabelu sa parovima (exporter + consignee)."""
+    """Kreira tabelu sa parovima bez brisanja postojećih podataka."""
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
-            cursor.execute("DROP TABLE IF EXISTS catalogs.exporter_xml_index CASCADE")
-
-            cursor.execute("""
-                CREATE TABLE catalogs.exporter_xml_index (
-                    id SERIAL PRIMARY KEY,
-                    exporter_normalized TEXT NOT NULL,
-                    consignee_normalized TEXT NOT NULL DEFAULT '',
-                    consignee_jib TEXT NOT NULL DEFAULT '',
-                    exporter_original TEXT NOT NULL,
-                    consignee_original TEXT NOT NULL DEFAULT '',
-                    xml_filepath TEXT NOT NULL,
-                    declaration_date DATE,
-                    last_used TIMESTAMP DEFAULT NOW(),
-                    use_count INT DEFAULT 1,
-                    created_at TIMESTAMP DEFAULT NOW(),
-
-                    -- JIB ima prednost; ako je prazan koristi se consignee_normalized
-                    UNIQUE(exporter_normalized, consignee_jib, consignee_normalized)
-                )
-            """)
-
-            cursor.execute("CREATE INDEX idx_exp ON catalogs.exporter_xml_index (exporter_normalized)")
-            cursor.execute("CREATE INDEX idx_jib ON catalogs.exporter_xml_index (consignee_jib)")
-            cursor.execute("CREATE INDEX idx_pair_jib ON catalogs.exporter_xml_index (exporter_normalized, consignee_jib)")
-
-            conn.commit()
-
-        logger.info("✅ Tabela catalogs.exporter_xml_index kreirana (sa consignee_jib)")
+            _ensure_table(cursor)
+        conn.commit()
+        logger.info("✅ Tabela catalogs.exporter_xml_index spremna")
+    except Exception:
+        conn.rollback()
+        raise
     finally:
         conn.close()
+
+
+def _save_pairs(cursor, pairs: Dict[Tuple[str, str], ExporterEntry]) -> int:
+    saved = 0
+    for _key, entry in pairs.items():
+        cursor.execute("""
+            INSERT INTO catalogs.exporter_xml_index
+            (exporter_normalized, consignee_normalized, consignee_jib,
+             exporter_original, consignee_original, xml_filepath, declaration_date)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (exporter_normalized, consignee_jib, consignee_normalized) DO UPDATE SET
+                exporter_original = EXCLUDED.exporter_original,
+                consignee_original = EXCLUDED.consignee_original,
+                xml_filepath = EXCLUDED.xml_filepath,
+                declaration_date = EXCLUDED.declaration_date
+        """, (
+            entry.exporter_normalized,
+            entry.consignee_normalized,
+            entry.consignee_jib,
+            entry.exporter_original,
+            entry.consignee_original,
+            entry.xml_filepath,
+            entry.declaration_date
+        ))
+        saved += 1
+    return saved
 
 
 def save_to_database(pairs: Dict[Tuple[str, str], ExporterEntry]) -> int:
@@ -337,33 +377,15 @@ def save_to_database(pairs: Dict[Tuple[str, str], ExporterEntry]) -> int:
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
-            saved = 0
-            for _key, entry in pairs.items():
-                cursor.execute("""
-                    INSERT INTO catalogs.exporter_xml_index
-                    (exporter_normalized, consignee_normalized, consignee_jib,
-                     exporter_original, consignee_original, xml_filepath, declaration_date)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (exporter_normalized, consignee_jib, consignee_normalized) DO UPDATE SET
-                        exporter_original = EXCLUDED.exporter_original,
-                        consignee_original = EXCLUDED.consignee_original,
-                        xml_filepath = EXCLUDED.xml_filepath,
-                        declaration_date = EXCLUDED.declaration_date
-                """, (
-                    entry.exporter_normalized,
-                    entry.consignee_normalized,
-                    entry.consignee_jib,
-                    entry.exporter_original,
-                    entry.consignee_original,
-                    entry.xml_filepath,
-                    entry.declaration_date
-                ))
-                saved += 1
-                
+            _ensure_table(cursor)
+            saved = _save_pairs(cursor, pairs)
             conn.commit()
         
         logger.info(f"✅ Sačuvano {saved} exportera u bazu")
         return saved
+    except Exception:
+        conn.rollback()
+        raise
     finally:
         conn.close()
 
@@ -373,9 +395,13 @@ def clear_index():
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
+            _ensure_table(cursor)
             cursor.execute("DELETE FROM catalogs.exporter_xml_index")
             conn.commit()
         logger.info("🗑️ Index očišćen")
+    except Exception:
+        conn.rollback()
+        raise
     finally:
         conn.close()
 
@@ -388,9 +414,26 @@ def reindex() -> int:
         Broj indexiranih exportera
     """
     logger.info("🔄 POČINJEM REINDEXIRANJE...")
-    clear_index()
     exporters = scan_xml_folder()
-    return save_to_database(exporters)
+    if not exporters:
+        logger.warning("⚠️ Nema validnih XML parova; postojeći indeks nije mijenjan")
+        return 0
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            _ensure_table(cursor)
+            cursor.execute("DELETE FROM catalogs.exporter_xml_index")
+            saved = _save_pairs(cursor, exporters)
+        conn.commit()
+        logger.info(f"✅ Atomski reindex završen: {saved} parova")
+        return saved
+    except Exception:
+        conn.rollback()
+        logger.exception("Reindex nije uspio; prethodni indeks je sačuvan")
+        raise
+    finally:
+        conn.close()
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -441,11 +484,11 @@ def find_xml_for_pair(exporter_hint: str, consignee_jib: str = "", consignee_hin
                 row = cursor.fetchone()
                 if row:
                     return {
-                        'xml_filepath': row[3],
-                        'exporter_original': row[0],
-                        'consignee_original': row[1],
-                        'consignee_jib': row[2],
-                        'declaration_date': row[4],
+                        'xml_filepath': row['xml_filepath'],
+                        'exporter_original': row['exporter_original'],
+                        'consignee_original': row['consignee_original'],
+                        'consignee_jib': row['consignee_jib'],
+                        'declaration_date': row['declaration_date'],
                         'match_type': 'exact_jib'
                     }
 
@@ -463,11 +506,11 @@ def find_xml_for_pair(exporter_hint: str, consignee_jib: str = "", consignee_hin
                 row = cursor.fetchone()
                 if row:
                     return {
-                        'xml_filepath': row[3],
-                        'exporter_original': row[0],
-                        'consignee_original': row[1],
-                        'consignee_jib': row[2],
-                        'declaration_date': row[4],
+                        'xml_filepath': row['xml_filepath'],
+                        'exporter_original': row['exporter_original'],
+                        'consignee_original': row['consignee_original'],
+                        'consignee_jib': row['consignee_jib'],
+                        'declaration_date': row['declaration_date'],
                         'match_type': 'exact_name'
                     }
 
@@ -484,11 +527,11 @@ def find_xml_for_pair(exporter_hint: str, consignee_jib: str = "", consignee_hin
             row = cursor.fetchone()
             if row:
                 return {
-                    'xml_filepath': row[3],
-                    'exporter_original': row[0],
-                    'consignee_original': row[1],
-                    'consignee_jib': row[2],
-                    'declaration_date': row[4],
+                    'xml_filepath': row['xml_filepath'],
+                    'exporter_original': row['exporter_original'],
+                    'consignee_original': row['consignee_original'],
+                    'consignee_jib': row['consignee_jib'],
+                    'declaration_date': row['declaration_date'],
                     'match_type': 'exporter_only'
                 }
 
@@ -506,18 +549,18 @@ def find_xml_for_pair(exporter_hint: str, consignee_jib: str = "", consignee_hin
             best_score = 0.0
 
             for row in rows:
-                score = _similarity_score(exp_norm, row[0])
-                if score > best_score and score >= 0.65:
+                score = _similarity_score(exp_norm, row['exporter_normalized'])
+                if score > best_score and score >= FUZZY_MATCH_THRESHOLD:
                     best_score = score
                     best_match = row
 
             if best_match:
                 return {
-                    'xml_filepath': best_match[4],
-                    'exporter_original': best_match[1],
-                    'consignee_original': best_match[2],
-                    'consignee_jib': best_match[3],
-                    'declaration_date': best_match[5],
+                    'xml_filepath': best_match['xml_filepath'],
+                    'exporter_original': best_match['exporter_original'],
+                    'consignee_original': best_match['consignee_original'],
+                    'consignee_jib': best_match['consignee_jib'],
+                    'declaration_date': best_match['declaration_date'],
                     'match_type': f'fuzzy ({best_score:.0%})'
                 }
 
@@ -563,11 +606,11 @@ def find_xml_by_consignee(consignee_jib: str = "", consignee_hint: str = "") -> 
                 row = cursor.fetchone()
                 if row:
                     return {
-                        'xml_filepath': row[3],
-                        'exporter_original': row[0],
-                        'consignee_original': row[1],
-                        'consignee_jib': row[2],
-                        'declaration_date': row[4],
+                        'xml_filepath': row['xml_filepath'],
+                        'exporter_original': row['exporter_original'],
+                        'consignee_original': row['consignee_original'],
+                        'consignee_jib': row['consignee_jib'],
+                        'declaration_date': row['declaration_date'],
                         'match_type': 'consignee_jib'
                     }
 
@@ -584,11 +627,11 @@ def find_xml_by_consignee(consignee_jib: str = "", consignee_hint: str = "") -> 
                 row = cursor.fetchone()
                 if row:
                     return {
-                        'xml_filepath': row[3],
-                        'exporter_original': row[0],
-                        'consignee_original': row[1],
-                        'consignee_jib': row[2],
-                        'declaration_date': row[4],
+                        'xml_filepath': row['xml_filepath'],
+                        'exporter_original': row['exporter_original'],
+                        'consignee_original': row['consignee_original'],
+                        'consignee_jib': row['consignee_jib'],
+                        'declaration_date': row['declaration_date'],
                         'match_type': 'consignee_name'
                     }
 
@@ -605,17 +648,17 @@ def find_xml_by_consignee(consignee_jib: str = "", consignee_hint: str = "") -> 
                 best_match = None
                 best_score = 0.0
                 for row in rows:
-                    score = _similarity_score(cons_norm, row[0])
-                    if score > best_score and score >= 0.65:
+                    score = _similarity_score(cons_norm, row['consignee_normalized'])
+                    if score > best_score and score >= FUZZY_MATCH_THRESHOLD:
                         best_score = score
                         best_match = row
                 if best_match:
                     return {
-                        'xml_filepath': best_match[4],
-                        'exporter_original': best_match[1],
-                        'consignee_original': best_match[2],
-                        'consignee_jib': best_match[3],
-                        'declaration_date': best_match[5],
+                        'xml_filepath': best_match['xml_filepath'],
+                        'exporter_original': best_match['exporter_original'],
+                        'consignee_original': best_match['consignee_original'],
+                        'consignee_jib': best_match['consignee_jib'],
+                        'declaration_date': best_match['declaration_date'],
                         'match_type': f'consignee_fuzzy ({best_score:.0%})'
                     }
     except Exception as e:
@@ -743,15 +786,15 @@ def get_all_pairs() -> List[Dict]:
             rows = cursor.fetchall()
             return [
                 {
-                    'exporter_normalized': r[0],
-                    'consignee_normalized': r[1],
-                    'consignee_jib': r[2],
-                    'exporter_original': r[3],
-                    'consignee_original': r[4],
-                    'xml_filepath': r[5],
-                    'declaration_date': r[6],
-                    'use_count': r[7],
-                    'last_used': r[8]
+                    'exporter_normalized': r['exporter_normalized'],
+                    'consignee_normalized': r['consignee_normalized'],
+                    'consignee_jib': r['consignee_jib'],
+                    'exporter_original': r['exporter_original'],
+                    'consignee_original': r['consignee_original'],
+                    'xml_filepath': r['xml_filepath'],
+                    'declaration_date': r['declaration_date'],
+                    'use_count': r['use_count'],
+                    'last_used': r['last_used']
                 }
                 for r in rows
             ]
@@ -770,6 +813,7 @@ def get_stats() -> Dict:
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
+            _ensure_table(cursor)
             cursor.execute("""
                 SELECT
                     COUNT(*) as total,
@@ -781,15 +825,19 @@ def get_stats() -> Dict:
                 FROM catalogs.exporter_xml_index
             """)
             row = cursor.fetchone()
-            
-            return {
-                'total_pairs': row[0],
-                'total_uses': row[1] or 0,
-                'last_used_any': row[2],
-                'unique_exporters': row[3],
-                'unique_jibs': row[4],
-                'unique_consignees': row[5]
+            stats = {
+                'total_pairs': row['total'],
+                'total_uses': row['total_uses'] or 0,
+                'last_used_any': row['last_used_any'],
+                'unique_exporters': row['unique_exporters'],
+                'unique_jibs': row['unique_jibs'],
+                'unique_consignees': row['unique_consignees']
             }
+        conn.commit()
+        return stats
+    except Exception:
+        conn.rollback()
+        raise
     finally:
         conn.close()
 

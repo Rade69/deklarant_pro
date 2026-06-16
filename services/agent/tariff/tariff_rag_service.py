@@ -102,52 +102,76 @@ class TariffRAGService:
     def __init__(self):
         self.normalizer = TextNormalizer()
     
-    def search_historical(self, naziv_robe: str, limit: int = 5) -> List[Dict[str, Any]]:
+    def search_historical(self, naziv_robe: str, limit: int = 5, zemlja_porijekla: str = "") -> List[Dict[str, Any]]:
         """
         Pretražuje istorijske deklaracije (PostgreSQL catalogs.declaration_items).
-        
+
         Args:
             naziv_robe: Naziv robe za pretragu
             limit: Maksimalan broj rezultata
-            
+            zemlja_porijekla: Zemlja porijekla kao boost (ne filtrira, samo rangira)
+
         Returns:
             Lista rezultata sa tarifnim brojevima iz istorije
         """
         results = []
-        
+
         try:
             with get_db_connection() as conn:
                 cur = conn.cursor()
-                
+
                 # Ekstraktuj keywords
                 keywords = self.normalizer.extract_keywords(naziv_robe)
-                
+
                 if not keywords:
                     return []
-                
+
                 # ILIKE pretraga na naziv_robe (PostgreSQL case-insensitive)
                 # Koristi prvi keyword kao osnovu
                 pattern = f"%{keywords[0]}%"
-                
-                query = """
-                SELECT 
-                    di.tarifni_broj,
-                    di.naziv_robe,
-                    di.zemlja_porijekla,
-                    di.povlastica,
-                    di.confidence,
-                    d.invoice_number,
-                    d.vendor,
-                    d.buyer,
-                    d.datum
-                FROM catalogs.declaration_items di
-                JOIN catalogs.declarations d ON di.declaration_id = d.id
-                WHERE di.naziv_robe ILIKE %s
-                ORDER BY di.confidence DESC, d.datum DESC
-                LIMIT %s
-                """
-                
-                cur.execute(query, (pattern, limit))
+
+                if zemlja_porijekla:
+                    query = """
+                    SELECT
+                        di.tarifni_broj,
+                        di.naziv_robe,
+                        di.zemlja_porijekla,
+                        di.povlastica,
+                        di.confidence,
+                        d.invoice_number,
+                        d.vendor,
+                        d.buyer,
+                        d.datum
+                    FROM catalogs.declaration_items di
+                    JOIN catalogs.declarations d ON di.declaration_id = d.id
+                    WHERE di.naziv_robe ILIKE %s
+                    ORDER BY
+                        CASE WHEN di.zemlja_porijekla ILIKE %s THEN 0 ELSE 1 END,
+                        di.confidence DESC,
+                        d.datum DESC
+                    LIMIT %s
+                    """
+                    cur.execute(query, (pattern, f"%{zemlja_porijekla}%", limit))
+                else:
+                    query = """
+                    SELECT
+                        di.tarifni_broj,
+                        di.naziv_robe,
+                        di.zemlja_porijekla,
+                        di.povlastica,
+                        di.confidence,
+                        d.invoice_number,
+                        d.vendor,
+                        d.buyer,
+                        d.datum
+                    FROM catalogs.declaration_items di
+                    JOIN catalogs.declarations d ON di.declaration_id = d.id
+                    WHERE di.naziv_robe ILIKE %s
+                    ORDER BY di.confidence DESC, d.datum DESC
+                    LIMIT %s
+                    """
+                    cur.execute(query, (pattern, limit))
+
                 rows = cur.fetchall()
                 
                 for row in rows:
@@ -255,23 +279,24 @@ class TariffRAGService:
 
         return results
     
-    def search(self, naziv_robe: str, limit: int = 5) -> Dict[str, Any]:
+    def search(self, naziv_robe: str, limit: int = 5, zemlja_porijekla: str = "") -> Dict[str, Any]:
         """
         Kombinuje pretragu istorije i zvaničnih tarifa.
-        
+
         Args:
             naziv_robe: Naziv robe za pretragu
             limit: Maksimalan broj rezultata
-            
+            zemlja_porijekla: Zemlja porijekla kao boost pri rangiranju istorijskih rezultata
+
         Returns:
             Dict sa:
             - top_result: Najbolji rezultat (ili None)
             - candidates: Lista kandidata
             - needs_ai: Da li treba AI odluku (confidence < 0.80)
         """
-        # Pretraži istoriju
-        historical_results = self.search_historical(naziv_robe, limit)
-        
+        # Pretraži istoriju (zemlja_porijekla kao boost u ORDER BY)
+        historical_results = self.search_historical(naziv_robe, limit, zemlja_porijekla)
+
         # Pretraži zvanične tarife
         official_results = self.search_official(naziv_robe, limit)
         

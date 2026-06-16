@@ -103,65 +103,6 @@ class ZaglavljeService:
             self.logger.error(f"Greška pri čuvanju zaglavlja: {e}")
             raise
     
-    def load_zaglavlje(self, broj_deklaracije: str) -> Optional[Dict[str, Any]]:
-        """
-        Učitaj zaglavlje iz baze.
-        
-        Args:
-            broj_deklaracije: Broj deklaracije za učitavanje
-        
-        Returns:
-            Dictionary sa podacima ili None ako ne postoji
-        """
-        try:
-            with get_db_connection() as conn:
-                with conn.cursor() as cur:
-                    cur.execute("""
-                        SELECT * FROM zaglavlje
-                        WHERE broj_deklaracije = %s
-                        LIMIT 1
-                    """, (broj_deklaracije,))
-                    
-                    row = cur.fetchone()
-                    if row:
-                        return dict(row)
-                    return None
-                    
-        except Exception as e:
-            self.logger.error(f"Greška pri učitavanju zaglavlja: {e}")
-            return None
-    
-    def delete_zaglavlje(self, broj_deklaracije: str) -> bool:
-        """
-        Obriši zaglavlje iz baze.
-        
-        Args:
-            broj_deklaracije: Broj deklaracije za brisanje
-        
-        Returns:
-            True ako je uspješno, False ako ne postoji
-        """
-        try:
-            with get_db_connection() as conn:
-                with conn.cursor() as cur:
-                    cur.execute("""
-                        DELETE FROM zaglavlje
-                        WHERE broj_deklaracije = %s
-                    """, (broj_deklaracije,))
-                    
-                    deleted = cur.rowcount > 0
-                    
-                    if deleted:
-                        self.logger.info(f"Zaglavlje obrisano: {broj_deklaracije}")
-                    else:
-                        self.logger.warning(f"Zaglavlje ne postoji: {broj_deklaracije}")
-                    
-                    return deleted
-                    
-        except Exception as e:
-            self.logger.error(f"Greška pri brisanju zaglavlja: {e}")
-            return False
-    
     def load_from_xml(self, filepath: str, format_type: str = "world") -> Dict[str, Any]:
         """
         Učitaj zaglavlje iz XML fajla.
@@ -185,12 +126,17 @@ class ZaglavljeService:
         try:
             tree = ET.parse(filepath)
             root = tree.getroot()
-            
+
+            # Auto-detekcija formata po root elementu
+            root_tag = root.tag.split('}')[-1] if '}' in root.tag else root.tag
+            if format_type.lower() == "world" and root_tag == "AsycudaDocument":
+                format_type = "pro"
+
             if format_type.lower() == "pro":
                 return self._parse_pro_xml(root)
             else:
                 return self._parse_xml(root)
-            
+
         except ET.ParseError as e:
             raise ValueError(f"Neispravan XML format: {e}")
     
@@ -232,17 +178,17 @@ class ZaglavljeService:
         if decl_type is not None and decl_type.text:
             data['vrsta_deklaracije'] = decl_type.text.strip()
         
-        # Izvoznik
+        # Izvoznik — ključevi moraju odgovarati field_widgets (izvoznik_r1, ne izvoznik_naziv)
         exporter = find_with_ns(root, 'Exporter')
         if exporter is not None:
             data['izvoznik_id'] = self._get_text_from_element(exporter, ['ID', 'Code'])
-            data['izvoznik_naziv'] = self._get_text_from_element(exporter, ['Name', 'CompanyName'])
-        
-        # Primalac
+            data['izvoznik_r1'] = self._get_text_from_element(exporter, ['Name', 'CompanyName'])
+
+        # Primalac — isti razlog
         consignee = find_with_ns(root, 'Consignee')
         if consignee is not None:
             data['primalac_id'] = self._get_text_from_element(consignee, ['ID', 'Code'])
-            data['primalac_naziv'] = self._get_text_from_element(consignee, ['Name', 'CompanyName'])
+            data['primalac_r1'] = self._get_text_from_element(consignee, ['Name', 'CompanyName'])
         
         # Transport
         transport = find_with_ns(root, 'TransportMeans')
@@ -290,6 +236,23 @@ class ZaglavljeService:
             if found is not None and found.text:
                 return found.text.strip()
         return ""
+
+    def _attached_doc_dict(
+        self,
+        code: str,
+        name: str,
+        number: str,
+        from_rule: bool,
+    ) -> Dict[str, Any]:
+        return {
+            'code': code,
+            'name': name,
+            'number': number,
+            'from_rule': from_rule,
+        }
+
+    def _has_attached_doc_code(self, docs: List[Dict[str, Any]], code: str) -> bool:
+        return any(d.get('code') == code for d in docs)
     
     def export_to_xml(self, data: Dict[str, Any], filepath: str, format_type: str = "world") -> bool:
         """
@@ -343,28 +306,6 @@ class ZaglavljeService:
         except Exception as e:
             self.logger.error(f"Greška pri učitavanju vrsta deklaracija: {e}")
             return {}
-    
-    def get_tipovi_deklaracija(self) -> List[tuple[str, str]]:
-        """
-        Dohvati tipove deklaracija iz baze.
-        
-        Returns:
-            Lista [(sifra, opis), ...]
-        """
-        try:
-            with get_db_connection() as conn:
-                with conn.cursor() as cur:
-                    cur.execute("""
-                        SELECT sifra, opis
-                        FROM catalogs.tipovi_deklaracija
-                        ORDER BY sifra
-                    """)
-                    
-                    return [(row['sifra'], row['opis']) for row in cur.fetchall()]
-                    
-        except Exception as e:
-            self.logger.error(f"Greška pri učitavanju tipova deklaracija: {e}")
-            return []
     
     def get_vid_unutra(self) -> List[tuple[str, str]]:
         """
@@ -585,7 +526,19 @@ class ZaglavljeService:
             data['obrazac_2'] = str(math.ceil(n_items / 3))
 
         # Rubrika 6 - Uk. paketa
-        data['uk_paketa'] = getattr(draft, 'uk_paketa', '') or ''
+        # Prioritet: suma package_qty iz naimenovanja -> suma kolicina iz faktura -> postojeća vrijednost
+        uk_paketa = (getattr(draft, 'uk_paketa', '') or '').strip()
+        if hasattr(draft, 'items') and draft.items:
+            total_qty = sum(getattr(item, 'package_qty', 0.0) or 0.0 for item in draft.items)
+            if total_qty > 0:
+                uk_paketa = f"{int(total_qty)}"
+                draft.uk_paketa = uk_paketa
+        if (not uk_paketa) and hasattr(draft, 'invoice_lines') and draft.invoice_lines:
+            total_qty_inv = sum(getattr(line, 'kolicina', 0.0) or 0.0 for line in draft.invoice_lines)
+            if total_qty_inv > 0:
+                uk_paketa = f"{int(total_qty_inv)}"
+                draft.uk_paketa = uk_paketa
+        data['uk_paketa'] = uk_paketa
 
         # Rubrika 7 - Ref.br.
         data['ref_br'] = getattr(draft, 'ref_br', '') or ''
@@ -644,6 +597,7 @@ class ZaglavljeService:
         # Troškovi transporta (Rb. 20 okvir)
         for i in range(1, 6):
             data[f'trosak_{i}'] = getattr(draft, f'trosak_{i}', '0,00') or '0,00'
+        data['trosak_1_valuta'] = getattr(draft, 'trosak_1_valuta', '') or ''
 
         # Rubrika 40 - Zbirna deklaracija / prethodni dokument
         data['rb40_tip'] = getattr(draft, 'rb40_tip', '') or ''
@@ -657,13 +611,37 @@ class ZaglavljeService:
         # Priložene isprave (header_attached_documents)
         data['attached_documents'] = []
         if hasattr(draft, 'header_attached_documents') and draft.header_attached_documents:
+            pe_doc_codes = {"PE1", "PE2", "PE3"}
+
+            def _merge_doc_number(existing: str, new: str) -> str:
+                parts: list[str] = []
+                for value in (existing, new):
+                    for token in (value or "").split("|"):
+                        token = token.strip()
+                        if token and token not in parts:
+                            parts.append(token)
+                return " | ".join(parts)
+
             for doc in draft.header_attached_documents:
-                data['attached_documents'].append({
-                    'code': getattr(doc, 'code', ''),
-                    'name': getattr(doc, 'name', ''),
-                    'number': getattr(doc, 'number', ''),
-                    'from_rule': True,  # Svaki upisani dokument je fizički priložen
-                })
+                code = getattr(doc, 'code', '')
+                number = getattr(doc, 'number', '')
+                existing_doc = next(
+                    (
+                        d for d in data['attached_documents']
+                        if (d.get('code') or '').strip().upper() == (code or '').strip().upper()
+                    ),
+                    None,
+                )
+                if existing_doc is not None and (code or '').strip().upper() in pe_doc_codes:
+                    existing_doc['number'] = _merge_doc_number(existing_doc.get('number', ''), number)
+                    if not existing_doc.get('name') and getattr(doc, 'name', ''):
+                        existing_doc['name'] = getattr(doc, 'name', '')
+                    continue
+                if existing_doc is not None:
+                    continue
+                data['attached_documents'].append(
+                    self._attached_doc_dict(code, getattr(doc, 'name', ''), number, True)
+                )
 
         # Automatski dodaj N380 (faktura) ako postoje brojevi faktura u draft-u
         # Skupljamo SVE brojeve (može ih biti više u tabeli faktura)
@@ -691,14 +669,24 @@ class ZaglavljeService:
                 brojevi.append(ref)
         
         if brojevi:
-            has_n380 = any(d.get('code') == 'N380' for d in data['attached_documents'])
-            if not has_n380:
-                data['attached_documents'].append({
-                    'code': 'N380',
-                    'name': 'Faktura',
-                    'number': ' | '.join(brojevi),
-                    'from_rule': True,
-                })
+            if not self._has_attached_doc_code(data['attached_documents'], 'N380'):
+                data['attached_documents'].append(
+                    self._attached_doc_dict('N380', 'Faktura', ' | '.join(brojevi), True)
+                )
+
+        # Auto-dodaj obavezne isprave ako nisu prisutne — moraju biti u svakoj deklaraciji
+        # (N380 je već dodat gore sa brojevima faktura ako postoje — ovdje samo fallback)
+        for _code, _name in [
+            ('PZT', 'Zavisni troškovi'),
+            ('N730', 'Tovarni list'),
+            ('N380', 'Faktura komercijalna'),
+            ('DIS', 'Dispozicija'),
+            ('DV1', 'Prijava o carinskoj vrijednosti'),
+        ]:
+            if not self._has_attached_doc_code(data['attached_documents'], _code):
+                data['attached_documents'].append(
+                    self._attached_doc_dict(_code, _name, '', True)
+                )
 
         self._log_operation(f"Učitavanje iz Draft-a: {getattr(draft, 'broj_deklaracije', 'N/A')}")
 
@@ -867,6 +855,7 @@ class ZaglavljeService:
         # Troškovi transporta
         for i in range(1, 6):
             setattr(draft, f'trosak_{i}', safe_get(f'trosak_{i}', '0,00'))
+        draft.trosak_1_valuta = safe_get('trosak_1_valuta', '')
 
         # Rubrika 40 - Zbirna deklaracija / prethodni dokument
         draft.rb40_tip = safe_get('rb40_tip')
@@ -878,18 +867,47 @@ class ZaglavljeService:
         draft.identifikacija_skladista = safe_get('identifikacija_skladista')
 
         # Priložene isprave (header_attached_documents)
+        # Zaštita: obavezni i PE dokumenti iz postojećeg drafta se ne smiju izgubiti
         if 'attached_documents' in data and data['attached_documents']:
-            draft.header_attached_documents = []
-            for doc in data['attached_documents']:
-                if isinstance(doc, dict) and doc.get('code'):
-                    draft.header_attached_documents.append(
-                        AttachedDocument(
-                            code=doc.get('code', ''),
-                            name=doc.get('name', ''),
-                            number=doc.get('number', ''),
-                            from_rule=doc.get('from_rule', False),
+            previous_docs = getattr(draft, 'header_attached_documents', []) or []
+            preserve_codes = {"VOZ", "PZT", "N730", "N380", "DIS", "DV1", "PE1", "PE2", "PE3"}
+            previous_map = {
+                (getattr(d, 'code', '') or '').strip(): d
+                for d in previous_docs
+                if (getattr(d, 'code', '') or '').strip()
+            }
+
+            docs_in = [d for d in data['attached_documents'] if isinstance(d, dict) and d.get('code')]
+            data_map = {(d.get('code') or '').strip(): d for d in docs_in if (d.get('code') or '').strip()}
+
+            for code in preserve_codes:
+                prev = previous_map.get(code)
+                cur = data_map.get(code)
+                if prev and not cur:
+                    docs_in.append(
+                        self._attached_doc_dict(
+                            prev.code,
+                            prev.name,
+                            prev.number,
+                            prev.from_rule,
                         )
                     )
+                elif prev and cur:
+                    if prev.number and not (cur.get('number') or '').strip():
+                        cur['number'] = prev.number
+                    if prev.name and not (cur.get('name') or '').strip():
+                        cur['name'] = prev.name
+
+            draft.header_attached_documents = []
+            for doc in docs_in:
+                draft.header_attached_documents.append(
+                    AttachedDocument(
+                        code=doc.get('code', ''),
+                        name=doc.get('name', ''),
+                        number=doc.get('number', ''),
+                        from_rule=doc.get('from_rule', False),
+                    )
+                )
         elif 'attached_documents' in data:
             # Eksplicitno prazna lista — očisti
             draft.header_attached_documents = []
@@ -1050,7 +1068,14 @@ class ZaglavljeService:
                 if dest_el is not None:
                     data['drzava_odredista_sifra'] = _txt(dest_el, "Destination_country_code")
                     data['drzava_odredista_naziv'] = _txt(dest_el, "Destination_country_name")
-            data['drzava_porijekla'] = _txt(gen_info, "Country_of_origin_name")
+                # Rb. 10, 11: Zem.otp. / Trgov.zem.
+                data['zem_10'] = _txt(country_el, "Country_first_destination")
+                data['zem_11'] = _txt(country_el, "Trading_country")
+                # Rb. 16: Država porijekla (nalazi se unutar Country, ne direktno u General_information)
+                data['drzava_porijekla'] = _txt(country_el, "Country_of_origin_name")
+            # Rb. 12, 13: Vrijednost / CAP
+            data['zem_12'] = _txt(gen_info, "Value_details")
+            data['zem_13'] = _txt(gen_info, "CAP")
 
         # ── Rb. 19, 20, 25, 26, 29, 30 ───────────────────────────────
         transport_el = _find(root, "Transport")
@@ -1123,6 +1148,11 @@ class ZaglavljeService:
                     amt = _txt(gs, "Amount_foreign_currency")
                     if amt and amt != "0":
                         data[field] = amt.replace('.', ',')
+                    # Sačuvaj valutu spoljne vozarine ako je EUR (ne BAM)
+                    if field == 'trosak_1':
+                        curr = _txt(gs, "Currency_code")
+                        if curr and curr not in ("", "BAM"):
+                            data['trosak_1_valuta'] = curr
 
         # ── Priložene isprave (Attached_documents) iz Item sekcija ─────────────
         data['attached_documents'] = []
@@ -1141,6 +1171,9 @@ class ZaglavljeService:
                 ref = _txt(att_el, "Attached_document_reference")
                 from_rule_str = _txt(att_el, "Attached_document_from_rule")
                 from_rule = (from_rule_str == "1")
+                # Blokiraj zastarjele šifre (zamijenjene novim ASYCUDA kodovima)
+                if code.upper() in {"FAK", "CMR", "SAN", "VET", "UVK"}:
+                    continue
                 # Deduplicate by (code, ref)
                 doc_key = (code, ref)
                 if doc_key not in seen_docs and code:
@@ -1211,6 +1244,38 @@ class ZaglavljeService:
                 return el.text.strip()
             return ""
 
+        def _compact_imported_commercial_description(raw: str, goods_description: str) -> str:
+            lines = [" ".join(line.split()).strip() for line in (raw or "").splitlines()]
+            lines = [line for line in lines if line]
+            if len(lines) <= 3:
+                return raw
+
+            max_line = 55
+
+            def _clip(text: str) -> str:
+                if len(text) <= max_line:
+                    return text
+                return text[:max_line - 3].rstrip() + "..."
+
+            faktura_lines = [line for line in lines if line.lower().startswith("faktura:")]
+            content_lines = [line for line in lines if not line.lower().startswith("faktura:")]
+            goods_summary = " ".join((goods_description or "").split()).strip()
+            heading = goods_summary or content_lines[0]
+            first_content = content_lines[0].lower() if content_lines else ""
+            if first_content and first_content == goods_summary.lower():
+                content_lines = content_lines[1:]
+            elif content_lines:
+                heading = content_lines[0]
+                content_lines = content_lines[1:]
+
+            result_lines = [_clip(heading)]
+            product_line = ", ".join(content_lines)
+            if product_line:
+                result_lines.append(_clip(product_line))
+            if faktura_lines:
+                result_lines.append(_clip(" ".join(faktura_lines)))
+            return "\n".join(line for line in result_lines[:3] if line)
+
         items = []
         item_tag = f"{{{ns.get('n', '')}}}Item" if ns else "Item"
 
@@ -1240,6 +1305,13 @@ class ZaglavljeService:
             if gd_el is not None:
                 goods_description = _txt(gd_el, "Description_of_goods")
                 goods_trade_name = _txt(gd_el, "Commercial_Description")
+                if not goods_trade_name:
+                    goods_trade_name = goods_description
+                else:
+                    goods_trade_name = _compact_imported_commercial_description(
+                        goods_trade_name,
+                        goods_description,
+                    )
                 origin_country_code = _txt(gd_el, "Country_of_origin_code")
                 origin_country_name = _txt(gd_el, "Country_of_origin_name")
             else:
@@ -1294,8 +1366,6 @@ class ZaglavljeService:
                     previous_document = _txt(prev_el, "Previous_category")    # X/Y/Z
                     previous_document2 = _txt(prev_el, "Previous_type")       # N821 itd.
                     previous_document3 = _txt(prev_el, "Summary_declaration") # broj
-                free_text1 = _txt(item_el, "Free_text_1")
-                free_text2 = _txt(item_el, "Free_text_2")
             else:
                 tariff_code = ""
                 tariff_suffix = ""
@@ -1344,26 +1414,42 @@ class ZaglavljeService:
                 item_value = 0.0
 
             # ── Rb.44 — Priloženi dokumenti ────────────────
+            attached_doc_item_codes = {
+                code.strip().upper()
+                for code in (_txt(tarif_el, "Attached_doc_item") if tarif_el is not None else "").split()
+                if code.strip()
+            }
             attached_documents = []
             attached_doc_fields = [""] * 5
-            doc_idx = 0
+            non_pe_slots = [0, 1, 2, 4]
+            pe_codes = {"PE1", "PE2", "PE3"}
+
+            def _format_item_doc(code: str, ref: str) -> str:
+                return f"{code} ({ref})" if ref else code
+
+            def _format_pe_doc(code: str, ref: str) -> str:
+                if ref.upper().startswith(f"{code} "):
+                    return ref
+                return f"{code} {ref}".strip()
+
             for att_el in item_el.iter(
                 f"{{{ns.get('n', '')}}}Attached_documents" if ns else "Attached_documents"
             ):
-                code = _txt(att_el, "Attached_document_code")
+                code = _txt(att_el, "Attached_document_code").upper()
                 name = _txt(att_el, "Attached_document_name")
                 ref = _txt(att_el, "Attached_document_reference")
                 from_rule_str = _txt(att_el, "Attached_document_from_rule")
-                from_rule = from_rule_str == "1" if from_rule_str else False
+                from_rule = from_rule_str == "1" if from_rule_str else code in attached_doc_item_codes
                 if code:
                     attached_documents.append(
                         AttachedDocument(
                             code=code, name=name, number=ref, from_rule=from_rule
                         )
                     )
-                    if doc_idx < 5:
-                        attached_doc_fields[doc_idx] = f"{code} ({ref})" if ref else code
-                        doc_idx += 1
+                    if code in pe_codes:
+                        attached_doc_fields[3] = _format_pe_doc(code, ref)
+                    elif non_pe_slots:
+                        attached_doc_fields[non_pe_slots.pop(0)] = _format_item_doc(code, ref)
 
             # ── Valuta — iz Item_Invoice ili header Financial ────────────────
             currency = ""
@@ -1719,6 +1805,17 @@ class ZaglavljeService:
 
         # 2d. Broj stavki — mora odgovarati
         n_items_draft = len(draft.items) if draft.items else 0
+        # Docs: docs/sections/asycuda-99-item-limit.md
+        if n_items_draft > 99:
+            errors.append({
+                "rule": "5",
+                "field": "Broj stavki",
+                "message": (
+                    f"Rb.5 — ASYCUDA World u BiH dozvoljava najviše 99 naimenovanja "
+                    f"po deklaraciji. Trenutno ih ima {n_items_draft}."
+                ),
+            })
+
         view_stavke = str(view_data.get("stavke", "")).strip()
         if view_stavke and view_stavke != str(n_items_draft):
             warnings.append({
@@ -1767,8 +1864,8 @@ class ZaglavljeService:
         # B) Šifre koje se mijenjaju za svaki uvoz moraju imati drugačiju referencu od importa
         #    (DIS=Dispozicija može ostati isti broj — isključen iz provjere promjene)
         #
-        # VOZ=Vozarina, OST=Posebna dokumenta, PZT=Potvrda o zdravstvenom pregledu,
-        # N380=Faktura komercijalna, DIS=Dispozicija, DV1=Prijava o carinskoj vrijednosti
+        # VOZ=Vozarina, OST=Posebna dokumenta, PZT=Zavisni troškovi,
+        # N730=Tovarni list, N380=Faktura komercijalna, DIS=Dispozicija, DV1=Prijava o carinskoj vrijednosti
         #
         # VOZ nije obavezna ako je paritet (Rb.20) jedan od Incoterms uslova gdje
         # je vozarina uključena u cijenu fakture: CIF, CIP, CFR, CPT, DAP, DPU, DDP.
@@ -1777,8 +1874,8 @@ class ZaglavljeService:
         _paritet = str(view_data.get("uslovi_kod", "")).strip().upper()
         _voz_obavezna = _paritet not in _INCOTERMS_VOZ_UKLJUCENA
 
-        OBAVEZNE_SIFRE = ["PZT", "N380", "DIS", "DV1"]
-        MORAJU_SE_PROMIJENITI = {"PZT", "N380", "DV1"}  # DIS isključen; OST nije obavezan
+        OBAVEZNE_SIFRE = ["PZT", "N730", "N380", "DIS", "DV1"]
+        MORAJU_SE_PROMIJENITI = {"PZT", "N730", "N380", "DV1"}  # DIS isključen; OST nije obavezan
         if _voz_obavezna:
             OBAVEZNE_SIFRE.insert(0, "VOZ")
             MORAJU_SE_PROMIJENITI.add("VOZ")

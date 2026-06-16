@@ -214,7 +214,7 @@ class DbSetupDialog(QDialog):
             if current == "localhost":
                 self._host.setText("")
                 self._host.setPlaceholderText("npr. 192.168.1.100")
-            self._user.setText("asycuda_app")
+            self._user.setText("deklarant_app")
         self._btn_save.setEnabled(False)
         self._connection_ok = False
         self._status.setText("")

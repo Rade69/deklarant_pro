@@ -6,11 +6,11 @@ ENHANCED: Dodato pamćenje chat konteksta (ChatMemoryService).
 """
 
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QTabWidget, QTextEdit,
+    QWidget, QVBoxLayout, QTabWidget, QTextEdit, QApplication,
     QLineEdit, QPushButton, QHBoxLayout, QLabel, QFrame, QMenuBar
 )
 from PySide6.QtCore import Qt, Signal, QDateTime, QTimer
-from PySide6.QtGui import QTextCursor, QFont, QAction, QKeyEvent
+from PySide6.QtGui import QTextCursor, QFont, QAction, QKeyEvent, QTextDocument
 
 
 class _ChatInput(QTextEdit):
@@ -248,6 +248,22 @@ class ChatPanel(QWidget):
             background: transparent;
         """)
         
+        # Dugme za kopiranje izvještaja (posljednja poruka agenta)
+        self.copy_report_btn = QPushButton(qta.icon('fa5s.copy', color=COLOR_TEXT_MUTED), "")
+        self.copy_report_btn.setFixedSize(24, 24)
+        self.copy_report_btn.setToolTip("Kopiraj posljednji odgovor agenta")
+        self.copy_report_btn.clicked.connect(self._copy_last_agent_message)
+        self.copy_report_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: transparent;
+                border: none;
+                border-radius: 4px;
+            }}
+            QPushButton:hover {{
+                background-color: {COLOR_SAGE_PALE};
+            }}
+        """)
+
         # Dugme za brisanje memorije
         self.clear_memory_btn = QPushButton(qta.icon('fa5s.trash-alt', color=COLOR_TEXT_MUTED), "")
         self.clear_memory_btn.setFixedSize(24, 24)
@@ -263,12 +279,13 @@ class ChatPanel(QWidget):
                 background-color: {COLOR_SAGE_PALE};
             }}
         """)
-        
+
         layout.addWidget(memory_icon)
         layout.addWidget(self.memory_status_label)
         layout.addStretch()
+        layout.addWidget(self.copy_report_btn)
         layout.addWidget(self.clear_memory_btn)
-        
+
         return bar
 
     def _create_chat_view(self) -> QTextEdit:
@@ -389,7 +406,7 @@ class ChatPanel(QWidget):
             <td width="5%" valign="top" style="padding-top:4px;">
               <span style="font-size:18px;">🌿</span>
             </td>
-            <td width="72%" style="background-color:#ffffff;
+            <td width="84%" style="background-color:#ffffff;
                     border-radius:4px 16px 16px 16px;
                     padding: 10px 14px;
                     border: 1px solid {COLOR_SAGE_PALE};">
@@ -400,7 +417,7 @@ class ChatPanel(QWidget):
                 {body}
               </div>
             </td>
-            <td width="23%"></td>
+            <td width="11%"></td>
           </tr>
         </table>"""
 
@@ -408,8 +425,8 @@ class ChatPanel(QWidget):
         return f"""
         <table width="100%" cellpadding="0" cellspacing="0" style="margin: 6px 0;">
           <tr>
-            <td width="23%"></td>
-            <td width="72%" align="right"
+            <td width="19%"></td>
+            <td width="76%" align="right"
                 style="background-color:{COLOR_SECONDARY};
                        border-radius:16px 4px 16px 16px;
                        padding: 10px 14px;">
@@ -504,7 +521,6 @@ class ChatPanel(QWidget):
         """Zatvori streaming bubble (prikaži finalni tekst bez kursora)."""
         if not hasattr(self, '_stream_start_pos'):
             return
-        # Zaustavi timer
         if hasattr(self, '_stream_timer'):
             self._stream_timer.stop()
             self._stream_timer.deleteLater()
@@ -515,6 +531,7 @@ class ChatPanel(QWidget):
         cursor.removeSelectedText()
         if hasattr(self, '_stream_buffer') and self._stream_buffer:
             body = self._stream_buffer.strip().replace("\n", "<br>")
+            self._last_agent_message_html = body
             self.agent_view.insertHtml(self._agent_bubble(body, self._stream_timestamp))
         for attr in ('_stream_start_pos', '_stream_buffer', '_stream_timestamp'):
             if hasattr(self, attr):
@@ -523,6 +540,24 @@ class ChatPanel(QWidget):
         self.input_field.setEnabled(True)
         self.input_field.setFocus()
         self._update_memory_status()
+
+    def cancel_streaming(self):
+        """Ukloni streaming bubble bez prikaza sadržaja (npr. pri grešci)."""
+        if not hasattr(self, '_stream_start_pos'):
+            return
+        if hasattr(self, '_stream_timer'):
+            self._stream_timer.stop()
+            self._stream_timer.deleteLater()
+            del self._stream_timer
+        cursor = self.agent_view.textCursor()
+        cursor.setPosition(self._stream_start_pos)
+        cursor.movePosition(QTextCursor.End, QTextCursor.KeepAnchor)
+        cursor.removeSelectedText()
+        for attr in ('_stream_start_pos', '_stream_buffer', '_stream_timestamp'):
+            if hasattr(self, attr):
+                delattr(self, attr)
+        self.input_field.setEnabled(True)
+        self.input_field.setFocus()
 
     def _typing_bubble(self, timestamp: str) -> str:
         return f"""
@@ -549,10 +584,23 @@ class ChatPanel(QWidget):
     def add_agent_message(self, text: str):
         timestamp = QDateTime.currentDateTime().toString("HH:mm")
         body = text.replace("\n", "<br>")
+        self._last_agent_message_html = body
         self.agent_view.append(self._agent_bubble(body, timestamp))
         self._scroll_to_bottom()
         # ENHANCED: Ažuriraj memory status
         self._update_memory_status()
+
+    def _copy_last_agent_message(self):
+        """Kopiraj posljednju poruku agenta (bez HTML oznaka) u clipboard — kratki izvještaj odluke."""
+        html = getattr(self, "_last_agent_message_html", "")
+        if not html:
+            self.add_activity("ℹ️ Nema poruke agenta za kopiranje.")
+            return
+        doc = QTextDocument()
+        doc.setHtml(html)
+        plain = doc.toPlainText().strip()
+        QApplication.clipboard().setText(plain)
+        self.add_activity("📋 Izvještaj kopiran u clipboard.")
 
     def add_user_message(self, text: str):
         timestamp = QDateTime.currentDateTime().toString("HH:mm")

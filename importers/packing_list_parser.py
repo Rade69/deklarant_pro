@@ -544,58 +544,57 @@ def combine_invoice_and_packing(
     matched = 0
     unmatched_invoice = []
     unmatched_packing = []
+    used_packing: set = set()
 
-    # Tracking koji packing items su već korišteni
-    used_packing = set()
+    # ── O(m) predpriprema — jednom, ne po svakoj stavci ──────────────────────
+    # Dict za exact match: product_code → [idx, ...] (jedna stavka može imati duplikat)
+    code_index: dict = {}
+    for idx, p in enumerate(packing_items):
+        if p.product_code:
+            code_index.setdefault(p.product_code, []).append(idx)
+
+    # Normalizovani nazivi za fuzzy — računamo jednom umjesto n puta
+    packing_norm: list = [
+        (p.naziv_robe or "").lower().strip() for p in packing_items
+    ]
+    # ─────────────────────────────────────────────────────────────────────────
 
     for inv_item in invoice_items:
         match_found = False
 
-        # PRIORITET 1: Match po product_code (ako oba imaju)
+        # PRIORITET 1: O(1) exact match po product_code
         if inv_item.product_code:
-            for pack_idx, pack_item in enumerate(packing_items):
-                if pack_idx in used_packing:
-                    continue
-
-                if pack_item.product_code == inv_item.product_code:
-                    # MATCH! Dodaj težine
-                    inv_item.bruto_kg = pack_item.bruto_kg
-                    inv_item.neto_kg = pack_item.neto_kg
-
+            for pack_idx in code_index.get(inv_item.product_code, []):
+                if pack_idx not in used_packing:
+                    inv_item.bruto_kg = packing_items[pack_idx].bruto_kg
+                    inv_item.neto_kg  = packing_items[pack_idx].neto_kg
                     used_packing.add(pack_idx)
                     matched += 1
                     match_found = True
-
                     logger.debug(f"   ✅ Match po kodu: {inv_item.product_code}")
                     break
 
-        # PRIORITET 2: Fuzzy match po nazivu (ako nema product_code match)
+        # PRIORITET 2: Fuzzy match — samo za neuparene, sa predkompajliranim nazivima
         if not match_found:
-            best_match_idx = None
-            best_similarity = 0.0
+            inv_norm = (inv_item.naziv_robe or "").lower().strip()
+            best_idx = None
+            best_sim = 0.0
 
-            for pack_idx, pack_item in enumerate(packing_items):
+            for pack_idx, pack_norm in enumerate(packing_norm):
                 if pack_idx in used_packing:
                     continue
+                sim = _fuzzy_match_normalized(inv_norm, pack_norm)
+                if sim > best_sim and sim > 0.85:
+                    best_sim = sim
+                    best_idx = pack_idx
 
-                similarity = _fuzzy_match(inv_item.naziv_robe, pack_item.naziv_robe)
-
-                if similarity > best_similarity and similarity > 0.85:  # 85% threshold
-                    best_similarity = similarity
-                    best_match_idx = pack_idx
-
-            if best_match_idx is not None:
-                pack_item = packing_items[best_match_idx]
-
-                # MATCH! Dodaj težine
-                inv_item.bruto_kg = pack_item.bruto_kg
-                inv_item.neto_kg = pack_item.neto_kg
-
-                used_packing.add(best_match_idx)
+            if best_idx is not None:
+                inv_item.bruto_kg = packing_items[best_idx].bruto_kg
+                inv_item.neto_kg  = packing_items[best_idx].neto_kg
+                used_packing.add(best_idx)
                 matched += 1
                 match_found = True
-
-                logger.debug(f"   ✅ Fuzzy match ({best_similarity:.1%}): {inv_item.naziv_robe[:30]}...")
+                logger.debug(f"   ✅ Fuzzy match ({best_sim:.1%}): {inv_item.naziv_robe[:30]}...")
 
         if not match_found:
             unmatched_invoice.append(inv_item.naziv_robe[:50])
@@ -621,6 +620,23 @@ def combine_invoice_and_packing(
     return invoice_items
 
 
+def _fuzzy_match_normalized(t1: str, t2: str) -> float:
+    """Fuzzy match nad već normalizovanim (lower+strip) stringovima."""
+    if not t1 or not t2:
+        return 0.0
+    if t1 == t2:
+        return 1.0
+    if t1 in t2 or t2 in t1:
+        return 0.90
+    tokens1 = set(t1.split())
+    tokens2 = set(t2.split())
+    if not tokens1 or not tokens2:
+        return 0.0
+    intersection = tokens1.intersection(tokens2)
+    union = tokens1.union(tokens2)
+    return len(intersection) / len(union)
+
+
 def _fuzzy_match(text1: str, text2: str) -> float:
     """
     Fuzzy matching između dva stringa.
@@ -631,29 +647,7 @@ def _fuzzy_match(text1: str, text2: str) -> float:
     if not text1 or not text2:
         return 0.0
 
-    # Normalizuj tekstove
     t1 = text1.lower().strip()
     t2 = text2.lower().strip()
 
-    # Exact match
-    if t1 == t2:
-        return 1.0
-
-    # Simple similarity: Levenshtein-like
-    # (za sada koristi jednostavnu metriku - može se unaprijediti sa fuzzywuzzy ili rapidfuzz)
-
-    # Ako jedan sadrži drugi
-    if t1 in t2 or t2 in t1:
-        return 0.90
-
-    # Token-based similarity
-    tokens1 = set(t1.split())
-    tokens2 = set(t2.split())
-
-    if not tokens1 or not tokens2:
-        return 0.0
-
-    intersection = tokens1.intersection(tokens2)
-    union = tokens1.union(tokens2)
-
-    return len(intersection) / len(union) if union else 0.0
+    return _fuzzy_match_normalized(t1, t2)

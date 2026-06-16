@@ -1,397 +1,341 @@
 """
-Analytics Panel - UI for statistics.
+Analytics Panel — upotreba AI agenta i status sistema.
 
-TASK 15: Styling improvements - vizuelne kartice, progress bar-ovi, trendovi
+Prikazuje informacije koje Database panel ne prikazuje:
+AI provider, upotreba tokena danas/sesija, instalirani parseri,
+zadnje indeksiranje carinskih dokumenata.
 """
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QGroupBox, QGridLayout, QPushButton, QScrollArea,
-    QFrame, QDateEdit, QComboBox
+    QPushButton, QGroupBox, QGridLayout, QScrollArea,
+    QProgressBar, QListWidget, QListWidgetItem
 )
-from PySide6.QtCore import Qt, QDate, Signal
+from PySide6.QtCore import Signal, Qt, QThread
 from PySide6.QtGui import QFont
-from typing import Dict, Any
 import qtawesome as qta
-from gui.tabs.admin.panels import styles as S
+from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
+
+
+class _StatsThread(QThread):
+    done = Signal(dict)
+
+    def run(self):
+        result = {}
+
+        # LLM provider
+        try:
+            from gui.tabs.agent.widgets.llm_provider import LLMProvider
+            result['llm_provider'] = LLMProvider().active_provider()
+        except Exception:
+            result['llm_provider'] = 'nepoznat'
+
+        # Upotreba danas (audit log)
+        try:
+            from services.agent.llm_audit_log import get_today_stats, get_session_stats
+            today = get_today_stats()
+            result['calls_today']   = today.get('calls_today', 0)
+            result['tokens_today']  = today.get('tokens_today', 0)
+            result['blocked_today'] = today.get('blocked_today', 0)
+
+            sess = get_session_stats()
+            result['session_tokens'] = sess.get('session_tokens_used', 0)
+            result['session_budget'] = sess.get('session_budget', 0)
+            result['session_pct']    = sess.get('session_pct', 0)
+        except Exception:
+            result['calls_today'] = result['tokens_today'] = result['blocked_today'] = 0
+            result['session_tokens'] = result['session_budget'] = result['session_pct'] = 0
+
+        # Carinski dokumenti — lista i zadnje indeksiranje
+        try:
+            from database.db import get_db_connection
+            with get_db_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        SELECT naziv, datum_indeksa
+                        FROM catalogs.carinski_dokumenti
+                        ORDER BY naziv
+                    """)
+                    rows = cur.fetchall()
+                    result['cd_dokumenti'] = [
+                        {'naziv': r['naziv'], 'datum': r['datum_indeksa']}
+                        for r in rows
+                    ]
+                    result['cd_count']  = len(rows)
+                    result['cd_zadnje'] = max(
+                        (r['datum_indeksa'] for r in rows), default=None
+                    )
+        except Exception:
+            result['cd_count'] = None
+            result['cd_zadnje'] = None
+            result['cd_dokumenti'] = []
+
+        self.done.emit(result)
 
 
 class AnalyticsPanel(QWidget):
-    """Analytics panel UI sa poboljšanim styling-om."""
-
-    # Signali
     refresh_requested = Signal()
-    export_requested = Signal()
 
     def __init__(self, parent=None):
-        """Inicijalizacija."""
         super().__init__(parent)
+        self._thread = None
         self.setup_ui()
         self._apply_styles()
 
+    def closeEvent(self, event):
+        if self._thread and self._thread.isRunning():
+            self._thread.quit()
+            self._thread.wait(2000)
+        super().closeEvent(event)
+
     def _apply_styles(self):
-        """Primijeni styling za Analytics panel."""
-        self.setStyleSheet(S.PANEL_BASE_STYLE)
-        for groupbox in self.findChildren(QGroupBox):
-            groupbox.setStyleSheet(S.GROUPBOX_STYLE)
-
-        # Stat kartice styling
-        card_style = """
-            QLabel#statCard {
-                background-color: white;
-                border: 1px solid #e0e0e0;
-                border-radius: 8px;
-                padding: 15px;
-            }
-            QLabel#statCard:hover {
-                border-color: #0078d4;
-                background-color: #f5f9ff;
-            }
-        """
-        
-        for label in self.findChildren(QLabel):
-            if label.objectName() == "statCard":
-                label.setStyleSheet(card_style)
-
-        # Stat value styling
-        for label in self.findChildren(QLabel):
-            if label.objectName() == "statValue":
-                label.setStyleSheet("""
-                    font-size: 32px;
-                    font-weight: bold;
-                    color: #0078d4;
-                """)
-            elif label.objectName() == "statLabel":
-                label.setStyleSheet("""
-                    font-size: 13px;
-                    color: #666;
-                    font-weight: 500;
-                """)
-
-        # Button styling
-        button_style = """
-            QPushButton {
-                padding: 8px 16px;
-                border: 1px solid #ddd;
-                border-radius: 4px;
-                background-color: white;
-                font-size: 13px;
-                font-weight: 500;
-                min-width: 120px;
-            }
-            QPushButton:hover {
-                background-color: #f0f0f0;
-                border-color: #bbb;
-            }
-            QPushButton:pressed {
-                background-color: #e0e0e0;
-            }
-            QPushButton#refreshButton {
-                background-color: #0078d4;
-                color: white;
-                border-color: #0078d4;
-            }
-            QPushButton#refreshButton:hover {
-                background-color: #106ebe;
-            }
-            QPushButton#exportButton {
-                background-color: #28a745;
-                color: white;
-                border-color: #28a745;
-            }
-            QPushButton#exportButton:hover {
-                background-color: #218838;
-            }
-        """
-        
-        self.btn_refresh.setStyleSheet(button_style)
-        self.btn_export.setStyleSheet(button_style)
+        self.setStyleSheet("background-color: #f8f9fa;")
+        for gb in self.findChildren(QGroupBox):
+            gb.setStyleSheet("""
+                QGroupBox {
+                    border: 1px solid #ddd; border-radius: 6px;
+                    margin-top: 12px; padding-top: 10px;
+                    font-weight: bold; font-size: 13px;
+                    background-color: white;
+                }
+                QGroupBox::title {
+                    subcontrol-origin: margin; subcontrol-position: top left;
+                    padding: 0 8px; color: #444;
+                }
+            """)
 
     def setup_ui(self):
-        """Setup UI-a sa vizuelnim karticama."""
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(15, 15, 15, 15)
-        layout.setSpacing(15)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(14)
 
-        # Header sa ikonicom
-        header_layout = QHBoxLayout()
-        
-        header_icon = QLabel()
-        header_icon.setPixmap(qta.icon('fa5s.chart-bar', color='#333333', scale_factor=2).pixmap(32, 32))
-        header_layout.addWidget(header_icon)
-        
-        header = QLabel("Analitika")
-        header.setStyleSheet("font-size: 20px; font-weight: bold; color: #333; margin-left: 10px;")
-        header_layout.addWidget(header)
-        header_layout.addStretch()
-        
-        layout.addLayout(header_layout)
+        # Header
+        hdr = QHBoxLayout()
+        ico = QLabel()
+        ico.setPixmap(qta.icon('fa5s.tachometer-alt', color='#333').pixmap(28, 28))
+        hdr.addWidget(ico)
+        lbl = QLabel("Upotreba AI agenta")
+        lbl.setStyleSheet("font-size: 18px; font-weight: bold; color: #222; margin-left: 8px;")
+        hdr.addWidget(lbl)
+        hdr.addStretch()
+        layout.addLayout(hdr)
 
-        # ===== DATE RANGE FILTER =====
-        filter_layout = QHBoxLayout()
-        filter_layout.addWidget(QLabel("Period:"))
-        
-        self.date_from = QDateEdit()
-        self.date_from.setCalendarPopup(True)
-        self.date_from.setDate(QDate.currentDate().addDays(-30))
-        self.date_from.setMinimumWidth(150)
-        filter_layout.addWidget(self.date_from)
-
-        filter_layout.addWidget(QLabel("do:"))
-        
-        self.date_to = QDateEdit()
-        self.date_to.setCalendarPopup(True)
-        self.date_to.setDate(QDate.currentDate())
-        self.date_to.setMinimumWidth(150)
-        filter_layout.addWidget(self.date_to)
-
-        filter_layout.addStretch()
-        layout.addLayout(filter_layout)
-
-        # Scroll area za content
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QScrollArea.NoFrame)
+        sw = QWidget()
+        sl = QVBoxLayout(sw)
+        sl.setSpacing(14)
+        sl.setContentsMargins(0, 0, 0, 0)
 
-        scroll_widget = QWidget()
-        scroll_layout = QVBoxLayout(scroll_widget)
-        scroll_layout.setContentsMargins(0, 0, 0, 0)
-        scroll_layout.setSpacing(20)
+        # ── AI provider ────────────────────────────────────────
+        prov_group = QGroupBox("🤖 AI provider")
+        prov_lay = QGridLayout(prov_group)
+        prov_lay.setSpacing(10)
+        prov_lay.setColumnStretch(1, 1)
 
-        # ===== IMPORT STATISTICS =====
-        import_group = QGroupBox("📥 Statistika Importa")
-        import_layout = QGridLayout(import_group)
-        import_layout.setVerticalSpacing(15)
-        import_layout.setHorizontalSpacing(15)
+        prov_lay.addWidget(self._ico('fa5s.robot'), 0, 0)
+        prov_lay.addWidget(QLabel("Aktivni provider:"), 0, 1)
+        self.lbl_provider = QLabel("—")
+        self.lbl_provider.setFont(QFont("Arial", 13, QFont.Bold))
+        prov_lay.addWidget(self.lbl_provider, 0, 2)
 
-        # Ukupno Importa (velika kartica)
-        self.lbl_total_imports = QLabel("0")
-        self.lbl_total_imports.setObjectName("statValue")
-        self.lbl_total_imports.setAlignment(Qt.AlignCenter)
-        import_layout.addWidget(QLabel("Ukupno Importa:"), 0, 0)
-        import_layout.addWidget(self.lbl_total_imports, 1, 0)
+        sl.addWidget(prov_group)
 
-        # Danas
-        self.lbl_today_imports = QLabel("0")
-        self.lbl_today_imports.setObjectName("statValue")
-        self.lbl_today_imports.setStyleSheet("font-size: 24px; font-weight: bold; color: #28a745;")
-        self.lbl_today_imports.setAlignment(Qt.AlignCenter)
-        import_layout.addWidget(QLabel("Danas:"), 0, 1)
-        import_layout.addWidget(self.lbl_today_imports, 1, 1)
+        # ── Upotreba danas ─────────────────────────────────────
+        today_group = QGroupBox("📊 Upotreba danas")
+        today_lay = QGridLayout(today_group)
+        today_lay.setSpacing(10)
+        today_lay.setColumnStretch(1, 1)
 
-        # Ove Nedjelje
-        self.lbl_week_imports = QLabel("0")
-        self.lbl_week_imports.setObjectName("statValue")
-        self.lbl_week_imports.setStyleSheet("font-size: 24px; font-weight: bold; color: #17a2b8;")
-        self.lbl_week_imports.setAlignment(Qt.AlignCenter)
-        import_layout.addWidget(QLabel("Ove Nedjelje:"), 2, 0)
-        import_layout.addWidget(self.lbl_week_imports, 3, 0)
+        rows_today = [
+            ('lbl_calls',   'fa5s.comments',      'Upita agentu:'),
+            ('lbl_tokens',  'fa5s.coins',          'Tokena potrošeno:'),
+            ('lbl_blocked', 'fa5s.shield-alt',     'Blokiranih poruka:'),
+        ]
+        for attr, ico_name, tekst in rows_today:
+            i = rows_today.index((attr, ico_name, tekst))
+            today_lay.addWidget(self._ico(ico_name), i, 0)
+            today_lay.addWidget(QLabel(tekst), i, 1)
+            lbl = QLabel("—")
+            lbl.setFont(QFont("Arial", 13, QFont.Bold))
+            lbl.setStyleSheet("color: #0078d4;")
+            lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            today_lay.addWidget(lbl, i, 2)
+            setattr(self, attr, lbl)
 
-        # Ovog Mjeseca
-        self.lbl_month_imports = QLabel("0")
-        self.lbl_month_imports.setObjectName("statValue")
-        self.lbl_month_imports.setStyleSheet("font-size: 24px; font-weight: bold; color: #ffc107;")
-        self.lbl_month_imports.setAlignment(Qt.AlignCenter)
-        import_layout.addWidget(QLabel("Ovog Mjeseca:"), 2, 1)
-        import_layout.addWidget(self.lbl_month_imports, 3, 1)
+        sl.addWidget(today_group)
 
-        scroll_layout.addWidget(import_group)
+        # ── Token budžet (sesija) ──────────────────────────────
+        budget_group = QGroupBox("💰 Token budžet — ova sesija")
+        budget_lay = QVBoxLayout(budget_group)
+        budget_lay.setSpacing(8)
 
-        # ===== DECLARATION STATISTICS =====
-        decl_group = QGroupBox("📋 Statistika Deklaracija")
-        decl_layout = QGridLayout(decl_group)
-        decl_layout.setVerticalSpacing(15)
-        decl_layout.setHorizontalSpacing(15)
+        info_lay = QHBoxLayout()
+        self.lbl_sess_tokens = QLabel("0 / 0 tokena")
+        self.lbl_sess_tokens.setFont(QFont("Arial", 12))
+        info_lay.addWidget(self.lbl_sess_tokens)
+        info_lay.addStretch()
+        self.lbl_sess_pct = QLabel("0%")
+        self.lbl_sess_pct.setFont(QFont("Arial", 12, QFont.Bold))
+        info_lay.addWidget(self.lbl_sess_pct)
+        budget_lay.addLayout(info_lay)
 
-        # Ukupno Deklaracija (velika kartica)
-        self.lbl_total_declarations = QLabel("0")
-        self.lbl_total_declarations.setObjectName("statValue")
-        self.lbl_total_declarations.setStyleSheet("font-size: 32px; font-weight: bold; color: #2e7d32;")
-        self.lbl_total_declarations.setAlignment(Qt.AlignCenter)
-        decl_layout.addWidget(QLabel("Ukupno Deklaracija:"), 0, 0)
-        decl_layout.addWidget(self.lbl_total_declarations, 1, 0)
+        self.progress_budget = QProgressBar()
+        self.progress_budget.setRange(0, 100)
+        self.progress_budget.setValue(0)
+        self.progress_budget.setTextVisible(False)
+        self.progress_budget.setFixedHeight(12)
+        self.progress_budget.setStyleSheet("""
+            QProgressBar { border:none; border-radius:6px; background:#e9ecef; }
+            QProgressBar::chunk { border-radius:6px; background:#0078d4; }
+        """)
+        budget_lay.addWidget(self.progress_budget)
 
-        # Status breakdown
-        self.status_layout = QGridLayout()
-        self.status_layout.setVerticalSpacing(8)
-        self.status_layout.setHorizontalSpacing(15)
-        decl_layout.addLayout(self.status_layout, 2, 0, 1, 2)
+        sl.addWidget(budget_group)
 
-        scroll_layout.addWidget(decl_group)
+        # ── Carinski dokumenti ─────────────────────────────────
+        cd_group = QGroupBox("📋 Carinski propisi u bazi")
+        cd_lay = QVBoxLayout(cd_group)
+        cd_lay.setSpacing(8)
 
-        # ===== PARSER USAGE =====
-        parser_group = QGroupBox("🔌 Korišćenje Parsera")
-        parser_layout = QVBoxLayout(parser_group)
+        # Info red: broj + zadnje indeksiranje
+        info_lay = QHBoxLayout()
+        self.lbl_cd_count = QLabel("— dokumenata")
+        self.lbl_cd_count.setFont(QFont("Arial", 12, QFont.Bold))
+        self.lbl_cd_count.setStyleSheet("color: #0078d4;")
+        info_lay.addWidget(self.lbl_cd_count)
+        info_lay.addStretch()
+        self.lbl_cd_zadnje = QLabel("")
+        self.lbl_cd_zadnje.setStyleSheet("color: #888; font-size: 11px;")
+        info_lay.addWidget(self.lbl_cd_zadnje)
+        cd_lay.addLayout(info_lay)
 
-        self.parser_stats_label = QLabel("📊 Nema podataka o korištenju parsera")
-        self.parser_stats_label.setAlignment(Qt.AlignCenter)
-        self.parser_stats_label.setStyleSheet("color: #999; font-size: 14px; padding: 20px;")
-        parser_layout.addWidget(self.parser_stats_label)
+        # Lista dokumenata
+        self.cd_lista = QListWidget()
+        self.cd_lista.setMinimumHeight(220)
+        self.cd_lista.setMaximumHeight(320)
+        self.cd_lista.setStyleSheet("""
+            QListWidget {
+                border: 1px solid #e0e0e0; border-radius: 4px;
+                background: #fafafa; font-size: 12px;
+            }
+            QListWidget::item { padding: 5px 8px; border-bottom: 1px solid #f0f0f0; }
+            QListWidget::item:hover { background: #e8f0fe; }
+            QListWidget::item:selected { background: #d0e4ff; color: #000; }
+        """)
+        self.cd_lista.setSelectionMode(QListWidget.NoSelection)
+        cd_lay.addWidget(self.cd_lista)
 
-        # Parser lista (placeholder za buduću implementaciju)
-        self.parser_list_layout = QGridLayout()
-        parser_layout.addLayout(self.parser_list_layout)
-
-        scroll_layout.addWidget(parser_group)
-
-        # ===== TREND SECTION (placeholder) =====
-        trend_group = QGroupBox("📈 Trendovi")
-        trend_layout = QVBoxLayout(trend_group)
-
-        trend_info = QLabel("Trendovi će biti dostupni u narednoj verziji")
-        trend_info.setAlignment(Qt.AlignCenter)
-        trend_info.setStyleSheet("color: #999; font-size: 13px; padding: 15px;")
-        trend_layout.addWidget(trend_info)
-
-        scroll_layout.addWidget(trend_group)
-        scroll_layout.addStretch()
-
-        scroll.setWidget(scroll_widget)
+        sl.addWidget(cd_group)
+        sl.addStretch()
+        scroll.setWidget(sw)
         layout.addWidget(scroll)
 
-        # ===== ACTION BUTTONS =====
-        btn_layout = QHBoxLayout()
-        btn_layout.setSpacing(10)
+        # Dugme
+        self.btn_refresh = QPushButton(qta.icon('fa5s.sync', color='white'), " Osvježi")
+        self.btn_refresh.setStyleSheet("""
+            QPushButton { background:#0078d4; color:white; border:none;
+                          border-radius:4px; padding:8px 20px; font-size:13px; }
+            QPushButton:hover { background:#106ebe; }
+            QPushButton:disabled { background:#aaa; }
+        """)
+        self.btn_refresh.setMinimumHeight(38)
+        self.btn_refresh.clicked.connect(self._on_refresh)
+        layout.addWidget(self.btn_refresh, alignment=Qt.AlignLeft)
 
-        self.btn_refresh = QPushButton(
-            qta.icon('fa5s.sync', color='white'),
-            " Refresh"
+    # ── PUBLIC API ──────────────────────────────────────────────
+
+    def set_statistics(self, stats: dict):
+        # Provider
+        prov = stats.get('llm_provider', '—')
+        boje = {'deepseek': '#6f42c1', 'groq': '#fd7e14', 'gemini': '#1a73e8',
+                'none': '#dc3545', 'nepoznat': '#999'}
+        tekst = prov.capitalize() if prov not in ('none', 'nepoznat') else '⚠️ Nije konfigurisan'
+        self.lbl_provider.setText(tekst)
+        self.lbl_provider.setStyleSheet(
+            f"color: {boje.get(prov, '#333')}; font-size: 13px; font-weight: bold;"
         )
-        self.btn_refresh.setFont(QFont("Arial", 13))
-        self.btn_refresh.setToolTip("Osveži prikaz statistika")
-        self.btn_refresh.clicked.connect(self._on_refresh_clicked)
-        self.btn_refresh.setMinimumHeight(40)
-        self.btn_refresh.setObjectName("refreshButton")
-        btn_layout.addWidget(self.btn_refresh)
 
-        self.btn_export = QPushButton(
-            qta.icon('fa5s.file-export', color='white'),
-            " Export"
+        # Danas
+        self.lbl_calls.setText(str(stats.get('calls_today', 0)))
+        tokens = stats.get('tokens_today', 0)
+        self.lbl_tokens.setText(f"{tokens:,}".replace(",", "."))
+        blocked = stats.get('blocked_today', 0)
+        self.lbl_blocked.setText(str(blocked))
+        self.lbl_blocked.setStyleSheet(
+            "color: #dc3545; font-weight: bold;" if blocked > 0 else "color: #28a745; font-weight: bold;"
         )
-        self.btn_export.setFont(QFont("Arial", 13))
-        self.btn_export.setToolTip("Eksportuj statistike u fajl")
-        self.btn_export.clicked.connect(self._on_export_clicked)
-        self.btn_export.setMinimumHeight(40)
-        self.btn_export.setObjectName("exportButton")
-        btn_layout.addWidget(self.btn_export)
 
-        btn_layout.addStretch()
-        layout.addLayout(btn_layout)
+        # Sesija
+        used = stats.get('session_tokens', 0)
+        budget = stats.get('session_budget', 0)
+        pct = int(stats.get('session_pct', 0))
+        self.lbl_sess_tokens.setText(
+            f"{used:,} / {budget:,} tokena".replace(",", ".")
+        )
+        self.lbl_sess_pct.setText(f"{pct}%")
+        self.progress_budget.setValue(min(pct, 100))
+        chunk_color = "#28a745" if pct < 70 else ("#fd7e14" if pct < 90 else "#dc3545")
+        self.progress_budget.setStyleSheet(f"""
+            QProgressBar {{ border:none; border-radius:6px; background:#e9ecef; }}
+            QProgressBar::chunk {{ border-radius:6px; background:{chunk_color}; }}
+        """)
 
-    # PUBLIC API
+        # Carinski dokumenti
+        cd_count = stats.get('cd_count') or 0
+        self.lbl_cd_count.setText(f"{cd_count} dokumenata")
 
-    def set_statistics(self, stats: Dict[str, Any]):
-        """
-        Postavi statistike za prikaz.
+        zadnje = stats.get('cd_zadnje')
+        if zadnje:
+            try:
+                self.lbl_cd_zadnje.setText(
+                    "Ažurirano: " + zadnje.strftime("%d.%m.%Y. %H:%M")
+                )
+            except Exception:
+                self.lbl_cd_zadnje.setText(str(zadnje)[:16])
+        else:
+            self.lbl_cd_zadnje.setText("Nije indeksirano")
 
-        Args:
-            stats: Dict sa statistikama
-        """
-        # Import stats
-        if 'total_imports' in stats:
-            self.lbl_total_imports.setText(str(stats['total_imports']))
-        if 'imports_today' in stats:
-            self.lbl_today_imports.setText(str(stats['imports_today']))
-        if 'imports_this_week' in stats:
-            self.lbl_week_imports.setText(str(stats['imports_this_week']))
-        if 'imports_this_month' in stats:
-            self.lbl_month_imports.setText(str(stats['imports_this_month']))
-
-        # Declaration stats
-        if 'total' in stats:
-            self.lbl_total_declarations.setText(str(stats['total']))
-
-        # Status breakdown
-        if 'by_status' in stats:
-            # Clear existing status labels
-            while self.status_layout.count():
-                item = self.status_layout.takeAt(0)
-                if item.widget():
-                    item.widget().deleteLater()
-
-            # Add status labels with styling
-            for i, (status, count) in enumerate(stats['by_status'].items()):
-                color = S.status_color(status)
-
-                label = QLabel(f"{status}:")
-                label.setFont(QFont("Arial", 13))
-                label.setStyleSheet("font-weight: 500;")
-
-                value = QLabel(str(count))
-                value.setFont(QFont("Arial", 14, QFont.Bold))
-                value.setStyleSheet(f"font-weight: bold; color: {color};")
-
-                self.status_layout.addWidget(label, i, 0)
-                self.status_layout.addWidget(value, i, 1)
-
-    def set_parser_usage(self, usage: list):
-        """
-        Postavi parser usage statistiku.
-
-        Args:
-            usage: Lista dict-ova sa parser usage-om
-        """
-        if not usage:
-            self.parser_stats_label.setText("📊 Nema podataka o korištenju parsera")
-            return
-
-        # Clear existing
-        while self.parser_list_layout.count():
-            item = self.parser_list_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
-
-        self.parser_stats_label.setVisible(False)
-
-        # Add parser usage bars
-        for i, parser in enumerate(usage[:5]):  # Prikaži top 5
-            name = parser.get('name', 'Unknown')
-            count = parser.get('count', 0)
-            percentage = parser.get('percentage', 0)
-
-            name_label = QLabel(f"{name}:")
-            name_label.setFont(QFont("Arial", 12))
-
-            count_label = QLabel(f"{count} ({percentage}%)")
-            count_label.setFont(QFont("Arial", 12, QFont.Bold))
-            count_label.setAlignment(Qt.AlignRight)
-
-            # Progress bar styling
-            bar_label = QLabel()
-            bar_label.setStyleSheet(f"""
-                background-color: #e0e0e0;
-                border-radius: 3px;
-            """)
-            bar_label.setMinimumHeight(20)
-            bar_label.setMinimumWidth(200)
-
-            # Fill percentage
-            bar_label.setText(" " * int(percentage / 2))
-            bar_label.setStyleSheet(f"""
-                background-color: #0078d4;
-                border-radius: 3px;
-                color: white;
-                padding-left: 5px;
-            """)
-
-            self.parser_list_layout.addWidget(name_label, i, 0)
-            self.parser_list_layout.addWidget(bar_label, i, 1)
-            self.parser_list_layout.addWidget(count_label, i, 2)
-
-    def show_success(self, message: str):
-        """Prikaži success poruku."""
-        pass
+        self.cd_lista.clear()
+        dokumenti = stats.get('cd_dokumenti', [])
+        if dokumenti:
+            for d in dokumenti:
+                naziv = d.get('naziv', '')
+                datum = d.get('datum')
+                datum_str = ""
+                if datum:
+                    try:
+                        datum_str = "  —  " + datum.strftime("%d.%m.%Y.")
+                    except Exception:
+                        datum_str = ""
+                item = QListWidgetItem(f"📄 {naziv}{datum_str}")
+                self.cd_lista.addItem(item)
+        else:
+            item = QListWidgetItem("Nema indeksiranih dokumenata")
+            item.setForeground(Qt.gray)
+            self.cd_lista.addItem(item)
 
     def show_error(self, message: str):
-        """Prikaži error poruku."""
-        pass
+        QMessageBox.critical(self, "Greška", message)
 
-    # PRIVATE HANDLERS
+    # ── HANDLERS ───────────────────────────────────────────────
 
-    def _on_refresh_clicked(self):
-        """Refresh button clicked."""
+    def _on_refresh(self):
+        self.btn_refresh.setEnabled(False)
+        self.btn_refresh.setText(" Učitavanje...")
+        self._thread = _StatsThread(self)
+        self._thread.done.connect(self._on_done)
+        self._thread.start()
         self.refresh_requested.emit()
 
-    def _on_export_clicked(self):
-        """Export button clicked."""
-        self.export_requested.emit()
+    def _on_done(self, stats: dict):
+        self.btn_refresh.setEnabled(True)
+        self.btn_refresh.setText(" Osvježi")
+        self.set_statistics(stats)
+
+    @staticmethod
+    def _ico(name: str) -> QLabel:
+        lbl = QLabel()
+        lbl.setPixmap(qta.icon(name, color='#555').pixmap(16, 16))
+        return lbl

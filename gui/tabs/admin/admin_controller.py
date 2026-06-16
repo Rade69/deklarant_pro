@@ -46,24 +46,25 @@ class AdminController(BaseTabController):
         if hasattr(plugin_panel, 'remove_requested'):
             plugin_panel.remove_requested.connect(self._on_remove_plugin)
 
-        # Settings panel signals
-        settings_panel = self.view.get_settings_panel()
-        if hasattr(settings_panel, 'save_requested'):
-            settings_panel.save_requested.connect(self._on_save_settings)
-        if hasattr(settings_panel, 'reset_requested'):
-            settings_panel.reset_requested.connect(self._on_reset_settings)
-
         # Database panel signals
         database_panel = self.view.get_database_panel()
-        if hasattr(database_panel, 'backup_requested'):
-            database_panel.backup_requested.connect(self._on_backup_database)
-        if hasattr(database_panel, 'restore_requested'):
-            database_panel.restore_requested.connect(self._on_restore_database)
+        if hasattr(database_panel, 'refresh_requested'):
+            database_panel.refresh_requested.connect(self._on_refresh_database)
+
+        # Analytics panel signals
+        analytics_panel = self.view.get_analytics_panel()
+        if hasattr(analytics_panel, 'refresh_requested'):
+            analytics_panel.refresh_requested.connect(self._on_refresh_analytics)
 
         # Logs panel signals
         logs_panel = self.view.get_logs_panel()
         if hasattr(logs_panel, 'refresh_requested'):
             logs_panel.refresh_requested.connect(self._on_refresh_logs)
+
+        # System panel signals
+        system_panel = self.view.get_system_panel()
+        if hasattr(system_panel, 'refresh_requested'):
+            system_panel.refresh_requested.connect(self._refresh_system_info)
 
     def _load_initial_data(self):
         """Učitaj inicijalne podatke pri pokretanju."""
@@ -72,9 +73,6 @@ class AdminController(BaseTabController):
 
         # Load system info
         self._refresh_system_info()
-
-        # Load settings
-        self._refresh_settings()
 
     # PLUGIN HANDLERS
 
@@ -182,150 +180,13 @@ class AdminController(BaseTabController):
         plugins = self.service.get_installed_plugins()
         self.view.get_plugin_panel().set_plugins(plugins)
 
-    # SETTINGS HANDLERS
+    # DATABASE / ANALYTICS HANDLERS
 
-    def _on_save_settings(self, settings: dict):
-        """
-        Handler za čuvanje settings-a.
+    def _on_refresh_database(self):
+        pass  # Stats se učitavaju direktno u panelu putem QThread-a
 
-        Args:
-            settings: Dictionary sa settings-ima
-        """
-        try:
-            # 1. Validiraj settings prije čuvanja
-            if not self.service.settings_service.validate_settings(settings):
-                self.view.get_settings_panel().show_error(
-                    "Validacija settings-a nije uspjela!\n\n"
-                    "Provjeri da su sve vrijednosti ispravne."
-                )
-                return
-
-            # 2. Provjeri da li se bitne vrijednosti mijenjaju
-            current_settings = self.service.get_settings()
-            changes = []
-            
-            if current_settings.get('language') != settings.get('language'):
-                changes.append(" Jezik zahtijeva restart aplikacije.")
-            
-            if current_settings.get('theme') != settings.get('theme'):
-                changes.append(" Tema zahtijeva restart aplikacije.")
-
-            # 3. Prikaži upozorenje ako treba restart
-            if changes:
-                reply = self.confirm(
-                    "Da li želiš da nastaviš?",
-                    "Promjena settings-a"
-                )
-
-                if not reply:
-                    return
-
-            # 4. Sačuvaj settings sa backup-om
-            success = self.service.save_settings(settings, create_backup=True)
-
-            if success:
-                # Prikaži šta je sačuvano
-                details = "\n".join([f"  • {key}: {value}" for key, value in settings.items()])
-                
-                self.view.get_settings_panel().show_success(
-                    "Settings uspješno sačuvani!\n\n" +
-                    f"Sauvano:\n{details}\n\n" +
-                    "Backup kreiran automatski."
-                )
-                
-                # Refresh UI
-                self._refresh_settings()
-            else:
-                self.view.get_settings_panel().show_error(
-                    "Čuvanje settings-a nije uspjelo!\n\n"
-                    "Provjeri da li imaš dozvolu za pisanje fajla."
-                )
-        except Exception as e:
-            self.view.get_settings_panel().show_error(
-                f"Greška pri čuvanju:\n{str(e)}"
-            )
-
-    def _refresh_settings(self):
-        """Refresh settings-a."""
-        settings = self.service.get_settings()
-        self.view.get_settings_panel().set_settings(settings)
-
-    def _on_reset_settings(self):
-        """Handler za reset settings-a na default."""
-        try:
-            reply = self.confirm_destructive_action(
-                "Da li zaista želiš da resetuješ settings na fabrička podešavanja?\n\n"
-                "Ova akcija će poništiti sve tvoje izmjene.",
-                "Potvrda"
-            )
-
-            if not reply:
-                return
-
-            success = self.service.settings_service.reset_to_defaults()
-
-            if success:
-                self.view.get_settings_panel().show_success(
-                    "Settings su resetovani na fabrička podešavanja!\n\n"
-                    "Neki settings zahtijevaju restart aplikacije."
-                )
-                self._refresh_settings()
-            else:
-                self.view.get_settings_panel().show_error(
-                    "Reset settings-a nije uspio!"
-                )
-        except Exception as e:
-            self.view.get_settings_panel().show_error(
-                f"Greška pri reset-u:\n{str(e)}"
-            )
-
-    # DATABASE HANDLERS
-
-    def _on_backup_database(self, backup_path: str):
-        """
-        Handler za database backup.
-
-        Args:
-            backup_path: Put gdje sačuvati backup
-        """
-        try:
-            success = self.service.create_backup(backup_path)
-
-            if success:
-                self.view.get_database_panel().show_success(
-                    f"Backup kreiran: {backup_path}"
-                )
-            else:
-                self.view.get_database_panel().show_error(
-                    "Kreiranje backup-a nije uspjelo!"
-                )
-        except Exception as e:
-            self.view.get_database_panel().show_error(
-                f"Greška pri backup-u: {e}"
-            )
-
-    def _on_restore_database(self, backup_path: str):
-        """
-        Handler za obnovu baze.
-
-        Args:
-            backup_path: Put do backup fajla
-        """
-        try:
-            success = self.service.restore_backup(backup_path)
-
-            if success:
-                self.view.get_database_panel().show_success(
-                    "Baza uspešno obnovljena!"
-                )
-            else:
-                self.view.get_database_panel().show_error(
-                    "Obnova baze nije uspela!"
-                )
-        except Exception as e:
-            self.view.get_database_panel().show_error(
-                f"Greška pri obnovi: {e}"
-            )
+    def _on_refresh_analytics(self):
+        pass  # Stats se učitavaju direktno u panelu putem QThread-a
 
     # LOGS HANDLERS
 
@@ -345,4 +206,3 @@ class AdminController(BaseTabController):
         """Refresh system info-a."""
         system_info = self.service.get_system_info()
         self.view.get_system_panel().set_system_info(system_info)
-

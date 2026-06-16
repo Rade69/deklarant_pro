@@ -26,6 +26,19 @@ from gui.dialogs.enhanced_tariff_suggestion_dialog import (
 
 logger = logging.getLogger("deklarant_pro.hybrid_matching")
 
+
+def _is_known_tariff_code(tariff_code: str) -> bool:
+    digits = re.sub(r"\D", "", tariff_code or "")
+    if not digits:
+        return False
+    try:
+        from services.tariff.tarifa_service import trazi_po_kodu
+
+        return bool(trazi_po_kodu(digits[:8]))
+    except Exception as exc:
+        logger.warning("Provjera zvanične tarife nije uspjela za %s: %s", tariff_code, exc)
+        return True
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Dataclasses
 # ─────────────────────────────────────────────────────────────────────────────
@@ -405,16 +418,19 @@ class EnhancedTariffSuggestionService:
             )
             suggestions = []
             if result.get('tarifni_broj'):
-                suggestions.append({
-                    'tariff_code': result['tarifni_broj'],
-                    'description': result.get('explanation', ''),
-                    'similarity': result.get('confidence', 0.5),
-                    'method': result.get('method', 'ai'),
-                    'explanation': self._format_explanation(result),
-                    'needs_review': result.get('needs_review', True)
-                })
+                if _is_known_tariff_code(result['tarifni_broj']):
+                    suggestions.append({
+                        'tariff_code': result['tarifni_broj'],
+                        'description': result.get('explanation', ''),
+                        'similarity': result.get('confidence', 0.5),
+                        'method': result.get('method', 'ai'),
+                        'explanation': self._format_explanation(result),
+                        'needs_review': result.get('needs_review', True)
+                    })
             for candidate in result.get('candidates', [])[:3]:
                 if candidate.get('tarifni_broj'):
+                    if not _is_known_tariff_code(candidate['tarifni_broj']):
+                        continue
                     suggestions.append({
                         'tariff_code': candidate['tarifni_broj'],
                         'description': candidate.get('naziv_robe', ''),
@@ -447,6 +463,8 @@ class EnhancedTariffSuggestionService:
                         product_name, product_profile.product_name
                     )
                     if similarity > 0.6:
+                        if not _is_known_tariff_code(product_profile.tariff_code):
+                            continue
                         suggestions.append({
                             'tariff_code': product_profile.tariff_code,
                             'description': product_profile.product_name,
@@ -470,6 +488,8 @@ class EnhancedTariffSuggestionService:
                 supplier=supplier_name, country=origin_country, min_confidence=0.50
             )
             if match_result and match_result.tariff_mapping:
+                if not _is_known_tariff_code(match_result.tariff_mapping.tarifni_broj):
+                    return suggestions
                 suggestions.append({
                     'tariff_code': match_result.tariff_mapping.tarifni_broj,
                     'description': match_result.tariff_mapping.naziv_robe,
@@ -503,6 +523,8 @@ class EnhancedTariffSuggestionService:
                 similar_in_invoice.sort(key=lambda x: x['similarity'], reverse=True)
                 best_match = similar_in_invoice[0]
                 if best_match['tariff']:
+                    if not _is_known_tariff_code(best_match['tariff']):
+                        return suggestions
                     suggestions.append({
                         'tariff_code': best_match['tariff'],
                         'description': best_match['name'],

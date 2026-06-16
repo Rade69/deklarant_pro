@@ -194,6 +194,26 @@ class TariffMappingService:
 
         effective_supplier = supplier or ""
 
+        # Instancirati jednom — ne unutar petlje (N instanci = N×SQL upita)
+        hybrid = None
+        if effective_supplier or any(
+            (line.exporter.name if line.exporter.name else "") for line in invoice_lines
+        ):
+            try:
+                from services.agent.tariff.tariff_suggestion_service import HybridMatchingService
+                hybrid = HybridMatchingService()
+            except Exception:
+                pass
+
+        _usage_batch: list = []  # batch increment — jedna konekcija na kraju, ne po stavci
+
+        # ── Batch lookup po product_code (1 SQL umjesto N) ──────────────────────
+        lines_to_process = [l for l in invoice_lines
+                            if not (l.tarifni_broj and not overwrite_existing)]
+        all_codes = [getattr(l, 'product_code', '') or '' for l in lines_to_process]
+        batch_code_hits = self.find_batch_by_product_codes(all_codes) if all_codes else {}
+        # ─────────────────────────────────────────────────────────────────────────
+
         for line in invoice_lines:
             # Skip ako već ima tarifni broj i ne želimo overwrite
             if line.tarifni_broj and not overwrite_existing:
@@ -204,11 +224,15 @@ class TariffMappingService:
 
             mapping = None
 
-            # ── 0. Prvo istorija dobavljača (XML fajlovi sa carine — najvalidniji) ──
-            if line_supplier:
+            # ── 0. Batch hit po product_code (O(1), bez SQL po stavci) ──────────
+            code_key = (getattr(line, 'product_code', '') or '').strip().upper()
+            if code_key and code_key in batch_code_hits:
+                mapping = batch_code_hits[code_key]
+                logger.debug(f"  🗂️  Batch hit: {code_key} → {mapping.tarifni_broj}")
+
+            # ── 1. Istorija dobavljača (ako batch nije dao rezultat) ──────────────
+            if mapping is None and line_supplier and hybrid:
                 try:
-                    from services.agent.tariff.tariff_suggestion_service import HybridMatchingService
-                    hybrid = HybridMatchingService()
                     hist_match = hybrid.find_hybrid_mapping(
                         product_code=line.product_code,
                         naziv_robe=line.naziv_robe,
@@ -225,7 +249,7 @@ class TariffMappingService:
                 except Exception:
                     pass  # Silent — istorijski match nije kritičan
 
-            # ── 1. Baza znanja (ako istorija nije dala rezultat) ──
+            # ── 2. Baza znanja — fuzzy/vote (ako prethodni koraci nisu dali rezultat) ──
             if mapping is None:
                 mapping = self.find_mapping(
                     product_code=line.product_code,
@@ -256,9 +280,8 @@ class TariffMappingService:
                         has_origin_statement=has_origin_statement
                     )
 
-                    # Ažuriraj zemlju, povlasticu i confidence polja
+                    # Ažuriraj zemlju i confidence polja
                     line.zemlja_porijekla = validation_result.final_country
-                    line.povlastica = validation_result.final_preference
                     line.country_confidence = validation_result.confidence.value
                     line.country_source = validation_result.source
                     if validation_result.conflict_details:
@@ -274,9 +297,7 @@ class TariffMappingService:
                     line.product_code or line.naziv_robe[:30],
                     mapping.tarifni_broj
                 ))
-
-                # Inkrementiraj usage_count
-                self._increment_usage(mapping.tarifni_broj, mapping.product_code, mapping.naziv_robe)
+                _usage_batch.append((mapping.tarifni_broj, mapping.product_code, mapping.naziv_robe))
 
                 logger.debug(f"  ✅ Stavka #{line.line_no}: {line.product_code} → {mapping.tarifni_broj} "
                             f"(povlastica={line.povlastica or 'N/A'}, eur1={line.eur1_number or 'N/A'})")
@@ -296,7 +317,7 @@ class TariffMappingService:
                         line.country_confidence = "HIGH"
                         line.country_source = "PDF_IZJAVA"
                     else:
-                        line.country_confidence = "MEDIUM"
+                        line.country_confidence = "HIGH"
                         line.country_source = "PDF_OZNAKA"
                         line.country_conflict_details = "PDF nema izjavu o poreklu - potrebna intervencija za povlasticu"
                 else:
@@ -305,6 +326,10 @@ class TariffMappingService:
                     line.country_conflict_details = "Nema podataka o poreklu - potreban manuelni unos ili EUR1"
 
                 logger.debug(f"  ⚠️  Stavka #{line.line_no}: {line.product_code} - nije pronađen mapping")
+
+        # Batch increment usage_count — jedna DB konekcija za sve matcheve
+        if _usage_batch:
+            self._increment_usage_batch(_usage_batch)
 
         result = MappingResult(
             total_items=len(invoice_lines),
@@ -315,6 +340,63 @@ class TariffMappingService:
         )
 
         logger.info(f"✅ Auto-popunjavanje završeno: {matched_count}/{len(invoice_lines)} stavki popunjeno")
+
+        return result
+
+    def find_batch_by_product_codes(
+        self, product_codes: List[str]
+    ) -> Dict[str, "TariffMapping"]:
+        """
+        Batch lookup po product_code — jedan SQL umjesto N.
+
+        Vraća dict {product_code_upper: TariffMapping} samo za tačne i prefix matcheve.
+        Linije bez hita trebaju proći kroz find_mapping() za fuzzy/vote matching.
+        """
+        codes = [c.strip() for c in product_codes if c and c.strip()]
+        if not codes:
+            return {}
+
+        result: Dict[str, TariffMapping] = {}
+        try:
+            with get_db_connection() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("""
+                        SELECT DISTINCT ON (input_code)
+                               input_code,
+                               product_code, naziv_robe, commodity_code,
+                               precision_1, zemlja_porijekla, povlastica, usage_count,
+                               match_type
+                        FROM (
+                            SELECT
+                                unnest(%s::text[]) AS input_code,
+                                m.product_code, m.naziv_robe, m.commodity_code,
+                                m.precision_1, m.zemlja_porijekla, m.povlastica,
+                                m.usage_count,
+                                CASE WHEN m.product_code ILIKE unnest(%s::text[])
+                                     THEN 0 ELSE 1 END AS match_type
+                            FROM catalogs.product_tariff_mapping m
+                            WHERE EXISTS (
+                                SELECT 1 FROM unnest(%s::text[]) AS q
+                                WHERE m.product_code ILIKE q
+                                   OR q ILIKE m.product_code || '%%'
+                            )
+                        ) sub
+                        ORDER BY input_code, match_type, usage_count DESC
+                    """, (codes, codes, codes))
+
+                    for row in cursor.fetchall():
+                        result[row["input_code"].upper()] = TariffMapping(
+                            product_code=row["product_code"],
+                            naziv_robe=row["naziv_robe"],
+                            tarifni_broj=row["commodity_code"],
+                            precision_1=row["precision_1"],
+                            zemlja_porijekla=row["zemlja_porijekla"] or "",
+                            povlastica=row["povlastica"] or "",
+                            usage_count=row["usage_count"],
+                            similarity=1.0,
+                        )
+        except Exception as e:
+            logger.debug(f"⚠️ find_batch_by_product_codes greška: {e}")
 
         return result
 
@@ -343,16 +425,20 @@ class TariffMappingService:
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
 
-                # 1. Pokušaj tačan match po product_code
+                # 1. Pokušaj tačan match ili prefix match po product_code
+                # Prefix match: DB kod je prefiks traženog koda (npr. "26WG0703" ↔ "26WG0703-TAUPE")
                 if product_code and product_code.strip():
                     cursor.execute("""
                         SELECT product_code, naziv_robe, commodity_code, precision_1,
                                zemlja_porijekla, povlastica, usage_count
                         FROM catalogs.product_tariff_mapping
                         WHERE product_code ILIKE %s
-                        ORDER BY usage_count DESC
+                           OR (%s ILIKE product_code || '%%' AND product_code != '')
+                        ORDER BY
+                            CASE WHEN product_code ILIKE %s THEN 0 ELSE 1 END,
+                            usage_count DESC
                         LIMIT 1
-                    """, (product_code.strip(),))
+                    """, (product_code.strip(), product_code.strip(), product_code.strip()))
 
                     row = cursor.fetchone()
                     if row:
@@ -482,7 +568,7 @@ class TariffMappingService:
                                 usage_count=row["usage_count"],
                                 similarity=final_similarity
                             )
-                            if best_similarity >= 0.98:
+                            if best_similarity >= 0.95:
                                 break
 
                     if best_match:
@@ -828,21 +914,26 @@ class TariffMappingService:
             return False
 
     def _increment_usage(self, tarifni_broj: str, product_code: Optional[str], naziv_robe: str):
-        """Inkrementiraj usage_count za mapping."""
+        """Inkrementiraj usage_count za jednu stavku. Za petlje koristiti _increment_usage_batch."""
+        self._increment_usage_batch([(tarifni_broj, product_code, naziv_robe)])
+
+    def _increment_usage_batch(self, items: list):
+        """Batch increment usage_count — jedna DB konekcija za N stavki."""
+        if not items:
+            return
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cursor:
-                    cursor.execute("""
+                    cursor.executemany("""
                         UPDATE catalogs.product_tariff_mapping
                         SET usage_count = usage_count + 1,
                             last_used = CURRENT_TIMESTAMP
                         WHERE commodity_code = %s
                           AND product_code = %s
                           AND naziv_robe = %s
-                    """, (tarifni_broj, product_code or "", naziv_robe))
-
+                    """, [(t, p or "", n) for t, p, n in items])
         except Exception as e:
-            logger.warning(f"⚠️  Greška pri ažuriranju usage_count: {e}")
+            logger.warning(f"⚠️  Greška pri batch ažuriranju usage_count: {e}")
 
     def learn_from_draft(self, invoice_lines: List[InvoiceLine]) -> int:
         """
@@ -943,6 +1034,12 @@ class TariffMappingService:
                         tree = ET.parse(xml_path)
                         root = tree.getroot()
                         items = root.findall(".//Item")
+
+                        # Izvuci ime izvoznika iz XML zaglavlja (prva linija)
+                        exp_el = root.find(".//Traders/Exporter/Exporter_name")
+                        exporter_name = ""
+                        if exp_el is not None and exp_el.text:
+                            exporter_name = exp_el.text.strip().split('\n')[0].strip()
                         logger.debug(f"   Pronađeno Item tagova: {len(items)}")
 
                         for item in items:
@@ -979,8 +1076,8 @@ class TariffMappingService:
 
                                 cursor.execute("""
                                     INSERT INTO catalogs.product_tariff_mapping
-                                    (product_code, naziv_robe, commodity_code, precision_1, zemlja_porijekla, povlastica, usage_count, source)
-                                    VALUES (%s, %s, %s, %s, %s, %s, 1, %s)
+                                    (product_code, naziv_robe, commodity_code, precision_1, zemlja_porijekla, povlastica, usage_count, source, supplier)
+                                    VALUES (%s, %s, %s, %s, %s, %s, 1, %s, %s)
                                     ON CONFLICT (product_code, naziv_robe, commodity_code) DO UPDATE SET
                                         precision_1 = CASE
                                             WHEN EXCLUDED.precision_1 != '000' THEN EXCLUDED.precision_1
@@ -990,9 +1087,14 @@ class TariffMappingService:
                                             WHEN catalogs.product_tariff_mapping.source = '' THEN EXCLUDED.source
                                             ELSE catalogs.product_tariff_mapping.source
                                         END,
+                                        supplier = CASE
+                                            WHEN catalogs.product_tariff_mapping.supplier IS NULL
+                                              OR catalogs.product_tariff_mapping.supplier = '' THEN EXCLUDED.supplier
+                                            ELSE catalogs.product_tariff_mapping.supplier
+                                        END,
                                         usage_count = catalogs.product_tariff_mapping.usage_count + 1,
                                         last_used = CURRENT_TIMESTAMP
-                                """, ("", naziv_clean, tarif, precision, zemlja or "", povlastica or "", source_name))
+                                """, ("", naziv_clean, tarif, precision, zemlja or "", povlastica or "", source_name, exporter_name))
 
                                 if cursor.rowcount > 0:
                                     stats['imported'] += 1

@@ -425,6 +425,7 @@ class DeclarationDraft:
 
     # Troškovi
     trosak_1: str = "0,00"
+    trosak_1_valuta: str = ""   # "" = BAM, "EUR" = strana valuta s kursom
     trosak_2: str = "0,00"
     trosak_3: str = "0,00"
     trosak_4: str = "0,00"
@@ -440,7 +441,11 @@ class DeclarationDraft:
     header_attached_documents: List[AttachedDocument] = field(default_factory=list)
 
     source_files: List[str] = field(default_factory=list)
+    invoice_weights: Dict[str, Tuple[float, float]] = field(default_factory=dict)
     warnings: List[str] = field(default_factory=list)
+
+    # True samo za importere koji zahtijevaju podjelu po zemljama (KG Fashion / PRET A PORTER)
+    allow_country_split: bool = False
 
     dirty: bool = False
     created_at: str = field(
@@ -459,7 +464,7 @@ class DeclarationDraft:
 
     def _notify_data_change(self) -> None:
         """Obavesti sve registrovane callback-ove o promeni podataka."""
-        for callback in self._data_change_callbacks:
+        for callback in list(self._data_change_callbacks):
             try:
                 callback()
             except Exception as e:
@@ -493,6 +498,17 @@ class DeclarationDraft:
         self.items.append(new_item)
         self.mark_dirty()
         return new_item
+
+    def remove_item(self, item_id: str) -> bool:
+        """Ukloni naimenovanje po item_id i renumeriši redne brojeve."""
+        before = len(self.items)
+        self.items = [it for it in self.items if it.item_id != item_id]
+        if len(self.items) == before:
+            return False
+        for i, it in enumerate(self.items, 1):
+            it.ordinal_no = i
+        self.mark_dirty()
+        return True
 
     def apply_to_all(self, field_name: str, value: Any) -> None:
         for it in self.items:

@@ -19,6 +19,92 @@ from services.tariff_mapping_service import TariffMapping
 from core.draft import NaimenovanjeDraft
 
 
+def _tariff_digits(value: str | None) -> str:
+    return "".join(ch for ch in str(value or "") if ch.isdigit())
+
+
+def _clamp_similarity(value: float | None) -> float:
+    try:
+        similarity = float(value or 0)
+    except (TypeError, ValueError):
+        return 0.0
+    return max(0.0, min(similarity, 1.0))
+
+
+def _format_similarity(value: float | None) -> str:
+    return f"{_clamp_similarity(value):.0%}"
+
+
+def _tariff_change_profile(current_code: str | None, suggested_code: str | None) -> dict:
+    current = _tariff_digits(current_code)
+    suggested = _tariff_digits(suggested_code)
+
+    if not suggested:
+        return {
+            "level": "high",
+            "label": "Rizik: visok - prijedlog nema tarifni broj",
+            "apply_default": False,
+            "border": "#D32F2F",
+            "background": "#FFEBEE",
+            "hover": "#FFCDD2",
+            "text_color": "#B71C1C",
+        }
+
+    if not current:
+        return {
+            "level": "medium",
+            "label": "Rizik: srednji - nema trenutne tarife za poređenje",
+            "apply_default": False,
+            "border": "#FFB300",
+            "background": "#FFF8E1",
+            "hover": "#FFECB3",
+            "text_color": "#8A5A00",
+        }
+
+    if current == suggested:
+        return {
+            "level": "same",
+            "label": "Rizik: nema promjene tarifnog broja",
+            "apply_default": False,
+            "border": "#90A4AE",
+            "background": "#ECEFF1",
+            "hover": "#CFD8DC",
+            "text_color": "#455A64",
+        }
+
+    if current[:4] == suggested[:4]:
+        return {
+            "level": "low",
+            "label": "Rizik: nizak - ista tarifna glava",
+            "apply_default": True,
+            "border": "#00BCD4",
+            "background": "#E0F7FA",
+            "hover": "#B2EBF2",
+            "text_color": "#00838F",
+        }
+
+    if current[:2] == suggested[:2]:
+        return {
+            "level": "medium",
+            "label": "Rizik: srednji - isto poglavlje, druga tarifna glava",
+            "apply_default": False,
+            "border": "#FFB300",
+            "background": "#FFF8E1",
+            "hover": "#FFECB3",
+            "text_color": "#8A5A00",
+        }
+
+    return {
+        "level": "high",
+        "label": "Rizik: visok - drugo tarifno poglavlje",
+        "apply_default": False,
+        "border": "#D32F2F",
+        "background": "#FFEBEE",
+        "hover": "#FFCDD2",
+        "text_color": "#B71C1C",
+    }
+
+
 class ClickableFrame(QFrame):
     """QFrame koji emituje click event kada se klikne na njega."""
 
@@ -197,19 +283,13 @@ class TariffSuggestionDialog(QDialog):
         card = ClickableFrame(index, self)
         card.setFrameShape(QFrame.NoFrame)
 
-        # Koristi stylesheet umjesto QPalette za bolji rendering
-        if index == 0:
-            card.setStyleSheet(
-                "ClickableFrame { background-color: #E0F7FA; border: 2px solid #00BCD4; border-radius: 8px; }"
-                "ClickableFrame:hover { background-color: #B2EBF2; border: 2px solid #0097A7; }"
-                "QLabel { background: transparent; border: none; }"
-            )
-        else:
-            card.setStyleSheet(
-                "ClickableFrame { background-color: #FFFFFF; border: 1px solid #E0E0E0; border-radius: 8px; }"
-                "ClickableFrame:hover { background-color: #F5F5F5; border: 2px solid #00BCD4; }"
-                "QLabel { background: transparent; border: none; }"
-            )
+        profile = self._mapping_profile(mapping)
+        border_width = 2 if index == 0 else 1
+        card.setStyleSheet(
+            f"ClickableFrame {{ background-color: {profile['background']}; border: {border_width}px solid {profile['border']}; border-radius: 8px; }}"
+            f"ClickableFrame:hover {{ background-color: {profile['hover']}; border: 2px solid {profile['border']}; }}"
+            "QLabel { background: transparent; border: none; }"
+        )
 
         layout = QVBoxLayout(card)
         layout.setSpacing(8)
@@ -258,7 +338,7 @@ class TariffSuggestionDialog(QDialog):
 
         # Match procenat
         match_color = self._get_match_color(mapping.similarity)
-        lbl_match = QLabel(f"Match: {mapping.similarity:.0%}")
+        lbl_match = QLabel(f"Match: {_format_similarity(mapping.similarity)}")
         lbl_match.setStyleSheet(f"color: {match_color}; font-weight: bold; font-size: 12pt;")
         lbl_match.setMinimumWidth(120)  # Povećano sa 100
         lbl_match.setMinimumHeight(25)
@@ -319,6 +399,15 @@ class TariffSuggestionDialog(QDialog):
 
         layout.addLayout(second_row)
 
+        risk_row = QHBoxLayout()
+        risk_row.addSpacing(40)
+        lbl_risk = QLabel(profile["label"])
+        lbl_risk.setStyleSheet(f"color: {profile['text_color']}; font-weight: bold; font-size: 10pt;")
+        lbl_risk.setMinimumHeight(22)
+        risk_row.addWidget(lbl_risk)
+        risk_row.addStretch()
+        layout.addLayout(risk_row)
+
         # Edge Case 5: Sličan kvalitet matcha
         if index > 0:
             diff = self.mappings[0].similarity - mapping.similarity
@@ -335,6 +424,12 @@ class TariffSuggestionDialog(QDialog):
 
         return card
 
+    def _mapping_profile(self, mapping: TariffMapping) -> dict:
+        return _tariff_change_profile(
+            self.current_item.tariff_code,
+            mapping.tarifni_broj,
+        )
+
     def _create_progress_bar(self, similarity: float) -> QWidget:
         """Kreira progress bar za match %."""
         from PySide6.QtWidgets import QProgressBar
@@ -342,12 +437,13 @@ class TariffSuggestionDialog(QDialog):
         progress = QProgressBar()
         progress.setMinimum(0)
         progress.setMaximum(100)
-        progress.setValue(int(similarity * 100))
+        progress.setValue(int(_clamp_similarity(similarity) * 100))
         progress.setTextVisible(False)
         progress.setMaximumWidth(100)
         progress.setMaximumHeight(12)
 
         # Boja prema kvalitetu matcha
+        similarity = _clamp_similarity(similarity)
         if similarity >= 0.9:
             color = "#4CAF50"  # Zelena
         elif similarity >= 0.75:
@@ -371,6 +467,7 @@ class TariffSuggestionDialog(QDialog):
 
     def _get_match_color(self, similarity: float) -> str:
         """Vraća boju prema kvalitetu matcha."""
+        similarity = _clamp_similarity(similarity)
         if similarity >= 0.9:
             return "#4CAF50"  # Zelena
         elif similarity >= 0.75:
@@ -422,9 +519,13 @@ class TariffSuggestionDialog(QDialog):
         title.setMinimumWidth(100)
         layout.addWidget(title)
 
-        # Checkbox: Primijeni tarifni broj (default checked)
+        apply_tariff_default = False
+        if self.selected_mapping:
+            apply_tariff_default = self._mapping_profile(self.selected_mapping)["apply_default"]
+
+        # Checkbox: Primijeni tarifni broj
         self.chk_apply_tariff = QCheckBox("Primijeni tarifni broj")
-        self.chk_apply_tariff.setChecked(True)
+        self.chk_apply_tariff.setChecked(apply_tariff_default)
         self.chk_apply_tariff.setStyleSheet("font-size: 11pt;")
         self.chk_apply_tariff.setMinimumWidth(220)
         layout.addWidget(self.chk_apply_tariff)
@@ -468,6 +569,10 @@ class TariffSuggestionDialog(QDialog):
             }
             QPushButton:pressed {
                 background-color: #3D8B40;
+            }
+            QPushButton:disabled {
+                background-color: #BDBDBD;
+                color: #F5F5F5;
             }
         """)
         self.btn_apply.setMinimumWidth(200)
@@ -539,8 +644,11 @@ class TariffSuggestionDialog(QDialog):
         self.btn_reject.clicked.connect(self._on_reject_clicked)
         self.btn_manual.clicked.connect(self._on_manual_clicked)
 
-        # Checkbox za tarifni broj - mora biti checked
         self.chk_apply_tariff.stateChanged.connect(self._on_checkbox_changed)
+        self.chk_apply_povlastica.stateChanged.connect(self._on_checkbox_changed)
+        self.chk_apply_zemlja.stateChanged.connect(self._on_checkbox_changed)
+        if self.selected_mapping:
+            self._apply_selected_profile()
 
     def _on_radio_changed(self, button):
         """Radio button promijenjen - update selected mapping."""
@@ -552,8 +660,7 @@ class TariffSuggestionDialog(QDialog):
         logger.debug(f"   Tarifni broj: {self.selected_mapping.tarifni_broj}")
         logger.debug(f"   Match: {self.selected_mapping.similarity:.0%}")
 
-        # Update checkbox labels sa novim vrijednostima
-        self.chk_apply_tariff.setText(f"Primijeni tarifni broj ({self.selected_mapping.tarifni_broj})")
+        self._apply_selected_profile()
 
         if self.selected_mapping.povlastica:
             self.chk_apply_povlastica.setText(
@@ -575,11 +682,30 @@ class TariffSuggestionDialog(QDialog):
             self.chk_apply_zemlja.setEnabled(False)
             self.chk_apply_zemlja.setChecked(False)
 
+    def _apply_selected_profile(self):
+        if not self.selected_mapping:
+            return
+
+        profile = self._mapping_profile(self.selected_mapping)
+        self.chk_apply_tariff.setText(
+            f"Primijeni tarifni broj ({self.selected_mapping.tarifni_broj}) - {profile['label']}"
+        )
+        self.chk_apply_tariff.setChecked(profile["apply_default"])
+        self._update_apply_button_state()
+
     def _on_checkbox_changed(self):
-        """Checkbox za tarifni broj mora biti checked."""
-        if not self.chk_apply_tariff.isChecked():
-            # Ne dozvoli unchecking
-            self.chk_apply_tariff.setChecked(True)
+        """Ažuriraj dostupnost primjene prema izabranim poljima."""
+        self._update_apply_button_state()
+
+    def _update_apply_button_state(self):
+        if not hasattr(self, "btn_apply"):
+            return
+        has_action = (
+            self.chk_apply_tariff.isChecked()
+            or self.chk_apply_povlastica.isChecked()
+            or self.chk_apply_zemlja.isChecked()
+        )
+        self.btn_apply.setEnabled(has_action)
 
     def _on_apply_clicked(self):
         """Korisnik prihvatio prijedlog."""

@@ -12,11 +12,12 @@ from PySide6.QtCore import Qt, Signal
 from pathlib import Path
 from gui.tabs.base_view import BaseTabView
 from gui.tabs.admin.panels.plugin_panel import PluginPanel
-from gui.tabs.admin.panels.settings_panel import SettingsPanel
 from gui.tabs.admin.panels.database_panel import DatabasePanel
 from gui.tabs.admin.panels.logs_panel import LogsPanel
 from gui.tabs.admin.panels.system_panel import SystemPanel
 from gui.tabs.admin.panels.analytics_panel import AnalyticsPanel
+from gui.tabs.admin.panels.license_panel import LicensePanel
+from gui.tabs.admin.panels.learning_panel import LearningPanel
 import qtawesome as qta
 
 
@@ -114,11 +115,12 @@ class AdminView(BaseTabView):
 
         items = [
             ("fa5s.box",          "Upravljanje Parserima",  "Instaliraj, ukloni, ponovo učitaj parsere"),
-            ("fa5s.cog",          "Podešavanja",            "Konfiguracija aplikacije - tema, jezik, backup"),
-            ("fa5s.database",     "Baza Podataka",          "Backup i restore baze podataka"),
+            ("fa5s.database",     "Baza Podataka",          "Status PostgreSQL baze i broj zapisa"),
             ("fa5s.chart-bar",    "Analitika",              "Statistika import-a i korišćenje parsera"),
             ("fa5s.file-alt",     "Logovi",                 "Pregled i filtriranje logova"),
             ("fa5s.info-circle",  "Sistemske Informacije",  "Informacije o sistemu i aplikaciji"),
+            ("fa5s.key",          "Licenca",                "Machine ID, status licence, uvoz licence"),
+            ("fa5s.brain",        "Učenje iz XML-ova",      "Reindeksiranje XML deklaracija i pregled stanja baze znanja"),
         ]
 
         for icon_name, item_text, tooltip in items:
@@ -167,10 +169,6 @@ class AdminView(BaseTabView):
         self.plugin_panel = PluginPanel()
         self.content_stack.addWidget(self.plugin_panel)
 
-        # Settings panel
-        self.settings_panel = SettingsPanel()
-        self.content_stack.addWidget(self.settings_panel)
-
         # Database panel
         self.database_panel = DatabasePanel()
         self.content_stack.addWidget(self.database_panel)
@@ -187,6 +185,14 @@ class AdminView(BaseTabView):
         self.system_panel = SystemPanel()
         self.content_stack.addWidget(self.system_panel)
 
+        # License panel
+        self.license_panel = LicensePanel()
+        self.content_stack.addWidget(self.license_panel)
+
+        # Learning panel
+        self.learning_panel = LearningPanel()
+        self.content_stack.addWidget(self.learning_panel)
+
     def _on_nav_changed(self, index: int):
         """
         Handler za promjenu navigation selection.
@@ -201,10 +207,6 @@ class AdminView(BaseTabView):
     def get_plugin_panel(self) -> PluginPanel:
         """Getter za plugin panel."""
         return self.plugin_panel
-
-    def get_settings_panel(self) -> SettingsPanel:
-        """Getter za settings panel."""
-        return self.settings_panel
 
     def get_database_panel(self) -> DatabasePanel:
         """Getter za database panel."""
@@ -221,6 +223,18 @@ class AdminView(BaseTabView):
     def get_system_panel(self) -> SystemPanel:
         """Getter za system panel."""
         return self.system_panel
+
+    def get_settings_panel(self) -> SystemPanel:
+        """Backward-compatible alias za stari naziv panela."""
+        return self.system_panel
+
+    def get_license_panel(self) -> LicensePanel:
+        """Getter za license panel."""
+        return self.license_panel
+
+    def get_learning_panel(self) -> LearningPanel:
+        """Getter za learning panel."""
+        return self.learning_panel
 
     def get_data(self) -> dict:
         return {}

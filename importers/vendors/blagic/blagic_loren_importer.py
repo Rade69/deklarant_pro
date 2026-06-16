@@ -35,7 +35,7 @@ def detect_blagic_loren_excel(filepath: str) -> bool:
     Kriteriji:
     - Extension .xlsx
     - Ima header: "RB", "Kod", "Artikal", "JM", "Kolicina", "Težina po komadu kg", "Težina ukupno kg", "Tarifni broj", "Poreklo"
-    - Sheet ime sadrži "VP-2025" ili "BLAGIC"
+    - Sheet ime sadrži "VP-20xx" ili "BLAGIC"
 
     Args:
         filepath: Putanja do Excel fajla
@@ -56,7 +56,7 @@ def detect_blagic_loren_excel(filepath: str) -> bool:
             sheet_name_upper = sheet.title.upper()
 
             # Check if sheet name contains indicators
-            if "VP-2025" in sheet_name_upper or "BLAGIC" in sheet_name_upper:
+            if re.search(r"VP-20\d{2}", sheet_name_upper) or "BLAGIC" in sheet_name_upper:
                 # Check header row (row 1)
                 header_values = []
                 for cell in sheet[1]:
@@ -109,48 +109,43 @@ def _find_and_extract_weights_from_pdf(excel_path: str) -> tuple[float, float]:
 
     try:
         with pdfplumber.open(pdf_path) as pdf:
-            # Extract text from all pages
-            full_text = ""
+            pages_text = []
             for page in pdf.pages:
-                full_text += page.extract_text() or ""
+                text = page.extract_text() or ""
+                pages_text.append(text)
+                page.flush_cache()  # oslobodi memoriju stranice odmah
+            full_text = "\n".join(pages_text)
 
-            # Search for weight information
-            # Format: "Gross weight: 394,15 kg" and "Net weight: 383,00 kg"
-            bruto_kg = 0.0
-            neto_kg = 0.0
+        bruto_kg = 0.0
+        neto_kg = 0.0
 
-            # Try to find Gross weight
-            gross_match = re.search(r'Gross\s+weight:\s*([\d,\.]+)\s*kg', full_text, re.IGNORECASE)
-            if gross_match:
-                weight_str = gross_match.group(1).replace(',', '.')
-                bruto_kg = float(weight_str)
-                logger.info(f"Extracted Gross weight: {bruto_kg} kg")
+        gross_match = re.search(r'Gross\s+weight:\s*([\d,\.]+)\s*kg', full_text, re.IGNORECASE)
+        if gross_match:
+            bruto_kg = float(gross_match.group(1).replace(',', '.'))
+            logger.info(f"Extracted Gross weight: {bruto_kg} kg")
 
-            # Try to find Net weight
-            net_match = re.search(r'Net\s+weight:\s*([\d,\.]+)\s*kg', full_text, re.IGNORECASE)
-            if net_match:
-                weight_str = net_match.group(1).replace(',', '.')
-                neto_kg = float(weight_str)
-                logger.info(f"Extracted Net weight: {neto_kg} kg")
+        net_match = re.search(r'Net\s+weight:\s*([\d,\.]+)\s*kg', full_text, re.IGNORECASE)
+        if net_match:
+            neto_kg = float(net_match.group(1).replace(',', '.'))
+            logger.info(f"Extracted Net weight: {neto_kg} kg")
 
-            # Validation: neto should not be greater than bruto
-            if neto_kg > 0 and bruto_kg > 0 and neto_kg > bruto_kg:
-                logger.warning(f"⚠️ VALIDACIJA: Neto ({neto_kg} kg) > Bruto ({bruto_kg} kg)! Provjerite PDF.")
+        if neto_kg > 0 and bruto_kg > 0 and neto_kg > bruto_kg:
+            logger.warning(f"⚠️ VALIDACIJA: Neto ({neto_kg} kg) > Bruto ({bruto_kg} kg)! Provjerite PDF.")
 
-            return (bruto_kg, neto_kg)
+        return (bruto_kg, neto_kg)
 
     except Exception as e:
         logger.error(f"Error extracting weights from PDF: {e}")
         return (0.0, 0.0)
 
 
-def parse_blagic_loren_excel(filepath: str) -> ImportResult:
+def parse_blagic_loren_excel(filepath: str, _skip_pdf_lookup: bool = False) -> ImportResult:
     """
     Parse Blagic-Loren Excel fakture.
-    Auto-kombinuje sa matching PDF-om za ukupne težine (bruto i neto).
 
     Args:
         filepath: Putanja do Excel fajla
+        _skip_pdf_lookup: True kad se poziva iz combined importera (PDF se obrađuje posebno)
 
     Returns:
         ImportResult sa stavkama i ukupnom težinom
@@ -161,21 +156,15 @@ def parse_blagic_loren_excel(filepath: str) -> ImportResult:
     logger.info(f"Blagic-Loren parsing započet: {filepath}")
 
     try:
-        # Open workbook
         wb = openpyxl.load_workbook(filepath, data_only=True)
-
         try:
-            # Select first sheet (usually the only one)
             sheet = wb.worksheets[0]
             sheet_name = sheet.title
-
             logger.info(f"Parsing sheet: {sheet_name}")
 
-            # Parse header (row 1)
             header_map = _parse_header(sheet)
             logger.info(f"Column mapping: {header_map}")
 
-            # Parse items (from row 2 until sum row)
             items, total_weight_kg, num_packages = _parse_items(sheet, header_map)
 
             logger.info(
@@ -183,25 +172,33 @@ def parse_blagic_loren_excel(filepath: str) -> ImportResult:
                 f"ukupna težina={total_weight_kg} kg, koleta={num_packages}"
             )
         finally:
-            # Ensure workbook is always closed
             wb.close()
 
-        # Extract invoice name from FILENAME (ne sheet name) da bi se matchovao sa PDF-om
-        # Sheet name može imati dodatne prefixe (npr. "24407VP-2026") koji se ne poklapaju sa file name-om
         invoice_name = Path(filepath).stem
-        logger.debug(f"Invoice name: '{invoice_name}' (iz file name-a, ne sheet-a: '{sheet_name}')")
+        logger.debug(f"Invoice name: '{invoice_name}' (sheet: '{sheet_name}')")
 
-        # Try to find and extract weights from matching PDF
-        bruto_kg, neto_kg = _find_and_extract_weights_from_pdf(filepath)
+        # Izračunaj sumu stavki iz Excela — ovo je precijna vrijednost
+        excel_bruto = sum(item.bruto_kg for item in items)
+        excel_neto  = sum(item.neto_kg  for item in items)
+        if excel_neto == 0.0:
+            excel_neto = total_weight_kg
 
-        # If PDF not found or weights not extracted, use calculated neto from Excel
-        if neto_kg == 0.0:
-            neto_kg = total_weight_kg
-            logger.info(f"Using calculated neto from Excel: {neto_kg} kg")
+        # PDF lookup samo kad Excel stoji samostalno (nije par u combine-u)
+        if not _skip_pdf_lookup:
+            bruto_kg, neto_kg = _find_and_extract_weights_from_pdf(filepath)
+            # PDF ima samo zaokružene vrijednosti — koristi Excel sum ako je precizniji
+            if bruto_kg > 0 and excel_bruto > 0:
+                bruto_kg = excel_bruto
+            elif excel_bruto > 0:
+                bruto_kg = excel_bruto
+            if excel_neto > 0:
+                neto_kg = excel_neto
+        else:
+            bruto_kg = excel_bruto
+            neto_kg  = excel_neto
 
-        # Return ImportResult with weights from PDF (if available)
         _exp = Party(name="LOREN")
-        _imp = Party(name="BLAGIĆ D.O.O.")  # domaća BiH firma
+        _imp = Party(name="BLAGIĆ D.O.O.")
         for item in items:
             item.exporter = _exp
             item.importer = _imp
@@ -270,6 +267,17 @@ def _parse_header(sheet: Worksheet) -> Dict[str, int]:
         elif "poreklo" in header_value or "porijeklo" in header_value:
             column_map["poreklo"] = idx
 
+    if "poreklo" not in column_map:
+        inferred_idx = _infer_poreklo_column(sheet, column_map)
+        if inferred_idx is not None:
+            column_map["poreklo"] = inferred_idx
+            logger.warning(
+                "Blagic-Loren: kolona porijekla detektovana po vrijednostima "
+                "(header='%s', index=%s)",
+                sheet.cell(1, inferred_idx + 1).value,
+                inferred_idx,
+            )
+
     # Validate required columns
     required = ["artikal", "kolicina", "tezina_ukupno"]
     missing = [col for col in required if col not in column_map]
@@ -278,6 +286,44 @@ def _parse_header(sheet: Worksheet) -> Dict[str, int]:
         raise ValueError(f"Nedostaju obavezne kolone u header-u: {missing}")
 
     return column_map
+
+
+def _infer_poreklo_column(sheet: Worksheet, column_map: Dict[str, int]) -> Optional[int]:
+    tariff_idx = column_map.get("tarifni_broj")
+    if tariff_idx is None:
+        return None
+
+    best_idx = None
+    best_hits = 0
+    max_row = min(sheet.max_row, 30)
+
+    for idx in range(tariff_idx + 1, sheet.max_column):
+        hits = 0
+        checked = 0
+        for row_idx in range(2, max_row + 1):
+            artikal_idx = column_map.get("artikal", 2)
+            artikal = sheet.cell(row_idx, artikal_idx + 1).value
+            if not artikal:
+                continue
+
+            value = sheet.cell(row_idx, idx + 1).value
+            if value is None:
+                continue
+
+            checked += 1
+            value_text = str(value).strip()
+            normalized = normalize_country_name(value_text)
+            if normalized and (
+                normalized != value_text.upper()
+                or bool(re.match(r"^[A-Z]{2}$", value_text.upper()))
+            ):
+                hits += 1
+
+        if hits > best_hits and hits >= max(1, checked // 2):
+            best_idx = idx
+            best_hits = hits
+
+    return best_idx
 
 
 def _parse_items(

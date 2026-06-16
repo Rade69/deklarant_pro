@@ -26,7 +26,7 @@ logger = logging.getLogger("deklarant_pro.import")
 _KNOWN_VENDOR_FORMATS = {
     "invoice_improved", "blagic_loren", "blagic_attos",
     "imamoglu", "master_frigo", "medicopharm", "leburic_pekabesko",
-    "proton_system", "sumaprom",
+    "proton_system", "sumaprom", "cmana",
 }
 
 
@@ -119,6 +119,7 @@ class ImportService:
             # 1. Pokušaj kombinovanje sa prethodnim importom
             combined = self._try_combine_with_previous(filepath)
             if combined is not None:
+                self._validate_or_raise(combined, filepath.name)
                 self.logger.info(f"✅ Kombinovani import: {filepath.name}")
                 return combined
 
@@ -128,6 +129,7 @@ class ImportService:
             if ext == ".pdf":
                 packing_result = self._try_import_as_packing_list(filepath)
                 if packing_result is not None:
+                    self._validate_or_raise(packing_result, filepath.name, allow_empty=True)
                     self.last_import_result = packing_result
                     self.last_import_path = str(filepath)
                     self.last_import_type = "packing_list"
@@ -141,15 +143,19 @@ class ImportService:
                     if detect_medicopharm_excel(str(filepath)):
                         self.logger.info("📊 Medicopharm Excel — direktan import")
                         med_result = parse_medicopharm_excel(str(filepath))
+                        self._validate_or_raise(med_result, filepath.name)
                         self.last_import_result = med_result
                         self.last_import_path = str(filepath)
                         self.last_import_type = "medicopharm_excel"
                         return med_result
+                except ImportException:
+                    raise
                 except Exception as e:
                     self.logger.warning(f"⚠️ Medicopharm Excel detekcija greška: {e}")
 
             # 3. Delegiraj registry-u za parsiranje
             result = self.registry.import_file(filepath, progress_callback=progress_callback)
+            self._validate_or_raise(result, filepath.name)
 
             # 4. Sačuvaj stanje za sljedeći import
             self._save_import_state(filepath, result)
@@ -166,6 +172,16 @@ class ImportService:
         except Exception as e:
             self.logger.exception(f"❌ Neočekivana greška tokom importa")
             raise ImportException(f"Import failed: {e}") from e
+
+    def _validate_or_raise(self, result, filename: str, allow_empty: bool = False) -> None:
+        """Baci ImportException ako parser vratio fizički neispravan rezultat."""
+        if not isinstance(result, ImportResult):
+            return
+        ok, errors, _ = result.validate(allow_empty=allow_empty)
+        if not ok:
+            raise ImportException(
+                f"Parsiranje '{filename}' nije uspješno: {'; '.join(errors)}"
+            )
 
     # SECTION: packing_list_gate
     # PURPOSE: Kapija koja odlučuje da li je PDF packing lista PRIJE slanja u registry
@@ -299,7 +315,7 @@ class ImportService:
                         items=combined_items,
                         bruto_kg=stats.get("bruto_kg", 0.0),
                         neto_kg=stats.get("neto_kg", 0.0),
-                        invoice_name=stats.get("invoice_name") or filepath.stem,
+                        invoice_name=stats.get("invoice_name", ""),
                         currency=stats.get("currency", "EUR"),
                         is_combined=True,
                         import_type="loren_excel",
@@ -321,7 +337,7 @@ class ImportService:
                         items=combined_items,
                         bruto_kg=stats.get("bruto_kg", 0.0),
                         neto_kg=stats.get("neto_kg", 0.0),
-                        invoice_name=stats.get("invoice_name") or filepath.stem,
+                        invoice_name=stats.get("invoice_name", ""),
                         currency=stats.get("currency", "EUR"),
                         is_combined=True,
                         import_type="loren_excel",
@@ -361,7 +377,7 @@ class ImportService:
                     items=combined_items,
                     bruto_kg=stats.get("bruto_kg", 0.0),
                     neto_kg=stats.get("neto_kg", 0.0),
-                    invoice_name=stats.get("invoice_name") or filepath.stem,
+                    invoice_name=stats.get("invoice_name", ""),
                     currency=stats.get("currency", "EUR"),
                     is_combined=True,
                     import_type="sumaprom_excel",
@@ -381,7 +397,7 @@ class ImportService:
                     items=combined_items,
                     bruto_kg=stats.get("bruto_kg", 0.0),
                     neto_kg=stats.get("neto_kg", 0.0),
-                    invoice_name=stats.get("invoice_name") or filepath.stem,
+                    invoice_name=stats.get("invoice_name", ""),
                     currency=stats.get("currency", "EUR"),
                     is_combined=True,
                     import_type="sumaprom_excel",
@@ -474,7 +490,7 @@ class ImportService:
         except Exception as e:
             self.logger.warning(f"Invoice+PackingList kombinovanje nije uspjelo: {e}")
 
-        logger.warning("   ⚠️  Nije par - nema kombinovanja")
+        logger.debug("   ℹ️  Nije par - nema kombinovanja")
         return None
 
     def can_import(self, filepath: str | Path) -> bool:

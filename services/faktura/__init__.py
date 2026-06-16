@@ -13,6 +13,7 @@ from services.faktura.validation_service import ValidationService
 from services.faktura.faktura_service import FakturaService
 from services.faktura.error_handler import ErrorHandler
 from services.faktura.theme_manager import ThemeManager
+from services.faktura.weight_guards import normalize_invoice_key
 
 __all__ = [
     "FakturaConstants",
@@ -26,4 +27,5 @@ __all__ = [
     "FakturaService",
     "ErrorHandler",
     "ThemeManager",
+    "normalize_invoice_key",
 ]

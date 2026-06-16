@@ -516,6 +516,30 @@ QComboBox::down-arrow {
     height: 0;
 }
 
+/* Rubrika 40 (Naimenovanja) — forsiraj jasan obrnuti trougao
+   i mali drop-down slot da ne izgleda kao kvadrat/minus. */
+QComboBox#le_rubrika40_1,
+QComboBox#le_rubrika40_2 {
+    padding-right: 16px;
+}
+
+QComboBox#le_rubrika40_1::drop-down,
+QComboBox#le_rubrika40_2::drop-down {
+    width: 16px;
+    border: none;
+}
+
+QComboBox#le_rubrika40_1::down-arrow,
+QComboBox#le_rubrika40_2::down-arrow {
+    image: none;
+    width: 0px;
+    height: 0px;
+    margin-right: 4px;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 7px solid #4a4a4a;
+}
+
 QComboBox QAbstractItemView {
     background: white;
     color: #1F2937;

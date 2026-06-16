@@ -92,25 +92,9 @@ class HistoricalLearningServiceSafe:
     # -----------------------------------------------------------------------
 
     def get_db_connection(self):
-        """Konekcija na bazu koristeći .env config."""
-        import psycopg2
-        env_path = Path(__file__).parent.parent.parent / ".env"
-        db_config = {}
-        if env_path.exists():
-            for line in env_path.read_text().split('\n'):
-                if '=' in line and not line.startswith('#'):
-                    key, val = line.split('=', 1)
-                    db_config[key.strip()] = val.strip()
-
-        host = db_config.get('DB_HOST', '/var/run/postgresql')
-        port = db_config.get('DB_PORT', '5432')
-        dbname = db_config.get('DB_NAME', 'deklarant_pro')
-        user = db_config.get('DB_USER', 'radovan')
-        password = db_config.get('DB_PASSWORD', 'postgres')
-
-        return psycopg2.connect(
-            host=host, port=port, database=dbname, user=user, password=password
-        )
+        """Konekcija na bazu — delegira na centralni pool iz database.db."""
+        from database.db import get_db_connection as _pool_conn
+        return _pool_conn()
 
     # -----------------------------------------------------------------------
     # Normalizacija

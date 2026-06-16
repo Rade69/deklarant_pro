@@ -30,7 +30,7 @@ QLabel.nav-counter {
 }
 
 /* Dropdown selector in navigation */
-QComboBox.nav-combo {
+QComboBox[class="nav-combo"] {
     padding: 6px 10px;
     border: 1px solid #ced4da;
     border-radius: 4px;
@@ -104,6 +104,16 @@ QWidget#naimenovanjaUiWidget QLineEdit {
     background-color: white;
 }
 
+QLineEdit#le_r31_vrsta_naziv {
+    background-color: #e3f2fd;
+    border: 2px solid #2196f3;
+    border-radius: 4px;
+    padding: 3px 6px;
+    font-weight: bold;
+    font-size: 14px;
+    color: #1565c0;
+}
+
 QWidget#naimenovanjaUiWidget QComboBox {
     font-size: 14px;
     color: #333;
@@ -142,4 +152,171 @@ QPushButton#btnPrevRecord:pressed, QPushButton#btnNextRecord:pressed {
 
 QWidget#naimenovanjaUiWidget QTextEdit {
     font-size: 13px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   COMBO BOXES — STATIC STYLES
+   (Dynamic/error styles must remain inline)
+   ═══════════════════════════════════════════════════════════ */
+
+/* Rb.31 Vrsta pakovanja dropdown */
+QComboBox#le_r31_vrsta {
+    border: 2px solid #28a745;
+    border-radius: 6px;
+    padding: 5px 15px;
+    background-color: #ffffff;
+    font-size: 14px;
+    font-weight: 500;
+    min-width: 80px;
+}
+
+QComboBox#le_r31_vrsta:hover {
+    border: 2px solid #4a90e2;
+}
+
+QComboBox#le_r31_vrsta:focus {
+    border: 2px solid #4a90e2;
+    background-color: #f8faff;
+}
+
+QComboBox#le_r31_vrsta:editable {
+    background-color: #ffffff;
+}
+
+QComboBox#le_r31_vrsta::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 30px;
+    border-left: 1px solid #28a745;
+    border-top-right-radius: 6px;
+    border-bottom-right-radius: 6px;
+}
+
+/* CSS triangle arrow for le_r31_vrsta */
+QComboBox#le_r31_vrsta::down-arrow {
+    image: none;
+    width: 0px;
+    height: 0px;
+    margin-right: 6px;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 7px solid #4a4a4a;
+}
+
+QComboBox#le_r31_vrsta QAbstractItemView {
+    border: 1px solid #4a90e2;
+    selection-background-color: #4a90e2;
+    selection-color: white;
+    background-color: #ffffff;
+    outline: 0px;
+    border-radius: 6px;
+    padding: 5px;
+    font-size: 14px;
+    min-width: 600px;
+}
+
+QComboBox#le_r31_vrsta QAbstractItemView::item {
+    height: 30px;
+    padding-left: 10px;
+    border-radius: 4px;
+    margin: 2px 5px;
+}
+
+QComboBox#le_r31_vrsta QAbstractItemView::item:hover {
+    background-color: #e8f0fe;
+    color: #1a73e8;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   NAVIGATION COMBO
+   ═══════════════════════════════════════════════════════════ */
+
+/* Navigation dropdown - uses dynamic property class="nav-combo" */
+QComboBox[class="nav-combo"] {
+    font-size: 14px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border: 2px solid #4A7FA5;
+    border-radius: 5px;
+    background: white;
+    color: #1a1a2e;
+}
+
+QComboBox[class="nav-combo"]:focus {
+    border-color: #2563eb;
+    background: #f0f7ff;
+}
+
+QComboBox[class="nav-combo"]::drop-down {
+    width: 28px;
+    border-left: 1px solid #4A7FA5;
+}
+
+/* CSS triangle arrow for nav-combo */
+QComboBox[class="nav-combo"]::down-arrow {
+    image: none;
+    width: 0px;
+    height: 0px;
+    margin-right: 6px;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 7px solid #4a4a4a;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   TARIFF WARNING LABEL
+   ═══════════════════════════════════════════════════════════ */
+
+QLabel#lbl_tariff_warning {
+    background-color: #FF8C00;
+    color: #FFFFFF;
+    font-weight: bold;
+    font-size: 14px;
+    padding: 2px 10px;
+    border-radius: 4px;
+    border: 1px solid #CC6600;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   TRGOVAČKI NAZIV (Rb.31)
+   ═══════════════════════════════════════════════════════════ */
+
+QTextEdit#le_r31_trg_naziv {
+    background-color: #e3f2fd;
+    border: 2px solid #2196f3;
+    border-radius: 4px;
+    padding: 5px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1565c0;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MAIN GRID FRAME
+   ═══════════════════════════════════════════════════════════ */
+
+QFrame#main_grid_frame {
+    background-color: #f0f0f0;
+    border: 1px solid #999;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   TARIFF DESCRIPTION FIELDS (Rb.31 podbroj/glava)
+   Base styles - colored highlight applied at runtime via Python
+   ═══════════════════════════════════════════════════════════ */
+
+/* Podbroj (te_r31_opis) - base styling */
+QLineEdit#te_r31_opis {
+    border-radius: 4px;
+    padding: 3px 6px;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+/* Heading (te_r31_opis_2) - base styling */
+QLineEdit#te_r31_opis_2 {
+    border-radius: 4px;
+    padding: 3px 6px;
+    font-weight: bold;
+    font-size: 14px;
 }

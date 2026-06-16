@@ -11,6 +11,12 @@ from pathlib import Path
 from typing import Optional
 
 from core.draft.draft import AttachedDocument, DeclarationDraft, NaimenovanjeDraft
+from services.naimenovanja.rub31_builder import (
+    build_asycuda_rub31,
+    is_generic_tariff_text,
+    is_heading_fragment,
+    normalize_tariff_text,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +54,13 @@ _SU_NAMES = {
 # Tarifna poglavlja (1-24) koja u BiH ASYCUDA uvijek zahtijevaju KGM+KGD
 _CHAPTERS_KGM = set(range(1, 25))
 
+_TARIFF_CODE_CORRECTIONS = {
+    "40199090": "39269097",
+    "63079099": "63079098",
+}
+
+_ORIGIN_DOC_CODES = {"PE1", "PE2", "PE3"}
+
 # Mapiranje Rb.37 (Extended_customs_procedure) → Declaration_gen_procedure_code
 _PROC_TO_GEN = {
     "4000": "H", "4200": "H",
@@ -57,18 +70,6 @@ _PROC_TO_GEN = {
     "3151": "C", "3153": "C",
     "2100": "E", "2141": "E",
 }
-
-
-def _clean_tariff_desc(text: str) -> str:
-    """Ukloni fusnote (¹)(3) i normalizuj en-dash → ASCII crtica."""
-    import re
-    if not text:
-        return text
-    # Ukloni fusnote oblika (¹), (³), (1), (23)...
-    cleaned = re.sub(r"\s*\([¹²³⁴⁵⁶⁷⁸⁹⁰\d]+\)", "", text)
-    # en-dash i em-dash → ASCII crtica
-    cleaned = cleaned.replace("–", "-").replace("—", "-").replace("‒", "-")
-    return cleaned.strip()
 
 
 def _null(parent: ET.Element, tag: str) -> ET.Element:
@@ -107,17 +108,47 @@ def _parse_cost(cost_str: str) -> float:
         return 0.0
 
 
-def _gs_cost_section(parent: ET.Element, tag: str, amount: float) -> None:
-    """Kreira Gs_* sekciju troška u zaglavlju."""
+def _fmt_thousands(v: float) -> str:
+    """Formatira broj sa zarezom za hiljade: 1056.01 → '1,056.01'."""
+    if v >= 1000:
+        return f"{v:,.2f}"
+    return f"{v:.2f}"
+
+
+def _fmt_weight(v: float) -> str:
+    """Formatira težinu sa 2 decimale: 516.0→'516.00', 6.28→'6.28', 7171.2→'7171.20'."""
+    return f"{round(v, 2):.2f}"
+
+
+def _gs_cost_section(
+    parent: ET.Element,
+    tag: str,
+    amount: float,
+    foreign_amount: float = 0.0,
+    currency_code: str = "",
+    currency_rate: float = 1.0,
+) -> None:
+    """Kreira Gs_* sekciju troška u zaglavlju.
+
+    Ako je foreign_amount > 0, pretpostavlja se strana valuta (EUR):
+    - Amount_national_currency = amount (BAM)
+    - Amount_foreign_currency = foreign_amount (EUR)
+    - Currency_code = currency_code
+    - Currency_rate = currency_rate
+    Inače: BAM direktno, bez valute.
+    """
     gs = ET.SubElement(parent, tag)
-    _val(gs, "Amount_national_currency", f"{amount:.1f}" if amount else "0.0")
-    _val(gs, "Amount_foreign_currency", f"{amount:.1f}" if amount else "0.0")
-    if amount:
-        _null(gs, "Currency_code")   # <null/> kad postoji iznos
+    _val(gs, "Amount_national_currency", f"{amount:.2f}" if amount else "0.0")
+    if foreign_amount > 0:
+        _val(gs, "Amount_foreign_currency", f"{foreign_amount:.2f}")
+        _val(gs, "Currency_code", currency_code)
+        _val(gs, "Currency_name", "Nema stranih valuta")
+        _val(gs, "Currency_rate", f"{currency_rate:.5f}")
     else:
-        ET.SubElement(gs, "Currency_code")  # prazan kad je 0
-    _val(gs, "Currency_name", "Nema stranih valuta")
-    _val(gs, "Currency_rate", "1" if amount else "0")
+        _val(gs, "Amount_foreign_currency", f"{amount:.2f}" if amount else "0.0")
+        _null(gs, "Currency_code")
+        _val(gs, "Currency_name", "Nema stranih valuta")
+        _val(gs, "Currency_rate", "1" if amount else "0")
 
 
 def _item_cost_section(parent: ET.Element, tag: str) -> None:
@@ -146,6 +177,8 @@ class AsycudaXMLBuilder:
 
     def build(self) -> ET.Element:
         """Kreira kompletan XML tree."""
+        self._apply_known_tariff_corrections()
+        self._record_export_warnings()
         self._add_assessment_notice()
         self._add_global_taxes()
         self._add_property()
@@ -161,6 +194,65 @@ class AsycudaXMLBuilder:
         self._add_valuation()
         self._add_items()
         return self.root
+
+    def _apply_known_tariff_corrections(self) -> None:
+        corrections: list[str] = []
+        for item in self.draft.items:
+            code = (item.tariff_code or "").strip()
+            corrected = _TARIFF_CODE_CORRECTIONS.get(code[:8])
+            if not corrected:
+                continue
+
+            old = code[:8]
+            suffix = code[8:] if len(code) > 8 else ""
+            item.tariff_code = corrected + suffix
+            rb = item.ordinal_no or "?"
+            corrections.append(
+                f"Rb.{rb}: Tarifni broj '{old}' zamijenjen je validnim brojem '{corrected}'."
+            )
+
+        if corrections:
+            existing = list(getattr(self.draft, "warnings", []) or [])
+            for correction in corrections:
+                if correction not in existing:
+                    existing.append(correction)
+                logger.warning("ASYCUDA export korekcija: %s", correction)
+            self.draft.warnings = existing
+
+    def _record_export_warnings(self) -> None:
+        warnings: list[str] = []
+
+        try:
+            from services.tariff.tarifa_service import trazi_po_kodu
+        except Exception:
+            trazi_po_kodu = None
+
+        if trazi_po_kodu:
+            for item in self.draft.items:
+                code = (item.tariff_code or "").strip()
+                if not code:
+                    continue
+                code8 = code[:8]
+                if not trazi_po_kodu(code8):
+                    rb = item.ordinal_no or "?"
+                    warnings.append(
+                        f"Rb.{rb}: Tarifni broj '{code8}' nije pronađen u Carinskoj tarifi 2026."
+                    )
+
+        docs = list(getattr(self.draft, "header_attached_documents", []) or [])
+        for item in self.draft.items:
+            docs.extend(getattr(item, "attached_documents", []) or [])
+        for doc in docs:
+            if (doc.code or "").strip() and not (doc.number or "").strip():
+                warnings.append(f"Priloženi dokument '{doc.code}' nema broj/reference.")
+
+        if warnings:
+            existing = list(getattr(self.draft, "warnings", []) or [])
+            for warning in warnings:
+                if warning not in existing:
+                    existing.append(warning)
+                logger.warning("ASYCUDA export upozorenje: %s", warning)
+            self.draft.warnings = existing
 
     # ─────────────────────────────────────────────────────────────
     # Sekcije zaglavlja
@@ -253,12 +345,12 @@ class AsycudaXMLBuilder:
         _null(ident, "Manifest_reference_number")
 
         reg = ET.SubElement(ident, "Registration")
-        _null(reg, "Serial_number")
-        _null(reg, "Number")
+        ET.SubElement(reg, "Serial_number")
+        ET.SubElement(reg, "Number")
         ET.SubElement(reg, "Date")
 
         assess = ET.SubElement(ident, "Assessment")
-        _null(assess, "Serial_number")
+        ET.SubElement(assess, "Serial_number")
         ET.SubElement(assess, "Number")
         ET.SubElement(assess, "Date")
 
@@ -348,15 +440,18 @@ class AsycudaXMLBuilder:
         _null(destination, "Destination_country_name")
         _null(destination, "Destination_country_region")
 
-        # Zemlja porijekla na nivou zaglavlja — naziv (ne šifra)
+        origin_codes = {
+            (item.origin_country_code or "").strip().upper()
+            for item in self.draft.items
+            if (item.origin_country_code or "").strip()
+        }
         origin_code = self._g("drzava_porijekla")
-        origin_name = ""
-        if origin_code:
+        origin_name = "MNOGO" if len(origin_codes) > 1 else ""
+        if origin_code and not origin_name:
             from sifrarnici.zemlje import get_zemlja_by_kod
             z = get_zemlja_by_kod(origin_code.upper())
             origin_name = z.naziv if z else origin_code
         if not origin_name and self.draft.items:
-            # Fallback: uzmi naziv iz prvog naimenovanja
             from sifrarnici.zemlje import get_zemlja_by_kod
             c = self.draft.items[0].origin_country_code or ""
             z = get_zemlja_by_kod(c.upper())
@@ -515,30 +610,36 @@ class AsycudaXMLBuilder:
         """<Valuation> — vrijednosti na nivou zaglavlja."""
         val = ET.SubElement(self.root, "Valuation")
 
-        _val(val, "Calculation_working_mode", "0")
+        ET.SubElement(val, "Calculation_working_mode").text = "0"
 
         weight = ET.SubElement(val, "Weight")
         total_gross = sum(item.gross_mass_kg or 0.0 for item in self.draft.items)
         gross_w = ET.SubElement(weight, "Gross_weight")
         if total_gross:
-            gross_w.text = f"{total_gross:.2f}"
+            gross_w.text = _fmt_weight(total_gross)
 
-        t1 = _parse_cost(self._g("trosak_1"))
+        t1_eur = _parse_cost(self._g("trosak_1"))  # unesen iznos (EUR ili BAM)
         t2 = _parse_cost(self._g("trosak_2"))
         t3 = _parse_cost(self._g("trosak_3"))
         t4 = _parse_cost(self._g("trosak_4"))
         t5 = _parse_cost(self._g("trosak_5"))
-        total_cost = t1 + t2 + t3 + t4 + t5
-
-        cost_elem = ET.SubElement(val, "Total_cost")
-        cost_elem.text = f"{total_cost:.1f}" if total_cost else ""
-
         kurs = self.draft.kurs or 1.0
         iznos = self.draft.iznos or 0.0
 
-        # Total_CIF = iznos_BAM + ext_freight (ista logika kao na stavkama)
-        # Formula iz referentnih fajlova: Total_CIF = (iznos_EUR × kurs) + Gs_external_freight
+        # Ako je vozarina u EUR, pretvori u BAM za izračune
+        t1_valuta = self._g("trosak_1_valuta")
+        if t1_valuta and t1_valuta != "BAM" and t1_eur > 0:
+            t1 = round(t1_eur * kurs, 2)   # BAM ekvivalent za izračune
+        else:
+            t1 = t1_eur                     # već u BAM
+
+        total_cost = t1 + t2 + t3 + t4 + t5
+        cost_elem = ET.SubElement(val, "Total_cost")
+        cost_elem.text = f"{total_cost:.2f}" if total_cost else ""
+
         iznos_bam = round(iznos * kurs, 2)
+
+        # Total_CIF = iznos_BAM + ext_freight_BAM
         total_cif = iznos_bam + t1
         cif_elem = ET.SubElement(val, "Total_CIF")
         if total_cif:
@@ -557,8 +658,16 @@ class AsycudaXMLBuilder:
         _val(gs_inv, "Currency_name", "Nema stranih valuta")
         _val(gs_inv, "Currency_rate", f"{kurs:.5f}")
 
-        # Troškovi: t1=prevoz vanjski, t2=osiguranje, t3=ostalo, t4=unutrašnji, t5=popust
-        _gs_cost_section(val, "Gs_external_freight", t1)
+        # Troškovi: t1=prevoz vanjski (možda EUR), t2=osiguranje, t3=ostalo, t4=unutrašnji, t5=popust
+        t1_valuta = self._g("trosak_1_valuta")  # "" = BAM, "EUR" = strana valuta
+        if t1_valuta and t1_valuta != "BAM" and t1 > 0:
+            # Vanjska vozarina u EUR: t1 je iznos u EUR, konvertuj na BAM
+            t1_bam = round(t1 * kurs, 2)
+            _gs_cost_section(val, "Gs_external_freight",
+                             foreign_amount=t1, amount=t1_bam,
+                             currency_code=t1_valuta, currency_rate=kurs)
+        else:
+            _gs_cost_section(val, "Gs_external_freight", t1)
         _gs_cost_section(val, "Gs_internal_freight", t4)
         _gs_cost_section(val, "Gs_insurance", t2)
         _gs_cost_section(val, "Gs_other_cost", t3)
@@ -566,12 +675,11 @@ class AsycudaXMLBuilder:
 
         total = ET.SubElement(val, "Total")
         ti = ET.SubElement(total, "Total_invoice")
-        if iznos_bam:
-            ti.text = f"{iznos_bam:.2f}"
-        total_net = sum(item.net_mass_kg or 0.0 for item in self.draft.items)
+        if iznos:
+            ti.text = f"{iznos:.2f}"
         tw = ET.SubElement(total, "Total_weight")
-        if total_net:
-            tw.text = f"{total_net:.2f}"
+        if total_gross:
+            tw.text = _fmt_weight(total_gross)
 
     # ─────────────────────────────────────────────────────────────
     # Item sekcije
@@ -595,8 +703,11 @@ class AsycudaXMLBuilder:
                         code=pref_doc_code,
                         name=_PREF_TO_DOC_NAME.get(pref_doc_code, ""),
                         number=origin_ref,
-                        from_rule=True,
+                        from_rule=False,  # PE/EUR.1 nisu from_rule — dolaze prije N380/DIS/DV1
                     ))
+
+        # Sortiraj: non-from_rule dokumenti idu prije from_rule (ASYCUDA standard)
+        header_docs.sort(key=lambda d: (1 if d.from_rule else 0))
 
         for idx, item in enumerate(self.draft.items):
             is_first = idx == 0
@@ -612,7 +723,11 @@ class AsycudaXMLBuilder:
         item_elem = ET.SubElement(self.root, "Item")
 
         # Troškovi na nivou zaglavlja (za Valuation_item alpha raspodjelu)
-        t1 = _parse_cost(self._g("trosak_1"))
+        kurs = self.draft.kurs or 1.0
+        t1_valuta = self._g("trosak_1_valuta")
+        t1_raw = _parse_cost(self._g("trosak_1"))
+        # t1 uvijek u BAM za izračune
+        t1 = round(t1_raw * kurs, 2) if (t1_valuta and t1_valuta != "BAM" and t1_raw > 0) else t1_raw
         t2 = _parse_cost(self._g("trosak_2"))
         t3 = _parse_cost(self._g("trosak_3"))
         t4 = _parse_cost(self._g("trosak_4"))
@@ -622,20 +737,18 @@ class AsycudaXMLBuilder:
         alpha = item_val / total_items_value if total_items_value > 0 else 0.0
 
         # Priložene isprave
-        from_rule_codes: list[str] = []
+        # Sve šifre header dokumenata — idu u Attached_doc_item na prvoj stavci
+        all_header_codes: list[str] = []
 
         # 1. Header dokumenti (samo za prvu stavku)
         for doc in header_docs:
             self._add_attached_doc(item_elem, doc)
-            if doc.from_rule:
-                from_rule_codes.append(doc.code)
+            all_header_codes.append(doc.code)
 
         # 2. Strukturirani dokumenti stavke (bez pref_doc — ti su prebačeni na prvu stavku)
         if item.attached_documents:
             for doc in item.attached_documents:
                 self._add_attached_doc(item_elem, doc)
-                if doc.from_rule:
-                    from_rule_codes.append(doc.code)
 
         # Packages
         packages = ET.SubElement(item_elem, "Packages")
@@ -643,8 +756,8 @@ class AsycudaXMLBuilder:
         _val(packages, "Number_of_packages", str(qty))
         _val(packages, "Marks1_of_packages", item.package_marks or "X")
         _val(packages, "Marks2_of_packages", "X")
-        _val(packages, "Kind_of_packages_code", item.package_code or "PK")
-        _val(packages, "Kind_of_packages_name", item.package_name or "Pakovanje")
+        _val(packages, "Kind_of_packages_code", item.package_code or "PP")
+        _val(packages, "Kind_of_packages_name", item.package_name or "Komadi")
 
         # IncoTerms (na nivou stavke = isti kao zaglavlje)
         incoterms = ET.SubElement(item_elem, "IncoTerms")
@@ -702,7 +815,7 @@ class AsycudaXMLBuilder:
                 code, qty = su_pairs[i]
                 _val(su_el, "Suppplementary_unit_code", code)
                 _val(su_el, "Suppplementary_unit_name", _SU_NAMES.get(code, code))
-                ET.SubElement(su_el, "Suppplementary_unit_quantity").text = f"{qty:.2f}"
+                ET.SubElement(su_el, "Suppplementary_unit_quantity").text = _fmt_weight(qty)
             else:
                 _null(su_el, "Suppplementary_unit_code")
                 _null(su_el, "Suppplementary_unit_name")
@@ -726,10 +839,15 @@ class AsycudaXMLBuilder:
         _vi_oth = t3 * _vi_alpha
         _vi_ded = t5 * _vi_alpha
         vi_elem = ET.SubElement(tarif, "Value_item")
-        vi_elem.text = f"{_vi_ext:.2f}+{_vi_int:.2f}+{_vi_ins:.2f}+{_vi_oth:.2f}-{_vi_ded:.2f}"
+        vi_elem.text = (
+            f"{_fmt_thousands(_vi_ext)}+{_fmt_thousands(_vi_int)}"
+            f"+{_fmt_thousands(_vi_ins)}+{_fmt_thousands(_vi_oth)}"
+            f"-{_fmt_thousands(_vi_ded)}"
+        )
 
-        # Attached_doc_item — na prvoj stavci: space-separated from_rule kodovi
-        # Na ostalim stavkama: null (ASYCUDA World standard)
+        # Attached_doc_item — samo from_rule šifre (N380, DIS, DV1...)
+        # ASYCUDA standard: PE/EUR.1 i ostali ne-from_rule dokumenti se NE navode ovdje
+        from_rule_codes = [doc.code for doc in header_docs if doc.from_rule]
         if is_first and from_rule_codes:
             adi = ET.SubElement(tarif, "Attached_doc_item")
             adi.text = " ".join(from_rule_codes) + " "
@@ -744,14 +862,15 @@ class AsycudaXMLBuilder:
         _val(goods, "Country_of_origin_code", item.origin_country_code or "")
         _null(goods, "Country_of_origin_region")
 
-        # Description_of_goods = VIDLJIVO u ASYCUDA Rb.31 — limit 280 karaktera
-        # Rebuilda iz drafa: heading + nazivi proizvoda + faktura info
+        # Description_of_goods = kratki zvanični tarifni heading (ASYCUDA standard)
         _DESC_MAX = 280
         desc_of_goods = self._build_description_of_goods(item, _DESC_MAX)
         _val(goods, "Description_of_goods", desc_of_goods)
 
-        # Commercial_Description — tariff_description1/2 su interni GUI podaci, ne idu u XML
-        _val(goods, "Commercial_Description", "")
+        # Commercial_Description = nazivi proizvoda + faktura info
+        # ASYCUDA World prikazuje ovo polje u Rub.31 — mora biti popunjeno
+        commercial_desc = self._build_commercial_description(item, _DESC_MAX)
+        _val(goods, "Commercial_Description", commercial_desc)
 
         # Previous_doc — Rub.40 (category/type/broj)
         # Exportuje se SAMO ono što korisnik unese — bez automatskih defaulta
@@ -779,8 +898,12 @@ class AsycudaXMLBuilder:
         ET.SubElement(item_elem, "Amount_deducted_from_licence")
         ET.SubElement(item_elem, "Quantity_deducted_from_licence")
 
-        # Free_text_1 — PE1/PE2 referenca iz le_rubrika44_4 (attached_document4)
         ft1_val = item.attached_document4 or item.attached_document2 or ""
+        if not ft1_val and item.preference_code:
+            pref_doc_code = _PREF_TO_DOC_CODE.get(item.preference_code, "")
+            origin_ref = item.attached_document1 or ""
+            if pref_doc_code and origin_ref:
+                ft1_val = f"{pref_doc_code} {origin_ref}"
         if ft1_val:
             _val(item_elem, "Free_text_1", ft1_val)
         else:
@@ -811,97 +934,89 @@ class AsycudaXMLBuilder:
         wi = ET.SubElement(val_item, "Weight_itm")
         gw = ET.SubElement(wi, "Gross_weight_itm")
         if item.gross_mass_kg:
-            gw.text = f"{item.gross_mass_kg:.2f}"
+            gw.text = _fmt_weight(item.gross_mass_kg)
         nw = ET.SubElement(wi, "Net_weight_itm")
         if item.net_mass_kg:
-            nw.text = f"{item.net_mass_kg:.2f}"
+            nw.text = _fmt_weight(item.net_mass_kg)
 
         self._fill_item_valuation(val_item, item, total_items_value, t1, t2, t3, t4, t5)
 
-    def _build_description_of_goods(self, item: "NaimenovanjeDraft", max_chars: int = 280) -> str:
-        """Gradi Description_of_goods: tariff_description2 + nazivi proizvoda + faktura info.
+    @staticmethod
+    def _normalize_tariff_text(text: str) -> str:
+        """Zamijeni tarifne hijerarhijske separatore (en-dash, minus-sign) sa obicom crticom.
 
-        Isti prioritet truncationa kao u naimenovanja_view._format_trading_names():
-        nazivi i faktura su puni, heading se skraćuje ako nema mjesta.
+        Tarifna baza koristi U+2013 (–) i U+2212 (−) kao indentatore.
+        ASYCUDA World očekuje običnu crticu-minus (U+002D).
+        Bez ove normalizacije XML sadrži â artefakte.
         """
-        from collections import OrderedDict
+        return normalize_tariff_text(text)
 
-        ordinal_no = getattr(item, "ordinal_no", None)
-        invoice_lines = getattr(self.draft, "invoice_lines", None) or []
+    def _tariff_heading(self, item: "NaimenovanjeDraft") -> str:
+        """Vraća kratki zvanični tarifni heading za ovo naimenovanje.
 
-        # Assignovane faktura linije za ovo naimenovanje
-        assigned = [
-            l for l in invoice_lines
-            if getattr(l, "assigned_naimenovanje_ordinal", None) == ordinal_no
-        ] if ordinal_no is not None else []
+        Kada je specifičan opis generički ("ostali/ostale"), probava skratiti
+        na 4-cifreni heading koji je uvijek bogatiji.
+        """
+        heading = (
+            (getattr(item, "tariff_description2", "") or "").strip()
+            or (getattr(item, "tariff_description1", "") or "").strip()
+        )
+        if heading and not is_generic_tariff_text(heading) and not is_heading_fragment(heading):
+            return self._normalize_tariff_text(heading)
 
-        tariff_heading = (getattr(item, "tariff_description2", "") or "").strip()
-
-        # Fallback: ako tariff_description2 nije učitan u draft, traži u SQLite
-        if not tariff_heading:
-            tariff_code = (getattr(item, "tariff_code", "") or "").strip()
-            if len(tariff_code) >= 4:
-                try:
-                    from services.tariff.tarifa_service import trazi_po_kodu
-                    row = trazi_po_kodu(tariff_code[:4])
+        tariff_code = (getattr(item, "tariff_code", "") or "").strip()
+        if len(tariff_code) >= 4:
+            try:
+                from services.tariff.tarifa_service import trazi_po_kodu
+                lookup_codes = []
+                for n in (len(tariff_code), 10, 8, 6, 4):
+                    if len(tariff_code) >= n:
+                        lookup_codes.append(tariff_code[:n])
+                last_generic = heading
+                for code in dict.fromkeys(lookup_codes):
+                    row = trazi_po_kodu(code)
                     if row:
-                        tariff_heading = (row.get("naziv") or "").strip()
-                except Exception as e:
-                    logger.debug(f"Fallback tariff heading neuspješan za {tariff_code}: {e}")
-
-        if assigned:
-            # Nazivi proizvoda
-            product_names = [l.naziv_robe for l in assigned if getattr(l, "naziv_robe", "")]
-            nazivi_dio = ", ".join(product_names) if product_names else ""
-
-            # Faktura info
-            fakture: dict = OrderedDict()
-            for l in assigned:
-                inv = getattr(l, "invoice_number", "") or "?"
-                if inv not in fakture:
-                    fakture[inv] = []
-                fakture[inv].append(str(getattr(l, "line_no", "")))
-            fakture_dio = "Faktura: " + ", ".join(
-                f"{inv} (rb. {', '.join(rb_list)})" for inv, rb_list in fakture.items()
-            )
-
-            # Prioritet: nazivi > faktura > heading
-            core = ", ".join(p for p in [nazivi_dio, fakture_dio] if p)
-            if tariff_heading:
-                budget = max_chars - len(core) - 2
-                if budget >= len(tariff_heading):
-                    final_heading = tariff_heading
-                elif budget > 6:
-                    cut = tariff_heading[:budget - 3]
-                    last_space = cut.rfind(" ")
-                    final_heading = (cut[:last_space] if last_space > 0 else cut) + "..."
+                        candidate = (row.get("naziv") or "").strip()
+                        if not candidate:
+                            continue
+                        if not is_generic_tariff_text(candidate):
+                            heading = candidate
+                            break
+                        last_generic = candidate  # shorter = broader; last = 4-digit
                 else:
-                    final_heading = ""
-                parts = [p for p in [final_heading, nazivi_dio, fakture_dio] if p]
-            else:
-                parts = [p for p in [nazivi_dio, fakture_dio] if p]
+                    # Svi DB kandidati su generički — koristi 4-cifreni heading
+                    heading = last_generic
+            except Exception as e:
+                logger.debug(f"Fallback tariff heading neuspješan za {tariff_code}: {e}")
+        return self._normalize_tariff_text(heading)
 
-            result = ", ".join(parts)
-            if len(result) > max_chars:
-                fakture_len = len(fakture_dio) + 2
-                nazivi_max = max_chars - fakture_len - 3
-                truncated = nazivi_dio[:nazivi_max]
-                last_comma = truncated.rfind(", ")
-                if last_comma > 0:
-                    truncated = truncated[:last_comma]
-                result = ", ".join([p for p in [truncated + "...", fakture_dio] if p])
-        else:
-            # Nema assignovanih linija — koristi goods_trade_name sa headingom
-            trade_name = (getattr(item, "goods_trade_name", "") or
-                          getattr(item, "goods_description", "") or "").strip()
-            parts = [p for p in [tariff_heading, trade_name] if p]
-            result = ", ".join(parts) if parts else "."
+    def _build_description_of_goods(self, item: "NaimenovanjeDraft", max_chars: int = 280) -> str:
+        """Gradi Description_of_goods: kratki zvanični tarifni heading (ASYCUDA standard).
 
-        # ASYCUDA World odbija višeredni tekst
-        result = " ".join(result.splitlines()).strip()
-        if len(result) > max_chars:
-            result = result[:max_chars - 3] + "..."
-        return result or "."
+        ASYCUDA World prikazuje ovaj field kao interni tarifni naziv;
+        Commercial_Description nosi komercijalni opis koji se prikazuje u Rub.31.
+        """
+        return build_asycuda_rub31(
+            item=item,
+            invoice_lines=getattr(self.draft, "invoice_lines", None) or [],
+            tariff_heading=self._tariff_heading(item),
+            max_description_chars=max_chars,
+        ).description_of_goods
+
+    def _build_commercial_description(self, item: "NaimenovanjeDraft", max_chars: int = 280) -> str:
+        """Gradi Commercial_Description za Rub.31 u ASYCUDA World formatu.
+
+        ASYCUDA World ima fiksni 3-linijski widget od ~55 karaktera po liniji.
+        Sadržaj s više od 3 linije ili linijama >55 karaktera ASYCUDA odbaci pri kliku na polje.
+
+        Tarifni opis ide u Description_of_goods, a ovdje idu komercijalni nazivi i faktura.
+        """
+        return build_asycuda_rub31(
+            item=item,
+            invoice_lines=getattr(self.draft, "invoice_lines", None) or [],
+            tariff_heading=self._tariff_heading(item),
+            max_description_chars=max_chars,
+        ).commercial_description
 
     def _fill_item_valuation(
         self,
@@ -975,7 +1090,20 @@ class AsycudaXMLBuilder:
         _val(ii, "Currency_rate", f"{kurs:.5f}")
 
         # --- Troškovi po stavci ---
-        self._item_cost_section_filled(val_item, "item_external_freight", item_ext_freight)
+        # Ako je vanjska vozarina u EUR, per-item freight prikazujemo u EUR s kursom
+        t1_valuta = self._g("trosak_1_valuta")
+        t1_raw = _parse_cost(self._g("trosak_1"))
+        if t1_valuta and t1_valuta != "BAM" and t1_raw > 0 and total_items_value > 0:
+            alpha_here = item_value / total_items_value
+            item_ext_eur = t1_raw * alpha_here
+            item_ext_bam = round(item_ext_eur * kurs, 2)
+            self._item_cost_section_filled(val_item, "item_external_freight",
+                                           item_ext_bam,
+                                           foreign_amount=item_ext_eur,
+                                           currency_code=t1_valuta,
+                                           currency_rate=kurs)
+        else:
+            self._item_cost_section_filled(val_item, "item_external_freight", item_ext_freight)
         self._item_cost_section_filled(val_item, "item_internal_freight", item_int_freight)
         self._item_cost_section_filled(val_item, "item_insurance", item_insurance)
         self._item_cost_section_filled(val_item, "item_other_cost", item_other)
@@ -989,27 +1117,42 @@ class AsycudaXMLBuilder:
         _null(mv, "Basis_description")
         ET.SubElement(mv, "Basis_amount")
 
-    def _item_cost_section_filled(self, parent: ET.Element, tag: str, amount: float, negative: bool = False) -> None:
+    def _item_cost_section_filled(
+        self,
+        parent: ET.Element,
+        tag: str,
+        amount: float,
+        negative: bool = False,
+        foreign_amount: float = 0.0,
+        currency_code: str = "",
+        currency_rate: float = 1.0,
+    ) -> None:
         """Kreira item_* sekciju troška stavke sa stvarnom vrijednošću."""
         gs = ET.SubElement(parent, tag)
         val = -amount if negative else amount
         _val(gs, "Amount_national_currency", f"{val:.2f}" if val else "0.0")
-        _val(gs, "Amount_foreign_currency", f"{val:.2f}" if val else "0.0")
-        if val:
-            _null(gs, "Currency_code")   # <null/> kad postoji iznos
+        if foreign_amount > 0:
+            _val(gs, "Amount_foreign_currency", f"{foreign_amount:.2f}")
+            _val(gs, "Currency_code", currency_code)
+            _null(gs, "Currency_name")
+            _val(gs, "Currency_rate", f"{currency_rate:.5f}")
         else:
-            ET.SubElement(gs, "Currency_code")  # prazan kad je 0
-        _val(gs, "Currency_name", "Nema stranih valuta")
-        _val(gs, "Currency_rate", "1" if val else "0")
+            _val(gs, "Amount_foreign_currency", f"{val:.2f}" if val else "0.0")
+            _null(gs, "Currency_code")
+            _val(gs, "Currency_name", "Nema stranih valuta")
+            _val(gs, "Currency_rate", "1" if val else "0")
 
     def _add_attached_doc(self, item_elem: ET.Element, doc: AttachedDocument) -> None:
         """Dodaje <Attached_documents> element."""
         attached = ET.SubElement(item_elem, "Attached_documents")
         _val(attached, "Attached_document_code", doc.code)
-        if doc.name:
-            _val(attached, "Attached_document_name", doc.name)
+        doc_code = (doc.code or "").strip().upper()
+        doc_number = (doc.number or "").strip()
+        doc_name = doc_number if doc_code in _ORIGIN_DOC_CODES and doc_number else doc.name
+        if doc_name:
+            _val(attached, "Attached_document_name", doc_name)
         ref = ET.SubElement(attached, "Attached_document_reference")
-        ref.text = doc.number or ""
+        ref.text = doc_number
         if doc.from_rule:
             _val(attached, "Attached_document_from_rule", "1")
 
@@ -1036,12 +1179,12 @@ def export_to_xml(draft: DeclarationDraft, output_path: str) -> bool:
         tree = ET.ElementTree(root)
         ET.indent(tree, space="")  # Bez indentacije — Asycuda preferuje kompaktan format
 
-        tree.write(
-            output_path,
-            encoding="UTF-8",
-            xml_declaration=True,
-            short_empty_elements=True,
-        )
+        # ASYCUDA zahtijeva double-quote atribute i standalone="no" — Python ET to ne podržava,
+        # pa pišemo deklaraciju ručno.
+        xml_str = ET.tostring(root, encoding="unicode", short_empty_elements=True)
+        with open(output_path, 'w', encoding='utf-8') as _f:
+            _f.write('<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n')
+            _f.write(xml_str)
 
         file_size = Path(output_path).stat().st_size
         print(f"XML exportovan: {output_path} ({file_size:,} bytes, {len(draft.items)} stavki)")
@@ -1057,8 +1200,8 @@ def export_to_xml(draft: DeclarationDraft, output_path: str) -> bool:
                     tariff = getattr(item, "tariff_code", "") or ""
                     if tariff:
                         svc.record_usage(tariff, doc_codes)
-        except Exception:
-            pass  # auto-učenje nije kritično
+        except Exception as _e:
+            logger.debug("Auto-učenje doc history preskočeno: %s", _e)
 
         return True
 

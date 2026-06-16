@@ -4,6 +4,7 @@ Automation helpers that make the app a TOOL, not just a form
 """
 
 from PySide6.QtWidgets import QMessageBox
+from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
 from .styled_button import StyledButton, ButtonType
 
 

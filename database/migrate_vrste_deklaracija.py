@@ -13,13 +13,11 @@ import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
-PG_CONFIG = {
-    "host": "localhost",
-    "port": 5432,
-    "dbname": "deklarant_pro",
-    "user": "postgres",
-    "password": "!sofija#22$jelena%25&",
-}
+def _pg_config():
+    from config.settings import get_db_settings
+    s = get_db_settings()
+    return {"host": s.host, "port": s.port, "dbname": s.database,
+            "user": s.user, "password": s.password}
 
 JSON_FILE = os.path.join(
     os.path.dirname(__file__),
@@ -160,7 +158,7 @@ def main():
 
     print(f"📂 Učitan JSON: {os.path.basename(JSON_FILE)}")
 
-    conn = psycopg2.connect(**PG_CONFIG)
+    conn = psycopg2.connect(**_pg_config())
     try:
         with conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:

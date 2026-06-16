@@ -1,13 +1,15 @@
 """
 ProcessingWorker - background thread za procesiranje fajlova.
 
-Koristi import_service (isti kao ručni uvoz kroz Faktura Tab):
-- import_service SAM detektuje parove (Excel + PDF)
-- import_service SAM kombinuje podatke
-- import_service SAM popunjava težine, zemlje, izjave o porijeklu
+Koristi PRIVATNU ImportService instancu (ne singleton) da izbjegne
+race condition sa main threadom oko last_import_type stanja:
+- ImportService SAM detektuje parove (Excel + PDF)
+- ImportService SAM kombinuje podatke
+- ImportService SAM popunjava težine, zemlje, izjave o porijeklu
 """
 from PySide6.QtCore import QThread, Signal
 from pathlib import Path
+import os
 import re
 from gui.tabs.agent.models.file_item import FileItem
 
@@ -32,27 +34,34 @@ class ProcessingWorker(QThread):
 
     def run(self):
         """
-        Glavni thread loop - koristi import_service (ISTI KAO RUČNI UVOZ!).
+        Glavni thread loop — koristi PRIVATNU ImportService instancu.
 
         FIX: Preskače packing listove ako je odgovarajuća faktura već
         parsirana sa automatskom kombinacijom (Blagić-Attos).
         """
         import time
+        import gc
         total_start = time.time()
 
-        from services.import_service import get_import_service
+        from services.import_service import ImportService
         from importers.import_result import ImportResult
         from importers.blagic_attos_importer import find_matching_packing_list, is_blagic_attos_packing_list
 
-        # ⭐ KLJUČNO: Koristi singleton import_service (isti kao Faktura Tab!)
-        svc = get_import_service()
-        svc.clear_memory()  # Resetuj memoriju za detekciju parova
+        # ⭐ PRIVATNA instanca ImportService-a za worker thread.
+        # NIKAD ne koristiti singleton (get_import_service) ovdje — singleton dijeli
+        # last_import_type/path/result stanje sa main threadom → race condition koji
+        # razbija Excel+PDF par kombinovanje za 2.+ fakturu u isti batch.
+        svc = ImportService()
+        svc.clear_memory()
 
         # DOC: scripts/master_frigo_agent_import_2026-04-26.md
         # ⭐ Sortiranje po normalizovanom broju fakture:
         #   - povećava šansu da Excel+PDF parovi budu susjedni (import_service kombinuje samo "previous + current")
         #   - mapping xlsx (tarife/porekla/podela) ide POSLIJE PDF-a da ne pravi lažne standalone uvoze
         sorted_files = sorted(self.files, key=self._pair_sort_key)
+
+        def canonical_path(value) -> str:
+            return os.path.normcase(str(Path(value).resolve()))
 
         # ⭐ TRACKING: Koji fajlovi su već "potrošeni" kroz kombinaciju
         consumed_files: set[str] = set()
@@ -81,7 +90,7 @@ class ProcessingWorker(QThread):
                 continue
 
             # ⭐ PRESKOČI ako je već potrošen kroz kombinaciju fakture
-            if file_item.filepath in consumed_files:
+            if canonical_path(file_item.filepath) in consumed_files:
                 self.progress.emit(f"   ⏭️ Preskačem (već kombinovano sa fakturu): {file_item.filename}")
                 file_item.status = 'Skipped'
                 file_item.invoice_lines = []
@@ -94,7 +103,7 @@ class ProcessingWorker(QThread):
             self.progress.emit(f"   📍 Tip: {file_item.file_type}")
 
             try:
-                # ⭐ KORISTI IMPORT_SERVICE (ISTI KAO RUČNI UVOZ!)
+                # ⭐ KORISTI PRIVATNU ImportService INSTANCU
                 self.progress.emit(f"   🔄 import_service.import_file()...")
                 result = svc.import_file(str(file_item.filepath))
 
@@ -112,6 +121,10 @@ class ProcessingWorker(QThread):
                         for s in (result.origin_statements or [])
                     )
                     file_item.is_combined = result.is_combined  # ⭐ KLJUČNO za duplikat detekciju
+                    file_item.consumed_paths = list(getattr(result, "consumed_paths", []) or [])
+                    file_item.exporter = getattr(result, "exporter", None)
+                    file_item.importer = getattr(result, "importer", None)
+                    file_item.currency = getattr(result, "currency", "") or ""
                     file_item.invoice_lines = invoice_lines
                     file_item.status = 'Completed'
                     file_item.detected_parser = getattr(result, '_detected_format', 'auto') or 'auto'
@@ -138,7 +151,7 @@ class ProcessingWorker(QThread):
                     if 'blagic_attos' in detected_format.lower() or 'attos' in detected_format.lower():
                         packing_path = find_matching_packing_list(str(file_item.filepath))
                         if packing_path:
-                            consumed_files.add(packing_path)
+                            consumed_files.add(canonical_path(packing_path))
                             self.progress.emit(f"   📎 Packing list označen kao potrošen: {Path(packing_path).name}")
 
                     # ⭐ FIX: Ako je import interno koristio drugi fajl (npr. Leburić Excel čita PDF),
@@ -146,10 +159,11 @@ class ProcessingWorker(QThread):
                     #   Ako je fajl VEĆ obrađen (npr. Excel koji je bio par za PDF), retroaktivno
                     #   ga označi kao Skipped i očisti linije da se ne duplikata u draftu.
                     for cp in getattr(result, 'consumed_paths', []):
-                        consumed_files.add(cp)
+                        canonical_cp = canonical_path(cp)
+                        consumed_files.add(canonical_cp)
                         # Retroaktivno označi file_item ako je već obrađen
                         for prev in sorted_files:
-                            if prev.filepath == cp and prev.status == 'Completed':
+                            if canonical_path(prev.filepath) == canonical_cp and prev.status == 'Completed':
                                 prev.status = 'Skipped'
                                 prev.invoice_lines = []
                                 self.progress.emit(f"   🔗 Kombinirani par — preskačem prethodni: {Path(cp).name}")
@@ -174,6 +188,14 @@ class ProcessingWorker(QThread):
                 self.progress.emit(f"   ⏱️ Vrijeme: {file_elapsed:.1f}s")
                 self.file_completed.emit(file_item)
 
+            except MemoryError:
+                file_item.status = 'Error'
+                file_item.error_message = "Nedovoljno memorije za parsiranje fajla"
+                self.error_occurred.emit(file_item.filepath, file_item.error_message)
+                self.progress.emit(f"   ❌ MemoryError — pokušaj sa manjim brojem fajlova odjednom")
+                self.file_completed.emit(file_item)
+                gc.collect()
+
             except Exception as e:
                 import traceback
                 file_item.status = 'Error'
@@ -182,6 +204,15 @@ class ProcessingWorker(QThread):
                 self.progress.emit(f"   ❌ Greška: {e}")
                 self.progress.emit(f"   📋 Stack: {traceback.format_exc()}")
                 self.file_completed.emit(file_item)
+
+            finally:
+                # gc.collect() samo za PDF fajlove (pdfplumber alocira više objekata)
+                # ili svakih 5 fajlova — Excel/mapping fajlovi ne zahtijevaju cleanup
+                _is_pdf = Path(file_item.filepath).suffix.lower() == ".pdf"
+                _file_no = getattr(self, '_gc_counter', 0) + 1
+                self._gc_counter = _file_no
+                if _is_pdf or _file_no % 5 == 0:
+                    gc.collect()
 
         # Post-process za Agent workflow:
         # Master Frigo PDF + Excel sparivanje u istom batch-u (cijena/iznos iz Excel-a)
@@ -197,7 +228,7 @@ class ProcessingWorker(QThread):
         self.progress.emit(f"📊 Prosjek: {total_elapsed/len(self.files):.1f}s po fajlu")
         self.progress.emit(f"{'='*60}\n")
 
-        self.all_completed.emit(self.files)
+        self.all_completed.emit(sorted_files)
 
     @staticmethod
     def _normalize_code(value: str) -> str:
@@ -309,6 +340,14 @@ class ProcessingWorker(QThread):
         return stem
 
     @staticmethod
+    def _natural_invoice_parts(value: str) -> tuple:
+        token = ProcessingWorker._normalized_invoice_token(value)
+        parts = re.findall(r"\d+|[a-z]+", token)
+        # Sve dijelove pretvoriti u str (brojevi zero-padded) da se izbjegne
+        # TypeError: '<' not supported between instances of 'int' and 'str'
+        return tuple(part.zfill(10) if part.isdigit() else part for part in parts)
+
+    @staticmethod
     def _is_mapping_xlsx(filepath: str) -> bool:
         """Da li je ovo globalni mapping excel (Master Frigo i slični)."""
         p = Path(filepath)
@@ -325,6 +364,8 @@ class ProcessingWorker(QThread):
                 "poreklo",
                 "porijekla",
                 "porijeklu",
+                "ptp",
+                "15467",
             )
         )
 
@@ -346,7 +387,7 @@ class ProcessingWorker(QThread):
             priority = 3
 
         # Mapping fajlovi idu globalno na kraj reda da ne kvare sequence previous+current.
-        return (1 if is_mapping else 0, token, priority, p.name.lower())
+        return (1 if is_mapping else 0, cls._natural_invoice_parts(file_item.filepath), priority, token, p.name.lower())
 
     def _parse_xml(self, file_item: FileItem, filepath: Path) -> list:
         """Parsira XML fajl."""

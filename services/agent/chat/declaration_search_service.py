@@ -16,17 +16,50 @@ import logging
 import os
 import re
 import sqlite3
+import unicodedata
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import List, Dict, Optional
 
 logger = logging.getLogger("deklarant_pro.agent.declaration_search")
 
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+
+# Povećati kad se mijenja shema — triggeriše rebuild postojećeg indeksa
+_SCHEMA_VERSION = 2
+
+GENERIC_SEARCH_TOKENS = {
+    "artikl", "artikal", "faktura", "gel", "komad", "krem", "ml",
+    "model", "naziv", "ostali", "ostalo", "proizvod", "proizvodi", "robe",
+    "tbl", "tip",
+}
+
 # Putanja do XML fajlova
-XML_DIR = Path(__file__).parent.parent.parent / "data" / "knowledge_base" / "NOVA ASIKUDA"
+XML_DIR = PROJECT_ROOT / "data" / "knowledge_base" / "NOVA ASIKUDA"
 
 # SQLite index — u istom folderu kao XML-ovi
-INDEX_DB = Path(__file__).parent.parent.parent / "data" / "knowledge_base" / "declaration_index.db"
+INDEX_DB = PROJECT_ROOT / "data" / "knowledge_base" / "declaration_index.db"
+
+
+def _path_from_env(name: str, default: Path) -> Path:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    path = Path(raw).expanduser()
+    return path if path.is_absolute() else PROJECT_ROOT / path
+
+
+def _resolve_xml_dir() -> Path:
+    path = _path_from_env("XML_ARCHIVE_DIR", XML_DIR)
+    if not path.exists():
+        raise FileNotFoundError(
+            f"XML arhiv nije pronađen: {path}. Postavite XML_ARCHIVE_DIR u .env."
+        )
+    return path
+
+
+def _resolve_index_db() -> Path:
+    return _path_from_env("DECLARATION_INDEX_DB", INDEX_DB)
 
 
 def _txt(element, path: str, default: str = "") -> str:
@@ -49,6 +82,51 @@ def _build_hs_code(commodity: str, precision: str) -> str:
     return c + p if p else c + "000"
 
 
+def _normalize_search_text(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", value or "")
+    ascii_value = "".join(ch for ch in normalized if not unicodedata.combining(ch))
+    return re.sub(r"\s+", " ", re.sub(r"[^a-zA-Z0-9]+", " ", ascii_value.lower())).strip()
+
+
+def _search_words(query: str) -> list[str]:
+    words = []
+    for word in re.split(r"\s+", _normalize_search_text(query)):
+        if len(word) < 3:
+            continue
+        if word not in words:
+            words.append(word)
+    return words
+
+
+def _goods_match_score(row: Dict, words: list[str], phrase: str) -> float:
+    text = _normalize_search_text(
+        f"{row.get('commercial_desc', '')} {row.get('description', '')}"
+    )
+    if not text:
+        return 0.0
+
+    required = [
+        word for word in words
+        if len(word) >= 5 and not word.isdigit() and word not in GENERIC_SEARCH_TOKENS
+    ][:3]
+    if required and not any(word in text for word in required):
+        return 0.0
+
+    matched = sum(1 for word in words if word in text)
+    if not matched:
+        return 0.0
+    if len(words) >= 3 and matched < 2:
+        return 0.0
+
+    score = matched / max(len(words), 1)
+    if phrase and phrase in text:
+        score += 0.5
+    commercial = _normalize_search_text(row.get("commercial_desc", ""))
+    if commercial.startswith(phrase[:40]):
+        score += 0.2
+    return score
+
+
 class DeclarationSearchService:
     """
     Servis za pretragu istorijskih XML deklaracija.
@@ -69,30 +147,52 @@ class DeclarationSearchService:
         Vraća stavke sa tarifnim brojem, zemljom, povlasticom.
         """
         self._ensure_index()
-        words = [w for w in re.split(r'\s+', query.strip()) if len(w) >= 3]
+        words = _search_words(query)
         if not words:
             return []
 
-        like_clauses = " OR ".join(
-            ["i.commercial_desc LIKE ? OR i.description LIKE ?"] * len(words)
-        )
-        params = []
-        for w in words:
-            p = f"%{w}%"
-            params.extend([p, p])
-
-        sql = f"""
+        # FTS5 MATCH — inverted index, višestruko brže od LIKE za veliku arhivu
+        fts_query = " ".join(words)
+        sql = """
             SELECT i.hs_code, i.commercial_desc, i.description,
                    i.country_origin, i.preference,
-                   d.exporter_name, d.consignee_name, d.filename
-            FROM items i
+                   d.exporter_name, d.consignee_name, d.filename,
+                   bm25(items_fts) AS _rank
+            FROM items_fts f
+            JOIN items i ON f.item_id = i.id
             JOIN declarations d ON i.decl_id = d.id
-            WHERE {like_clauses}
-            ORDER BY length(i.commercial_desc)
+            WHERE items_fts MATCH ?
+            ORDER BY _rank
             LIMIT ?
         """
-        params.append(limit)
-        return self._fetchall(sql, params)
+        try:
+            rows = self._fetchall(sql, [fts_query, max(limit * 20, 100)])
+        except Exception:
+            # Fallback na LIKE ako FTS5 indeks nije populiran (stara baza)
+            rows = self._fetchall(
+                "SELECT i.hs_code, i.commercial_desc, i.description,"
+                " i.country_origin, i.preference,"
+                " d.exporter_name, d.consignee_name, d.filename"
+                " FROM items i JOIN declarations d ON i.decl_id = d.id"
+                f" WHERE {' OR '.join(['i.commercial_desc LIKE ? OR i.description LIKE ?'] * len(words))}"
+                " LIMIT ?",
+                [p for w in words for p in (f"%{w}%", f"%{w}%")] + [max(limit * 20, 100)]
+            )
+        phrase = _normalize_search_text(query)
+        scored = [
+            (_goods_match_score(row, words, phrase), row)
+            for row in rows
+        ]
+        scored = [(score, row) for score, row in scored if score > 0]
+        scored.sort(
+            key=lambda item: (
+                item[0],
+                bool((item[1].get("country_origin") or "").strip()),
+                -len(item[1].get("commercial_desc") or ""),
+            ),
+            reverse=True,
+        )
+        return [row for _, row in scored[:limit]]
 
     def search_by_tariff(self, tariff_code: str, limit: int = 10) -> List[Dict]:
         """Pronalazi sve istorijske stavke sa određenim tarifnim brojem."""
@@ -182,27 +282,43 @@ class DeclarationSearchService:
         if self._indexed:
             return
 
-        INDEX_DB.parent.mkdir(parents=True, exist_ok=True)
-        self._db = sqlite3.connect(str(INDEX_DB))
+        xml_dir = _resolve_xml_dir()
+        index_db = _resolve_index_db()
+        index_db.parent.mkdir(parents=True, exist_ok=True)
+        self._db = sqlite3.connect(str(index_db))
         self._db.row_factory = sqlite3.Row
 
         self._create_schema()
 
-        # Provjeri treba li reindeksiranje
-        xml_files = sorted(XML_DIR.glob("*.xml")) if XML_DIR.exists() else []
+        # Provjeri schema verziju — zastarjela shema triggeriše rebuild
+        stored_ver = self._db.execute(
+            "SELECT value FROM schema_meta WHERE key='version'"
+        ).fetchone()
+        needs_rebuild = (stored_ver is None or int(stored_ver[0]) < _SCHEMA_VERSION)
+
+        xml_files = sorted(xml_dir.glob("*.xml"))
         indexed_count = self._db.execute(
             "SELECT COUNT(*) FROM declarations"
         ).fetchone()[0]
 
-        if indexed_count < len(xml_files) * 0.9:
-            logger.info(f"Indeksiranje {len(xml_files)} XML deklaracija...")
+        if needs_rebuild or indexed_count < len(xml_files) * 0.9:
+            logger.info(f"Indeksiranje {len(xml_files)} XML deklaracija (schema v{_SCHEMA_VERSION})...")
             self._index_all(xml_files)
+            self._db.execute(
+                "INSERT OR REPLACE INTO schema_meta(key, value) VALUES ('version', ?)",
+                (str(_SCHEMA_VERSION),)
+            )
+            self._db.commit()
             logger.info("Indeksiranje završeno.")
 
         self._indexed = True
 
     def _create_schema(self):
         self._db.executescript("""
+            CREATE TABLE IF NOT EXISTS schema_meta (
+                key   TEXT PRIMARY KEY,
+                value TEXT
+            );
             CREATE TABLE IF NOT EXISTS declarations (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
                 filename    TEXT UNIQUE,
@@ -220,14 +336,20 @@ class DeclarationSearchService:
                 country_origin  TEXT,
                 preference  TEXT
             );
-            CREATE INDEX IF NOT EXISTS idx_items_hs    ON items(hs_code);
-            CREATE INDEX IF NOT EXISTS idx_items_co    ON items(country_origin);
-            CREATE INDEX IF NOT EXISTS idx_items_desc  ON items(commercial_desc);
+            CREATE INDEX IF NOT EXISTS idx_items_hs ON items(hs_code);
+            CREATE INDEX IF NOT EXISTS idx_items_co ON items(country_origin);
+            CREATE VIRTUAL TABLE IF NOT EXISTS items_fts USING fts5(
+                item_id     UNINDEXED,
+                commercial_desc,
+                description,
+                tokenize    = 'unicode61 remove_diacritics 2'
+            );
         """)
         self._db.commit()
 
     def _index_all(self, xml_files: list):
         """Parsira sve XML fajlove i upisuje u SQLite."""
+        self._db.execute("DELETE FROM items_fts")
         self._db.execute("DELETE FROM items")
         self._db.execute("DELETE FROM declarations")
         self._db.commit()
@@ -268,6 +390,17 @@ class DeclarationSearchService:
                     "(decl_id, hs_code, commercial_desc, description, country_origin, preference) "
                     "VALUES (?, ?, ?, ?, ?, ?)",
                     [(decl_id,) + item for item in items]
+                )
+                # FTS5 — upiši commercial_desc + description za pretragu
+                last_id = cur.lastrowid
+                first_id = last_id - len(items) + 1
+                cur.executemany(
+                    "INSERT INTO items_fts(item_id, commercial_desc, description) "
+                    "VALUES (?, ?, ?)",
+                    [
+                        (first_id + i, item[1] or "", item[2] or "")
+                        for i, item in enumerate(items)
+                    ]
                 )
         self._db.commit()
 

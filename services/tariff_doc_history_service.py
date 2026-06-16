@@ -1,6 +1,6 @@
 # AGENT_CODE_DOC: tariff-doc-history
 """
-Uči iz historijskih XML deklaracija koje su priložene isprave (doc codes) bile
+Uči iz istorijskih XML deklaracija koje su priložene isprave (doc codes) bile
 korištene za određeni tarifni broj. Pamti u SQLite tabeli tariff_doc_history.
 
 Tok:
@@ -29,7 +29,7 @@ _UNIVERSAL_CODES = {
     "N380", "DIS", "DV1", "PZT", "VOZ", "OST", "N730", "DUIM",          # novi format — uvijek prisutni
     "FAK", "CMR", "ZUT", "OSI", "ZNP", "OST0",                           # stari format — uvijek prisutni
     "FTAP", "FTA", "FTAT", "FTAТ", "EUP", "EUPT", "TRP", "EFTA", "T1",  # dokazi o porijeklu — stari format
-    # PE1/PE2/PE3 se dodaju iz Rb.44.4 — ne predlažu se iz historije
+    # PE1/PE2/PE3 se dodaju iz Rb.44.4 — ne predlažu se iz istorije
     "PE1", "PE2", "PE3",
 }
 

@@ -12,9 +12,12 @@ Odgovoran za:
 OVAJ FAJL NE MIJENJA GUI - samo business logic extraction.
 """
 
+import logging
 from typing import Dict, Any, List, Optional
 from database.db import get_db_connection
 from psycopg2 import sql
+
+logger = logging.getLogger("deklarant_pro.services.sifarnici")
 
 
 class SifarniciService:
@@ -33,7 +36,7 @@ class SifarniciService:
     
     def __init__(self):
         """Inicijalizacija bez Qt dependency."""
-        pass
+        self.last_error = ""
     
     # ============================================================
     # VALUTE (Currencies)
@@ -206,18 +209,28 @@ class SifarniciService:
     # PRIVATE HELPERS
     # ============================================================
     
-    def _log_error(self, operation: str, error: Exception):
-        """Logging helper za error-e."""
-        import logging
-        logger = logging.getLogger("deklarant_pro.services.sifarnici")
-        logger.error(f"❌ {operation}: {error}")
-    
-    def _log_operation(self, operation: str, success: bool, count: int = 0):
-        """Logging helper za operacije."""
-        import logging
-        logger = logging.getLogger("deklarant_pro.services.sifarnici")
-        status = "✅" if success else "❌"
-        logger.info(f"{status} {operation}: {count} records")
+    def _ensure_deklaranti_schema(self, cur) -> None:
+        """Osiguraj Rub.14 kolone za postojeće catalogs.deklaranti tabele."""
+        cur.execute("CREATE SCHEMA IF NOT EXISTS catalogs")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS catalogs.deklaranti (
+                jib VARCHAR(50) PRIMARY KEY,
+                naziv TEXT NOT NULL DEFAULT '',
+                adresa TEXT DEFAULT '',
+                grad TEXT DEFAULT '',
+                postanski_broj TEXT DEFAULT '',
+                drzava TEXT DEFAULT '',
+                telefon TEXT DEFAULT '',
+                email TEXT DEFAULT '',
+                kontakt TEXT DEFAULT '',
+                pdv_broj TEXT DEFAULT '',
+                maticni TEXT DEFAULT ''
+            )
+        """)
+        cur.execute("""
+            ALTER TABLE catalogs.deklaranti
+            ADD COLUMN IF NOT EXISTS postanski_broj TEXT DEFAULT ''
+        """)
     
     def get_all_dokumenti(self) -> List[Dict[str, Any]]:
         """Dohvati sve dokumente iz baze."""
@@ -625,10 +638,24 @@ class SifarniciService:
                     else:
                         columns = ["naziv", "sifra"]
                     
-                    # Kreiraj WHERE uslov
-                    where_conditions = " OR ".join([f"{col} ILIKE %s" for col in columns])
-                    query = f"SELECT * FROM {table_name} WHERE {where_conditions}"
-                    
+                    table_parts = table_name.split(".", 1)
+                    if len(table_parts) == 2:
+                        table_identifier = sql.SQL("{}.{}").format(
+                            sql.Identifier(table_parts[0]),
+                            sql.Identifier(table_parts[1]),
+                        )
+                    else:
+                        table_identifier = sql.Identifier(table_name)
+
+                    where_conditions = sql.SQL(" OR ").join(
+                        sql.SQL("{} ILIKE %s").format(sql.Identifier(col))
+                        for col in columns
+                    )
+                    query = sql.SQL("SELECT * FROM {} WHERE {}").format(
+                        table_identifier,
+                        where_conditions,
+                    )
+
                     cur.execute(query, [search_pattern] * len(columns))
                     results = cur.fetchall()
                     return [dict(row) for row in results]
@@ -638,8 +665,7 @@ class SifarniciService:
 
     def _log_error(self, operation: str, error: Exception):
         """Logovanje grešaka."""
-        import logging
-        logger = logging.getLogger("deklarant_pro.services.sifarnici")
+        self.last_error = str(error)
         logger.error(f"Greška u {operation}: {error}")
 
     # ============================================================
@@ -649,20 +675,27 @@ class SifarniciService:
     def load_deklaranti_data(self, search_query: str = "") -> List[Dict[str, Any]]:
         """Dohvati podatke o deklarantima sa opcionom pretragom."""
         # NOTE: catalogs.deklaranti tabela treba da postoji — kreirati je ako ne postoji
+        self.last_error = ""
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
+                    self._ensure_deklaranti_schema(cur)
                     if search_query:
                         search_pattern = f"%{search_query}%"
                         cur.execute("""
-                            SELECT jib, naziv, adresa, grad, drzava, telefon, email, kontakt, pdv_broj, maticni
+                            SELECT jib, naziv, adresa, grad, postanski_broj, drzava, telefon, email, kontakt, pdv_broj, maticni
                             FROM catalogs.deklaranti
-                            WHERE naziv ILIKE %s OR jib ILIKE %s OR grad ILIKE %s
+                            WHERE naziv ILIKE %s OR jib ILIKE %s OR grad ILIKE %s OR adresa ILIKE %s
                             ORDER BY naziv
-                        """, (search_pattern, search_pattern, search_pattern))
+                        """, (
+                            search_pattern,
+                            search_pattern,
+                            search_pattern,
+                            search_pattern,
+                        ))
                     else:
                         cur.execute("""
-                            SELECT jib, naziv, adresa, grad, drzava, telefon, email, kontakt, pdv_broj, maticni
+                            SELECT jib, naziv, adresa, grad, postanski_broj, drzava, telefon, email, kontakt, pdv_broj, maticni
                             FROM catalogs.deklaranti
                             ORDER BY naziv
                         """)
@@ -674,17 +707,20 @@ class SifarniciService:
 
     def add_deklarant(self, data: Dict[str, str]) -> bool:
         """Dodaj novog deklaranta."""
+        self.last_error = ""
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
+                    self._ensure_deklaranti_schema(cur)
                     cur.execute("""
                         INSERT INTO catalogs.deklaranti
-                        (jib, naziv, adresa, grad, drzava, telefon, email, kontakt, pdv_broj, maticni)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        (jib, naziv, adresa, grad, postanski_broj, drzava, telefon, email, kontakt, pdv_broj, maticni)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT (jib) DO UPDATE SET
                             naziv = EXCLUDED.naziv,
                             adresa = EXCLUDED.adresa,
                             grad = EXCLUDED.grad,
+                            postanski_broj = EXCLUDED.postanski_broj,
                             drzava = EXCLUDED.drzava,
                             telefon = EXCLUDED.telefon,
                             email = EXCLUDED.email,
@@ -696,6 +732,7 @@ class SifarniciService:
                         data.get("naziv", ""),
                         data.get("adresa", ""),
                         data.get("grad", ""),
+                        data.get("postanski_broj", ""),
                         data.get("drzava", ""),
                         data.get("telefon", ""),
                         data.get("email", ""),
@@ -708,6 +745,10 @@ class SifarniciService:
         except Exception as e:
             self._log_error("add_deklarant", e)
             return False
+
+    def update_deklarant(self, data: Dict[str, str]) -> bool:
+        """Ažuriraj postojećeg deklaranta."""
+        return self.add_deklarant(data)
 
     def delete_deklarant(self, jib: str) -> bool:
         """Obriši deklaranta po JIB-u."""
@@ -1157,6 +1198,7 @@ class SifarniciService:
                     return row["count"] if row else 0
         except Exception as e:
             self._log_error("count_carinske_ispostave", e)
+            return 0
 
     # ============================================================
     # SECTION: inspection-rules-pg-service
@@ -1228,10 +1270,10 @@ class SifarniciService:
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
-                    where = "WHERE is_active = TRUE" if only_active else ""
-                    cur.execute(
-                        f"SELECT COUNT(*) FROM catalogs.inspection_rules {where}"
-                    )
+                    if only_active:
+                        cur.execute("SELECT COUNT(*) FROM catalogs.inspection_rules WHERE is_active = TRUE")
+                    else:
+                        cur.execute("SELECT COUNT(*) FROM catalogs.inspection_rules")
                     row = cur.fetchone()
                     return row["count"] if row else 0
         except Exception as e:
@@ -1273,16 +1315,16 @@ class SifarniciService:
         if not filtered:
             return False
         try:
-            set_clause = ", ".join(f"{k} = %s" for k in filtered)
+            set_parts = sql.SQL(", ").join(
+                sql.SQL("{} = %s").format(sql.Identifier(k)) for k in filtered
+            )
+            query = sql.SQL(
+                "UPDATE catalogs.inspection_rules SET {}, updated_at = NOW() WHERE id = %s"
+            ).format(set_parts)
             vals = list(filtered.values()) + [rule_id]
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
-                    cur.execute(
-                        f"UPDATE catalogs.inspection_rules "
-                        f"SET {set_clause}, updated_at = NOW() "
-                        f"WHERE id = %s",
-                        vals,
-                    )
+                    cur.execute(query, vals)
                 conn.commit()
                 return True
         except Exception as e:

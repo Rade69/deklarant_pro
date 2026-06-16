@@ -14,11 +14,15 @@ Datum: Februar 2026
 
 import uuid
 import logging
-from typing import List, Dict
+from copy import deepcopy
+from typing import List, Dict, Optional
 from dataclasses import dataclass
 from core.draft import DeclarationDraft, NaimenovanjeDraft, InvoiceLine
 
 logger = logging.getLogger(__name__)
+
+# Docs: docs/sections/asycuda-99-item-limit.md
+MAX_ASYCUDA_ITEMS = 99
 
 
 @dataclass
@@ -43,6 +47,14 @@ class GroupKey:
                 self.eur1_number == other.eur1_number)
 
 
+@dataclass
+class NaimenovanjaSplitInfo:
+    total_count: int
+    current_count: int
+    overflow_count: int
+    next_draft: Optional[DeclarationDraft] = None
+
+
 class CreateNaimenovanjaService:
     """
     Service za kreiranje Naimenovanja (stavki deklaracije) iz faktura linija.
@@ -55,6 +67,7 @@ class CreateNaimenovanjaService:
 
     def __init__(self, draft: DeclarationDraft):
         self.draft = draft
+        self.last_split_info: Optional[NaimenovanjaSplitInfo] = None
 
     def create_one_to_one(self) -> int:
         """
@@ -70,6 +83,21 @@ class CreateNaimenovanjaService:
             return 0
 
         logger.debug("  🔄 Kreiranje naimenovanja (ONE_TO_ONE)...")
+
+        overflow_lines: List[InvoiceLine] = []
+        if len(self.draft.invoice_lines) > MAX_ASYCUDA_ITEMS:
+            overflow_lines = self.draft.invoice_lines[MAX_ASYCUDA_ITEMS:]
+            self.draft.invoice_lines = self.draft.invoice_lines[:MAX_ASYCUDA_ITEMS]
+            self.last_split_info = self._prepare_split_info(
+                total_count=len(self.draft.invoice_lines) + len(overflow_lines),
+                current_count=len(self.draft.invoice_lines),
+                overflow_lines=overflow_lines,
+            )
+        else:
+            self.last_split_info = None
+            self._clear_pending_next_declaration()
+
+        self._apply_header_totals(self.draft)
 
         # Očisti postojeće stavke
         self.draft.items.clear()
@@ -108,40 +136,51 @@ class CreateNaimenovanjaService:
 
         logger.debug("  🔄 Kreiranje naimenovanja (SMART_GROUP po tarifa + poreklo + povlastica)...")
 
-        # Grupiši linije po ključu
-        groups: Dict[GroupKey, List[InvoiceLine]] = {}
-
-        for line in self.draft.invoice_lines:
-            key = GroupKey(
-                tariff_code=line.tarifni_broj or '',
-                origin_country=line.zemlja_porijekla or '',
-                preference_code=line.povlastica or '',  # InvoiceLine koristi 'povlastica'!
-                eur1_number=line.eur1_number or ''      # EUR.1 broj za grupisanje
-            )
-
-            if key not in groups:
-                groups[key] = []
-
-            groups[key].append(line)
+        groups = self._group_lines(self.draft.invoice_lines)
 
         logger.debug(f"  📊 Grupisano {len(self.draft.invoice_lines)} linija u {len(groups)} grupa")
-        # DEBUG: upiši svaku grupu u fajl da vidimo zašto se nešto grupišalo zajedno
-        import pathlib
-        _log = pathlib.Path.home() / "naim_debug.log"
-        with open(_log, "w", encoding="utf-8") as _f:
-            _f.write(f"Ukupno linija: {len(self.draft.invoice_lines)}, grupa: {len(groups)}\n\n")
-            for gkey, glines in groups.items():
-                _f.write(f"GRUPA key=({gkey.tariff_code!r}, {gkey.origin_country!r}, {gkey.preference_code!r}, {gkey.eur1_number!r}) → {len(glines)} linija\n")
-                for gl in glines:
-                    _f.write(f"  - {(gl.naziv_robe or '')[:55]} | tarifa={gl.tarifni_broj!r} | zemlja={gl.zemlja_porijekla!r} | povl={gl.povlastica!r}\n")
-                _f.write("\n")
+        for gkey, glines in groups.items():
+            logger.debug(
+                "    Grupa key=(%r, %r, %r, %r) → %s linija",
+                gkey.tariff_code,
+                gkey.origin_country,
+                gkey.preference_code,
+                gkey.eur1_number,
+                len(glines),
+            )
+
+        group_items = list(groups.items())
+        current_group_items = group_items[:MAX_ASYCUDA_ITEMS]
+        overflow_group_items = group_items[MAX_ASYCUDA_ITEMS:]
+
+        if overflow_group_items:
+            current_lines = self._flatten_groups(current_group_items)
+            overflow_lines = self._flatten_groups(overflow_group_items)
+            total_count = len(group_items)
+            self.draft.invoice_lines = current_lines
+            self.last_split_info = self._prepare_split_info(
+                total_count=total_count,
+                current_count=len(current_group_items),
+                overflow_lines=overflow_lines,
+            )
+            logger.warning(
+                "  ⚠️ ASYCUDA limit: %s naimenovanja, kreiram prvih %s, ostatak %s ide u sljedeću deklaraciju",
+                total_count,
+                len(current_group_items),
+                len(overflow_group_items),
+            )
+        else:
+            self.last_split_info = None
+            self._clear_pending_next_declaration()
+
+        self._apply_header_totals(self.draft)
 
         # Očisti postojeće stavke
         self.draft.items.clear()
 
         # Kreiraj 1 naimenovanje po grupi
         ordinal = 1
-        for key, lines in groups.items():
+        for key, lines in current_group_items:
             naimenovanje = self._create_naimenovanje_from_group(lines, ordinal_no=ordinal)
             self.draft.items.append(naimenovanje)
 
@@ -161,6 +200,68 @@ class CreateNaimenovanjaService:
         logger.info(f"  ✅ Kreirano {count} naimenovanja (grupisano po tarifa + poreklo + povlastica + eur1)")
 
         return count
+
+    def _group_lines(self, lines: List[InvoiceLine]) -> Dict[GroupKey, List[InvoiceLine]]:
+        groups: Dict[GroupKey, List[InvoiceLine]] = {}
+        for line in lines:
+            key = GroupKey(
+                tariff_code=line.tarifni_broj or '',
+                origin_country=line.zemlja_porijekla or '',
+                preference_code=line.povlastica or '',
+                eur1_number=line.eur1_number or ''
+            )
+            if key not in groups:
+                groups[key] = []
+            groups[key].append(line)
+        return groups
+
+    @staticmethod
+    def _flatten_groups(group_items: List[tuple]) -> List[InvoiceLine]:
+        lines: List[InvoiceLine] = []
+        for _, grouped_lines in group_items:
+            lines.extend(grouped_lines)
+        return lines
+
+    def _prepare_split_info(
+        self,
+        total_count: int,
+        current_count: int,
+        overflow_lines: List[InvoiceLine],
+    ) -> NaimenovanjaSplitInfo:
+        # Docs: docs/sections/asycuda-99-item-limit.md
+        next_draft = deepcopy(self.draft)
+        next_draft.invoice_lines = deepcopy(overflow_lines)
+        next_draft.items = []
+        for line in next_draft.invoice_lines:
+            line.assigned_naimenovanje_id = ""
+            line.assigned_naimenovanje_ordinal = 0
+        self._apply_header_totals(next_draft)
+        next_draft.stavke = ""
+        next_draft.obrazac_2 = ""
+        next_draft.warnings = list(getattr(next_draft, "warnings", []) or [])
+        next_draft.warnings.append(
+            f"Preostale stavke nakon ASYCUDA limita od {MAX_ASYCUDA_ITEMS} naimenovanja."
+        )
+        self.draft.pending_next_declaration = next_draft
+        return NaimenovanjaSplitInfo(
+            total_count=total_count,
+            current_count=current_count,
+            overflow_count=total_count - current_count,
+            next_draft=next_draft,
+        )
+
+    def _clear_pending_next_declaration(self) -> None:
+        if hasattr(self.draft, "pending_next_declaration"):
+            delattr(self.draft, "pending_next_declaration")
+
+    @staticmethod
+    def _apply_header_totals(draft: DeclarationDraft) -> None:
+        invoice_lines = getattr(draft, "invoice_lines", []) or []
+        draft.iznos = sum(getattr(line, "iznos", 0.0) or 0.0 for line in invoice_lines)
+        draft.valuta = next(
+            (getattr(line, "valuta", "") for line in invoice_lines if getattr(line, "valuta", "")),
+            getattr(draft, "valuta", "") or "",
+        )
 
     def create_from_selection(self, selected_line_indices: List[int]) -> NaimenovanjeDraft:
         """
@@ -230,7 +331,8 @@ class CreateNaimenovanjaService:
             statistical_value=line.iznos or 0.0,
             currency=line.valuta or 'EUR',
             # Pakovanje (InvoiceLine nema ove, koristi podrazumevane)
-            package_code='PK',
+            package_code='PP',
+            package_name='Komadi',
             package_qty=line.kolicina or 0.0,
             package_marks='X',  # Podrazumevano: "X" (Oznake i broj)
             # Procedura (podrazumevano 4000 = definitivni uvoz)
@@ -280,12 +382,14 @@ class CreateNaimenovanjaService:
 
         # Odredi kod dokumenta porijekla
         # PE1 = EUR.1 obrazac (nema izjave na fakturi)
-        # PE2 = Izjava o porijeklu na fakturi (has_origin_statement)
+        # PE2 = Izjava o porijeklu na fakturi
+        # PE3 = Izjava ovlaštenog izvoznika
         pov_group = first_line.povlastica or ''
         has_stmt_group = getattr(first_line, 'has_origin_statement', False)
+        is_auth_group = getattr(first_line, 'is_authorized_exporter', False)
         doc_code = ""
         if pov_group:
-            doc_code = "PE2" if has_stmt_group else "PE1"
+            doc_code = "PE3" if (has_stmt_group and is_auth_group) else ("PE2" if has_stmt_group else "PE1")
 
         naimenovanje = NaimenovanjeDraft(
             item_id=str(uuid.uuid4()),
@@ -295,7 +399,8 @@ class CreateNaimenovanjaService:
             tariff_suffix=first_line.tariff_suffix or '000',
             origin_country_code=first_line.zemlja_porijekla or '',
             currency=first_line.valuta or 'EUR',
-            package_code='PK',  # Podrazumevano
+            package_code='PP',  # Podrazumevano
+            package_name='Komadi',
             procedure_code='4000',  # Podrazumevano
             procedure_prev_code='000',
             preference_code=first_line.povlastica or '',  # Povlastica (EUP/CEFTAP/TRP)

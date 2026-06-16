@@ -233,7 +233,16 @@ class EnhancedValidationDialog(QDialog):
                 "#f39c12"
             )
             tab_widget.addTab(contextual_tab, "🔍 Kontekst")
-        
+
+        # Tab 6: Kompletnost (ComplianceCheckService)
+        if self.report.compliance_items:
+            compliance_tab = self._create_validation_tab(
+                self.report.compliance_items,
+                "📄 Kompletnost Deklaracije",
+                "#16a085"
+            )
+            tab_widget.addTab(compliance_tab, "📄 Kompletnost")
+
         return tab_widget
     
     def _create_validation_tab(
@@ -585,6 +594,7 @@ class EnhancedValidationDialog(QDialog):
         all_items.extend(self.report.historical_items)
         all_items.extend(self.report.legal_items)
         all_items.extend(self.report.contextual_items)
+        all_items.extend(self.report.compliance_items)
         return all_items
     
     def _get_severity_icon(self, severity: ValidationSeverity) -> str:
@@ -605,7 +615,7 @@ class EnhancedValidationDialog(QDialog):
     
     def _on_auto_fix(self, items: List[ValidationItem]):
         """Handler za automatsko popravljanje."""
-        from PySide6.QtWidgets import QMessageBox
+        from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
         
         reply = QMessageBox.question(
             self,
@@ -647,7 +657,7 @@ class EnhancedValidationDialog(QDialog):
             with open(filename, 'w', encoding='utf-8') as f:
                 f.write(content)
             
-            from PySide6.QtWidgets import QMessageBox
+            from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
             QMessageBox.information(
                 self,
                 "Izvještaj sačuvan",
@@ -655,7 +665,7 @@ class EnhancedValidationDialog(QDialog):
             )
             
         except Exception as e:
-            from PySide6.QtWidgets import QMessageBox
+            from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
             QMessageBox.critical(
                 self,
                 "Greška",

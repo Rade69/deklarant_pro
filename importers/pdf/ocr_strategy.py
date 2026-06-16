@@ -11,6 +11,7 @@ Workflow:
 """
 
 import logging
+import platform
 from typing import List
 
 from core.draft.draft import InvoiceLine
@@ -58,11 +59,18 @@ class OCRPDFStrategy(PDFParseStrategy):
             ImportResult sa stavkama, težinama i metapodacima
         """
         if not self.ocr_available:
-            raise ImportError(
-                "OCR biblioteke nisu instalirane! Instaliraj: "
-                "pip install pytesseract pdf2image\n"
-                "sudo apt-get install tesseract-ocr tesseract-ocr-eng tesseract-ocr-bos"
-            )
+            if platform.system() == "Windows":
+                uputstvo = (
+                    "1. Preuzmi i instaliraj Tesseract: https://github.com/UB-Mannheim/tesseract/wiki\n"
+                    "2. Preuzmi i instaliraj Poppler: https://github.com/oschwartz10612/poppler-windows/releases\n"
+                    "3. pip install pytesseract pdf2image"
+                )
+            else:
+                uputstvo = (
+                    "sudo apt-get install tesseract-ocr tesseract-ocr-eng tesseract-ocr-bos poppler-utils\n"
+                    "pip install pytesseract pdf2image"
+                )
+            raise ImportError(f"OCR biblioteke nisu instalirane!\n{uputstvo}")
 
         logger.info(f"OCR parsing započet: {filepath} (DPI: {self.dpi})")
 

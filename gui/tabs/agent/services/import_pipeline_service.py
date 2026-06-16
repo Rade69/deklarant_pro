@@ -4,19 +4,62 @@ Import Pipeline Service
 Pipeline logika za sve tri procesne rute agenta:
   - Analiza mode (prikaži izvještaj, ponudi akcije)
   - Uvezi u deklaraciju mode (dijalozi, ručna potvrda)
-  - Puna automatizacija mode (end-to-end bez dijaloga)
+  - Puna automatizacija mode (auto-koraci uz obaveznu deklarantsku potvrdu)
 
 Premješteno iz agent_controller.py radi smanjenja veličine controllera.
 """
 
 import logging
+import re
 from pathlib import Path
 
 from PySide6.QtWidgets import QApplication
 
+from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
+
 logger = logging.getLogger("deklarant_pro.agent.import_pipeline")
 
 EUR1_THRESHOLD = 6000.0  # EUR — iznad ovog iznosa standardna izjava ne važi
+_PE_DOC_CODES = {"PE1", "PE2", "PE3"}
+
+
+def _normalize_pe_document_text(value: str) -> str:
+    text = re.sub(r"\s+", " ", (value or "").strip())
+    parts = text.split(" ", 1)
+    code = parts[0].upper() if parts else ""
+    if code not in _PE_DOC_CODES:
+        return text
+    rest = parts[1].strip() if len(parts) > 1 else ""
+    while rest.upper().startswith(f"{code} "):
+        rest = rest[len(code):].strip()
+    if rest.upper() == code:
+        rest = ""
+    return f"{code} {rest}".strip()
+
+
+def _pe_doc_code(value: str) -> str:
+    code = (value or "").strip().split(" ", 1)[0].upper()
+    return code if code in _PE_DOC_CODES else ""
+
+
+def _clear_secondary_pe_documents(item) -> bool:
+    doc4 = _normalize_pe_document_text(getattr(item, "attached_document4", "") or "")
+    if doc4 != (getattr(item, "attached_document4", "") or "").strip():
+        item.attached_document4 = doc4
+    if not _pe_doc_code(doc4):
+        return False
+
+    changed = False
+    for field_name in (
+        "attached_document1",
+        "attached_document2",
+        "attached_document3",
+        "attached_document5",
+    ):
+        if _pe_doc_code(getattr(item, field_name, "") or ""):
+            setattr(item, field_name, "")
+            changed = True
+    return changed
 
 
 def _origin_dialog_type(lines: list, has_origin_statement: bool,
@@ -80,23 +123,13 @@ class ImportPipelineService:
     def apply_eur1_to_naimenovanja(self, eur1_data: dict, chat) -> None:
         _apply_eur1_to_naimenovanja(self._ctrl, eur1_data, chat)
 
-    def izracunaj_tezine_interno(self, invoice_lines: list, chat) -> int:
-        return _izracunaj_tezine_interno(self._ctrl, invoice_lines, chat)
-
     def validiraj_prije_uvoza(self, invoice_lines: list, chat) -> tuple:
         return _validiraj_prije_uvoza(invoice_lines, chat)
 
     def generisi_izvjestaj(self, chat) -> bool:
         return _generisi_izvjestaj(self._ctrl, chat)
 
-    def uvezi_u_deklaraciju(self, invoice_lines: list, chat,
-                             total_bruto: float = 0.0, total_neto: float = 0.0,
-                             has_origin_statement: bool = False,
-                             is_authorized_exporter: bool = False,
-                             completed: list = None) -> None:
-        _uvezi_u_deklaraciju(self._ctrl, invoice_lines, chat,
-                             total_bruto, total_neto, has_origin_statement,
-                             is_authorized_exporter, completed)
+
 
     def otvori_faktura_tab_nakon_uvoza(self, chat) -> None:
         _otvori_faktura_tab_nakon_uvoza(self._ctrl, chat)
@@ -198,13 +231,36 @@ def _puna_auto_pipeline(ctrl, fw, chat, all_lines: list) -> None:
     chat.add_activity("🔍 [Auto] Validacija stavki...")
     try:
         if fw and hasattr(fw, '_on_validate_all'):
-            fw._on_validate_all()
+            fw._on_validate_all(auto=True)
             chat.add_activity("✅ Validacija završena")
     except Exception as e:
         chat.add_activity(f"⚠️ Greška pri validaciji: {e}")
     QApplication.processEvents()
 
-    # 4. Kreiraj naimenovanja
+    # 4. Deklarant mora potvrditi porijeklo i preferencijalne dokumente prije naimenovanja
+    chat.add_activity("🧾 [Auto] Čekam potvrdu deklaranta za porijeklo i EUR.1/PE dokumente...")
+    reply = QMessageBox.question(
+        ctrl.view,
+        "Potvrda prije kreiranja naimenovanja",
+        "Prije kreiranja naimenovanja deklarant mora provjeriti:\n\n"
+        "• zemlju porijekla za stavke\n"
+        "• da li postoji izjava o porijeklu na fakturi\n"
+        "• da li je potreban EUR.1 obrazac\n"
+        "• da li su PE1/PE2/PE3 dokumenti ispravno postavljeni\n\n"
+        "Da li je ova provjera završena i smije li se nastaviti sa kreiranjem naimenovanja?",
+        QMessageBox.Yes | QMessageBox.No,
+        QMessageBox.No,
+    )
+    if reply != QMessageBox.Yes:
+        chat.add_agent_message(
+            "⏸️ <b>Puna automatizacija pauzirana.</b><br>"
+            "Provjeri porijeklo i EUR.1/PE dokumente u Faktura tabu, "
+            "pa kreiraj naimenovanja kada budeš siguran."
+        )
+        chat.add_activity("⏸️ Kreiranje naimenovanja zaustavljeno — čeka se deklarantska provjera")
+        return
+
+    # 5. Kreiraj naimenovanja
     chat.add_activity("📋 [Auto] Kreiram naimenovanja...")
     try:
         if fw and hasattr(fw, '_on_create_naimenovanja'):
@@ -214,22 +270,14 @@ def _puna_auto_pipeline(ctrl, fw, chat, all_lines: list) -> None:
         chat.add_activity(f"⚠️ Greška pri kreiranju naimenovanja: {e}")
     QApplication.processEvents()
 
-    # 5. XML template za zaglavlje (tiho — bez dijaloga)
-    chat.add_activity("📂 [Auto] Tražim XML template za zaglavlje...")
-    zaglavlje_status = "⚠️ Zaglavlje nije popunjeno — popuni ručno"
-    try:
-        zaglavlje_status = ctrl._primjeni_xml_template(all_lines, chat, silent=True)
-    except Exception as e:
-        chat.add_activity(f"⚠️ Greška pri primjeni XML templatea: {e}")
-
     bez_tarife = sum(1 for l in ctrl.draft.invoice_lines if not l.tarifni_broj)
     n_naim = len(getattr(ctrl.draft, 'items', []))
     chat.add_agent_message(
         f"🎉 <b>Puna automatizacija završena!</b><br>"
         f"Stavki: {len(ctrl.draft.invoice_lines)} | Bez tarifnog: <b>{bez_tarife}</b><br>"
         f"Naimenovanja: <b>{n_naim}</b><br>"
-        f"Zaglavlje: {zaglavlje_status}<br><br>"
-        f"💡 Provjeri naimenovanja i zaglavlje, zatim izvezi XML."
+        f"Zaglavlje: <b>nije automatski popunjeno</b><br><br>"
+        f"💡 Provjeri naimenovanja, ručno provjeri/popuni zaglavlje, zatim izvezi XML."
     )
 
 
@@ -324,14 +372,19 @@ def _apply_eur1_to_naimenovanja(ctrl, eur1_data: dict, chat) -> None:
         eur1_num = (data.get('eur1_number') or '').strip()
         preference = (data.get('preference') or '').strip()
         has_stmt = data.get('has_origin_statement', False)
-        doc_code = "PE2" if has_stmt else "PE1"
-        doc44 = f"{doc_code} {eur1_num}".strip()
+        doc_code = (data.get('code') or '').strip().upper()
+        if doc_code not in {"PE1", "PE2", "PE3"}:
+            doc_code = "PE2" if has_stmt else "PE1"
+        doc44 = _normalize_pe_document_text(f"{doc_code} {eur1_num}".strip())
 
         for item in ctrl.draft.items:
             pov = (getattr(item, 'preference_code', '') or '').strip()
             origin = (getattr(item, 'origin_country_code', '') or '').strip()
             if pov == preference or origin.upper() == country.upper():
                 item.attached_document4 = doc44
+                # Rub.36 mora biti popunjena ako je Rub.44 popunjena
+                if not pov and preference:
+                    item.preference_code = preference
                 updated += 1
 
     if updated:
@@ -351,19 +404,23 @@ def _sync_pe_docs_to_header(ctrl) -> None:
     pe_entries: list[tuple[str, str]] = []
     seen: set[tuple[str, str]] = set()
     for item in ctrl.draft.items:
-        doc4 = (getattr(item, 'attached_document4', '') or '').strip()
+        _clear_secondary_pe_documents(item)
+        raw_doc4 = (getattr(item, 'attached_document4', '') or '').strip()
+        doc4 = _normalize_pe_document_text(raw_doc4)
+        if doc4 != raw_doc4:
+            item.attached_document4 = doc4
         if not doc4:
             continue
         parts = doc4.split(' ', 1)
         sifra = parts[0].strip()
         broj = parts[1].strip() if len(parts) > 1 else ''
-        if sifra in ("PE1", "PE2", "PE3"):
+        if sifra in _PE_DOC_CODES:
             key = (sifra, broj)
             if key not in seen:
                 seen.add(key)
                 pe_entries.append(key)
 
-    header_docs[:] = [d for d in header_docs if d.code not in ("PE1", "PE2", "PE3")]
+    header_docs[:] = [d for d in header_docs if d.code not in _PE_DOC_CODES]
 
     if pe_entries:
         from core.draft.draft import AttachedDocument
@@ -382,66 +439,6 @@ def _sync_pe_docs_to_header(ctrl) -> None:
             ))
 
         ctrl.draft.mark_dirty()
-
-
-def _izracunaj_tezine_interno(ctrl, invoice_lines: list, chat) -> int:
-    bruto_total = 0.0
-    neto_total = 0.0
-
-    if ctrl.faktura_tab:
-        try:
-            bruto_text = ctrl.faktura_tab.input_bruto.text().strip()
-            neto_text = ctrl.faktura_tab.input_neto.text().strip()
-            bruto_total = float(bruto_text.replace(",", "") or "0")
-            neto_total = float(neto_text.replace(",", "") or "0")
-            print(f"[WeightCalc] Toolbar težine: bruto={bruto_total:.2f} kg, neto={neto_total:.2f} kg")
-        except Exception as e:
-            print(f"[WeightCalc] Greška pri čitanju težina: {e}")
-            bruto_total = 0.0
-            neto_total = 0.0
-
-    items_to_update = [
-        line for line in invoice_lines
-        if (not line.bruto_kg or line.bruto_kg == 0)
-        or (not line.neto_kg or line.neto_kg == 0)
-    ]
-
-    if not items_to_update:
-        print("[WeightCalc] Sve stavke već imaju težine - preskačem izračun")
-        return 0
-
-    print(f"[WeightCalc] {len(items_to_update)} stavki za izračun težina")
-
-    neto_bruto_ratio = neto_total / bruto_total if (bruto_total > 0 and neto_total > 0) else 0.95
-    print(f"[WeightCalc] Odnos neto/bruto: {neto_bruto_ratio:.6f}")
-
-    total_qty = sum(line.kolicina or 0.0 for line in items_to_update if not (line.bruto_kg and line.bruto_kg > 0))
-
-    izracunato = 0
-    for line in items_to_update:
-        has_bruto = line.bruto_kg and line.bruto_kg > 0
-        has_neto = line.neto_kg and line.neto_kg > 0
-
-        if not has_bruto and not has_neto:
-            qty = line.kolicina or 0.0
-            if qty > 0 and total_qty > 0:
-                proportion = qty / total_qty
-                line.bruto_kg = round(bruto_total * proportion, 3) if bruto_total > 0 else 0.0
-                line.neto_kg = round(neto_total * proportion, 3) if neto_total > 0 else round(line.bruto_kg * neto_bruto_ratio, 3)
-            else:
-                avg_weight = (bruto_total / len(invoice_lines)) if bruto_total > 0 else 0.0
-                line.bruto_kg = round(avg_weight, 3)
-                line.neto_kg = round(avg_weight * neto_bruto_ratio, 3)
-            izracunato += 1
-            print(f"  [PDF] {line.naziv_robe[:30]}: bruto={line.bruto_kg:.3f}, neto={line.neto_kg:.3f}")
-
-        elif has_bruto and not has_neto:
-            line.neto_kg = round(line.bruto_kg * neto_bruto_ratio, 3)
-            izracunato += 1
-            print(f"  [Excel] {line.naziv_robe[:30]}: bruto={line.bruto_kg:.3f} → neto={line.neto_kg:.3f}")
-
-    print(f"[WeightCalc] ✅ Izračunato {izracunato} težina")
-    return izracunato
 
 
 def _validiraj_prije_uvoza(invoice_lines: list, chat) -> tuple:
@@ -463,8 +460,8 @@ def _validiraj_prije_uvoza(invoice_lines: list, chat) -> tuple:
                 errors.append(f"❌ Faktura br. '{broj}' već postoji u bazi!")
             else:
                 chat.add_activity(f"  ✅ Faktura {broj}: Nije duplikat")
-    except Exception:
-        pass
+    except Exception as _e:
+        logger.warning("Provjera duplikata fakture neuspješna: %s", _e)
 
     # 2. Provjera partnera
     try:
@@ -482,8 +479,8 @@ def _validiraj_prije_uvoza(invoice_lines: list, chat) -> tuple:
                 warnings.append(f"⚠️ Partner '{partner}' nije u šifrarniku")
             else:
                 chat.add_activity(f"  ✅ Partner {partner}: Nađen u šifrarniku")
-    except Exception:
-        pass
+    except Exception as _e:
+        logger.warning("Provjera partnera u šifrarniku neuspješna: %s", _e)
 
     # 3. Provjera formata tarifnih
     try:
@@ -492,8 +489,8 @@ def _validiraj_prije_uvoza(invoice_lines: list, chat) -> tuple:
                 tarif = line.tarifni_broj.strip()
                 if len(tarif) >= 4 and '.' in tarif:
                     chat.add_activity(f"  ✅ Tarifni {tarif}: Format ispravan")
-    except Exception:
-        pass
+    except Exception as _e:
+        logger.warning("Provjera formata tarifnih neuspješna: %s", _e)
 
     for w in warnings:
         chat.add_activity(w)
@@ -530,8 +527,8 @@ def _generisi_izvjestaj(ctrl, chat) -> bool:
                 if not tariff_svc.validate_tariff(line.tarifni_broj):
                     errors.append(f"Stavka {row_num}: Nevažeći tarifni '{line.tarifni_broj}'")
                     suggestions.append(f"  → Ručno provjeri tarifni za stavku {row_num}")
-            except Exception:
-                pass
+            except Exception as _e:
+                logger.debug("Validacija tarifnog broja stavke %s: %s", row_num, _e)
 
         if not line.zemlja_porijekla:
             warnings.append(f"Stavka {row_num}: Nema zemlju porijekla")
@@ -568,160 +565,6 @@ def _generisi_izvjestaj(ctrl, chat) -> bool:
         )
 
     return len(errors) == 0
-
-
-def _uvezi_u_deklaraciju(ctrl, invoice_lines: list, chat,
-                          total_bruto: float = 0.0, total_neto: float = 0.0,
-                          has_origin_statement: bool = False,
-                          is_authorized_exporter: bool = False,
-                          completed: list = None) -> None:
-    print(f"[ImportPipeline] _uvezi_u_deklaraciju: {len(invoice_lines)} stavki")
-
-    if not ctrl.draft:
-        chat.add_activity("⚠️ Draft nije dostupan")
-        return
-
-    # 0. Validacija PRIJE uvoza
-    chat.add_activity("🔍 Validacija prije uvoza...")
-    valid, greske = _validiraj_prije_uvoza(invoice_lines, chat)
-    if not valid:
-        chat.add_agent_message(
-            f"❌ <b>Validacija nije uspješna!</b><br><br>"
-            f"{'<br>'.join(greske)}<br><br>"
-            f"Uvoz je obustavljen."
-        )
-        return
-
-    # 1. Uvezi podatke u draft
-    # Važno: ne prepisuj globalno invoice_number sa "prvim" fajlom.
-    # Svaka stavka mora zadržati broj fakture koji je parser već postavio.
-    
-    chat.add_activity(f"📥 Uvoz {len(invoice_lines)} stavki...")
-    ctrl.draft.invoice_lines.clear()
-    ctrl.draft.invoice_lines.extend(invoice_lines)
-    chat.add_activity(f"✅ Uvezeno {len(invoice_lines)} stavki")
-
-    QApplication.processEvents()
-
-    # 2. Otvori Faktura tab
-    faktura_widget = ctrl.faktura_tab
-    if hasattr(ctrl.faktura_tab, 'view'):
-        faktura_widget = ctrl.faktura_tab.view
-
-    if faktura_widget:
-        if total_bruto > 0 or total_neto > 0:
-            if hasattr(faktura_widget, 'weight_manager') and hasattr(faktura_widget, '_accumulate_weights'):
-                faktura_widget.weight_manager.accumulated_bruto_kg = 0.0
-                faktura_widget.weight_manager.accumulated_neto_kg = 0.0
-                faktura_widget._accumulate_weights(total_bruto, total_neto)
-                chat.add_activity(f"⚖️ Težine postavljene: Bruto={total_bruto:.2f}kg, Neto={total_neto:.2f}kg")
-
-        if hasattr(faktura_widget, '_load_data_from_draft'):
-            faktura_widget._load_data_from_draft()
-
-        chat.add_activity("🤖 Izračunavam mase...")
-        try:
-            from services.faktura.mass_calculator import MassCalculator
-            mass_calc = MassCalculator()
-            if hasattr(faktura_widget, 'input_bruto') and hasattr(faktura_widget, 'input_neto'):
-                bruto_total = float(faktura_widget.input_bruto.text().replace(",", "") or "0")
-                neto_total = float(faktura_widget.input_neto.text().replace(",", "") or "0")
-                if bruto_total > 0 or neto_total > 0:
-                    result = mass_calc.calculate_masses(ctrl.draft.invoice_lines, bruto_total, neto_total)
-                    chat.add_activity(f"✅ Mase izračunate: {result['updated']} stavki ažurirano")
-                else:
-                    chat.add_activity("ℹ️ Nema težina za izračun")
-        except Exception as e:
-            chat.add_activity(f"⚠️ Greška pri izračunu masa: {e}")
-
-        if hasattr(faktura_widget, '_load_data_from_draft'):
-            faktura_widget._load_data_from_draft()
-
-    # 3. Broj fakture za dijalog i za N380 u zaglavlju
-    # Skupljamo SVE eksplicitno parsirane brojeve (bez stem fallbacka)
-    brojevi_faktura = []
-    if completed:
-        for f in completed:
-            if f.status == 'Completed' and f.invoice_number:
-                if f.invoice_number not in brojevi_faktura:
-                    brojevi_faktura.append(f.invoice_number)
-    invoice_number = " | ".join(brojevi_faktura) if brojevi_faktura else ""
-
-    # 4. Dijalog za porijeklo (PE2 / PE3 / EUR.1)
-    dialog_tip = _origin_dialog_type(ctrl.draft.invoice_lines, has_origin_statement,
-                                     is_authorized_exporter)
-
-    if dialog_tip in ('pe2', 'pe3'):
-        doc_code = 'PE3' if dialog_tip == 'pe3' else 'PE2'
-        lbl = "PE3 (ovlašteni izvoznik)" if dialog_tip == 'pe3' else "PE2 (izjava na fakturi)"
-        chat.add_activity(f"📄 Faktura ima izjavu o porijeklu — otvaram {lbl} dijalog...")
-        chat.add_agent_message(
-            f"📄 <b>Faktura ima izjavu o preferencijalnom porijeklu ({doc_code}).</b><br>"
-            + (f"Ovlašteni izvoznik — EUR.1 nije potreban.<br>" if dialog_tip == 'pe3' else
-               f"Vrijednost je ispod 6.000 EUR — EUR.1 nije potreban.<br>")
-            + f"<br>⚠️ <b>Ništa se ne upisuje automatski — ti odlučuješ.</b>"
-        )
-        try:
-            from gui.dialogs.pe2_quick_dialog import PE2QuickDialog
-            dialog = PE2QuickDialog(ctrl.draft.invoice_lines, ctrl.view,
-                                    invoice_number=invoice_number, doc_code=doc_code)
-            result_dlg = dialog.exec()
-            if result_dlg == 1:
-                pe2_data = dialog.get_data()
-                if pe2_data:
-                    updated_count = PE2QuickDialog.apply_pe2_data(ctrl.draft.invoice_lines, pe2_data)
-                    chat.add_activity(f"✅ {doc_code} primijenjen na {updated_count} stavki")
-                    if faktura_widget and hasattr(faktura_widget, '_load_data_from_draft'):
-                        faktura_widget._load_data_from_draft()
-            else:
-                chat.add_activity(f"ℹ️ {doc_code} dijalog preskočen — uredi ručno u Faktura tabu")
-        except Exception as e:
-            chat.add_activity(f"⚠️ {doc_code} dijalog greška: {e}")
-
-    elif dialog_tip == 'eur1':
-        razlog = ("Standardna izjava na fakturi, ali vrijednost prelazi 6.000 EUR"
-                  if has_origin_statement else "Faktura nema izjavu o porijeklu")
-        chat.add_activity(f"📋 EUR.1 obrazac potreban — otvaram dijalog...")
-        chat.add_agent_message(
-            f"⚠️ <b>Potreban EUR.1 obrazac.</b><br>"
-            f"{razlog}.<br><br>"
-            f"📄 <b>Unesi EUR.1 broj za svaku zemlju.</b><br>"
-            f"Ako nemaš EUR.1, ostavi prazno i uredi kasnije ručno."
-        )
-        try:
-            from gui.dialogs.eur1_quick_dialog import Eur1QuickDialog
-            dialog = Eur1QuickDialog(ctrl.draft.invoice_lines, ctrl.view, invoice_number=invoice_number)
-            result_dlg = dialog.exec()
-            if result_dlg == 1:
-                eur1_data = dialog.get_data()
-                if eur1_data:
-                    updated_count = Eur1QuickDialog.apply_eur1_data(ctrl.draft.invoice_lines, eur1_data)
-                    chat.add_activity(f"✅ EUR.1 primijenjen na {updated_count} stavki")
-                    _apply_eur1_to_naimenovanja(ctrl, eur1_data, chat)
-                    if faktura_widget and hasattr(faktura_widget, '_load_data_from_draft'):
-                        faktura_widget._load_data_from_draft()
-            else:
-                chat.add_activity("ℹ️ EUR.1 dijalog preskočen — unesi broj ručno u Faktura tabu")
-        except Exception as e:
-            chat.add_activity(f"⚠️ EUR.1 dijalog greška: {e}")
-
-    else:
-        chat.add_activity("ℹ️ Nema stavki koje zahtijevaju EUR.1 — nastavi ručno uređivanje")
-
-    # 5. Rezime
-    bez_tarife = sum(1 for l in ctrl.draft.invoice_lines if not l.tarifni_broj)
-    chat.add_agent_message(
-        f"✅ <b>Uvoz završen!</b><br>"
-        f"Uvezeno <b>{len(invoice_lines)}</b> stavki.<br><br>"
-        f"📊 <b>Stanje:</b><br>"
-        f"  • Bez tarifnog broja: <b>{bez_tarife}</b><br>"
-        f"  • Mase: izračunate<br>"
-        f"  • Povlastice: {'PE2/EUR.1 potvrđeno' if has_origin_statement else 'Čeka unos'}<br><br>"
-        f"💡 <b>Šta dalje?</b><br>"
-        f"  • Reci <i>'popuni tarifne'</i> za prijedloge tarifnih brojeva<br>"
-        f"  • Pregledaj tablicu i ručno dopuni podatke<br>"
-        f"  • Kad si spreman, reci <i>'kreiraj naimenovanja'</i>"
-    )
 
 
 def _otvori_faktura_tab_nakon_uvoza(ctrl, chat) -> None:

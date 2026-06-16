@@ -17,6 +17,16 @@ from importers.generic_pdf_importer import parse_generic_pdf
 
 logger = logging.getLogger("deklarant_pro.import.smart_pdf")
 
+# Cache teksta prvih stranica po putanji — punjen u _detect_pdf_format,
+# dostupan specijalizovanim parserima koji inače čitaju iste stranice ponovo.
+# Format: {filepath: (text_raw, text_upper, text_norm)}
+_pdf_text_cache: dict = {}
+
+
+def get_cached_pdf_text(pdf_path: str):
+    """Vrati (text, text_upper, text_norm) iz cache-a ili None."""
+    return _pdf_text_cache.get(str(pdf_path))
+
 
 # SECTION: pdf_parse_pipeline
 # PURPOSE: 5-koračni pipeline sa fallback lancem: specijalizirani → generic → OCR
@@ -45,6 +55,10 @@ def parse_smart_pdf(pdf_path: str) -> ImportResult:
         if pdf_format == "leburic_pekabesko":
             logger.info("   📋 Koristim Leburic/Pekabesko specijalizovanu funkciju")
             result = _parse_leburic_pekabesko(pdf_path)
+
+        elif pdf_format == "pip_food":
+            logger.info("   📋 Koristim PIP Food Group specijalizovanu funkciju")
+            result = _parse_pip_food(pdf_path)
 
         elif pdf_format == "invoice_improved":
             logger.info("   📋 Koristim Invoice-Improved specijalizovanu funkciju")
@@ -77,6 +91,14 @@ def parse_smart_pdf(pdf_path: str) -> ImportResult:
         elif pdf_format == "sumaprom":
             logger.info("   📋 Koristim ŠUMAPROM specijalizovanu funkciju")
             result = _parse_sumaprom(pdf_path)
+
+        elif pdf_format == "kg_fashion":
+            logger.info("   📋 Koristim KG Fashion specijalizovanu funkciju")
+            result = _parse_kg_fashion(pdf_path)
+
+        elif pdf_format == "cmana":
+            logger.info("   📋 Koristim CMANA specijalizovanu funkciju")
+            result = _parse_cmana(pdf_path)
 
         else:
             logger.info("   🔍 Nepoznat format - koristim generičku tabular extraction")
@@ -135,6 +157,9 @@ def parse_smart_pdf(pdf_path: str) -> ImportResult:
         logger.warning("❌ Parsiranje nije uspjelo - nema rezultata")
         result = ImportResult(items=[], bruto_kg=0.0, neto_kg=0.0, invoice_name="", currency="EUR")
 
+    # Oslobodi cache — fajl je parsiran, tekst više nije potreban
+    _pdf_text_cache.pop(str(pdf_path), None)
+
     return result
 
 
@@ -164,6 +189,9 @@ def _detect_pdf_format(pdf_path: str) -> str:
                 c for c in unicodedata.normalize("NFD", text_upper)
                 if unicodedata.category(c) != "Mn"
             )
+
+            # Sačuvaj u cache — specijalizovani parseri mogu preskočiti re-čitanje
+            _pdf_text_cache[str(pdf_path)] = (text, text_upper, text_norm)
 
             # BLAGIĆ ATTOS - specifičan format (provjeri prije generičkog Blagić)
             # Koristimo text_norm jer PDF može imati BLAGIĆ (dijakritik) umjesto BLAGIC
@@ -224,6 +252,20 @@ def _detect_pdf_format(pdf_path: str) -> str:
             # LEBURIC / PEKABESKO — PDF je supplement (uz Excel), ne importuje se direktno
             if "PEKABESKO" in text_upper:
                 return "leburic_pekabesko"
+
+            # PIP FOOD GROUP
+            if "PIP FOOD GROUP" in text_upper or "PIP FOOD" in text_upper:
+                if "FAKTURA" in text_upper or "INVOICE" in text_upper:
+                    return "pip_food"
+
+            # KG FASHION - fakture od "K... G... FASHION" D.O.O. Cacak
+            # Brendovi: Petite Jolie, Vizzano, Benetton, Sisley, Ambitious, Bueno, Jagger itd.
+            if "K... G... FASHION" in text_upper or "KGFASHION" in text_upper:
+                return "kg_fashion"
+
+            # CMANA - Račun ino kupcu
+            if "CMANA" in text_upper and ("RAČUN" in text_upper or "RACUN" in text_upper):
+                return "cmana"
 
             # Nepoznat format - generička extraction
             return "generic"
@@ -355,8 +397,26 @@ def _parse_proton_system(pdf_path: str) -> ImportResult:
 
 def _parse_leburic_pekabesko(pdf_path: str) -> ImportResult:
     """Parsira Leburic/Pekabesko PDF format (skenirani OCR dokumenti)."""
-    from importers.vendors.leburic.leburic_pekabesko_pdf_parser import parse_leburic_pekabesko_pdf
+    from importers.leburic_pekabesko_importer import parse_leburic_pekabesko_pdf
     return parse_leburic_pekabesko_pdf(pdf_path)
+
+
+def _parse_pip_food(pdf_path: str) -> ImportResult:
+    """Parsira PIP Food Group PDF format."""
+    from importers.vendors.pip_food.pip_food_parser import parse_pip_food_pdf
+    return parse_pip_food_pdf(pdf_path)
+
+
+def _parse_kg_fashion(pdf_path: str) -> ImportResult:
+    """Parsira KG Fashion D.O.O. format (Petite Jolie, Vizzano, Benetton, Sisley, Ambitious, Bueno, Jagger itd.)."""
+    from importers.vendors.kg_fashion.kg_fashion_importer import import_kg_fashion
+    return import_kg_fashion(pdf_path)
+
+
+def _parse_cmana(pdf_path: str) -> ImportResult:
+    """Parsira CMANA DOO Krnjevo format."""
+    from importers.vendors.cmana.cmana_pdf_parser import parse_cmana_pdf
+    return parse_cmana_pdf(pdf_path)
 
 
 # Alias za kompatibilnost

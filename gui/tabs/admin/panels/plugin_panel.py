@@ -8,12 +8,13 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QListWidget, QListWidgetItem, QPushButton,
     QGroupBox, QTextEdit, QFileDialog, QMessageBox,
-    QFrame, QScrollArea
+    QFrame, QScrollArea, QSizePolicy, QGridLayout
 )
 from PySide6.QtCore import Signal, Qt
 from PySide6.QtGui import QFont
 from typing import List, Dict, Any
 import qtawesome as qta
+from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
 
 
 class PluginPanel(QWidget):
@@ -230,6 +231,85 @@ class PluginPanel(QWidget):
         btn_layout.addStretch()
 
         layout.addLayout(btn_layout)
+
+        # ── Ugrađeni importeri (read-only informacija) ──────────
+        builtin_group = QGroupBox("🏭 Ugrađeni importeri (uvijek dostupni)")
+        builtin_group.setFont(QFont("Arial", 12, QFont.Bold))
+        builtin_group.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        builtin_lay = QVBoxLayout(builtin_group)
+        builtin_lay.setContentsMargins(10, 10, 10, 10)
+        builtin_lay.setSpacing(6)
+
+        self._chips_layout = QGridLayout()
+        self._chips_layout.setSpacing(8)
+        self._populate_builtin_importers()
+        builtin_lay.addLayout(self._chips_layout)
+
+        layout.addWidget(builtin_group)
+
+    def _populate_builtin_importers(self):
+        import os
+        vendor_mapa = {
+            'blagic':       ('Blagić', 'Excel + PDF'),
+            'imamoglu':     ('İmamoğlu', 'Excel + PDF'),
+            'leburic':      ('Leburić / Pekabesko', 'PDF'),
+            'master_frigo': ('Master Frigo', 'Excel + PDF'),
+            'medicopharm':  ('Medicopharm', 'PDF'),
+            'sumaprom':     ('Šumaprom', 'Excel + PDF'),
+        }
+        try:
+            vendors_dir = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(
+                    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))),
+                'importers', 'vendors'
+            )
+            vendors = sorted([
+                d for d in os.listdir(vendors_dir)
+                if os.path.isdir(os.path.join(vendors_dir, d)) and not d.startswith('_')
+            ])
+        except Exception:
+            vendors = list(vendor_mapa.keys())
+
+        cols = 2
+        for i, v in enumerate(vendors):
+            naziv, format_tip = vendor_mapa.get(v, (v.replace('_', ' ').title(), ''))
+            chip = self._make_chip(naziv, format_tip)
+            self._chips_layout.addWidget(chip, i // cols, i % cols)
+
+    def _make_chip(self, naziv: str, format_tip: str) -> QFrame:
+        frame = QFrame()
+        frame.setStyleSheet("""
+            QFrame {
+                background-color: #e8f0fe;
+                border: 1px solid #bbd0f8;
+                border-radius: 6px;
+                padding: 2px;
+            }
+        """)
+        frame.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
+        lay = QHBoxLayout(frame)
+        lay.setContentsMargins(10, 6, 10, 6)
+        lay.setSpacing(8)
+
+        ico = QLabel()
+        ico.setPixmap(qta.icon('fa5s.file-import', color='#1a73e8').pixmap(14, 14))
+        lay.addWidget(ico)
+
+        lbl_naziv = QLabel(naziv)
+        lbl_naziv.setStyleSheet("font-size: 12px; font-weight: bold; color: #1a3e6e; border: none;")
+        lay.addWidget(lbl_naziv)
+
+        lay.addStretch()
+
+        if format_tip:
+            lbl_fmt = QLabel(format_tip)
+            lbl_fmt.setStyleSheet(
+                "font-size: 11px; color: #666; background: #d0e4ff; "
+                "border: none; border-radius: 3px; padding: 1px 5px;"
+            )
+            lay.addWidget(lbl_fmt)
+
+        return frame
 
     def _get_empty_info_html(self):
         """Vraća HTML za prazan info panel."""

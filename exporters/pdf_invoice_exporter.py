@@ -29,23 +29,54 @@ class PDFInvoiceExporter:
 
     def __init__(self):
         """Inicijalizuj PDF exporter."""
+        self.font_regular = 'Helvetica'
+        self.font_bold = 'Helvetica-Bold'
+        self.font_italic = 'Helvetica-Oblique'
+        self.font_bold_italic = 'Helvetica-BoldOblique'
         self._register_fonts()
         self.styles = getSampleStyleSheet()
         self._setup_styles()
 
     def _register_fonts(self):
         """Registruj Liberation Sans fontove za UTF-8 podršku (srpska slova)."""
+        font_files = {
+            'regular': 'LiberationSans-Regular.ttf',
+            'bold': 'LiberationSans-Bold.ttf',
+            'italic': 'LiberationSans-Italic.ttf',
+            'bold_italic': 'LiberationSans-BoldItalic.ttf',
+        }
+        candidate_dirs = [
+            Path.home() / ".local/share/fonts",
+            Path("/usr/share/fonts/truetype/liberation2"),
+            Path("/usr/share/fonts/truetype/liberation"),
+            Path("/usr/share/fonts/liberation-sans-fonts"),
+            Path("/Library/Fonts"),
+            Path("C:/Windows/Fonts"),
+        ]
         try:
-            # Liberation Sans - podržava UTF-8 i srpska slova (č, ć, ž, š, đ)
-            font_path = "/usr/share/fonts/liberation-sans-fonts/"
-            pdfmetrics.registerFont(TTFont('LibSans', font_path + 'LiberationSans-Regular.ttf'))
-            pdfmetrics.registerFont(TTFont('LibSans-Bold', font_path + 'LiberationSans-Bold.ttf'))
-            pdfmetrics.registerFont(TTFont('LibSans-Italic', font_path + 'LiberationSans-Italic.ttf'))
-            pdfmetrics.registerFont(TTFont('LibSans-BoldItalic', font_path + 'LiberationSans-BoldItalic.ttf'))
-            print("✅ Liberation Sans fontovi registrovani za UTF-8 podršku")
+            for font_dir in candidate_dirs:
+                regular = font_dir / font_files['regular']
+                bold = font_dir / font_files['bold']
+                italic = font_dir / font_files['italic']
+                bold_italic = font_dir / font_files['bold_italic']
+                if not all(path.exists() for path in [regular, bold, italic, bold_italic]):
+                    continue
+
+                pdfmetrics.registerFont(TTFont('LibSans', str(regular)))
+                pdfmetrics.registerFont(TTFont('LibSans-Bold', str(bold)))
+                pdfmetrics.registerFont(TTFont('LibSans-Italic', str(italic)))
+                pdfmetrics.registerFont(TTFont('LibSans-BoldItalic', str(bold_italic)))
+                self.font_regular = 'LibSans'
+                self.font_bold = 'LibSans-Bold'
+                self.font_italic = 'LibSans-Italic'
+                self.font_bold_italic = 'LibSans-BoldItalic'
+                print(f"✅ Liberation Sans fontovi registrovani: {font_dir}")
+                return
+
+            print("⚠️ Liberation Sans nije pronađen, koristim ReportLab default fontove")
         except Exception as e:
             print(f"⚠️ Greška pri registrovanju fontova: {e}")
-            print("   Koristim default fontove (bez srpskih slova)")
+            print("   Koristim ReportLab default fontove")
 
     def _setup_styles(self):
         """Postavi custom stilove za PDF."""
@@ -54,7 +85,7 @@ class PDFInvoiceExporter:
             name='CustomHeading',
             parent=self.styles['Heading1'],
             fontSize=14,
-            fontName='LibSans-Bold',
+            fontName=self.font_bold,
             textColor=colors.HexColor('#2563EB'),
             spaceAfter=12,
             spaceBefore=6
@@ -65,7 +96,7 @@ class PDFInvoiceExporter:
             name='NaimenovanjeHeader',
             parent=self.styles['Normal'],
             fontSize=11,
-            fontName='LibSans-Bold',
+            fontName=self.font_bold,
             textColor=colors.HexColor('#1F2937'),
             spaceAfter=8,
             spaceBefore=12
@@ -76,7 +107,7 @@ class PDFInvoiceExporter:
             name='TableCell',
             parent=self.styles['Normal'],
             fontSize=8,
-            fontName='LibSans',
+            fontName=self.font_regular,
             leading=10,  # Line height
             alignment=0,  # Left align
             wordWrap='LTR'
@@ -297,7 +328,7 @@ class PDFInvoiceExporter:
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2563EB')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'LibSans-Bold'),
+            ('FONTNAME', (0, 0), (-1, 0), self.font_bold),
             ('FONTSIZE', (0, 0), (-1, 0), 9),
             ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
             ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
@@ -308,7 +339,7 @@ class PDFInvoiceExporter:
             ('ALIGN', (0, 1), (0, -1), 'CENTER'),  # RB centered
             ('ALIGN', (3, 1), (7, -1), 'RIGHT'),   # Numbers right-aligned
             ('ALIGN', (11, 1), (12, -1), 'RIGHT'), # Weights right-aligned
-            ('FONTNAME', (0, 1), (-1, -1), 'LibSans'),
+            ('FONTNAME', (0, 1), (-1, -1), self.font_regular),
             ('FONTSIZE', (0, 1), (-1, -1), 8),
             ('TOPPADDING', (0, 1), (-1, -1), 4),
             ('BOTTOMPADDING', (0, 1), (-1, -1), 4),

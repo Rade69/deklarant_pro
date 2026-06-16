@@ -256,7 +256,7 @@ class EnhancedTariffSuggestionDialog(QDialog):
                 "bg_color": "#ebf5fb"
             },
             "historical": {
-                "title": "📊 HISTORIJSKI PODACI",
+                "title": "📊 ISTORIJSKI PODACI",
                 "color": "#8e44ad",
                 "bg_color": "#f4ecf7"
             },

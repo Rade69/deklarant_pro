@@ -130,7 +130,7 @@ def merge_country_origin(
 
     HIJERARHIJA:
     1. PDF ima IZJAVU o poreklu → koristi se PDF + povlastica (HIGH)
-    2. PDF ima samo OZNAKU zemlje (bez izjave) → koristi se zemlja, BEZ povlastice (MEDIUM)
+    2. PDF ima samo OZNAKU zemlje (bez izjave) → koristi se zemlja, BEZ povlastice (HIGH)
     3. PDF nema ništa, baza ima → NE KORISTI SE (ostaje prazno)
     4. Oba imaju i poklapaju se → koristi se (HIGH)
     5. Oba imaju i različita → koristi se PDF, flaguj konflikt (CONFLICT)
@@ -172,13 +172,13 @@ def merge_country_origin(
             has_origin_statement=True
         )
 
-    # SLUČAJ 2: PDF ima samo OZNAKU (bez izjave) → zemlja DA, povlastica NE
+    # SLUČAJ 2: PDF/Excel ima samo OZNAKU (bez izjave) → zemlja DA, povlastica NE
     if pdf_clean and not has_origin_statement:
-        logger.warning(f"  ⚠️ PDF OZNAKA (bez izjave): zemlja={pdf_clean}, BEZ povlastice")
+        logger.info(f"  ✅ DOKUMENT OZNAKA: zemlja={pdf_clean}, BEZ automatske povlastice")
         return CountryValidationResult(
             final_country=pdf_clean,
             final_preference="",  # ⚠️ NEMA automatske povlastice!
-            confidence=ConfidenceLevel.MEDIUM,
+            confidence=ConfidenceLevel.HIGH,
             source="PDF_OZNAKA",
             has_origin_statement=False,
             conflict_details="PDF nema izjavu o poreklu - potrebna intervencija korisnika za povlasticu"

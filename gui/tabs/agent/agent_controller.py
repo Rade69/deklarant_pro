@@ -7,8 +7,27 @@ Agent Controller - business logic za tri pipeline moda.
 
 from PySide6.QtWidgets import QFileDialog, QApplication
 from pathlib import Path
+import os
+import re
 from .agent_view import AgentView
 from .widgets.processing_worker import ProcessingWorker
+from services.faktura.weight_guards import normalize_invoice_key
+
+
+def _agent_invoice_token(value: str) -> str:
+    stem = Path(value or "").stem.lower()
+    stem = stem.replace("-", "").replace("_", "").replace(" ", "")
+    for keyword in ("sreto", "blagic", "blagić", "loren"):
+        stem = stem.replace(keyword, "")
+    return re.sub(r"[^a-z0-9]", "", stem)
+
+
+def _agent_invoice_sort_key(file_item) -> tuple:
+    raw = getattr(file_item, "invoice_number", "") or getattr(file_item, "filepath", "")
+    token = _agent_invoice_token(raw)
+    parts = re.findall(r"\d+|[a-z]+", token)
+    natural = tuple((0, int(part)) if part.isdigit() else (1, part) for part in parts)
+    return (natural, token, Path(getattr(file_item, "filepath", "")).name.lower())
 
 
 class AgentController:
@@ -115,6 +134,54 @@ class AgentController:
         """Osvježi Naimenovanja tab."""
         if self.naimenovanje_tab:
             getattr(self.naimenovanje_tab, 'reload_data', getattr(self.naimenovanje_tab, 'reload', lambda: None))()
+
+    def auto_provjeri_naimenovanja(self):
+        """
+        Automatska provjera naimenovanja nakon kreiranja — kratak rezime.
+        Poziva se preko signala naimenovanja_created iz FakturaView.
+        Prikazuje samo rezime (broj praznih polja), ne detalje.
+        Za detalje korisnik pita: "provjeri naimenovanja".
+
+        📄 docs/decisions/002-tool-dispatcher-integration.md
+        """
+        from services.agent.validation.naimenovanja_review_service import NaimenovanjaReviewService
+
+        chat = self.view.get_chat_panel()
+        naim_items = self.draft.items if self.draft else []
+
+        if not naim_items:
+            return  # Bez naimenovanja — ništa ne prikazuj
+
+        result = NaimenovanjaReviewService.provjeri_naimenovanja(naim_items)
+
+        if result['is_complete']:
+            chat.add_agent_message(
+                f"✅ <b>{result['total_naim']} naimenovanja kreirano</b> — sve rubrike popunjene."
+            )
+            return
+
+        # Kratak rezime — samo problematična naimenovanja
+        problematic = [p for p in result['problemi'] if p.prazne_obavezne]
+        optional_only = [p for p in result['problemi'] if not p.prazne_obavezne and p.prazne_opcione]
+
+        parts = [f"📋 <b>{result['total_naim']} naimenovanja kreirano.</b>"]
+
+        if problematic:
+            rbs = ", ".join(f"Rb.{p.ordinal_no}" for p in problematic)
+            parts.append(
+                f"⚠️ <b>{result['total_praznih_obaveznih']}</b> praznih obaveznih polja "
+                f"({rbs})."
+            )
+
+        if optional_only:
+            parts.append(
+                f"💡 <b>{result['total_praznih_opcionih']}</b> praznih opcionih polja "
+                f"({len(optional_only)} naim.)."
+            )
+
+        parts.append("<small>Za detalje: <i>provjeri naimenovanja</i></small>")
+
+        chat.add_agent_message("<br>".join(parts))
 
     def _connect_signals(self):
         """Poveži view signale sa handler metodama."""
@@ -272,6 +339,9 @@ class AgentController:
     def _on_file_started(self, filepath: str):
         """Ažuriraj tabelu - fajl počeo sa procesiranjem."""
         doc = self.view.get_document_panel()
+        current = getattr(doc.file_table, "_files", {}).get(filepath)
+        if current and current.status in {"Completed", "Skipped", "Error"}:
+            return
         doc.file_table.update_file_status(filepath, 'Processing', 0.0)
 
     def _on_progress(self, message: str):
@@ -292,10 +362,6 @@ class AgentController:
                 if match:
                     stavki = match.group(1)
                     chat.add_agent_message(f"✅ <b>Uvezeno {stavki} stavki</b>")
-        elif "⚖️" in message:
-            # Prikaži težine
-            chat.add_activity(message)  # Samo u Aktivnosti tabu
-
     def _on_file_completed(self, file_item):
         """Ažuriraj tabelu - fajl završio procesiranje."""
         doc = self.view.get_document_panel()
@@ -306,6 +372,52 @@ class AgentController:
             file_item.detected_parser or file_item.parser
         )
 
+    def _normalize_finished_file_statuses(self, files: list):
+        doc = self.view.get_document_panel()
+        for file_item in files:
+            if file_item.status == 'Processing' and file_item.invoice_lines:
+                file_item.status = 'Completed'
+                if file_item.confidence <= 0:
+                    file_item.confidence = 1.0
+                doc.file_table.update_file_status(
+                    file_item.filepath,
+                    file_item.status,
+                    file_item.confidence,
+                    file_item.detected_parser or file_item.parser
+                )
+
+    def _dedupe_completed_import_files(self, completed: list) -> list:
+        combined = [f for f in completed if getattr(f, "is_combined", False)]
+        consumed = {
+            os.path.normcase(str(Path(path).resolve()))
+            for f in completed
+            for path in (getattr(f, "consumed_paths", []) or [])
+        }
+        if not combined and not consumed:
+            return completed
+
+        combined_tokens = {
+            _agent_invoice_token(getattr(f, "invoice_number", "") or getattr(f, "filepath", ""))
+            for f in combined
+        }
+        filtered = []
+        for file_item in completed:
+            resolved = os.path.normcase(str(Path(file_item.filepath).resolve()))
+            token = _agent_invoice_token(getattr(file_item, "invoice_number", "") or file_item.filepath)
+            is_excel_pair = file_item.file_type == "Excel" and token in combined_tokens
+            if file_item not in combined and (resolved in consumed or is_excel_pair):
+                file_item.status = "Skipped"
+                file_item.invoice_lines = []
+                self.view.get_document_panel().file_table.update_file_status(
+                    file_item.filepath,
+                    file_item.status,
+                    file_item.confidence,
+                    file_item.detected_parser or file_item.parser,
+                )
+                continue
+            filtered.append(file_item)
+        return filtered
+
     def _on_all_completed(self, files: list):
         """Svi fajlovi završeni - izvrši pipeline logiku prema modu."""
         # ⭐ ODMAH ukloni loading state — pre bilo čega drugog
@@ -313,7 +425,10 @@ class AgentController:
         doc.upload_area.set_loading(False)
 
         chat = self.view.get_chat_panel()
+        self._normalize_finished_file_statuses(files)
         completed = [f for f in files if f.status == 'Completed']
+        completed = self._dedupe_completed_import_files(completed)
+        completed = sorted(completed, key=_agent_invoice_sort_key)
         errors = [f for f in files if f.status == 'Error']
 
         print(f"[AgentController] _on_all_completed: mode='{self._current_mode}', completed={len(completed)}, errors={len(errors)}")
@@ -373,12 +488,22 @@ class AgentController:
             self.draft.invoice_lines.clear()
             self.draft.invoice_lines.extend(lines)
 
+            # Popuni zaglavlje (izvoznik/uvoznik/valuta) iz ove fakture - samo prazna polja
+            fw = self.faktura_tab.view if hasattr(self.faktura_tab, 'view') else self.faktura_tab
+            if fw and hasattr(fw, '_apply_import_result_to_header'):
+                fw._apply_import_result_to_header(file_item)
+
             chat.add_activity(f"📥 [{invoice_name}] Uvoz {len(lines)} stavki...")
             QApplication.processEvents()
 
             # Akumuliraj težine za sve fakture
             total_bruto_kg += bruto
             total_neto_kg += neto
+            # Zapamti per-invoice težinu — koristi se u _on_calculate_masses
+            if (bruto > 0 or neto > 0) and explicit_invoice_number:
+                self.draft.invoice_weights[
+                    normalize_invoice_key(explicit_invoice_number)
+                ] = (bruto, neto)
 
             # Refresh tabele
             fw = self.faktura_tab.view if hasattr(self.faktura_tab, 'view') else self.faktura_tab
@@ -466,6 +591,10 @@ class AgentController:
             if tabs_widgets:
                 tabs_widgets[0].setCurrentWidget(self.faktura_tab)
 
+        # ⭐ Ponudi podjelu po zemljama ako ima više od jedne grupe
+        if fw and hasattr(fw, '_offer_split_by_country'):
+            fw._offer_split_by_country(all_processed_lines)
+
         # ⭐ KONAČNI REZIME SVIH FAKTURA
         total_bez = sum(1 for l in self.draft.invoice_lines if not l.tarifni_broj)
 
@@ -479,14 +608,9 @@ class AgentController:
             self.workflow.transition(WorkflowState.COMPLETED)
             self._puna_auto_pipeline(fw, chat, all_processed_lines)
         else:
+            analiza = self._proactive_analysis(all_processed_lines, fw)
             chat.add_agent_message(
-                f"✅ <b>Sve fakture uvezene!</b><br>"
-                f"Ukupno stavki: <b>{processed_total}</b><br>"
-                f"Bez tarifnog: <b>{total_bez}</b><br><br>"
-                f"💡 <b>Šta dalje?</b><br>"
-                f"  • Reci <i>'popuni tarifne'</i> za prijedloge<br>"
-                f"  • Pregledaj tablicu i ručno dopuni<br>"
-                f"  • Kad si spreman, reci <i>'kreiraj naimenovanja'</i>"
+                f"✅ <b>Uvezeno {processed_total} stavki.</b><br>{analiza}"
             )
             from .workflow_state import WorkflowState
             self.workflow.transition(WorkflowState.COMPLETED)
@@ -499,6 +623,65 @@ class AgentController:
 
     def _analiza_auto_action(self):
         self.import_pipeline_svc.analiza_auto_action()
+
+    def _proactive_analysis(self, lines: list, fw=None) -> str:
+        """
+        Generiši sažetak analize uvezenih stavki.
+        Status bar: kompaktna jedna linija (diskretno).
+        Chat: kratka 2-linije poruka bez prijedloga.
+        """
+        total = len(lines)
+        if not total:
+            return ""
+
+        bez_tarife = [l for l in lines if not getattr(l, 'tarifni_broj', None)]
+        bez_zemlje = [l for l in lines if not getattr(l, 'zemlja_porijekla', None)]
+        sa_pov     = [l for l in lines if getattr(l, 'povlastica', None)]
+        bez_eur1   = [
+            l for l in sa_pov
+            if not getattr(l, 'has_origin_statement', False)
+            and not getattr(l, 'eur1_number', None)
+        ]
+
+        countries: dict = {}
+        for l in lines:
+            c = getattr(l, 'zemlja_porijekla', None) or '(nepoznato)'
+            countries[c] = countries.get(c, 0) + 1
+
+        zemlja_str = " | ".join(
+            f"{k}:{v}" for k, v in sorted(countries.items(), key=lambda x: -x[1])[:5]
+        )
+
+        # ── Status bar (diskretno, jedna linija) ──
+        if fw and hasattr(fw, 'set_analysis_summary'):
+            problemi_sb = []
+            if bez_tarife:
+                problemi_sb.append(f"⚠️ {len(bez_tarife)} bez tarife")
+            if bez_zemlje:
+                problemi_sb.append(f"⚠️ {len(bez_zemlje)} bez zemlje")
+            if bez_eur1:
+                problemi_sb.append(f"⚠️ {len(bez_eur1)} bez EUR1")
+            sb_text = f"🌍 {zemlja_str}"
+            if problemi_sb:
+                sb_text += "  " + " | ".join(problemi_sb)
+            level = "warning" if problemi_sb else "success"
+            fw.set_analysis_summary(sb_text, level)
+
+        # ── Chat poruka (kratka, bez prijedloga) ──
+        problemi_chat = []
+        if bez_tarife:
+            problemi_chat.append(f"<b>{len(bez_tarife)}</b> bez tarife")
+        if bez_zemlje:
+            problemi_chat.append(f"<b>{len(bez_zemlje)}</b> bez zemlje")
+        if bez_eur1:
+            problemi_chat.append(f"<b>{len(bez_eur1)}</b> bez EUR1")
+
+        if problemi_chat:
+            return (
+                f"🌍 Porijeklo: {zemlja_str}<br>"
+                f"⚠️ {' | '.join(problemi_chat)}"
+            )
+        return f"🌍 Porijeklo: {zemlja_str}<br>✅ Sve stavke uredne."
 
     def _puna_auto_pipeline(self, fw, chat, all_lines: list):
         self.import_pipeline_svc.puna_auto_pipeline(fw, chat, all_lines)
@@ -513,24 +696,11 @@ class AgentController:
     def _apply_eur1_to_naimenovanja(self, eur1_data: dict, chat) -> None:
         self.import_pipeline_svc.apply_eur1_to_naimenovanja(eur1_data, chat)
 
-    def _izracunaj_težine_interno(self, invoice_lines: list, chat) -> int:
-        return self.import_pipeline_svc.izracunaj_tezine_interno(invoice_lines, chat)
-
     def _validiraj_prije_uvoza(self, invoice_lines: list, chat) -> tuple:
         return self.import_pipeline_svc.validiraj_prije_uvoza(invoice_lines, chat)
 
     def _generisi_izvjestaj(self, chat):
         return self.import_pipeline_svc.generisi_izvjestaj(chat)
-
-    def _uvezi_u_deklaraciju(self, invoice_lines: list, chat,
-                              total_bruto: float = 0.0, total_neto: float = 0.0,
-                              has_origin_statement: bool = False,
-                              is_authorized_exporter: bool = False,
-                              completed: list = None):
-        self.import_pipeline_svc.uvezi_u_deklaraciju(
-            invoice_lines, chat, total_bruto, total_neto,
-            has_origin_statement, is_authorized_exporter, completed
-        )
 
     def _otvori_faktura_tab_nakon_uvoza(self, chat):
         self.import_pipeline_svc.otvori_faktura_tab_nakon_uvoza(chat)

@@ -171,34 +171,21 @@ class NaimenovanjaService:
         Returns:
             Lista prijedloga sa tarifnim brojevima
         """
-        # Koristi HybridTariffAgent za AI prijedloge
-        from services.agent.hybrid_tariff_agent import HybridTariffAgent
-        
-        agent = HybridTariffAgent()
-        result = agent.decide_tariff(goods_trade_name, origin_country_code)
-        
+        # Koristi TariffFacade — docs/architecture/TARIFF_FACADE_REFACTORING.md
+        from services.tariff_facade import TariffFacade
+
+        r = TariffFacade.get_instance().suggest(goods_trade_name, zemlja=origin_country_code)
+
         suggestions = []
-        
-        # Dodaj glavni prijedlog
-        if result.get('tarifni_broj'):
+        if r.tarifni_broj:
             suggestions.append({
-                'tariff_code': result['tarifni_broj'],
-                'description': result.get('explanation', ''),
-                'similarity': result.get('confidence', 0.5),
-                'method': result.get('method', 'ai'),
-                'needs_review': result.get('needs_review', False)
+                'tariff_code': r.tarifni_broj,
+                'description': r.obrazlozenje,
+                'similarity': r.confidence,
+                'method': r.source,
+                'needs_review': r.needs_review,
             })
-        
-        # Dodaj alternative iz RAG candidates
-        for candidate in result.get('candidates', [])[:5]:
-            if candidate.get('tarifni_broj') and candidate['tarifni_broj'] != result.get('tarifni_broj'):
-                suggestions.append({
-                    'tariff_code': candidate['tarifni_broj'],
-                    'description': candidate.get('naziv_robe', ''),
-                    'similarity': candidate.get('confidence', 0.5),
-                    'source': candidate.get('source', 'rag')
-                })
-        
+
         return suggestions
     
     def validate_tariff(self, tariff_code: str, tab_reference=None) -> bool:

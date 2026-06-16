@@ -10,12 +10,78 @@ OCR utility funkcije za PDF import.
 
 import logging
 import os
-from typing import Dict, List, Tuple
+import platform
+import sys
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
 
 logger = logging.getLogger("deklarant_pro.import.ocr")
 
 # Session-level OCR cache: (filepath, mtime, dpi) → List[str]
 _ocr_cache: Dict[Tuple[str, float, int], List[str]] = {}
+
+# Poppler path za pdf2image (None = tražiti u PATH-u)
+_poppler_path: Optional[str] = None
+
+
+def _find_tesseract() -> Optional[str]:
+    """Vraća putanju do Tesseract exe-a, ili None ako nije pronađen."""
+    if platform.system() != "Windows":
+        return None  # Na Linux/Mac tesseract je u PATH-u
+
+    candidates = [
+        r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+        r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+        Path.home() / "AppData" / "Local" / "Tesseract-OCR" / "tesseract.exe",
+        r"C:\tools\tesseract\tesseract.exe",  # chocolatey
+    ]
+    for path in candidates:
+        if Path(path).exists():
+            return str(path)
+    return None
+
+
+def _find_poppler() -> Optional[str]:
+    """Vraća putanju do Poppler bin/ foldera na Windowsu, ili None."""
+    if platform.system() != "Windows":
+        return None  # Na Linux/Mac poppler je u PATH-u
+
+    candidates = [
+        r"C:\Program Files\poppler\bin",
+        r"C:\poppler\bin",
+        r"C:\tools\poppler\bin",  # chocolatey
+        r"C:\ProgramData\chocolatey\bin",
+    ]
+    for path in candidates:
+        if Path(path).exists() and any(
+            Path(path, exe).exists() for exe in ["pdftoppm.exe", "pdfinfo.exe"]
+        ):
+            return path
+    return None
+
+
+def _setup_ocr_engines() -> None:
+    """Konfigurira Tesseract i Poppler putanje jednom pri prvom pozivu."""
+    global _poppler_path
+
+    # Tesseract
+    try:
+        import pytesseract
+        tess_path = _find_tesseract()
+        if tess_path:
+            pytesseract.pytesseract.tesseract_cmd = tess_path
+            logger.debug(f"Tesseract path: {tess_path}")
+    except ImportError:
+        pass
+
+    # Poppler
+    poppler = _find_poppler()
+    if poppler:
+        _poppler_path = poppler
+        logger.debug(f"Poppler path: {poppler}")
+
+
+_setup_ocr_engines()
 
 
 def is_scanned_pdf(filepath: str, min_text_len: int = 80) -> bool:
@@ -69,7 +135,7 @@ def ocr_pdf_to_words(filepath: str, dpi: int = 300) -> List[List[dict]]:
 
     logger.info(f"🔍 OCR (word-level): {filepath} @ {dpi} DPI")
 
-    images = convert_from_path(filepath, dpi=dpi)
+    images = convert_from_path(filepath, dpi=dpi, poppler_path=_poppler_path)
     all_pages: List[List[dict]] = []
 
     tess_config = "--psm 6 --oem 3"
@@ -121,7 +187,7 @@ def ocr_pdf_to_text(filepath: str, dpi: int = 300) -> List[str]:
 
     logger.info(f"🔍 OCR: {filepath} @ {dpi} DPI")
 
-    images = convert_from_path(filepath, dpi=dpi)
+    images = convert_from_path(filepath, dpi=dpi, poppler_path=_poppler_path)
     pages_text: List[str] = []
 
     # Tesseract konfiguracija: psm 6 = uniforman blok teksta (idealno za fakture)
@@ -194,7 +260,7 @@ def ocr_pdf_to_text_no_lines(filepath: str, dpi: int = 300) -> List[str]:
     from pdf2image import convert_from_path
 
     logger.info(f"🔍 OCR (no-lines): {filepath} @ {dpi} DPI")
-    images = convert_from_path(filepath, dpi=dpi)
+    images = convert_from_path(filepath, dpi=dpi, poppler_path=_poppler_path)
     pages_text: List[str] = []
     tess_config = "--psm 6 --oem 3"
 

@@ -25,8 +25,9 @@ from __future__ import annotations
 
 import logging
 import re
+from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import DefaultDict, Dict, List, Optional, Set, Tuple
 
 import pdfplumber
 
@@ -68,6 +69,7 @@ _NOISE_PATTERNS = [
     re.compile(r"KRUŽNI\s+PUT|KRU[ZŽ]NI\s+PUT", re.IGNORECASE),
     re.compile(r"^\s*TEL\s*:", re.IGNORECASE),
     re.compile(r"^\s*www\.", re.IGNORECASE),
+    re.compile(r"@", re.IGNORECASE),
     re.compile(r"^\s*IB\s*:", re.IGNORECASE),
     re.compile(r"Datum\s+fakture|Invoice\s+date", re.IGNORECASE),
     re.compile(r"Datum\s+isporuke|Delivery\s+date", re.IGNORECASE),
@@ -81,6 +83,8 @@ _NOISE_PATTERNS = [
     re.compile(r"\bRab%\b|\bRebate\b|\bIzn\.Rabat\b", re.IGNORECASE),  # Kolone u headeru
     re.compile(r"^590\s*-\s*", re.IGNORECASE),              # Komitent info
     re.compile(r"CAR\.BR\.D-", re.IGNORECASE),               # CAR.BR.D-4099
+    re.compile(r"^\s*\d{2,}-\d{2,}(?:-\d{2,})?\s*$", re.IGNORECASE),
+    re.compile(r"^\s*[A-ZČĆŠŽĐ ]+\s+\d{5}\s*$", re.IGNORECASE),
     re.compile(r"^\s*JIB\s*:", re.IGNORECASE),
     re.compile(r"^\s*PDV\s*:", re.IGNORECASE),
     re.compile(r"^\d{5}-\d{2}-\d{2}", re.IGNORECASE),        # Telefon format
@@ -110,6 +114,12 @@ _ITEM_RANGE_RE = re.compile(
 # Pojedinačna stavka: "stavke broj 47" (bez iza nje -)
 _ITEM_SINGLE_RE = re.compile(
     r"stavk[ei]?\s+broj[a]?\s+(\d+)(?!\s*[-–]\s*\d)",
+    re.IGNORECASE,
+)
+
+# "Ova izjava se odnosi na stavke: 1-36; 38-76"
+_ORIGIN_ITEMS_SEGMENT_RE = re.compile(
+    r"izjava\s+se\s+odnosi\s+na\s+stavke\s*:\s*([0-9;\-,\s]+)",
     re.IGNORECASE,
 )
 
@@ -250,8 +260,9 @@ def parse_medicopharm_pdf(pdf_path: str) -> ImportResult:
 
     # --- Sumarni tabela ---
     neto_kg = 0.0
+    summary_rows: List[Dict] = []
     if summary_start:
-        neto_kg, tariff_country_map = _parse_summary(lines[summary_start:])
+        neto_kg, tariff_country_map, summary_rows = _parse_summary(lines[summary_start:])
         _apply_countries(raw_items, tariff_country_map)
         logger.info(f"   🌍 Zemlja porekla dodijeljena za {sum(1 for i in raw_items if i['zemlja'])} stavki")
 
@@ -264,7 +275,24 @@ def parse_medicopharm_pdf(pdf_path: str) -> ImportResult:
 
     # --- Brand heuristika (GW → DE, itd.) ---
     _apply_brand_heuristics(raw_items)
+    if summary_rows:
+        _apply_residual_countries(raw_items, summary_rows)
     logger.info(f"   🏷️  Zemlja porekla (brand) dodijeljena za {sum(1 for i in raw_items if i['zemlja'])} stavki ukupno")
+
+    if summary_rows:
+        _allocate_summary_weights(raw_items, summary_rows)
+
+    # --- Per-item izjava o poreklu (ako su navedeni rasponi stavki) ---
+    covered_items = _extract_origin_statement_item_set(lines, len(raw_items), has_origin_statement)
+    if covered_items:
+        for item in raw_items:
+            item["has_origin_statement"] = item.get("rbr", 0) in covered_items
+        logger.info(
+            f"   ✅ Izjava o poreklu mapirana po stavkama: {len(covered_items)}/{len(raw_items)}"
+        )
+    else:
+        for item in raw_items:
+            item["has_origin_statement"] = has_origin_statement
 
     logger.info(f"✅ Medico Pharm: {len(raw_items)} stavki | bruto={bruto_kg}kg | neto={neto_kg}kg")
 
@@ -587,7 +615,7 @@ def _is_numeric_token(s: str) -> bool:
     return clean.isdigit()
 
 
-def _parse_summary(lines: List[str]) -> Tuple[float, Dict[str, List[str]]]:
+def _parse_summary(lines: List[str]) -> Tuple[float, Dict[str, List[str]], List[Dict]]:
     """
     Parsira sumarnu tabelu po tarifnim oznakama i zemljama (stranice 3-4).
 
@@ -595,10 +623,11 @@ def _parse_summary(lines: List[str]) -> Tuple[float, Dict[str, List[str]]]:
       TARIFF  ZEMLJA_TOKEN(S)  KOLICINA  IZNOS  TEZINA
 
     Returns:
-        (neto_kg, {tariff: [iso_country, ...]})
+        (neto_kg, {tariff: [iso_country, ...]}, summary_rows)
         neto_kg = ukupna neto težina iz Total reda sumarnog tabela
     """
     tariff_country_map: Dict[str, List[str]] = {}
+    summary_rows: List[Dict] = []
     neto_kg = 0.0
 
     # Skip samo jednu sub-header liniju ("Tariff heading Country Amount Sum Weight")
@@ -659,7 +688,15 @@ def _parse_summary(lines: List[str]) -> Tuple[float, Dict[str, List[str]]]:
         if country_iso and country_iso not in tariff_country_map[tariff]:
             tariff_country_map[tariff].append(country_iso)
 
-    return neto_kg, tariff_country_map
+        summary_rows.append({
+            "tariff": tariff,
+            "zemlja": country_iso,
+            "kolicina": parse_eu_number(parts[-3]),
+            "iznos": parse_eu_number(parts[-2]),
+            "neto_kg": parse_eu_number(parts[-1]),
+        })
+
+    return neto_kg, tariff_country_map, summary_rows
 
 
 def _apply_countries(items: List[Dict], tariff_country_map: Dict[str, List[str]]) -> None:
@@ -676,6 +713,69 @@ def _apply_countries(items: List[Dict], tariff_country_map: Dict[str, List[str]]
         countries = tariff_country_map.get(tariff, [])
         if len(countries) == 1:
             item["zemlja"] = countries[0]
+
+
+def _group_summary_rows(summary_rows: List[Dict]) -> Dict[Tuple[str, str], Dict]:
+    grouped: DefaultDict[Tuple[str, str], Dict] = defaultdict(
+        lambda: {"kolicina": 0.0, "iznos": 0.0, "neto_kg": 0.0}
+    )
+    for row in summary_rows:
+        key = (row.get("tariff", ""), row.get("zemlja", ""))
+        grouped[key]["kolicina"] += row.get("kolicina", 0.0)
+        grouped[key]["iznos"] += row.get("iznos", 0.0)
+        grouped[key]["neto_kg"] += row.get("neto_kg", 0.0)
+    return dict(grouped)
+
+
+def _apply_residual_countries(items: List[Dict], summary_rows: List[Dict]) -> None:
+    grouped_summary = _group_summary_rows(summary_rows)
+    items_by_tariff: DefaultDict[str, List[Dict]] = defaultdict(list)
+    for item in items:
+        items_by_tariff[item.get("tariff", "")].append(item)
+
+    for tariff, tariff_items in items_by_tariff.items():
+        missing = [item for item in tariff_items if not item.get("zemlja")]
+        if not missing:
+            continue
+
+        for (summary_tariff, country), summary in grouped_summary.items():
+            if summary_tariff != tariff:
+                continue
+
+            known = [item for item in tariff_items if item.get("zemlja") == country]
+            remaining_qty = round(summary["kolicina"] - sum(item.get("kolicina", 0.0) for item in known), 2)
+            remaining_value = round(summary["iznos"] - sum(item.get("iznos", 0.0) for item in known), 2)
+
+            for item in list(missing):
+                if (
+                    abs(item.get("kolicina", 0.0) - remaining_qty) < 0.01
+                    and abs(item.get("iznos", 0.0) - remaining_value) < 0.02
+                ):
+                    item["zemlja"] = country
+                    missing.remove(item)
+                    break
+
+
+def _allocate_summary_weights(items: List[Dict], summary_rows: List[Dict]) -> None:
+    grouped_summary = _group_summary_rows(summary_rows)
+    items_by_key: DefaultDict[Tuple[str, str], List[Dict]] = defaultdict(list)
+    for item in items:
+        items_by_key[(item.get("tariff", ""), item.get("zemlja", ""))].append(item)
+
+    for key, summary in grouped_summary.items():
+        group_items = items_by_key.get(key, [])
+        total_qty = sum(item.get("kolicina", 0.0) for item in group_items)
+        if total_qty <= 0:
+            continue
+
+        remaining_kg = summary["neto_kg"]
+        for idx, item in enumerate(group_items):
+            if idx == len(group_items) - 1:
+                item["neto_kg"] = item.get("neto_kg", 0.0) + remaining_kg
+            else:
+                item_kg = round(summary["neto_kg"] * item.get("kolicina", 0.0) / total_qty, 6)
+                item["neto_kg"] = item.get("neto_kg", 0.0) + item_kg
+                remaining_kg -= item_kg
 
 
 def _parse_zemlja_porekla(lines: List[str]) -> Tuple[str, Dict[int, str]]:
@@ -775,6 +875,45 @@ def _apply_brand_heuristics(items: List[Dict]) -> None:
                 break
 
 
+def _extract_origin_statement_item_set(
+    lines: List[str],
+    total_items: int,
+    has_origin_statement: bool,
+) -> Set[int]:
+    """
+    Iz teksta izvuci tačne redne brojeve stavki obuhvaćenih izjavom o poreklu.
+
+    Podržava zapis poput:
+    "Ova izjava se odnosi na stavke: 1-36; 38-76"
+    """
+    if not has_origin_statement:
+        return set()
+
+    full_text = " ".join(lines)
+    matches = list(_ORIGIN_ITEMS_SEGMENT_RE.finditer(full_text))
+    if not matches:
+        return set()
+
+    covered: Set[int] = set()
+
+    for match in matches:
+        segment = match.group(1)
+
+        for start_s, end_s in re.findall(r"(\d+)\s*[-–]\s*(\d+)", segment):
+            start = int(start_s)
+            end = int(end_s)
+            if start <= end:
+                covered.update(range(start, end + 1))
+
+        for num_s in re.findall(r"\b(\d+)\b", segment):
+            covered.add(int(num_s))
+
+    if total_items > 0:
+        covered = {n for n in covered if 1 <= n <= total_items}
+
+    return covered
+
+
 _MEDICO_EXPORTER = Party(name="MEDICO PHARM SERVIS")
 _MEDICO_IMPORTER = Party(name="MEDICOPHARM D.O.O.")
 
@@ -797,7 +936,8 @@ def _to_invoice_lines(items: List[Dict]) -> List[InvoiceLine]:
             iznos=item["iznos"],
             valuta="EUR",
             bruto_kg=0.0,
-            neto_kg=0.0,
+            neto_kg=item.get("neto_kg", 0.0),
+            has_origin_statement=bool(item.get("has_origin_statement", False)),
             exporter=_MEDICO_EXPORTER,
             importer=_MEDICO_IMPORTER,
         )

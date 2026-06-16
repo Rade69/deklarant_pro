@@ -41,6 +41,22 @@ from PySide6.QtWidgets import (
     QSpacerItem,
     QGroupBox,
 )
+from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
+
+
+class _ScrollableCombo(QComboBox):
+    """QComboBox koji garantuje scrollabilan popup sa svim stavkama vidljivim."""
+
+    def showPopup(self):
+        super().showPopup()
+        # Pronađi popup frame i postavi mu minimalnu visinu
+        popup = self.findChild(QFrame)
+        if popup:
+            row_h = self.view().sizeHintForRow(0) or 26
+            desired = self.count() * row_h + 8
+            screen_h = QApplication.primaryScreen().availableGeometry().height()
+            popup.setMinimumHeight(min(desired, screen_h - 120))
+            self.view().setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import QFile, Qt, Signal, QTimer, QPoint, QSize
 from PySide6.QtGui import QColor, QIcon, QPainter, QTextOption
@@ -52,20 +68,57 @@ from services.tariff_controls_service import check_tariff_controls, get_required
 from gui.tabs.base_view import BaseTabView
 from gui.dialogs.inspection_dialog import InspectionDialog
 
-from core.draft import DeclarationDraft, NaimenovanjeDraft
+from core.draft import AttachedDocument, DeclarationDraft, NaimenovanjeDraft
+
+_PE_DOC_CODES = {"PE1", "PE2", "PE3"}
+
+
+def _pe_doc_code(value: str) -> str:
+    code = (value or "").strip().split(" ", 1)[0].upper()
+    return code if code in _PE_DOC_CODES else ""
+
+
+def _normalize_pe_document_text(value: str) -> str:
+    text = re.sub(r"\s+", " ", (value or "").strip())
+    code = _pe_doc_code(text)
+    if not code:
+        return text
+    rest = text.split(" ", 1)[1].strip() if " " in text else ""
+    while rest.upper().startswith(f"{code} "):
+        rest = rest[len(code):].strip()
+    if rest.upper() == code:
+        rest = ""
+    return f"{code} {rest}".strip()
+
+
+def _clear_secondary_pe_documents(item) -> bool:
+    doc4 = _normalize_pe_document_text(getattr(item, "attached_document4", "") or "")
+    if doc4 != (getattr(item, "attached_document4", "") or "").strip():
+        item.attached_document4 = doc4
+    if not _pe_doc_code(doc4):
+        return False
+
+    changed = False
+    for field_name in (
+        "attached_document1",
+        "attached_document2",
+        "attached_document3",
+        "attached_document5",
+    ):
+        if _pe_doc_code(getattr(item, field_name, "") or ""):
+            setattr(item, field_name, "")
+            changed = True
+    return changed
+
 
 try:
     import qtawesome as qta
 
     QTAWESOME_AVAILABLE = True
-    sys.stderr.write(
-        f"✅ [NaimenovanjaTab] QtAwesome učitan (verzija: {qta.__version__})\n"
-    )
-    sys.stderr.flush()
+    logger.info("✅ [NaimenovanjaTab] QtAwesome učitan (verzija: %s)", qta.__version__)
 except ImportError as e:
     QTAWESOME_AVAILABLE = False
-    sys.stderr.write(f"❌ [NaimenovanjaTab] QtAwesome import FAILED: {e}\n")
-    sys.stderr.flush()
+    logger.warning("❌ [NaimenovanjaTab] QtAwesome import FAILED: %s", e)
 
 
 class BlackLineWidget(QWidget):
@@ -92,6 +145,11 @@ class NaimenovanjaView(BaseTabView):
     - Widget pozicije
     - Layout form-a
     """
+
+    _FLOAT_FIELDS = frozenset({
+        "gross_mass_kg", "net_mass_kg", "item_value",
+        "statistical_value", "supplementary_unit_qty",
+    })
 
     # data_changed naslijeđen iz BaseTabView
     import_xml_requested = Signal(str)
@@ -132,9 +190,6 @@ class NaimenovanjaView(BaseTabView):
 
         # Initialize widget cache AFTER loading UI
         self._init_widget_cache()
-
-        # 2. Hide old controls from .ui (keep only rubrike 31-46 form)
-        self._hide_old_ui_controls()
 
         # 2.5 Setup package dropdown (replace QLineEdit with QComboBox)
         self._setup_package_dropdown()
@@ -184,18 +239,17 @@ class NaimenovanjaView(BaseTabView):
 
         # 6.5 Setup "apply to all" visual indicators and signals
         self._setup_apply_to_all_indicators()
+        self._setup_rb44_pd_codes_field()
         self._connect_special_field_signals()
 
         # 6.6 Postavi redosljed Tab navigacije
         self._setup_tab_order()
 
-        # 7. Load data
+        # 7. Load data — redosljed bitan: clear mora biti PRIJE load, inače briše tarife
         self.draft.ensure_min_items(1)
-        self._load_current_item()
-        self._update_all_ui()
-
-        # 8. FORCE clear all fields one more time (override any loaded data)
         self._clear_all_input_fields()
+        self._update_all_ui()
+        self._load_current_item()
 
     def _create_icon_button(self, text: str, icon_name: str) -> QPushButton:
         """Create a button with an icon from QtAwesome."""
@@ -208,8 +262,7 @@ class NaimenovanjaView(BaseTabView):
                 btn.setIcon(QIcon(pixmap))
                 btn.setIconSize(QSize(16, 16))
             except Exception as e:
-                sys.stderr.write(f"❌ Could not load icon {icon_name}: {e}\n")
-                sys.stderr.flush()
+                logger.warning("❌ Could not load icon %s: %s", icon_name, e)
 
         return btn
 
@@ -219,12 +272,11 @@ class NaimenovanjaView(BaseTabView):
         Loguje grešku, prikazuje korisniku i šalje u stderr.
         """
         error_msg = f"Greška {context}: {str(error)}"
-        sys.stderr.write(f"❌ {error_msg}\n")
-        sys.stderr.flush()
+        logger.error("❌ %s", error_msg)
 
         # Prikaz korisniku (samo ako nema UI ili ako je glavni thread)
         try:
-            from PySide6.QtWidgets import QMessageBox
+            from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
 
             QMessageBox.critical(
                 self, "Greška", f"{context}\n\n{str(error)}", QMessageBox.Ok
@@ -237,13 +289,9 @@ class NaimenovanjaView(BaseTabView):
         """Dohvati PostgreSQL connection pool koristeći get_connection_pool()"""
         try:
             self.connection_pool = get_connection_pool()
-            sys.stderr.write(
-                f"✅ PostgreSQL connection pool dohvaćen (get_connection_pool)\n"
-            )
-            sys.stderr.flush()
+            logger.info("✅ PostgreSQL connection pool dohvaćen (get_connection_pool)")
         except Exception as e:
-            sys.stderr.write(f"⚠️  PostgreSQL connection pool nije uspešan: {e}\n")
-            sys.stderr.flush()
+            logger.warning("⚠️  PostgreSQL connection pool nije uspešan: %s", e)
             self.connection_pool = None
 
     def _init_field_mapping(self) -> None:
@@ -292,8 +340,7 @@ class NaimenovanjaView(BaseTabView):
             # Rubrika 43 M.V. — šifra dopunske mjerne jedinice
             "le_rubrika43": "supplementary_unit_code",
             # Rubrika 44 – P.D. kodovi + priložene isprave + formula troškova
-            "le_rubrika44_1": "pd_codes",             # P.D. šifre iz zaglavlja (from_rule, auto, read-only)
-            "le_rubrika44_3": "attached_document1",   # dokument porijekla (ref. br.)
+            "le_rubrika44_1": "pd_codes",             # P.D. šifre iz priloženih dokumenata (auto, read-only)
             "le_rubrika44_4": "attached_document4",   # master polje (PE1/PE2 + broj)
             "le_rubrika44_5": "attached_document5",   # slobodno polje (nije auto-obračun)
             # Rubrika 45
@@ -345,6 +392,121 @@ class NaimenovanjaView(BaseTabView):
                 pass
         return None
 
+    def _get_item_field_value(self, item, field_name: str):
+        if field_name == "statistical_value":
+            if float(item.statistical_value or 0) > 0:
+                return item.statistical_value
+            return self._compute_statistical_value(item)
+        if field_name == "pd_codes":
+            return self._compute_pd_codes(item)
+        return getattr(item, field_name, "")
+
+    def _set_widget_value(
+        self, widget: QWidget, widget_name: str, field_name: str, value
+    ) -> bool:
+        if isinstance(widget, QComboBox):
+            self._set_combo_value(widget, widget_name, value)
+        elif isinstance(widget, QLineEdit):
+            widget.setText(self._format_line_edit_value(field_name, value))
+            if not widget.isVisible():
+                widget.setVisible(True)
+        elif isinstance(widget, QTextEdit):
+            widget.setPlainText(str(value) if value else "")
+            if not widget.isVisible():
+                widget.setVisible(True)
+        else:
+            return False
+        return True
+
+    def _set_combo_value(self, widget: QComboBox, widget_name: str, value) -> None:
+        if not value:
+            widget.setCurrentIndex(0)
+            return
+
+        if widget_name == "le_rubrika40_2":
+            code = self._extract_display_code(str(value))
+            found_idx = self._find_combo_index_by_code(widget, code)
+            if found_idx >= 0:
+                widget.setCurrentIndex(found_idx)
+                if widget.lineEdit():
+                    widget.lineEdit().setToolTip(widget.itemText(found_idx))
+            widget.setEditText(code)
+            return
+
+        index = widget.findText(str(value))
+        if index >= 0:
+            widget.setCurrentIndex(index)
+        else:
+            widget.setCurrentText(str(value))
+
+    def _extract_display_code(self, value: str) -> str:
+        return value.split(" –")[0].strip() if " –" in value else value
+
+    def _find_combo_index_by_code(self, widget: QComboBox, code: str) -> int:
+        for i in range(widget.count()):
+            if self._extract_display_code(widget.itemText(i)) == code:
+                return i
+        return -1
+
+    def _format_line_edit_value(self, field_name: str, value) -> str:
+        if field_name == "package_qty":
+            if value and float(value) != 0:
+                return str(int(float(value)))
+            return ""
+        if field_name in self._FLOAT_FIELDS:
+            if value and float(value) != 0:
+                return f"{float(value):.2f}"
+            return ""
+        return str(value) if value else ""
+
+    def _read_widget_value(self, widget: QWidget):
+        if isinstance(widget, QComboBox):
+            return widget.currentText().strip()
+        if isinstance(widget, QLineEdit):
+            return widget.text().strip()
+        if isinstance(widget, QTextEdit):
+            return widget.toPlainText().strip()
+        return None
+
+    def _normalize_field_value(self, field_name: str, value):
+        if field_name == "package_qty":
+            try:
+                return int(float(value)) if value else 0
+            except ValueError:
+                return 0
+        if field_name in self._FLOAT_FIELDS:
+            try:
+                return float(value) if value else 0.0
+            except ValueError:
+                return 0.0
+        if field_name == "ordinal_no":
+            try:
+                return int(value) if value else 0
+            except ValueError:
+                return 0
+        if field_name == "tariff_code" and value:
+            digits = re.sub(r"\D", "", value)
+            if len(digits) > 10:
+                digits = digits[:10]
+            if len(digits) == 10 and digits[8:] == "00":
+                digits = digits[:8]
+            return digits
+        return value
+
+    def _apply_to_other_items(self, field_name: str, value) -> None:
+        for i, item in enumerate(self.draft.items):
+            if i != self.current_item_index:
+                setattr(item, field_name, value)
+
+    def _mark_dirty(self) -> None:
+        self.draft.mark_dirty()
+        if self.on_dirty:
+            self.on_dirty()
+
+    def _refresh_summary_and_status(self) -> None:
+        self._update_summary()
+        self._update_status_bar()
+
     def _load_ui_from_file(self) -> None:
         """Load existing .ui file - NE mijenjamo strukturu!"""
         # Try multiple paths
@@ -395,10 +557,11 @@ class NaimenovanjaView(BaseTabView):
         # Apply CSS class for styling (defined in naimenovanja_components.qss)
         self.ui.setObjectName("naimenovanjaUiWidget")
 
-        # Scale up the main grid frame AND all widgets inside it (1.30x)
+        # Scale up the main grid frame AND all widgets inside it
+        is_windows = sys.platform.startswith("win")
         main_grid = self.ui.findChild(QFrame, "main_grid_frame")
         if main_grid:
-            scale_factor = 1.30
+            scale_factor = 1.10 if is_windows else 1.30
 
             # Scale the frame itself
             current_geom = main_grid.geometry()
@@ -536,19 +699,6 @@ class NaimenovanjaView(BaseTabView):
             text_edit.clear()
             cleared += 1
 
-    def _hide_old_ui_controls(self) -> None:
-        """
-        No old controls to delete - they were already removed from .ui file!
-
-        The .ui file now contains ONLY:
-        - main_grid_frame with rubrike 31-46 input fields
-        - All old navigation buttons/labels/checkboxes were deleted from XML
-        """
-        if not hasattr(self, "ui"):
-            return
-
-        logger.info(f"  ✅ UI file is clean (no old controls to delete)")
-
     def _setup_package_dropdown(self) -> None:
         """
         Replace le_r31_vrsta QLineEdit with QComboBox for package type selection.
@@ -572,19 +722,6 @@ class NaimenovanjaView(BaseTabView):
             le_naziv.raise_()  # Postavi na vrh
             le_naziv.setEnabled(True)
 
-            le_naziv.setStyleSheet(
-                """
-                QLineEdit {
-                    background-color: #e3f2fd;
-                    border: 2px solid #2196f3;
-                    border-radius: 4px;
-                    padding: 3px 6px;
-                    font-weight: bold;
-                    font-size: 14px;
-                    color: #1565c0;
-                }
-            """
-            )
             le_naziv.setPlaceholderText("(auto)")
 
             # KRITIČNO: Podigni widget IZNAD combo box-a (z-order)
@@ -635,77 +772,7 @@ class NaimenovanjaView(BaseTabView):
             logger.error(f"  ❌ Error loading package codes from database: {e}")
             # Ne propagiraj - tab se kreira sa praznim dropdown-om
 
-        # Modern, professional style
-        self.combo_vrsta_pakovanja.setStyleSheet(
-            """
-            QComboBox {
-                border: 2px solid #28a745;
-                border-radius: 6px;
-                padding: 5px 15px;
-                background-color: #ffffff;
-                font-size: 14px;
-                font-weight: 500;
-                min-width: 80px;
-            }
-
-            QComboBox:hover {
-                border: 2px solid #4a90e2;
-            }
-
-            QComboBox:focus {
-                border: 2px solid #4a90e2;
-                background-color: #f8faff;
-            }
-
-            QComboBox:editable {
-                background-color: #ffffff;
-            }
-
-            QComboBox::drop-down {
-                subcontrol-origin: padding;
-                subcontrol-position: top right;
-                width: 30px;
-                border-left: 1px solid #28a745;
-                border-top-right-radius: 6px;
-                border-bottom-right-radius: 6px;
-            }
-
-            /* Strelica nadole - CSS triangle */
-            QComboBox::down-arrow {
-                width: 0;
-                height: 0;
-                border-left: 5px solid transparent;
-                border-right: 5px solid transparent;
-                border-top: 6px solid #666;
-            }
-
-            /* Stil za popup listu */
-            QComboBox QAbstractItemView {
-                border: 1px solid #4a90e2;
-                selection-background-color: #4a90e2;
-                selection-color: white;
-                background-color: #ffffff;
-                outline: 0px;
-                border-radius: 6px;
-                padding: 5px;
-                font-size: 14px;
-                min-width: 600px;
-            }
-
-            QComboBox QAbstractItemView::item {
-                height: 30px;
-                padding-left: 10px;
-                border-radius: 4px;
-                margin: 2px 5px;
-            }
-
-            QComboBox QAbstractItemView::item:hover {
-                background-color: #e8f0fe;
-                color: #1a73e8;
-            }
-        """
-        )
-
+        # TASK-004: inline style removed → QComboBox#le_r31_vrsta in naimenovanja_components.qss
         # Replace widget
         old_widget.setParent(None)
         old_widget.deleteLater()
@@ -735,76 +802,43 @@ class NaimenovanjaView(BaseTabView):
         """
         Handle package code change - auto-populate package name field.
         """
-
         if self.is_loading:
             return
 
-        # Extract code from combo (might be "PK" or just the code)
-        code = text.strip()
-
-        # Find the naziv field using cached access
-        le_naziv = self._get_widget("le_r31_vrsta_naziv")
-
-        if le_naziv:
-            if hasattr(self, "package_names"):
-                naziv = self.package_names.get(code, "")
-
-                if naziv:
-                    le_naziv.setText(naziv)
-
-                # Also save to model
-                if not self.is_loading and self.draft.items:
-                    item = self.draft.items[self.current_item_index]
-                    item.package_name = naziv
-
-    def _on_package_selection_changed(self, index: int) -> None:
-        """
-        Handle package selection from dropdown - ensure only code is displayed.
-        """
-        if self.is_loading:
-            return
-
-        # Get the selected code from the combo box data
-        code = self.combo_vrsta_pakovanja.currentData()
-        if code:
-            # Set only the code in the edit field
-            self.combo_vrsta_pakovanja.setEditText(str(code))
-            # Update the associated name field
-            self._update_package_naziv(str(code))
-
-    def _on_package_manual_entry(self) -> None:
-        """
-        Handle manual package entry - ensure only code is displayed.
-        """
-        if self.is_loading:
-            return
-
-        text = self.combo_vrsta_pakovanja.currentText()
-        # Parse "PK - Description" → "PK" format if entered that way
-        code = text.split(" - ")[0].strip() if " - " in text else text.strip()
-        # Set only the code in the edit field
-        self.combo_vrsta_pakovanja.setEditText(code)
-        # Update the associated name field
-        self._update_package_naziv(code)
+        self._set_package_name_from_code(text, clear_missing=False)
 
     def _update_package_naziv(self, code: str) -> None:
         """
         Update the package name field based on the selected code.
         """
-        if hasattr(self, "package_names") and code:
-            le_naziv = self._get_widget("le_r31_vrsta_naziv")
-            if le_naziv:
-                naziv = self.package_names.get(code, "")
-                le_naziv.setText(naziv)
+        if code:
+            self._set_package_name_from_code(code)
 
-                # Also save to model if we have items
-                if (
-                    not self.is_loading
-                    and self.draft.items
-                    and hasattr(self, "current_item_index")
-                ):
-                    item = self.draft.items[self.current_item_index]
-                    item.package_name = naziv
+    def _set_package_name_from_code(
+        self,
+        code: str,
+        update_model: bool = True,
+        clear_missing: bool = True,
+    ) -> None:
+        if not hasattr(self, "package_names"):
+            return
+
+        le_naziv = self._get_widget("le_r31_vrsta_naziv")
+        if not le_naziv:
+            return
+
+        naziv = self.package_names.get((code or "").strip(), "")
+        if naziv or clear_missing:
+            le_naziv.setText(naziv)
+
+        if (
+            update_model
+            and not self.is_loading
+            and self.draft.items
+            and hasattr(self, "current_item_index")
+        ):
+            item = self.draft.items[self.current_item_index]
+            item.package_name = naziv
 
     def _setup_trading_name_field(self) -> None:
         """
@@ -826,6 +860,7 @@ class NaimenovanjaView(BaseTabView):
 
         logger.debug(f" 🔍 Pronađen le_r31_trg_naziv - pozicija: x={geometry.x()}, y={geometry.y()}, w={geometry.width()}, h={geometry.height()}")
 
+        # TASK-004: inline style removed → QTextEdit#le_r31_trg_naziv in naimenovanja_components.qss
         # Kreiraj QTextEdit na istom mjestu
         self.te_trg_naziv = QTextEdit(parent)
         self.te_trg_naziv.setObjectName("le_r31_trg_naziv")  # Zadrži isto ime
@@ -835,21 +870,6 @@ class NaimenovanjaView(BaseTabView):
         self.te_trg_naziv.setWordWrapMode(QTextOption.WrapMode.WordWrap)
         self.te_trg_naziv.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.te_trg_naziv.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-
-        # Postavi stylesheet - svijetlo plava pozadina, tekst počinje od vrha
-        self.te_trg_naziv.setStyleSheet(
-            """
-            QTextEdit {
-                background-color: #e3f2fd;
-                border: 2px solid #2196f3;
-                border-radius: 4px;
-                padding: 5px;
-                font-size: 14px;
-                font-weight: 600;
-                color: #1565c0;
-            }
-        """
-        )
 
         # Auto-expand: prilagodi visinu sadržaju (do dostupnog prostora u parent-u)
         # group_31 ima height=380, widget počinje na y=200 → max raspoloživo ~170px
@@ -862,6 +882,7 @@ class NaimenovanjaView(BaseTabView):
         self.te_trg_naziv.setVisible(True)
         self.te_trg_naziv.show()
         self.te_trg_naziv.raise_()
+        self.widget_cache["le_r31_trg_naziv"] = self.te_trg_naziv
 
         # Ukloni stari widget
         old_widget.setParent(None)
@@ -894,10 +915,51 @@ class NaimenovanjaView(BaseTabView):
         le_rubrika40_2 sa editabilnim QComboBox iz baze (tabela prethodni_dokumenti).
         Redoslijed: [X/Y/Z] [Šifra dokumenta] [Prethodni dokument tekst]
         """
-        from PySide6.QtCore import QRect
+        from PySide6.QtCore import QRect, QPoint
+        from PySide6.QtGui import QPainter, QPolygon, QColor
 
         if not hasattr(self, "ui"):
             return
+
+        # TASK-002: add __init__ to hide QSS arrow, see agent_reports/2026-05-03_style-refactor-task-002-004.md
+        class _ArrowCombo(QComboBox):
+            """QComboBox sa ručno iscrtanom strelicom (otporno na QSS override)."""
+
+            def __init__(self, parent=None):
+                super().__init__(parent)
+                self.setStyleSheet(
+                    """
+                    QComboBox::drop-down {
+                        width: 18px;
+                        border: none;
+                        background: transparent;
+                    }
+                    QComboBox::down-arrow {
+                        image: none;
+                        width: 0px;
+                        height: 0px;
+                        border: none;
+                    }
+                    """
+                )
+
+            def paintEvent(self, event):
+                super().paintEvent(event)
+                painter = QPainter(self)
+                painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+                r = self.rect()
+                cx = r.right() - 9
+                cy = r.center().y() + 1
+                tri = QPolygon(
+                    [
+                        QPoint(cx - 5, cy - 3),
+                        QPoint(cx + 5, cy - 3),
+                        QPoint(cx, cy + 4),
+                    ]
+                )
+                painter.setPen(QColor(74, 74, 74))
+                painter.setBrush(QColor(74, 74, 74))
+                painter.drawPolygon(tri)
 
         # ── Polje 40.1: X / Y / Z ───────────────────────────────────────────
         old1 = self.ui.findChild(QLineEdit, "le_rubrika40_1")
@@ -907,7 +969,7 @@ class NaimenovanjaView(BaseTabView):
             old1.hide()
             old1.setParent(None)
 
-            self.combo_rb40_tip = QComboBox(parent1)
+            self.combo_rb40_tip = _ArrowCombo(parent1)
             self.combo_rb40_tip.setObjectName("le_rubrika40_1")
             self.combo_rb40_tip.setEditable(False)
             self.combo_rb40_tip.addItems(["", "X", "Y", "Z"])
@@ -915,7 +977,23 @@ class NaimenovanjaView(BaseTabView):
             # Fix: widget-level stylesheet ima veći prioritet od QApplication stylesheet-a.
             FIELD1_W = 32
             self.combo_rb40_tip.setStyleSheet(
-                f"QComboBox {{ min-width: {FIELD1_W}px; max-width: {FIELD1_W}px; }}"
+                f"""
+                QComboBox#le_rubrika40_1 {{
+                    min-width: {FIELD1_W}px;
+                    max-width: {FIELD1_W}px;
+                }}
+                QComboBox#le_rubrika40_1::drop-down {{
+                    width: 14px;
+                    border: none;
+                    background: transparent;
+                }}
+                QComboBox#le_rubrika40_1::down-arrow {{
+                    image: none;
+                    width: 0px;
+                    height: 0px;
+                    border: none;
+                }}
+                """
             )
             self.combo_rb40_tip.setFixedWidth(FIELD1_W)
             self.combo_rb40_tip.setGeometry(
@@ -968,7 +1046,7 @@ class NaimenovanjaView(BaseTabView):
         #   nakon odabira u polju ostaje samo šifra "N380" (usko polje)
         # Dodatno: pri otvaranju popup-a combo se vizuelno širi, pri zatvaranju sužava.
 
-        class _ExpandCombo(QComboBox):
+        class _ExpandCombo(_ArrowCombo):
             """QComboBox koji se vizuelno širi pri otvaranju i sužava pri zatvaranju."""
 
             def __init__(self, parent, collapsed_w: int, expanded_w: int):
@@ -1275,44 +1353,24 @@ class NaimenovanjaView(BaseTabView):
         """
         Add navigation controls matching the second screenshot design.
         """
-        # Create navigation bar container - INCREASED HEIGHT
+        # Create navigation bar container
         self.nav_bar = QWidget()
-        self.nav_bar.setObjectName(
-            "navBar"
-        )  # CSS styling in naimenovanja_components.qss
-        self.nav_bar.setFixedHeight(50)  # Increased from 40 to 50
+        self.nav_bar.setObjectName("navBar")
+        self.nav_bar.setFixedHeight(38)
 
         nav_layout = QHBoxLayout(self.nav_bar)
-        nav_layout.setContentsMargins(12, 8, 12, 8)  # Increased vertical margins
-        nav_layout.setSpacing(10)  # Increased spacing
+        nav_layout.setContentsMargins(10, 3, 10, 3)
+        nav_layout.setSpacing(7)
 
         # Section 1: Dropdown selector
         lbl_nav = QLabel("Naimenovanje:")
         lbl_nav.setProperty("class", "nav-label")  # CSS in naimenovanja_components.qss
         nav_layout.addWidget(lbl_nav)
 
-        self.combo_items = QComboBox()
+        self.combo_items = _ScrollableCombo()
         self.combo_items.setMinimumWidth(380)
-        self.combo_items.setFixedHeight(34)
-        self.combo_items.setStyleSheet("""
-            QComboBox {
-                font-size: 14px;
-                font-weight: 600;
-                padding: 4px 10px;
-                border: 2px solid #4A7FA5;
-                border-radius: 5px;
-                background: white;
-                color: #1a1a2e;
-            }
-            QComboBox:focus {
-                border-color: #2563eb;
-                background: #f0f7ff;
-            }
-            QComboBox::drop-down {
-                width: 28px;
-                border-left: 1px solid #4A7FA5;
-            }
-        """)
+        self.combo_items.setFixedHeight(28)
+        self.combo_items.setMaxVisibleItems(99)
         self.combo_items.setProperty(
             "class", "nav-combo"
         )  # CSS in naimenovanja_components.qss
@@ -1338,15 +1396,15 @@ class NaimenovanjaView(BaseTabView):
 
         # Previous button
         self.btn_previous = self._create_icon_button("Prethodno", "fa5s.arrow-left")
-        self.btn_previous.setObjectName(
-            "btnPrethodno"
-        )  # žuta/braon — navigacija unazad
+        self.btn_previous.setObjectName("btnPrethodno")
+        self.btn_previous.setFixedHeight(30)
         self.btn_previous.clicked.connect(self._on_previous)
         nav_layout.addWidget(self.btn_previous)
 
         # Next button
         self.btn_next = self._create_icon_button("Sljedeće", "fa5s.arrow-right")
-        self.btn_next.setObjectName("btnSljedece")  # teal — navigacija naprijed
+        self.btn_next.setObjectName("btnSljedece")
+        self.btn_next.setFixedHeight(30)
         self.btn_next.clicked.connect(self._on_next)
         nav_layout.addWidget(self.btn_next)
 
@@ -1375,8 +1433,8 @@ class NaimenovanjaView(BaseTabView):
 
         # Section 5: Import XML
         self.btn_import_xml = self._create_icon_button("Uvezi XML", "fa5s.file-import")
-        self.btn_import_xml.setObjectName("btnUveziXMLNaim")  # teal/zelena
-        self.btn_import_xml.setToolTip("Uvezi naimenovanja iz ASYCUDA XML fajla")
+        self.btn_import_xml.setObjectName("btnUveziXMLNaim")
+        self.btn_import_xml.setToolTip("Uvezi ASYCUDA XML ili otvori sačuvani Deklarant Pro nacrt")
         self.btn_import_xml.clicked.connect(self._on_import_xml)
         nav_layout.addWidget(self.btn_import_xml)
 
@@ -1409,19 +1467,10 @@ class NaimenovanjaView(BaseTabView):
         )  # CSS in naimenovanja_components.qss
         heading_layout.addWidget(self.lbl_heading)
 
+        # TASK-004: inline style removed → QLabel#lbl_tariff_warning in naimenovanja_components.qss
         # Upozorenje o inspekcijskoj kontroli (skriveno dok nema kontrolisanog tarifnog broja)
         self.lbl_tariff_warning = QLabel()
-        self.lbl_tariff_warning.setStyleSheet("""
-            QLabel {
-                background-color: #FF8C00;
-                color: #FFFFFF;
-                font-weight: bold;
-                font-size: 14px;
-                padding: 2px 10px;
-                border-radius: 4px;
-                border: 1px solid #CC6600;
-            }
-        """)
+        self.lbl_tariff_warning.setObjectName("lbl_tariff_warning")
         self.lbl_tariff_warning.setVisible(False)
         heading_layout.addWidget(self.lbl_tariff_warning)
 
@@ -1435,15 +1484,17 @@ class NaimenovanjaView(BaseTabView):
 
         # Action buttons (Sačuvaj, Poništi) - positioned above group_32_39
         self.btn_sacuvaj = self._create_icon_button("Sačuvaj", "fa5.save")
-        self.btn_sacuvaj.setObjectName("btnSnimi")  # zelena
+        self.btn_sacuvaj.setObjectName("btnSnimi")
+        self.btn_sacuvaj.setFixedHeight(26)
         self.btn_sacuvaj.clicked.connect(self._on_save)
-        self.btn_sacuvaj.raise_()  # Bring to front
+        self.btn_sacuvaj.raise_()
         button_layout.addWidget(self.btn_sacuvaj)
 
         self.btn_ponisti = self._create_icon_button("Poništi", "fa5s.undo-alt")
-        self.btn_ponisti.setObjectName("btnIzlaz")  # siva
+        self.btn_ponisti.setObjectName("btnIzlaz")
+        self.btn_ponisti.setFixedHeight(26)
         self.btn_ponisti.clicked.connect(self._on_ponisti)
-        self.btn_ponisti.raise_()  # Bring to front
+        self.btn_ponisti.raise_()
         button_layout.addWidget(self.btn_ponisti)
 
         # Add the button layout to the main heading layout
@@ -1579,7 +1630,9 @@ class NaimenovanjaView(BaseTabView):
                 w.setReadOnly(False)
                 w.setText("")
                 w.setReadOnly(True)
-                w.setStyleSheet("")
+                # Vrati widget na bazni stil iz QSS (bez inline override-a)
+                w.style().unpolish(w)
+                w.style().polish(w)
 
         # Spremi pending kod u Qt property (spremanje stanja izmedju poziva)
         self.tariff_timer.setProperty("pending_code", text.strip())
@@ -1728,8 +1781,8 @@ class NaimenovanjaView(BaseTabView):
 
         if reply == QMessageBox.Yes:
             try:
-                from services.tariff_mapping_service import TariffMappingService
-                kb_svc = TariffMappingService()
+                # Učenje — docs/architecture/TARIFF_FACADE_REFACTORING.md
+                from services.tariff_facade import TariffFacade
                 product_code = invoice_line.product_code if invoice_line else ""
                 zemlja = invoice_line.zemlja_porijekla if invoice_line else (item.origin_country_code or "")
                 new_suffix = item.tariff_suffix or "000"
@@ -1746,7 +1799,7 @@ class NaimenovanjaView(BaseTabView):
                             """, (f"%{naziv_robe}%", product_code or "__NONE__", new_tariff))
 
                 if naziv_robe and new_tariff:
-                    kb_svc.save_mapping(
+                    TariffFacade.get_instance().learn(
                         product_code=product_code or "",
                         naziv_robe=naziv_robe,
                         tarifni_broj=new_tariff,
@@ -1822,7 +1875,7 @@ class NaimenovanjaView(BaseTabView):
         self._add_history_docs(tariff_code)
 
     def _add_history_docs(self, tariff_code: str) -> None:
-        """Dodaj priložene dokumente iz historije XML deklaracija za dati tarifni broj."""
+        """Dodaj priložene dokumente iz istorije XML deklaracija za dati tarifni broj."""
         if not tariff_code or len(tariff_code.strip()) < 4:
             return
         header_docs = getattr(self.draft, "header_attached_documents", None)
@@ -1833,7 +1886,7 @@ class NaimenovanjaView(BaseTabView):
             svc = get_tariff_doc_history_service()
             suggestions = svc.get_suggested_docs(tariff_code, min_count=3)
         except Exception as e:
-            logger.warning(f"Greška pri dohvatanju historije dokumenata za {tariff_code}: {e}")
+            logger.warning(f"Greška pri dohvatanju istorije dokumenata za {tariff_code}: {e}")
             return
         existing_codes = {d.code for d in header_docs}
         added = False
@@ -1849,7 +1902,7 @@ class NaimenovanjaView(BaseTabView):
                 ))
                 existing_codes.add(code)
                 added = True
-                logger.info(f"  📚 Historija: dodat {code} ({doc['name']}) za tarifu {tariff_code} (count={doc['count']})")
+                logger.info(f"  📚 Istorija: dodat {code} ({doc['name']}) za tarifu {tariff_code} (count={doc['count']})")
         if added:
             self.draft.mark_dirty()
 
@@ -1934,13 +1987,9 @@ class NaimenovanjaView(BaseTabView):
             te_opis.setText(description_full)
             te_opis.setStyleSheet(
                 """
-                QLineEdit {
+                QLineEdit#te_r31_opis {
                     background-color: #e8f5e8;
                     border: 2px solid #4caf50;
-                    border-radius: 4px;
-                    padding: 3px 6px;
-                    font-weight: bold;
-                    font-size: 14px;
                     color: #2e7d32;
                 }
             """
@@ -1953,13 +2002,9 @@ class NaimenovanjaView(BaseTabView):
             te_opis_2.setText(description_short)
             te_opis_2.setStyleSheet(
                 """
-                QLineEdit {
+                QLineEdit#te_r31_opis_2 {
                     background-color: #e3f2fd;
                     border: 2px solid #2196f3;
-                    border-radius: 4px;
-                    padding: 3px 6px;
-                    font-weight: bold;
-                    font-size: 14px;
                     color: #1565c0;
                 }
             """
@@ -1967,12 +2012,10 @@ class NaimenovanjaView(BaseTabView):
 
         # Novo: Popuni trgovački naziv sa svim stavkama koje pripadaju naimenovanju
         if hasattr(self, "te_trg_naziv"):
-            self.te_trg_naziv.clear()  # Obriši postojeći sadržaj
             # Formatuj sve nazive proizvoda iz fakture koji pripadaju ovom naimenovanju
             trading_names = self._format_trading_names()
-            self.te_trg_naziv.setPlainText(
-                trading_names
-            )  # QTextEdit koristi setPlainText
+            if trading_names:
+                self.te_trg_naziv.setPlainText(trading_names)
 
     def _format_trading_names(self, max_chars: int = 280) -> str:
         # docs/sections/export-pdf-excel.md — dodaje footer sa Faktura: info
@@ -2076,10 +2119,28 @@ class NaimenovanjaView(BaseTabView):
         except Exception:
             return 0.0
 
-    def _compute_pd_codes(self) -> str:
-        """Rb.44 P.D. — šifre from_rule priloženih dokumenata iz zaglavlja (N380 DIS DV1)."""
-        header_docs = getattr(self.draft, "header_attached_documents", []) or []
-        codes = [doc.code for doc in header_docs if getattr(doc, "from_rule", False) and doc.code]
+    def _compute_pd_codes(self, item=None) -> str:
+        """Rb.44 P.D. — objedinjene šifre from_rule priloženih dokumenata.
+
+        PE1/PE2/PE3 se prikazuju samo ako naimenovanje ima povlasticu (Rub.36),
+        jer Rub.44 ne smije biti popunjena ako Rub.36 nije.
+        """
+        docs = []
+        docs.extend(getattr(self.draft, "header_attached_documents", []) or [])
+        if item is not None:
+            docs.extend(getattr(item, "attached_documents", []) or [])
+
+        codes = []
+        seen = set()
+        for doc in docs:
+            code = (getattr(doc, "code", "") or "").strip().upper()
+            if not code or not getattr(doc, "from_rule", False):
+                continue
+            if code in _PE_DOC_CODES:
+                continue
+            if code not in seen:
+                seen.add(code)
+                codes.append(code)
         return " ".join(codes)
 
     def _compute_statistical_value(self, item) -> str:
@@ -2095,6 +2156,100 @@ class NaimenovanjaView(BaseTabView):
         stat_val = round(item_value * kurs, 2) + ext_freight
         return f"{stat_val:.2f}"
 
+    def _setup_rb44_pd_codes_field(self) -> None:
+        field = self._get_widget("le_rubrika44_1")
+        obsolete = self._get_widget("le_rubrika44_3")
+        if not field:
+            return
+
+        if obsolete:
+            left = min(field.x(), obsolete.x())
+            top = min(field.y(), obsolete.y())
+            right = max(field.x() + field.width(), obsolete.x() + obsolete.width())
+            height = max(field.height(), obsolete.height())
+            field.setGeometry(left, top, right - left, height)
+            obsolete.hide()
+            obsolete.setEnabled(False)
+
+        field.setReadOnly(True)
+        field.setPlaceholderText("Šifre priloženih dokumenata")
+        field.setToolTip("Rb.44 — šifre priloženih dokumenata koje ASYCUDA prikazuje u jednoj liniji.")
+
+    def _apply_xml_import_global_documents(self, items: list[NaimenovanjeDraft]) -> None:
+        global_docs = []
+        seen = set()
+        master_pe = ""
+
+        for item in items:
+            for doc in getattr(item, "attached_documents", []) or []:
+                code = (getattr(doc, "code", "") or "").strip().upper()
+                number = (getattr(doc, "number", "") or "").strip()
+                if not code:
+                    continue
+                key = (code, number)
+                if key not in seen:
+                    seen.add(key)
+                    global_docs.append(
+                        AttachedDocument(
+                            code=code,
+                            name=getattr(doc, "name", "") or "",
+                            number=number,
+                            from_rule=getattr(doc, "from_rule", False),
+                        )
+                    )
+                if code in _PE_DOC_CODES and not master_pe:
+                    master_pe = _normalize_pe_document_text(f"{code} {number}".strip())
+
+        for doc in global_docs:
+            if doc.code != "DIS":
+                doc.number = ""
+
+        if global_docs:
+            self.draft.header_attached_documents = global_docs
+
+        if master_pe:
+            for item in items:
+                if (getattr(item, "preference_code", "") or "").strip() and not (
+                    getattr(item, "attached_document4", "") or ""
+                ).strip():
+                    item.attached_document4 = master_pe
+
+    def _apply_xml_import_to_zaglavlje(self, filename: str) -> None:
+        """Popuni Zaglavlje tab iz uvezenog ASYCUDA XML-a.
+
+        Rb.18/21 (prevoz) se ne preuzimaju — prevoz za novu deklaraciju može
+        biti drugačiji. U tabeli Priloženih dokumenata (Rb.40) šifra i naziv
+        se preuzimaju za sve stavke, ali referenca se prazni za sve osim DIS
+        (broj dispozicije), jer se nova referenca upisuje za novu deklaraciju.
+        """
+        main_window = self.window()
+        zaglavlje_tab = getattr(main_window, "zaglavlje_tab", None)
+        if zaglavlje_tab is None:
+            return
+
+        from services.zaglavlje_service import ZaglavljeService
+        service = ZaglavljeService()
+
+        try:
+            data = service.load_from_xml(filename)
+        except Exception as e:
+            logger.error(f"Greška pri uvozu zaglavlja iz XML-a: {e}", exc_info=True)
+            return
+
+        # Rb.18/21 (prevoz) zadržava postojeću vrijednost iz drafta — ne preuzima se iz XML-a
+        data["transport_id"] = getattr(self.draft, "transport_id", "") or ""
+        data["aktivno_transport"] = getattr(self.draft, "aktivno_transport", "") or ""
+        data["aktivno_transport_nat"] = getattr(self.draft, "aktivno_transport_nat", "") or ""
+
+        for doc in data.get("attached_documents", []) or []:
+            if (doc.get("code") or "").strip().upper() != "DIS":
+                doc["number"] = ""
+
+        self.draft = service.save_to_draft(self.draft, data)
+
+        if hasattr(zaglavlje_tab, "load_from_draft"):
+            zaglavlje_tab.load_from_draft(self.draft)
+
     def _load_current_item(self) -> None:
         """Load current item from draft into form fields"""
         if len(self.draft.items) == 0 or not hasattr(self, "ui"):
@@ -2106,6 +2261,8 @@ class NaimenovanjaView(BaseTabView):
 
         self.is_loading = True
         item = self.draft.items[self.current_item_index]
+        if _clear_secondary_pe_documents(item):
+            self.draft.mark_dirty()
 
         loaded = 0
         not_found = 0
@@ -2114,90 +2271,11 @@ class NaimenovanjaView(BaseTabView):
             if not field_name:
                 continue
 
-            # Use cached widget access
             widget = self._get_widget(widget_name)
 
             if widget:
-                # Virtuelna polja — dinamički izračun, ne čitaju se iz drafta
-                if field_name == "statistical_value":
-                    value = self._compute_statistical_value(item)
-                elif field_name == "pd_codes":
-                    value = self._compute_pd_codes()
-                else:
-                    value = getattr(item, field_name, "")
-
-                if isinstance(widget, QComboBox):
-                    if value:
-                        # Special handling for rubrika40_2 - show only code
-                        if widget_name == "le_rubrika40_2":
-                            value_str = str(value)
-                            # Extract only code if full text "CODE – Description" is saved
-                            code = (
-                                value_str.split(" –")[0].strip()
-                                if " –" in value_str
-                                else value_str
-                            )
-                            # Find matching item by code
-                            found_idx = -1
-                            for i in range(widget.count()):
-                                item_txt = widget.itemText(i)
-                                item_code = (
-                                    item_txt.split(" –")[0].strip()
-                                    if " –" in item_txt
-                                    else item_txt
-                                )
-                                if item_code == code:
-                                    found_idx = i
-                                    break
-                            if found_idx >= 0:
-                                widget.setCurrentIndex(found_idx)
-                                full_tooltip = widget.itemText(found_idx)
-                                if widget.lineEdit():
-                                    widget.lineEdit().setToolTip(full_tooltip)
-                            # Always show only code in the field (not full text)
-                            widget.setEditText(code)
-                        else:
-                            # Standard handling for other combos
-                            index = widget.findText(str(value))
-                            if index >= 0:
-                                widget.setCurrentIndex(index)
-                            else:
-                                # Fallback: set current text directly
-                                widget.setCurrentText(str(value))
-                    else:
-                        widget.setCurrentIndex(0)
-                    loaded += 1
-                elif isinstance(widget, QLineEdit):
-                    # Broj paketa — cijeli broj
-                    if field_name == "package_qty":
-                        if value and float(value) != 0:
-                            widget.setText(str(int(float(value))))
-                        else:
-                            widget.setText("")
-                    # Format float fields to 2 decimal places
-                    elif field_name in [
-                        "gross_mass_kg",
-                        "net_mass_kg",
-                        "item_value",
-                        "statistical_value",
-                        "supplementary_unit_qty",
-                    ]:
-                        # Format as float with 2 decimals, but only if value is not empty/zero
-                        if value and float(value) != 0:
-                            widget.setText(f"{float(value):.2f}")
-                        else:
-                            widget.setText("")
-                    else:
-                        widget.setText(str(value) if value else "")
-                    # FORCE: osiguraj da je vidljiv (QUiLoader bug)
-                    if not widget.isVisible():
-                        widget.setVisible(True)
-                    loaded += 1
-                elif isinstance(widget, QTextEdit):
-                    widget.setPlainText(str(value) if value else "")
-                    # FORCE: osiguraj da je vidljiv (QUiLoader bug)
-                    if not widget.isVisible():
-                        widget.setVisible(True)
+                value = self._get_item_field_value(item, field_name)
+                if self._set_widget_value(widget, widget_name, field_name, value):
                     loaded += 1
             else:
                 not_found += 1
@@ -2207,9 +2285,7 @@ class NaimenovanjaView(BaseTabView):
             grid = self.ui.findChild(QFrame, "main_grid_frame")
             if grid and not grid.isVisible():
                 grid.setVisible(True)
-            # FORCE: postavi direktni stylesheet na main_grid_frame (QUiLoader bug workaround)
-            if grid:
-                grid.setStyleSheet("QFrame#main_grid_frame { background-color: #f0f0f0; border: 1px solid #999; }")
+            # Note: QFrame#main_grid_frame styling is now in naimenovanja_components.qss
 
         # Rb.40: Z i N821 combosi vidljivi samo za prvo naimenovanje
         is_first_item = (self.current_item_index == 0)
@@ -2231,11 +2307,9 @@ class NaimenovanjaView(BaseTabView):
         if hasattr(self, "combo_vrsta_pakovanja"):
             package_code = self.combo_vrsta_pakovanja.currentText().strip()
             if package_code and hasattr(self, "package_names"):
+                self._set_package_name_from_code(package_code, update_model=False)
                 le_naziv = self._get_widget("le_r31_vrsta_naziv")
                 if le_naziv:
-                    naziv = self.package_names.get(package_code, "")
-                    le_naziv.setText(naziv)
-
                     # DETALJNA DIJAGNOSTIKA
                     logger.debug(f"  🔍 WIDGET DIAGNOSTICS:")
                     logger.debug(f"     - text(): '{le_naziv.text()}'")
@@ -2300,57 +2374,15 @@ class NaimenovanjaView(BaseTabView):
             if not field_name or field_name in _READONLY_VIRTUAL_FIELDS:
                 continue
 
-            # Use cached widget access
             widget = self._get_widget(widget_name)
 
             if widget:
-                value = None
+                value = self._read_widget_value(widget)
+                normalized = self._normalize_field_value(field_name, value)
+                setattr(item, field_name, normalized)
 
-                if isinstance(widget, QComboBox):
-                    # For QComboBox, use currentText() to get selected value
-                    value = widget.currentText().strip()
-                elif isinstance(widget, QLineEdit):
-                    value = widget.text().strip()
-                elif isinstance(widget, QTextEdit):
-                    value = widget.toPlainText().strip()
-
-                # Type conversion
-                if field_name == "package_qty":
-                    try:
-                        value = int(float(value)) if value else 0
-                    except ValueError:
-                        value = 0
-                elif field_name in [
-                    "gross_mass_kg",
-                    "net_mass_kg",
-                    "item_value",
-                    "statistical_value",
-                    "supplementary_unit_qty",
-                ]:
-                    try:
-                        value = float(value) if value else 0.0
-                    except ValueError:
-                        value = 0.0
-                elif field_name == "ordinal_no":
-                    try:
-                        value = int(value) if value else 0
-                    except ValueError:
-                        value = 0
-                elif field_name == "tariff_code" and value:
-                    # Normalizuj "ex" unose: "ex 8511 80 00 10" → "8511800010"
-                    # 10 cifara s posljednjim 2 = "00" → skrati na 8; ≠ "00" → čuvaj 10
-                    _d = re.sub(r"\D", "", value)
-                    if len(_d) > 10:
-                        _d = _d[:10]
-                    if len(_d) == 10 and _d[8:] == "00":
-                        _d = _d[:8]
-                    value = _d
-
-                setattr(item, field_name, value)
-
-        self.draft.mark_dirty()
-        if self.on_dirty:
-            self.on_dirty()
+        _clear_secondary_pe_documents(item)
+        self._mark_dirty()
 
         # ── Sinhronizacija tarifnog broja ako je promijenjen ──────────────
         new_tariff = item.tariff_code or ""
@@ -2411,14 +2443,13 @@ class NaimenovanjaView(BaseTabView):
         zemlja = invoice_line.zemlja_porijekla if invoice_line else naim_item.origin_country_code
 
         try:
-            from services.tariff_mapping_service import TariffMappingService
-            kb_svc = TariffMappingService()
+            # Učenje — docs/architecture/TARIFF_FACADE_REFACTORING.md
+            from services.tariff_facade import TariffFacade
 
             # Prvo izbriši STARE zapise sa pogrešnom tarifom (isti naziv ili product_code)
             from database.db import get_db_connection
             with get_db_connection() as conn:
                 with conn.cursor() as cursor:
-                    # Izbriši zapise koji imaju ISTI naziv ali POGREŠNU tarifu
                     cursor.execute("""
                         DELETE FROM catalogs.product_tariff_mapping
                         WHERE (naziv_robe ILIKE %s OR product_code = %s)
@@ -2426,9 +2457,9 @@ class NaimenovanjaView(BaseTabView):
                     """, (f"%{naziv_robe}%", product_code or "__NONE__", old_tariff))
                     deleted = cursor.rowcount
 
-            # Zatim sačuvaj novi tarif sa increased usage_count
+            # Zatim sačuvaj novi tarif
             if naziv_robe and new_tariff:
-                kb_svc.save_mapping(
+                TariffFacade.get_instance().learn(
                     product_code=product_code or "",
                     naziv_robe=naziv_robe,
                     tarifni_broj=new_tariff,
@@ -2494,21 +2525,17 @@ class NaimenovanjaView(BaseTabView):
         if not hasattr(self, "lbl_status_total"):
             return
 
-        # Ukupna cijena
-        total = sum(item.item_value or 0 for item in self.draft.items)
+        total = total_qty = bruto = netto = 0.0
+        for item in self.draft.items:
+            total += item.item_value or 0
+            total_qty += item.package_qty or 0
+            bruto += item.gross_mass_kg or 0
+            netto += item.net_mass_kg or 0
         currency = self.draft.items[0].currency if self.draft.items else "EUR"
+
         self.lbl_status_total.setText(f"💰 Ukupno: {total:,.2f} {currency}")
-
-        # Ukupan broj komada (suma količina svih naimenovanja)
-        total_qty = sum(item.package_qty or 0 for item in self.draft.items)
         self.lbl_status_items.setText(f"📦 Broj komada: {total_qty:,.0f}")
-
-        # Ukupna bruto masa
-        bruto = sum(item.gross_mass_kg or 0 for item in self.draft.items)
         self.lbl_status_bruto.setText(f"⚖️ Bruto: {bruto:.2f} kg")
-
-        # Ukupna neto masa
-        netto = sum(item.net_mass_kg or 0 for item in self.draft.items)
         self.lbl_status_netto.setText(f"📊 Netto: {netto:.2f} kg")
 
         # Validacija statusa
@@ -2613,9 +2640,54 @@ class NaimenovanjaView(BaseTabView):
             self._update_all_ui()
 
     def _on_save(self) -> None:
-        """Save button clicked"""
+        """Save the complete declaration as a portable XML working draft."""
+        from pathlib import Path
+        from PySide6.QtWidgets import QFileDialog
+        from PySide6.QtCore import QSettings
+        from services.declaration_draft_service import (
+            DeclarationDraftService,
+            default_drafts_directory,
+            suggested_filename,
+        )
+
         self._save_current_item()
-        QMessageBox.information(self, "Uspjeh", "✅ Naimenovanje sačuvano!")
+        main_window = self.window()
+        zaglavlje_tab = getattr(main_window, "zaglavlje_tab", None)
+        if hasattr(zaglavlje_tab, "save_to_draft"):
+            zaglavlje_tab.save_to_draft()
+
+        settings = QSettings("DeklarantPro", "DeklarantPro")
+        last_directory = Path(
+            settings.value("drafts/lastDirectory", str(default_drafts_directory()))
+        )
+        suggested_path = last_directory / suggested_filename(self.draft)
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            "Sačuvaj nacrt deklaracije",
+            str(suggested_path),
+            "Deklarant Pro nacrt (*.xml);;XML datoteke (*.xml)",
+        )
+        if not filename:
+            return
+
+        try:
+            saved_path = DeclarationDraftService().save(self.draft, filename)
+        except Exception as exc:
+            QMessageBox.critical(
+                self,
+                "Greška pri čuvanju",
+                f"Nacrt deklaracije nije sačuvan.\n\n{exc}",
+            )
+            return
+
+        settings.setValue("drafts/lastDirectory", str(saved_path.parent))
+        self.draft._persistent_draft_path = str(saved_path)
+        self.draft.dirty = False
+        QMessageBox.information(
+            self,
+            "Nacrt sačuvan",
+            f"Kompletna deklaracija je sačuvana u:\n{saved_path}",
+        )
 
     def _on_field_changed(self) -> None:
         """Debounced field change handler - spašava nakon 300ms pauze u kucanju"""
@@ -2636,9 +2708,7 @@ class NaimenovanjaView(BaseTabView):
         text = self.combo_rb40_tip.currentText().strip()
         for item in self.draft.items:
             item.previous_document = text
-        self.draft.mark_dirty()
-        if self.on_dirty:
-            self.on_dirty()
+        self._mark_dirty()
 
     def _on_rubrika40_1_finished(self, idx: int = 0) -> None:
         """Poziva puni _save_current_item() on activated (za ostale rubrike 40 i bočne efekte)."""
@@ -2670,21 +2740,32 @@ class NaimenovanjaView(BaseTabView):
 
         # Master field style
         master_combo_style = """
-            QComboBox {
+            QComboBox#le_rubrika40_2 {
                 border: 2px solid #17a2b8;
                 border-radius: 3px;
                 padding: 2px 4px;
                 background-color: #f0f9ff;
                 color: #333;
             }
-            QComboBox:focus {
+            QComboBox#le_rubrika40_2:focus {
                 border: 2px solid #138496;
                 background-color: white;
                 color: #333;
             }
-            QComboBox QLineEdit {
+            QComboBox#le_rubrika40_2 QLineEdit {
                 color: #333;
                 background-color: transparent;
+            }
+            QComboBox#le_rubrika40_2::drop-down {
+                width: 16px;
+                border: none;
+                background: transparent;
+            }
+            QComboBox#le_rubrika40_2::down-arrow {
+                image: none;
+                width: 0px;
+                height: 0px;
+                border: none;
             }
         """
         master_field_style = """
@@ -2712,8 +2793,27 @@ class NaimenovanjaView(BaseTabView):
             )
             FIELD1_W = 32
             self.combo_rb40_tip.setStyleSheet(
-                f"QComboBox {{ min-width: {FIELD1_W}px; max-width: {FIELD1_W}px; "
-                f"border: 2px solid #17a2b8; border-radius: 3px; background-color: #f0f9ff; color: #333; }}"
+                f"""
+                QComboBox#le_rubrika40_1 {{
+                    min-width: {FIELD1_W}px;
+                    max-width: {FIELD1_W}px;
+                    border: 2px solid #17a2b8;
+                    border-radius: 3px;
+                    background-color: #f0f9ff;
+                    color: #333;
+                }}
+                QComboBox#le_rubrika40_1::drop-down {{
+                    width: 14px;
+                    border: none;
+                    background: transparent;
+                }}
+                QComboBox#le_rubrika40_1::down-arrow {{
+                    image: none;
+                    width: 0px;
+                    height: 0px;
+                    border: none;
+                }}
+                """
             )
 
         # Configure rubrika 40.2 (šifra – master polje)
@@ -2793,7 +2893,6 @@ class NaimenovanjaView(BaseTabView):
             w("le_rubrika42"),
             w("le_rubrika43"),
             # Rb.44
-            w("le_rubrika44_3"),
             w("le_rubrika44_4"),
             w("le_rubrika44_5"),
             # Rb.45/46
@@ -2849,7 +2948,7 @@ class NaimenovanjaView(BaseTabView):
             # Disconnect default handler first
             try:
                 le_rubrika44_4.textChanged.disconnect(self._on_field_changed)
-            except:
+            except Exception:
                 pass
             # Connect to special handler using editingFinished instead of textChanged
             le_rubrika44_4.editingFinished.connect(self._on_rubrika44_4_finished)
@@ -2872,15 +2971,10 @@ class NaimenovanjaView(BaseTabView):
         # 1. Sacuvaj trenutni item
         self._save_current_item()
 
-        # 2. Primijeni na sve ostale iteme
         if len(self.draft.items) > 1:
-            for i, item in enumerate(self.draft.items):
-                if i != self.current_item_index:
-                    item.previous_document2 = text
+            self._apply_to_other_items("previous_document2", text)
 
-        # 3. Azuriraj summary i validaciju
-        self._update_summary()
-        self._update_status_bar()
+        self._refresh_summary_and_status()
 
     def _on_rubrika44_4_finished(self) -> None:
         """Primijeni rubrika44_4 na sve iteme NAKON zavrsetka uredivanja (Enter/blur).
@@ -2896,21 +2990,38 @@ class NaimenovanjaView(BaseTabView):
         if not le_rubrika44_4:
             return
 
-        text = le_rubrika44_4.text().strip()
+        text = _normalize_pe_document_text(le_rubrika44_4.text())
+        if text != le_rubrika44_4.text().strip():
+            le_rubrika44_4.setText(text)
 
         # 1. Sacuvaj trenutni item
         self._save_current_item()
+        current_item = self.draft.items[self.current_item_index]
+        for widget_name, field_name in self.field_map.items():
+            if field_name in (
+                "attached_document1",
+                "attached_document2",
+                "attached_document3",
+                "attached_document5",
+            ):
+                widget = self._get_widget(widget_name)
+                if widget:
+                    widget.setText(getattr(current_item, field_name, "") or "")
 
         # 2. Primijeni na sve ostale iteme
+        # PRAVILO: Rub.44 se ne smije postaviti ako Rub.36 nije popunjena
         if len(self.draft.items) > 1:
             for i, item in enumerate(self.draft.items):
                 if i != self.current_item_index:
+                    has_pref = bool((getattr(item, 'preference_code', '') or '').strip())
+                    if text and not has_pref:
+                        continue  # ne upisuj Rub.44 bez Rub.36
                     item.attached_document4 = text
+                    _clear_secondary_pe_documents(item)
 
         # 3. Sinhronizuj PE šifre iz rub.44.4 u header_attached_documents
         self._sync_pe_docs_to_header()
 
-        # 4. Azuriraj summary
         self._update_summary()
 
     def _sync_pe_docs_to_header(self) -> None:
@@ -2926,23 +3037,25 @@ class NaimenovanjaView(BaseTabView):
 
         # 1. Sakupi sve jedinstvene (sifra, broj) parove iz svih naimenovanja
         pe_entries: list[tuple[str, str]] = []
-        seen: set[tuple[str, str]] = set()
+        seen: set[str] = set()
         for item in self.draft.items:
-            doc4 = (getattr(item, 'attached_document4', '') or '').strip()
+            _clear_secondary_pe_documents(item)
+            doc4 = _normalize_pe_document_text(getattr(item, 'attached_document4', '') or '')
+            if doc4 != (getattr(item, 'attached_document4', '') or '').strip():
+                item.attached_document4 = doc4
             if not doc4:
                 continue
             # Format: "ŠIFRA broj" (npr. "PE1 12345", "PE2 INV-001")
             parts = doc4.split(' ', 1)
             sifra = parts[0].strip()
             broj = parts[1].strip() if len(parts) > 1 else ''
-            if sifra in ("PE1", "PE2", "PE3"):
-                key = (sifra, broj)
-                if key not in seen:
-                    seen.add(key)
-                    pe_entries.append(key)
+            if sifra in _PE_DOC_CODES:
+                if sifra not in seen:  # dedup po šifri — jedna deklaracija = jedan EUR.1
+                    seen.add(sifra)
+                    pe_entries.append((sifra, broj))
 
         # 2. Ukloni postojeće PE1/PE2/PE3 unose iz header_attached_documents
-        header_docs[:] = [d for d in header_docs if d.code not in ("PE1", "PE2", "PE3")]
+        header_docs[:] = [d for d in header_docs if d.code not in _PE_DOC_CODES]
 
         # 3. Dodaj nove unose
         if pe_entries:
@@ -2970,41 +3083,28 @@ class NaimenovanjaView(BaseTabView):
         
         Automatski dodaje OST u header_attached_documents — vidi docs/sections/ost-rb40.md
         """
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.debug(f"🔍 DIAG: _on_rubrika40_3_finished POZVAN, is_loading={self.is_loading}")
-
         if self.is_loading:
             return
 
         le_rubrika40_3 = self._get_widget("le_rubrika40_3")
         if not le_rubrika40_3:
-            logger.debug(f"🔍 DIAG: le_rubrika40_3 widget nije pronađen!")
             return
 
         text = le_rubrika40_3.text().strip()
-        logger.debug(f"🔍 DIAG: text='{text}', draft.header_attached_documents postoji? {hasattr(self.draft, 'header_attached_documents')}")
 
         # 1. Sacuvaj trenutni item
         self._save_current_item()
 
-        # 2. Primijeni na sve ostale iteme
         if len(self.draft.items) > 1:
-            for i, item in enumerate(self.draft.items):
-                if i != self.current_item_index:
-                    item.previous_document3 = text
+            self._apply_to_other_items("previous_document3", text)
 
-        # 3. Azuriraj OST (ostali prateći dokument) u header_attached_documents
-        #    da bi se prikazao u zaglavlju u tabeli priloženih dokumenata
+        # 3. Azuriraj OST u header_attached_documents
         if text:
             header_docs = getattr(self.draft, "header_attached_documents", None)
-            logger.debug(f"🔍 DIAG: header_docs={header_docs}")
             if header_docs is not None:
                 ost = next((d for d in header_docs if d.code == "OST"), None)
-                logger.debug(f"🔍 DIAG: postojeci OST={ost}")
                 if ost:
                     ost.number = text
-                    logger.debug(f"🔍 DIAG: OST azuriran: number={text}")
                 else:
                     from core.draft.draft import AttachedDocument
                     header_docs.append(AttachedDocument(
@@ -3013,18 +3113,9 @@ class NaimenovanjaView(BaseTabView):
                         number=text,
                         from_rule=False,
                     ))
-                    logger.debug(f"🔍 DIAG: OST DODAT: code=OST, number={text}")
-                # Obavijesti zaglavlje da se podaci promijenili
-                logger.debug(f"🔍 DIAG: pozivam draft.mark_dirty()")
                 self.draft.mark_dirty()
-            else:
-                logger.debug(f"🔍 DIAG: header_docs je None!")
-        else:
-            logger.debug(f"🔍 DIAG: text je prazan, preskacem OST")
 
-        # 4. Azuriraj summary i validaciju
-        self._update_summary()
-        self._update_status_bar()
+        self._refresh_summary_and_status()
 
     def _flash_field_border(self, widget: QWidget, color: str = "#28a745") -> None:
         """
@@ -3080,18 +3171,51 @@ class NaimenovanjaView(BaseTabView):
         self._suggest_tariff_impl()
 
     def _on_import_xml(self) -> None:
-        """Otvori file dialog i uvezi naimenovanja iz XML fajla."""
+        """Otvori file dialog i uvezi naimenovanja iz XML fajla ili otvori nacrt."""
         import traceback
-        from PySide6.QtWidgets import QFileDialog, QMessageBox
+        from pathlib import Path
+        from PySide6.QtWidgets import QFileDialog
+        from PySide6.QtCore import QSettings
+        from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
+        from services.declaration_draft_service import (
+            DeclarationDraftService,
+            default_drafts_directory,
+            is_draft_file,
+        )
 
+        filename = ""
         try:
+            settings = QSettings("DeklarantPro", "DeklarantPro")
+            last_directory = settings.value(
+                "drafts/lastDirectory", str(default_drafts_directory())
+            )
             filename, _ = QFileDialog.getOpenFileName(
                 self,
-                "Uvezi naimenovanja iz XML fajla",
-                "",
+                "Uvezi XML ili otvori nacrt",
+                str(last_directory),
                 "XML Files (*.xml);;All Files (*)",
             )
             if not filename:
+                return
+            settings.setValue("drafts/lastDirectory", str(Path(filename).parent))
+
+            if is_draft_file(filename):
+                if self.draft.dirty:
+                    reply = QMessageBox.question(
+                        self,
+                        "Otvori nacrt deklaracije",
+                        "Nesačuvane izmjene trenutne deklaracije biće zamijenjene. Nastaviti?",
+                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                        QMessageBox.StandardButton.No,
+                    )
+                    if reply == QMessageBox.StandardButton.No:
+                        return
+
+                loaded = DeclarationDraftService().load(filename)
+                main_window = self.window()
+                main_window._replace_draft_contents(loaded)
+                main_window._reload_all_tabs_from_draft()
+                self.show_success(f"Otvoren je nacrt deklaracije:\n{filename}")
                 return
 
             # 1. Parsiraj naimenovanja iz XML
@@ -3120,6 +3244,8 @@ class NaimenovanjaView(BaseTabView):
                 return
 
             # 3. Zamijeni draft.items
+            self._apply_xml_import_global_documents(items)
+            self._apply_xml_import_to_zaglavlje(filename)
             self.draft.items = items
             self.draft.mark_dirty()
 
@@ -3137,7 +3263,8 @@ class NaimenovanjaView(BaseTabView):
             self.show_error(f"Greška pri uvozu: {e}")
 
         # Emituj signal za controller (ako postoji)
-        self.import_xml_requested.emit(filename)
+        if filename:
+            self.import_xml_requested.emit(filename)
 
     def _on_inspekcije(self) -> None:
         """Otvori dijalog sa inspekcijskim pregledom naimenovanja."""
@@ -3298,15 +3425,11 @@ class NaimenovanjaView(BaseTabView):
             self._show_tariff_suggestion_dialog(valid_mappings, current_item)
 
         except Exception as e:
-            import traceback
-
-            traceback.print_exc()
-
+            logger.exception("Greška pri traženju prijedloga tarife")
             QMessageBox.critical(
                 self,
                 "Greška",
-                f"❌ Greška pri traženju prijedloga:\n\n{str(e)}\n\n"
-                "Provjerite konzolu za detalje.",
+                f"❌ Greška pri traženju prijedloga:\n\n{str(e)}",
             )
 
     def _validate_mappings(
@@ -3374,18 +3497,8 @@ class NaimenovanjaView(BaseTabView):
         Args:
             result: Dictionary sa {tarifni_broj, povlastica, zemlja_porijekla, similarity, usage_count}
         """
-        logger.debug(f"\n{'=' * 70}")
-        logger.debug(f"🎯 _on_tariff_suggestion_accepted() POZVANA!")
-        logger.debug(f"   Result: {result}")
-        logger.debug(f"{'=' * 70}")
-
         current_item = self.draft.items[self.current_item_index]
-
-        logger.info(f"\n✅ Prijedlog prihvaćen:")
-        logger.debug(f"   Tarifni broj: {result.get('tarifni_broj')}")
-        logger.debug(f"   Povlastica: {result.get('povlastica')}")
-        logger.debug(f"   Zemlja: {result.get('zemlja_porijekla')}")
-        logger.debug(f"   Similarity: {result.get('similarity'):.0%}")
+        logger.info("✅ Prijedlog prihvaćen: %s (%.0f%%)", result.get('tarifni_broj'), (result.get('similarity') or 0) * 100)
 
         # Track original value za Edge Case 7 (ručna izmjena nakon prihvatanja)
         self._auto_filled_tariff = result.get("tarifni_broj")
@@ -3419,14 +3532,12 @@ class NaimenovanjaView(BaseTabView):
         if self.on_dirty:
             self.on_dirty()
 
-        # Inkrementiraj usage_count (učenje sistema)
+        # Inkrementiraj usage_count — docs/architecture/TARIFF_FACADE_REFACTORING.md
         try:
-            from services.tariff_mapping_service import TariffMappingService
-
-            service = TariffMappingService()
-            service._increment_usage(
+            from services.tariff_facade import TariffFacade
+            TariffFacade.get_instance().increment_usage(
                 result["tarifni_broj"],
-                None,  # product_code
+                None,
                 current_item.goods_trade_name,
             )
         except Exception as e:
@@ -3535,12 +3646,8 @@ class NaimenovanjaView(BaseTabView):
 
         self._load_current_item()
         self._update_all_ui()
-        if hasattr(self, "ui") and self.ui:
-            self.ui.update()
-            self.ui.repaint()
         self.update()
-        self.repaint()
-        logger.info(f"  ✅ Naimenovanja Tab reloaded: {len(self.draft.items)} items")
+        logger.info("  ✅ Naimenovanja Tab reloaded: %d items", len(self.draft.items))
 
     def eventFilter(self, obj, event):
         """Intercept Enter na le_rubrika33 — okida _on_tariff_enter."""

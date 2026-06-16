@@ -8,6 +8,7 @@ from datetime import datetime
 from contextlib import contextmanager
 
 from .models import DraftModel, AttachmentModel
+from config.settings import get_path_settings
 
 logger = logging.getLogger(__name__)
 
@@ -15,13 +16,15 @@ logger = logging.getLogger(__name__)
 class DraftRepository:
     """Repository za upravljanje Draft-ovima u bazi."""
 
-    def __init__(self, db_path: str = "deklarant_pro.db"):
+    def __init__(self, db_path: Optional[str] = None):
         """
         Inicijalizuje repository.
 
         Args:
             db_path: Putanja do SQLite database fajla
         """
+        if db_path is None:
+            db_path = str(get_path_settings().project_root / "deklarant_pro.db")
         self.db_path = db_path
         self._init_db()
 
@@ -237,9 +240,30 @@ class DraftRepository:
 class AttachmentRepository:
     """Repository za upravljanje prilozima."""
 
-    def __init__(self, db_path: str = "deklarant_pro.db"):
+    def __init__(self, db_path: Optional[str] = None):
         """Inicijalizuje repository."""
+        if db_path is None:
+            db_path = str(get_path_settings().project_root / "deklarant_pro.db")
         self.db_path = db_path
+        self._init_db()
+
+    def _init_db(self):
+        """Osiguraj da tabela attachments postoji i kad se koristi standalone."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS attachments (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    draft_id INTEGER,
+                    filename TEXT,
+                    filepath TEXT,
+                    file_type TEXT,
+                    size INTEGER,
+                    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (draft_id) REFERENCES drafts (id) ON DELETE CASCADE
+                )
+            """)
+            conn.commit()
 
     @contextmanager
     def _get_connection(self):

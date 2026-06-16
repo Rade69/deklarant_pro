@@ -118,8 +118,8 @@ Koristi `CreateNaimenovanjaService.create_smart_group()` — **ne pisati vlastit
 ## 7. LLM / Agent integracija
 
 - Primarni provider: Groq (`llama-3.3-70b-versatile` za chat, `llama-3.1-8b-instant` za batch)
-- Fallback: Gemini (`gemini-2.5-flash-lite`) — jedini koji radi na free tier bez billing-a
-- Koristiti `LLMProvider` klasu iz `gui/tabs/agent/widgets/llm_provider.py` — **ne pozivati Groq/Gemini direktno**
+- Fallback redoslijed: Gemini (`gemini-2.5-flash-lite`) → OpenRouter (`openrouter/free`) → DeepSeek (`deepseek-chat`)
+- Koristiti `LLMProvider` klasu iz `gui/tabs/agent/widgets/llm_provider.py` — **ne pozivati providere direktno**
 - Streaming ide kroz `provider.stream_chat()`, batch kroz `provider.complete()`
 - QThread workeri za sve LLM pozive — nikad blokirati UI thread
 

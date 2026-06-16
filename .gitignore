@@ -78,6 +78,8 @@ test_*.py
 check_*.py
 fix_*.py
 reimport_*.py
+# Izuzetak: unit testovi u tests/unit/ i tests/admin/ i tests/integration/ su dio projekta
+!tests/*/test_*.py
 
 # Kiro IDE
 .kiro/
@@ -108,6 +110,15 @@ memory/
 # Logs
 logs/
 
+# Licensing — private key NIKADA ne ide u git
+tools/licensing/keys/
+licenses/
+
+# Generisani docs fajlovi (HTML, PDF, LibreOffice lock)
+docs/*.html
+docs/*.pdf
+docs/.~lock.*
+
 # Veliki fajlovi — lokalno samo
 docs/NOVA ASIKUDA/
 docs/Carinska_tarifa_za_2026_-_bosanski.pdf
@@ -117,3 +128,7 @@ tests.7z
 .aider*
 *.csv
 database/*.csv
+.gitnexus
+
+# PyArmor distribucija
+dist_client/

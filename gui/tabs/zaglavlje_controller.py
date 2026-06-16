@@ -1,4 +1,8 @@
 # gui/tabs/zaglavlje_controller.py
+# SECTION: zaglavlje-controller
+# PURPOSE: Orchestration između ZaglavljeView i servis sloja; pokreće agent validaciju
+# FIX ce2ab0e: _get_naimenovanja_data sortira po ordinal_no i uključuje ga u dict
+# MEM: memory/2026-05-01_validator_ordinal_fix.md
 
 """
 Zaglavlje Controller - Orchestration Layer
@@ -8,10 +12,14 @@ Nema business logike.
 """
 
 import logging
+import re
 from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
 
-from PySide6.QtWidgets import QMessageBox
 from PySide6.QtCore import Qt
+from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
+from gui.utils.safe_message_box import capture_window_geometry, restore_window_geometry_queued
+from gui.utils.safe_message_box import exec_dialog_preserving_geometry
+# Docs: docs/sections/window-geometry-modal-guard.md
 
 if TYPE_CHECKING:
     from gui.tabs.zaglavlje_view import ZaglavljeView
@@ -20,6 +28,13 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger("deklarant_pro.gui.zaglavlje_controller")
+
+_PE_DOC_CODES = {"PE1", "PE2", "PE3"}
+
+
+def _pe_doc_code(value: str) -> str:
+    code = (value or "").strip().split(" ", 1)[0].upper()
+    return code if code in _PE_DOC_CODES else ""
 
 
 class ZaglavljeController:
@@ -73,7 +88,6 @@ class ZaglavljeController:
         - import_xml_requested → _on_import_xml
         - export_xml_requested → _on_export_xml
         - new_requested → _on_new
-        - close_requested → _on_close
         - search_company_requested → _on_search_company
         - add_company_requested → _on_add_company
         """
@@ -83,7 +97,6 @@ class ZaglavljeController:
         self.view.import_xml_requested.connect(self._on_import_xml)
         self.view.export_xml_requested.connect(self._on_export_xml)
         self.view.new_requested.connect(self._on_new)
-        self.view.close_requested.connect(self._on_close)
         self.view.search_company_requested.connect(self._on_search_company)
         self.view.add_company_requested.connect(self._on_add_company)
         self.view.deklaracija_sifra_changed.connect(self._on_dekl_sifra_changed)
@@ -149,45 +162,40 @@ class ZaglavljeController:
         """
         try:
             from services.agent.declaration_validator_service import (
-                validate_declaration_with_agent
+                validate_declaration_full
             )
             from gui.dialogs.enhanced_validation_dialog import (
                 show_enhanced_validation_dialog,
                 DialogConfig
             )
-            
+
             # Dobavi sve potrebne podatke
             naimenovanja_data = self._get_naimenovanja_data()
             invoice_lines = self._get_invoice_lines(draft)
-            
-            # Pokreni agent validaciju
-            report = validate_declaration_with_agent(
+
+            # Pokreni završnu provjeru (agent validacija + ComplianceCheckService)
+            report = validate_declaration_full(
                 zaglavlje_data=view_data,
                 naimenovanja_data=naimenovanja_data,
                 invoice_lines=invoice_lines,
                 draft=draft
             )
-            
-            # Prikaži enhanced dijalog
+
+            # Prikaži enhanced dijalog — čista provjera, export ostaje
+            # iskljucivo na zasebnom dugmetu "Izvezi XML" (deklarant odlučuje)
             config = DialogConfig(
                 show_details=True,
                 show_recommendations=True,
                 allow_auto_fix=True,
-                show_export_button=report.valid
+                show_export_button=False
             )
-            
+
             result = show_enhanced_validation_dialog(report, self.view, config)
-            
+
             if result:
                 self.logger.info(f"Enhanced validation completed: {report.error_count} errors")
-                
-                # Ako je validno i korisnik želi export, pokreni export
-                if report.valid:
-                    self._on_export()
-                
-                return True
-            
-            return False
+
+            return True
             
         except ImportError:
             self.logger.debug("Agent validation service nije dostupan")
@@ -220,9 +228,14 @@ class ZaglavljeController:
         if not draft or not hasattr(draft, 'items'):
             return []
         
+        sorted_items = sorted(
+            draft.items,
+            key=lambda it: getattr(it, 'ordinal_no', 0),
+        )
         naimenovanja_data = []
-        for item in draft.items:
+        for item in sorted_items:
             item_data = {
+                'ordinal_no': getattr(item, 'ordinal_no', 0),
                 'tariff_code': getattr(item, 'tariff_code', ''),
                 'goods_trade_name': getattr(item, 'goods_trade_name', ''),
                 'origin_country_code': getattr(item, 'origin_country_code', ''),
@@ -232,7 +245,7 @@ class ZaglavljeController:
                 'item_value': getattr(item, 'item_value', 0),
             }
             naimenovanja_data.append(item_data)
-        
+
         return naimenovanja_data
     
     def _get_invoice_lines(self, draft: Any) -> List[Dict[str, Any]]:
@@ -261,94 +274,94 @@ class ZaglavljeController:
         Ako ima samo warnings — prikaži upozorenja.
         Ako je sve OK — prikaži success.
         """
-        errors = result.get("errors", [])
-        warnings = result.get("warnings", [])
-        valid = result.get("valid", False)
+        geometry_state = capture_window_geometry(self.view)
+        try:
+            errors = result.get("errors", [])
+            warnings = result.get("warnings", [])
+            valid = result.get("valid", False)
 
-        if valid and not warnings:
-            self.view.show_success(
-                "✅ Validacija uspješna!\n\n"
-                "Sva obavezna polja su popunjena i podaci su sinhronizovani.\n"
-                "Možete nastaviti sa XML exportom."
-            )
-            return
-
-        # Sastavi poruku
-        msg_parts = []
-
-        # Fixable akcije (auto-update)
-        fixable = [e for e in errors if e.get("fixable")]
-        fixable_warnings = [w for w in warnings if w.get("fixable")]
-        all_fixable = fixable + fixable_warnings
-
-        if errors:
-            msg_parts.append(f"❌ {len(errors)} GREŠAKA (blokiraju export):\n")
-            for i, err in enumerate(errors, 1):
-                msg_parts.append(f"  {i}. {err['message']}")
-            msg_parts.append("")
-
-        if warnings:
-            non_fixable_warnings = [
-                w for w in warnings if not w.get("fixable")
-            ]
-            if non_fixable_warnings:
-                msg_parts.append(
-                    f"⚠️ {len(non_fixable_warnings)} UPOZORENJA:\n"
+            if valid and not warnings:
+                self.view.show_success(
+                    "✅ Validacija uspješna!\n\n"
+                    "Sva obavezna polja su popunjena i podaci su sinhronizovani.\n"
+                    "Možete nastaviti sa XML exportom."
                 )
-                for i, w in enumerate(non_fixable_warnings, 1):
-                    msg_parts.append(f"  {i}. {w['message']}")
+                return
+
+            # Sastavi poruku
+            msg_parts = []
+
+            # Fixable akcije (auto-update)
+            fixable = [e for e in errors if e.get("fixable")]
+            fixable_warnings = [w for w in warnings if w.get("fixable")]
+            all_fixable = fixable + fixable_warnings
+
+            if errors:
+                msg_parts.append(f"❌ {len(errors)} GREŠAKA (blokiraju export):\n")
+                for i, err in enumerate(errors, 1):
+                    msg_parts.append(f"  {i}. {err['message']}")
                 msg_parts.append("")
 
-        if all_fixable:
-            msg_parts.append(
-                f"🔧 {len(all_fixable)} AUTOMATSKIH POPRAVKI dostupno:\n"
-            )
-            for i, item in enumerate(all_fixable, 1):
-                msg_parts.append(f"  {i}. {item['message']}")
-            msg_parts.append("")
+            if warnings:
+                non_fixable_warnings = [
+                    w for w in warnings if not w.get("fixable")
+                ]
+                if non_fixable_warnings:
+                    msg_parts.append(
+                        f"⚠️ {len(non_fixable_warnings)} UPOZORENJA:\n"
+                    )
+                    for i, w in enumerate(non_fixable_warnings, 1):
+                        msg_parts.append(f"  {i}. {w['message']}")
+                    msg_parts.append("")
 
-        full_msg = "\n".join(msg_parts)
+            if all_fixable:
+                msg_parts.append(
+                    f"🔧 {len(all_fixable)} AUTOMATSKIH POPRAVKI dostupno:\n"
+                )
+                for i, item in enumerate(all_fixable, 1):
+                    msg_parts.append(f"  {i}. {item['message']}")
+                msg_parts.append("")
 
-        # Ako ima fixable, ponudi auto-fix
-        if all_fixable:
-            reply = QMessageBox.question(
-                self.view,
-                "Rezultat validacije",
-                full_msg + "\nŽelite li automatski popraviti ove greške?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.Yes,
-            )
-            if reply == QMessageBox.StandardButton.Yes:
-                self._apply_auto_fixes(all_fixable)
-                # Ponovo validiraj nakon fix-a
-                if self._save_draft_fn:
-                    self._save_draft_fn()
-                view_data = self.view.get_data()
-                draft = self._get_draft_fn() if self._get_draft_fn else None
-                if draft:
-                    new_result = self.service.validate(view_data, draft)
-                    self._show_validation_result(new_result)
-                return
-            # Ako user kaže Ne, samo prikaži info
-            QMessageBox.warning(
-                self.view,
-                "Validacija — ima grešaka",
-                full_msg,
-            )
-        else:
-            # Nema fixable — samo prikaži
-            if errors:
-                QMessageBox.critical(
-                    self.view,
-                    "Validacija — greške",
+            full_msg = "\n".join(msg_parts)
+
+            # Ako ima fixable, ponudi auto-fix
+            if all_fixable:
+                reply = self.view.ask_question(
+                    full_msg + "\nŽelite li automatski popraviti ove greške?",
+                    "Rezultat validacije",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.Yes,
+                )
+                if reply == QMessageBox.StandardButton.Yes:
+                    self._apply_auto_fixes(all_fixable)
+                    # Ponovo validiraj nakon fix-a
+                    if self._save_draft_fn:
+                        self._save_draft_fn()
+                    view_data = self.view.get_data()
+                    draft = self._get_draft_fn() if self._get_draft_fn else None
+                    if draft:
+                        new_result = self.service.validate(view_data, draft)
+                        self._show_validation_result(new_result)
+                    return
+                # Ako user kaže Ne, samo prikaži info
+                self.view.show_warning(
                     full_msg,
+                    "Validacija — ima grešaka",
                 )
             else:
-                QMessageBox.information(
-                    self.view,
-                    "Validacija — upozorenja",
-                    full_msg,
-                )
+                # Nema fixable — samo prikaži
+                if errors:
+                    self.view.show_error(
+                        full_msg,
+                        "Validacija — greške",
+                    )
+                else:
+                    self.view.show_info(
+                        full_msg,
+                        "Validacija — upozorenja",
+                    )
+        finally:
+            restore_window_geometry_queued(geometry_state)
 
     def _apply_auto_fixes(self, fixable_items: list):
         """
@@ -419,6 +432,7 @@ class ZaglavljeController:
     
     def _on_delete(self):
         """Briši (očisti) zaglavlje — potvrdi i resetuj formu."""
+        geometry_state = capture_window_geometry(self.view)
         try:
             self.logger.info("Delete requested")
 
@@ -435,6 +449,8 @@ class ZaglavljeController:
         except Exception as e:
             self.logger.error(f"Delete failed: {e}", exc_info=True)
             self.view.show_error(f"Greška pri brisanju: {e}")
+        finally:
+            restore_window_geometry_queued(geometry_state)
     
     def _on_import_xml(self, filename: str):
         """
@@ -446,11 +462,21 @@ class ZaglavljeController:
         Args:
             filename: Putanja do XML fajla
         """
+        geometry_state = capture_window_geometry(self.view)
         try:
             self.logger.info(f"Import XML requested: {filename}")
+            current_view_docs = self.view.get_data().get("attached_documents", [])
             
             # Load data from XML via service
             data = self.service.load_from_xml(filename)
+
+            # Blokiraj zastarjele šifre dokumenata — zamijenjene novim ASYCUDA kodovima
+            _BLOCKED_CODES = {"FAK", "CMR", "SAN", "VET", "UVK"}
+            if 'attached_documents' in data:
+                data['attached_documents'] = [
+                    d for d in data['attached_documents']
+                    if (d.get('code') or '').upper() not in _BLOCKED_CODES
+                ]
 
             # Rb.22 — iznos se uvijek uzima iz fakture/naim., ne iz XML-a
             # XML može sadržavati zastarjeli iznos iz prethodne deklaracije
@@ -498,29 +524,41 @@ class ZaglavljeController:
                             'from_rule': True,
                         })
 
-                # Merge SVIH dokumenata iz draft.header_attached_documents u XML import data.
-                # Aplikacija (tariff_controls, tariff_doc_history, PE, OST) dodaje dokumente
-                # u draft prije XML uvoza — ti se ne smiju izgubiti pri uvozu.
+                # Rub.6 (Uk. paketa) — uvijek iz fakture/naimenovanja, ne iz XML-a
+                if hasattr(draft, 'items') and draft.items:
+                    total_qty = sum(getattr(it, 'package_qty', 0.0) or 0.0 for it in draft.items)
+                    if total_qty > 0:
+                        draft.uk_paketa = f"{int(total_qty)}"
+                if (not getattr(draft, 'uk_paketa', '')) and invoice_lines:
+                    total_qty_inv = sum(getattr(l, 'kolicina', 0.0) or 0.0 for l in invoice_lines)
+                    if total_qty_inv > 0:
+                        draft.uk_paketa = f"{int(total_qty_inv)}"
+                if getattr(draft, 'uk_paketa', ''):
+                    data['uk_paketa'] = draft.uk_paketa
+
+                # Rub.40.3 (rb40_broj): ručni unos u aplikaciji je izvor istine.
+                # XML import ne smije prepisati postojeću vrijednost ako već postoji u draftu.
+                rb40_broj_draft = (getattr(draft, 'rb40_broj', '') or '').strip()
+                if rb40_broj_draft:
+                    data['rb40_broj'] = rb40_broj_draft
+                    self._sync_ost_doc_from_rb40(draft, rb40_broj_draft)
+
+                # Osiguraj da su PE1/PE2/PE3 iz Rub.44.4 sinhronizovani u header docs
+                self._sync_pe_docs_from_items_to_header(draft)
+
                 header_docs = getattr(draft, "header_attached_documents", None) if draft else None
-                if header_docs:
-                    docs = data.setdefault('attached_documents', [])
-                    xml_codes = {d.get('code') for d in docs if d.get('code')}
-                    for hd in header_docs:
-                        if not hd.code:
-                            continue
-                        existing = next((d for d in docs if d.get('code') == hd.code), None)
-                        if existing:
-                            # Kod već postoji u XML podacima — sačuvaj ref iz drafa ako XML nema ref
-                            if hd.number and not existing.get('number'):
-                                existing['number'] = hd.number
-                        else:
-                            # Kod nije u XML — dodaj ga (aplikacija ga je unijela automatski)
-                            docs.append({
-                                'code': hd.code,
-                                'name': hd.name,
-                                'number': hd.number,
-                                'from_rule': hd.from_rule,
-                            })
+                data['attached_documents'] = self._merge_import_docs_add_only_missing(
+                    existing_docs=current_view_docs,
+                    draft_header_docs=header_docs or [],
+                    imported_docs=data.get('attached_documents', []) or [],
+                )
+
+            protected_codes = {
+                (d.get("code") or "").strip().upper()
+                for d in current_view_docs
+                if isinstance(d, dict) and (d.get("code") or "").strip()
+            }
+            corrected = self._sanitize_attached_documents_after_import(data, protected_codes=protected_codes)
 
             # Populate view with data — _from_import=True briše stale ref-ove pri XML uvozu
             self.view.set_data(data, _from_import=True)
@@ -528,6 +566,12 @@ class ZaglavljeController:
             # Odmah snimi u draft da bi ostali tabovi (Naimenovanja) imali ažurne trosak/kurs
             if self._save_draft_fn:
                 self._save_draft_fn()
+
+            if corrected > 0:
+                self.view.show_warning(
+                    f"Uvoz je ispravio {corrected} konflikt(a) u Rub.44 "
+                    f"(PE referenca na pogrešnoj šifri dokumenta)."
+                )
 
             self.view.show_success(f"Podaci učitani iz: {filename}")
             self.logger.info(f"Import successful: {filename}")
@@ -543,9 +587,218 @@ class ZaglavljeController:
         except Exception as e:
             self.logger.error(f"Import failed: {e}", exc_info=True)
             self.view.show_error(f"Greška pri uvozu: {e}")
+        finally:
+            restore_window_geometry_queued(geometry_state)
+
+    def _sync_pe_docs_from_items_to_header(self, draft) -> None:
+        header_docs = getattr(draft, "header_attached_documents", None)
+        items = getattr(draft, "items", None)
+        if header_docs is None or not items:
+            return
+
+        pe_entries: list[tuple[str, str]] = []
+        seen: set[tuple[str, str]] = set()
+        for item in items:
+            doc4 = (getattr(item, "attached_document4", "") or "").strip()
+            candidates = [doc4] if _pe_doc_code(doc4) else [
+                (getattr(item, "attached_document3", "") or "").strip(),
+                (getattr(item, "attached_document1", "") or "").strip(),
+            ]
+            for raw in candidates:
+                if not raw:
+                    continue
+                parts = raw.split(" ", 1)
+                sifra = parts[0].strip().upper()
+                broj = parts[1].strip() if len(parts) > 1 else ""
+                if sifra in _PE_DOC_CODES:
+                    key = (sifra, broj)
+                    if key not in seen:
+                        seen.add(key)
+                        pe_entries.append(key)
+
+        if not pe_entries:
+            return
+
+        header_docs[:] = [d for d in header_docs if getattr(d, "code", "") not in _PE_DOC_CODES]
+
+        from core.draft.draft import AttachedDocument
+        naziv_map = {
+            "PE1": "EUR.1 obrazac",
+            "PE2": "Izjava na fakturi",
+            "PE3": "Izjava ovlaštenog izvoznika",
+        }
+        for sifra, broj in pe_entries:
+            header_docs.append(
+                AttachedDocument(
+                    code=sifra,
+                    name=naziv_map.get(sifra, f"Dokument {sifra}"),
+                    number=broj,
+                    from_rule=(sifra == "PE1"),
+                )
+            )
+
+    def _sync_ost_doc_from_rb40(self, draft, rb40_broj: str) -> None:
+        header_docs = getattr(draft, "header_attached_documents", None)
+        if header_docs is None or not rb40_broj:
+            return
+
+        ost = next((d for d in header_docs if getattr(d, "code", "") == "OST"), None)
+        if ost:
+            ost.number = rb40_broj
+            if not getattr(ost, "name", ""):
+                ost.name = "Ostali prateći dokumenti"
+            return
+
+        from core.draft.draft import AttachedDocument
+        header_docs.append(
+            AttachedDocument(
+                code="OST",
+                name="Ostali prateći dokumenti",
+                number=rb40_broj,
+                from_rule=False,
+            )
+        )
+
+    def _merge_import_docs_add_only_missing(
+        self,
+        existing_docs: List[Dict[str, Any]],
+        draft_header_docs: List[Any],
+        imported_docs: List[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        merged: List[Dict[str, Any]] = []
+        existing_codes: set[str] = set()
+
+        def _merge_number(existing: str, new: str) -> str:
+            parts: list[str] = []
+            for value in (existing, new):
+                for token in (value or "").split("|"):
+                    token = token.strip()
+                    if token and token not in parts:
+                        parts.append(token)
+            return " | ".join(parts)
+
+        def _add_doc(code: str, name: str, number: str, from_rule: bool, user_entered: bool = False) -> None:
+            normalized_code = code.upper()
+            if normalized_code in existing_codes:
+                if normalized_code in _PE_DOC_CODES:
+                    existing = next(
+                        (doc for doc in merged if (doc.get("code") or "").strip().upper() == normalized_code),
+                        None,
+                    )
+                    if existing is not None:
+                        existing["number"] = _merge_number(existing.get("number", ""), number)
+                        if not existing.get("name") and name:
+                            existing["name"] = name
+                return
+
+            existing_codes.add(normalized_code)
+            entry = {
+                "code": code,
+                "name": name,
+                "number": number,
+                "from_rule": bool(from_rule),
+            }
+            if user_entered:
+                entry["_user_entered"] = True
+            merged.append(entry)
+
+        for d in existing_docs:
+            if not isinstance(d, dict):
+                continue
+            code = (d.get("code") or "").strip()
+            if not code:
+                continue
+            if code.upper() in existing_codes:  # dedupliciraj existing_docs po šifri
+                continue
+            existing_codes.add(code.upper())
+            merged.append({
+                "code": code,
+                "name": d.get("name", ""),
+                "number": d.get("number", ""),
+                "from_rule": bool(d.get("from_rule", False)),
+                "_user_entered": True,  # čuva referencu pri XML uvozu
+            })
+
+        for hd in draft_header_docs:
+            code = (getattr(hd, "code", "") or "").strip()
+            if not code:
+                continue
+            _add_doc(
+                code=code,
+                name=getattr(hd, "name", ""),
+                number=getattr(hd, "number", ""),
+                from_rule=bool(getattr(hd, "from_rule", False)),
+            )
+
+        for d in imported_docs:
+            if not isinstance(d, dict):
+                continue
+            code = (d.get("code") or "").strip()
+            if not code:
+                continue
+            if code.upper() == "OST":
+                continue
+            _add_doc(
+                code=code,
+                name=d.get("name", ""),
+                number=d.get("number", ""),
+                from_rule=bool(d.get("from_rule", False)),
+            )
+
+        return merged
+
+    def _sanitize_attached_documents_after_import(self, data: Dict[str, Any], protected_codes: Optional[set[str]] = None) -> int:
+        docs = data.get("attached_documents")
+        if not isinstance(docs, list):
+            return 0
+
+        corrected = 0
+        protected = protected_codes or set()
+        pe_prefix = re.compile(r"^\s*PE[123]\b", re.IGNORECASE)
+        force_empty_codes = {"N730", "PZT", "DV1"}
+        for d in docs:
+            if not isinstance(d, dict):
+                continue
+            code = (d.get("code") or "").strip().upper()
+            number = (d.get("number") or "").strip()
+            if not code:
+                continue
+
+            # Za ove šifre referenca mora ostati prazna nakon XML uvoza.
+            # Ako je šifra već bila ručno prisutna prije importa, ne diraj.
+            if code in protected:
+                continue
+            if code in force_empty_codes and number:
+                d["number"] = ""
+                corrected += 1
+                self.logger.warning(
+                    f"Cleared import reference by rule: code={code}, number={number!r}"
+                )
+                continue
+
+            if not number:
+                continue
+
+            # Za PE1/PE2/PE3 očisti prefiks iz reference ako XML dođe kao "pe3 0504-..."
+            if code in {"PE1", "PE2", "PE3"} and pe_prefix.match(number):
+                cleaned = pe_prefix.sub("", number).strip(" :,-")
+                if cleaned != number:
+                    d["number"] = cleaned
+                    corrected += 1
+                continue
+
+            if code not in {"PE1", "PE2", "PE3"} and pe_prefix.match(number):
+                d["number"] = ""
+                corrected += 1
+                self.logger.warning(
+                    f"Sanitized conflicting doc reference: code={code}, number={number!r}"
+                )
+
+        return corrected
     
     def _on_export_xml(self):
         """Izvezi deklaraciju u ASYCUDA XML format."""
+        geometry_state = capture_window_geometry(self.view)
         try:
             self.logger.info("Export XML requested")
 
@@ -571,13 +824,11 @@ class ZaglavljeController:
                 return
 
             if result["warnings"]:
-                from PySide6.QtWidgets import QMessageBox
-                reply = QMessageBox.question(
-                    self.view,
-                    "Upozorenje prije exporta",
+                reply = self.view.ask_question(
                     f"⚠️ Validacija ima {len(result['warnings'])} upozorenja.\n\n"
                     f"{'; '.join(w['message'][:80] for w in result['warnings'][:3])}\n\n"
                     f"Da li želite nastaviti sa exportom?",
+                    "Upozorenje prije exporta",
                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                     QMessageBox.StandardButton.No,
                 )
@@ -610,15 +861,40 @@ class ZaglavljeController:
             if success:
                 self.view.show_success(f"XML exportovan u: {filename}")
                 self.logger.info(f"Export successful: {filename}")
+                # Docs: docs/sections/asycuda-99-item-limit.md
+                pending = getattr(draft, "pending_next_declaration", None)
+                if pending is not None:
+                    reply = self.view.ask_question(
+                        "Ova deklaracija je izvezena.\n\n"
+                        "Postoje preostale stavke koje su odvojene zbog ASYCUDA limita od 99 naimenovanja.\n"
+                        "Da li želite sada učitati sljedeću deklaraciju sa ostatkom?",
+                        "Nastavi sa ostatkom",
+                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                        QMessageBox.StandardButton.Yes,
+                    )
+                    if reply == QMessageBox.StandardButton.Yes:
+                        main_window = self.view.window()
+                        if hasattr(main_window, "continue_with_pending_declaration"):
+                            if main_window.continue_with_pending_declaration():
+                                self.view.show_success(
+                                    "Učitana je sljedeća deklaracija sa preostalim stavkama."
+                                )
+                        else:
+                            self.view.show_error(
+                                "Nije pronađen mehanizam za učitavanje sljedeće deklaracije."
+                            )
             else:
                 self.view.show_error("Greška pri eksportu")
 
         except Exception as e:
             self.logger.error(f"Export failed: {e}", exc_info=True)
             self.view.show_error(f"Greška pri eksportu: {e}")
+        finally:
+            restore_window_geometry_queued(geometry_state)
     
     def _on_new(self):
         """Handle new declaration event."""
+        geometry_state = capture_window_geometry(self.view)
         try:
             self.logger.info("New declaration requested")
             
@@ -637,19 +913,8 @@ class ZaglavljeController:
         except Exception as e:
             self.logger.error(f"New failed: {e}", exc_info=True)
             self.view.show_error(f"Greška: {e}")
-
-    def _on_close(self):
-        """Izlaz — snimi podatke u draft i obavijesti korisnika."""
-        try:
-            self.logger.info("Close requested")
-            if self._save_draft_fn:
-                self._save_draft_fn()
-            # Zatvori glavni prozor (ako smo u standalone modu) ili ignoriši
-            parent = self.view.window()
-            if parent and parent is not self.view:
-                parent.close()
-        except Exception as e:
-            self.logger.error(f"Close failed: {e}", exc_info=True)
+        finally:
+            restore_window_geometry_queued(geometry_state)
 
     def _on_search_company(self, company_type: str):
         """
@@ -679,7 +944,7 @@ class ZaglavljeController:
             from gui.widgets import PartnerSearchDialog
             dialog = PartnerSearchDialog(self.view, partner_type=partner_type)
             
-            if dialog.exec():
+            if exec_dialog_preserving_geometry(dialog, self.view):
                 partner = dialog.get_selected_partner()
                 
                 if partner:

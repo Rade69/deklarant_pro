@@ -9,13 +9,66 @@ Format: tabela sa kolonama: Num, Code, Article, U.N., QTY, Price, Amount
 
 import logging
 import re
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Set
 import pdfplumber
 
 from core.draft.draft import InvoiceLine, Party
 from importers.import_result import ImportResult
 
 logger = logging.getLogger("deklarant_pro.import.blagic_loren_pdf")
+
+
+def _extract_invoice_number(full_text: str) -> str:
+    patterns = [
+        r"\bInvoice\s*(?:[A-Z]{3})?\s*:\s*([A-Z0-9][A-Z0-9./-]*)",
+        r"\bInvoice\s+No\.?\s*:\s*([A-Z0-9][A-Z0-9./-]*)",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, full_text, re.IGNORECASE)
+        if match:
+            return match.group(1).strip()
+    return ""
+
+
+def _extract_statement_item_numbers(context_text: str) -> Set[int]:
+    """
+    Izvuci redne brojeve stavki iz teksta izjave.
+
+    Podržani primjeri:
+    - "Stavka pod rednim brojem 1 ..."
+    - "Stavke pod rednim brojevima 2, 4, 5 i 7 ..."
+    - "Stavke 3-6 ..."
+    """
+    if not context_text:
+        return set()
+
+    text = context_text
+    numbers: Set[int] = set()
+
+    # Uzmi samo segmente koji govore o stavkama, da izbjegnemo datum/telefon itd.
+    # Primjeri:
+    # - "Stavka pod rednim brojem 1 ..."
+    # - "Stavke pod rednim brojevima 2, 4, 5 i 7 su ..."
+    phrase_pattern = re.compile(
+        r"stavk[ae]\s+pod\s+rednim\s+broj(?:em|eva|evima)?\s+([0-9,\si\-]+)",
+        re.IGNORECASE,
+    )
+    chunks = phrase_pattern.findall(text)
+
+    for chunk in chunks:
+        # Rasponi: "3-6"
+        for start_s, end_s in re.findall(r"\b(\d{1,3})\s*-\s*(\d{1,3})\b", chunk):
+            start = int(start_s)
+            end = int(end_s)
+            if start <= end:
+                for n in range(start, end + 1):
+                    numbers.add(n)
+
+        # Pojedinačni brojevi i liste: "2, 4, 5 i 7"
+        for n_s in re.findall(r"\b(\d{1,3})\b", chunk):
+            numbers.add(int(n_s))
+
+    return {n for n in numbers if n > 0}
 
 
 def parse_blagic_loren_pdf(pdf_path: str) -> ImportResult:
@@ -46,10 +99,8 @@ def parse_blagic_loren_pdf(pdf_path: str) -> ImportResult:
             text = page.extract_text() or ""
             full_text += text + "\n"
 
-        # Extract invoice number
-        invoice_match = re.search(r'Invoice:\s*(\S+)', full_text)
-        if invoice_match:
-            invoice_number = invoice_match.group(1)
+        invoice_number = _extract_invoice_number(full_text)
+        if invoice_number:
             logger.debug(f"Invoice number: {invoice_number}")
 
         # Extract invoice date
@@ -69,7 +120,7 @@ def parse_blagic_loren_pdf(pdf_path: str) -> ImportResult:
         # Pattern: Num Code Description Unit Qty Price Amount
         # Unit može biti bilo koja riječ (1-10 karaktera) - fleksibilno za sve varijacije pakovanja
         item_pattern = re.compile(
-            r'^(\d+)\s+([A-Z0-9]+)\s+(.+?)\s+([a-zA-Z]{1,10})\s+([\d,\.]+)\s+([\d,\.]+)\s+([\d,\.]+)',
+            r'^(\d+)\s+([A-Z0-9][A-Z0-9./-]*)\s+(.+?)\s+([a-zA-Z]{1,10})\s+([\d,\.]+)\s+([\d,\.]+)\s+([\d,\.]+)',
             re.IGNORECASE
         )
 
@@ -128,7 +179,12 @@ def parse_blagic_loren_pdf(pdf_path: str) -> ImportResult:
                     'AMOUNT:', 'STRANA ', 'PHONE:', 'FAX:', 'WWW.',
                     'EMAIL:', 'IDN:', 'B4K-',
                 ]
-                if not any(keyword in line.upper() for keyword in _skip_kw):
+                line_upper = line.upper()
+                # "Amount:" ili "Total:" označava kraj stavki — sačuvaj i zatvori item
+                if 'AMOUNT:' in line_upper or ('TOTAL' in line_upper and ':' in line):
+                    items.append(current_item)
+                    current_item = None
+                elif not any(keyword in line_upper for keyword in _skip_kw):
                     current_item.naziv_robe += " " + line
 
         # Add last item
@@ -161,6 +217,47 @@ def parse_blagic_loren_pdf(pdf_path: str) -> ImportResult:
         has_origin_statement = len(origin_statements) > 0
         logger.info(f"  ✅ Detekcija izjave o poreklu: {has_origin_statement} ({len(origin_statements)} izjava)")
 
+        # Mapiraj izjave na konkretne redne brojeve stavki (ako su navedeni u tekstu)
+        # Primjer iz Loren faktura:
+        #   "Stavka pod rednim brojem 1 je EU ..."
+        #   "Stavke pod rednim brojevima 2, 4, 5 i 7 su Srpskog ..."
+        statement_by_line: Dict[int, str] = {}
+        sorted_statements = sorted(
+            origin_statements, key=lambda s: getattr(s, "text_position", 0) or 0
+        )
+        for idx, st in enumerate(sorted_statements):
+            pos = getattr(st, "text_position", 0) or 0
+            next_pos = (
+                (getattr(sorted_statements[idx + 1], "text_position", 0) or 0)
+                if idx + 1 < len(sorted_statements)
+                else len(full_text)
+            )
+            # Segment: od početka ove izjave do početka naredne (ili kraj teksta)
+            context = full_text[pos:next_pos]
+            line_numbers = _extract_statement_item_numbers(context)
+            for ln in line_numbers:
+                statement_by_line[ln] = st.origin_country
+
+        if statement_by_line:
+            logger.info(
+                f"  ✅ Izjava mapirana po stavkama: {sorted(statement_by_line.keys())}"
+            )
+            for item in items:
+                line_no = int(getattr(item, "line_no", 0) or 0)
+                if line_no in statement_by_line:
+                    item.has_origin_statement = True
+                    if not item.zemlja_porijekla:
+                        item.zemlja_porijekla = statement_by_line[line_no]
+                    item.raw["has_origin_statement"] = True
+                    item.raw["origin_from_statement"] = statement_by_line[line_no]
+                else:
+                    item.raw["has_origin_statement"] = False
+        else:
+            # Fallback na ranije ponašanje kada statement ne navodi redne brojeve
+            for item in items:
+                item.has_origin_statement = has_origin_statement
+                item.raw["has_origin_statement"] = has_origin_statement
+
         # Raspodjeli težine proporcionalno po iznosima (za XML export)
         if items and (bruto_kg > 0 or neto_kg > 0):
             total_amount = sum(item.iznos for item in items)
@@ -187,7 +284,7 @@ def parse_blagic_loren_pdf(pdf_path: str) -> ImportResult:
         items=items,
         bruto_kg=bruto_kg,
         neto_kg=neto_kg,
-        invoice_name=invoice_number or pdf_path.split('/')[-1].replace('.pdf', ''),
+        invoice_name=invoice_number,
         currency="EUR",
         import_type='loren_pdf',
         has_origin_statement=has_origin_statement,

@@ -86,7 +86,7 @@ def parse_sumaprom_pdf(pdf_path: str) -> ImportResult:
     except Exception as e:
         logger.error(f"  Greška pri čitanju PDF-a: {e}")
         return ImportResult(items=[], bruto_kg=0.0, neto_kg=0.0,
-                            invoice_name=Path(pdf_path).stem, currency="EUR")
+                            invoice_name="", currency="EUR")
 
     header = _extract_header(text)
     items  = _parse_items(text)
@@ -117,7 +117,7 @@ def parse_sumaprom_pdf(pdf_path: str) -> ImportResult:
         items=items,
         bruto_kg=header['bruto_kg'],
         neto_kg=header['neto_kg'],
-        invoice_name=header['invoice_name'] or Path(pdf_path).stem,
+        invoice_name=header['invoice_name'],
         currency="EUR",
         exporter=exporter,
         importer=importer,

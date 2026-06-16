@@ -43,6 +43,7 @@ class DatabaseSettings(BaseSettings):
     database: str = Field(default="deklarant_pro", alias="DB_NAME")
     user: str = Field(default="postgres", alias="DB_USER")
     password: str = Field(..., alias="DB_PASSWORD")  # REQUIRED iz env
+    sslmode: str = Field(default="prefer", alias="DB_SSLMODE")
     
     model_config = SettingsConfigDict(
         case_sensitive=False,
@@ -61,6 +62,7 @@ class DatabaseSettings(BaseSettings):
         return (
             f"postgresql://{self.user}:{self.password}"
             f"@{self.host}:{self.port}/{self.database}"
+            f"?sslmode={self.sslmode}"
         )
 
 

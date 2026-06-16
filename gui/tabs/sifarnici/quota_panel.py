@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
 
 logger = logging.getLogger("deklarant_pro.quota_panel")
 
@@ -141,6 +142,12 @@ class QuotaPanel(QWidget):
         self._all_rows: list[dict] = []
         self._init_ui()
         self._load_from_db()
+
+    def closeEvent(self, event):
+        if self._worker and self._worker.isRunning():
+            self._worker.quit()
+            self._worker.wait(2000)
+        super().closeEvent(event)
 
     def _init_ui(self):
         layout = QVBoxLayout(self)

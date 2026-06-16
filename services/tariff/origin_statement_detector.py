@@ -56,9 +56,9 @@ class OriginStatementDetector:
             'jezik': 'serbian',
             'tip_izjave': 'standard',
             'pattern': (
-                r'\bIzvoznik\s+proizvoda\s+obuhva[ćc]enih\s+ovom\s+ispravom\s+izjavljuje'
+                r'\bIzvoznik\s+proizvoda\s+obuhva[ćc]enih\s+ovom\s+ispravom[\s,]*izjavljuje'
                 r'\s+da\s+su,?\s+osim\s+ako\s+je\s+(?:to\s+)?druga[čc]ije\s+izri[čc]ito\s+navedeno,?'
-                r'\s+ovi\s+proizvodi\s+(?P<origin>\w+)\s+preferencijalnog\s+porekla\.?'
+                r'\s+ovi\s+proizvodi\s+(?P<origin>[\w\s,\/\-]+?)\s+preferencijalnog\s+porekla\.?'
             ),
         },
         {
@@ -83,18 +83,27 @@ class OriginStatementDetector:
         },
     ]
 
+    # Class-level cache — DB se pita samo jednom po sesiji aplikacije
+    _db_patterns_cache: Optional[List] = None
+    _db_unavailable: bool = False  # True = DB nije dostupan, koristi samo builtin
+
     def __init__(self):
-        self._patterns = self._load_patterns_from_db()
+        # Učitaj iz DB samo ako još nije pokušano (ili je ranije uspjelo)
+        if not OriginStatementDetector._db_unavailable and OriginStatementDetector._db_patterns_cache is None:
+            OriginStatementDetector._db_patterns_cache = self._load_patterns_from_db()
+
+        self._patterns = list(OriginStatementDetector._db_patterns_cache or [])
+
         # Uvijek dodaj ugrađene pattern-e (merged, bez duplikata po id)
         existing_ids = {p['id'] for p in self._patterns}
         for bp in self._BUILTIN_PATTERNS:
             if bp['id'] not in existing_ids:
                 self._patterns.append(bp)
         logger.info(f"✅ OriginStatementDetector inicijalizovan sa {len(self._patterns)} pattern-a "
-                    f"({len(self._BUILTIN_PATTERNS)} ugrađenih)")
-    
+                    f"({'DB' if not OriginStatementDetector._db_unavailable else 'fallback'} + {len(self._BUILTIN_PATTERNS)} ugrađenih)")
+
     def _load_patterns_from_db(self) -> List[Dict]:
-        """Učitaj regex pattern-e iz baze."""
+        """Učitaj regex pattern-e iz baze. Poziva se samo jednom po sesiji."""
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
@@ -106,7 +115,6 @@ class OriginStatementDetector:
                           AND regex_pattern != ''
                         ORDER BY sifra
                     """)
-
                     patterns = []
                     for row in cur.fetchall():
                         patterns.append({
@@ -115,10 +123,10 @@ class OriginStatementDetector:
                             'tip_izjave': row['tip_izjave'],
                             'pattern': row['regex_pattern'],
                         })
-
                     return patterns
         except Exception as e:
             logger.error(f"Greška pri učitavanju pattern-a iz baze: {e}")
+            OriginStatementDetector._db_unavailable = True  # ne pokušavaj ponovo
             return []
     
     def detect_in_text(self, text: str) -> Optional[OriginStatementMatch]:
@@ -506,6 +514,11 @@ class OriginStatementDetector:
         }
         
         origin_lower = origin.lower().strip()
+        origin_upper = origin.upper().strip()
+
+        # Složeni EU zapisi (npr. "EU/ DE, DK, HR...") tretiraju se kao EU.
+        if "EU/" in origin_upper or origin_upper.startswith("EU "):
+            return "EU"
         
         # Direct map
         if origin_lower in country_map:

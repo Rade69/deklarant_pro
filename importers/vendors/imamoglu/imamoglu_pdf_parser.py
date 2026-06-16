@@ -264,7 +264,7 @@ def parse_imamoglu_pdf(pdf_path: str) -> ImportResult:
         items=items,
         bruto_kg=gross_kg,
         neto_kg=net_kg,
-        invoice_name=invoice_number or pdf_path.split('/')[-1].replace('.pdf', ''),
+        invoice_name=invoice_number,
         currency="EUR",
         has_origin_statement=has_origin_statement,
         origin_statements=origin_statements,

@@ -229,9 +229,6 @@ class ProductMasterList:
         if not invoice_line.zemlja_porijekla and master_record.origin:
             invoice_line.zemlja_porijekla = master_record.origin
 
-        if not invoice_line.povlastica and master_record.preferential:
-            invoice_line.povlastica = master_record.preferential
-
         if not invoice_line.jm and master_record.unit:
             invoice_line.jm = master_record.unit
 

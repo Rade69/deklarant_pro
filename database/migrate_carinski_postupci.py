@@ -4,18 +4,15 @@ Migracija carinskih postupaka iz JSON fajla u PostgreSQL bazu.
 """
 
 import json
+import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
-import os
 
-# PostgreSQL config
-PG_CONFIG = {
-    "host": "localhost",
-    "port": 5432,
-    "dbname": "deklarant_pro",
-    "user": "postgres",
-    "password": "!sofija#22$jelena%25&"
-}
+def _pg_config():
+    from config.settings import get_db_settings
+    s = get_db_settings()
+    return {"host": s.host, "port": s.port, "dbname": s.database,
+            "user": s.user, "password": s.password}
 
 # Putanja do JSON fajla
 JSON_FILE = os.path.join(os.path.dirname(__file__), "carinski_postupci.json")
@@ -160,7 +157,7 @@ def main():
     try:
         # Konekcija na bazu
         print("\n1️⃣  Povezujem na PostgreSQL bazu...")
-        conn = psycopg2.connect(**PG_CONFIG)
+        conn = psycopg2.connect(**_pg_config())
         conn.autocommit = False
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         print("   ✅ Povezano!")

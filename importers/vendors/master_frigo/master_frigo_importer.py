@@ -172,23 +172,47 @@ def _read_mapping_xlsx(xlsx_path: str) -> Dict[str, Dict[str, str]]:
 
         code_col = find_col("Šifra", "Sifra") or 2
         tariff_col = find_col("Tarifni br", "Tarifni broj") or 6
-        origin_col = find_col("Zemlja porekla", "Zemlja porijekla", "Zemlja por") or 7
+        origin_col = find_col("Zemlja porekla", "Zemlja porijekla", "Zemlja por")
+        if origin_col is None:
+            from importers.excel_column_utils import infer_origin_column
+            origin_col = infer_origin_column(ws, after_col=tariff_col, anchor_col=code_col)
+            if origin_col is not None:
+                logger.warning(
+                    "Master Frigo: kolona porijekla detektovana po vrijednostima "
+                    "(header='%s', col=%s)",
+                    ws.cell(1, origin_col).value,
+                    origin_col,
+                )
+            else:
+                origin_col = 7  # posljednji fallback
         pref_col = find_col("Preferencijal", "Povlastica", "Povlašćica") or 8
 
         out: Dict[str, Dict[str, str]] = {}
         for r in range(2, ws.max_row + 1):
+            rbr_val = ws.cell(r, 1).value
             code = ws.cell(r, code_col).value
-            if not code:
-                continue
 
-            code_s = str(code).strip().replace("\n", "").replace("\r", "")
-            out[code_s] = {
+            row_map = {
                 "tariff": _read_tariff_code(ws.cell(r, tariff_col).value),
                 "origin": str(ws.cell(r, origin_col).value or "").strip(),
                 "preferential": _normalize_preferential(
                     str(ws.cell(r, pref_col).value or "")
                 ),
             }
+
+            # Primarno mapiranje po šifri artikla
+            if code:
+                code_s = str(code).strip().replace("\n", "").replace("\r", "")
+                if code_s:
+                    out[code_s] = row_map
+
+            # Fallback mapiranje po Rbr (za redove gdje Excel nema "Šifra")
+            try:
+                rbr = int(rbr_val)
+            except (TypeError, ValueError):
+                rbr = 0
+            if rbr > 0:
+                out[f"__RBR__{rbr}"] = row_map
 
         return out
     finally:
@@ -371,7 +395,9 @@ def parse_master_frigo_pdf(
             if tail:
                 desc = (desc + " " + tail).strip()
 
-            map_row = mapping.get(code, {})
+            map_row = mapping.get(code, {}) if code else {}
+            if not map_row:
+                map_row = mapping.get(f"__RBR__{rbr}", {})
             current = ImportedLine(
                 rbr=rbr,
                 code=code,
@@ -496,7 +522,7 @@ def import_master_frigo(
         items=invoice_lines,
         bruto_kg=header.get("gross_kg", 0.0),
         neto_kg=header.get("net_kg", 0.0),
-        invoice_name=header.get("invoice_no") or Path(pdf_path).stem,
+        invoice_name=header.get("invoice_no", ""),
         currency=currency,
         import_type="master_frigo",
         exporter=_exp,

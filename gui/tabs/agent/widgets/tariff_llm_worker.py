@@ -1,7 +1,15 @@
-"""
-TariffLLMWorker - QThread worker za batch prijedlog tarifnih brojeva putem LLM-a.
+# Arhitektura: docs/architecture/TARIFF_FACADE_REFACTORING.md
 
-Koristi LLMProvider (Groq → Gemini fallback).
+"""
+TariffLLMWorker — QThread worker za batch prijedlog tarifnih brojeva putem LLM-a.
+
+Pipeline:
+  Korak 1: TariffFacade.suggest_fast()   — baza znanja (bez mreže, brzo)
+  Korak 2: TariffFacade.rag_candidates() — kandidati iz zvanicna_tarifa (kao kontekst)
+  Korak 3: LLMProvider.complete()        — jedan batch API poziv za preostale stavke
+
+Batch LLM poziv (Korak 3) je namjerno odvojen od HybridTariffAgent koji radi
+N pojedinačnih poziva. Za 40 stavki, jedan batch poziv je 40× jeftiniji.
 """
 
 import logging
@@ -21,7 +29,7 @@ class TariffLLMWorker(QThread):
     """
 
     proposals_ready = Signal(list)
-    error_occurred = Signal(str)
+    error_occurred  = Signal(str)
 
     _BATCH_SIZE = 40
 
@@ -35,14 +43,15 @@ class TariffLLMWorker(QThread):
 
             provider = LLMProvider()
             if provider.active_provider() == "none":
-                self.error_occurred.emit("Nema AI ključa. Dodaj GROQ_API_KEY ili GEMINI_API_KEY u .env.")
+                self.error_occurred.emit(
+                    "Nema AI ključa. Dodaj GROQ_API_KEY, GEMINI_API_KEY ili OPENROUTER_API_KEY u .env."
+                )
                 return
 
             all_proposals = []
             for batch_start in range(0, len(self.items), self._BATCH_SIZE):
                 batch = self.items[batch_start: batch_start + self._BATCH_SIZE]
-                proposals = self._process_batch(provider, batch)
-                all_proposals.extend(proposals)
+                all_proposals.extend(self._process_batch(provider, batch))
 
             self.proposals_ready.emit(all_proposals)
 
@@ -53,91 +62,69 @@ class TariffLLMWorker(QThread):
             self.error_occurred.emit(parse_llm_error(e))
 
     def _process_batch(self, provider, batch: list) -> list:
-        """Pošalje jedan batch stavki LLM-u i parsira odgovor."""
-        # KORAK 1: Pre-filter putem TariffMappingService
+        """
+        Korak 1 → 2 → 3 za jedan batch stavki.
+        Korak 1 i 2 idu kroz TariffFacade — docs/architecture/TARIFF_FACADE_REFACTORING.md
+        """
+        from services.tariff_facade import TariffFacade
+        from gui.tabs.agent.agent_actions import TariffProposal
+
+        facade   = TariffFacade.get_instance()
         resolved = []
         remaining = []
 
-        try:
-            from services.tariff_mapping_service import TariffMappingService
-            mapping_service = TariffMappingService()
-        except Exception:
-            mapping_service = None
-
+        # Korak 1: pre-filter putem baze znanja (Level 1, bez mreže)
         for idx, line in batch:
-            naziv = (getattr(line, 'naziv_robe', '') or '').strip()
-            product_code = (getattr(line, 'product_code', '') or '').strip()
+            naziv        = (getattr(line, "naziv_robe",    "") or "").strip()
+            product_code = (getattr(line, "product_code",  "") or "").strip()
 
-            # Provjeri mapping samo ako imamo naziv robe
-            mapping_result = None
-            if mapping_service and naziv:
-                try:
-                    mapping_result = mapping_service.find_mapping(
-                        product_code=product_code,
-                        naziv_robe=naziv,
-                        min_similarity=0.70
-                    )
-                except Exception:
-                    pass
-
-            # Ako mapping ima confidence >= 0.85, dodaj u resolved
-            if mapping_result and hasattr(mapping_result, 'similarity') and mapping_result.similarity >= 0.85:
-                from gui.tabs.agent.agent_actions import TariffProposal
-
+            fast = facade.suggest_fast(naziv, product_code)
+            if fast and fast.confidence >= 0.85:
                 resolved.append(TariffProposal(
                     line_index=idx,
                     naziv_robe=naziv[:60],
                     product_code=product_code,
-                    proposed_tariff=mapping_result.tarifni_broj,
-                    confidence=mapping_result.similarity,
-                    source="baza_znanja"
+                    proposed_tariff=fast.tarifni_broj,
+                    confidence=fast.confidence,
+                    source="baza_znanja",
                 ))
                 logger.debug(
                     f"MAPPING idx={idx}: '{naziv[:40]}' "
-                    f"→ {mapping_result.tarifni_broj} ({mapping_result.similarity:.0%})"
+                    f"→ {fast.tarifni_broj} ({fast.confidence:.0%})"
                 )
             else:
                 remaining.append((idx, line))
 
-        # Ako su sve stavke riješene mappingom, vrati odmah
         if not remaining:
             return resolved
 
-        # KORAK 2: Preostale stavke idu kroz RAG + LLM
-        try:
-            from services.agent.tariff_rag_service import TariffRAGService
-            rag = TariffRAGService()
-        except Exception:
-            rag = None
-
+        # Korak 2 + 3: preostale stavke — RAG kandidati + batch LLM poziv
         product_lines = []
         for idx, line in remaining:
-            naziv = (getattr(line, 'naziv_robe', '') or '').strip()
-            product_code = (getattr(line, 'product_code', '') or '').strip()
-            zemlja = (getattr(line, 'zemlja_porijekla', '') or '').strip()
+            naziv        = (getattr(line, "naziv_robe",      "") or "").strip()
+            product_code = (getattr(line, "product_code",    "") or "").strip()
+            zemlja       = (getattr(line, "zemlja_porijekla", "") or "").strip()
 
             desc = naziv
             if product_code:
-                desc = f"{desc} [kod: {product_code}]"
+                desc += f" [kod: {product_code}]"
             if zemlja:
-                desc = f"{desc} [zemlja: {zemlja}]"
+                desc += f" [zemlja: {zemlja}]"
 
-            # Dohvati kandidate iz zvanicna_tarifa
+            # Korak 2: kandidati iz zvanicna_tarifa kao kontekst za LLM
             candidates_text = ""
-            if rag and naziv:
-                try:
-                    candidates = rag.search_official(naziv, limit=5)
-                    if candidates:
-                        c_lines = [
-                            f"  {c['tarifni_kod']} — {c['naziv_robe'][:70]}"
-                            for c in candidates
-                        ]
-                        candidates_text = "\n  Kandidati iz tarife:\n" + "\n".join(c_lines)
-                except Exception:
-                    pass
+            if naziv:
+                candidates = facade.rag_candidates(naziv, zemlja, limit=5)
+                if candidates:
+                    c_lines = [
+                        f"  {c['tarifni_kod']} — {c['naziv_robe'][:70]}"
+                        for c in candidates
+                    ]
+                    candidates_text = "\n  Kandidati iz tarife:\n" + "\n".join(c_lines)
 
             product_lines.append(f"{idx}|{desc}{candidates_text}")
 
+        # Korak 3: jedan batch LLM poziv za sve preostale stavke
         products_text = "\n".join(product_lines)
 
         system_msg = (
@@ -148,13 +135,12 @@ class TariffLLMWorker(QThread):
             "Odgovaraj SAMO u traženom formatu IDX|TARIFNI_BROJ|POUZDANOST|OBRAZLOŽENJE. "
             "Bez uvoda, bez zaključka."
         )
-
         user_msg = (
             "Ti si ekspert za carinsku tarifu Bosne i Hercegovine (TARIC/HS nomeklatura).\n"
             "Za svaki proizvod predloži odgovarajući tarifni broj.\n\n"
             "PRAVILA:\n"
             "- Tarifni broj ISKLJUČIVO cifre, BEZ tačaka (npr. 84713000)\n"
-            "- Ako su navedeni kandidati iz tarife — BIRAŠ između njih (ne izmišljaš novi kod)\n"
+            "- Ako su navedeni kandidati iz tarife — BIRAŠ između njih\n"
             "- Ako nijedan kandidat ne odgovara — možeš predložiti drugi, ali SAMO ako si siguran\n"
             "- Format: IDX|TARIFNI_BROJ|POUZDANOST|OBRAZLOŽENJE\n"
             "- Jedan red po proizvodu, bez praznih redova\n\n"
@@ -164,33 +150,32 @@ class TariffLLMWorker(QThread):
             f"LISTA PROIZVODA:\n{products_text}"
         )
 
-        messages = [
-            {"role": "system", "content": system_msg},
-            {"role": "user", "content": user_msg},
-        ]
-
         try:
-            raw_text = provider.complete(messages, max_tokens=1200, use_small_model=True)
-            llm_proposals = self._parse_response(raw_text, remaining)
-            return resolved + llm_proposals
+            raw = provider.complete(
+                [{"role": "system", "content": system_msg},
+                 {"role": "user",   "content": user_msg}],
+                max_tokens=1200,
+                use_small_model=True,
+            )
+            return resolved + self._parse_response(raw, remaining)
         except Exception as e:
-            logger.error(f"Batch greška: {e}")
+            logger.error(f"Batch LLM greška: {e}")
             return resolved
 
     def _parse_response(self, raw_text: str, batch: list) -> list:
-        """Parsira LLM odgovor u listu TariffProposal objekata."""
+        """Parsira LLM odgovor (IDX|TARIFNI_BROJ|POUZDANOST|OBRAZLOŽENJE) u TariffProposal listu."""
         from gui.tabs.agent.agent_actions import TariffProposal
 
-        idx_map = {idx: line for idx, line in batch}
-        proposals = []
+        idx_map      = {idx: line for idx, line in batch}
+        proposals    = []
         seen_indices = set()
 
-        for raw_line in raw_text.strip().split('\n'):
+        for raw_line in raw_text.strip().split("\n"):
             raw_line = raw_line.strip()
-            if not raw_line or raw_line.startswith('#'):
+            if not raw_line or raw_line.startswith("#"):
                 continue
 
-            parts = raw_line.split('|')
+            parts = raw_line.split("|")
             if len(parts) < 3:
                 continue
 
@@ -212,15 +197,15 @@ class TariffLLMWorker(QThread):
                 confidence = 0.5
 
             explanation = parts[3].strip() if len(parts) > 3 else ""
-            line = idx_map[idx]
+            line        = idx_map[idx]
 
             proposals.append(TariffProposal(
                 line_index=idx,
-                naziv_robe=(getattr(line, 'naziv_robe', '') or '')[:60],
-                product_code=getattr(line, 'product_code', '') or '',
+                naziv_robe=(getattr(line, "naziv_robe", "") or "")[:60],
+                product_code=getattr(line, "product_code", "") or "",
                 proposed_tariff=tariff,
                 confidence=confidence,
-                source="llm"
+                source="llm",
             ))
             seen_indices.add(idx)
 
@@ -235,7 +220,5 @@ class TariffLLMWorker(QThread):
     @staticmethod
     def _normalize_tariff(raw: str) -> str:
         """Samo cifre, min 6, max 10."""
-        digits = re.sub(r'\D', '', raw)
-        if len(digits) < 6:
-            return ''
-        return digits[:10]
+        digits = re.sub(r"\D", "", raw)
+        return digits[:10] if len(digits) >= 6 else ""

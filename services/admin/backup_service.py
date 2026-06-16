@@ -33,8 +33,8 @@ class BackupService:
         try:
             path_settings = get_path_settings()
             self.db_path = Path(path_settings.data_dir) / "asycuda.db"
-        except:
-            # Fallback na defaultnu lokaciju
+        except Exception as e:
+            logger.debug(f"PathSettings nedostupan, koristim default putanju: {e}")
             self.db_path = Path.home() / ".deklarant_pro" / "asycuda.db"
 
     def create_backup(self, backup_path: str = None, 

@@ -16,16 +16,55 @@ Format:
 import os
 import logging
 import re
-from typing import List, Optional, Tuple, Dict
+from typing import Any, Dict, List, Optional, Tuple
 from pathlib import Path
 
 import xlrd
+import openpyxl
 
 from core.draft.draft import InvoiceLine, Party
 from importers.import_result import ImportResult
 from utils.country_normalizer import normalize_country_name
 
 logger = logging.getLogger("deklarant_pro.import.sumaprom")
+
+
+class _SheetAdapter:
+    """Minimal sheet adapter with xlrd-like interface."""
+
+    def __init__(self, rows: List[List[Any]]) -> None:
+        self._rows = rows
+        self.nrows = len(rows)
+        self.ncols = max((len(row) for row in rows), default=0)
+
+    def cell_value(self, row_idx: int, col_idx: int) -> Any:
+        if row_idx < 0 or row_idx >= self.nrows:
+            return ""
+        row = self._rows[row_idx]
+        if col_idx < 0 or col_idx >= len(row):
+            return ""
+        value = row[col_idx]
+        return "" if value is None else value
+
+
+def _load_sheet(filepath: str) -> _SheetAdapter:
+    """Load first sheet from .xls/.xlsx and return unified adapter."""
+    ext = Path(filepath).suffix.lower()
+    if ext == ".xlsx":
+        wb = openpyxl.load_workbook(filepath, data_only=True, read_only=True)
+        try:
+            ws = wb.worksheets[0]
+            rows = [list(row) for row in ws.iter_rows(values_only=True)]
+        finally:
+            wb.close()
+        return _SheetAdapter(rows)
+
+    wb = xlrd.open_workbook(filepath)
+    sheet = wb.sheet_by_index(0)
+    rows: List[List[Any]] = []
+    for row_idx in range(sheet.nrows):
+        rows.append([sheet.cell_value(row_idx, col_idx) for col_idx in range(sheet.ncols)])
+    return _SheetAdapter(rows)
 
 
 def detect_sumaprom_excel(filepath: str) -> bool:
@@ -48,11 +87,7 @@ def detect_sumaprom_excel(filepath: str) -> bool:
         if not filepath.lower().endswith(('.xls', '.xlsx')):
             return False
 
-        # Open workbook with xlrd (supports both .xls and .xlsx)
-        wb = xlrd.open_workbook(filepath)
-
-        # Check first sheet
-        sheet = wb.sheet_by_index(0)
+        sheet = _load_sheet(filepath)
 
         # Search for SUMAPROM in first 20 rows
         found_sumaprom = False
@@ -101,9 +136,7 @@ def parse_sumaprom_excel(filepath: str) -> ImportResult:
     logger.info(f"SUMAPROM parsing zapocet: {filepath}")
 
     try:
-        # Open workbook with xlrd
-        wb = xlrd.open_workbook(filepath)
-        sheet = wb.sheet_by_index(0)
+        sheet = _load_sheet(filepath)
 
         # STEP 1: Extract header information
         header_info = _extract_header_info(sheet)
@@ -164,7 +197,7 @@ def parse_sumaprom_excel(filepath: str) -> ImportResult:
         raise ValueError(f"Nije moguce parsirati SUMAPROM Excel: {e}") from e
 
 
-def _extract_header_info(sheet: xlrd.sheet.Sheet) -> Dict[str, any]:
+def _extract_header_info(sheet: _SheetAdapter) -> Dict[str, Any]:
     """
     Extract header information from sheet.
 
@@ -359,7 +392,7 @@ def _extract_header_info(sheet: xlrd.sheet.Sheet) -> Dict[str, any]:
     return header_info
 
 
-def _parse_items(sheet: xlrd.sheet.Sheet) -> Tuple[List[InvoiceLine], float]:
+def _parse_items(sheet: _SheetAdapter) -> Tuple[List[InvoiceLine], float]:
     """
     Parse items from sheet.
 
@@ -431,7 +464,7 @@ def _parse_items(sheet: xlrd.sheet.Sheet) -> Tuple[List[InvoiceLine], float]:
     return items, total_amount
 
 
-def _parse_header_row(sheet: xlrd.sheet.Sheet, row_idx: int) -> Dict[str, int]:
+def _parse_header_row(sheet: _SheetAdapter, row_idx: int) -> Dict[str, int]:
     """
     Parse header row and map columns.
 
@@ -486,7 +519,7 @@ def _parse_header_row(sheet: xlrd.sheet.Sheet, row_idx: int) -> Dict[str, int]:
 
 
 def _parse_item_row(
-    sheet: xlrd.sheet.Sheet,
+    sheet: _SheetAdapter,
     row_idx: int,
     header_map: Dict[str, int]
 ) -> Optional[InvoiceLine]:
