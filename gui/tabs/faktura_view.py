@@ -31,6 +31,9 @@ from PySide6.QtWidgets import (
     QProgressBar,
     QProgressDialog,
     QDialog,
+    QTextEdit,
+    QDialogButtonBox,
+    QSizePolicy,
 )
 from PySide6.QtCore import (
     Qt,
@@ -40,19 +43,16 @@ from PySide6.QtCore import (
     QSize,
     QTimer,
 )
-from PySide6.QtGui import QColor, QFont, QIcon
+from PySide6.QtGui import QColor, QFont, QFontMetrics, QIcon
 
 try:
     import qtawesome as qta
 
     QTAWESOME_AVAILABLE = True
-    # Force output to stderr to ensure it's visible in GUI apps
-    sys.stderr.write(f"✅ QtAwesome uspješno učitan (verzija: {qta.__version__})\n")
-    sys.stderr.flush()
+    logging.getLogger(__name__).info("✅ QtAwesome učitan (verzija: %s)", qta.__version__)
 except ImportError as e:
     QTAWESOME_AVAILABLE = False
-    sys.stderr.write(f"❌ QtAwesome import FAILED: {e}\n")
-    sys.stderr.flush()
+    logging.getLogger(__name__).warning("❌ QtAwesome import FAILED: %s", e)
 
 from gui.dialogs.eur1_quick_dialog import Eur1QuickDialog
 from gui.dialogs.pe2_quick_dialog import PE2QuickDialog
@@ -78,6 +78,7 @@ from services.faktura.weight_guards import (
     normalize_invoice_key,
     normalized_invoice_weights,
 )
+from services.agent.validation.evidence_model import evidence_from_preference
 
 _PE_DOC_CODES = {"PE1", "PE2", "PE3"}
 
@@ -168,6 +169,7 @@ class FakturaView(BaseTabView):
         "CONFLICT": "#f8d7da",
     }
     _CONFIDENCE_ICONS = {"HIGH": "✅", "MEDIUM": "📋", "LOW": "⚠️", "CONFLICT": "🚨"}
+    _NEUTRAL_COUNTRY_COLOR = "#dfe4ea"
 
     def __init__(self, draft: DeclarationDraft, on_dirty: Optional[Callable] = None):
         super().__init__()
@@ -220,6 +222,7 @@ class FakturaView(BaseTabView):
         self._debounce_timer.setInterval(200)  # 200ms
         self._debounce_timer.timeout.connect(self._flush_pending_validation)
         self._pending_validate_rows: set = set()
+        self._analysis_summary_auto: bool = False
         self._pending_learn_rows: set = set()   # redovi gdje je tarifni_broj ručno izmijenjen
         self._learn_notify_timer = QTimer(self)
         self._learn_notify_timer.setSingleShot(True)
@@ -518,8 +521,8 @@ class FakturaView(BaseTabView):
             layout.addWidget(weights_widget)
 
             self.btn_validate = self._create_button(
-                "Validacija",
-                "Provaliziraj sve stavke",
+                "Provjeri",
+                "Provjeri sve stavke",
                 object_name="btnValidacija",
                 icon_name="fa5s.check-circle",
             )
@@ -553,6 +556,88 @@ class FakturaView(BaseTabView):
             )
             self.btn_load_mappings.clicked.connect(self._on_load_previous_declaration)
             layout.addWidget(self.btn_load_mappings)
+
+    def apply_display_profile(self, profile_name: str) -> None:
+        compact = profile_name == "compact"
+        margins = (1, 4, 1, 4) if compact else (6, 5, 6, 5)
+        spacing = 2 if compact else 5
+
+        main_layout = getattr(self, "_main_layout", None)
+        if main_layout is not None:
+            main_layout.setContentsMargins(*(2, 6, 2, 6) if compact else (12, 12, 12, 12))
+            main_layout.setSpacing(6 if compact else 12)
+
+        grid = getattr(self, "_controls_grid", None)
+        if grid is not None:
+            stretches = (2, 3, 3, 5, 4) if compact else (1, 3, 3, 5, 3)
+            for column, stretch in zip((0, 2, 4, 6, 8), stretches):
+                grid.setColumnStretch(column, stretch)
+
+        for toolbar_layout in getattr(self, "_toolbar_layouts", []):
+            toolbar_layout.setContentsMargins(*margins)
+            toolbar_layout.setSpacing(spacing)
+
+        for button in self.findChildren(QPushButton):
+            standard_text = button.property("standardText")
+            if not standard_text:
+                continue
+            prefix = "" if compact or button.icon().isNull() else " "
+            button.setText(prefix + standard_text)
+            button.setIconSize(QSize(12, 12) if compact else QSize(16, 16))
+
+        weight_font_size = 15 if compact else 14
+        input_width = 62 if compact else 90
+        weight_labels = getattr(self, "_weight_labels", ())
+        for label in weight_labels:
+            font = label.font()
+            font.setPixelSize(weight_font_size)
+            font.setWeight(QFont.Weight.Bold)
+            label.setFont(font)
+            label.setStyleSheet("color: #111;")
+            label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        if weight_labels:
+            label_width = max(
+                QFontMetrics(label.font()).horizontalAdvance(label.text())
+                for label in weight_labels
+            ) + 6
+            for label in weight_labels:
+                label.setFixedWidth(label_width)
+        weights_layout = getattr(self, "_weights_layout", None)
+        if weights_layout is not None:
+            weights_layout.setContentsMargins(*(0, 0, 0, 0) if compact else (4, 0, 4, 0))
+        for row in getattr(self, "_weight_rows", ()):
+            row.setSpacing(2 if compact else 4)
+        for field in (getattr(self, "input_bruto", None), getattr(self, "input_neto", None)):
+            if field is not None:
+                field.setFixedWidth(input_width)
+
+        weights_widget = getattr(self, "_weights_widget", None)
+        if weights_widget is not None:
+            weights_widget.setFixedWidth(weights_widget.sizeHint().width())
+
+        header_font_size = 15 if compact else 17
+        for header in getattr(self, "_toolbar_headers", []):
+            color = header.property("headerColor")
+            text_color = header.property("headerTextColor")
+            border_radius = header.property("headerRadius") or ""
+            header.setStyleSheet(
+                f"""
+                QPushButton {{
+                    background-color: {color};
+                    color: {text_color};
+                    font-weight: bold;
+                    font-size: {header_font_size}px;
+                    padding: 8px 4px;
+                    border: none;
+                    border-bottom: 2px solid {self._darken_color(color)};
+                    {border_radius}
+                }}
+                QPushButton:disabled {{
+                    background-color: {color};
+                    color: {text_color};
+                }}
+                """
+            )
 
     def _create_table(self) -> QTableWidget:
         """Create the main items table."""
@@ -1038,6 +1123,10 @@ class FakturaView(BaseTabView):
             # CRVENA boja samo ako NEMA tarifnog broja
             color_hex = "#ffcccc"  # Red for missing tariff
             tooltip = "❌ Greška: Nedostaje tarifni broj"
+        elif not item.zemlja_porijekla or len(item.zemlja_porijekla.strip()) == 0:
+            # CRVENA boja ako NEMA zemlje porijekla
+            color_hex = "#ffcccc"
+            tooltip = "❌ Greška: Nedostaje zemlja porijekla"
         elif result.has_blocking_errors():
             # CRVENA boja za druge kritične greške
             color_hex = "#ffcccc"  # Red for errors
@@ -1067,13 +1156,16 @@ class FakturaView(BaseTabView):
                 if tooltip:
                     cell_item.setToolTip(tooltip)
         
-        # DODATNO: Apply country confidence color to zemlja_porijekla column (col 8)
+        # DODATNO: Apply country confidence color to zemlja_porijekla column (col 9)
         self._apply_country_confidence_color(row, item)
+        # I posebno za kolonu Povlastica — "zemlja potvrđena" NE znači
+        # "povlastica potvrđena" (vidi _apply_preference_confidence_color)
+        self._apply_preference_confidence_color(row, item)
 
     def _apply_country_confidence_color(self, row: int, item: InvoiceLine):
         """
         Apply color coding to zemlja_porijekla column based on country_confidence.
-        
+
         Confidence levels:
         - HIGH (green): Data from PDF or matching PDF+DB
         - MEDIUM (yellow): Data from database only
@@ -1082,10 +1174,18 @@ class FakturaView(BaseTabView):
         """
         if not item.country_confidence:
             return  # No confidence data
-        
-        color_hex = self._CONFIDENCE_COLORS.get(item.country_confidence, "#ffffff")
-        icon = self._CONFIDENCE_ICONS.get(item.country_confidence, "")
-        
+
+        preference = (getattr(item, "povlastica", "") or "").strip()
+        evidence = evidence_from_preference(item)
+        has_preferential_doc = bool(preference and not evidence.requires_confirmation)
+        if has_preferential_doc:
+            color_hex = self._CONFIDENCE_COLORS.get(item.country_confidence, "#ffffff")
+            icon = "✅"
+        else:
+            color_hex = self._NEUTRAL_COUNTRY_COLOR
+            icon = ""
+        neutral_country = not has_preferential_doc
+
         # Build tooltip
         tooltip_parts = []
         if item.country_confidence == "HIGH":
@@ -1097,6 +1197,8 @@ class FakturaView(BaseTabView):
                 tooltip_parts.append("✅ Podatak o poreklu iz uvezenog dokumenta; povlasticu provjerava deklarant")
             elif item.country_source == "MATCH":
                 tooltip_parts.append("✅ PDF i baza se poklapaju (visoka pouzdanost)")
+            elif item.country_source == "EUR1_POTVRDA":
+                tooltip_parts.append("✅ Porijeklo potvrđeno EUR.1 sertifikatom (visoka pouzdanost)")
             else:
                 tooltip_parts.append("✅ Visoka pouzdanost")
         elif item.country_confidence == "MEDIUM":
@@ -1106,13 +1208,14 @@ class FakturaView(BaseTabView):
         elif item.country_confidence == "CONFLICT":
             tooltip_parts.append(f"🚨 Konflikt porekla: {item.country_conflict_details or 'PDF i baza imaju različite vrednosti'}")
             tooltip_parts.append("ℹ️ Korišćena je vrednost iz PDF-a")
-        
+        if neutral_country:
+            tooltip_parts.append("ℹ️ Povlastica za ovu stavku nije eksplicitno potvrđena.")
+
         # Apply to zemlja_porijekla column (col 9) - pomjereno zbog dodate kolone Faktura
         cell_item = self.table.item(row, 9)
         if cell_item:
             cell_item.setData(ValidationDelegate.ValidationColorRole, color_hex)
             if item.zemlja_porijekla:
-                # Čisti kod u UserRole (čita se pri sync), emoji samo u displayu
                 cell_item.setData(Qt.UserRole, item.zemlja_porijekla)
                 cell_item.setText(f"{icon} {item.zemlja_porijekla}" if icon else item.zemlja_porijekla)
             if tooltip_parts:
@@ -1121,6 +1224,38 @@ class FakturaView(BaseTabView):
                     cell_item.setToolTip(f"{existing_tooltip}\n\n{' '.join(tooltip_parts)}")
                 else:
                     cell_item.setToolTip(" ".join(tooltip_parts))
+
+    def _apply_preference_confidence_color(self, row: int, item: InvoiceLine):
+        """
+        Vizuelno označi pouzdanost POVLASTICE (kolona 10), odvojeno od
+        pouzdanosti zemlje porijekla (kolona 9).
+
+        - ⚠️ žuto: PDF_OZNAKA bez izjave, zemlja podobna — treba ručna provjera
+        - ✅ zeleno: povlastica potvrđena PE1/PE2/PE3 dokazom
+        """
+        cell_item = self.table.item(row, 10)
+        if not cell_item:
+            return
+
+        source = getattr(item, 'country_source', None)
+        evidence = evidence_from_preference(item)
+        has_pref = bool(item.povlastica)
+        country_code = (getattr(item, 'zemlja_porijekla', '') or '').strip()
+        eligible_for_pref = bool(self._suggest_preference_by_country(country_code))
+
+        if source == "PDF_OZNAKA" and not has_pref and eligible_for_pref:
+            cell_item.setData(ValidationDelegate.ValidationColorRole, "#fff3cd")
+            cell_item.setToolTip(
+                "⚠️ Povlastica NIJE automatski postavljena — dokument sadrži "
+                "samo oznaku zemlje porijekla, bez izjave o porijeklu.\n"
+                "Provjerite ručno da li roba ima pravo na povlasticu i unesite je."
+            )
+        elif has_pref and not evidence.requires_confirmation:
+            cell_item.setData(ValidationDelegate.ValidationColorRole, "#d4edda")
+            cell_item.setToolTip(
+                "✅ Povlastica je potvrđena PE1/PE2/PE3 dokazom.\n"
+                "Provjerite da li odgovara podacima na fakturi."
+            )
 
     def _on_item_changed(self, item: QTableWidgetItem):
         """Handle when user edits a cell."""
@@ -1153,10 +1288,17 @@ class FakturaView(BaseTabView):
                 invoice_item.bruto_kg = self._parse_number(value) if value else 0.0
             elif col == 8:  # Neto kg (pomjereno za +1)
                 invoice_item.neto_kg = self._parse_number(value) if value else 0.0
-            elif col == 9:  # Zemlja — čisti kod iz UserRole, ne tekst sa emojiem (pomjereno za +1)
-                from PySide6.QtCore import Qt as _Qt
-                user_val = item.data(_Qt.UserRole)
-                invoice_item.zemlja_porijekla = str(user_val).strip() if user_val else value
+            elif col == 9:  # Zemlja porijekla (pomjereno za +1)
+                # VAŽNO: NE čitati Qt.UserRole — ono čuva PRETHODNU vrijednost
+                # koju je upisala _apply_country_confidence_color (auto-bojenje
+                # pri validaciji), pa bi se korisnikova ručna izmjena teksta
+                # odbacila i vraćala na staru vrijednost. Očisti samo ikonica-prefiks.
+                cleaned = value
+                for _icon in self._CONFIDENCE_ICONS.values():
+                    if cleaned.startswith(_icon):
+                        cleaned = cleaned[len(_icon):].strip()
+                        break
+                invoice_item.zemlja_porijekla = cleaned
             elif col == 10:  # Povlastica (pomjereno za +1)
                 invoice_item.povlastica = value
             elif col == 11:  # Valuta (pomjereno za +1)
@@ -1235,6 +1377,10 @@ class FakturaView(BaseTabView):
         level: 'warning' | 'success' | ''
         Poziva se iz AgentController-a nakon uvoza.
         """
+        self._analysis_summary_auto = bool(text)
+        self._set_analysis_summary_text(text, level)
+
+    def _set_analysis_summary_text(self, text: str, level: str = "warning") -> None:
         if not text:
             self.lbl_analysis.setVisible(False)
             self._sep_analysis.setVisible(False)
@@ -1245,6 +1391,122 @@ class FakturaView(BaseTabView):
         self.lbl_analysis.style().polish(self.lbl_analysis)
         self.lbl_analysis.setVisible(True)
         self._sep_analysis.setVisible(True)
+
+    def _build_analysis_summary_from_draft(self) -> tuple[str, str]:
+        rows = []
+        if hasattr(self, "table") and self.table is not None and self.table.rowCount() > 0:
+            for row in range(self.table.rowCount()):
+                country_item = self.table.item(row, 9)
+                country_text = country_item.text().strip() if country_item else ""
+                rows.append({
+                    "tarifni_broj": self._get_cell_value(row, 4),
+                    "zemlja_porijekla": country_text,
+                    "povlastica": self._get_cell_value(row, 10),
+                    "has_origin_statement": (
+                        row < len(self.draft.invoice_lines)
+                        and bool(getattr(self.draft.invoice_lines[row], "has_origin_statement", False))
+                    ),
+                    "eur1_number": (
+                        getattr(self.draft.invoice_lines[row], "eur1_number", "")
+                        if row < len(self.draft.invoice_lines)
+                        else ""
+                    ),
+                })
+        else:
+            rows = [
+                {
+                    "tarifni_broj": getattr(line, "tarifni_broj", "") or "",
+                    "zemlja_porijekla": getattr(line, "zemlja_porijekla", "") or "",
+                    "povlastica": getattr(line, "povlastica", "") or "",
+                    "has_origin_statement": getattr(line, "has_origin_statement", False),
+                    "eur1_number": getattr(line, "eur1_number", "") or "",
+                }
+                for line in self.draft.invoice_lines
+            ]
+
+        if not rows:
+            return "", ""
+
+        bez_tarife = [row for row in rows if not (row["tarifni_broj"] or "").strip()]
+        bez_zemlje = [row for row in rows if not (row["zemlja_porijekla"] or "").strip()]
+        sa_povlasticom = [row for row in rows if (row["povlastica"] or "").strip()]
+        bez_eur1 = [
+            row for row in sa_povlasticom
+            if not row["has_origin_statement"] and not (row["eur1_number"] or "").strip()
+        ]
+
+        countries: dict[str, int] = {}
+        for row in rows:
+            raw_country = (row["zemlja_porijekla"] or "").strip().upper()
+            match = re.search(r"\b[A-Z]{2}\b", raw_country)
+            country = match.group(0) if match else raw_country
+            country = country or "(nepoznato)"
+            countries[country] = countries.get(country, 0) + 1
+
+        zemlja_str = " | ".join(
+            f"{country}:{count}"
+            for country, count in sorted(countries.items(), key=lambda x: -x[1])
+        )
+
+        problemi = []
+        if bez_tarife:
+            problemi.append(f"⚠️ {len(bez_tarife)} bez tarife")
+        if bez_zemlje:
+            problemi.append(f"⚠️ {len(bez_zemlje)} bez zemlje")
+        if bez_eur1:
+            problemi.append(f"⚠️ {len(bez_eur1)} bez EUR1")
+
+        text = f"🌍 {zemlja_str}"
+        if problemi:
+            text += "  " + " | ".join(problemi)
+        return text, "warning" if problemi else "success"
+
+    def _refresh_analysis_summary_from_draft(self) -> None:
+        if not self._analysis_summary_auto:
+            return
+        text, level = self._build_analysis_summary_from_draft()
+        self._set_analysis_summary_text(text, level)
+
+    def _validation_issue_counts(self) -> tuple[dict[str, int], dict[str, int]]:
+        errors: dict[str, int] = {}
+        warnings: dict[str, int] = {}
+        for row, line in enumerate(self.draft.invoice_lines):
+            result = self.validation_cache.get(row) or self.validator.validate(line)
+            for err in result.errors:
+                label = self._validation_issue_label(err.field, err.message)
+                errors[label] = errors.get(label, 0) + 1
+            for warn in result.warnings:
+                label = self._validation_issue_label(warn.field, warn.message)
+                warnings[label] = warnings.get(label, 0) + 1
+        return errors, warnings
+
+    @staticmethod
+    def _validation_issue_label(field: str, message: str) -> str:
+        msg = (message or "").lower()
+        if field == "tarifni_broj":
+            return "bez tarife" if "obavezan" in msg else "neispravna tarifa"
+        if field == "zemlja_porijekla":
+            return "bez zemlje"
+        if field == "naziv_robe":
+            return "bez naziva robe"
+        if field == "bruto":
+            return "bruto < neto"
+        if field == "cijena":
+            return "cijena 0/negativna"
+        return message or field or "nepoznata greška"
+
+    @staticmethod
+    def _format_issue_counts(counts: dict[str, int], limit: int = 3) -> str:
+        if not counts:
+            return ""
+        parts = [
+            f"{count} {label}"
+            for label, count in sorted(counts.items(), key=lambda x: (-x[1], x[0]))
+        ]
+        if len(parts) > limit:
+            hidden = len(parts) - limit
+            parts = parts[:limit] + [f"+{hidden} tip"]
+        return " | ".join(parts)
 
     def _parse_number(self, value_str: str) -> float:
         """Parse European format number (10.258,23) to float."""
@@ -1415,20 +1677,29 @@ class FakturaView(BaseTabView):
         valid_count = self.validation_cache.get_valid_count()
 
         # Validation status and color
+        error_issues, warning_issues = self._validation_issue_counts()
         if error_count > 0:
-            self.lbl_validation.setText(f"❌ {error_count} greška")
+            details = self._format_issue_counts(error_issues)
+            self.lbl_validation.setText(f"❌ {details or f'{error_count} greška'}")
+            if details:
+                self.lbl_validation.setToolTip(f"Greške: {details}")
             self.status_bar_widget.setProperty("status", "error")
             self.lbl_validation.setProperty("status", "error")
         elif warning_count > 0:
-            self.lbl_validation.setText(f"⚠️ {warning_count} upozorenja")
+            details = self._format_issue_counts(warning_issues)
+            self.lbl_validation.setText(f"⚠️ {details or f'{warning_count} upozorenja'}")
+            if details:
+                self.lbl_validation.setToolTip(f"Upozorenja: {details}")
             self.status_bar_widget.setProperty("status", "warning")
             self.lbl_validation.setProperty("status", "warning")
         elif valid_count == item_count:
             self.lbl_validation.setText("✅ Sve validne")
+            self.lbl_validation.setToolTip("")
             self.status_bar_widget.setProperty("status", "success")
             self.lbl_validation.setProperty("status", "success")
         else:
             self.lbl_validation.setText("⚪ Neprovjereno")
+            self.lbl_validation.setToolTip("")
             self.status_bar_widget.setProperty("status", "")
             self.lbl_validation.setProperty("status", "")
 
@@ -1455,6 +1726,9 @@ class FakturaView(BaseTabView):
         self.status_bar_widget.style().polish(self.status_bar_widget)
         self.lbl_validation.style().polish(self.lbl_validation)
         self.lbl_assembly.style().polish(self.lbl_assembly)
+
+        self._refresh_analysis_summary_from_draft()
+        self._pending_validate_rows.clear()
 
     # ============================================================
     # Button Handlers
@@ -1663,6 +1937,23 @@ class FakturaView(BaseTabView):
             )
         ]
 
+        # Mapping Excel (tarife/porekla/podela/ptp/15467) nije faktura — preskoči ga
+        # u grupnom ručnom uvozu ako je u istom folderu sa PDF fakturama u ovom batch-u
+        # (ista logika kao agent uvoz, vidi ProcessingWorker._is_mapping_xlsx).
+        pdf_folders = {
+            str(Path(p).parent)
+            for p in sorted_filepaths
+            if Path(p).suffix.lower() == ".pdf"
+        }
+        skipped_mapping = [
+            p for p in sorted_filepaths
+            if ProcessingWorker._is_mapping_xlsx(p) and str(Path(p).parent) in pdf_folders
+        ]
+        if skipped_mapping:
+            for p in skipped_mapping:
+                logger.info(f"⏭️ Preskačem mapping Excel (grupni ručni uvoz): {Path(p).name}")
+            sorted_filepaths = [p for p in sorted_filepaths if p not in skipped_mapping]
+
         self._batch_progress = QProgressDialog(
             f"Uvoz {len(sorted_filepaths)} faktura...", "Otkaži",
             0, len(sorted_filepaths), self
@@ -1697,9 +1988,55 @@ class FakturaView(BaseTabView):
             self._batch_progress.close()
         self._process_batch_records(records)
 
+    def _postprocess_master_frigo_pairs_records(self, records: list) -> None:
+        """Sparuj Master Frigo PDF + Excel u grupnom ručnom uvozu (kao agent uvoz).
+
+        Finansije (cijena/iznos/kolicina) prepisuju se iz Excel-a u PDF stavke,
+        a Excel record se markira kao 'skipped' da ne uđe kao posebna faktura.
+        """
+        from gui.tabs.agent.widgets.processing_worker import ProcessingWorker
+
+        excel_by_token: dict[str, list[dict]] = {}
+        for rec in records:
+            if rec.get("skipped") or not rec.get("items"):
+                continue
+            if Path(rec["filepath"]).suffix.lower() not in (".xlsx", ".xls", ".xlsm"):
+                continue
+            token = ProcessingWorker._normalized_invoice_token(rec["filepath"])
+            excel_by_token.setdefault(token, []).append(rec)
+
+        for pdf_rec in records:
+            if pdf_rec.get("skipped") or not pdf_rec.get("items"):
+                continue
+            if Path(pdf_rec["filepath"]).suffix.lower() != ".pdf":
+                continue
+            import_result = pdf_rec.get("_import_result")
+            detected_format = (getattr(import_result, "_detected_format", "") or "").lower()
+            if "master_frigo" not in detected_format:
+                continue
+
+            token = ProcessingWorker._normalized_invoice_token(pdf_rec["filepath"])
+            candidates = excel_by_token.get(token) or []
+            if not candidates:
+                continue
+
+            excel_rec = candidates[0]
+            enriched = ProcessingWorker._apply_excel_financials(pdf_rec["items"], excel_rec["items"])
+            if enriched <= 0:
+                continue
+
+            excel_rec["skipped"] = True
+            excel_rec["items"] = []
+            logger.info(
+                f"🔗 Master Frigo pair (grupni ručni uvoz): {Path(pdf_rec['filepath']).name} + "
+                f"{Path(excel_rec['filepath']).name} (ažurirano finansija: {enriched} stavki)"
+            )
+
     def _process_batch_records(self, records: list) -> None:
         """Post-processing batch uvoza na main threadu: header, dijalozi, draft, display."""
         from importers.import_result import ImportResult
+
+        self._postprocess_master_frigo_pairs_records(records)
 
         final_records = [r for r in records if not r.get("skipped") and r.get("items")]
         final_records = sorted(final_records, key=_manual_invoice_record_sort_key)
@@ -2454,6 +2791,10 @@ class FakturaView(BaseTabView):
 
             # Track file type
             self._track_file_type()
+
+            # Popuni zaglavlje (izvoznik/uvoznik/valuta) iz ImportResult - samo prazna polja
+            if isinstance(result, ImportResult):
+                self._apply_import_result_to_header(result)
 
             # Provjeri konzistentnost pošiljaoca/uvoznika
             if not self._check_partner_consistency(exporter_name, importer_name):
@@ -3254,6 +3595,24 @@ class FakturaView(BaseTabView):
         )
         invoice_weights = normalized_invoice_weights(self.draft.invoice_weights)
 
+        # Ako je neto unesen u toolbar a sve sačuvane neto vrijednosti su 0
+        # (neto nije bio dostupan u fajlu), rasporedi toolbar neto proporcionalno.
+        # Ovo pokriva slučaj kad korisnik upiše neto=bruto (ili bilo koji neto)
+        # za fakture gdje ga fajl nije sadržavao (npr. Šumaprom XLS bez neto težine).
+        if neto_total > 0 and invoice_weights:
+            stored_neto_sum = sum(n for _, n in invoice_weights.values())
+            if stored_neto_sum == 0:
+                total_stored_bruto = sum(b for b, _ in invoice_weights.values())
+                if total_stored_bruto > 0:
+                    for key in list(invoice_weights.keys()):
+                        inv_bruto, _ = invoice_weights[key]
+                        proportion = inv_bruto / total_stored_bruto
+                        invoice_weights[key] = (inv_bruto, round(neto_total * proportion, 3))
+                    logger.debug(
+                        f"   ℹ️ Neto iz toolbar-a ({neto_total:.3f} kg) raspoređen proporcionalno "
+                        f"na {len(invoice_weights)} faktura(e)"
+                    )
+
         total_updated = 0
         total_skipped = 0
         no_weight_invoices = []
@@ -3527,6 +3886,26 @@ class FakturaView(BaseTabView):
         message += f"📋 Tarifni brojevi:\n"
         message += f"  ✅ Novo popunjeno: {result.matched_items} stavki\n"
 
+        # Prikaži ŠTA je popunjeno — korisnik mora moći provjeriti da li je tarifa
+        # ispravna (baza znanja može sadržati pogrešno naučene mappinge — vidi
+        # agent_reports/2026-06-07_pogresna-tarifa-grejac-spirala.md).
+        # Koristimo naziv_robe iz drafta (čitljiv korisniku), ne šifru proizvoda
+        # koju vraća servis u matched_details — šifre poput "609ER004" korisniku
+        # ništa ne znače, dok naziv ("GREJAC SPIRALA 600W") odmah otkriva grešku.
+        naziv_by_line = {
+            line.line_no: line.naziv_robe
+            for line in self.draft.invoice_lines
+            if getattr(line, 'naziv_robe', None)
+        }
+        if result.matched_details:
+            message += "\nPopunjene stavke (provjerite da li su tarife ispravne):\n"
+            for i, (line_no, product_info, tarif) in enumerate(result.matched_details[:15], 1):
+                naziv = naziv_by_line.get(line_no) or product_info
+                message += f"  {i}. Stavka #{line_no}: {naziv[:40]} → {tarif}\n"
+
+            if len(result.matched_details) > 15:
+                message += f"  ... i još {len(result.matched_details) - 15} stavki\n"
+
         if result.skipped_items > 0:
             message += (
                 f"  ⏭️  Preskočeno (već imaju tarif): {result.skipped_items} stavki\n"
@@ -3564,7 +3943,42 @@ class FakturaView(BaseTabView):
             message += "\n💡 Savjet: Nakon što ručno popunite tarifne brojeve,\n"
             message += "   sistem će ih zapamtiti za buduće uvoza."
 
-        QMessageBox.information(self, "Auto-popuni - Rezultati", message)
+        self._show_scrollable_info_dialog("Auto-popuni - Rezultati", message)
+
+    def _show_scrollable_info_dialog(self, title: str, text: str):
+        """
+        Prikaži duži informativni tekst u dijalogu sa scroll-om.
+
+        QMessageBox se nekontrolisano širi sa dužinom teksta — kod rezultata
+        Auto-popuni sa puno stavki prozor postane veći od ekrana i dugme OK
+        ispadne van vidljivog područja (korisnik ne može zatvoriti dijalog).
+        Ovaj dijalog ima fiksnu maksimalnu veličinu i scroll-ujući QTextEdit.
+        """
+        from PySide6.QtWidgets import QDialog, QVBoxLayout
+        dialog = QDialog(self)
+        dialog.setWindowTitle(title)
+
+        layout = QVBoxLayout(dialog)
+
+        text_edit = QTextEdit()
+        text_edit.setReadOnly(True)
+        text_edit.setFont(QFont("Segoe UI", 10))
+        text_edit.setPlainText(text)
+        layout.addWidget(text_edit)
+
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok)
+        button_box.accepted.connect(dialog.accept)
+        layout.addWidget(button_box)
+
+        from PySide6.QtWidgets import QApplication
+        screen = self.screen() or QApplication.primaryScreen()
+        available = screen.availableGeometry()
+        dialog.resize(
+            min(560, available.width() - 100),
+            min(620, available.height() - 100),
+        )
+
+        dialog.exec()
 
     def _on_selection_changed(self):
         """Handle table selection change."""
