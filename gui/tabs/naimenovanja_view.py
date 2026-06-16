@@ -115,14 +115,10 @@ try:
     import qtawesome as qta
 
     QTAWESOME_AVAILABLE = True
-    sys.stderr.write(
-        f"✅ [NaimenovanjaTab] QtAwesome učitan (verzija: {qta.__version__})\n"
-    )
-    sys.stderr.flush()
+    logger.info("✅ [NaimenovanjaTab] QtAwesome učitan (verzija: %s)", qta.__version__)
 except ImportError as e:
     QTAWESOME_AVAILABLE = False
-    sys.stderr.write(f"❌ [NaimenovanjaTab] QtAwesome import FAILED: {e}\n")
-    sys.stderr.flush()
+    logger.warning("❌ [NaimenovanjaTab] QtAwesome import FAILED: %s", e)
 
 
 class BlackLineWidget(QWidget):
@@ -266,8 +262,7 @@ class NaimenovanjaView(BaseTabView):
                 btn.setIcon(QIcon(pixmap))
                 btn.setIconSize(QSize(16, 16))
             except Exception as e:
-                sys.stderr.write(f"❌ Could not load icon {icon_name}: {e}\n")
-                sys.stderr.flush()
+                logger.warning("❌ Could not load icon %s: %s", icon_name, e)
 
         return btn
 
@@ -277,8 +272,7 @@ class NaimenovanjaView(BaseTabView):
         Loguje grešku, prikazuje korisniku i šalje u stderr.
         """
         error_msg = f"Greška {context}: {str(error)}"
-        sys.stderr.write(f"❌ {error_msg}\n")
-        sys.stderr.flush()
+        logger.error("❌ %s", error_msg)
 
         # Prikaz korisniku (samo ako nema UI ili ako je glavni thread)
         try:
@@ -295,13 +289,9 @@ class NaimenovanjaView(BaseTabView):
         """Dohvati PostgreSQL connection pool koristeći get_connection_pool()"""
         try:
             self.connection_pool = get_connection_pool()
-            sys.stderr.write(
-                f"✅ PostgreSQL connection pool dohvaćen (get_connection_pool)\n"
-            )
-            sys.stderr.flush()
+            logger.info("✅ PostgreSQL connection pool dohvaćen (get_connection_pool)")
         except Exception as e:
-            sys.stderr.write(f"⚠️  PostgreSQL connection pool nije uspešan: {e}\n")
-            sys.stderr.flush()
+            logger.warning("⚠️  PostgreSQL connection pool nije uspešan: %s", e)
             self.connection_pool = None
 
     def _init_field_mapping(self) -> None:
@@ -567,10 +557,11 @@ class NaimenovanjaView(BaseTabView):
         # Apply CSS class for styling (defined in naimenovanja_components.qss)
         self.ui.setObjectName("naimenovanjaUiWidget")
 
-        # Scale up the main grid frame AND all widgets inside it (1.30x)
+        # Scale up the main grid frame AND all widgets inside it
+        is_windows = sys.platform.startswith("win")
         main_grid = self.ui.findChild(QFrame, "main_grid_frame")
         if main_grid:
-            scale_factor = 1.30
+            scale_factor = 1.10 if is_windows else 1.30
 
             # Scale the frame itself
             current_geom = main_grid.geometry()
@@ -1362,16 +1353,14 @@ class NaimenovanjaView(BaseTabView):
         """
         Add navigation controls matching the second screenshot design.
         """
-        # Create navigation bar container - INCREASED HEIGHT
+        # Create navigation bar container
         self.nav_bar = QWidget()
-        self.nav_bar.setObjectName(
-            "navBar"
-        )  # CSS styling in naimenovanja_components.qss
-        self.nav_bar.setFixedHeight(50)  # Increased from 40 to 50
+        self.nav_bar.setObjectName("navBar")
+        self.nav_bar.setFixedHeight(38)
 
         nav_layout = QHBoxLayout(self.nav_bar)
-        nav_layout.setContentsMargins(12, 8, 12, 8)  # Increased vertical margins
-        nav_layout.setSpacing(10)  # Increased spacing
+        nav_layout.setContentsMargins(10, 3, 10, 3)
+        nav_layout.setSpacing(7)
 
         # Section 1: Dropdown selector
         lbl_nav = QLabel("Naimenovanje:")
@@ -1380,7 +1369,7 @@ class NaimenovanjaView(BaseTabView):
 
         self.combo_items = _ScrollableCombo()
         self.combo_items.setMinimumWidth(380)
-        self.combo_items.setFixedHeight(34)
+        self.combo_items.setFixedHeight(28)
         self.combo_items.setMaxVisibleItems(99)
         self.combo_items.setProperty(
             "class", "nav-combo"
@@ -1407,15 +1396,15 @@ class NaimenovanjaView(BaseTabView):
 
         # Previous button
         self.btn_previous = self._create_icon_button("Prethodno", "fa5s.arrow-left")
-        self.btn_previous.setObjectName(
-            "btnPrethodno"
-        )  # žuta/braon — navigacija unazad
+        self.btn_previous.setObjectName("btnPrethodno")
+        self.btn_previous.setFixedHeight(30)
         self.btn_previous.clicked.connect(self._on_previous)
         nav_layout.addWidget(self.btn_previous)
 
         # Next button
         self.btn_next = self._create_icon_button("Sljedeće", "fa5s.arrow-right")
-        self.btn_next.setObjectName("btnSljedece")  # teal — navigacija naprijed
+        self.btn_next.setObjectName("btnSljedece")
+        self.btn_next.setFixedHeight(30)
         self.btn_next.clicked.connect(self._on_next)
         nav_layout.addWidget(self.btn_next)
 
@@ -1444,8 +1433,8 @@ class NaimenovanjaView(BaseTabView):
 
         # Section 5: Import XML
         self.btn_import_xml = self._create_icon_button("Uvezi XML", "fa5s.file-import")
-        self.btn_import_xml.setObjectName("btnUveziXMLNaim")  # teal/zelena
-        self.btn_import_xml.setToolTip("Uvezi naimenovanja iz ASYCUDA XML fajla")
+        self.btn_import_xml.setObjectName("btnUveziXMLNaim")
+        self.btn_import_xml.setToolTip("Uvezi ASYCUDA XML ili otvori sačuvani Deklarant Pro nacrt")
         self.btn_import_xml.clicked.connect(self._on_import_xml)
         nav_layout.addWidget(self.btn_import_xml)
 
@@ -1495,15 +1484,17 @@ class NaimenovanjaView(BaseTabView):
 
         # Action buttons (Sačuvaj, Poništi) - positioned above group_32_39
         self.btn_sacuvaj = self._create_icon_button("Sačuvaj", "fa5.save")
-        self.btn_sacuvaj.setObjectName("btnSnimi")  # zelena
+        self.btn_sacuvaj.setObjectName("btnSnimi")
+        self.btn_sacuvaj.setFixedHeight(26)
         self.btn_sacuvaj.clicked.connect(self._on_save)
-        self.btn_sacuvaj.raise_()  # Bring to front
+        self.btn_sacuvaj.raise_()
         button_layout.addWidget(self.btn_sacuvaj)
 
         self.btn_ponisti = self._create_icon_button("Poništi", "fa5s.undo-alt")
-        self.btn_ponisti.setObjectName("btnIzlaz")  # siva
+        self.btn_ponisti.setObjectName("btnIzlaz")
+        self.btn_ponisti.setFixedHeight(26)
         self.btn_ponisti.clicked.connect(self._on_ponisti)
-        self.btn_ponisti.raise_()  # Bring to front
+        self.btn_ponisti.raise_()
         button_layout.addWidget(self.btn_ponisti)
 
         # Add the button layout to the main heading layout
@@ -2209,6 +2200,10 @@ class NaimenovanjaView(BaseTabView):
                 if code in _PE_DOC_CODES and not master_pe:
                     master_pe = _normalize_pe_document_text(f"{code} {number}".strip())
 
+        for doc in global_docs:
+            if doc.code != "DIS":
+                doc.number = ""
+
         if global_docs:
             self.draft.header_attached_documents = global_docs
 
@@ -2218,6 +2213,42 @@ class NaimenovanjaView(BaseTabView):
                     getattr(item, "attached_document4", "") or ""
                 ).strip():
                     item.attached_document4 = master_pe
+
+    def _apply_xml_import_to_zaglavlje(self, filename: str) -> None:
+        """Popuni Zaglavlje tab iz uvezenog ASYCUDA XML-a.
+
+        Rb.18/21 (prevoz) se ne preuzimaju — prevoz za novu deklaraciju može
+        biti drugačiji. U tabeli Priloženih dokumenata (Rb.40) šifra i naziv
+        se preuzimaju za sve stavke, ali referenca se prazni za sve osim DIS
+        (broj dispozicije), jer se nova referenca upisuje za novu deklaraciju.
+        """
+        main_window = self.window()
+        zaglavlje_tab = getattr(main_window, "zaglavlje_tab", None)
+        if zaglavlje_tab is None:
+            return
+
+        from services.zaglavlje_service import ZaglavljeService
+        service = ZaglavljeService()
+
+        try:
+            data = service.load_from_xml(filename)
+        except Exception as e:
+            logger.error(f"Greška pri uvozu zaglavlja iz XML-a: {e}", exc_info=True)
+            return
+
+        # Rb.18/21 (prevoz) zadržava postojeću vrijednost iz drafta — ne preuzima se iz XML-a
+        data["transport_id"] = getattr(self.draft, "transport_id", "") or ""
+        data["aktivno_transport"] = getattr(self.draft, "aktivno_transport", "") or ""
+        data["aktivno_transport_nat"] = getattr(self.draft, "aktivno_transport_nat", "") or ""
+
+        for doc in data.get("attached_documents", []) or []:
+            if (doc.get("code") or "").strip().upper() != "DIS":
+                doc["number"] = ""
+
+        self.draft = service.save_to_draft(self.draft, data)
+
+        if hasattr(zaglavlje_tab, "load_from_draft"):
+            zaglavlje_tab.load_from_draft(self.draft)
 
     def _load_current_item(self) -> None:
         """Load current item from draft into form fields"""
@@ -2609,9 +2640,54 @@ class NaimenovanjaView(BaseTabView):
             self._update_all_ui()
 
     def _on_save(self) -> None:
-        """Save button clicked"""
+        """Save the complete declaration as a portable XML working draft."""
+        from pathlib import Path
+        from PySide6.QtWidgets import QFileDialog
+        from PySide6.QtCore import QSettings
+        from services.declaration_draft_service import (
+            DeclarationDraftService,
+            default_drafts_directory,
+            suggested_filename,
+        )
+
         self._save_current_item()
-        QMessageBox.information(self, "Uspjeh", "✅ Naimenovanje sačuvano!")
+        main_window = self.window()
+        zaglavlje_tab = getattr(main_window, "zaglavlje_tab", None)
+        if hasattr(zaglavlje_tab, "save_to_draft"):
+            zaglavlje_tab.save_to_draft()
+
+        settings = QSettings("DeklarantPro", "DeklarantPro")
+        last_directory = Path(
+            settings.value("drafts/lastDirectory", str(default_drafts_directory()))
+        )
+        suggested_path = last_directory / suggested_filename(self.draft)
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            "Sačuvaj nacrt deklaracije",
+            str(suggested_path),
+            "Deklarant Pro nacrt (*.xml);;XML datoteke (*.xml)",
+        )
+        if not filename:
+            return
+
+        try:
+            saved_path = DeclarationDraftService().save(self.draft, filename)
+        except Exception as exc:
+            QMessageBox.critical(
+                self,
+                "Greška pri čuvanju",
+                f"Nacrt deklaracije nije sačuvan.\n\n{exc}",
+            )
+            return
+
+        settings.setValue("drafts/lastDirectory", str(saved_path.parent))
+        self.draft._persistent_draft_path = str(saved_path)
+        self.draft.dirty = False
+        QMessageBox.information(
+            self,
+            "Nacrt sačuvan",
+            f"Kompletna deklaracija je sačuvana u:\n{saved_path}",
+        )
 
     def _on_field_changed(self) -> None:
         """Debounced field change handler - spašava nakon 300ms pauze u kucanju"""
@@ -2961,7 +3037,7 @@ class NaimenovanjaView(BaseTabView):
 
         # 1. Sakupi sve jedinstvene (sifra, broj) parove iz svih naimenovanja
         pe_entries: list[tuple[str, str]] = []
-        seen: set[tuple[str, str]] = set()
+        seen: set[str] = set()
         for item in self.draft.items:
             _clear_secondary_pe_documents(item)
             doc4 = _normalize_pe_document_text(getattr(item, 'attached_document4', '') or '')
@@ -2974,10 +3050,9 @@ class NaimenovanjaView(BaseTabView):
             sifra = parts[0].strip()
             broj = parts[1].strip() if len(parts) > 1 else ''
             if sifra in _PE_DOC_CODES:
-                key = (sifra, broj)
-                if key not in seen:
-                    seen.add(key)
-                    pe_entries.append(key)
+                if sifra not in seen:  # dedup po šifri — jedna deklaracija = jedan EUR.1
+                    seen.add(sifra)
+                    pe_entries.append((sifra, broj))
 
         # 2. Ukloni postojeće PE1/PE2/PE3 unose iz header_attached_documents
         header_docs[:] = [d for d in header_docs if d.code not in _PE_DOC_CODES]
@@ -3096,19 +3171,51 @@ class NaimenovanjaView(BaseTabView):
         self._suggest_tariff_impl()
 
     def _on_import_xml(self) -> None:
-        """Otvori file dialog i uvezi naimenovanja iz XML fajla."""
+        """Otvori file dialog i uvezi naimenovanja iz XML fajla ili otvori nacrt."""
         import traceback
+        from pathlib import Path
         from PySide6.QtWidgets import QFileDialog
+        from PySide6.QtCore import QSettings
         from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
+        from services.declaration_draft_service import (
+            DeclarationDraftService,
+            default_drafts_directory,
+            is_draft_file,
+        )
 
+        filename = ""
         try:
+            settings = QSettings("DeklarantPro", "DeklarantPro")
+            last_directory = settings.value(
+                "drafts/lastDirectory", str(default_drafts_directory())
+            )
             filename, _ = QFileDialog.getOpenFileName(
                 self,
-                "Uvezi naimenovanja iz XML fajla",
-                "",
+                "Uvezi XML ili otvori nacrt",
+                str(last_directory),
                 "XML Files (*.xml);;All Files (*)",
             )
             if not filename:
+                return
+            settings.setValue("drafts/lastDirectory", str(Path(filename).parent))
+
+            if is_draft_file(filename):
+                if self.draft.dirty:
+                    reply = QMessageBox.question(
+                        self,
+                        "Otvori nacrt deklaracije",
+                        "Nesačuvane izmjene trenutne deklaracije biće zamijenjene. Nastaviti?",
+                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                        QMessageBox.StandardButton.No,
+                    )
+                    if reply == QMessageBox.StandardButton.No:
+                        return
+
+                loaded = DeclarationDraftService().load(filename)
+                main_window = self.window()
+                main_window._replace_draft_contents(loaded)
+                main_window._reload_all_tabs_from_draft()
+                self.show_success(f"Otvoren je nacrt deklaracije:\n{filename}")
                 return
 
             # 1. Parsiraj naimenovanja iz XML
@@ -3138,6 +3245,7 @@ class NaimenovanjaView(BaseTabView):
 
             # 3. Zamijeni draft.items
             self._apply_xml_import_global_documents(items)
+            self._apply_xml_import_to_zaglavlje(filename)
             self.draft.items = items
             self.draft.mark_dirty()
 
@@ -3155,7 +3263,8 @@ class NaimenovanjaView(BaseTabView):
             self.show_error(f"Greška pri uvozu: {e}")
 
         # Emituj signal za controller (ako postoji)
-        self.import_xml_requested.emit(filename)
+        if filename:
+            self.import_xml_requested.emit(filename)
 
     def _on_inspekcije(self) -> None:
         """Otvori dijalog sa inspekcijskim pregledom naimenovanja."""
