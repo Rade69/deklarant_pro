@@ -396,6 +396,7 @@ class DeclarationSearchService:
                 # prethodnog execute() za deklaraciju), pa se pravi id-evi
                 # upisanih stavki moraju dohvatiti upitom — inače se item_id
                 # u items_fts pomjeri i pretraga vrati podatke pogrešne stavke.
+                # Vidi agent_reports/2026-07-03_declaration-search-fts-item-id-fix.md
                 item_ids = [
                     row[0] for row in cur.execute(
                         "SELECT id FROM items WHERE decl_id = ? ORDER BY id",
