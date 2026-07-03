@@ -142,3 +142,7 @@ dist_client/.gitnexus
 installer/
 nuitka_output/
 build_log.txt
+
+# Lokalni podaci — carinski PDF-ovi, knowledge base, indeksi (privatno, van repoa)
+/data/
+/database/data/
