@@ -184,7 +184,7 @@ def test_parse_naimenovanja_uses_description_as_trade_name_when_commercial_missi
     </Item>
 </Declaration>
 """
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.xml', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.xml', delete=False, encoding='utf-8') as f:
         f.write(xml)
         f.flush()
         filepath = f.name
@@ -226,7 +226,7 @@ def test_parse_naimenovanja_maps_pe_document_to_master_rub44_field():
     </Item>
 </Declaration>
 """
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.xml', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.xml', delete=False, encoding='utf-8') as f:
         f.write(xml)
         f.flush()
         filepath = f.name
@@ -264,7 +264,7 @@ def test_parse_naimenovanja_marks_attached_doc_item_codes_as_from_rule():
     </Item>
 </Declaration>
 """
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.xml', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.xml', delete=False, encoding='utf-8') as f:
         f.write(xml)
         f.flush()
         filepath = f.name
@@ -341,7 +341,7 @@ Faktura: 893/26 (rb. 1, 2, 17, 26)</Commercial_Description>
     </Item>
 </Declaration>
 """
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.xml', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.xml', delete=False, encoding='utf-8') as f:
         f.write(xml)
         f.flush()
         filepath = f.name

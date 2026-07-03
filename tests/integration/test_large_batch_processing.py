@@ -27,7 +27,8 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-ROOT = str(__import__('pathlib').Path(__file__).parent.parent)
+# Root projekta je tri nivoa iznad: tests/integration/<ovaj_fajl>
+ROOT = str(__import__('pathlib').Path(__file__).parent.parent.parent)
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 

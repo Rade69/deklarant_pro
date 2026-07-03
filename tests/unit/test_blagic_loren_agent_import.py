@@ -1,3 +1,7 @@
+from pathlib import Path
+
+import pytest
+
 from importers.vendors.blagic.blagic_combined_importer import (
     combine_blagic_excel_and_pdf,
     import_blagic_combined,
@@ -12,6 +16,13 @@ PDF_46 = "najavauvoza/loren-fakture/46VP-2026 BLAGIC.pdf"
 EXCEL_267 = "najavauvoza/LOREN/fwrauniipakingliste/267VP-2026 SRETO BLAGIC.xlsx"
 EXCEL_268 = "najavauvoza/LOREN/fwrauniipakingliste/268VP-2026 SRETO BLAGIC.xlsx"
 PDF_268 = "najavauvoza/LOREN/fwrauniipakingliste/268VP-2026 SRETO BLAGIC.pdf"
+
+# Ovi testovi zavise od stvarnih Blagić faktura koje su privatni podaci van repoa.
+# Kad fixture fajlovi nisu prisutni (druga mašina, CI), preskoči umjesto pada.
+pytestmark = pytest.mark.skipif(
+    not Path(EXCEL_46).exists(),
+    reason="Blagić fixture fakture nisu dostupne (privatni podaci van repoa)",
+)
 
 
 def test_blagic_loren_excel_does_not_consume_matching_pdf():

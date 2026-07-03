@@ -1,5 +1,7 @@
 from types import SimpleNamespace
 
+import pytest
+
 from services.agent.learning.product_similarity_embedding_service import (
     DEFAULT_EMBEDDING_DIMENSIONS,
     DEFAULT_GEMINI_EMBEDDING_MODEL,
@@ -125,6 +127,8 @@ def test_create_openai_embeddings_orders_response_by_index_and_sets_dimensions()
 
 
 def test_create_gemini_embeddings_uses_existing_gemini_provider():
+    # Kod interno radi `from google.genai import types` — preskoči ako paket nije instaliran.
+    pytest.importorskip("google.genai")
     client = FakeGeminiClient()
     service = ProductSimilarityEmbeddingService(
         config=EmbeddingConfig(

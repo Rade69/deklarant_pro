@@ -1,9 +1,13 @@
 from pathlib import Path
 
+import pytest
+
 from importers.smart_pdf_importer import _find_master_frigo_mapping_xlsx
 from services.import_service import ImportService
 from gui.tabs.agent.models.file_item import FileItem
 from gui.tabs.agent.widgets.processing_worker import ProcessingWorker
+
+_MF_FIXTURE = "najavauvoza/masterfrigo/R2600310 (20.02.2026.) (E)-MASTER FRIGO, BANJA LUKA-16.871,80 EUR.pdf"
 
 
 def test_find_master_frigo_mapping_accepts_poreklu_variant(tmp_path):
@@ -15,6 +19,10 @@ def test_find_master_frigo_mapping_accepts_poreklu_variant(tmp_path):
     assert Path(_find_master_frigo_mapping_xlsx(str(pdf))).name == mapping.name
 
 
+@pytest.mark.skipif(
+    not Path(_MF_FIXTURE).exists(),
+    reason="Master Frigo fixture fakture nisu dostupne (privatni podaci van repoa)",
+)
 def test_master_frigo_batch_keeps_mapping_for_multiple_pdfs():
     files = [
         "najavauvoza/masterfrigo/R2600310 (20.02.2026.) (E)-MASTER FRIGO, BANJA LUKA-16.871,80 EUR.pdf",
