@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import pytest
@@ -8,6 +9,12 @@ from gui.tabs.agent.models.file_item import FileItem
 from gui.tabs.agent.widgets.processing_worker import ProcessingWorker
 
 _MF_FIXTURE = "najavauvoza/masterfrigo/R2600310 (20.02.2026.) (E)-MASTER FRIGO, BANJA LUKA-16.871,80 EUR.pdf"
+
+
+def _canonical_path(value) -> str:
+    """Ista normalizacija kao ProcessingWorker.canonical_path — bez nje se
+    consumed_paths (backslash na Windows) ne poklapa sa forward-slash putanjama."""
+    return os.path.normcase(str(Path(value).resolve()))
 
 
 def test_find_master_frigo_mapping_accepts_poreklu_variant(tmp_path):
@@ -42,10 +49,10 @@ def test_master_frigo_batch_keeps_mapping_for_multiple_pdfs():
     consumed = set()
     pdf_results = []
     for path in ordered:
-        if path in consumed:
+        if _canonical_path(path) in consumed:
             continue
         result = svc.import_file(path)
-        consumed.update(result.consumed_paths or [])
+        consumed.update(_canonical_path(p) for p in (result.consumed_paths or []))
         pdf_results.append(result)
 
     assert len(pdf_results) == 3

@@ -41,7 +41,7 @@ def test_blagic_loren_import_service_combines_pdf_after_excel():
 
     assert excel_result.consumed_paths == []
     assert pdf_result.is_combined is True
-    assert pdf_result.consumed_paths == [EXCEL_46]
+    assert [Path(p) for p in pdf_result.consumed_paths] == [Path(EXCEL_46)]
     assert pdf_result.invoice_name == "46VP-2026"
     assert len(pdf_result.items) == 31
     assert round(sum(line.iznos or 0 for line in pdf_result.items), 2) == 3853.57
