@@ -1,0 +1,25 @@
+name: Testovi
+
+on:
+  push:
+    branches: [main, windows]
+  pull_request:
+    branches: [main, windows]
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Instaliraj zavisnosti
+        run: uv sync
+
+      - name: Pokreni testove (bez integration testova koji trebaju PostgreSQL)
+        run: uv run pytest -m "not integration" -q
