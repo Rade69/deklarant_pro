@@ -72,6 +72,17 @@ Hook je POSIX sh bez emoji-ja (cp1252 lekcija iz memorije), radi kroz
 - GitNexus `detect_changes` na zastarjelom indeksu prijavljuje sekcije
   nedirnutih fajlova kao "touched" — potencijalno lažno pozitivno za buduće
   agente; uvijek ukrstiti sa `git status`.
+- **ADDENDUM — skip-worktree fajlovi otkriveni tokom zadatka:** `git reset -q`
+  (korišćen za pregrupisavanje staginga) očistio je sakrivene index flagove i
+  "otkrio" 4 lokalno izmijenjena fajla stara od 2026-06-01:
+  `services/origin_statement_detector.py`, `services/country_origin_validator.py`
+  i njihove `dist_client/` kopije. U HEAD-u su to 2-linijski stubovi koji
+  re-exportuju iz `services/tariff/`, a na disku su pune stare implementacije
+  (~360-585 linija). `dist_client/services/tariff/` NE POSTOJI — stub bi na
+  Windows klijentu pucao, pa je neko namjerno zadržao pune verzije lokalno i
+  sakrio ih flagom. Vraćen `git update-index --skip-worktree` na sva 4 fajla
+  (prethodno stanje), sadržaj NIJE diran niti commitovan. Pravi fix (portovanje
+  `services/tariff/` u dist_client ili commit punih verzija) je poseban zadatak.
 - `AGENTS.md` je navodio IP servera 192.168.0.69, memorija kaže da je dmserver
   DHCP (zadnje .54) — kontradikcija riješena uklanjanjem IP-a iz dokumenta
   (u skladu sa vlastitom zabranom hardkodovanja IP-a).
