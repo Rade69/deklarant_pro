@@ -892,12 +892,14 @@ def _extract_origin_statement_item_set(
     full_text = " ".join(lines)
     matches = list(_ORIGIN_ITEMS_SEGMENT_RE.finditer(full_text))
     if not matches:
+        print(f"⚠️  [medicopharm] _extract_origin_statement_item_set: regex nije pronašao izjavu o stavkama!")
         return set()
 
     covered: Set[int] = set()
 
     for match in matches:
         segment = match.group(1)
+        print(f"🔍 [medicopharm] Izjava segment: '{segment.strip()}'")
 
         for start_s, end_s in re.findall(r"(\d+)\s*[-–]\s*(\d+)", segment):
             start = int(start_s)
@@ -911,6 +913,9 @@ def _extract_origin_statement_item_set(
     if total_items > 0:
         covered = {n for n in covered if 1 <= n <= total_items}
 
+    uncovered = set(range(1, total_items + 1)) - covered
+    print(f"✅ [medicopharm] Pokrivene stavke: {len(covered)}/{total_items}")
+    print(f"⚠️  [medicopharm] BEZ povlastice (nije u izjavi): {sorted(uncovered)}")
     return covered
 
 

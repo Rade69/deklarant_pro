@@ -206,11 +206,25 @@ class PE2QuickDialog(QDialog):
         self._update_info()
 
     def _group_by_country(self) -> Dict[str, List[InvoiceLine]]:
-        """Grupiši stavke po zemlji porijekla (isključuje stavke sa no_preference=True)."""
+        """Grupiši stavke po zemlji porijekla (isključuje stavke sa no_preference=True).
+
+        Kad importer radi per-item has_origin_statement tracking (npr. Medicopharm —
+        izjava pokriva samo određene rbr-ove), stavke koje NISU u izjavi se
+        preskačaju, da ne dobiju PE2/PE3 povlasticu greškom.
+        """
+        # Per-item tracking: ako ikoja stavka ima has_origin_statement=True,
+        # koristimo taj flag kao filter (preskačamo stavke sa False).
+        any_has_statement = any(
+            getattr(item, 'has_origin_statement', False)
+            for item in self.invoice_lines
+        )
+
         countries = {}
         for item in self.invoice_lines:
             if getattr(item, 'no_preference', False):
                 continue  # "bez pref. porekla" — preskoci, nema povlastice
+            if any_has_statement and not getattr(item, 'has_origin_statement', False):
+                continue  # Per-item filter: ova stavka nije pokrivena izjavom o porijeklu
             if item.zemlja_porijekla:
                 country = item.zemlja_porijekla.upper()
                 if country not in countries:
