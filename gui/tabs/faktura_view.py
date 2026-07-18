@@ -45,7 +45,7 @@ from PySide6.QtCore import (
     QItemSelection,
     QItemSelectionModel,
 )
-from PySide6.QtGui import QColor, QFont, QFontMetrics, QIcon
+from PySide6.QtGui import QColor, QFont, QFontMetrics, QIcon, QShortcut, QKeySequence
 
 try:
     import qtawesome as qta
@@ -279,6 +279,11 @@ class FakturaView(BaseTabView):
         self._debounce_timer.timeout.connect(self._flush_pending_validation)
         self._pending_validate_rows: set = set()
         self._pending_learn_rows: set = set()   # redovi gdje je tarifni_broj ručno izmijenjen
+
+        # Undo/redo stekovi — max 30 snapshotova
+        self._undo_stack: list = []
+        self._redo_stack: list = []
+
         self._learn_notify_timer = QTimer(self)
         self._learn_notify_timer.setSingleShot(True)
         self._learn_notify_timer.setInterval(3000)
@@ -289,6 +294,11 @@ class FakturaView(BaseTabView):
 
         # Setup UI
         self._setup_ui()
+
+        # Undo/redo shortcuts
+        QShortcut(QKeySequence("Ctrl+Z"), self).activated.connect(self._undo)
+        QShortcut(QKeySequence("Ctrl+Y"), self).activated.connect(self._redo)
+        QShortcut(QKeySequence("Ctrl+Shift+Z"), self).activated.connect(self._redo)
 
         # Load data from draft
         self._load_data_from_draft()
@@ -1361,6 +1371,9 @@ class FakturaView(BaseTabView):
         if row >= len(self.draft.invoice_lines):
             return
 
+        # Snapshot PRIJE sync-a — draft još ima staru vrijednost u ovoj tački
+        self._push_undo_snapshot()
+
         invoice_item = self.draft.invoice_lines[row]
         value = item.text().strip()
 
@@ -1429,6 +1442,43 @@ class FakturaView(BaseTabView):
         self.data_changed.emit()
         if self.on_dirty:
             self.on_dirty()
+
+    # ------------------------------------------------------------------
+    # Undo / Redo
+    # ------------------------------------------------------------------
+
+    def _push_undo_snapshot(self):
+        import copy
+        snapshot = copy.deepcopy(self.draft.invoice_lines)
+        self._undo_stack.append(snapshot)
+        if len(self._undo_stack) > 30:
+            self._undo_stack.pop(0)
+        self._redo_stack.clear()
+
+    def _undo(self):
+        if not self._undo_stack:
+            self.lbl_validation.setText("⚠️ Nema više koraka za poništavanje")
+            return
+        import copy
+        self._redo_stack.append(copy.deepcopy(self.draft.invoice_lines))
+        self.draft.invoice_lines = self._undo_stack.pop()
+        self._load_data_from_draft()
+        self._update_status_bar()
+        self._notify_data_changed()
+        count = len(self._undo_stack)
+        self.lbl_validation.setText(f"↩ Poništeno — još {count} koraka u historiji")
+
+    def _redo(self):
+        if not self._redo_stack:
+            self.lbl_validation.setText("⚠️ Nema više koraka za ponavljanje")
+            return
+        import copy
+        self._undo_stack.append(copy.deepcopy(self.draft.invoice_lines))
+        self.draft.invoice_lines = self._redo_stack.pop()
+        self._load_data_from_draft()
+        self._update_status_bar()
+        self._notify_data_changed()
+        self.lbl_validation.setText("↪ Ponovljeno")
 
     def _auto_learn_edits(self):
         """Automatski snimi ručno izmijenjene tarifne brojeve u bazu znanja."""
@@ -1901,6 +1951,7 @@ class FakturaView(BaseTabView):
                 )
 
                 if reply == QMessageBox.Yes:
+                    self._push_undo_snapshot()
                     # Clear existing items
                     self.draft.invoice_lines.clear()
 
@@ -2879,6 +2930,7 @@ class FakturaView(BaseTabView):
             # Hide progress bar
             self.progress_bar.setVisible(False)
             self.progress_bar.setValue(0)
+            self._push_undo_snapshot()
 
             # Extract items and metadata from result (REFACTORED to use helper methods)
             (
@@ -3225,6 +3277,7 @@ class FakturaView(BaseTabView):
         )
 
         if reply == QMessageBox.Yes:
+            self._push_undo_snapshot()
             # Get the item being deleted (for weight calculation)
             deleted_item = self.draft.invoice_lines[current_row]
             deleted_bruto = deleted_item.bruto_kg or 0.0
@@ -3258,11 +3311,12 @@ class FakturaView(BaseTabView):
         reply = QMessageBox.question(
             self,
             "Potvrda brisanja",
-            f"Da li ste sigurni da želite obrisati SVE stavke?\n\nUkupno stavki: {item_count}\n\nOva akcija se ne može poništiti!",
+            f"Da li ste sigurni da želite obrisati SVE stavke?\n\nUkupno stavki: {item_count}\n\nMoguće poništiti sa Ctrl+Z.",
             QMessageBox.Yes | QMessageBox.No,
         )
 
         if reply == QMessageBox.Yes:
+            self._push_undo_snapshot()
             # Clear all items
             self.draft.invoice_lines.clear()
 
@@ -4008,6 +4062,7 @@ class FakturaView(BaseTabView):
                 progress = None
 
             # Primijeni (ili auto mod bez potvrde)
+            self._push_undo_snapshot()
             result = facade.auto_populate_tariffs(
                 target_lines,
                 min_similarity=0.70,
