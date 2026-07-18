@@ -946,32 +946,45 @@ class TariffMappingService:
         except Exception as e:
             logger.warning(f"⚠️  Greška pri ažuriranju usage_count: {e}")
 
-    def learn_from_draft(self, invoice_lines: List[InvoiceLine]) -> int:
+    def learn_from_draft(self, invoice_lines: List[InvoiceLine], confirmed_only: bool = True) -> int:
         """
         Nauči iz invoice lines sa popunjenim tarifnim brojevima.
 
         Args:
             invoice_lines: Lista fakturnih stavki
+            confirmed_only: Ako True (default), uci samo iz linija sa
+                CONFIRMED tariff decision_state-om. Preview kandidati,
+                odbijeni i nepotvrdjeni se preskacu (Faza 5).
 
         Returns:
             Broj sačuvanih mappinga
         """
         saved_count = 0
+        skipped = 0
 
         for line in invoice_lines:
-            # Sačuvaj samo ako ima product_code ILI naziv_robe, I tarifni broj
-            if line.tarifni_broj and (line.product_code or line.naziv_robe):
-                success = self.save_mapping(
-                    product_code=line.product_code or "",
-                    naziv_robe=line.naziv_robe or "",
-                    tarifni_broj=line.tarifni_broj,
-                    zemlja_porijekla=line.zemlja_porijekla or "",
-                    povlastica=line.povlastica or ""
-                )
+            if not (line.tarifni_broj and (line.product_code or line.naziv_robe)):
+                continue
 
-                if success:
-                    saved_count += 1
+            # Faza 5: uci samo iz potvrdjenih odluka
+            if confirmed_only and line.decision_state is not None:
+                fd = line.decision_state.tariff
+                if not fd.is_confirmed:
+                    skipped += 1
+                    continue
 
+            success = self.save_mapping(
+                product_code=line.product_code or "",
+                naziv_robe=line.naziv_robe or "",
+                tarifni_broj=line.tarifni_broj,
+                zemlja_porijekla=line.zemlja_porijekla or "",
+                povlastica=line.povlastica or ""
+            )
+            if success:
+                saved_count += 1
+
+        if skipped:
+            logger.debug("Ucenje: preskoceno %d stavki bez potvrdjene odluke", skipped)
         logger.info(f"📚 Naučeno {saved_count} mappinga iz draft-a")
         return saved_count
 
