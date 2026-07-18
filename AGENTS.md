@@ -1,7 +1,19 @@
-# AGENTS.md — Deklarant Pro projektni standardi
+# AGENTS.md — Deklarant Pro projektni standardi (KANONSKI FAJL)
 
-Ovaj fajl čitaju svi agenti koji rade na ovom projektu: Qwen Code, GitHub Copilot, Cursor,
-MiniMax, CLI agenti i drugi. Dopunjuje globalni `~/.claude/AGENTS.md` — ne zamjenjuje ga.
+Ovaj fajl je **jedini izvor istine** za sve agente koji rade na ovom projektu:
+Claude Code, Codex, Cursor, GitHub Copilot, DeepSeek, GLM, Kimi, MiniMax, Qwen i drugi.
+`CLAUDE.md` u korijenu samo importuje ovaj fajl i dodaje Claude-specifičnu memoriju —
+**sva pravila se mijenjaju OVDJE**, ne u CLAUDE.md.
+
+---
+
+## Jezik — OBAVEZNO I PRIMARNO
+
+- Svi odgovori korisniku: **srpski, latinica**
+- Nikada ćirilica — nigdje, ni u komentarima ni u stringovima koji se prikazuju
+- Nikada engleski (osim ako korisnik eksplicitno traži)
+- Komentari u kodu: engleski (prati stil koji fajl već koristi)
+- Commit poruke: srpski latinica, format `tip(scope): opis`
 
 ---
 
@@ -13,15 +25,12 @@ Taj fajl sadrži ne-trivijalne odluke, zabranjene patterne i poznate bugove
 koji nisu vidljivi iz samog koda. Dostupan je svim agentima jer je u git repozitoriju.
 
 ```text
-docs/CONTEXT.md   ← zajednička memorija za sve agente (Claude, Qwen, DeepSeek...)
+docs/CONTEXT.md   ← zajednička memorija za sve agente (Claude, Codex, DeepSeek...)
 ```
 
-Klauza `CLAUDE.md` u korijenu projekta sadrži formatske konvencije i projektne standarde.
-Pročitaj je ako radiš šire izmjene ili nisi siguran u konvencije.
-
-> **Samo za Claude:** Detaljne sesijske bilješke nalaze se i u
-> `~/.claude/projects/-home-radovan-Desktop-deklarant-pro/memory/`
-> ali `docs/CONTEXT.md` je autoritativni izvor za sve agente.
+> **Samo za Claude:** detaljna sesijska memorija je u
+> `~/.claude/projects/<projekat>/memory/` (vidi CLAUDE.md).
+> Za sve ostale agente `docs/CONTEXT.md` je autoritativni izvor.
 
 ---
 
@@ -32,21 +41,12 @@ Napiši kratko (2-4 rečenice) šta si razumio iz zadatka i šta planiraš uradi
 
 ---
 
-## Jezik
-
-- Svi odgovori korisniku: **srpski, latinica**
-- Komentari u kodu: engleski (prati stil koji fajl već koristi)
-- Nikada ćirilica — nigdje, ni u komentarima ni u stringovima koji se prikazuju
-- Commit poruke: srpski latinica, format `tip(scope): opis`
-
----
-
 ## Tech stack
 
 | Sloj | Tehnologija |
 | --- | --- |
 | GUI | PySide6 (Qt6) |
-| Baza | PostgreSQL 16 (server 192.168.0.69) + SQLite lokalno |
+| Baza | PostgreSQL 16 (server `dmserver`, IP je DHCP — čitati iz `config.ini`, ne hardkodovati) + SQLite lokalno |
 | Python | 3.11+, uv za pakete |
 | Testovi | pytest, `tests/` folder |
 | Parseri | pdfplumber, openpyxl, pytesseract (OCR) |
@@ -73,6 +73,7 @@ deklarant_pro/
 │       ├── learning/    # historical_learning, exporter_xml_indexer
 │       └── validation/  # declaration_validator, xml_template_service
 ├── database/            # SQLite: deklarant_sistem.db, zvanicna_tarifa.db
+├── dist_client/         # Windows-runtime kopija (može zaostati za gui/ — uporedi pri vizuelnim bugovima)
 └── ui/                  # Qt .ui fajlovi
 ```
 
@@ -87,14 +88,40 @@ servisna klasa ih omotava kao public API. Controller metode su samo 1-liner pozi
 
 - **Nema novih komentara** osim za neočigledne workarounds ili skrivene invarijante
 - **Nema docstrings** na metodama koje slijede jasne naming konvencije
+  (novi docstrings, gdje su stvarno potrebni, pišu se na srpskom latinici)
 - Fuzzy matching threshold: `min_similarity = 0.92` (ne spuštati bez eksplicitnog razloga)
 - SQL: isključivo parametrizovani upiti — nikad f-string u SQL-u
+- Debug ispisi: emoji za vizualnu identifikaciju (🔍, ✅, ⚠️, 📝) — ali NIKAD direktno
+  na stderr (cp1252 na Windowsu puca); koristiti logger
+- Error handling: jasne poruke na srpskom
+
+### Formatiranje težina (bruto/neto kg)
+
+- Puna preciznost (ne zaokruživati na 2 decimale)
+- Separator za hiljade (zarez): `1,234.567`
+- Referenca: `_format_weight()` u faktura_tab_v2.py
 
 ### Parseri (importers/)
 
 - Svaki importer mora imati `exporter` i `importer` polja u `ImportResult`
 - XML lookup se radi po paru `(exporter, tariff_code)` — ne samo po tariff_code
 - CBBH kurs se čita iz baze, ne hardkoduje
+- **Auto-detekcija formata**: svaki importer ima `detect_*` funkciju
+- **Blagić Loren**: jedinica mjere može biti bilo koja riječ (regex: `[a-zA-Z]{1,10}`)
+- **IMAMOGLU**: dvofazno parsiranje (kodovi/opisi na str. 1-2, cijene na str. 4-5)
+- **Težine**: uvijek ekstraktovati gross/net weight iz PDF-a
+- **Rezultat**: uvijek vraća `ImportResult` sa items, bruto_kg, neto_kg
+- **OBAVEZNO — `consumed_paths`**: svaki kombinirani importer koji interno koristi drugi
+  fajl (Excel+PDF par, Invoice+PackingList) MORA postaviti
+  `consumed_paths=[putanja_potrošenog_fajla]` u `ImportResult`. Bez toga agent procesira
+  oba fajla zasebno → duplikati stavki u deklaraciji.
+  Primjer: CASE 1/2 (Blagić), CASE 1B/2B (Šumaprom), CASE 3/4 (Invoice+PackingList), Leburic.
+
+### GUI konvencije
+
+- **QTextEdit** za multi-line prikaze (ne QLineEdit)
+- **Read-only polja** za auto-popunjene vrijednosti
+- **Word wrap** omogućiti gdje je potrebno
 
 ### XML template (xml_template_service.py)
 
@@ -104,7 +131,18 @@ servisna klasa ih omotava kao public API. Controller metode su samo 1-liner pozi
 ### Naimenovanja
 
 - Rb.31 auto-opis se generiše po tarifi, ne prepisuje iz fakture
-- `le_r31_trg_naziv` prikazuje komercijalne nazive za pregled, ali ASYCUDA XML Rub.31 mora ostati max 280 znakova / 3 linije; skraćivanje raditi pri buildanju XML-a
+- **Trgovački naziv (`le_r31_trg_naziv`)**: prikazuje sve nazive proizvoda iz fakture koji
+  pripadaju tom naimenovanju (comma-separated / multi-line, QTextEdit)
+- ASYCUDA XML Rub.31 mora ostati max 280 znakova / 3 linije; skraćivanje raditi pri buildanju XML-a
+
+### Auto-popunjavanje tarifnih brojeva
+
+- **TariffMappingService**: mapiranje product_code/naziv_robe → tarifni_broj
+- Matching prioritet: 1) tačan match po `product_code`, 2) fuzzy match po nazivu (>85%)
+- Auto-učenje: sistem pamti mapiranja pri kreiranju naimenovanja
+- Database: tabela `product_tariff_mapping` u deklarant_sistem.db
+- ⚠️ Poznati obrazac buga: jedna ručna greška postane "naučen" trajni bug jer exact-match
+  nadjača fuzzy logiku (3x viđeno: GREJAC SPIRALA, Plamenik 540101...)
 
 ---
 
@@ -117,6 +155,51 @@ servisna klasa ih omotava kao public API. Controller metode su samo 1-liner pozi
 | Hardkodovati IP adresu servera u kodu | Mora biti u `config.ini` |
 | Dodavati UI logiku u servisne klase | Narušava razdvajanje slojeva |
 | Brisati stub fajlove u `services/agent/` bez provjere importa | Backward compat |
+| f-string za QSS blokove | CSS `{}` puca u f-stringu — koristiti `.replace("PLACEHOLDER", ...)` |
+| `return None` u `tab_factory`/`create_tab()` except bloku | Skriva greške — uvijek `raise` |
+
+---
+
+## Format zadatka za agenta (preporučeno)
+
+Za netrivijalne i debug zadatke, korisnik formuliše zadatak po ovom obrascu.
+Agent ga prepoznaje i direktno mapira na sekcije agent reporta (Korak 3):
+
+- **Zadatak** — šta treba popraviti/promijeniti
+- **Moja radna pretpostavka** — korisnikova hipoteza o uzroku/rješenju
+- **Provjeri hipotezu** — agent PRIJE izmjene potvrđuje ili odbacuje
+  hipotezu dokazima (baza, kod, logovi) → puni "Zašto je urađeno" i
+  "Verifikacija" u izvještaju
+- **Granice** — šta agent NE smije dirati (van scope-a) → puni "Šta nije dirano"
+- **Šta je dobar ishod** — opis vidljivog/testabilnog rezultata
+- **Obavezno** — agent prikazuje impact/rizik i ostavlja agent_report
+  → puni "GitNexus impact" i "Rizici / ograničenja"
+
+Ovaj format je preporuka, ne zamjena za Korak 1-5: za sitne, jednolinijske
+ispravke (npr. jedan red u bazi, jedna konstanta) format je nepotreban overhead.
+
+---
+
+## Plan prije izmjene — HIGH/CRITICAL GitNexus impact
+
+Ako `gitnexus_impact` za simbol koji se mijenja vrati **HIGH** ili **CRITICAL**,
+agent PRIJE izmjene napravi JEDAN kratki fajl (ne cijeli "project room"):
+
+```
+project_rooms/YYYY-MM-DD_kratak-naziv-zadatka.md
+```
+
+sa sekcijama:
+
+- **Cilj** — šta se mijenja i zašto
+- **Pogođeno** — simboli/procesi iz `gitnexus_impact` (broj, koji, rizik)
+- **Plan** — fajlovi i redoslijed izmjena
+- **Šta NE dirati** — eksplicitne granice (scope lock — vidi "Handoff visokog rizika" ispod)
+- **Konflikti** — ako postoje kontradiktorni izvori (stari agent_report, memorija, kod),
+  navesti oba, koji se tretira kao važeći i zašto, i da li je potrebna korisnička potvrda (DA/NE)
+
+Fajl se na kraju može spojiti u `agent_report` (Korak 3) ili obrisati — nije trajna
+dokumentacija. Za MEDIUM ili niži impact ovaj korak se preskače.
 
 ---
 
@@ -135,12 +218,68 @@ Za svaku planiranu izmjenu odredi i navedi:
 | Polje | Pitanje na koje odgovara |
 | --- | --- |
 | **Tip promjene** | bugfix / behavior adjustment / mapping correction / safety patch / refactor? |
-| **Prihvatljiv ishod (scope lock)** | šta MORA ostati identično (npr. "validacija ostaje ista osim novog izvora dokaza", "GUI ne mijenja ponašanje osim prikaza") |
+| **Prihvatljiv ishod (scope lock)** | šta MORA ostati identično (npr. "validacija ostaje ista osim novog izvora dokaza") |
 | **Nivo dozvole** | draft change only / no auto-merge / mandatory review / test gate required |
 
-Ovo dopunjuje pravilo "MUST warn the user if impact analysis returns HIGH or
-CRITICAL risk" (GitNexus sekcija ispod) — daje konkretan format umjesto generičkog
-upozorenja i tjera agenta da prije izmjene eksplicitno zapiše granice zadatka.
+---
+
+## ⚠️ OBAVEZNA PROCEDURA: nakon završenog zadatka (Korak 1-5)
+
+Svaki agent MORA slijediti ovaj redosljed nakon što završi zadatak.
+Git pre-commit hook (`scripts/git-hooks/pre-commit`) automatski sprovodi
+py_compile provjeru i ispisuje podsjetnike — NE zaobilaziti ga sa `--no-verify`.
+
+### Korak 1 — Git commit
+- Staged promjene grupisati po logičkim cjelinama (ne sve u jedan commit)
+- Format poruke: `tip(oblast): kratki opis` (`fix`, `feat`, `refactor`, `docs`, `chore`)
+- Uvijek dodati `Co-Authored-By:` liniju sa imenom modela koji je radio
+  (npr. `Co-Authored-By: Claude <noreply@anthropic.com>`)
+
+### Korak 2 — Zajednička memorija
+- Sve **ne-očigledno** i korisno za buduće sesije upisati u `docs/CONTEXT.md`
+  (svi agenti) — Claude dodatno u svoju sesijsku memoriju (vidi CLAUDE.md)
+- **Šta upisivati**: poslovne odluke, pravila koja nisu u kodu, bug uzroci, fiksevi koji se ponavljaju
+- **Šta NE upisivati**: šta kod radi (vidi se iz koda), git historija, privremeno stanje
+
+### Korak 3 — Agent report
+- Kreirati izvještaj u `agent_reports/YYYY-MM-DD_naziv-zadatka.md` sa sekcijama (`##`):
+  - **Datum**, **Agent**, **Scope** — fajlovi/moduli na koje se zadatak odnosi
+  - **Status izvora** (samo kompleksni/rizični zadaci) — koji raniji
+    agent_reports/memory/kod fajlovi su korišćeni i njihov status:
+    aktivan / zastario / duplikat / treba potvrdu
+  - **GitNexus impact** — rezultat provjere prije izmjene (rizik, broj pogođenih simbola/procesa)
+  - **Šta je urađeno** — kratki pregled promjena
+  - **Zašto je urađeno** — poslovni razlog, bug uzrok, odluka i alternativa
+  - **Kako je urađeno** — tehnički pristup, koje funkcije/fajlovi
+  - **Šta nije dirano** — eksplicitno navesti šta je OSTAVLJENO netaknuto
+  - **Verifikacija** — kako je dokazano da promjena radi (testovi, offscreen provjere, py_compile...)
+  - **Pronađeni problemi** — uključujući lažno pozitivne zaključke
+  - **Konflikti / kontradiktorni izvori** (ako postoje) — koji je tretiran kao važeći
+    i zašto, i da li treba korisnička potvrda (DA/NE)
+  - **Commitovi** — tabela hash/poruka
+  - **Rizici / ograničenja**
+  - **Potreban follow-up** — šta NIJE zatvoreno
+  - **Potrebna korisnička potvrda** — šta korisnik treba ručno provjeriti
+- Commitovati izvještaj odmah nakon pisanja
+
+### Korak 4 — Link u kodu (opcionalno, za kompleksne odluke)
+- Kada je odluka netrivijalna, dodati komentar koji referiše na izvještaj:
+  ```python
+  # Vidi agent_reports/2026-05-09_naziv.md — objašnjenje odluke
+  ```
+- Samo gdje je stvarno potrebno, ne na svakoj promjeni
+
+### Korak 5 — GitNexus ažuriranje
+- Nakon commita provjeriti je li GitNexus index zastario
+- Ako jeste: `npx gitnexus analyze`
+
+---
+
+## Testiranje
+
+- Uvijek testirati sa pravim fakturama iz `najavauvoza/` foldera
+- Debug ispisi moraju biti informativni i pregledni
+- Provjeriti edge case-ove (bez kodova, multi-line opisi, različite jedinice)
 
 ---
 
@@ -162,7 +301,7 @@ PITANJA: (ako postoje)
 - [ ] Nisam dodao nepotrebne komentare ili docstrings
 - [ ] Nisam ostavio zakomentiran kod
 - [ ] Nisam koristio string interpolaciju u SQL-u
-- [ ] Testovi prolaze: `cd /home/radovan/Desktop/deklarant_pro && python -m pytest tests/ -q`
+- [ ] Testovi prolaze: `python -m pytest tests/ -q` (iz korijena projekta)
 - [ ] Output format je popunjen (STATUS, IZMIJENJENI FAJLOVI, itd.)
 
 ## DOC Guard

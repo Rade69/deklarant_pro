@@ -3,7 +3,7 @@
 > Ovaj fajl čitaju SVI agenti: Claude, Qwen, DeepSeek, i drugi.
 > Sadrži ne-trivijalne odluke i pravila koja nisu vidljiva iz samog koda.
 > Ažurira ga Claude na kraju svake sesije u kojoj je donesena nova bitna odluka.
-> Posljednje ažuriranje: 2026-05-29
+> Posljednje ažuriranje: 2026-07-18
 
 ---
 
@@ -271,3 +271,14 @@ Ne čuva se u PostgreSQL-u i nema posebno dugme za listu nacrta.
 `Uvezi XML` razlikuje Deklarant Pro nacrt od ASYCUDA XML-a: nacrt obnavlja cijeli
 `DeclarationDraft`, dok ASYCUDA XML ostaje u postojećem import toku.
 Podrazumijevani folder je `Documents/Deklarant Pro/Nacrti`; pamti se posljednja lokacija.
+
+---
+
+## 15. Multiagentski harness (2026-07-18)
+
+`AGENTS.md` u korijenu je KANONSKI fajl pravila za sve agente (Claude, Codex,
+DeepSeek, GLM, Kimi, MiniMax...). `CLAUDE.md` ga importuje (`@AGENTS.md`) i sadrži
+samo Claude-specifičnu memoriju — pravila se mijenjaju isključivo u AGENTS.md.
+Git pre-commit hook (`scripts/git-hooks/pre-commit`) sprovodi py_compile na staged
+.py fajlovima + podsjetnike za Korak 1-5; instalacija po mašini:
+`git config core.hooksPath scripts/git-hooks`. Ne zaobilaziti sa `--no-verify`.
