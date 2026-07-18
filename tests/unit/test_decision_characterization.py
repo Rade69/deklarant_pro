@@ -624,3 +624,341 @@ def test_characterization_validator_eup_with_eur1_is_valid():
     result = validator.validate(line)
     assert result.valid is True
     assert len(result.errors) == 0
+
+
+# ═══════════════════════════════════════════════════════════════════
+# KARAKTERIZACIONI TESTOVI SA STVARNOM BAZOM
+#
+# Ovi testovi zahtijevaju konekciju na PostgreSQL bazu (192.168.0.25).
+# Pozivaju stvarne servise: TariffMappingService, AutoFillService.
+# _increment_usage je monkeypatch-ovan da ne modificira produkcijske
+# podatke tokom testiranja.
+# ═══════════════════════════════════════════════════════════════════
+
+
+@pytest.fixture
+def _safe_tariff_service(monkeypatch):
+    """TariffMappingService sa neutralisanim _increment_usage."""
+    from services.tariff_mapping_service import TariffMappingService
+
+    svc = TariffMappingService()
+
+    def noop_increment(self, tarifni_broj, product_code, naziv_robe):
+        pass
+
+    monkeypatch.setattr(TariffMappingService, "_increment_usage", noop_increment)
+    return svc
+
+
+def test_db_tariff_mapping_find_by_known_product_code(_safe_tariff_service):
+    """
+    TariffMappingService.find_mapping() sa poznatim product_code-om
+    iz baze (6002-2Z → 84821000, 366x koristen).
+
+    POZIVA: TariffMappingService.find_mapping() — stvarni servis + baza.
+    """
+    mapping = _safe_tariff_service.find_mapping(
+        product_code="6002-2Z",
+        naziv_robe="",
+    )
+
+    assert mapping is not None, (
+        "Poznati product_code '6002-2Z' MORA vratiti mapping iz baze"
+    )
+    assert mapping.tarifni_broj == "84821000"
+    assert mapping.similarity == 1.0
+    assert mapping.usage_count >= 100
+
+
+def test_db_tariff_mapping_find_by_naziv_robe(_safe_tariff_service):
+    """
+    TariffMappingService.find_mapping() sa nazivom robe koji ima
+    majority vote u bazi.
+
+    POZIVA: TariffMappingService.find_mapping() — stvarni servis + baza.
+    """
+    mapping = _safe_tariff_service.find_mapping(
+        product_code="",
+        naziv_robe="Lezaj 6002",
+    )
+
+    assert mapping is not None, (
+        "Naziv 'Lezaj 6002' MORA vratiti mapping (fuzzy ili vote match)"
+    )
+    assert len(mapping.tarifni_broj) >= 8
+    assert mapping.usage_count > 0
+    assert mapping.similarity > 0.0
+
+
+def test_db_tariff_mapping_unknown_product_returns_none(_safe_tariff_service):
+    """
+    TariffMappingService.find_mapping() za nepostojeci proizvod
+    sa thresholdom 0.92 (projektni min_similarity) vraca None.
+
+    POZIVA: TariffMappingService.find_mapping() — stvarni servis + baza.
+    """
+    mapping = _safe_tariff_service.find_mapping(
+        product_code="NEPOSTOJECI-KOD-123456789",
+        naziv_robe="XYZZY NEPOSTOJECI PROIZVOD ZA TEST",
+        min_similarity=0.92,
+    )
+
+    assert mapping is None, (
+        "Nepostojeci proizvod sa thresholdom 0.92 MORA vratiti None"
+    )
+
+
+def test_db_auto_populate_tariffs_writes_tariff_to_line(_safe_tariff_service, monkeypatch):
+    """
+    TariffMappingService.auto_populate_tariffs() za stavku sa
+    poznatim product_code-om upisuje tarifni_broj u InvoiceLine.
+
+    Ovo karakterise trenutno ponasanje: servis DIREKTNO pise
+    u InvoiceLine (sto ce se migrirati u Fazi 4).
+
+    POZIVA: TariffMappingService.auto_populate_tariffs() — stvarni servis + baza.
+    """
+    monkeypatch.setattr(_safe_tariff_service, "_increment_usage", lambda a, b, c: None)
+
+    line = _make_line(
+        product_code="6002-2Z",
+        naziv_robe="Lezaj 6002-2Z",
+        tarifni_broj="",
+    )
+
+    result = _safe_tariff_service.auto_populate_tariffs(
+        [line], min_similarity=0.70, overwrite_existing=False
+    )
+
+    assert result.matched_items >= 1, (
+        "Poznati product_code MORA biti match-ovan"
+    )
+    assert line.tarifni_broj != "", (
+        "DIREKTNO upisuje tarifni_broj (trenutno ponasanje)"
+    )
+    assert len(line.tarifni_broj) >= 8
+
+
+def test_db_auto_fill_service_writes_tariff(monkeypatch):
+    """
+    AutoFillService.fill_tariff_numbers() za stavku sa poznatim
+    product_code-om upisuje tarifni_broj.
+
+    POZIVA: AutoFillService.fill_tariff_numbers() — stvarni servis + baza.
+    """
+    from services.faktura.auto_fill_service import AutoFillService
+    from services.tariff_mapping_service import TariffMappingService
+
+    def noop(self, a, b, c):
+        pass
+    monkeypatch.setattr(TariffMappingService, "_increment_usage", noop)
+
+    line = _make_line(
+        product_code="6002-2Z",
+        naziv_robe="Lezaj 6002-2Z",
+        tarifni_broj="",
+        zemlja_porijekla="JP",
+    )
+
+    result = AutoFillService.fill_tariff_numbers([line], min_similarity=0.70)
+
+    assert result["matched"] >= 1, (
+        "Poznati product_code MORA biti match-ovan"
+    )
+    assert line.tarifni_broj != "", (
+        "AutoFillService DIREKTNO upisuje — paralelni put za migraciju (Faza 4.1)"
+    )
+    assert line.tariff_similarity > 0.0
+
+
+def test_db_auto_populate_respects_existing_tariff(_safe_tariff_service, monkeypatch):
+    """
+    TariffMappingService.auto_populate_tariffs() NE prepisuje
+    postojeci tarifni_broj (overwrite_existing=False).
+
+    POZIVA: TariffMappingService.auto_populate_tariffs() — stvarni servis + baza.
+    """
+    monkeypatch.setattr(_safe_tariff_service, "_increment_usage", lambda a, b, c: None)
+
+    existing_tariff = "99999999"
+    line = _make_line(
+        product_code="6002-2Z",
+        naziv_robe="Lezaj 6002-2Z",
+        tarifni_broj=existing_tariff,
+    )
+
+    _safe_tariff_service.auto_populate_tariffs(
+        [line], min_similarity=0.70, overwrite_existing=False
+    )
+
+    assert line.tarifni_broj == existing_tariff, (
+        "NE SMIJE prepisati postojeci tarifni_broj"
+    )
+
+
+def test_db_auto_populate_overwrites_when_requested(_safe_tariff_service, monkeypatch):
+    """
+    TariffMappingService.auto_populate_tariffs() PREPISUJE
+    kad je overwrite_existing=True.
+
+    POZIVA: TariffMappingService.auto_populate_tariffs() — stvarni servis + baza.
+    """
+    monkeypatch.setattr(_safe_tariff_service, "_increment_usage", lambda a, b, c: None)
+
+    line = _make_line(
+        product_code="6002-2Z",
+        naziv_robe="Lezaj 6002-2Z",
+        tarifni_broj="00000000",
+    )
+
+    _safe_tariff_service.auto_populate_tariffs(
+        [line], min_similarity=0.70, overwrite_existing=True
+    )
+
+    assert line.tarifni_broj != "00000000"
+    assert len(line.tarifni_broj) == 8
+
+
+@pytest.mark.xfail(
+    reason="BUG: find_batch_by_product_codes() ima SQL gresku — "
+           "'argument of CASE/WHEN must not return a set'. "
+           "unnest() u CASE/WHEN nije podrzan u PostgreSQL-u. "
+           "Metoda uvijek vraca prazan dict. "
+           "Ispravice se u Fazi 4.1 (refaktor TariffMappingService).",
+    strict=False,
+)
+def test_db_find_batch_by_product_codes(_safe_tariff_service):
+    """
+    TariffMappingService.find_batch_by_product_codes() — TRENUTNO
+    NE RADI zbog SQL greske (unnest u CASE/WHEN).
+
+    Zeljeni ugovor: batch lookup vraca mapiranja za vise kodova.
+
+    POZIVA: TariffMappingService.find_batch_by_product_codes() — stvarni servis + baza.
+    """
+    codes = ["6002-2Z", "W99-89", "NEPOSTOJECI-XXXX"]
+
+    result = _safe_tariff_service.find_batch_by_product_codes(codes)
+
+    assert "6002-2Z" in result
+    assert "W99-89" in result
+    assert result["6002-2Z"].tarifni_broj == "84821000"
+    assert result["W99-89"].tarifni_broj == "82054000"
+    assert "NEPOSTOJECI-XXXX" not in result
+
+
+def test_db_auto_populate_multiple_lines_independent(_safe_tariff_service, monkeypatch):
+    """
+    auto_populate_tariffs() za vise stavki — svaka dobija nezavisnu
+    tarifu. Razliciti proizvodi → razlicite tarife.
+
+    POZIVA: TariffMappingService.auto_populate_tariffs() — stvarni servis + baza.
+    """
+    monkeypatch.setattr(_safe_tariff_service, "_increment_usage", lambda a, b, c: None)
+
+    lines = [
+        _make_line(line_no=1, product_code="6002-2Z", naziv_robe="Lezaj", tarifni_broj=""),
+        _make_line(line_no=2, product_code="W99-89", naziv_robe="Alat", tarifni_broj=""),
+        _make_line(line_no=3, product_code="NEPOSTOJECI-XYZ", naziv_robe="Nepostojeci", tarifni_broj=""),
+    ]
+
+    result = _safe_tariff_service.auto_populate_tariffs(lines, min_similarity=0.70)
+
+    assert result.total_items == 3
+    assert result.matched_items >= 2
+    assert lines[0].tarifni_broj == "84821000"
+    assert lines[1].tarifni_broj == "82054000"
+    assert lines[2].tarifni_broj == ""
+    assert lines[0].tarifni_broj != lines[1].tarifni_broj
+
+
+def test_db_auto_fill_vs_agent_same_input_same_candidate(monkeypatch):
+    """
+    SCENARIO 1 (prosireno): Ista stavka kroz AutoFillService
+    i TariffMappingService daje ISTOG kandidata.
+
+    Kljucni test pariteta: rucni i Agent tok = isti rezultat.
+
+    POZIVA: AutoFillService.fill_tariff_numbers() I
+            TariffMappingService.find_mapping() — stvarni servisi + baza.
+    """
+    from services.faktura.auto_fill_service import AutoFillService
+    from services.tariff_mapping_service import TariffMappingService
+
+    def noop(self, a, b, c):
+        pass
+    monkeypatch.setattr(TariffMappingService, "_increment_usage", noop)
+
+    line_manual = _make_line(
+        product_code="6002-2Z", naziv_robe="Lezaj 6002-2Z", tarifni_broj=""
+    )
+    AutoFillService.fill_tariff_numbers([line_manual], min_similarity=0.70)
+
+    svc = TariffMappingService()
+    mapping = svc.find_mapping(product_code="6002-2Z", naziv_robe="Lezaj 6002-2Z")
+
+    assert mapping is not None
+    assert line_manual.tarifni_broj == mapping.tarifni_broj, (
+        f"Rucni ({line_manual.tarifni_broj}) != Agent ({mapping.tarifni_broj})"
+    )
+
+
+def test_db_weak_fuzzy_match_not_auto_populated(_safe_tariff_service, monkeypatch):
+    """
+    SCENARIO 3 (prosireno): Slab fuzzy match sa thresholdom 0.92
+    NE upisuje tarifu automatski.
+
+    POZIVA: TariffMappingService.auto_populate_tariffs() — stvarni servis + baza.
+    """
+    monkeypatch.setattr(_safe_tariff_service, "_increment_usage", lambda a, b, c: None)
+
+    line = _make_line(
+        product_code="",
+        naziv_robe="Neki potpuno nepoznat industrijski proizvod XYZZY",
+        tarifni_broj="",
+    )
+
+    _safe_tariff_service.auto_populate_tariffs(
+        [line], min_similarity=0.92
+    )
+
+    assert line.tarifni_broj == "", (
+        "Nepoznati proizvod sa thresholdom 0.92 NE SMIJE dobiti tarifu"
+    )
+
+
+def test_db_mapping_service_read_only_operations_dont_modify_db():
+    """
+    find_mapping() i find_batch_by_product_codes() su read-only —
+    ne mijenjaju usage_count.
+
+    POZIVA: TariffMappingService.find_mapping(),
+            TariffMappingService.find_batch_by_product_codes()
+    """
+    from services.tariff_mapping_service import TariffMappingService
+    from database.db import get_db_connection
+
+    svc = TariffMappingService()
+
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT usage_count FROM catalogs.product_tariff_mapping WHERE product_code = %s",
+                ("6002-2Z",),
+            )
+            before = cur.fetchone()["usage_count"]
+
+    svc.find_mapping(product_code="6002-2Z", naziv_robe="")
+    svc.find_batch_by_product_codes(["6002-2Z"])
+
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT usage_count FROM catalogs.product_tariff_mapping WHERE product_code = %s",
+                ("6002-2Z",),
+            )
+            after = cur.fetchone()["usage_count"]
+
+    assert before == after, (
+        f"find_mapping() NE SMIJE mijenjati usage_count. Prije: {before}, Poslije: {after}"
+    )

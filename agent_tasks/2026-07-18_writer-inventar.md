@@ -108,6 +108,12 @@ ili kroz dict-based API.
 | C1 | `services/validation/preference_validator.py` | 242 | povlastica | **`auto_fix_missing_eur1()` piše `item.povlastica = 'PE1'`** — validator mora biti read-only! |
 | C2 | `gui/tabs/naimenovanja_view.py` | 2506 | tarifni_broj | `_on_tariff_changed` piše u `invoice_line.tarifni_broj` — zaobilazi decision servis |
 
+## D. SKRIVENI BUGOVI OTKRIVENI U FAZI 0
+
+| # | Fajl | Linija(e) | Problem |
+|---|------|-----------|---------|
+| D1 | `services/tariff/tariff_mapping_service.py` | `find_batch_by_product_codes()` | SQL greška: `unnest()` u `CASE/WHEN` — "argument of CASE/WHEN must not return a set". Metoda **uvijek vraća prazan dict**. Svi pozivaoci (ako postoje) dobijaju prazne rezultate. |
+
 ---
 
 ## REZIME
@@ -121,6 +127,7 @@ ili kroz dict-based API.
 | C. Read-only sa bugom | 2 | **BUG** — validator/dialog piše umjesto da samo čita |
 
 **Ukupno direktnih writer-a za migraciju:** 11 (A2) + 8 (A3) + 2 (C) = **21 mjesto**
+**Skriveni bugovi:** 1 (D1) — `find_batch_by_product_codes()` SQL greska
 
 **Nakon Faze 6, dozvoljeni direktni upisi SAMO u:**
 - A1: Parser/Deserializer granici (sirovi unos činjenica iz dokumenata)
