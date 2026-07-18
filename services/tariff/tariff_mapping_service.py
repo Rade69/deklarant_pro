@@ -863,6 +863,13 @@ class TariffMappingService:
                 logger.warning(f"⚠️  Nevalidan commodity_code: '{tarifni_broj}' — preskočeno")
                 return False
 
+            # Defanzivni truncate dok migracija 008 nije pokrenuta na serveru.
+            # Kolone dodate naknadno mogu imati CHARACTER VARYING(10) ograničenje.
+            pc = (product_code or "")[:200]
+            zp = (zemlja_porijekla or "")[:10]
+            pov = (povlastica or "")[:20]
+            pr1 = (precision_1 or "000")[:10]
+
             with get_db_connection() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute("""
@@ -878,7 +885,7 @@ class TariffMappingService:
                             povlastica = EXCLUDED.povlastica,
                             usage_count = catalogs.product_tariff_mapping.usage_count + 1,
                             last_used = CURRENT_TIMESTAMP
-                    """, (product_code or "", naziv_robe or "", commodity, precision_1, zemlja_porijekla, povlastica))
+                    """, (pc, naziv_robe or "", commodity, pr1, zp, pov))
 
             logger.info(f"✅ Sačuvano mapiranje: {product_code} → {commodity}/{precision_1}")
             return True
