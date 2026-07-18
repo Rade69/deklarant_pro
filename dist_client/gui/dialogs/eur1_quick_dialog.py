@@ -22,6 +22,17 @@ from PySide6.QtCore import Qt
 
 from core.draft.draft import InvoiceLine
 
+# Generičke oznake porijekla koje ne označavaju konkretnu državu —
+# svaka takva stavka prikazuje se zasebno u dijalogu (sa rb. brojem)
+# jer jedna pošiljka može imati više EUR.1 obrazaca
+_UNDETERMINED_ORIGINS = {"EU", "EWU", "XX", "ZZ"}
+
+
+def _is_generic_origin(country: str) -> bool:
+    """Vrati True ako zemlja porijekla nije konkretna država (EU, EVROPSKA UNIJA, ...)."""
+    upper = country.upper().strip()
+    return upper in _UNDETERMINED_ORIGINS or "UNIJA" in upper or "UNION" in upper
+
 
 class Eur1QuickDialog(QDialog):
     """
@@ -179,19 +190,26 @@ class Eur1QuickDialog(QDialog):
             if not country:
                 continue
             invoice_num = (item.invoice_number or 'BEZ_BROJA').strip()
-            key = f"{invoice_num} - {country}"
+            if _is_generic_origin(country):
+                # Neodređeno porijeklo (EU, EVROPSKA UNIJA...): svaka stavka
+                # u vlastiti red — jedna pošiljka može imati više EUR.1 obrazaca
+                key = f"{invoice_num} - {country}|rb{item.line_no}"
+            else:
+                key = f"{invoice_num} - {country}"
             if key not in groups:
                 groups[key] = []
             groups[key].append(item)
         return groups
 
     def _get_country_name(self, key: str) -> str:
-        """Dobavi naziv zemlje iz kljuca oblika 'INVOICE_NUM - COUNTRY'."""
-        # Parse 'IF0520/26-01 - RS' -> 'RS'
+        """Dobavi naziv zemlje iz kljuca oblika 'INVOICE_NUM - COUNTRY' ili 'INVOICE_NUM - COUNTRY|rbN'."""
         if ' - ' in key:
             country_code = key.split(' - ')[-1].strip()
         else:
             country_code = key
+        # Skini per-item sufiks ako postoji (npr. 'EU|rb78' → 'EU')
+        if '|rb' in country_code:
+            country_code = country_code.split('|rb')[0].strip()
         
         # Try to load from database
         try:
@@ -288,11 +306,26 @@ class Eur1QuickDialog(QDialog):
 
     def _populate_group_row(self, table: QTableWidget, row: int, key: str, items: List[InvoiceLine]) -> None:
         invoice_number = self._get_invoice_number(key)
-        country_code = key.split(' - ')[-1].strip() if ' - ' in key else key
+        raw_suffix = key.split(' - ')[-1].strip() if ' - ' in key else key
+        # Per-item red: 'EU|rb78' → country_code='EU', rb_no=78
+        if '|rb' in raw_suffix:
+            country_code, rb_str = raw_suffix.split('|rb', 1)
+            country_code = country_code.strip()
+            rb_no = rb_str.strip()
+            # Naziv stavke za lakšu identifikaciju
+            naziv = (items[0].naziv_robe or '')[:35] if items else ''
+            display_invoice = f"{invoice_number}  rb.{rb_no} — {naziv}"
+        else:
+            country_code = raw_suffix
+            rb_no = None
+            display_invoice = invoice_number
         country_name = self._get_country_name(key)
         preference = self._suggest_preference(country_code)
 
-        table.setItem(row, 0, QTableWidgetItem(invoice_number))
+        inv_item = QTableWidgetItem(display_invoice)
+        if rb_no:
+            inv_item.setToolTip(f"Stavka rb.{rb_no}: {(items[0].naziv_robe or '') if items else ''}")
+        table.setItem(row, 0, inv_item)
 
         country_combo = self._create_country_combo(country_code)
         country_combo.setMinimumWidth(190)
