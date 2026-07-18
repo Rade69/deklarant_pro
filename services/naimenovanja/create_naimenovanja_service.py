@@ -18,6 +18,7 @@ from copy import deepcopy
 from typing import List, Dict, Optional
 from dataclasses import dataclass
 from core.draft import DeclarationDraft, NaimenovanjeDraft, InvoiceLine
+from core.decision.decision_model import DecisionStatus
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +69,43 @@ class CreateNaimenovanjaService:
     def __init__(self, draft: DeclarationDraft):
         self.draft = draft
         self.last_split_info: Optional[NaimenovanjaSplitInfo] = None
+
+    def check_preflight(self) -> list[str]:
+        """
+        Preflight provjera prije kreiranja naimenovanja.
+
+        Vraca listu upozorenja za stavke gdje:
+        - Povlastica postoji ali decision_state nije CONFIRMED
+        - Tarifa postoji ali decision_state je UNKNOWN/CANDIDATE
+
+        Prazna lista = sve je spremno za kreiranje naimenovanja.
+        """
+        warnings: list[str] = []
+        for line in self.draft.invoice_lines:
+            prefix = f"Stavka {line.line_no}" if line.line_no else "Stavka"
+            ds = line.decision_state
+
+            if ds is not None:
+                if line.povlastica and not ds.preference.is_confirmed:
+                    warnings.append(
+                        f"{prefix}: povlastica '{line.povlastica}' nije potvrdjena "
+                        f"(status={ds.preference.status.value}). "
+                        f"Potvrdi kroz EUR.1/PE2 dijalog."
+                    )
+                if line.tarifni_broj and ds.tariff.status not in (
+                    DecisionStatus.CONFIRMED, DecisionStatus.CANDIDATE
+                ):
+                    warnings.append(
+                        f"{prefix}: tarifa '{line.tarifni_broj}' nije evaluirana "
+                        f"(status={ds.tariff.status.value})"
+                    )
+            elif line.povlastica:
+                warnings.append(
+                    f"{prefix}: povlastica '{line.povlastica}' postoji "
+                    f"ali decision_state nije postavljen. Pokreni evaluaciju."
+                )
+
+        return warnings
 
     def create_one_to_one(self) -> int:
         """

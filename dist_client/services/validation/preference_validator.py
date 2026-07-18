@@ -219,17 +219,11 @@ class PreferenceValidator:
     
     def auto_fix_missing_eur1(self, items: List[InvoiceLine]) -> int:
         """
-        Automatski popravi stavke kojima nedostaje EUR.1.
-        
-        Pravilo:
-        - Ako ima povlasticu (CEFTAP/EUP/TRP) ali nema EUR.1 → postavi PE1
-        - Korisnik mora ručno da unese EUR.1 broj
-        
-        Args:
-            items: Lista stavki
-            
-        Returns:
-            Broj popravljenih stavki
+        DEPRECATED — koristiti DeclarationDecisionService.confirm_manual_value().
+
+        Ovaj metod direktno pise item.povlastica = 'PE1' sto narusava
+        read-only prirodu validatora. Zadrzan je zbog backward kompatibilnosti
+        dok se svi pozivaoci ne migriraju na decision servis (Faza 6).
         """
         fixed_count = 0
         
