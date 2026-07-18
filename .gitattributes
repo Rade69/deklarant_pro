@@ -9,6 +9,9 @@
 # Python — uvijek LF
 *.py text eol=lf
 
+# Git hookovi — sh skripte, CRLF ih lomi na Linuxu
+scripts/git-hooks/* text eol=lf
+
 # Markdown, JSON, YAML — LF
 *.md text eol=lf
 *.json text eol=lf

@@ -1,0 +1,31 @@
+#!/bin/sh
+# Pre-commit hook — Deklarant Pro (vidi AGENTS.md, "OBAVEZNA PROCEDURA")
+# Instalacija (jednom po masini): git config core.hooksPath scripts/git-hooks
+# Namjerno bez emoji-ja: cp1252 na Windows konzoli puca na Unicode.
+
+files=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$')
+
+fail=0
+if [ -n "$files" ]; then
+    echo "[pre-commit] py_compile provjera staged .py fajlova..."
+    for f in $files; do
+        if [ -f "$f" ]; then
+            err=$(python -m py_compile "$f" 2>&1) || {
+                echo "[pre-commit] GRESKA u $f:"
+                echo "$err"
+                fail=1
+            }
+        fi
+    done
+fi
+
+if [ "$fail" -ne 0 ]; then
+    echo "[pre-commit] Commit BLOKIRAN - ispravi sintaksne greske (bez --no-verify)."
+    exit 1
+fi
+
+echo "[pre-commit] OK. Podsjetnik (AGENTS.md, Korak 1-5):"
+echo "  - gitnexus_detect_changes() prije commita (provjera scope-a)"
+echo "  - agent_report u agent_reports/ na kraju zadatka"
+echo "  - ne-ocigledne stvari u docs/CONTEXT.md"
+exit 0
