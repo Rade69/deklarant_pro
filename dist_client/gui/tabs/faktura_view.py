@@ -51,10 +51,12 @@ from PySide6.QtGui import QColor, QFont, QFontMetrics, QIcon, QShortcut, QKeySeq
 
 try:
     import qtawesome as qta
+
     QTAWESOME_AVAILABLE = True
+    logging.getLogger(__name__).info("✅ QtAwesome učitan (verzija: %s)", qta.__version__)
 except ImportError as e:
     QTAWESOME_AVAILABLE = False
-    print(f"[WARN] QtAwesome nije dostupan: {e}")
+    logging.getLogger(__name__).warning("❌ QtAwesome import FAILED: %s", e)
 
 from gui.dialogs.eur1_quick_dialog import Eur1QuickDialog
 from gui.dialogs.pe2_quick_dialog import PE2QuickDialog
@@ -375,7 +377,7 @@ class FakturaView(BaseTabView):
             # Create HEADER label for this section
             header_label = QPushButton(section_name)
             header_label.setEnabled(False)
-            header_label.setFixedHeight(30)
+            header_label.setFixedHeight(40)
 
             # Border radius for first/last
             if idx == 0:
@@ -391,8 +393,8 @@ class FakturaView(BaseTabView):
                     background-color: {color};
                     color: {text_color};
                     font-weight: bold;
-                    font-size: 14px;
-                    padding: 5px 6px;
+                    font-size: 17px;
+                    padding: 10px 6px;
                     border: none;
                     border-bottom: 2px solid {self._darken_color(color)};
                     {border_radius}
@@ -414,8 +416,8 @@ class FakturaView(BaseTabView):
             # Create TOOLBAR section for this column
             toolbar_container = QWidget()
             toolbar_layout = QHBoxLayout(toolbar_container)
-            toolbar_layout.setContentsMargins(6, 5, 6, 5)
-            toolbar_layout.setSpacing(5)
+            toolbar_layout.setContentsMargins(8, 8, 8, 8)
+            toolbar_layout.setSpacing(6)
             self._toolbar_layouts.append(toolbar_layout)
 
             # Border radius for toolbar
@@ -696,7 +698,7 @@ class FakturaView(BaseTabView):
         if weights_widget is not None:
             weights_widget.setFixedWidth(weights_widget.sizeHint().width())
 
-        header_font_size = 13 if compact else 14
+        header_font_size = 15 if compact else 17
         for header in getattr(self, "_toolbar_headers", []):
             color = header.property("headerColor")
             text_color = header.property("headerTextColor")
@@ -708,7 +710,7 @@ class FakturaView(BaseTabView):
                     color: {text_color};
                     font-weight: bold;
                     font-size: {header_font_size}px;
-                    padding: 5px 4px;
+                    padding: 8px 4px;
                     border: none;
                     border-bottom: 2px solid {self._darken_color(color)};
                     {border_radius}
@@ -1261,7 +1263,7 @@ class FakturaView(BaseTabView):
         """
         if not item.country_confidence:
             return  # No confidence data
-        
+
         # Boja/znak na zemlji prati ISKLJUČIVO da li je povlastica EKSPLICITNO
         # potvrđena za ovu konkretnu stavku (povlastica + prateći dokument:
         # PE-šifra/EUR.1 broj/izjava o porijeklu) — bez obzira na pouzdanost
@@ -1558,6 +1560,7 @@ class FakturaView(BaseTabView):
                     zemlja_porijekla=getattr(line, 'zemlja_porijekla', '') or '',
                 )
             else:
+                # Fallback za .pyd verziju bez correct_mapping
                 svc.save_mapping(
                     getattr(line, 'product_code', '') or '',
                     line.naziv_robe or '',
@@ -2960,7 +2963,19 @@ class FakturaView(BaseTabView):
                 
                 # Reload table to show changes
                 self._load_data_from_draft()
-                
+
+                # Sinhronizuj decision_state nakon EUR.1 primjene
+                try:
+                    from services.decision.integration import sync_decision_state_after_preference
+                    for line in self.draft.invoice_lines:
+                        if line.povlastica:
+                            sync_decision_state_after_preference(
+                                line, line.povlastica, eur1_number=line.eur1_number or "",
+                                action_type="dialog_confirmed"
+                            )
+                except Exception:
+                    pass
+
                 # Obavesti korisnika
                 countries = ", ".join(eur1_data.keys())
                 QMessageBox.information(
@@ -2993,6 +3008,20 @@ class FakturaView(BaseTabView):
                 )
 
                 self._load_data_from_draft()
+
+                # Sinhronizuj decision_state nakon PE2 primjene
+                try:
+                    from services.decision.integration import sync_decision_state_after_preference
+                    for line in self.draft.invoice_lines:
+                        if line.povlastica:
+                            sync_decision_state_after_preference(
+                                line, line.povlastica,
+                                eur1_number=line.eur1_number if doc_code == "PE1" else "",
+                                invoice_number=invoice_number,
+                                action_type="dialog_confirmed"
+                            )
+                except Exception:
+                    pass
 
                 countries = ", ".join(pe2_data.keys())
                 QMessageBox.information(
@@ -4128,7 +4157,8 @@ class FakturaView(BaseTabView):
 
                 if not preview_details:
                     # Nema prijedloga — prikaži poruku i završi bez pisanja
-                    from services.tariff_mapping_service import MappingResult
+                    from dataclasses import dataclass, field as dc_field
+                    from services.tariff.tariff_mapping_service import MappingResult
                     empty = MappingResult(
                         total_items=len(target_lines),
                         matched_items=0,
@@ -4197,6 +4227,16 @@ class FakturaView(BaseTabView):
             # Izvještaj poslije popunjavanja (samo u interaktivnom modu)
             if not auto:
                 self._show_tariff_mapping_result(result, basic_filled_count)
+
+            # Sinhronizuj decision_state nakon auto-popune
+            if result.matched_items > 0:
+                try:
+                    from services.decision.integration import sync_decision_state_after_autofill
+                    sync_decision_state_after_autofill(
+                        target_lines, supplier=supplier_name, action_type="auto_fill_clicked"
+                    )
+                except Exception:
+                    pass
 
             return result
 

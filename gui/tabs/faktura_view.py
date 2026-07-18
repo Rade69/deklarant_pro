@@ -2963,7 +2963,19 @@ class FakturaView(BaseTabView):
                 
                 # Reload table to show changes
                 self._load_data_from_draft()
-                
+
+                # Sinhronizuj decision_state nakon EUR.1 primjene
+                try:
+                    from services.decision.integration import sync_decision_state_after_preference
+                    for line in self.draft.invoice_lines:
+                        if line.povlastica:
+                            sync_decision_state_after_preference(
+                                line, line.povlastica, eur1_number=line.eur1_number or "",
+                                action_type="dialog_confirmed"
+                            )
+                except Exception:
+                    pass
+
                 # Obavesti korisnika
                 countries = ", ".join(eur1_data.keys())
                 QMessageBox.information(
@@ -2996,6 +3008,20 @@ class FakturaView(BaseTabView):
                 )
 
                 self._load_data_from_draft()
+
+                # Sinhronizuj decision_state nakon PE2 primjene
+                try:
+                    from services.decision.integration import sync_decision_state_after_preference
+                    for line in self.draft.invoice_lines:
+                        if line.povlastica:
+                            sync_decision_state_after_preference(
+                                line, line.povlastica,
+                                eur1_number=line.eur1_number if doc_code == "PE1" else "",
+                                invoice_number=invoice_number,
+                                action_type="dialog_confirmed"
+                            )
+                except Exception:
+                    pass
 
                 countries = ", ".join(pe2_data.keys())
                 QMessageBox.information(
@@ -4201,6 +4227,16 @@ class FakturaView(BaseTabView):
             # Izvještaj poslije popunjavanja (samo u interaktivnom modu)
             if not auto:
                 self._show_tariff_mapping_result(result, basic_filled_count)
+
+            # Sinhronizuj decision_state nakon auto-popune
+            if result.matched_items > 0:
+                try:
+                    from services.decision.integration import sync_decision_state_after_autofill
+                    sync_decision_state_after_autofill(
+                        target_lines, supplier=supplier_name, action_type="auto_fill_clicked"
+                    )
+                except Exception:
+                    pass
 
             return result
 
