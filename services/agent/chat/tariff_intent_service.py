@@ -15,6 +15,9 @@ Business logika za:
 from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
+import logging
+
+logger = logging.getLogger("deklarant_pro.agent.tariff_intent")
 
 
 @dataclass
@@ -382,10 +385,20 @@ class TariffIntentService:
         from PySide6.QtWidgets import QApplication
 
         upisano = 0
+        changed_lines = []
         for p in proposals:
             line = self.draft.invoice_lines[p.line_index]
             line.tarifni_broj = p.proposed_tariff
+            changed_lines.append(line)
             upisano += 1
+
+        # Sinhronizuj decision_state nakon agent batch popune
+        if changed_lines:
+            try:
+                from services.decision.integration import sync_decision_state_after_autofill
+                sync_decision_state_after_autofill(changed_lines, action_type="dialog_confirmed")
+            except Exception:
+                logger.warning("Decision sync agent fill nije uspeo", exc_info=True)
 
         if self.on_refresh_faktura:
             QApplication.processEvents()
@@ -412,6 +425,11 @@ class TariffIntentService:
         for line in self.draft.invoice_lines:
             if getattr(line, 'tarifni_broj', None):
                 line.tarifni_broj = ''
+                # Resetuj i decision_state za tarifu
+                if line.decision_state:
+                    from core.decision.decision_model import DecisionStatus
+                    line.decision_state.tariff.status = DecisionStatus.UNKNOWN
+                    line.decision_state.tariff.applied_value = ''
                 obrisano += 1
 
         if self.on_refresh_faktura:

@@ -1964,6 +1964,17 @@ def _prikaz_tarifnih_trenutnih(ctrl) -> None:
                     ctrl.draft.invoice_lines[idx].tarifni_broj = tarif
             if hasattr(ctrl, '_refresh_faktura_tab'):
                 ctrl._refresh_faktura_tab()
+            # Sinhronizuj decision_state nakon istorijske validacije
+            try:
+                from services.decision.integration import sync_decision_state_after_autofill
+                changed_lines = [
+                    ctrl.draft.invoice_lines[idx] for idx, _ in changes
+                    if 0 <= idx < len(ctrl.draft.invoice_lines)
+                ]
+                if changed_lines:
+                    sync_decision_state_after_autofill(changed_lines, action_type="dialog_confirmed")
+            except Exception:
+                logger.warning("Decision sync istorijska validacija nije uspela", exc_info=True)
 
         dlg.tariffs_accepted.connect(_on_accepted)
         dlg.show()
@@ -2122,6 +2133,15 @@ def _upisi_tarifu_u_trenutnu_faktura_stavku(ctrl, tariff_code: str, save_mapping
 
     product_name = _invoice_line_product_name(line) or f"stavka {ordinal}"
     line.tarifni_broj = code
+
+    # Sinhronizuj decision_state nakon pojedinacnog upisa tarife
+    try:
+        from services.decision.integration import sync_decision_state_after_manual_edit
+        from core.decision.decision_model import DecisionField
+        sync_decision_state_after_manual_edit(line, DecisionField.TARIFF, code)
+    except Exception:
+        logger.warning("Decision sync single tariff nije uspeo", exc_info=True)
+
     _remember_tariff_context(ctrl, code, product_name=product_name)
 
     if hasattr(ctrl, "_refresh_faktura_tab"):
