@@ -40,6 +40,11 @@ class Eur1QuickDialog(QDialog):
         self.country_inputs = {}
         self._row_by_key = {}
         self._prefill_invoice_number = invoice_number
+        # Per-item tracking: da li neke stavke imaju izjavu o porijeklu (npr. Medicopharm)
+        self._any_has_statement = any(
+            getattr(item, 'has_origin_statement', False)
+            for item in invoice_lines
+        )
         self.setup_ui()
 
     def setup_ui(self):
@@ -51,18 +56,52 @@ class Eur1QuickDialog(QDialog):
         layout.setContentsMargins(18, 14, 18, 14)
         layout.setSpacing(10)
 
-        # HEADER - Objašnjenje
-        header = QLabel("PDF nema izjavu o preferencijalnom porijeklu.")
-        header.setStyleSheet("font-size: 15px; font-weight: bold; color: #856404; "
-                           "background: #fff3cd; padding: 10px; border-radius: 5px;")
+        # HEADER — razlikuj slučaj: bez izjave vs. izjava postoji ali vrijednost > 6.000 EUR
+        if self._any_has_statement:
+            header_txt = "Faktura sadrži izjavu o porijeklu, ali vrijednost prelazi 6.000 EUR."
+            header_style = ("font-size: 15px; font-weight: bold; color: #0c3547; "
+                            "background: #cce5f0; padding: 10px; border-radius: 5px;")
+            sub_txt = ("Za primjenu povlastice potreban je EUR.1 obrazac.\n"
+                       "Označi samo fakture i zemlje za koje stvarno postoji EUR.1 obrazac.\n"
+                       "Stavke koje ne označiš ostaju bez povlastice.")
+        else:
+            header_txt = "PDF nema izjavu o preferencijalnom porijeklu."
+            header_style = ("font-size: 15px; font-weight: bold; color: #856404; "
+                            "background: #fff3cd; padding: 10px; border-radius: 5px;")
+            sub_txt = ("Označi samo fakture i zemlje za koje stvarno postoji EUR.1 obrazac.\n"
+                       "Stavke koje ne označiš ostaju bez povlastice.")
+
+        header = QLabel(header_txt)
+        header.setStyleSheet(header_style)
         layout.addWidget(header)
 
-        subheader = QLabel(
-            "Označi samo fakture i zemlje za koje stvarno postoji EUR.1 obrazac.\n"
-            "Stavke koje ne označiš ostaju bez povlastice."
-        )
+        subheader = QLabel(sub_txt)
         subheader.setStyleSheet("color: #666; font-size: 12px; padding: 2px;")
         layout.addWidget(subheader)
+
+        # Info o parcijalnoj izjavi — kad neke stavke imaju izjavu, neke ne
+        if self._any_has_statement:
+            total = len(self.invoice_lines)
+            covered_count = sum(
+                1 for item in self.invoice_lines
+                if getattr(item, 'has_origin_statement', False)
+            )
+            uncovered = sorted(
+                item.line_no for item in self.invoice_lines
+                if not getattr(item, 'has_origin_statement', False)
+            )
+            if uncovered:
+                uncov_str = ", ".join(str(n) for n in uncovered)
+                partial_label = QLabel(
+                    f"ℹ️  Izjava na fakturi pokriva {covered_count}/{total} stavki. "
+                    f"Stavke rb. {uncov_str} nisu pokrivene izjavom i neće dobiti povlasticu."
+                )
+                partial_label.setStyleSheet(
+                    "font-size: 12px; color: #5a3e00; background: #fff8dc; "
+                    "padding: 8px; border-radius: 5px; border: 1px solid #e8c84a;"
+                )
+                partial_label.setWordWrap(True)
+                layout.addWidget(partial_label)
 
         countries = self._group_by_country()
 
@@ -121,15 +160,21 @@ class Eur1QuickDialog(QDialog):
 
     def _group_by_country(self) -> Dict[str, List[InvoiceLine]]:
         """Grupiši stavke po fakturi + zemlji porijekla.
-        
+
         Kada ima više faktura, svaka faktura treba da ima svoju grupu
         pa korisnik može da za svaku fakturu odabere zemlju i EUR.1 broj.
-        
+
+        Kad importer radi per-item has_origin_statement tracking (npr. Medicopharm —
+        izjava pokriva samo određene rbr-ove), stavke koje NISU u izjavi se
+        preskačaju, jer ne mogu dobiti EUR.1 povlasticu.
+
         Returns:
             Dict sa ključevima oblika 'INVOICE_NUM - COUNTRY' (npr. 'IF0520/26-01 - RS')
         """
         groups = {}
         for item in self.invoice_lines:
+            if self._any_has_statement and not getattr(item, 'has_origin_statement', False):
+                continue  # Per-item filter: stavka nije pokrivena izjavom — bez povlastice
             country = (item.zemlja_porijekla or '').strip().upper()
             if not country:
                 continue
