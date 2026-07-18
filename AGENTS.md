@@ -80,6 +80,19 @@ deklarant_pro/
 **Pattern za services/agent/:** slobodne funkcije koje primaju `ctrl` kao prvi argument,
 servisna klasa ih omotava kao public API. Controller metode su samo 1-liner pozivi servisa.
 
+### 3-layer pattern za tabove (OBAVEZNO)
+
+Svaki tab/modul je podijeljen na tri sloja — **ne miješati slojeve**:
+
+```text
+View       — samo UI, signali, prikaz podataka, NEMA business logike
+Controller — orchestration, event handling, povezuje View ↔ Service
+Service    — sva business logika, DB operacije, kalkulacije
+```
+
+Signali su jedini ispravni način komunikacije prema gore (View ne poziva
+Controller metode direktno). Business logika ili DB konekcija u View-u je greška.
+
 ---
 
 ## Ključne konvencije
@@ -94,6 +107,20 @@ servisna klasa ih omotava kao public API. Controller metode su samo 1-liner pozi
 - Debug ispisi: emoji za vizualnu identifikaciju (🔍, ✅, ⚠️, 📝) — ali NIKAD direktno
   na stderr (cp1252 na Windowsu puca); koristiti logger
 - Error handling: jasne poruke na srpskom
+
+### Imenovanje polja — KRITIČNO
+
+`InvoiceLine` i srodni modeli koriste **srpske nazive polja** — namjerno, ne mijenjati
+na engleski (lomi sve importere): `tarifni_broj`, `naziv_robe`, `zemlja_porijekla`,
+`povlastica`, `bruto_kg`, `neto_kg`, `iznos`, `kolicina`, `jm`, `eur1_number`.
+Izuzetak: **NaimenovanjeDraft koristi engleski** (`tariff_code`, `goods_description`,
+`origin_country_code`) — konzistentno s ASYCUDA XML formatom, takođe ne mijenjati.
+
+### Tarifni broj format
+
+- Interno **8 cifara bez tačaka**: `08052190`; PostgreSQL baza ima **10 cifara**: `0805219000`
+- Konverzija pri PG lookup-u: dodati `'00'` na kraj
+- Nikad ne čuvati format s tačkama (`0805.21.90`); normalizacija: `re.sub(r'\D', '', raw)[:10]`
 
 ### Formatiranje težina (bruto/neto kg)
 
@@ -134,6 +161,9 @@ servisna klasa ih omotava kao public API. Controller metode su samo 1-liner pozi
 - **Trgovački naziv (`le_r31_trg_naziv`)**: prikazuje sve nazive proizvoda iz fakture koji
   pripadaju tom naimenovanju (comma-separated / multi-line, QTextEdit)
 - ASYCUDA XML Rub.31 mora ostati max 280 znakova / 3 linije; skraćivanje raditi pri buildanju XML-a
+- **Grupiranje po 4 ključa** (svi moraju biti identični): `tarifni_broj`, `zemlja_porijekla`,
+  `povlastica`, `eur1_number` — koristiti `CreateNaimenovanjaService.create_smart_group()`,
+  ne pisati vlastitu logiku grupiranja
 
 ### Auto-popunjavanje tarifnih brojeva
 
@@ -143,6 +173,21 @@ servisna klasa ih omotava kao public API. Controller metode su samo 1-liner pozi
 - Database: tabela `product_tariff_mapping` u deklarant_sistem.db
 - ⚠️ Poznati obrazac buga: jedna ručna greška postane "naučen" trajni bug jer exact-match
   nadjača fuzzy logiku (3x viđeno: GREJAC SPIRALA, Plamenik 540101...)
+
+### LLM / Agent integracija
+
+- Primarni provider: Groq; fallback: Gemini (samo free modeli — DeepSeek isključen)
+- Koristiti `LLMProvider` klasu (`gui/tabs/agent/widgets/llm_provider.py`) —
+  **ne pozivati providere direktno** (zaobilazi fallback logiku)
+- Streaming kroz `provider.stream_chat()`, batch kroz `provider.complete()`
+- QThread workeri za sve LLM pozive — nikad blokirati UI thread
+
+### Baza podataka
+
+- `deklarant_sistem.db` (SQLite) — mappinzi, šifrarnici, lokalni podaci
+- `zvanicna_tarifa.db` (SQLite) — samo čitanje, carinska tarifa
+- PostgreSQL — `catalogs` schema; context manager (`with conn:`) za transakcije
+- `blockSignals(True/False)` pri bulk operacijama na Qt tabelama (vidi CONTEXT.md §5)
 
 ---
 
@@ -157,6 +202,12 @@ servisna klasa ih omotava kao public API. Controller metode su samo 1-liner pozi
 | Brisati stub fajlove u `services/agent/` bez provjere importa | Backward compat |
 | f-string za QSS blokove | CSS `{}` puca u f-stringu — koristiti `.replace("PLACEHOLDER", ...)` |
 | `return None` u `tab_factory`/`create_tab()` except bloku | Skriva greške — uvijek `raise` |
+| Pozivati Groq/Gemini direktno bez `LLMProvider` | Nema fallback logike |
+| Logika grupiranja naimenovanja van `CreateNaimenovanjaService` | Duplikacija, greške |
+| Mijenjati srpske field names na modelima | Lomi sve importere |
+| `mock` za SQLite/PostgreSQL u testovima | Maskira realne greške |
+| Zaokruživati težine na 2 decimale | Gubi se preciznost pri carinskom obračunu |
+| Miješati `draft.items` s `draft.invoice_lines` | Potpuno različiti koncepti |
 
 ---
 
