@@ -35,6 +35,7 @@ class ImportedLine:
     tariff: str = ""
     origin: str = ""
     preferential: str = ""
+    has_origin_statement: bool = False
     serials: List[str] | None = None
 
 
@@ -482,6 +483,7 @@ def convert_to_invoice_lines(
             bruto_kg=0.0,  # Nema pojedinačnih težina po stavci
             neto_kg=0.0,
             exporter=master_frigo_party,
+            has_origin_statement=item.has_origin_statement,
         )
         invoice_lines.append(invoice_line)
 
@@ -509,6 +511,11 @@ def import_master_frigo(
 
     currency = header.get("currency", "EUR")
     invoice_lines = convert_to_invoice_lines(imported_items, currency=currency)
+
+    # Fallback: ako nema per-item podataka ali postoji globalna izjava, primijeni na sve
+    if header.get("has_origin_statement") and not header.get("zemlja_porekla_data"):
+        for line in invoice_lines:
+            line.has_origin_statement = True
 
     _exp = Party(name="MASTER FRIGO")
     _imp = Party(name="MASTER FRIGO D.O.O. BANJA LUKA")  # domaća BiH firma
@@ -604,19 +611,27 @@ def _apply_origin_from_text(items: List[ImportedLine], origin_data: Optional[Dic
     ranges = origin_data.get("ranges", [])
 
     for item in items:
-        if item.origin:
-            continue  # Excel mapping ima prioritet
-        assigned = default
+        # Per-item preferential status (bez pref = nije pokriveno izjavom)
         pref = True
         for r in ranges:
             if r["start"] <= item.rbr <= r["end"]:
-                assigned = r["origin"]
                 pref = r["preferential"]
                 break
-        if assigned:
-            item.origin = assigned
-            if not pref and not item.preferential:
-                item.preferential = ""
+
+        if not item.origin:
+            # Excel mapping ima prioritet za origin; text data kao fallback
+            assigned = default
+            for r in ranges:
+                if r["start"] <= item.rbr <= r["end"]:
+                    assigned = r["origin"]
+                    break
+            if assigned:
+                item.origin = assigned
+                if not pref and not item.preferential:
+                    item.preferential = ""
+
+        # Per-item has_origin_statement: True=pokriveno izjavom, False=bez pref
+        item.has_origin_statement = pref
 
 
 def _detect_all_origin_statements(text: str) -> list:
