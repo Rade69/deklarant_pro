@@ -54,7 +54,7 @@ def adapt_tariff_evidence(line: "InvoiceLine", context: "PolicyContext") -> list
             mapping = svc.find_mapping(
                 product_code=line.product_code,
                 naziv_robe=line.naziv_robe,
-                min_similarity=0.70,
+                min_similarity=0.92,  # Projektni threshold
                 supplier=context.normalized_exporter,
             )
             if mapping:

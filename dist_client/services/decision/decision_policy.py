@@ -76,11 +76,16 @@ def can_auto_apply_tariff(candidate: "DecisionCandidate", context: PolicyContext
     if candidate.evidence is None:
         return False
 
+    ev = candidate.evidence
+
+    # LLM nikad ne stvara primjenjiv kandidat
+    if ev.source.value == "llm":
+        return False
+
     # Samo kroz eksplicitnu autorizaciju (Auto-popuni klik)
     if context.action_type not in ("auto_fill_clicked", "dialog_confirmed"):
         return False
 
-    ev = candidate.evidence
     # Mora biti jak dokaz: score >= 85 i potvrdjen izvor
     if ev.score < 85:
         return False
@@ -128,9 +133,14 @@ def can_auto_apply_origin(candidate: "DecisionCandidate", context: PolicyContext
     """Zemlja porijekla se smije automatski primijeniti samo iz dokumenta ili parsera."""
     if candidate.evidence is None:
         return False
+
+    ev = candidate.evidence
+
+    if ev.source.value == "llm":
+        return False
+
     if context.action_type not in ("auto_fill_clicked", "dialog_confirmed", "draft_restore"):
         return False
-    ev = candidate.evidence
     # Dokument: score >= 85 (pouzdano), Parser: score >= 70 (srednje pouzdan)
     if ev.source.value == "document":
         return ev.score >= 85
@@ -180,9 +190,14 @@ def can_auto_apply_preference(candidate: "DecisionCandidate", context: PolicyCon
     """
     if candidate.evidence is None:
         return False
+
+    ev = candidate.evidence
+
+    if ev.source.value == "llm":
+        return False
+
     # Samo kroz eksplicitni dijalog (dialog_confirmed)
     if context.action_type != "dialog_confirmed":
         return False
-    ev = candidate.evidence
     doc_code = ev.data.get("doc_code", "")
     return doc_code in ("PE1", "PE2", "PE3") and ev.source.value == "document"

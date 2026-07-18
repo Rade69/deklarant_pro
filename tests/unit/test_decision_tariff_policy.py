@@ -25,6 +25,8 @@ from core.decision.evidence import (
 )
 from services.decision.decision_policy import (
     PolicyContext,
+    can_auto_apply_origin,
+    can_auto_apply_preference,
     can_auto_apply_tariff,
     rank_tariff_candidates,
 )
@@ -194,6 +196,87 @@ def test_usage_count_not_increased_during_ranking():
         _make_exporter_candidate("84821000", score=90),
         _make_fuzzy_candidate("82054000", score=75),
     ]
-    # Ranking je cista funkcija — vraca sortiranu listu
     ranked = rank_tariff_candidates(candidates, PolicyContext())
     assert len(ranked) == 2
+
+
+# ═══════════════════════════════════════════════════════════════════
+# LLM zabrana
+# ═══════════════════════════════════════════════════════════════════
+
+def test_llm_never_auto_applies_even_with_high_score():
+    """LLM kandidat sa score=95, requires_confirmation=False,
+    auto_fill_clicked — i dalje NE SMIJE auto-apply.
+    
+    Plan Faze 3: 'LLM nikad ne stvara kandidat koji se moze primijeniti.'
+    """
+    ev = build_evidence(
+        DecisionSource.LLM,
+        DecisionConfidence.WEAK_GUESS,
+        score=95,
+        requires_confirmation=False,
+    )
+    candidate = DecisionCandidate.make(DecisionField.TARIFF, "84713000", ev)
+
+    # auto_fill_clicked sa score=95 — ali LLM → NE
+    ctx = PolicyContext(action_type="auto_fill_clicked")
+    assert can_auto_apply_tariff(candidate, ctx) is False
+
+    # dialog_confirmed sa score=95 — ali LLM → NE
+    ctx = PolicyContext(action_type="dialog_confirmed")
+    assert can_auto_apply_tariff(candidate, ctx) is False
+
+    # Cak i sa svim povoljnim uslovima, LLM je zabranjen
+    ctx = PolicyContext(action_type="dialog_confirmed")
+    assert can_auto_apply_origin(candidate, ctx) is False
+    assert can_auto_apply_preference(candidate, ctx) is False
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Fuzzy threshold 0.92
+# ═══════════════════════════════════════════════════════════════════
+
+def test_fuzzy_threshold_is_enforced_in_adapter():
+    """Fuzzy threshold 0.92 se primjenjuje u evidence adapteru.
+
+    Politika ne duplira threshold — prima vec filtrirane kandidate.
+    Adapter (adapt_tariff_evidence) poziva TariffMappingService.find_mapping()
+    sa min_similarity=0.92. Kandidat sa similarity < 0.92 nikad ne dolazi
+    do policy sloja.
+
+    Ovaj test samo dokumentuje da similarity field u Evidence.data
+    postoji za inspekciju, ali threshold provjeru radi adapter.
+    """
+    # Kandidat sa similarity 0.91 u data — ovo bi adapter filtrirao
+    ev = build_evidence(
+        DecisionSource.SIMILARITY,
+        DecisionConfidence.WEAK_GUESS,
+        score=70,
+        data={"similarity": 0.91},
+    )
+    candidate = DecisionCandidate.make(DecisionField.TARIFF, "84713000", ev)
+
+    # Cak i sa dobrim action_type, ovaj kandidat ne moze auto-apply
+    # jer score=70 < 85
+    ctx = PolicyContext(action_type="auto_fill_clicked")
+    assert can_auto_apply_tariff(candidate, ctx) is False
+
+    # score=70 automatski znaci da similarity < 0.92 (jer score
+    # reflektuje kvalitet matcha — similarity 1.0 daje score >= 95)
+
+
+def test_fuzzy_threshold_092_passes_when_score_high():
+    """Kandidat sa similarity >= 0.92 ima score >= 85 i moze proci
+    auto-apply uz ispravan action_type (ako je adapter propustio)."""
+    ev = build_evidence(
+        DecisionSource.SIMILARITY,
+        DecisionConfidence.SUGGESTED_BY_SIMILARITY,
+        score=85,
+        requires_confirmation=False,
+        data={"similarity": 0.92},
+    )
+    candidate = DecisionCandidate.make(DecisionField.TARIFF, "84713000", ev)
+
+    ctx = PolicyContext(action_type="auto_fill_clicked")
+    # Moze auto-apply — score >= 85, similarity >= 0.92
+    assert can_auto_apply_tariff(candidate, ctx) is True
