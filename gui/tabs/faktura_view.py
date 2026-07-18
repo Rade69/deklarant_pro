@@ -2965,8 +2965,20 @@ class FakturaView(BaseTabView):
                     msg.setDefaultButton(QMessageBox.Yes)
                     
                     if msg.exec() == QMessageBox.Yes:
-                        # Automatska konverzija
-                        fixed_count = validator.auto_fix_missing_eur1(self.draft.invoice_lines)
+                        # Automatska konverzija kroz decision servis (umjesto auto_fix_missing_eur1)
+                        from services.decision.declaration_decision_service import (
+                            Authorization, DeclarationDecisionService
+                        )
+                        from core.decision.decision_model import DecisionField
+                        _svc = DeclarationDecisionService()
+                        _auth = Authorization(action_type="dialog_confirmed", user_identity="deklarant")
+                        fixed_count = 0
+                        for _line in self.draft.invoice_lines:
+                            pref = (_line.povlastica or "").strip().upper()
+                            if pref in {'CEFTAP', 'EUP', 'TRP'} and not (_line.eur1_number or "").strip():
+                                _svc.confirm_manual_value(_line, DecisionField.PREFERENCE, 'PE1', _auth)
+                                fixed_count += 1
+                        logger.debug("EUR.1 konverzija: %d stavki konvertovano u PE1 kroz decision servis", fixed_count)
                         QMessageBox.information(
                             self,
                             "Konverzija izvršena",

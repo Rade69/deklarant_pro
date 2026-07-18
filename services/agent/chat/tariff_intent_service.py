@@ -609,5 +609,3 @@ class TariffIntentService:
         if ctrl and hasattr(ctrl, 'view'):
             return ctrl.view
         return None
-
-

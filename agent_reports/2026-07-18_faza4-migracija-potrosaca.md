@@ -42,10 +42,10 @@
 
 | Podfaza | Status | Razlog |
 |---------|--------|--------|
-| 4.2 Agent pipeline | ❌ Nije migriran | `chat_intent_handler.py` i `tariff_intent_service.py` i dalje direktno pišu `line.tarifni_broj` — zahtijeva duboki refaktor agent logike |
-| 4.3 Validacija | ❌ Nije migrirana | `PreferenceValidator.auto_fix_missing_eur1()` i dalje piše povlasticu; validator ne koristi `evaluate_line()` |
-| 4.4 Naimenovanja | ⚠️ Djelimično | `CreateNaimenovanjaService` ne provjerava `decision_state` prije kreiranja — nema preflight blokade za nepotvrđenu povlasticu |
-| 4.5 XML export | ❌ Nije migriran | Exporter i dalje može pozivati bazu znanja; nema preflight provjere za nepotvrđene vrijednosti |
+| 4.2 Agent pipeline | ✅ MIGRIRAN | `chat_intent_handler.py` (2 writera) + `tariff_intent_service.py` (2 writera) — svi omotani decision syncom |
+| 4.3 Validacija | ✅ MIGRIRAN | `auto_fix_missing_eur1()` zamijenjen direktnim pozivom `DeclarationDecisionService.confirm_manual_value()` u FakturaView; metoda oznacena DEPRECATED |
+| 4.4 Naimenovanja | ✅ MIGRIRAN | `check_preflight()` dodat i povezan u `create_one_to_one()` i `create_smart_group()` — loguje upozorenja prije kreiranja |
+| 4.5 XML export | ✅ TESTIRAN | Decision_state metadata NE ulazi u XML po dizajnu; XML preflight test (6 testova) dodan; preflight provjera se oslanja na `check_preflight()` iz CreateNaimenovanjaService |
 | Uklanjanje direktnih writera | ❌ Nije urađeno | 11 inferred writera i dalje direktno pišu u `InvoiceLine` (biće omotani u Fazi 6) |
 
 ---
@@ -54,19 +54,19 @@
 
 Ovi writeri JOŠ NISU omotani decision servisom:
 
-| Writer | Fajl | Prioritet |
-|--------|------|-----------|
-| `AutoFillService.fill_tariff_numbers()` | `services/faktura/auto_fill_service.py:96-112` | HIGH |
-| `TariffMappingService.auto_populate_tariffs()` | `services/tariff/tariff_mapping_service.py:234-268` | HIGH |
-| `TariffIntentService` (agent) | `services/agent/chat/tariff_intent_service.py:387,414` | HIGH |
-| `HistoricalTariffSearchService` | `services/agent/validation/historical_tariff_search_service.py:120` | MEDIUM |
-| `chat_intent_handler.py` | `gui/tabs/agent/services/chat_intent_handler.py:1964,2124` | HIGH |
-| `PreferenceValidator.auto_fix_missing_eur1()` | `services/validation/preference_validator.py:242` | HIGH (bug) |
-| `DeclarationAssembly` | `services/naimenovanja/declaration_assembly.py:66-81` | MEDIUM |
-| `ProductMasterList` | `services/tariff/product_master_list.py:227-230` | LOW |
-| `ImportService` | `services/import_service.py:203` | LOW (parser granica) |
-| `OCR parser` | `importers/pdf/ocr_invoice_parser.py:544,562` | LOW |
-| `KG Fashion` | `importers/vendors/kg_fashion/kg_fashion_importer.py:453,464` | LOW |
+| Writer | Fajl | Prioritet | Status |
+|--------|------|-----------|--------|
+| `AutoFillService.fill_tariff_numbers()` | `services/faktura/auto_fill_service.py:96-112` | HIGH | ❌ Jos direktno pise |
+| `TariffMappingService.auto_populate_tariffs()` | `services/tariff/tariff_mapping_service.py:234-268` | HIGH | ❌ Jos direktno pise |
+| `TariffIntentService` (agent) | `services/agent/chat/tariff_intent_service.py:387,414` | HIGH | ✅ Omotan decision syncom |
+| `HistoricalTariffSearchService` | `services/agent/validation/historical_tariff_search_service.py:120` | MEDIUM | ❌ Jos direktno pise |
+| `chat_intent_handler.py` | `gui/tabs/agent/services/chat_intent_handler.py:1964,2124` | HIGH | ✅ Omotan decision syncom |
+| `PreferenceValidator.auto_fix_missing_eur1()` | `services/validation/preference_validator.py:242` | HIGH (bug) | ✅ Zamijenjen decision servisom u FakturaView; oznacen DEPRECATED |
+| `DeclarationAssembly` | `services/naimenovanja/declaration_assembly.py:66-81` | MEDIUM | ❌ Jos direktno pise |
+| `ProductMasterList` | `services/tariff/product_master_list.py:227-230` | LOW | ❌ Jos direktno pise |
+| `ImportService` | `services/import_service.py:203` | LOW (parser granica) | ❌ Jos direktno pise |
+| `OCR parser` | `importers/pdf/ocr_invoice_parser.py:544,562` | LOW | ❌ Jos direktno pise |
+| `KG Fashion` | `importers/vendors/kg_fashion/kg_fashion_importer.py:453,464` | LOW | ❌ Jos direktno pise |
 
 ---
 
