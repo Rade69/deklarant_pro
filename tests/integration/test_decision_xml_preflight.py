@@ -121,6 +121,36 @@ def test_preflight_detects_unconfirmed_tariff():
     assert any("tarifa" in w and "nije evaluirana" in w for w in warnings)
 
 
+def test_create_flows_call_preflight(monkeypatch):
+    """create_one_to_one() i create_smart_group() pozivaju preflight prije kreiranja."""
+    draft = DeclarationDraft()
+    draft.invoice_lines = [
+        _make_line(
+            line_no=1,
+            tarifni_broj="84821000",
+            zemlja_porijekla="RS",
+            kolicina=1,
+            bruto_kg=1,
+            neto_kg=1,
+            iznos=10,
+        )
+    ]
+
+    calls: list[str] = []
+
+    def fake_log(self, context: str) -> list[str]:
+        calls.append(context)
+        return []
+
+    monkeypatch.setattr(CreateNaimenovanjaService, "_log_preflight_warnings", fake_log)
+
+    svc = CreateNaimenovanjaService(draft)
+    svc.create_one_to_one()
+    svc.create_smart_group()
+
+    assert calls == ["one_to_one", "smart_group"]
+
+
 def test_decision_state_not_in_xml_metadata():
     """
     Decision_state metadata NE SMIJE uci u ASYCUDA XML.

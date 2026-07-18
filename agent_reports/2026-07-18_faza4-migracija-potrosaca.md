@@ -44,7 +44,7 @@
 |---------|--------|--------|
 | 4.2 Agent pipeline | ✅ MIGRIRAN | `chat_intent_handler.py` (2 writera) + `tariff_intent_service.py` (2 writera) — svi omotani decision syncom |
 | 4.3 Validacija | ✅ MIGRIRAN | `auto_fix_missing_eur1()` zamijenjen direktnim pozivom `DeclarationDecisionService.confirm_manual_value()` u FakturaView; metoda oznacena DEPRECATED |
-| 4.4 Naimenovanja | ✅ MIGRIRAN | `check_preflight()` dodat i povezan u `create_one_to_one()` i `create_smart_group()` — loguje upozorenja prije kreiranja |
+| 4.4 Naimenovanja | ✅ MIGRIRAN | `check_preflight()` dodat i povezan u `create_one_to_one()` i `create_smart_group()` — loguje upozorenja prije kreiranja; Codex follow-up dodao test koji dokazuje stvarni poziv |
 | 4.5 XML export | ✅ TESTIRAN | Decision_state metadata NE ulazi u XML po dizajnu; XML preflight test (6 testova) dodan; preflight provjera se oslanja na `check_preflight()` iz CreateNaimenovanjaService |
 | Uklanjanje direktnih writera | ❌ Nije urađeno | 11 inferred writera i dalje direktno pišu u `InvoiceLine` (biće omotani u Fazi 6) |
 
@@ -76,7 +76,15 @@ Ovi writeri JOŠ NISU omotani decision servisom:
 python -m pytest tests/unit/test_declaration_decision_service.py tests/unit/test_declaration_decision_model.py tests/unit/test_decision_tariff_policy.py tests/unit/test_evidence_model.py tests/integration/ -q
 ```
 
-**137 passed, 1 skipped**
+**144 passed, 1 skipped** nakon Codex follow-up provjere.
+
+Codex follow-up verifikacija:
+
+```powershell
+dist_client\.venv\Scripts\python.exe -m pytest tests\unit\test_declaration_decision_service.py tests\unit\test_declaration_decision_model.py tests\unit\test_decision_tariff_policy.py tests\unit\test_evidence_model.py tests\integration -q --basetemp .pytest_tmp
+```
+
+**144 passed, 1 skipped**
 
 ---
 
@@ -84,6 +92,15 @@ python -m pytest tests/unit/test_declaration_decision_service.py tests/unit/test
 
 - `services/decision/integration.py` ✅ identičan
 - `gui/tabs/faktura_view.py` ✅ identičan
+- `services/naimenovanja/create_naimenovanja_service.py` ✅ identičan
+
+---
+
+## GitNexus provjera
+
+- Pre-edit impact za `CreateNaimenovanjaService`: LOW.
+- `gitnexus_detect_changes()` nakon Codex follow-up izmjena: HIGH, jer su stvarno zakačeni tokovi `create_one_to_one()` i `create_smart_group()` koji učestvuju u kreiranju naimenovanja.
+- Scope je namjerno ograničen: preflight je log-only i ne blokira kreiranje, da ne promijeni ponašanje korisničkog toka dok se ne dogovori stroži gate.
 
 ---
 

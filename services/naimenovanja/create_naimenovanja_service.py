@@ -107,6 +107,12 @@ class CreateNaimenovanjaService:
 
         return warnings
 
+    def _log_preflight_warnings(self, context: str) -> list[str]:
+        warnings = self.check_preflight()
+        for warning in warnings:
+            logger.warning("Naimenovanja preflight (%s): %s", context, warning)
+        return warnings
+
     def create_one_to_one(self) -> int:
         """
         Strategija 1: ONE_TO_ONE
@@ -119,6 +125,8 @@ class CreateNaimenovanjaService:
         if not self.draft.invoice_lines:
             logger.warning("  ⚠️  Nema faktura linija za procesiranje!")
             return 0
+
+        self._log_preflight_warnings("one_to_one")
 
         logger.debug("  🔄 Kreiranje naimenovanja (ONE_TO_ONE)...")
 
@@ -171,6 +179,8 @@ class CreateNaimenovanjaService:
         if not self.draft.invoice_lines:
             logger.warning("  ⚠️  Nema faktura linija za procesiranje!")
             return 0
+
+        self._log_preflight_warnings("smart_group")
 
         logger.debug("  🔄 Kreiranje naimenovanja (SMART_GROUP po tarifa + poreklo + povlastica)...")
 
