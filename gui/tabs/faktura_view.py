@@ -1425,6 +1425,19 @@ class FakturaView(BaseTabView):
 
         # Debounce: odgodi validaciju i dirty signal za 200ms
         self._pending_validate_rows.add(row)
+
+        # Sinhronizuj decision_state nakon rucne izmjene kljucnih polja
+        if col in (4, 9, 10):  # tarifni_broj, zemlja_porijekla, povlastica
+            try:
+                from services.decision.integration import sync_decision_state_after_manual_edit
+                from core.decision.decision_model import DecisionField
+                field_map = {4: DecisionField.TARIFF, 9: DecisionField.ORIGIN_COUNTRY, 10: DecisionField.PREFERENCE}
+                sync_decision_state_after_manual_edit(
+                    invoice_item, field_map[col], value
+                )
+            except Exception:
+                logger.warning("Decision sync manual edit nije uspio", exc_info=True)
+
         self._debounce_timer.start()
 
     def _flush_pending_validation(self):
@@ -2974,7 +2987,7 @@ class FakturaView(BaseTabView):
                                 action_type="dialog_confirmed"
                             )
                 except Exception:
-                    pass
+                    logger.warning("Decision sync EUR.1 nije uspio", exc_info=True)
 
                 # Obavesti korisnika
                 countries = ", ".join(eur1_data.keys())
@@ -3021,7 +3034,7 @@ class FakturaView(BaseTabView):
                                 action_type="dialog_confirmed"
                             )
                 except Exception:
-                    pass
+                    logger.warning("Decision sync PE2 nije uspio", exc_info=True)
 
                 countries = ", ".join(pe2_data.keys())
                 QMessageBox.information(
@@ -4236,7 +4249,7 @@ class FakturaView(BaseTabView):
                         target_lines, supplier=supplier_name, action_type="auto_fill_clicked"
                     )
                 except Exception:
-                    pass
+                    logger.warning("Decision sync autofill nije uspio", exc_info=True)
 
             return result
 
