@@ -61,7 +61,8 @@ class Eur1QuickDialog(QDialog):
     def setup_ui(self):
         """Postavi UI elemente dialoga."""
         self.setWindowTitle("EUR.1 obrazac po fakturi")
-        self.setMinimumWidth(820)
+        # 280(fakt)+220(zemlja)+90(povl)+80(eur1chk)+240(eur1br)+skrol+margine ≈ 980px
+        self.setMinimumWidth(980)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(18, 14, 18, 14)
@@ -160,14 +161,15 @@ class Eur1QuickDialog(QDialog):
 
 
     def _auto_resize(self):
-        """Automatski provjeri visinu na osnovu broja redova, ograniči na ekran."""
+        """Prilagodi veličinu dijaloga sadržaju, ograniči na ekran."""
         from PySide6.QtGui import QGuiApplication
         self.adjustSize()
         screen = QGuiApplication.primaryScreen()
         if screen:
-            available_h = screen.availableGeometry().height() - 80
-            if self.height() > available_h:
-                self.resize(self.width(), available_h)
+            avail = screen.availableGeometry()
+            w = min(self.width(), avail.width() - 40)
+            h = min(self.height(), avail.height() - 40)
+            self.resize(w, h)
 
     def _group_by_country(self) -> Dict[str, List[InvoiceLine]]:
         """Grupiši stavke po fakturi + zemlji porijekla.
@@ -279,29 +281,32 @@ class Eur1QuickDialog(QDialog):
         for row, (key, items) in enumerate(sorted(countries.items())):
             self._populate_group_row(table, row, key, items)
 
+        from PySide6.QtWidgets import QSizePolicy
+        from PySide6.QtGui import QGuiApplication
+
         header = table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        # Kolona 0: fiksna širina da ne potiskuje ostale kolone (per-item tekst može biti dug)
+        header.setSectionResizeMode(0, QHeaderView.Fixed)
         header.setSectionResizeMode(1, QHeaderView.Interactive)
         header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(4, QHeaderView.Interactive)
-        table.setColumnWidth(1, 230)
-        table.setColumnWidth(4, 240)
+        # Kolona 4 "EUR1 obrazac" rasteže se da popuni ostatak — uvijek vidljiva
+        header.setSectionResizeMode(4, QHeaderView.Stretch)
+        table.setColumnWidth(0, 280)
+        table.setColumnWidth(1, 220)
         table.verticalHeader().setDefaultSectionSize(48)
+        table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
         row_height = 48
         header_height = 46
-        total_h = header_height + len(countries) * row_height
+        preferred_table_h = header_height + len(countries) * row_height
 
-        # Ograniči visinu tabele na osnovu ekrana, da dugmići OK/Cancel
-        # ostanu vidljivi i kad ima puno grupa (faktura x zemlja) — vidi
-        # agent_reports/2026-06-13_eur1-dialog-velicina-i-zaglavlje.md
-        from PySide6.QtGui import QGuiApplication
         screen = QGuiApplication.primaryScreen()
         available_h = (screen.availableGeometry().height() - 80) if screen else 700
-        max_table_h = max(header_height + row_height * 3, available_h - 300)
-        table_h = min(total_h, max_table_h)
-        table.setMinimumHeight(table_h)
-        table.setMaximumHeight(table_h)
+        # 370px rezervisano za header dijaloga, info labele, dugmiće i margine
+        max_table_h = max(header_height + row_height * 3, available_h - 370)
+        # Fiksna visina: Qt automatski prikazuje vertikalni skrol ako sadržaj premašuje
+        table.setFixedHeight(min(preferred_table_h, max_table_h))
         return table
 
     def _populate_group_row(self, table: QTableWidget, row: int, key: str, items: List[InvoiceLine]) -> None:
