@@ -89,16 +89,19 @@ class ValidationDelegate(QStyledItemDelegate):
 
         if is_selected:
             # Use system selection color when item is selected
-            # Let Qt handle the selection painting normally
             super().paint(painter, option, index)
         else:
             # Get validation color from item data
             color_data = index.data(self.ValidationColorRole)
 
             if color_data:
-                # Draw background with validation color
+                bg = QColor(color_data)
+                # Postavi Base i AlternateBase na istu boju da Qt ne prepiše
+                # naš custom fill alternating bojom pri super().paint()
+                option.palette.setColor(QPalette.Base, bg)
+                option.palette.setColor(QPalette.AlternateBase, bg)
                 painter.save()
-                painter.fillRect(option.rect, QColor(color_data))
+                painter.fillRect(option.rect, bg)
                 painter.restore()
 
             # Call base implementation to draw text and other elements

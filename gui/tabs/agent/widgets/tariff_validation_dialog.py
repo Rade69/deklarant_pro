@@ -175,7 +175,7 @@ class TariffValidationDialog(QDialog):
             f"<span style='color:#888; font-size:13px;'>"
             f"Izvor: </span>{source_lbl}"
             f"<span style='color:#888; font-size:13px;'>"
-            f" &nbsp;|&nbsp; Korišten {match.usage_count}× &nbsp;|&nbsp; Pouzdanost: {pct}%"
+            f" &nbsp;|&nbsp; Korišten {match.usage_count}× &nbsp;|&nbsp; Podudarnost: {pct}%"
             f"</span>"
         )
         meta_label.setTextFormat(Qt.RichText)
@@ -189,19 +189,14 @@ class TariffValidationDialog(QDialog):
         if evidence is not None:
             badge_color, badge_bg = evidence_badge_colors(evidence)
             evidence_label = QLabel(
-                f"<span style='color:#888; font-size:12px;'>Pouzdanost prijedloga: </span>"
+                f"<span style='color:#888; font-size:12px;'>Sigurnost preporuke: </span>"
                 f"<span style='background:{badge_bg}; color:{badge_color}; font-size:12px; "
                 f"padding:2px 8px; border-radius:4px; font-weight:600;'>"
                 f"{tariff_confidence_label(evidence)} ({evidence.score}%)</span>"
             )
             evidence_label.setTextFormat(Qt.RichText)
 
-        weak_label = None
-        if self._is_weak_match(match):
-            weak_label = QLabel(
-                "<span style='color:#9a6700; font-size:13px;'>Oprez: slabiji prijedlog</span>"
-            )
-            weak_label.setTextFormat(Qt.RichText)
+        weak_label = None  # uklonjen "Oprez: slabiji prijedlog" — badge iznad već prikazuje istu info
 
         hist_naziv = match.naziv_robe_historijski[:70]
         hist_label = QLabel(f"<span style='color:#888; font-size:13px;'>Naziv u bazi: {hist_naziv}</span>")
