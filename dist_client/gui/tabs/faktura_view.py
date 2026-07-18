@@ -3935,6 +3935,9 @@ class FakturaView(BaseTabView):
                     selected_row_indexes = row_indexes
                     selected_row = row_indexes[0]
                     target_lines = [self.draft.invoice_lines[row] for row in row_indexes]
+            else:
+                # Nema selekcije — ograniči samo na stavke bez tarifnog broja
+                target_lines = [l for l in self.draft.invoice_lines if not getattr(l, 'tarifni_broj', None)]
 
         # Prvo popuni osnovna polja (valuta, jm, iznos)
         basic_filled_count = self.auto_fill_service.fill_basic_fields(
@@ -4174,22 +4177,31 @@ class FakturaView(BaseTabView):
         Koristi suggest_fast() (Level 1 baza znanja) — radi i na kompajliranoj i .py verziji servisa.
         """
         preview = []
+        print(f"🔍 _collect_tariff_previews: {len(target_lines)} stavki za pregled")
         for line in target_lines:
+            naziv = getattr(line, 'naziv_robe', '') or ''
+            product_code = getattr(line, 'product_code', '') or ''
             if getattr(line, 'tarifni_broj', None):
+                print(f"   ⏭️  Rb.{line.line_no} '{naziv[:35]}' — već ima tarifu {line.tarifni_broj}, preskočeno")
                 continue
             try:
                 result = facade.suggest_fast(
-                    naziv_robe=getattr(line, 'naziv_robe', '') or '',
-                    product_code=getattr(line, 'product_code', '') or '',
+                    naziv_robe=naziv,
+                    product_code=product_code,
                 )
                 if result and getattr(result, 'tarifni_broj', None):
+                    conf = getattr(result, 'confidence', 0)
+                    print(f"   ✅ Rb.{line.line_no} '{naziv[:35]}' (kod={product_code}) → {result.tarifni_broj} conf={conf:.2f}")
                     preview.append((
                         line.line_no,
-                        getattr(line, 'naziv_robe', '') or getattr(line, 'product_code', '') or '',
+                        naziv or product_code or '',
                         result.tarifni_broj,
                     ))
-            except Exception:
-                pass
+                else:
+                    print(f"   ❌ Rb.{line.line_no} '{naziv[:35]}' (kod={product_code}) → nema (result={result})")
+            except Exception as e:
+                print(f"   ⚠️  Rb.{line.line_no} '{naziv[:35]}' (kod={product_code}) → GREŠKA: {type(e).__name__}: {e}")
+        print(f"🔍 Ukupno prijedloga: {len(preview)}")
         return preview
 
     def _show_tariff_preview_dialog(self, target_lines: list, preview_details: list) -> bool:
@@ -4223,15 +4235,47 @@ class FakturaView(BaseTabView):
         table.setHorizontalHeaderLabels(["Rb.", "Naziv proizvoda", "Tarifa", "Opis tarife (provjeri!)"])
         table.setRowCount(len(preview_details))
         table.setEditTriggers(QTableWidget.NoEditTriggers)
-        table.setAlternatingRowColors(True)
+        table.setAlternatingRowColors(False)
         table.verticalHeader().setVisible(False)
         table.setSelectionBehavior(QTableWidget.SelectRows)
+        table.setStyleSheet("""
+            QTableWidget {
+                background-color: #ffffff;
+                color: #1a1a1a;
+                gridline-color: #d0d0d0;
+                font-size: 13px;
+            }
+            QTableWidget::item {
+                background-color: #ffffff;
+                color: #1a1a1a;
+                padding: 4px 6px;
+            }
+            QTableWidget::item:alternate {
+                background-color: #f5f7fa;
+            }
+            QTableWidget::item:selected {
+                background-color: #cce0ff;
+                color: #1a1a1a;
+            }
+            QHeaderView::section {
+                background-color: #e8ecf0;
+                color: #1a1a1a;
+                font-weight: bold;
+                padding: 5px;
+                border: 1px solid #c0c8d0;
+            }
+        """)
 
         bold_font = QFont()
         bold_font.setBold(True)
 
+        from PySide6.QtGui import QColor
+        clr_even = QColor("#ffffff")
+        clr_odd  = QColor("#f5f7fa")
+
         for i, (line_no, naziv, tarif) in enumerate(preview_details):
             opis = self._get_tariff_description(tarif)
+            bg = clr_even if i % 2 == 0 else clr_odd
 
             item_rb = QTableWidgetItem(str(line_no))
             item_rb.setTextAlignment(Qt.AlignCenter)
@@ -4240,6 +4284,10 @@ class FakturaView(BaseTabView):
             item_tarif.setFont(bold_font)
             item_tarif.setTextAlignment(Qt.AlignCenter)
             item_opis = QTableWidgetItem(opis)
+
+            for item in (item_rb, item_naziv, item_tarif, item_opis):
+                item.setBackground(bg)
+                item.setForeground(QColor("#1a1a1a"))
 
             table.setItem(i, 0, item_rb)
             table.setItem(i, 1, item_naziv)
