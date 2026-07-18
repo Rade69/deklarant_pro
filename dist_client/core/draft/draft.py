@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Tuple, Callable
 import uuid as _uuid
+
+logger = logging.getLogger(__name__)
 
 
 def _s(v: Any) -> str:
@@ -17,6 +20,20 @@ def _f(v: Any) -> float:
         return float(str(v).replace(",", "."))
     except Exception:
         return 0.0
+
+
+def _read_decision_state(v: Any) -> "LineDecisionState | None":
+    """Bezbedno procitaj decision_state iz dict-a (backward compat)."""
+    if v is None:
+        return None
+    if isinstance(v, dict):
+        try:
+            from core.decision.decision_model import LineDecisionState
+            return LineDecisionState.from_dict(v)
+        except Exception:
+            return None
+    # Vec LineDecisionState objekat
+    return v
 
 
 # =========================
@@ -95,6 +112,10 @@ class InvoiceLine:
     importer: Party = field(default_factory=Party)
 
     raw: Dict[str, Any] = field(default_factory=dict)
+
+    # Kanonski model odluke (jedan izvor istine za tarifu, zemlju, povlasticu)
+    # None = stari draft bez decision state-a (backward compat)
+    decision_state: "LineDecisionState | None" = None
 
     # Mapiranje na naimenovanje (popunjava se nakon kreiranja naimenovanja)
     assigned_naimenovanje_id: str = ""
@@ -177,6 +198,7 @@ class InvoiceLine:
             exporter=Party.from_any(v.get("exporter") or {}),
             importer=Party.from_any(v.get("importer") or {}),
             raw=dict(v),
+            decision_state=_read_decision_state(v.get("decision_state")),
         )
 
 
@@ -468,7 +490,7 @@ class DeclarationDraft:
             try:
                 callback()
             except Exception as e:
-                print(f"⚠️ Greška u data change callback-u: {e}")
+                logger.warning("Greška u data change callback-u: %s", e)
 
     def mark_dirty(self) -> None:
         """Označi draft kao promijenjen i obavesti sve callback-ove."""

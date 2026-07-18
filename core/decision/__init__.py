@@ -1,12 +1,5 @@
-"""
-Evidence model — compatibility re-export.
-
-Sav kod je premjesten u core/decision/evidence.py.
-Ovaj modul ostaje zbog backward compatibility-ja za postojece importe.
-"""
-
-# Re-export svega iz neutralnog core sloja
-from core.decision.evidence import (  # noqa: F401
+# core/decision — kanonski modeli odluke deklaracije
+from core.decision.evidence import (
     DecisionSource,
     DecisionConfidence,
     DecisionScoreCategory,
@@ -18,4 +11,11 @@ from core.decision.evidence import (  # noqa: F401
     evidence_badge_colors,
     badge_colors_for_score,
     evidence_score_category,
+)
+from core.decision.decision_model import (
+    DecisionField,
+    DecisionStatus,
+    DecisionCandidate,
+    FieldDecision,
+    LineDecisionState,
 )
