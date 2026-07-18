@@ -109,10 +109,30 @@ Hook je POSIX sh bez emoji-ja (cp1252 lekcija iz memorije), radi kroz
 - Agenti koji ne čitaju AGENTS.md konvenciju i dalje mogu ignorisati proceduru;
   hook pokriva samo commit tačku
 
+## Nastavak (isti dan) — zastarjele kopije + tariff port
+
+Na zahtjev korisnika:
+
+1. **Zastarjele kopije riješene (commit ab5f9de):** `docs/AGENTS.md` je imao
+   jedinstvena pravila kojih NIJE bilo u kanonskom fajlu (srpski nazivi polja,
+   tarifni broj 8/10 cifara, 3-layer pattern, grupiranje po 4 ključa, LLM
+   pravila, 6 zabrana uklj. mock-DB i draft.items vs invoice_lines) — sve
+   spojeno u root AGENTS.md, uz korekciju LLM fallbacka prema memoriji
+   (DeepSeek isključen, Gemini free-only). Zatim su `docs/AGENTS.md`,
+   `dist_client/AGENTS.md`, `dist_client/CLAUDE.md` i `dist_client/docs/AGENTS.md`
+   zamijenjeni kratkim uputnicama na kanonski fajl.
+2. **Tariff port — radi ga PARALELNA sesija:** tokom rada uočeno je da
+   `dist_client/services/tariff/` nastaje u realnom vremenu (15:53-15:54,
+   uklj. ručni stub `tariff_mapping_service.py` → .pyd i svjež `__pycache__`).
+   Korisnik potvrdio da to radi druga sesija/agent. Ovaj agent folder NIJE
+   dirao; verifikacija (read-only): `import services.tariff` iz dist_client
+   cwd prolazi, `TariffMappingService` se rezolvira iz .pyd.
+   Vraćanje stub verzija 4 skip-worktree fajla ostavljeno drugoj sesiji.
+
 ## Potreban follow-up
 - Fedora mašina: postaviti `core.hooksPath` (jedna komanda)
-- Odlučiti da li sinhronizovati/obrisati zastarjele kopije
-  (`dist_client/AGENTS.md`, `docs/AGENTS.md`) — kandidati za brisanje
+- Druga sesija: dovršiti tariff port — commit `dist_client/services/tariff/`,
+  skinuti skip-worktree sa 4 fajla i vratiti stub verzije (uz backup)
 - Preostale tačke iz preporuka: worktree po agentu, pytest gate, cross-review
 
 ## Potrebna korisnička potvrda
