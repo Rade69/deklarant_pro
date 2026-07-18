@@ -34,6 +34,8 @@ from PySide6.QtWidgets import (
     QTextEdit,
     QDialogButtonBox,
     QSizePolicy,
+    QInputDialog,
+    QMenu,
 )
 from PySide6.QtCore import (
     Qt,
@@ -822,6 +824,10 @@ class FakturaView(BaseTabView):
         table.itemSelectionChanged.connect(self._on_selection_changed)
         table.itemChanged.connect(self._on_item_changed)
 
+        # Right-click context menu
+        table.setContextMenuPolicy(Qt.CustomContextMenu)
+        table.customContextMenuRequested.connect(self._on_table_context_menu)
+
         return table
 
     def _install_bottom_scroll_buffer(self, table: QTableWidget):
@@ -1479,6 +1485,90 @@ class FakturaView(BaseTabView):
         self._update_status_bar()
         self._notify_data_changed()
         self.lbl_validation.setText("↪ Ponovljeno")
+
+    # ------------------------------------------------------------------
+    # Context menu i bulk izmjena tarifnih brojeva
+    # ------------------------------------------------------------------
+
+    def _on_table_context_menu(self, pos):
+        selected = self.table.selectionModel().selectedRows()
+        rows = sorted({idx.row() for idx in selected if 0 <= idx.row() < len(self.draft.invoice_lines)})
+        if not rows:
+            return
+
+        menu = QMenu(self)
+        n = len(rows)
+        label = f"Promijeni tarifni broj za {n} odabran{'u stavku' if n == 1 else 'e stavke' if n < 5 else 'ih stavki'}"
+        act_tariff = menu.addAction(label)
+        menu.addSeparator()
+
+        current_tariffs = sorted({self.draft.invoice_lines[r].tarifni_broj or "" for r in rows})
+        current_display = ", ".join(t for t in current_tariffs if t) or "(prazno)"
+        menu.addAction(f"Trenutni tarif: {current_display}").setEnabled(False)
+
+        chosen = menu.exec(self.table.viewport().mapToGlobal(pos))
+        if chosen == act_tariff:
+            self._on_bulk_change_tariff(rows)
+
+    def _on_bulk_change_tariff(self, rows: list):
+        current_tariffs = sorted({self.draft.invoice_lines[r].tarifni_broj or "" for r in rows})
+        current_display = ", ".join(t for t in current_tariffs if t) or "(prazno)"
+        n = len(rows)
+
+        new_tariff, ok = QInputDialog.getText(
+            self,
+            "Promijeni tarifni broj",
+            f"Odabrano stavki: {n}\nTrenutni tarif: {current_display}\n\nNovi tarifni broj (8 cifara):",
+            text=current_tariffs[0] if len(current_tariffs) == 1 else "",
+        )
+        if not ok:
+            return
+        new_tariff = new_tariff.strip()
+        if not new_tariff:
+            return
+
+        self._push_undo_snapshot()
+        self.table.blockSignals(True)
+        try:
+            for row in rows:
+                line = self.draft.invoice_lines[row]
+                old_tariff = line.tarifni_broj or ""
+                line.tarifni_broj = new_tariff
+                self._set_table_item(row, 4, new_tariff, align=Qt.AlignCenter)
+                self._validate_and_color_row(row, line)
+                if old_tariff != new_tariff:
+                    self._correct_tariff_in_db(line, old_tariff, new_tariff)
+        finally:
+            self.table.blockSignals(False)
+
+        self.table.viewport().update()
+        self._update_status_bar()
+        self._notify_data_changed()
+        self.lbl_validation.setText(f"✅ Tarifni broj {new_tariff} upisan u {n} stavki")
+
+    def _correct_tariff_in_db(self, line, old_tariff: str, new_tariff: str):
+        try:
+            from services.tariff.tariff_mapping_service import TariffMappingService
+            svc = TariffMappingService()
+            correct_fn = getattr(svc, 'correct_mapping', None)
+            if correct_fn:
+                correct_fn(
+                    product_code=getattr(line, 'product_code', '') or '',
+                    naziv_robe=line.naziv_robe or '',
+                    old_commodity=old_tariff,
+                    new_commodity=new_tariff,
+                    zemlja_porijekla=getattr(line, 'zemlja_porijekla', '') or '',
+                )
+            else:
+                # Fallback za .pyd verziju bez correct_mapping
+                svc.save_mapping(
+                    getattr(line, 'product_code', '') or '',
+                    line.naziv_robe or '',
+                    new_tariff,
+                    getattr(line, 'zemlja_porijekla', '') or '',
+                )
+        except Exception as exc:
+            logger.warning("_correct_tariff_in_db: %s", exc)
 
     def _auto_learn_edits(self):
         """Automatski snimi ručno izmijenjene tarifne brojeve u bazu znanja."""

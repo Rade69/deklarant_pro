@@ -887,6 +887,41 @@ class TariffMappingService:
             logger.error(f"❌ Greška pri čuvanju mapiranja: {e}")
             return False
 
+    def correct_mapping(
+        self,
+        product_code: str,
+        naziv_robe: str,
+        old_commodity: str,
+        new_commodity: str,
+        zemlja_porijekla: str = "",
+        povlastica: str = "",
+        precision_1: str = "000",
+    ) -> bool:
+        """
+        Ispravka pogrešnog tarifa: briše stari mapping i upisuje novi kao naučen.
+
+        Koristi se kad korisnik eksplicitno ispravlja pogrešan tarifni broj
+        koji je stigao s fakture. Stari red se briše da ne dolazi kao prijedlog
+        u budućim uvozima iste robe.
+        """
+        try:
+            old_code = re.sub(r"\D", "", old_commodity.strip())[:8] if old_commodity else ""
+            with get_db_connection() as conn:
+                with conn.cursor() as cursor:
+                    if old_code and old_code.isdigit() and len(old_code) == 8:
+                        cursor.execute("""
+                            DELETE FROM catalogs.product_tariff_mapping
+                            WHERE product_code = %s
+                              AND naziv_robe = %s
+                              AND commodity_code = %s
+                        """, (product_code or "", naziv_robe or "", old_code))
+                        if cursor.rowcount:
+                            logger.info(f"🗑 Obrisan pogrešan mapping: '{naziv_robe[:30]}' → {old_code}")
+            return self.save_mapping(product_code, naziv_robe, new_commodity, zemlja_porijekla, povlastica, precision_1)
+        except Exception as e:
+            logger.error(f"❌ Greška pri korekciji mapiranja: {e}")
+            return False
+
     def _increment_usage(self, tarifni_broj: str, product_code: Optional[str], naziv_robe: str):
         """Inkrementiraj usage_count za mapping."""
         try:
