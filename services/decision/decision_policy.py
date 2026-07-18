@@ -50,18 +50,23 @@ def rank_tariff_candidates(candidates: list["DecisionCandidate"], context: Polic
 
         source = ev.source.value
         score = float(ev.score)
+        # Negativni score da sorted() rastuce sortira visi score prvi
+        neg_score = -score
 
         if source == "user":
-            return (1, 100.0)
+            return (1, neg_score)
         if source == "document":
-            return (2, score)
+            return (2, neg_score)
         if source == "exporter_history":
-            return (3, score)
+            return (3, neg_score)
         if source == "tariff_database":
-            return (5, score)
+            # UNKNOWN confidence ide iza similarity-ja
+            if ev.confidence.value == "unknown":
+                return (7, neg_score)
+            return (4, neg_score)
         if source == "similarity":
-            return (6, score)
-        return (7, score)
+            return (5, neg_score)
+        return (7, neg_score)
 
     return sorted(candidates, key=_rank)
 
@@ -106,28 +111,32 @@ def rank_origin_candidates(candidates: list["DecisionCandidate"], context: Polic
             return (5, 0.0)
 
         source = ev.source.value
-        score = float(ev.score)
+        neg_score = -float(ev.score)
 
         if source == "user":
-            return (1, 100.0)
+            return (1, neg_score)
         if source == "document":
-            return (2, score)
+            return (2, neg_score)
         if source == "parser":
-            return (3, score)
-        # mapping i istorija su samo informativni
-        return (4, score)
+            return (3, neg_score)
+        return (4, neg_score)
 
     return sorted(candidates, key=_rank)
 
 
 def can_auto_apply_origin(candidate: "DecisionCandidate", context: PolicyContext) -> bool:
-    """Zemlja porijekla se smije automatski primijeniti samo iz dokumenta."""
+    """Zemlja porijekla se smije automatski primijeniti samo iz dokumenta ili parsera."""
     if candidate.evidence is None:
         return False
     if context.action_type not in ("auto_fill_clicked", "dialog_confirmed", "draft_restore"):
         return False
     ev = candidate.evidence
-    return ev.source.value in ("document", "parser") and ev.score >= 85
+    # Dokument: score >= 85 (pouzdano), Parser: score >= 70 (srednje pouzdan)
+    if ev.source.value == "document":
+        return ev.score >= 85
+    if ev.source.value == "parser":
+        return ev.score >= 70
+    return False
 
 
 def rank_preference_candidates(candidates: list["DecisionCandidate"], context: PolicyContext) -> list["DecisionCandidate"]:
@@ -148,18 +157,17 @@ def rank_preference_candidates(candidates: list["DecisionCandidate"], context: P
             return (5, 0.0)
 
         source = ev.source.value
-        score = float(ev.score)
+        neg_score = -float(ev.score)
 
         if source == "user":
-            return (1, 100.0)
+            return (1, neg_score)
         if source == "document":
             doc_code = ev.data.get("doc_code", "")
             if doc_code in ("PE1", "PE2", "PE3"):
-                return (2, score)
-            return (3, score)
+                return (2, neg_score)
+            return (3, neg_score)
         if source == "parser":
-            return (4, score)
-        # similarity, tariff_database — ne rangiraju se za povlasticu
+            return (4, neg_score)
         return (5, 0.0)
 
     return sorted(candidates, key=_rank)
