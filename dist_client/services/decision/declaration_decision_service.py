@@ -84,7 +84,11 @@ class DeclarationDecisionService:
         fields: list[DecisionField] | None = None,
     ) -> LineDecisionState:
         """
-        Evaluacija jedne fakturne stavke. READ-ONLY — ne mijenja InvoiceLine.
+        Evaluacija jedne fakturne stavke. READ-ONLY — ne mijenja InvoiceLine
+        niti njegov decision_state.
+
+        Ako line vec ima decision_state, evaluacija se radi na kopiji tako da
+        originalni state ostane nepromijenjen.
 
         Args:
             line: Fakturna stavka
@@ -92,8 +96,10 @@ class DeclarationDecisionService:
             fields: Koja polja evaluirati (None = sva tri)
 
         Returns:
-            LineDecisionState sa kandidatima i statusima
+            Novi LineDecisionState sa kandidatima i statusima
         """
+        import copy
+
         from services.decision.evidence_adapters import (
             adapt_tariff_evidence,
             adapt_origin_evidence,
@@ -109,9 +115,11 @@ class DeclarationDecisionService:
         ctx = context or PolicyContext()
         target_fields = fields or [DecisionField.TARIFF, DecisionField.ORIGIN_COUNTRY, DecisionField.PREFERENCE]
 
-        # Inicijalizuj ili koristi postojeci decision_state
-        state = line.decision_state
-        if state is None:
+        # Radi na kopiji postojeceg state-a — ne mutiraj original
+        existing = line.decision_state
+        if existing is not None:
+            state = copy.deepcopy(existing)
+        else:
             state = LineDecisionState()
 
         # Evaluacija tarife

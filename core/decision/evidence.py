@@ -14,7 +14,10 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-from services.agent.validation.tariff_decision_model import has_meaningful_source
+
+def has_meaningful_source(value: str) -> bool:
+    source = (value or "").strip()
+    return bool(source and source not in {"-", "—", "+", "A", "HISTORIJA"})
 
 
 class DecisionSource(Enum):

@@ -92,19 +92,40 @@ def test_evaluate_line_returns_state_with_candidates(svc, sample_line, sample_co
     assert state.preference.field == DecisionField.PREFERENCE
 
 
-def test_evaluate_line_with_existing_tariff_in_db(svc, sample_line, sample_context):
-    """evaluate_line sa poznatim product_code-om nalazi kandidate iz baze."""
+def test_evaluate_line_with_existing_tariff_in_db(svc, sample_line, sample_context, monkeypatch):
+    """evaluate_line sa poznatim product_code-om nalazi kandidate iz adaptera.
+
+    Koristi monkeypatch da izoluje test od baze — provjerava da servis
+    korektno adaptira mapping kandidat, a ne da baza sadrzi odredjeni zapis.
+    """
+    from services.tariff_mapping_service import TariffMapping, TariffMappingService
+
+    dummy_mapping = TariffMapping(
+        product_code="6002-2Z",
+        naziv_robe="Lezaj 6002-2Z",
+        tarifni_broj="84821000",
+        precision_1="000",
+        zemlja_porijekla="JP",
+        povlastica="",
+        usage_count=100,
+        similarity=1.0,
+    )
+
+    def mock_find_mapping(self, product_code=None, naziv_robe=None, min_similarity=0.70,
+                          zemlja_porijekla="", supplier=""):
+        return dummy_mapping
+
+    monkeypatch.setattr(TariffMappingService, "find_mapping", mock_find_mapping)
+
     sample_line.product_code = "6002-2Z"
     sample_line.tarifni_broj = ""
 
     state = svc.evaluate_line(sample_line, sample_context)
 
-    # Trebalo bi da ima bar jednog kandidata za tarifu
     assert len(state.tariff.candidates) >= 1, (
         f"Ocekivan bar 1 kandidat za tarifu, dobijeno: {len(state.tariff.candidates)}"
     )
-    if state.tariff.candidates:
-        assert state.tariff.candidates[0].value != ""
+    assert state.tariff.candidates[0].value == "84821000"
 
 
 def test_evaluate_line_documented_country_becomes_candidate(svc, sample_line, sample_context):
@@ -133,6 +154,45 @@ def test_evaluate_line_is_idempotent(svc, sample_line, sample_context):
 
     assert len(state1.tariff.candidates) == len(state2.tariff.candidates)
     assert len(state1.origin_country.candidates) == len(state2.origin_country.candidates)
+
+
+def test_evaluate_line_does_not_mutate_existing_decision_state(svc, sample_line, sample_context):
+    """evaluate_line() NE SMIJE mutirati postojeci line.decision_state.
+
+    Ako InvoiceLine vec ima decision_state (npr. potvrdjenu tarifu),
+    evaluate_line() vraca NOVI state sa kandidatima, ali originalni
+    decision_state na liniji ostaje nepromijenjen.
+    """
+    from core.decision.decision_model import DecisionCandidate
+    from core.decision.evidence import build_evidence, DecisionSource, DecisionConfidence
+
+    # Kreiraj postojeci potvrdjeni state
+    ev = build_evidence(DecisionSource.USER, DecisionConfidence.CONFIRMED_FROM_DOCUMENT)
+    candidate = DecisionCandidate.make(DecisionField.TARIFF, "84713000", ev)
+
+    existing_state = LineDecisionState()
+    existing_state.tariff.status = DecisionStatus.CONFIRMED
+    existing_state.tariff.applied_value = "84713000"
+    existing_state.tariff.add_candidate(candidate)
+    sample_line.decision_state = existing_state
+
+    # Snimi originale
+    orig_status = existing_state.tariff.status
+    orig_value = existing_state.tariff.applied_value
+    orig_candidate_count = len(existing_state.tariff.candidates)
+
+    # Evaluacija
+    result = svc.evaluate_line(sample_line, sample_context)
+
+    # Originalni state na liniji MORA ostati nepromijenjen
+    assert sample_line.decision_state is existing_state, "Referenca na decision_state mora ostati ista"
+    assert sample_line.decision_state.tariff.status == orig_status
+    assert sample_line.decision_state.tariff.applied_value == orig_value
+    assert len(sample_line.decision_state.tariff.candidates) == orig_candidate_count
+
+    # Vraceni state moze imati dodatne kandidate (iz evaluate)
+    assert result is not existing_state, "evaluate_line() mora vratiti NOVI state objekat"
+    assert result.tariff.status == DecisionStatus.CONFIRMED  # zadrzava potvrdu
 
 
 def test_evaluate_line_with_conflict_origin(svc, sample_context):
