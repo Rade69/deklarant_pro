@@ -98,6 +98,7 @@ class AutoFillService:
 
             if mapping:
                 # Pronađen mapping
+                # DEPRECATED (Faza 6): Direktan upis. Koristi DeclarationDecisionService.
                 line.tarifni_broj = mapping.tarifni_broj
                 line.tariff_similarity = mapping.similarity  # ⭐ SAČUVAJ SLIČNOST
 

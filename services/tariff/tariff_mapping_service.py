@@ -237,6 +237,7 @@ class TariffMappingService:
 
             if mapping:
                 # Pronađen mapping - popuni tarifni broj i precision_1
+                # DEPRECATED (Faza 6): Direktan upis. Koristi DeclarationDecisionService.apply_candidate().
                 line.tarifni_broj = mapping.tarifni_broj
                 line.tariff_suffix = mapping.precision_1
 
@@ -279,6 +280,10 @@ class TariffMappingService:
 
                 logger.debug(f"  ✅ Stavka #{line.line_no}: {line.product_code} → {mapping.tarifni_broj} "
                             f"(povlastica={line.povlastica or 'N/A'}, eur1={line.eur1_number or 'N/A'})")
+
+                # DEPRECATED (Faza 6): Direktan upis u InvoiceLine.
+                # Umjesto ovoga, korisiti DeclarationDecisionService.apply_candidate().
+                # Vidi agent_tasks/2026-07-18_jedan-izvor-istine-odluke-deklaracije.md
             else:
                 # Nije pronađen mapping
                 unmatched_count += 1

@@ -117,6 +117,7 @@ class HistoricalTariffSearchService:
             if feedback_action == "reject":
                 continue
             if feedback_action == "accept":
+                # DEPRECATED (Faza 6): Direktan upis. Vrati kandidat preko Evidence.
                 line.tarifni_broj = best.tarifni_broj_historijski
                 self.last_auto_applied.append((idx, best.tarifni_broj_historijski))
                 continue
