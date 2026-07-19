@@ -382,3 +382,36 @@ ništa) — za razliku od SQLite verzije koja koristi FTS5
 `remove_diacritics` tokenizator. Follow-up: PostgreSQL `unaccent` extension.
 
 Detalji: `agent_reports/2026-07-19_mcp-historijska-pretraga-real-xml.md`.
+
+---
+
+## 19. Preostale 3 tabele riješene (2026-07-19) — tarifa_nazivi, exporter_xml_index, product_similarity_memory
+
+`tarifa_nazivi` obrisana (migracija 010) — mrtav widget `GoodsNameEdit`, nikad
+wired u GUI (nije izvezen iz `gui/widgets/__init__.py`).
+
+`exporter_xml_index` — `increment_use_count()` nije imala nijednog pozivaoca,
+pa su `use_count`/`last_used` bili zamrznuti od bulk uvoza (2026-06-13) iako je
+sama pretraga (`find_xml_for_pair`/`find_xml_by_consignee`) aktivno radila.
+Dodana `_mark_hit()` helper — poziva se na svih 7 return-tačaka obje funkcije,
+cilja tačan red preko `id` (ne preko exporter_normalized koji može pogoditi
+više redova).
+
+`product_similarity_memory` — sync nikad nije bio automatizovan
+(`scripts/sync_product_similarity_memory.py` + `embed_product_similarity_memory.py`
+samo ručni CLI). `app/run.py` sad pokreće provjeru pri svakom startu (isti
+obrazac kao `_start_mcp_server` — pozadinski daemon thread, ne blokira UI):
+ako je `MAX(updated_at)` starije od 7 dana, pokreće sync+embed.
+
+**Bitan nalaz**: `sentence-transformers` (paket potreban za "local" embedding
+provider — default kad `PRODUCT_SIMILARITY_EMBEDDING_PROVIDER` nije podešen u
+`.env`) nije bio ni instaliran ni deklarisan kao zavisnost — embed korak nikad
+nije mogao raditi. Dodan kao opcioni extra `embeddings` u `pyproject.toml`
+(isti obrazac kao `ocr` extra) + `requirements-embeddings.txt`. Model
+(`all-MiniLM-L6-v2`) mora se preuzeti jednom sa interneta (keš u
+`~/.cache/huggingface/`) — kod nakon toga radi sa `local_files_only=True`
+(potpuno offline). Na svježoj instalaciji bez tog keša, prvi embed poziv će
+pući dok se model ručno ne preuzme — namjerno nije automatizovano da prvi
+start aplikacije ne pravi mrežni poziv bez znanja korisnika.
+
+Detalji: `agent_reports/2026-07-19_preostale-3-tabele-tarifa-exporter-similarity.md`.
