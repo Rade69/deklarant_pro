@@ -440,6 +440,24 @@ def reindex() -> int:
 # RUNTIME LOOKUP - Ovo se koristi u agentu
 # ══════════════════════════════════════════════════════════════════════
 
+def _mark_hit(cursor, conn, row_id: int) -> None:
+    """
+    Označi pogodak u indeksu (use_count++, last_used=NOW) po id-u konkretnog
+    reda. Pozivano iz find_xml_for_pair/find_xml_by_consignee — bez ovoga
+    statistika ostaje zamrznuta jer nijedan pozivalac lookupa ne javlja nazad
+    da je pronađeni XML stvarno iskorišten.
+    """
+    try:
+        cursor.execute("""
+            UPDATE catalogs.exporter_xml_index
+            SET use_count = use_count + 1, last_used = NOW()
+            WHERE id = %s
+        """, (row_id,))
+        conn.commit()
+    except Exception as e:
+        logger.warning(f"Greška pri označavanju pogotka (id={row_id}): {e}")
+
+
 def find_xml_for_pair(exporter_hint: str, consignee_jib: str = "", consignee_hint: str = "") -> Optional[Dict]:
     """
     Pronađi XML filepath za dati PAR (exporter + consignee).
@@ -475,7 +493,7 @@ def find_xml_for_pair(exporter_hint: str, consignee_jib: str = "", consignee_hin
             # 1. Direktan match po exporter + JIB (najtačniji)
             if jib:
                 cursor.execute("""
-                    SELECT exporter_original, consignee_original, consignee_jib,
+                    SELECT id, exporter_original, consignee_original, consignee_jib,
                            xml_filepath, declaration_date, use_count
                     FROM catalogs.exporter_xml_index
                     WHERE exporter_normalized = %s AND consignee_jib = %s
@@ -483,6 +501,7 @@ def find_xml_for_pair(exporter_hint: str, consignee_jib: str = "", consignee_hin
 
                 row = cursor.fetchone()
                 if row:
+                    _mark_hit(cursor, conn, row['id'])
                     return {
                         'xml_filepath': row['xml_filepath'],
                         'exporter_original': row['exporter_original'],
@@ -495,7 +514,7 @@ def find_xml_for_pair(exporter_hint: str, consignee_jib: str = "", consignee_hin
             # 2. Match po exporter + consignee_normalized (ako nema JIB)
             if cons_norm:
                 cursor.execute("""
-                    SELECT exporter_original, consignee_original, consignee_jib,
+                    SELECT id, exporter_original, consignee_original, consignee_jib,
                            xml_filepath, declaration_date, use_count
                     FROM catalogs.exporter_xml_index
                     WHERE exporter_normalized = %s AND consignee_normalized = %s
@@ -505,6 +524,7 @@ def find_xml_for_pair(exporter_hint: str, consignee_jib: str = "", consignee_hin
 
                 row = cursor.fetchone()
                 if row:
+                    _mark_hit(cursor, conn, row['id'])
                     return {
                         'xml_filepath': row['xml_filepath'],
                         'exporter_original': row['exporter_original'],
@@ -516,7 +536,7 @@ def find_xml_for_pair(exporter_hint: str, consignee_jib: str = "", consignee_hin
 
             # 3. Samo po exporteru (bilo koji consignee)
             cursor.execute("""
-                SELECT exporter_original, consignee_original, consignee_jib,
+                SELECT id, exporter_original, consignee_original, consignee_jib,
                        xml_filepath, declaration_date, use_count
                 FROM catalogs.exporter_xml_index
                 WHERE exporter_normalized = %s
@@ -526,6 +546,7 @@ def find_xml_for_pair(exporter_hint: str, consignee_jib: str = "", consignee_hin
 
             row = cursor.fetchone()
             if row:
+                _mark_hit(cursor, conn, row['id'])
                 return {
                     'xml_filepath': row['xml_filepath'],
                     'exporter_original': row['exporter_original'],
@@ -537,7 +558,7 @@ def find_xml_for_pair(exporter_hint: str, consignee_jib: str = "", consignee_hin
 
             # 4. Fuzzy match po exporteru
             cursor.execute("""
-                SELECT exporter_normalized, exporter_original, consignee_original, consignee_jib,
+                SELECT id, exporter_normalized, exporter_original, consignee_original, consignee_jib,
                        xml_filepath, declaration_date, use_count
                 FROM catalogs.exporter_xml_index
                 ORDER BY use_count DESC, declaration_date DESC
@@ -555,6 +576,7 @@ def find_xml_for_pair(exporter_hint: str, consignee_jib: str = "", consignee_hin
                     best_match = row
 
             if best_match:
+                _mark_hit(cursor, conn, best_match['id'])
                 return {
                     'xml_filepath': best_match['xml_filepath'],
                     'exporter_original': best_match['exporter_original'],
@@ -596,7 +618,7 @@ def find_xml_by_consignee(consignee_jib: str = "", consignee_hint: str = "") -> 
             # 1. Tačan match po JIB-u
             if jib:
                 cursor.execute("""
-                    SELECT exporter_original, consignee_original, consignee_jib,
+                    SELECT id, exporter_original, consignee_original, consignee_jib,
                            xml_filepath, declaration_date, use_count
                     FROM catalogs.exporter_xml_index
                     WHERE consignee_jib = %s
@@ -605,6 +627,7 @@ def find_xml_by_consignee(consignee_jib: str = "", consignee_hint: str = "") -> 
                 """, (jib,))
                 row = cursor.fetchone()
                 if row:
+                    _mark_hit(cursor, conn, row['id'])
                     return {
                         'xml_filepath': row['xml_filepath'],
                         'exporter_original': row['exporter_original'],
@@ -617,7 +640,7 @@ def find_xml_by_consignee(consignee_jib: str = "", consignee_hint: str = "") -> 
             # 2. Tačan match po imenu
             if cons_norm:
                 cursor.execute("""
-                    SELECT exporter_original, consignee_original, consignee_jib,
+                    SELECT id, exporter_original, consignee_original, consignee_jib,
                            xml_filepath, declaration_date, use_count
                     FROM catalogs.exporter_xml_index
                     WHERE consignee_normalized = %s
@@ -626,6 +649,7 @@ def find_xml_by_consignee(consignee_jib: str = "", consignee_hint: str = "") -> 
                 """, (cons_norm,))
                 row = cursor.fetchone()
                 if row:
+                    _mark_hit(cursor, conn, row['id'])
                     return {
                         'xml_filepath': row['xml_filepath'],
                         'exporter_original': row['exporter_original'],
@@ -638,7 +662,7 @@ def find_xml_by_consignee(consignee_jib: str = "", consignee_hint: str = "") -> 
             # 3. Fuzzy match po consignee imenu
             if cons_norm:
                 cursor.execute("""
-                    SELECT consignee_normalized, exporter_original, consignee_original,
+                    SELECT id, consignee_normalized, exporter_original, consignee_original,
                            consignee_jib, xml_filepath, declaration_date, use_count
                     FROM catalogs.exporter_xml_index
                     ORDER BY use_count DESC, declaration_date DESC
@@ -653,6 +677,7 @@ def find_xml_by_consignee(consignee_jib: str = "", consignee_hint: str = "") -> 
                         best_score = score
                         best_match = row
                 if best_match:
+                    _mark_hit(cursor, conn, best_match['id'])
                     return {
                         'xml_filepath': best_match['xml_filepath'],
                         'exporter_original': best_match['exporter_original'],
