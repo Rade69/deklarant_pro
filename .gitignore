@@ -48,6 +48,7 @@ env/
 tmp/
 temp/
 backup/
+database/backups/
 *.tmp
 *.bak
 *.cache
