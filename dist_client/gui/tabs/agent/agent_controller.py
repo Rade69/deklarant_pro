@@ -818,8 +818,12 @@ class AgentController:
         return (r.atribut, r.vrijednost, r.tab) if r else None
 
     def _upisi_u_kolonu(self, atribut: str, vrijednost: str, tab: str = 'faktura'):
-        """Upiši vrijednost u kolonu — koristi NaimenovanjaIntentService."""
-        self.naim_intent_svc.execute(atribut, vrijednost, tab)
+        """
+        Predloži upis vrijednosti u kolonu — zahtijeva potvrdu korisnika
+        (MUTATE, vidi services/agent/chat/tool_policy.py). Stvaran upis se
+        dešava tek u ChatIntentHandler._on_proposal_confirmed.
+        """
+        self.chat_intent_svc.propose_kolona_upis(atribut, vrijednost, tab)
 
     def _izvrsi_spajanje_naimenovanja(self, proposals, chat):
         self.chat_intent_svc.izvrsi_spajanje_naimenovanja(proposals, chat)

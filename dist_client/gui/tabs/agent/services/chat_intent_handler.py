@@ -6,6 +6,7 @@ keyword detekcija (fallback), i LLM chat.
 
 📄 docs/decisions/001-tool-use-refactoring.md
    docs/decisions/002-tool-dispatcher-integration.md
+   docs/agent/AGENT_MODE_IMPROVEMENT_IMPLEMENTATION_PLAN.md (Faza A — sigurnosna kapija)
 
 Premješteno iz agent_controller.py radi smanjenja veličine controllera.
 """
@@ -16,8 +17,21 @@ import logging
 from html import escape
 
 from services.agent.chat.tool_result import ToolResult, render_tool_result_html
+from services.agent.chat.tool_policy import effect_for
+from services.agent.chat.naimenovanja_intent_service import _NAZIV_KOLONE
+from core.decision.decision_model import DecisionField
+from services.decision.integration import sync_decision_state_after_manual_edit
 
 logger = logging.getLogger("deklarant_pro.agent.chat_intent")
+
+# Kolone koje su pokrivene DeclarationDecisionService-om (Faza 0-6, 2026-07-18) —
+# rucna izmjena preko ovih atributa mora sinhronizovati decision_state, ne samo
+# upisati sirovu vrijednost. Vidi §2/§5.1/§5.6 plana za Fazu A.
+_DECISION_FIELD_BY_ATRIBUT: dict[str, DecisionField] = {
+    "tarifni_broj": DecisionField.TARIFF,
+    "zemlja_porijekla": DecisionField.ORIGIN_COUNTRY,
+    "povlastica": DecisionField.PREFERENCE,
+}
 
 # Mapa sinonima kolona → (atribut, tab)
 KOLONA_MAP = {
@@ -178,6 +192,9 @@ class ChatIntentHandler:
 
     def izvrsi_spajanje_naimenovanja(self, proposals, chat) -> None:
         _izvrsi_spajanje_naimenovanja(self._ctrl, proposals, chat)
+
+    def propose_kolona_upis(self, atribut: str, vrijednost: str, tab: str = 'faktura') -> None:
+        _propose_kolona_upis(self._ctrl, atribut, vrijednost, tab)
 
     def show_proposal_card(self, proposal: dict) -> None:
         _show_proposal_card(self._ctrl, proposal)
@@ -1119,11 +1136,27 @@ def _execute_tool(ctrl, name: str, args: dict) -> None:
     """
     Izvrši tool call pozivom postojećeg servisa.
     Svaki tool mapira na postojeću funkciju/metodu.
+
+    ToolPolicy gate (Faza A): alat koji nije u registry-ju
+    (services/agent/chat/tool_policy.py) se odbija fail-closed, prije
+    dispatch-a — bez obzira da li ime slučajno odgovara nekoj if/elif grani
+    ispod. MUTATE alati ne smiju direktno izvršiti izmjenu drafta — vidi
+    _propose_kolona_upis().
     """
     chat = ctrl.view.get_chat_panel()
 
     def _emit(result: ToolResult) -> None:
         chat.add_agent_message(render_tool_result_html(result))
+
+    if effect_for(name) is None:
+        logger.warning(f"[ToolUse] Nepoznat alat (nije u ToolPolicy registry): {name}")
+        _emit(ToolResult.unknown(
+            "tool_dispatch",
+            f"Nepoznata akcija: {name}",
+            "ToolPolicy",
+            args=args,
+        ))
+        return
 
     if name == "predlozi_tarife":
         filter_kw = args.get("filter", "")
@@ -1207,7 +1240,9 @@ def _execute_tool(ctrl, name: str, args: dict) -> None:
             _emit(result)
             return
 
-        svc.execute(atribut, vrijednost, resolved_tab)
+        # MUTATE (ToolPolicy) — ne izvršavati odmah, kreirati proposal karticu
+        # koju korisnik mora eksplicitno potvrditi. Vidi _propose_kolona_upis().
+        _propose_kolona_upis(ctrl, atribut, vrijednost, resolved_tab)
 
     elif name == "spoji_naimenovanja":
         ctrl._predlozi_spajanje_naimenovanja()
@@ -2580,6 +2615,44 @@ def _izvrsi_spajanje_naimenovanja(ctrl, proposals, chat) -> None:
     )
 
 
+def _propose_kolona_upis(ctrl, atribut: str, vrijednost: str, tab: str) -> None:
+    """
+    Kreira proposal karticu za upis/brisanje vrijednosti u kolonu — MUTATE
+    alat (ToolPolicy), nikad direktan upis. Korisnik mora kliknuti potvrdu
+    prije nego se vrijednost stvarno upiše (_on_proposal_confirmed).
+
+    Poziva se i iz Tool Use puta (_execute_tool, "upisi_u_kolonu") i iz
+    regex fallback puta (agent_controller._upisi_u_kolonu) — isti mehanizam
+    potvrde za oba, bez duplog puta.
+
+    Vidi: docs/agent/AGENT_MODE_IMPROVEMENT_IMPLEMENTATION_PLAN.md §5
+    """
+    naziv_kolone = _NAZIV_KOLONE.get(atribut, atribut)
+    tab_naziv = "Faktura" if tab == 'faktura' else "Naimenovanja"
+
+    n_stavki = 0
+    if tab == 'faktura' and ctrl.draft and getattr(ctrl.draft, 'invoice_lines', None):
+        n_stavki = len(ctrl.draft.invoice_lines)
+    elif tab == 'naim' and ctrl.draft and getattr(ctrl.draft, 'items', None):
+        n_stavki = len(ctrl.draft.items)
+
+    # Zapamti tab za _on_proposal_confirmed — proposal_confirmed signal nosi
+    # samo {atribut: vrijednost} dict, bez mjesta za tab, pa se čuva na ctrl.
+    ctrl._pending_kolona_tab = tab
+
+    akcija = f"Briše se {naziv_kolone}" if not vrijednost else f"Upisuje se {naziv_kolone}"
+    proposal = {
+        'title': f"{akcija}: {vrijednost}" if vrijednost else akcija,
+        'subtitle': f"Primijeniće se na {n_stavki} stavki u {tab_naziv} tabu.",
+        'fields': [
+            {'label': naziv_kolone, 'key': atribut, 'value': vrijednost, 'editable': True},
+        ],
+        'apply_label': 'Potvrdi i upiši',
+        'scope': f"{n_stavki} stavki, {tab_naziv}",
+    }
+    _show_proposal_card(ctrl, proposal)
+
+
 def _show_proposal_card(ctrl, proposal: dict) -> None:
     from gui.tabs.agent.workflow_state import WorkflowState
     chat = ctrl.view.get_chat_panel()
@@ -2592,6 +2665,13 @@ def _on_proposal_confirmed(ctrl, values: dict) -> None:
     chat = ctrl.view.get_chat_panel()
     ctrl.workflow.transition(WorkflowState.APPLYING)
 
+    # Tab je zapamćen u _propose_kolona_upis (proposal_confirmed signal nosi
+    # samo values dict). 'faktura' ostaje default za bilo koji drugi buduci
+    # proizvođač proposal kartice koji ovo polje ne postavlja.
+    tab = getattr(ctrl, '_pending_kolona_tab', 'faktura')
+    if hasattr(ctrl, '_pending_kolona_tab'):
+        del ctrl._pending_kolona_tab
+
     if not values:
         chat.add_agent_message("⚠️ Prijedlog je prazan — ništa nije primijenjeno.")
         ctrl.workflow.transition(WorkflowState.COMPLETED)
@@ -2599,11 +2679,25 @@ def _on_proposal_confirmed(ctrl, values: dict) -> None:
 
     upisano = 0
     for atribut, vrijednost in values.items():
-        if not atribut or not vrijednost:
+        if not atribut:
             continue
         try:
-            ctrl.naim_intent_svc.execute(atribut, vrijednost, tab='faktura')
+            ctrl.naim_intent_svc.execute(atribut, vrijednost, tab=tab)
             upisano += 1
+            # Decision Service sinhronizacija (Faza 0-6) — tarifa/zemlja/povlastica
+            # imaju kanonski decision_state koji obicni setattr ne azurira.
+            # Prazna vrijednost (brisanje) se ne sinhronizuje — nema "obrisi
+            # odluku" koncepta u DeclarationDecisionService-u.
+            decision_field = _DECISION_FIELD_BY_ATRIBUT.get(atribut)
+            if decision_field is not None and tab == 'faktura' and vrijednost:
+                for line in getattr(ctrl.draft, 'invoice_lines', None) or []:
+                    try:
+                        sync_decision_state_after_manual_edit(line, decision_field, vrijednost)
+                    except Exception as sync_exc:
+                        logger.warning(
+                            "Decision sync (upisi_u_kolonu) nije uspio za liniju %s: %s",
+                            getattr(line, 'line_no', '?'), sync_exc,
+                        )
         except Exception as e:
             chat.add_activity(f"⚠️ Greška pri upisu {atribut}: {e}")
 
@@ -2618,4 +2712,6 @@ def _on_proposal_confirmed(ctrl, values: dict) -> None:
 
 def _on_proposal_rejected(ctrl) -> None:
     from gui.tabs.agent.workflow_state import WorkflowState
+    if hasattr(ctrl, '_pending_kolona_tab'):
+        del ctrl._pending_kolona_tab
     ctrl.workflow.transition(WorkflowState.COMPLETED)
