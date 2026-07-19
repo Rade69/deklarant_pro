@@ -282,3 +282,33 @@ samo Claude-specifičnu memoriju — pravila se mijenjaju isključivo u AGENTS.m
 Git pre-commit hook (`scripts/git-hooks/pre-commit`) sprovodi py_compile na staged
 .py fajlovima + podsjetnike za Korak 1-5; instalacija po mašini:
 `git config core.hooksPath scripts/git-hooks`. Ne zaobilaziti sa `--no-verify`.
+
+---
+
+## 16. Decision servis — TariffMapping nema supplier polje (poznat gap)
+
+`TariffMapping` dataclass (`services/tariff/tariff_mapping_service.py`) NE nosi
+`supplier` polje iako kolona postoji u `catalogs.product_tariff_mapping`.
+`services/decision/evidence_adapters.py::adapt_tariff_evidence()` je zato
+provjeru "isti izvoznik" radila poredeći ime izvoznika sa `naziv_robe` (naziv
+PROIZVODA) — praktično uvijek `False`. Popravljeno 2026-07-19: kandidat se sad
+prijavljuje kad je `mapping.similarity >= 0.99` (tačan `product_code` match),
+bez obzira na `usage_count` — bitno jer odmah nakon ručne ispravke (desni klik
+→ `correct_mapping()`) `usage_count` je uvijek 1. Vidi
+`agent_reports/2026-07-19_evidence-adapter-exact-match-fix.md`.
+
+**Follow-up koji ostaje otvoren**: prava popravka `is_same_exporter` zahtijeva
+dodavanje `supplier` polja u `TariffMapping` + `find_mapping()` SELECT — ali
+`services/tariff/tariff_mapping_service.py` se u `dist_client` kompajlira u
+Nuitka `.pyd` (`dist_client/services/tariff_mapping_service.cp314-win_amd64.pyd`).
+Svaka izmjena tog fajla zahtijeva pun rebuild (`scripts/build_distribution.bat`
+ili ciljani `python -m nuitka --module`) da bi se vidjela na Windows klijentu —
+ne raditi tu izmjenu bez plana za rebuild i verifikaciju.
+
+### GitNexus indeks degradiran za ovaj repo (2026-07-19)
+`gitnexus_impact`/`gitnexus_context` ne prepoznaju ni osnovne, davno postojeće
+simbole (npr. `TariffMappingService`) iako je index ranije prijavio "uspješno
+ažuriran". `gitnexus_detect_changes` i dalje radi (file-diff nivo), ali vraća
+`changed_symbols: []` za stvarno izmijenjene funkcije. Dok se ne istraži,
+tretirati GitNexus impact izlaze sa oprezom i raditi ručnu (grep-based) impact
+analizu kao dopunu, ne zamjenu.
