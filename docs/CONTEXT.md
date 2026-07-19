@@ -452,3 +452,29 @@ Faze B-F plana (`docs/agent/AGENT_MODE_IMPROVEMENT_IMPLEMENTATION_PLAN.md`)
 nisu rađene — korisnik je eksplicitno tražio samo Fazu A, pa stop za pregled.
 
 Detalji: `agent_reports/2026-07-19_faza-a-sigurnosna-kapija-mutirajuci-alati.md`.
+
+---
+
+## 21. Agent mode Faza B — LLM provider unifikacija, DeepSeek/OpenRouter uklonjeni (2026-07-19)
+
+`services/agent/chat/tool_dispatcher.py` je pozivao DeepSeek direktno (mimo
+`LLMProvider`) — kršenje AGENTS.md "LLMProvider ostaje jedina dozvoljena
+ulazna tačka". Zamijenjeno sa `LLMProvider.complete_with_tools()` (nova
+metoda, `ProviderToolResponse` neutralan rezultat, Groq → Gemini).
+
+**Poslovna odluka (korisnik eksplicitno potvrdio)**: `LLMProvider` je i dalje
+imao OpenRouter i DeepSeek kao 3./4. fallback (neaktivni na ovoj mašini, bez
+API ključeva u `.env`, ali prisutni u kodu) — suprotno AGENTS.md politici
+("Primarni: Groq; fallback: Gemini... DeepSeek isključen"). **Uklonjeni u
+potpunosti** iz `LLMProvider`-a — ako ikad ustreba plaćeni/dodatni fallback,
+to je nova, eksplicitna odluka, ne tiha reaktivacija dodavanjem API ključa.
+
+**Otkriven skriven pozivalac**: `gitnexus_impact` na `has_deepseek()` je
+otkrio da `gui/tabs/admin/panels/system_panel.py::_on_ai_health_clicked`
+(admin AI health check dijagnostika) direktno poziva
+`has_deepseek()`/`has_openrouter()`/`deepseek_key`/`openrouter_key` — van
+onoga što je plan predvidio. Bez ove popravke, klik na "AI Health Check" bi
+pucao (`AttributeError`). Dobar podsjetnik da `gitnexus_impact` treba
+pokrenuti i za "očigledne" izmjene — plan ne vidi sve vanjske pozivaoce.
+
+Detalji: `agent_reports/2026-07-19_faza-b-llm-provider-unifikacija.md`.
