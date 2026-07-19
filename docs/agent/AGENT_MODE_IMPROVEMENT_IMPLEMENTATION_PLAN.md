@@ -3,7 +3,10 @@
 **Datum:** 2026-07-19  
 **Status:** Spremno za implementaciju  
 **Namjena:** Handoff plan za agenta koji će realizovati unapređenja agentskog moda u Deklarant Pro aplikaciji  
-**Polazna analiza:** pregled aktivnog toka u `gui/tabs/agent/`, `services/agent/` i ciljnih offline testova
+**Polazna analiza:** pregled aktivnog toka u `gui/tabs/agent/`, `services/agent/` i ciljnih offline testova  
+**Dograđeno:** 2026-07-19 (Claude Sonnet 5) — dodana obavezna veza sa Decision Service migracijom
+(`agent_tasks/2026-07-18_jedan-izvor-istine-odluke-deklaracije.md`, završena dan prije ovog plana) i
+potvrđeni nalazi protiv stvarnog koda — vidi §5.6, §6.6, §7.7, §10.4 i §19.
 
 ## 1. Cilj
 
@@ -30,6 +33,12 @@ Sljedeće odluke su scope lock i ne smiju se mijenjati tokom ovog zadatka:
 - Svi LLM i duži servisni pozivi ostaju izvan UI threada.
 - Postojeći srpski nazivi polja u `InvoiceLine` ostaju nepromijenjeni.
 - `dist_client/` se ne ažurira parcijalnim kopiranjem bez provjere načina distribucije i potrebnog rebuilda.
+- `DeclarationDecisionService` (`services/decision/declaration_decision_service.py`) je, od 2026-07-18, jedini
+  servis koji smije primjenjivati izvedene odluke (tarifa, zemlja porijekla, povlastica) u `InvoiceLine.decision_state`.
+  Faza A ovog plana **mora graditi na tom servisu** (pozivati `evaluate_line`/`apply_candidate`/`confirm_manual_value`
+  iz `services/decision/integration.py`), ne smije uvoditi drugi, paralelan mehanizam potvrde za ista polja — vidi §5.6.
+- Politike po polju (`services/decision/decision_policy.py`) — redoslijed izvora, fuzzy threshold 0.92, zabrana
+  automatske povlastice — ostaju važeće i za agent-chat tokove, ne samo za Faktura tab.
 
 ## 3. Obavezna priprema prije izmjena
 
@@ -40,6 +49,9 @@ Agent koji implementira plan mora prije kodiranja:
    - `docs/decisions/001-tool-use-refactoring.md`;
    - `docs/decisions/002-tool-dispatcher-integration.md`;
    - `docs/sections/agent-origin-query-routing.md`;
+   - `agent_tasks/2026-07-18_jedan-izvor-istine-odluke-deklaracije.md` (Decision Service — kanonski model odluke);
+   - `agent_reports/2026-07-18_zavrsni-jedan-izvor-istine.md` (šta je od tog plana stvarno završeno, šta je xfail);
+   - `services/decision/decision_policy.py` i `services/decision/integration.py` (kratak pregled javnog API-ja);
 3. provjeriti `git status --short` i evidentirati postojeće korisničke izmjene;
 4. provjeriti svježinu GitNexus indeksa;
 5. za svaki simbol koji će mijenjati pokrenuti `gitnexus_impact(..., direction="upstream")`;
@@ -94,6 +106,15 @@ Kritična faza ne smije biti označena uspješnom ako je servis bacio izuzetak, 
 
 Odvojiti čitanje i prijedloge od stvarnih izmjena drafta. Nijedan LLM tool-call ne smije neposredno pozvati servis koji mijenja draft.
 
+**Ovo NIJE nova sigurnosna arhitektura od nule.** Za tarifu, zemlju porijekla i povlasticu, `DeclarationDecisionService`
+već postoji i već je jedini dozvoljeni upisni put (Decision Service migracija, 2026-07-18). `ToolPolicy`/`MUTATE`
+klasifikacija iz ove faze ne smije duplirano implementirati potvrdu/upis za ta tri polja — mora ih delegirati na
+`apply_candidate()`/`confirm_manual_value()` iz `services/decision/integration.py`. Novi mehanizam potvrde (proposal
+kartica, `operation_id`, idempotencija) je i dalje potreban za DRUGA polja koja Decision Service ne pokriva
+(npr. procedura, oznake, pakovanje, valuta, napomena — vidi `NaimenovanjaIntentService._resolve_kolona`), kao i za
+sam UI sloj potvrde iznad Decision Service-a. Vidi §5.6 za tačan spisak koje putanje već prolaze kroz Decision
+Service, a koje ga trenutno zaobilaze.
+
 ### 5.2 Planirani simboli i fajlovi
 
 - `services/agent/chat/tool_definitions.py`
@@ -115,6 +136,9 @@ Odvojiti čitanje i prijedloge od stvarnih izmjena drafta. Nijedan LLM tool-call
 - `services/agent/chat/tool_result.py`
   - po potrebi proširiti rezultat identifikatorom operacije, efektom alata i informacijom da li je potrebna potvrda;
   - ne mijenjati značenje postojećih statusa.
+- Za `ToolEffect.MUTATE` nad tarifom/zemljom porijekla/povlasticom: registry mora mapirati direktno na
+  `services/decision/integration.py` funkcije (`sync_decision_state_after_manual_edit` i srodne), ne na novu
+  implementaciju upisa — vidi §5.6 za postojeće pozivaoce koje treba zadržati.
 
 ### 5.3 Pravila izvršenja
 
@@ -146,6 +170,29 @@ Dodati ciljane testove, preporučeno:
 - test potvrde, odbijanja i dvostrukog signala;
 - test nepoznatog alata i nevažećih argumenata;
 - test da read-only pretraga ne otvara proposal karticu.
+
+### 5.6 Potvrđeni nalazi (2026-07-19, provjereno protiv koda prije handoff-a)
+
+Sljedeće je direktno pročitano u kodu, ne pretpostavka — implementacioni agent može krenuti od ovoga umjesto
+ponovnog otkrivanja:
+
+- **Gap koji Faza A stvarno mora zatvoriti**: `gui/tabs/agent/services/chat_intent_handler.py:1210` (Tool Use put,
+  unutar `_execute_tool`, grana `upisi_u_kolonu`) i `chat_intent_handler.py:1328` (regex fallback put, unutar
+  `_handle_message_regex_fallback`) oba pozivaju `ctrl.naim_intent_svc.execute(atribut, vrijednost, tab)` /
+  `svc.execute(...)` **direktno, bez ijedne potvrde korisnika**. `NaimenovanjaIntentService.execute()` (pozvano iz
+  `agent_controller.py:822`, `_upisi_u_kolonu`) odmah piše u draft. Ovo je stvaran, danas prisutan bug — poruka
+  "upiši zemlju porijekla RS" zaista mijenja draft prije bilo kakve potvrde.
+- **Putanje koje VEĆ prolaze kroz Decision Service — ne duplirati, samo zadržati/iskoristiti**:
+  `chat_intent_handler.py:1969` (`_on_accepted` tok) poziva
+  `sync_decision_state_after_autofill(changed_lines, action_type="dialog_confirmed")`;
+  `chat_intent_handler.py:2139-2141` (`_apply_single_tariff_to_line`) poziva
+  `sync_decision_state_after_manual_edit(line, DecisionField.TARIFF, code)`. Nova `ToolPolicy`/mutation-gate
+  implementacija ne smije zamijeniti ove pozive niti obrisati postojeću sinhronizaciju — treba ih tretirati kao
+  referentni obrazac za ostale mutirajuće alate nad istim poljima.
+- Zaključak: `upisi_u_kolonu` grana za tarifu/zemlju/povlasticu treba biti **preusmjerena** da koristi isti
+  `services/decision/integration.py` put kao gornje dvije putanje, umjesto da ostane direktan poziv
+  `NaimenovanjaIntentService.execute()`. Za ne-decision kolone (procedura, oznake, pakovanje, valuta, napomena),
+  novi `ToolPolicy`/proposal mehanizam iz ove faze je i dalje potreban jer Decision Service te kolone ne pokriva.
 
 ## 6. Faza B - jedinstveni LLM provider i fallback politika
 
@@ -200,6 +247,20 @@ Ako vlasnik projekta želi zadržati OpenRouter ili DeepSeek, to je kontradiktor
 - test nevažećeg JSON-a i nepoznatog tool imena;
 - test da dispatcher više ne zahtijeva `DEEPSEEK_API_KEY`;
 - test audit metapodataka za stvarno korišten provider.
+
+### 6.6 Potvrđeni nalazi (2026-07-19)
+
+Direktan DeepSeek klijent **i dalje postoji** u `services/agent/chat/tool_dispatcher.py` — ovo nije zastarjela
+primjedba iz starije dokumentacije, potvrđeno čitanjem trenutnog koda:
+
+- Linija 172: `if not provider.has_deepseek():` — provjera postojanja DeepSeek ključa unutar dispatchera.
+- Linije 181-182: `OpenAI(api_key=provider.deepseek_key, base_url="https://api.deepseek.com")`.
+- Linija 191: `model="deepseek-chat"`.
+
+Ovo je direktno kršenje AGENTS.md pravila "Pozivati Groq/Gemini direktno bez `LLMProvider` [je zabranjeno]" i
+"DeepSeek isključen". Napomena: ranija sesijska memorija (`2026-06-12_faza8-llm-provider-fallback.md`) navodi da je
+DeepSeek "naknadno isključen" — ta izmjena je očito pokrila samo glavni `LLMProvider` fallback lanac
+(`gui/tabs/agent/widgets/llm_provider.py`), ne i ovaj zaseban put u `tool_dispatcher.py`. Faza B mora obuhvatiti oba.
 
 ## 7. Faza C - pouzdan status pune automatizacije
 
@@ -278,6 +339,23 @@ Tačna lista kritičnih validacionih grešaka treba da koristi postojeće valida
 - test parcijalnog batch rezultata;
 - test da se loading status resetuje poslije izuzetka;
 - test da se naimenovanja ne kreiraju kada validacija padne.
+
+### 7.7 Potvrđeni nalazi (2026-07-19)
+
+`_puna_auto_pipeline()` (`gui/tabs/agent/services/import_pipeline_service.py:203-281`) je direktno pročitan —
+problem je ozbiljniji nego što zvuči apstraktno opisan u §7.1:
+
+- Korak 1 (izračun masa, linije ~208-213), korak 2 (auto-popuna tarifa, ~220-225), korak 3 (validacija, ~232-237) i
+  korak 5 (kreiranje naimenovanja, ~265-270) svi imaju identičan obrazac:
+  `try: ... except Exception as e: chat.add_activity(f"⚠️ Greška ...: {e}")` — bez `return`, bez ikakvog praćenja
+  ishoda. Pipeline nastavlja na sljedeći korak čak i ako je servis bacio izuzetak.
+- Korak 4 (potvrda deklaranta, `QMessageBox.question`) je jedini koji ISPRAVNO prekida (`return`) ako korisnik
+  odgovori Ne — dobar postojeći obrazac koji Faza C treba generalizovati na ostale korake, ne izmišljati nov.
+- Linija ~276: poruka `"🎉 <b>Puna automatizacija završena!</b>"` se ispisuje **bezuslovno**, na kraju funkcije, bez
+  provjere da li je ijedan od koraka 1/2/3/5 zapravo uspio. Praktična posljedica: ako izračun masa (korak 1) baci
+  izuzetak, pipeline i dalje "pokuša" auto-popunu, validaciju i kreiranje naimenovanja nad potencijalno netačnim
+  podacima, i na kraju korisniku tvrdi da je "puna automatizacija završena" — bez obzira na stvarni ishod bilo kog
+  koraka. Ovo je aktivan, ne hipotetički rizik za carinski alat.
 
 ## 8. Faza D - standardizovani rezultati i observability
 
@@ -381,6 +459,16 @@ Preporučeni moduli:
 - Nema kružnog importa sa `agent_controller.py`.
 - Svi scenario testovi iz Faze E ostaju zeleni.
 
+### 10.4 Potvrđeni nalazi (2026-07-19)
+
+- `gui/tabs/agent/services/chat_intent_handler.py` ima **2621 liniju** (izmjereno `wc -l`) — ocjena "prevelik" iz
+  §10 nije preuveličana.
+- Za poređenje: `gui/tabs/agent/agent_controller.py` ima danas **845 linija** — ranije (`AGENT_IMPROVEMENT_PLAN.md`,
+  2026-04-20) je imao 2000+ i bio meta sličnog refaktora. Taj refaktor je uspio (logika je izvučena iz controllera),
+  ali se bloat preselio u `chat_intent_handler.py`, koji je sad meta OVE faze. Zaključak za implementacionog agenta:
+  samo izdvajanje modula nije dovoljno bez trajne discipline (jasne granice odgovornosti po handleru, §10.1) —
+  inače se isti obrazac ponovi za 3 mjeseca u novom fajlu. Vidi §19 za kompletnu vezu sa starijim planom.
+
 ## 11. Dist client i kompatibilnost
 
 Prije izmjene svakog aktivnog modula uporediti odgovarajući fajl u `dist_client/`.
@@ -454,6 +542,8 @@ Na kopiji ili testnom draftu izvršiti:
 - Ne brisati compatibility stubove samo zato što izgledaju duplirano.
 - Ne mijenjati `dist_client/` naslijepo.
 - Ne commitovati postojeće nepovezane korisničke izmjene.
+- Ne graditi novi paralelni mutation-writer za tarifu/zemlju porijekla/povlasticu — te tri politike već ima
+  `services/decision/` (vidi §2, §5.6); novi `ToolPolicy` mora ih pozivati, ne duplirati.
 
 ## 16. Rizici i mitigacije
 
@@ -498,7 +588,9 @@ Zadatak je završen samo ako su ispunjeni svi uslovi:
 - odluke `001` i `002` su usklađene sa stvarnim kodom;
 - `docs/CONTEXT.md` je ažuriran samo za nove ne-očigledne odluke;
 - agent report sadrži impact, izmjene, testove, commitove, rizike i dist status;
-- nijedna postojeća nepovezana korisnička izmjena nije ušla u commit.
+- nijedna postojeća nepovezana korisnička izmjena nije ušla u commit;
+- mutacije nad tarifom/zemljom porijekla/povlasticom prolaze kroz `DeclarationDecisionService` — nema novog
+  paralelnog upisnog puta za ta polja (vidi §2, §5.6).
 
 ## 18. Obavezni završni izvještaj implementacionog agenta
 
@@ -511,4 +603,26 @@ Pored standardnih sekcija iz `AGENTS.md`, završni agent report mora eksplicitno
 - test scenarije koji dokazuju da nema direktne LLM mutacije;
 - da li je `dist_client` rebuildan i kako je provjeren;
 - preostale legacy module i razlog zašto nisu uklonjeni;
-- svako odstupanje od ovog plana i zašto je bilo potrebno.
+- svako odstupanje od ovog plana i zašto je bilo potrebno;
+- da li su mutacije nad tarifom/zemljom porijekla/povlasticom prošle kroz `DeclarationDecisionService`, ili je
+  napravljen paralelan upisni put i zašto (mora biti obrazloženo, ne samo konstatovano).
+
+## 19. Napomena o povezanim planovima i brojanju faza
+
+Postoje još dva dokumenta u ovom repozitoriju sa nezavisnom numeracijom "Faza" koja se **ne odnose** na ovaj plan
+— u commit porukama i diskusiji eksplicitno navesti "Faza A/B/C/D/E/F (agent mode improvement plan, 2026-07-19)"
+da se izbjegne zabuna:
+
+- `AGENT_IMPROVEMENT_PLAN.md` (korijen repoa, 2026-04-20) — koristi "Faza 1/2/3" (Kratkoročne/Srednjoročne/
+  Dugoročne). Istorijski plan; provjereno 2026-07-19 da je najveći dio već riješen (`agent_controller.py` sada
+  ima 845 linija, ne 2000+; PDF+Excel duplikat riješen `consumed_paths` pravilom iz `AGENTS.md`). Nije potrebno
+  čitati prije implementacije ovog plana, ali ne brisati bez provjere da li još nešto od preostalih stavki važi.
+- `docs/decisions/002-tool-dispatcher-integration.md` — pominje sopstvenu "Fazu 3" (brisanje regex sloja nakon
+  2-3 nedjelje stabilnosti Tool Use-a). Ovo JE relevantno za §10 (Faza F) ovog plana — provjeriti pri implementaciji
+  da li je taj uslov (regex sloj se briše tek kad telemetrija potvrdi da nije potreban) već ispunjen ili i dalje
+  otvoren, i uskladiti sa §10.2 pravilom "Ne brisati regex fallback dok telemetrija i testovi ne potvrde".
+
+Treći, aktivan izvor sa svojom fazama je Decision Service migracija (`agent_tasks/2026-07-18_jedan-izvor-istine-
+odluke-deklaracije.md`, Faze 0-6) — ta numeracija je ZAVRŠENA i odnosi se na drugi zadatak, ali njen kod
+(`services/decision/`) je direktna zavisnost ovog plana (vidi §2, §5.1, §5.6). Ne miješati "Fazu 0-6" (decision
+service, gotovo) sa "Fazom A-F" (ovaj plan, u toku) u komunikaciji sa korisnikom ili u commit porukama.
