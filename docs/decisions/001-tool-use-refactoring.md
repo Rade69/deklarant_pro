@@ -19,8 +19,16 @@ održavanje (300+ linija regex koda u `chat_intent_handler.py`).
 Zamijeniti 3-slojni routing sa **Tool Use** pristupom:
 
 ```
-poruka → DeepSeek (tools=[...]) → tool_call → executor → rezultat
+poruka → LLMProvider.complete_with_tools() (Groq → Gemini, tools=[...]) → tool_call → executor → rezultat
 ```
+
+> **Ažurirano 2026-07-19 (Faza B, docs/agent/AGENT_MODE_IMPROVEMENT_IMPLEMENTATION_PLAN.md):**
+> Provider je bio DeepSeek (direktan `OpenAI(base_url="https://api.deepseek.com")`
+> poziv u `tool_dispatcher.py`, mimo `LLMProvider` apstrakcije). Zamijenjeno sa
+> `LLMProvider.complete_with_tools()` — isti Groq → Gemini lanac kao standardni
+> chat, bez direktnog kreiranja provider klijenta van `LLMProvider`.
+> OpenRouter/DeepSeek su u istoj fazi uklonjeni i iz `LLMProvider`-ovog
+> fallback lanca u potpunosti (kanonska politika: `AGENTS.md`).
 
 Zašto:
 - **1 LLM poziv** umjesto 1-3 — brže i jeftinije
@@ -47,7 +55,7 @@ Zašto:
 | Model halucinira tarifne brojeve umjesto da pozove alat | Agresivni system prompt: "NIKAD ne izmišljaj tarifne brojeve" |
 | Model ne poziva alat za očigledne slučajeve | `tool_choice: "auto"` uz jake opise alata |
 | Merge zahtijeva potvrdu (multi-turn) | Tool vraća `requires_confirmation`, dispatcher setuje `_pending_action` |
-| DeepSeek API ne podržava tool use | OpenAI-kompatibilan API — podržava |
+| Groq/Gemini imaju različit tool-call format | `LLMProvider.complete_with_tools()` normalizuje oba u neutralan `ProviderToolResponse` prije nego stigne do dispatchera |
 
 ## Povezani fajlovi
 

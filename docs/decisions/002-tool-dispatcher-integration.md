@@ -13,16 +13,20 @@ Novi flow:
 poruka
   → injection check
   → pending action check
-  → ToolDispatcherWorker (DeepSeek tool use)
+  → ToolDispatcherWorker (LLMProvider tool use — Groq → Gemini)
       → tool_call → _execute_tool() → servis → DONE
       → fallback_to_chat → ChatWorker (plain LLM)
       → error → stari regex sloj (fallback)
 ```
 
+> **Ažurirano 2026-07-19 (Faza B):** `ToolDispatcherWorker` je pozivao DeepSeek
+> direktno (van `LLMProvider`). Sad koristi isključivo
+> `LLMProvider.complete_with_tools()` — isti provider lanac kao standardni chat.
+
 ## Zašto zadržavamo regex sloj
 
 Regex sloj ostaje kao **fallback** za slučaj:
-- DeepSeek API nije dostupan (nema ključa, rate limit)
+- Groq/Gemini API nije dostupan (nema ključa, rate limit)
 - Mrežna greška
 - Bilo koji drugi izuzetak
 
