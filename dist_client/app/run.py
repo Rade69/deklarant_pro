@@ -93,6 +93,9 @@ def main() -> None:
     # ── MCP Server — pokreni u pozadini (ne blokira UI) ─────────────────
     _start_mcp_server(app)
 
+    # ── Product similarity memory — osvježi u pozadini ako je zastario ──
+    _start_product_similarity_sync()
+
     win = MainWindow()
     win.show()
 
@@ -127,6 +130,83 @@ def _start_mcp_server(app: QApplication) -> None:
     except Exception as e:
         logger.warning("MCP server not available: %s", e)
         _mcp_client = None
+
+
+_PRODUCT_SIMILARITY_STALE_DAYS = 7
+
+
+def _start_product_similarity_sync() -> None:
+    """
+    Pokreni sync + embedding catalogs.product_similarity_memory u pozadinskom
+    daemon thread-u, ali samo ako je zadnje ažuriranje starije od
+    _PRODUCT_SIMILARITY_STALE_DAYS. Ranije se ovo pokretalo isključivo ručno
+    (scripts/sync_product_similarity_memory.py + embed_product_similarity_memory.py)
+    pa je zaostajalo mjesecima — vidi agent_reports/2026-07-19_*.
+    """
+    try:
+        import threading
+        thread = threading.Thread(
+            target=_run_product_similarity_sync_if_stale,
+            daemon=True,
+            name="product-similarity-sync",
+        )
+        thread.start()
+        logger.info("Product similarity sync provjera pokrenuta (pozadina)")
+    except Exception as e:
+        logger.warning("Product similarity sync se ne može pokrenuti: %s", e)
+
+
+def _run_product_similarity_sync_if_stale() -> None:
+    try:
+        from datetime import datetime, timedelta
+
+        from database.db import get_db_connection
+        from services.agent.learning.product_similarity_memory_service import (
+            sync_product_similarity_memory,
+        )
+
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "SELECT MAX(updated_at) AS last_updated FROM catalogs.product_similarity_memory"
+                )
+                row = cursor.fetchone()
+                last_updated = row["last_updated"] if row else None
+
+        if last_updated is not None and datetime.now() - last_updated < timedelta(
+            days=_PRODUCT_SIMILARITY_STALE_DAYS
+        ):
+            logger.info(
+                "Product similarity memory je ažurna (zadnje ažuriranje %s) — preskačem sync",
+                last_updated,
+            )
+            return
+
+        logger.info("Product similarity memory zastarjela/prazna — pokrećem sync...")
+        sync_result = sync_product_similarity_memory()
+        if sync_result.error:
+            logger.warning("Product similarity sync greška: %s", sync_result.error)
+            return
+
+        try:
+            from services.agent.learning.product_similarity_embedding_service import (
+                ProductSimilarityEmbeddingService,
+            )
+            embed_result = ProductSimilarityEmbeddingService().embed_pending(batch_size=200)
+            if embed_result.error:
+                logger.warning("Product similarity embedding greška: %s", embed_result.error)
+                return
+            logger.info(
+                "Product similarity memory ažurirana: synced=%s, embedded=%s",
+                sync_result.synced, embed_result.embedded,
+            )
+        except ImportError:
+            logger.info(
+                "sentence-transformers nije instaliran (extra 'embeddings') — "
+                "sync=%s završen, embedding preskočen", sync_result.synced,
+            )
+    except Exception as e:
+        logger.warning("Product similarity sync nije uspio: %s", e)
 
 
 def _stop_mcp_server() -> None:

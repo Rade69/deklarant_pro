@@ -1,0 +1,21 @@
+# ============================================================
+# Deklarant Pro - Embedding Dodatne Zavisnosti (Opciono)
+# ============================================================
+#
+# Ove biblioteke su potrebne samo za lokalni ("local") embedding provider
+# koji koristi catalogs.product_similarity_memory ("slični proizvodi" u
+# agent chatu). Bez ovoga sync (scripts/sync_product_similarity_memory.py)
+# radi normalno, ali embed korak (scripts/embed_product_similarity_memory.py)
+# preskače se — retke stavke ostaju bez embeddinga i ne pojavljuju se u
+# semantičkoj pretrazi.
+#
+# INSTALACIJA:
+#    pip install -r requirements-embeddings.txt
+#
+# Prvi poziv preuzima model sa huggingface.co (~90MB, jednokratno, keš u
+# ~/.cache/huggingface/hub/) — nakon toga radi potpuno offline
+# (local_files_only=True u services/agent/learning/product_similarity_embedding_service.py).
+#
+# ============================================================
+
+sentence-transformers>=2.2.0   # Lokalni embedding model (all-MiniLM-L6-v2)

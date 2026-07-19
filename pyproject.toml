@@ -61,6 +61,11 @@ dev = [
     "pytest>=7.4.0",
     "pytest-qt>=4.2.0",
 ]
+# Lokalni embedding provider za product_similarity_memory ("slični proizvodi")
+# Instalacija: uv sync --extra embeddings
+embeddings = [
+    "sentence-transformers>=2.2.0",
+]
 
 [project.scripts]
 deklarant-pro = "app:main"
