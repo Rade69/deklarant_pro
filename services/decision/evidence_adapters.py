@@ -58,20 +58,24 @@ def adapt_tariff_evidence(line: "InvoiceLine", context: "PolicyContext") -> list
                 supplier=context.normalized_exporter,
             )
             if mapping:
-                is_same_exporter = (
-                    context.normalized_exporter
-                    and context.normalized_exporter.upper()
-                    in (mapping.naziv_robe or "").upper()
-                )
-                if is_same_exporter or mapping.usage_count >= 3:
-                    conf = (
-                        DecisionConfidence.CONFIRMED_FROM_SAME_EXPORTER_HISTORY
-                        if is_same_exporter and mapping.usage_count >= 5
-                        else DecisionConfidence.SUGGESTED_BY_SIMILARITY
+                # Tacan product_code match (find_mapping vraca similarity=1.0 samo za ovu
+                # granu) je pouzdan bez obzira na usage_count — ovo je slucaj odmah nakon
+                # rucne ispravke (desni klik -> correct_mapping), gdje je usage_count=1.
+                # Ranije se ovdje provjeravao "is_same_exporter" poredjenjem imena izvoznika
+                # sa mapping.naziv_robe (naziv PROIZVODA, ne dobavljaca) — to poredjenje
+                # je bilo prakticno uvijek False jer TariffMapping ne nosi supplier polje,
+                # pa je svjeza rucna ispravka (usage_count=1) ostajala ispod praga i nikad
+                # se nije nudila kao kandidat na sljedecem uvozu iste robe.
+                is_exact_code_match = mapping.similarity >= 0.99
+                if is_exact_code_match or mapping.usage_count >= 3:
+                    score = (
+                        min(95, 80 + mapping.usage_count * 3)
+                        if is_exact_code_match
+                        else min(95, 70 + mapping.usage_count * 2)
                     )
                     ev = build_evidence(
-                        DecisionSource.EXPORTER_HISTORY if is_same_exporter else DecisionSource.SIMILARITY,
-                        conf,
+                        DecisionSource.TARIFF_DATABASE if is_exact_code_match else DecisionSource.SIMILARITY,
+                        DecisionConfidence.SUGGESTED_BY_SIMILARITY,
                         f"Mapiranje: {mapping.naziv_robe[:60]} (x{mapping.usage_count})",
                         {
                             "tariff": mapping.tarifni_broj,
@@ -79,7 +83,7 @@ def adapt_tariff_evidence(line: "InvoiceLine", context: "PolicyContext") -> list
                             "usage_count": mapping.usage_count,
                             "similarity": mapping.similarity,
                         },
-                        score=min(95, 70 + mapping.usage_count * 2),
+                        score=score,
                     )
                     candidates.append(
                         DecisionCandidate.make(DecisionField.TARIFF, mapping.tarifni_broj, ev)
