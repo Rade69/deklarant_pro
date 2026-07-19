@@ -312,3 +312,39 @@ ažuriran". `gitnexus_detect_changes` i dalje radi (file-diff nivo), ali vraća
 `changed_symbols: []` za stvarno izmijenjene funkcije. Dok se ne istraži,
 tretirati GitNexus impact izlaze sa oprezom i raditi ručnu (grep-based) impact
 analizu kao dopunu, ne zamjenu.
+
+---
+
+## 17. `catalogs` šema — 6 tabela uklonjeno (2026-07-19), poznata "smeće" mjesta
+
+Audit cijele `catalogs` šeme (36 tabela) pokazao je da je većina (26) aktivno
+korišćena — baza NIJE bila haotična kako se činilo, ali je imala jasne ostatke.
+Uklonjeno (migracija `database/migrations/009_drop_unused_tables.sql`, backup u
+`database/backups/2026-07-19_pre_cleanup/`, lokalno, gitignored):
+`product_tariff_mapping_backup`, `tariff_knowledge_base_backup`,
+`supplier_profiles`, `supplier_historical_profiles`, `postupci_rb37`,
+`declaration_drafts`. Detalji: `agent_reports/2026-07-19_baza-podataka-audit-katalog.md`
+i `agent_reports/2026-07-19_baza-cleanup-drop-6-tabela.md`.
+
+**Zamka koju treba znati za buduće DROP TABLE na ovoj bazi**: prije brisanja
+BILO KOJE tabele sa `id SERIAL`/`nextval(...)` provjeriti da li sekvenca dijeli
+ime-šablon sa nekom drugom (živom) tabelom — `product_tariff_mapping_backup.id`
+je koristila `product_tariff_mapping_id_seq` (bez sufiksa), dok živa
+`product_tariff_mapping.id` koristi `product_tariff_mapping_id_seq1`. Da su iste,
+`DROP TABLE` bi (PostgreSQL automatski briše `OWNED BY` sekvencu) obrisao
+sekvencu žive tabele. Provjera: `pg_depend` join na `pg_class`/`pg_attribute`
+(vidi agent_report za tačan upit) — NIKAD ne pretpostavljati na osnovu imena.
+
+**Još uvijek nekorišćeno, ali NIJE uklonjeno** (kod ih poziva, samo su
+podaci/rezultat upitni — treba ljudska odluka o namjeni prije akcije):
+`declarations`/`declaration_items` (MCP historical search — tabele prazne),
+`tarifa_nazivi` (GUI poziva, nikad napunjena), `exporter_xml_index` (cache se
+čini da se nikad ne "pogađa" od bulk uvoza 2026-06-13),
+`product_similarity_memory` (embedding indeks nad `product_tariff_mapping`,
+sync stao ~2 mjeseca — NIJE duplikat, samo neaktivno održavan).
+
+`database/migrate_tariff_kb.py` i `database/ingest_tariff_kb.py` i dalje su dio
+`database/setup_all_migrations.py` provizionog pipeline-a i kreiraju praznu,
+nekorišćenu `tariff_knowledge_base` tabelu (bez `_backup` sufiksa) na svakoj
+novoj instalaciji — namjerno netaknuto, jer je to promjena instalacionog
+procesa, ne samo čišćenje postojeće baze.
