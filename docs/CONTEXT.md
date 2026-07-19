@@ -415,3 +415,40 @@ pući dok se model ručno ne preuzme — namjerno nije automatizovano da prvi
 start aplikacije ne pravi mrežni poziv bez znanja korisnika.
 
 Detalji: `agent_reports/2026-07-19_preostale-3-tabele-tarifa-exporter-similarity.md`.
+
+---
+
+## 20. Agent mode Faza A — sigurnosna kapija za upisi_u_kolonu (2026-07-19)
+
+`upisi_u_kolonu` je bio jedini agent alat koji je direktno pisao u draft bez
+potvrde korisnika (i Tool Use i regex fallback put) — poruka "upiši zemlja
+porijekla RS" je mijenjala SVE stavke Faktura taba prije bilo kakvog pregleda.
+Popravljeno korišćenjem **postojeće, ranije nekorišćene** proposal-card
+infrastrukture (`ProposalCardWidget`, `show_proposal_card`/
+`_on_proposal_confirmed`/`_on_proposal_rejected` u `chat_intent_handler.py`) —
+ti pozivi su postojali u kodu bez ijednog stvarnog pozivaoca prije ove izmjene.
+
+Uveden `services/agent/chat/tool_policy.py` — `ToolEffect` (READ_ONLY/PROPOSE/
+MUTATE) registry za svih 12 agent alata, fail-closed za nepoznat alat.
+
+**Ključna integracija**: potvrđen upis u tarifni_broj/zemlja_porijekla/
+povlastica sad zove `sync_decision_state_after_manual_edit()` (Decision
+Service, Faza 0-6 od 2026-07-18) po liniji — bez ovoga bi `upisi_u_kolonu`
+postao treći paralelan upisni put mimo `DeclarationDecisionService`.
+
+**Poznat gap, nije riješen**: nema `operation_id` — dvije uzastopne
+eksplicitne invokacije `_on_proposal_confirmed` bi izvršile mutaciju dvaput.
+GUI je djelimično zaštićen (widget se uništava nakon klika), replay signala
+nije. Dokumentovano kao `xfail` test, ne lažno predstavljeno kao riješeno.
+
+**Netraćen test fajl otkriven**: `tests/test_tool_use_offline.py` (solidan
+test suite za Tool Use, 30+ testova) NIKAD nije bio u git istoriji —
+`.gitignore:78` isključuje `test_*.py` direktno pod `tests/` (scratch
+konvencija), izuzev `tests/*/test_*.py`. Izmjene tamo su lokalne samo na ovoj
+mašini. Tracked pokrivenost za ovu fazu: `tests/unit/test_tool_policy.py`,
+`tests/unit/test_agent_mutation_gate.py`.
+
+Faze B-F plana (`docs/agent/AGENT_MODE_IMPROVEMENT_IMPLEMENTATION_PLAN.md`)
+nisu rađene — korisnik je eksplicitno tražio samo Fazu A, pa stop za pregled.
+
+Detalji: `agent_reports/2026-07-19_faza-a-sigurnosna-kapija-mutirajuci-alati.md`.
