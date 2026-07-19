@@ -337,7 +337,6 @@ sekvencu žive tabele. Provjera: `pg_depend` join na `pg_class`/`pg_attribute`
 
 **Još uvijek nekorišćeno, ali NIJE uklonjeno** (kod ih poziva, samo su
 podaci/rezultat upitni — treba ljudska odluka o namjeni prije akcije):
-`declarations`/`declaration_items` (MCP historical search — tabele prazne),
 `tarifa_nazivi` (GUI poziva, nikad napunjena), `exporter_xml_index` (cache se
 čini da se nikad ne "pogađa" od bulk uvoza 2026-06-13),
 `product_similarity_memory` (embedding indeks nad `product_tariff_mapping`,
@@ -348,3 +347,38 @@ sync stao ~2 mjeseca — NIJE duplikat, samo neaktivno održavan).
 nekorišćenu `tariff_knowledge_base` tabelu (bez `_backup` sufiksa) na svakoj
 novoj instalaciji — namjerno netaknuto, jer je to promjena instalacionog
 procesa, ne samo čišćenje postojeće baze.
+
+---
+
+## 18. MCP historijska pretraga — `declarations`/`declaration_items` popunjeni pravim XML podacima (2026-07-19)
+
+**Ispravka pogrešne pretpostavke**: ranije se mislilo (i pogrešno tvrdilo
+korisniku) da `migrate_mappings.py` puni ove tabele iz "stvarno prihvaćenih
+ASYCUDA deklaracija". Netačno — ta skripta je samo omotavala
+`catalogs.product_tariff_mapping` u lažne `"MIGRATED_*"` deklaracije (isti
+podaci, druga šema, i uz to `LIMIT 1000`). Nula dodane evidentne vrijednosti.
+
+**Prava istorija ASYCUDA deklaracija već postoji** i koristi je
+`services/agent/chat/declaration_search_service.py` — parsira 2503 stvarna
+XML fajla iz `data/knowledge_base/NOVA ASIKUDA/` u lokalni SQLite indeks
+(`declaration_index.db`) za agent chat pretragu ("slični proizvodi",
+tarifni prijedlozi). **MCP server ne može direktno dijeliti taj SQLite
+indeks** jer je arhitekturno namijenjen da radi samostalno na Ubuntu serveru
+sa SAMO PostgreSQL pristupom (`docs/sections/mcp-server-architecture.md`) —
+otuda odvojen PostgreSQL put.
+
+Napravljena nova skripta `database/migrate_declarations_from_xml.py` koja
+**reuse-uje** `DeclarationSearchService._parse_xml()` (dokazana logika, ne
+nova reimplementacija) i puni `catalogs.declarations`/`declaration_items` sa
+2496 stvarnih deklaracija / 9798 stavki. Svih 6 MCP alata
+(`mcp_server/tools/*.py`) sad vraćaju stvarne rezultate. Jednokratni backfill
+(korisnikova eksplicitna odluka, ne inkrementalni sync) — novi XML fajlovi
+dodani nakon 2026-07-19 neće biti vidljivi dok se skripta ručno ne ponovi.
+
+**Poznato ograničenje, nije popravljeno**: `search_historical_declarations` i
+srodni alati u `mcp_server/tools/*.py` koriste prostu `ILIKE`, nisu
+dijakritik-neosjetljivi (mora se tražiti "čvarci", "cvarci" ne pronalazi
+ništa) — za razliku od SQLite verzije koja koristi FTS5
+`remove_diacritics` tokenizator. Follow-up: PostgreSQL `unaccent` extension.
+
+Detalji: `agent_reports/2026-07-19_mcp-historijska-pretraga-real-xml.md`.
