@@ -1,8 +1,8 @@
 """
-Tool Definitions — definicije alata i system prompt za DeepSeek Tool Use.
+Tool Definitions — definicije alata i system prompt za LLM Tool Use.
 
 Svaki alat odgovara jednoj akciji u Deklarant Pro softveru.
-Model (DeepSeek) bira alat na osnovu korisnikove poruke.
+Model (Groq → Gemini kroz LLMProvider) bira alat na osnovu korisnikove poruke.
 
 📄 Povezano: docs/decisions/001-tool-use-refactoring.md
    Zavisnosti: svi servisi u services/agent/ i services/agent/chat/

@@ -1,17 +1,18 @@
 """
-Tool Dispatcher — DeepSeek Tool Use za chat routing.
+Tool Dispatcher — LLM Tool Use (Groq → Gemini kroz LLMProvider) za chat routing.
 
 Zamjenjuje 3-slojni sistem (regex → IntentClassifier → ChatWorker)
-sa jednim Tool Use pozivom DeepSeek-u.
+sa jednim Tool Use pozivom kroz LLMProvider.complete_with_tools().
 
 📄 Povezano: docs/decisions/001-tool-use-refactoring.md
+   docs/agent/AGENT_MODE_IMPROVEMENT_IMPLEMENTATION_PLAN.md (Faza B)
    Zavisnosti:
    - services/agent/chat/tool_definitions.py  (TOOLS, SYSTEM_PROMPT)
-   - gui/tabs/agent/widgets/llm_provider.py     (DeepSeek API)
+   - gui/tabs/agent/widgets/llm_provider.py     (LLMProvider — Groq/Gemini)
+   - services/agent/chat/tool_policy.py         (validacija imena alata)
    - services/agent/chat/*_intent_service.py    (servisi za izvršenje)
 """
 
-import json
 import logging
 import re
 from dataclasses import dataclass, field
@@ -117,7 +118,7 @@ def route_local_tool(message: str) -> Optional[ToolCall]:
 
 class ToolDispatcherWorker(QThread):
     """
-    QThread worker koji šalje korisničku poruku DeepSeek-u sa Tool Use.
+    QThread worker koji šalje korisničku poruku LLM-u (Groq → Gemini) sa Tool Use.
 
     Signali:
         tool_call_received(name: str, arguments: dict)
@@ -156,7 +157,7 @@ class ToolDispatcherWorker(QThread):
     @staticmethod
     def _dispatch(message: str) -> DispatchResult:
         """
-        Poziva DeepSeek API sa tools i parsira odgovor.
+        Poziva LLMProvider.complete_with_tools() (Groq → Gemini) i parsira odgovor.
 
         Statička metoda radi lakšeg testiranja bez Qt zavisnosti.
         """
@@ -166,58 +167,42 @@ class ToolDispatcherWorker(QThread):
             return DispatchResult(tool_call=local_tool)
 
         from gui.tabs.agent.widgets.llm_provider import LLMProvider
+        from services.agent.chat.tool_policy import is_known_tool
 
         provider = LLMProvider()
 
-        if not provider.has_deepseek():
+        if not provider.has_groq() and not provider.has_gemini():
             return DispatchResult(
-                error="DeepSeek API ključ nije podešen. Dodaj DEEPSEEK_API_KEY u .env"
+                error="Nema dostupnog AI providera. Dodaj GROQ_API_KEY ili GEMINI_API_KEY u .env."
             )
 
-        try:
-            from openai import OpenAI
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": message},
+        ]
 
-            client = OpenAI(
-                api_key=provider.deepseek_key,
-                base_url="https://api.deepseek.com"
-            )
+        response = provider.complete_with_tools(messages, tools=TOOLS, max_tokens=300)
 
-            messages = [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": message},
-            ]
+        if response.error:
+            logger.warning(f"[ToolDispatcher] API error ({response.provider or '?'}): {response.error}")
+            return DispatchResult(error=response.error)
 
-            resp = client.chat.completions.create(
-                model="deepseek-chat",
-                messages=messages,
-                tools=TOOLS,
-                tool_choice="auto",
-                temperature=0.1,
-                max_tokens=300,
-            )
-
-            choice = resp.choices[0]
-            msg = choice.message
-
-            if msg.tool_calls:
-                tool_call = msg.tool_calls[0]
-                name = tool_call.function.name
-                try:
-                    args = json.loads(tool_call.function.arguments)
-                except json.JSONDecodeError:
-                    args = {}
-
-                logger.debug(f"[ToolDispatcher] Tool called: {name}({args})")
-                return DispatchResult(
-                    tool_call=ToolCall(name=name, arguments=args)
+        if response.tool_name:
+            if not is_known_tool(response.tool_name):
+                logger.warning(
+                    "[ToolDispatcher] %s vratio nepoznat alat: %s",
+                    response.provider, response.tool_name,
                 )
-            else:
-                text = msg.content or ""
-                logger.debug(f"[ToolDispatcher] Plain text: {text[:80]}...")
-                return DispatchResult(plain_text=text)
+                return DispatchResult(
+                    error=f"Model je pozvao nepoznat alat: {response.tool_name}"
+                )
+            logger.debug(
+                "[ToolDispatcher] Tool called (%s): %s(%s)",
+                response.provider, response.tool_name, response.tool_arguments,
+            )
+            return DispatchResult(
+                tool_call=ToolCall(name=response.tool_name, arguments=response.tool_arguments)
+            )
 
-        except Exception as e:
-            from gui.tabs.agent.widgets.llm_provider import parse_llm_error
-            err_msg = parse_llm_error(e)
-            logger.warning(f"[ToolDispatcher] API error: {err_msg}")
-            return DispatchResult(error=err_msg)
+        logger.debug(f"[ToolDispatcher] Plain text ({response.provider}): {response.content[:80]}...")
+        return DispatchResult(plain_text=response.content)

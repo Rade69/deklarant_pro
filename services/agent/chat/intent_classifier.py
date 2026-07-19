@@ -1,7 +1,7 @@
 """
 IntentClassifier — Klasifikacija namjere korisnikove chat poruke.
 
-Koristi DeepSeek (brz, veliki kontekst) da prepozna šta korisnik želi
+Koristi LLMProvider (Groq → Gemini) da prepozna šta korisnik želi
 za poruke vezane za tarifne brojeve.
 
 Tip namjere:
@@ -64,7 +64,7 @@ class IntentClassifier:
     Koristi se samo za DVOSMISLENE poruke gdje keyword detekcija nije
     dovoljna — npr. "predloži mi tarif za X" vs. "predloži mi tarife".
 
-    Zahtijeva LLMProvider (DeepSeek primarni).
+    Zahtijeva LLMProvider (Groq primarni, Gemini fallback).
     """
 
     def classify(self, message: str, draft_summary: str = "") -> IntentResult:

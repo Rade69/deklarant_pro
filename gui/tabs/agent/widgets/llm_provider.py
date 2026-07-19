@@ -1,11 +1,14 @@
-﻿"""
-LLMProvider — Apstrakcija nad LLM providerima (Groq + Gemini + OpenRouter + DeepSeek).
+"""
+LLMProvider — Apstrakcija nad LLM providerima (Groq + Gemini).
 
-Redoslijed:
+Redoslijed (AGENTS.md kanonska politika):
   1. Groq (llama-3.3-70b-versatile) — primarni free provider
-  2. Gemini (gemini-2.5-flash-lite) — sekundarni fallback
-  3. OpenRouter (openrouter/free) — treći fallback
-  4. DeepSeek (deepseek-chat) — opcioni plaćeni fallback
+  2. Gemini (gemini-2.5-flash-lite) — fallback
+
+DeepSeek i OpenRouter su namjerno uklonjeni iz lanca (2026-07-19, Faza B —
+docs/agent/AGENT_MODE_IMPROVEMENT_IMPLEMENTATION_PLAN.md). `LLMProvider`
+ostaje jedina dozvoljena ulazna tačka za LLM pozive — nijedan pozivalac ne
+smije direktno instancirati Groq/Gemini/bilo koji drugi provider klijent.
 
 Upotreba:
     provider = LLMProvider()
@@ -14,12 +17,17 @@ Upotreba:
         ...
     # Batch (bez streaminga):
     text = provider.complete(messages)
+    # Tool use (Tool Dispatcher):
+    response = provider.complete_with_tools(messages, tools=TOOLS)
 """
 
+import json
 import logging
 import os
 import re
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger("deklarant_pro.agent.llm")
 
@@ -54,45 +62,48 @@ def parse_llm_error(exc) -> str:
             )
         return f"⏳ AI limit dostignut. Pokušaj za: {wait_str}"
     if '401' in msg or 'invalid_api_key' in msg or 'API_KEY_INVALID' in msg:
-        return "🔑 Neispravan API ključ. Provjeri .env (GROQ_API_KEY, GEMINI_API_KEY, OPENROUTER_API_KEY ili DEEPSEEK_API_KEY)."
+        return "🔑 Neispravan API ključ. Provjeri .env (GROQ_API_KEY ili GEMINI_API_KEY)."
     if '402' in msg or 'insufficient_balance' in msg.lower() or 'insufficient balance' in msg.lower():
         return (
             "💳 Nedovoljno kredita na AI nalogu (402 Insufficient Balance).\n"
-            "Dopuni kredit za trenutni provider ili podesi drugi (GROQ_API_KEY, GEMINI_API_KEY "
-            "ili OPENROUTER_API_KEY) u .env."
+            "Dopuni kredit za trenutni provider ili podesi drugi (GROQ_API_KEY ili "
+            "GEMINI_API_KEY) u .env."
         )
     if 'timeout' in msg.lower() or 'connection' in msg.lower():
         return "🌐 Greška veze sa AI serverom. Provjeri internet i pokušaj ponovo."
     return f"⚠️ AI greška: {msg[:200]}"
 
 
+@dataclass
+class ProviderToolResponse:
+    """
+    Neutralan rezultat complete_with_tools() poziva — bez provider-specifičnih
+    objekata, isti oblik bez obzira da li je odgovorio Groq ili Gemini.
+    """
+    tool_name: Optional[str] = None
+    tool_arguments: Dict[str, Any] = field(default_factory=dict)
+    content: str = ""      # Plain text odgovor, ako model nije pozvao alat.
+    provider: str = ""     # Koji je provider stvarno završio poziv ("groq"/"gemini") — za audit.
+    error: str = ""
+
+
 class LLMProvider:
     """
-    Wrapper koji transparentno prebacuje između Groq, Gemini, OpenRouter i DeepSeek.
+    Wrapper koji transparentno prebacuje između Groq i Gemini.
 
     Streaming radi za Groq; Gemini vraća token po token simulacijom
     (Gemini streaming je podržan ali se ovdje koristi non-streaming radi
     jednostavnosti — response se šalje odjednom).
     """
 
-    DEEPSEEK_MODEL = "deepseek-chat"
-    DEEPSEEK_BASE_URL = "https://api.deepseek.com"
     GROQ_MODEL = "llama-3.3-70b-versatile"
     GROQ_BATCH_MODEL = "llama-3.1-8b-instant"
     GEMINI_MODEL = "gemini-2.5-flash-lite"
-    OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-    OPENROUTER_MODEL = "openrouter/free"
 
     def __init__(self):
         env = _load_env()
-        self.deepseek_key = env.get("DEEPSEEK_API_KEY") or os.getenv("DEEPSEEK_API_KEY") or ""
         self.groq_key = env.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY") or ""
         self.gemini_key = env.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY") or ""
-        self.openrouter_key = env.get("OPENROUTER_API_KEY") or os.getenv("OPENROUTER_API_KEY") or ""
-        self.openrouter_model = env.get("OPENROUTER_MODEL") or os.getenv("OPENROUTER_MODEL") or self.OPENROUTER_MODEL
-
-    def has_deepseek(self) -> bool:
-        return bool(self.deepseek_key)
 
     def has_groq(self) -> bool:
         return bool(self.groq_key)
@@ -100,53 +111,18 @@ class LLMProvider:
     def has_gemini(self) -> bool:
         return bool(self.gemini_key)
 
-    def has_openrouter(self) -> bool:
-        return bool(self.openrouter_key)
-
     def active_provider(self) -> str:
         """Koji provider je trenutno aktivan (primarni)."""
         if self.has_groq():
             return "groq"
         if self.has_gemini():
             return "gemini"
-        if self.has_openrouter():
-            return "openrouter"
-        if self.has_deepseek():
-            return "deepseek"
         return "none"
-
-    # ── DeepSeek implementacija ─────────────────────────────────────────────
-
-    def _deepseek_stream(self, messages: list, max_tokens: int):
-        from openai import OpenAI
-        client = OpenAI(api_key=self.deepseek_key, base_url=self.DEEPSEEK_BASE_URL)
-        stream = client.chat.completions.create(
-            model=self.DEEPSEEK_MODEL,
-            messages=messages,
-            temperature=0.2,
-            max_tokens=max_tokens,
-            stream=True,
-        )
-        for chunk in stream:
-            delta = chunk.choices[0].delta.content or ""
-            if delta:
-                yield delta
-
-    def _deepseek_complete(self, messages: list, max_tokens: int) -> str:
-        from openai import OpenAI
-        client = OpenAI(api_key=self.deepseek_key, base_url=self.DEEPSEEK_BASE_URL)
-        resp = client.chat.completions.create(
-            model=self.DEEPSEEK_MODEL,
-            messages=messages,
-            temperature=0.1,
-            max_tokens=max_tokens,
-        )
-        return resp.choices[0].message.content or ""
 
     # ── Streaming chat ────────────────────────────────────────────────
 
     def stream_chat(self, messages: list, max_tokens: int = 1500):
-        """Generator koji yield-uje tokene jedan po jedan. Groq → Gemini → OpenRouter → DeepSeek."""
+        """Generator koji yield-uje tokene jedan po jedan. Groq → Gemini."""
         last_error = None
         if self.has_groq():
             try:
@@ -161,37 +137,20 @@ class LLMProvider:
                 yield from self._gemini_stream(messages, max_tokens)
                 return
             except Exception as e:
-                logger.warning("Gemini greška (%s) → prelazim na OpenRouter", e)
-                last_error = e
-
-        if self.has_openrouter():
-            try:
-                yield from self._openrouter_stream(messages, max_tokens)
-                return
-            except Exception as e:
-                logger.warning("OpenRouter greška (%s) → prelazim na DeepSeek", e)
-                last_error = e
-
-        if self.has_deepseek():
-            try:
-                yield from self._deepseek_stream(messages, max_tokens)
-                return
-            except Exception as e:
                 last_error = e
 
         if last_error:
             raise last_error
 
         raise RuntimeError(
-            "Nema dostupnog AI providera. "
-            "Dodaj GROQ_API_KEY, GEMINI_API_KEY, OPENROUTER_API_KEY ili DEEPSEEK_API_KEY u .env."
+            "Nema dostupnog AI providera. Dodaj GROQ_API_KEY ili GEMINI_API_KEY u .env."
         )
 
     # ── Batch complete (za TariffLLMWorker) ───────────────────────────────────
 
     def complete(self, messages: list, max_tokens: int = 1200,
                  use_small_model: bool = True) -> str:
-        """Jednokratni poziv bez streaminga. Groq → Gemini → OpenRouter → DeepSeek."""
+        """Jednokratni poziv bez streaminga. Groq → Gemini."""
         last_error = None
         if self.has_groq():
             try:
@@ -204,28 +163,45 @@ class LLMProvider:
             try:
                 return self._gemini_complete(messages, max_tokens)
             except Exception as e:
-                logger.warning("Gemini greška (%s) → prelazim na OpenRouter (batch)", e)
-                last_error = e
-
-        if self.has_openrouter():
-            try:
-                return self._openrouter_complete(messages, max_tokens)
-            except Exception as e:
-                logger.warning("OpenRouter greška (%s) → prelazim na DeepSeek (batch)", e)
-                last_error = e
-
-        if self.has_deepseek():
-            try:
-                return self._deepseek_complete(messages, max_tokens)
-            except Exception as e:
                 last_error = e
 
         if last_error:
             raise last_error
 
         raise RuntimeError(
-            "Nema dostupnog AI providera. "
-            "Dodaj GROQ_API_KEY, GEMINI_API_KEY, OPENROUTER_API_KEY ili DEEPSEEK_API_KEY u .env."
+            "Nema dostupnog AI providera. Dodaj GROQ_API_KEY ili GEMINI_API_KEY u .env."
+        )
+
+    # ── Tool use (Tool Dispatcher) ─────────────────────────────────────────
+
+    def complete_with_tools(self, messages: list, tools: List[dict],
+                             max_tokens: int = 300) -> ProviderToolResponse:
+        """
+        Jednokratni poziv sa tool/function calling podrškom. Groq → Gemini.
+
+        Vraća neutralan ProviderToolResponse bez obzira koji je provider
+        stvarno odgovorio — pozivalac (tool_dispatcher.py) ne treba znati
+        detalje Groq ili Gemini API formata.
+        """
+        last_error = None
+        if self.has_groq():
+            try:
+                return self._groq_complete_with_tools(messages, tools, max_tokens)
+            except Exception as e:
+                logger.warning("Groq tool-use greška (%s) → prelazim na Gemini", e)
+                last_error = e
+
+        if self.has_gemini():
+            try:
+                return self._gemini_complete_with_tools(messages, tools, max_tokens)
+            except Exception as e:
+                last_error = e
+
+        if last_error:
+            return ProviderToolResponse(error=parse_llm_error(last_error))
+
+        return ProviderToolResponse(
+            error="Nema dostupnog AI providera. Dodaj GROQ_API_KEY ili GEMINI_API_KEY u .env."
         )
 
     # ── Groq implementacija ───────────────────────────────────────────────────
@@ -258,35 +234,29 @@ class LLMProvider:
         )
         return resp.choices[0].message.content or ""
 
-    # ── OpenRouter implementacija ─────────────────────────────────────────────
-
-    def _openrouter_stream(self, messages: list, max_tokens: int):
-        from openai import OpenAI
-
-        client = OpenAI(api_key=self.openrouter_key, base_url=self.OPENROUTER_BASE_URL)
-        stream = client.chat.completions.create(
-            model=self.openrouter_model,
-            messages=messages,
-            temperature=0.2,
-            max_tokens=max_tokens,
-            stream=True,
-        )
-        for chunk in stream:
-            delta = chunk.choices[0].delta.content or ""
-            if delta:
-                yield delta
-
-    def _openrouter_complete(self, messages: list, max_tokens: int) -> str:
-        from openai import OpenAI
-
-        client = OpenAI(api_key=self.openrouter_key, base_url=self.OPENROUTER_BASE_URL)
+    def _groq_complete_with_tools(self, messages: list, tools: List[dict],
+                                   max_tokens: int) -> ProviderToolResponse:
+        from groq import Groq
+        client = Groq(api_key=self.groq_key)
         resp = client.chat.completions.create(
-            model=self.openrouter_model,
+            model=self.GROQ_MODEL,
             messages=messages,
+            tools=tools,
+            tool_choice="auto",
             temperature=0.1,
             max_tokens=max_tokens,
         )
-        return resp.choices[0].message.content or ""
+        msg = resp.choices[0].message
+        if msg.tool_calls:
+            call = msg.tool_calls[0]
+            try:
+                args = json.loads(call.function.arguments)
+            except (json.JSONDecodeError, TypeError):
+                args = {}
+            return ProviderToolResponse(
+                tool_name=call.function.name, tool_arguments=args, provider="groq",
+            )
+        return ProviderToolResponse(content=msg.content or "", provider="groq")
 
     # ── Gemini implementacija ─────────────────────────────────────────────────
 
@@ -356,3 +326,52 @@ class LLMProvider:
         )
         return resp.text or ""
 
+    @staticmethod
+    def _gemini_tool_declarations(tools: List[dict]):
+        """Konvertuj OpenAI-stil TOOLS listu u Gemini FunctionDeclaration listu."""
+        from google.genai import types
+
+        declarations = []
+        for t in tools:
+            func = t.get("function", t)
+            declarations.append(types.FunctionDeclaration(
+                name=func["name"],
+                description=func.get("description", ""),
+                parameters=func.get("parameters", {}),
+            ))
+        return declarations
+
+    def _gemini_complete_with_tools(self, messages: list, tools: List[dict],
+                                     max_tokens: int) -> ProviderToolResponse:
+        import google.genai as genai
+        from google.genai import types
+
+        client = genai.Client(api_key=self.gemini_key)
+        system_instruction, contents = self._gemini_messages(messages)
+        gemini_tool = types.Tool(function_declarations=self._gemini_tool_declarations(tools))
+
+        config = types.GenerateContentConfig(
+            max_output_tokens=max_tokens,
+            temperature=0.1,
+            system_instruction=system_instruction,
+            tools=[gemini_tool],
+        )
+
+        resp = client.models.generate_content(
+            model=self.GEMINI_MODEL,
+            contents=contents,
+            config=config,
+        )
+
+        candidates = resp.candidates or []
+        if candidates and candidates[0].content and candidates[0].content.parts:
+            for part in candidates[0].content.parts:
+                fc = getattr(part, "function_call", None)
+                if fc is not None and fc.name:
+                    return ProviderToolResponse(
+                        tool_name=fc.name,
+                        tool_arguments=dict(fc.args) if fc.args else {},
+                        provider="gemini",
+                    )
+
+        return ProviderToolResponse(content=resp.text or "", provider="gemini")
