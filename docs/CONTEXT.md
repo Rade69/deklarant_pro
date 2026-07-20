@@ -514,3 +514,27 @@ state machine-a, van scope-a ove faze. `PipelineStageResult` ostaje uži,
 zaseban koncept po nivou pojedinačne faze, ne cijele sesije.
 
 Detalji: `agent_reports/2026-07-19_faza-c-pouzdan-status-pune-automatizacije.md`.
+
+## 23. Autosave / recovery nacrta deklaracije (2026-07-20)
+
+**Dodat servis `services/draft_autosave_service.py`**: periodično automatsko
+čuvanje trenutnog nacrta (svakih 5 min) + odmah nakon kreiranja naimenovanja
+(hook na `FakturaView.naimenovanja_created` signal). Čuva se na fiksnu putanju:
+`~/Documents/Deklarant Pro/Nacrti/.autosave/autosave.xml`.
+
+**Ne mijenja postojeće ponašanje**:
+- Ne dira `_persistent_draft_path` (ostaje samo za ručno "Sačuvaj nacrt")
+- Ne dira `drafts/lastDirectory` QSettings
+- Ne prikazuje dijaloge tokom rada — autosave je potpuno tih
+
+**Recovery na startu**: `_check_autosave_on_startup()` u `run.py` — isti
+obrazac kao `_check_license_on_startup` (non-blocking, nakon `window.show()`).
+Ako autosave fajl postoji, korisnik dobija Yes/No dijalog sa vremenom
+zadnjeg autosave-a. Yes → učitava u MainWindow.draft, No → briše autosave.
+
+**Autosave se briše pri urednom zatvaranju** (`_on_exit_clicked` →
+`clear_autosave()` prije `self.close()`), tako da se recovery dijalog
+prikazuje samo ako je aplikacija neočekivano prekinuta.
+
+**Grana**: `feature/draft-autosave-nacrt` (paralelno sa Fazom D na `windows`).
+Detalji: `agent_reports/2026-07-20_pi-autosave-nacrt.md`.
