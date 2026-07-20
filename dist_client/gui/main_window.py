@@ -14,6 +14,8 @@ try:
 except ImportError:
     qta = None
 
+import logging
+
 from config.settings import get_path_settings
 
 from core.draft import DeclarationDraft
@@ -448,6 +450,12 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event) -> None:
         """Sačuvaj stanje prozora pre zatvaranja."""
+        # Ista provjera kao "Izlaz" dugme (_on_exit_clicked) - closeEvent se
+        # okida i pri zatvaranju preko OS X dugmeta/Alt+F4, ne samo preko
+        # custom dugmeta, pa agent worker upozorenje mora vrijediti za oba puta.
+        if not self._confirm_safe_to_exit():
+            event.ignore()
+            return
         screen = self.windowHandle().screen() if self.windowHandle() else self._active_screen
         if screen is not None:
             self._save_window_state(screen)
