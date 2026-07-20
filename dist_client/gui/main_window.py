@@ -173,12 +173,7 @@ class MainWindow(QMainWindow):
             self.zaglavlje_tab.save_to_draft()
         except Exception as e:
             logger.error(f"Snimanje Zaglavlje drafta pri izlasku nije uspjelo: {e}", exc_info=True)
-        # Obriši autosave pri urednom zatvaranju (ne želimo lažni recovery sljedeći put)
-        try:
-            from services.draft_autosave_service import clear_autosave
-            clear_autosave()
-        except Exception:
-            pass
+        # Autosave se briše u closeEvent() — pokriva i ovaj put i OS X dugme
         self.close()
 
     def _confirm_safe_to_exit(self) -> bool:
@@ -489,4 +484,11 @@ class MainWindow(QMainWindow):
         screen = self.windowHandle().screen() if self.windowHandle() else self._active_screen
         if screen is not None:
             self._save_window_state(screen)
+        # Obriši autosave i pri zatvaranju preko OS X dugmeta (ne samo "Izlaz" dugmeta) —
+        # inače sljedeći start uvijek lažno prijavi "nesačuvan rad" iako je zatvaranje bilo uredno.
+        try:
+            from services.draft_autosave_service import clear_autosave
+            clear_autosave()
+        except Exception:
+            pass
         super().closeEvent(event)
