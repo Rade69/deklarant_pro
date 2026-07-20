@@ -1530,8 +1530,8 @@ class NaimenovanjaView(BaseTabView):
         button_layout.setContentsMargins(0, 0, 0, 0)  # No margins around button layout
         button_layout.setSpacing(10)  # Space between buttons
 
-        # Action buttons (Sačuvaj, Poništi) - positioned above group_32_39
-        self.btn_sacuvaj = self._create_icon_button("Sačuvaj", "fa5.save")
+        # Action buttons (Sačuvaj nacrt, Poništi) - positioned above group_32_39
+        self.btn_sacuvaj = self._create_icon_button("Sačuvaj nacrt", "fa5.save")
         self.btn_sacuvaj.setObjectName("btnSnimi")  # zelena
         self.btn_sacuvaj.setFixedHeight(26)
         self.btn_sacuvaj.clicked.connect(self._on_save)
