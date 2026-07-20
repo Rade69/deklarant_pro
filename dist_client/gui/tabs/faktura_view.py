@@ -3492,11 +3492,17 @@ class FakturaView(BaseTabView):
 
             self.data_changed.emit()
 
-    def _on_create_naimenovanja(self, auto=False):
+    def _on_create_naimenovanja(self, auto=False) -> bool:
         """Handle Create Naimenovanja button click.
 
         Args:
             auto: Ako True, preskoči sve dijaloge (za punu automatizaciju).
+
+        Returns:
+            True ako su naimenovanja stvarno kreirana, False ako nije bilo
+            stavki, korisnik je odustao na pre-flight dijalogu, ili je greška
+            spriječila kreiranje — vidi
+            docs/agent/AGENT_MODE_IMPROVEMENT_IMPLEMENTATION_PLAN.md §7.
         """
         geometry_state = capture_window_geometry(self) if not auto else None
         button_text = None
@@ -3530,7 +3536,7 @@ class FakturaView(BaseTabView):
                         "Nema faktura",
                         "Molimo prvo uvezite fakture (PDF/Excel/XML) prije kreiranja naimenovanja.",
                     )
-                return
+                return False
 
             logger.debug(f"🔍 [_on_create_naimenovanja] Draftovi za obradu: {len(drafts_to_process)}, ukupno stavki: {len(all_lines)}")
 
@@ -3544,7 +3550,7 @@ class FakturaView(BaseTabView):
                 dlg = PreFlightNaimenovanjaDialog(pf, parent=self)
                 if dlg.exec() != PreFlightNaimenovanjaDialog.Accepted:
                     logger.debug("🔍 [_on_create_naimenovanja] Korisnik odustao na pre-flight")
-                    return
+                    return False
 
             # Kreiraj naimenovanja za svaki draft
             results = []  # [(draft, count, split_info)]
@@ -3636,10 +3642,15 @@ class FakturaView(BaseTabView):
             except Exception as e:
                 pass  # Ne blokiraj ako clear_memory ne uspije
 
+            return True
+
         except Exception as e:
-            QMessageBox.critical(
-                self, "Greška", f"Greška prilikom kreiranja naimenovanja:\n\n{str(e)}"
-            )
+            logger.error(f"[_on_create_naimenovanja] Greška: {e}", exc_info=True)
+            if not auto:
+                QMessageBox.critical(
+                    self, "Greška", f"Greška prilikom kreiranja naimenovanja:\n\n{str(e)}"
+                )
+            return False
         finally:
             if button_text is not None and hasattr(self, "btn_create_naimenovanja"):
                 self.btn_create_naimenovanja.setText(button_text)
@@ -3701,12 +3712,19 @@ class FakturaView(BaseTabView):
             logger.error(f"❌ [_reload_naimenovanja_tab] Error: {e}")
             pass
 
-    def _on_validate_all(self, auto=False):
-        """Handle Validate button click."""
+    def _on_validate_all(self, auto=False) -> tuple[bool, int, int]:
+        """
+        Handle Validate button click.
+
+        Returns:
+            (ok, error_count, warning_count) — ok=False kad validacija nije ni
+            pokrenuta (nema stavki) ili je pukla izuzetkom (error_count=-1 u
+            tom slučaju). Vidi docs/agent/AGENT_MODE_IMPROVEMENT_IMPLEMENTATION_PLAN.md §7.
+        """
         if not self.draft.invoice_lines:
             if not auto:
                 QMessageBox.information(self, "Nema stavki", "Nema stavki za validaciju.")
-            return
+            return (False, 0, 0)
 
         try:
             # Sync table data to draft first (in case user edited cells)
@@ -3765,13 +3783,25 @@ class FakturaView(BaseTabView):
                     QMessageBox.information(self, "Validacija", message)
 
             # Istorijska validacija tarifnih brojeva (iz XML deklaracija)
-            self._run_historical_tariff_validation(modal=auto)
+            self._run_historical_tariff_validation(auto=auto)
+
+            return (True, error_count, warning_count)
 
         except Exception as e:
-            self.error_handler.handle_validation_error(e)
+            logger.error("Validacija greška: %s", e, exc_info=True)
+            if not auto:
+                self.error_handler.handle_validation_error(e)
+            return (False, -1, -1)
 
-    def _run_historical_tariff_validation(self, modal=False):
-        """Pokreni istorijsku validaciju tarifa i prikaži dialog ako ima prijedloga."""
+    def _run_historical_tariff_validation(self, modal=False, auto=False):
+        """
+        Pokreni istorijsku validaciju tarifa i prikaži dialog ako ima prijedloga.
+
+        auto=True (puna automatizacija): dijalog se NIKAD ne prikazuje, čak ni
+        modalno — inače bi pipeline visio čekajući korisnika za nešto što nije
+        jedina obavezna deklarantska potvrda (vidi plan §7, korak 4). Prijedlozi
+        se samo loguju kao informacija.
+        """
         try:
             from services.agent.validation.historical_tariff_search_service import (
                 HistoricalTariffSearchService,
@@ -3802,6 +3832,13 @@ class FakturaView(BaseTabView):
 
             if not matches:
                 return  # Nema prijedloga — tiho
+
+            if auto:
+                logger.info(
+                    "Istorijska validacija: %d prijedloga tarifa (auto mod — dijalog preskočen)",
+                    len(matches),
+                )
+                return
 
             dlg = TariffValidationDialog(matches, parent=self.window())
 
@@ -3852,8 +3889,15 @@ class FakturaView(BaseTabView):
         self.input_bruto.setText(bruto_text)
         self.input_neto.setText(neto_text)
 
-    def _on_calculate_masses(self, auto=False):
-        """Handle Calculate Masses button click - proporcionalno raspodjeli težine."""
+    def _on_calculate_masses(self, auto=False) -> bool:
+        """
+        Handle Calculate Masses button click - proporcionalno raspodjeli težine.
+
+        Returns:
+            True ako je bar jedna stavka ažurirana, False ako nije (nedostaju
+            unosi, neispravna vrijednost, nema stavki za update, itd.) — vidi
+            docs/agent/AGENT_MODE_IMPROVEMENT_IMPLEMENTATION_PLAN.md §7.
+        """
         logger.debug("\n" + "=" * 80)
         logger.debug("⚖️  IZRAČUNAJ MASE - START")
         logger.debug("=" * 80)
@@ -3875,7 +3919,7 @@ class FakturaView(BaseTabView):
                         "Nedostaju težine",
                         "Unesite ukupnu bruto i/ili neto težinu sa fakture.",
                     )
-                return
+                return False
 
             # Remove thousands separators (comma) before parsing
             # Format is: 1,234.567 (comma = thousands, dot = decimal)
@@ -3895,7 +3939,7 @@ class FakturaView(BaseTabView):
                     QMessageBox.warning(
                         self, "Neispravne težine", "Težine moraju biti veće od nule."
                     )
-                return
+                return False
 
         except ValueError as e:
             logger.error(f"❌ ValueError: {e}")
@@ -3905,7 +3949,7 @@ class FakturaView(BaseTabView):
                     "Greška",
                     "Neispravna vrijednost težine. Koristite brojeve (npr. 1234.56).",
                 )
-            return
+            return False
 
         logger.debug(f"\n🔍 Ukupno stavki u draft-u: {len(self.draft.invoice_lines)}")
 
@@ -4013,7 +4057,7 @@ class FakturaView(BaseTabView):
                         f"Preskočeno je {fallback_skipped} stavki bez broja fakture.\n\n"
                         "Dodijelite broj fakture tim stavkama ili ih obračunajte ručno.",
                     )
-                return
+                return False
             if no_weight_invoices and not no_invoice_lines:
                 # Sve fakture nemaju sačuvane težine (stari draft ili ručni unos)
                 logger.debug("   ❌ Nema sačuvanih težina ni za jednu fakturu")
@@ -4026,7 +4070,7 @@ class FakturaView(BaseTabView):
                         "Nema sačuvanih težina",
                         f"Nijedna faktura nema sačuvanu težinu. Uvezite fakture ponovo ili ručno unesite težine.\n\nFakture:\n{names}",
                     )
-                return
+                return False
             if mass_mismatches:
                 if not auto:
                     details = "\n".join(
@@ -4040,7 +4084,7 @@ class FakturaView(BaseTabView):
                         "Neslaganje težina",
                         f"Zbir težina stavki se ne slaže sa težinom fakture.\n\n{details}",
                     )
-                return
+                return False
             logger.debug("   ❌ Nema stavki za update - sve imaju obe težine")
             if not auto:
                 QMessageBox.information(
@@ -4048,7 +4092,7 @@ class FakturaView(BaseTabView):
                     "Sve težine popunjene",
                     "Sve stavke već imaju upisane obe težine (bruto i neto). Nema šta da se računa.",
                 )
-            return
+            return False
 
         logger.info(f"\n✅ ZAVRŠENO: ažurirano {updated_count}, preskočeno {skipped_count}")
         logger.debug("=" * 80 + "\n")
@@ -4087,6 +4131,7 @@ class FakturaView(BaseTabView):
             self.on_dirty()
 
         self.data_changed.emit()
+        return True
 
     def _on_auto_fill(self, auto=False):
         """
@@ -4266,7 +4311,9 @@ class FakturaView(BaseTabView):
             return result
 
         except Exception as e:
-            self.error_handler.handle_auto_fill_error(e)
+            logger.error("Auto-popuni greška: %s", e, exc_info=True)
+            if not auto:
+                self.error_handler.handle_auto_fill_error(e)
             return None
 
     def _show_tariff_mapping_result(self, result, basic_filled_count: int):

@@ -201,43 +201,115 @@ def _analiza_auto_action(ctrl) -> None:
 
 
 def _puna_auto_pipeline(ctrl, fw, chat, all_lines: list) -> None:
-    QApplication.processEvents()
+    """
+    Puna automatizacija — svaka faza vraća PipelineStageResult; kritična
+    greška (FAILED) zaustavlja pipeline prije sljedeće faze umjesto starog
+    obrasca "except -> upozorenje -> nastavi". Finalna poruka odražava stvaran
+    ishod (COMPLETED/PARTIAL/FAILED/CANCELLED), ne bezuslovno "završeno".
 
-    # 1. Izračunaj mase
+    Vidi: docs/agent/AGENT_MODE_IMPROVEMENT_IMPLEMENTATION_PLAN.md §7
+    """
+    from gui.tabs.agent.services.pipeline_stage_result import (
+        PipelineStageResult, PipelineStageStatus,
+    )
+
+    QApplication.processEvents()
+    results: list[PipelineStageResult] = []
+
+    # 1. Izračunaj mase — KRITIČNO, zaustavlja pipeline ako ne uspije.
     chat.add_activity("⚖️ [Auto] Izračunavam mase...")
     try:
-        if fw and hasattr(fw, '_on_calculate_masses'):
-            fw._on_calculate_masses(auto=True)
-            chat.add_activity("✅ Mase izračunate")
+        ok = bool(fw and hasattr(fw, '_on_calculate_masses') and fw._on_calculate_masses(auto=True))
     except Exception as e:
-        chat.add_activity(f"⚠️ Greška pri izračunu masa: {e}")
+        logger.error("[Puna automatizacija] Izračun masa — neočekivan izuzetak: %s", e, exc_info=True)
+        ok = False
+    if not ok:
+        chat.add_activity("❌ Izračun masa nije uspio — automatizacija zaustavljena")
+        results.append(PipelineStageResult(
+            "mase", PipelineStageStatus.FAILED,
+            message="Izračun masa nije uspio (provjeri unesene bruto/neto vrijednosti).",
+            can_continue=False,
+        ))
+        return _finish_puna_auto_pipeline(ctrl, chat, results)
+    chat.add_activity("✅ Mase izračunate")
+    results.append(PipelineStageResult("mase", PipelineStageStatus.SUCCESS))
     QApplication.processEvents()
 
-    # 2. Auto-popuni tarifne (preskači ako su sve tarife već popunjene)
+    # 2. Auto-popuni tarifne — WARNING ako ostanu neriješene, ne zaustavlja.
     bez_tarife = sum(1 for l in ctrl.draft.invoice_lines if not getattr(l, 'tarifni_broj', None))
     if bez_tarife > 0:
         chat.add_activity(f"🤖 [Auto] Popunjavam tarifne brojeve ({bez_tarife} stavki bez tarife)...")
         try:
-            if fw and hasattr(fw, '_on_auto_fill'):
-                fw._on_auto_fill(auto=True)
-                chat.add_activity("✅ Auto-popuni završen")
+            mapping_result = (
+                fw._on_auto_fill(auto=True) if fw and hasattr(fw, '_on_auto_fill') else None
+            )
         except Exception as e:
-            chat.add_activity(f"⚠️ Greška pri auto-popuni: {e}")
+            logger.error("[Puna automatizacija] Auto-popuna — neočekivan izuzetak: %s", e, exc_info=True)
+            mapping_result = None
+        preostalo = sum(1 for l in ctrl.draft.invoice_lines if not getattr(l, 'tarifni_broj', None))
+        if mapping_result is None:
+            chat.add_activity("⚠️ Auto-popuni nije uspio ili nema prijedloga")
+            results.append(PipelineStageResult(
+                "auto_popuna", PipelineStageStatus.WARNING,
+                message="Auto-popuna tarifa nije uspjela ili nije bilo prijedloga.",
+                stats={"bez_tarife": preostalo},
+            ))
+        elif preostalo > 0:
+            chat.add_activity(f"⚠️ Auto-popuni završen — {preostalo} stavki i dalje bez tarife")
+            results.append(PipelineStageResult(
+                "auto_popuna", PipelineStageStatus.WARNING,
+                message=f"{preostalo} stavki ostaje bez tarifnog broja nakon auto-popune.",
+                stats={"bez_tarife": preostalo},
+            ))
+        else:
+            chat.add_activity("✅ Auto-popuni završen")
+            results.append(PipelineStageResult("auto_popuna", PipelineStageStatus.SUCCESS))
         QApplication.processEvents()
     else:
         chat.add_activity("✅ [Auto] Sve stavke imaju tarifni broj — preskačem Auto-popuni")
+        results.append(PipelineStageResult("auto_popuna", PipelineStageStatus.SUCCESS))
 
-    # 3. Validacija
+    # 3. Validacija — KRITIČNO ako postoje greške (RED), WARNING za upozorenja (YELLOW).
+    # Koristi postojeći validation_cache (isti izvor kao ručna validacija u Faktura tabu) —
+    # ne izmišlja novu poslovnu logiku za "šta je kritično".
     chat.add_activity("🔍 [Auto] Validacija stavki...")
     try:
         if fw and hasattr(fw, '_on_validate_all'):
-            fw._on_validate_all(auto=True)
-            chat.add_activity("✅ Validacija završena")
+            ok, error_count, warning_count = fw._on_validate_all(auto=True)
+        else:
+            ok, error_count, warning_count = False, -1, -1
     except Exception as e:
-        chat.add_activity(f"⚠️ Greška pri validaciji: {e}")
+        logger.error("[Puna automatizacija] Validacija — neočekivan izuzetak: %s", e, exc_info=True)
+        ok, error_count, warning_count = False, -1, -1
+
+    if not ok:
+        chat.add_activity("❌ Validacija nije mogla biti izvršena — automatizacija zaustavljena")
+        results.append(PipelineStageResult(
+            "validacija", PipelineStageStatus.FAILED,
+            message="Validacija nije mogla biti izvršena.", can_continue=False,
+        ))
+        return _finish_puna_auto_pipeline(ctrl, chat, results)
+    if error_count > 0:
+        chat.add_activity(f"❌ Validacija: {error_count} grešaka — automatizacija zaustavljena")
+        results.append(PipelineStageResult(
+            "validacija", PipelineStageStatus.FAILED,
+            message=f"{error_count} kritičnih grešaka u validaciji stavki.",
+            can_continue=False, stats={"errors": error_count, "warnings": warning_count},
+        ))
+        return _finish_puna_auto_pipeline(ctrl, chat, results)
+    if warning_count > 0:
+        chat.add_activity(f"⚠️ Validacija završena — {warning_count} upozorenja")
+        results.append(PipelineStageResult(
+            "validacija", PipelineStageStatus.WARNING,
+            message=f"{warning_count} upozorenja u validaciji stavki.",
+            stats={"warnings": warning_count},
+        ))
+    else:
+        chat.add_activity("✅ Validacija završena")
+        results.append(PipelineStageResult("validacija", PipelineStageStatus.SUCCESS))
     QApplication.processEvents()
 
-    # 4. Deklarant mora potvrditi porijeklo i preferencijalne dokumente prije naimenovanja
+    # 4. Deklarant mora potvrditi porijeklo i preferencijalne dokumente prije naimenovanja.
     chat.add_activity("🧾 [Auto] Čekam potvrdu deklaranta za porijeklo i EUR.1/PE dokumente...")
     reply = QMessageBox.question(
         ctrl.view,
@@ -258,20 +330,75 @@ def _puna_auto_pipeline(ctrl, fw, chat, all_lines: list) -> None:
             "pa kreiraj naimenovanja kada budeš siguran."
         )
         chat.add_activity("⏸️ Kreiranje naimenovanja zaustavljeno — čeka se deklarantska provjera")
-        return
+        results.append(PipelineStageResult(
+            "deklarantska_potvrda", PipelineStageStatus.CANCELLED,
+            message="Deklarant nije potvrdio provjeru porijekla/EUR.1/PE dokumenata.",
+            can_continue=False,
+        ))
+        return _finish_puna_auto_pipeline(ctrl, chat, results)
+    results.append(PipelineStageResult("deklarantska_potvrda", PipelineStageStatus.SUCCESS))
 
-    # 5. Kreiraj naimenovanja
+    # 5. Kreiraj naimenovanja — KRITIČNO.
     chat.add_activity("📋 [Auto] Kreiram naimenovanja...")
     try:
-        if fw and hasattr(fw, '_on_create_naimenovanja'):
-            fw._on_create_naimenovanja(auto=True)
-            chat.add_activity("✅ Naimenovanja kreirana")
+        ok = bool(
+            fw and hasattr(fw, '_on_create_naimenovanja') and fw._on_create_naimenovanja(auto=True)
+        )
     except Exception as e:
-        chat.add_activity(f"⚠️ Greška pri kreiranju naimenovanja: {e}")
+        logger.error("[Puna automatizacija] Kreiranje naimenovanja — neočekivan izuzetak: %s", e, exc_info=True)
+        ok = False
+    if not ok:
+        chat.add_activity("❌ Kreiranje naimenovanja nije uspjelo — automatizacija zaustavljena")
+        results.append(PipelineStageResult(
+            "naimenovanja", PipelineStageStatus.FAILED,
+            message="Kreiranje naimenovanja nije uspjelo.", can_continue=False,
+        ))
+        return _finish_puna_auto_pipeline(ctrl, chat, results)
+    chat.add_activity("✅ Naimenovanja kreirana")
+    results.append(PipelineStageResult("naimenovanja", PipelineStageStatus.SUCCESS))
     QApplication.processEvents()
+
+    _finish_puna_auto_pipeline(ctrl, chat, results)
+
+
+def _finish_puna_auto_pipeline(ctrl, chat, results: list) -> None:
+    """Izračunaj finalni ishod iz svih faza i ispiši TAČNU poruku — nikad
+    bezuslovno "završeno" ako neka faza nije stvarno uspjela."""
+    from gui.tabs.agent.services.pipeline_stage_result import (
+        PipelineStageStatus, overall_outcome,
+    )
+
+    outcome = overall_outcome(results)
+
+    if outcome == "CANCELLED":
+        return  # Poruka je već ispisana u koraku 4 (deklarantska_potvrda)
+
+    if outcome == "FAILED":
+        failed = next((r for r in results if r.status == PipelineStageStatus.FAILED), None)
+        chat.add_agent_message(
+            f"❌ <b>Puna automatizacija zaustavljena.</b><br>"
+            f"Faza: <b>{failed.stage if failed else '?'}</b><br>"
+            f"{failed.message if failed else ''}<br><br>"
+            f"💡 Ispravi problem u Faktura tabu i pokreni ponovo, ili nastavi ručno."
+        )
+        return
 
     bez_tarife = sum(1 for l in ctrl.draft.invoice_lines if not l.tarifni_broj)
     n_naim = len(getattr(ctrl.draft, 'items', []))
+
+    if outcome == "PARTIAL":
+        warnings = [r for r in results if r.status == PipelineStageStatus.WARNING and r.message]
+        warn_lines = "<br>".join(f"⚠️ {r.stage}: {r.message}" for r in warnings)
+        chat.add_agent_message(
+            f"⚠️ <b>Puna automatizacija završena djelimično.</b><br>"
+            f"Stavki: {len(ctrl.draft.invoice_lines)} | Bez tarifnog: <b>{bez_tarife}</b><br>"
+            f"Naimenovanja: <b>{n_naim}</b><br>"
+            f"Zaglavlje: <b>nije automatski popunjeno</b><br><br>"
+            f"{warn_lines}<br><br>"
+            f"💡 Provjeri upozorenja i naimenovanja, ručno provjeri/popuni zaglavlje, zatim izvezi XML."
+        )
+        return
+
     chat.add_agent_message(
         f"🎉 <b>Puna automatizacija završena!</b><br>"
         f"Stavki: {len(ctrl.draft.invoice_lines)} | Bez tarifnog: <b>{bez_tarife}</b><br>"
