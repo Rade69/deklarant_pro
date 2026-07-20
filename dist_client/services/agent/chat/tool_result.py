@@ -3,7 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 from html import escape
-from typing import Any
+from typing import Any, Optional
+
+from services.agent.chat.tool_policy import ToolEffect
 
 
 class ToolResultStatus(str, Enum):
@@ -21,10 +23,17 @@ class ToolResult:
     source: str
     data: dict[str, Any] = field(default_factory=dict)
     next_action: str = ""
+    effect: Optional[ToolEffect] = None
+    confirmation_required: bool = False
+    operation_id: str = ""
 
     @property
     def can_llm_infer(self) -> bool:
         return self.status == ToolResultStatus.OK
+
+    @classmethod
+    def ok(cls, tool: str, message: str, source: str, **data: Any) -> "ToolResult":
+        return cls(tool=tool, status=ToolResultStatus.OK, message=message, source=source, data=data)
 
     @classmethod
     def needs_review(cls, tool: str, message: str, source: str, **data: Any) -> "ToolResult":
