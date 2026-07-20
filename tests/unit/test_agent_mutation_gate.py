@@ -62,17 +62,12 @@ def test_mutate_alat_ne_poziva_execute_direktno(mock_ctrl):
     mock_ctrl.view.get_chat_panel().show_proposal_card.assert_called_once()
 
 
-@pytest.mark.xfail(
-    reason=(
-        "Poznat preostali gap (nije riješen u ovom prolazu Faze A): _on_proposal_confirmed "
-        "nema operation_id, pa dvije uzastopne eksplicitne invokacije iste potvrde IZVRŠE "
-        "mutaciju dva puta. U stvarnom GUI toku ProposalCardWidget se uništava odmah nakon "
-        "prvog klika (deleteLater), što sprječava doslovan dvostruki klik na isti widget — "
-        "ali to ne štiti od reprodukovanog/replay signala. Vidi plan §5.3 i agent report."
-    ),
-    strict=True,
-)
 def test_dvostruka_potvrda_ne_izvrsava_mutaciju_dvaput(mock_ctrl):
+    """
+    Faza D (§16) zatvara gap iz Faze A: _propose_kolona_upis dodjeljuje
+    operation_id koji _on_proposal_confirmed atomarno konzumira PRIJE
+    izvršenja. Druga invokacija (repliciran/dupli signal) je no-op.
+    """
     from gui.tabs.agent.services.chat_intent_handler import (
         _propose_kolona_upis, _on_proposal_confirmed,
     )

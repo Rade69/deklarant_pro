@@ -87,6 +87,7 @@ def test_dispatch_uses_local_router_before_llm(monkeypatch):
     assert result.error == ""
     assert result.tool_call is not None
     assert result.tool_call.name == "provjeri_tarife"
+    assert result.provider == "local"
 
 
 def test_chat_worker_prompt_forbids_unknown_hallucination():
