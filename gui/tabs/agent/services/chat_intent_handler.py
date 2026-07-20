@@ -13,11 +13,14 @@ Premješteno iz agent_controller.py radi smanjenja veličine controllera.
 
 import json
 import re
+import time
+import uuid
 import logging
 from html import escape
 
 from services.agent.chat.tool_result import ToolResult, render_tool_result_html
 from services.agent.chat.tool_policy import effect_for
+from services.agent.chat.audit_log import AuditEvent, record as record_audit
 from services.agent.chat.naimenovanja_intent_service import _NAZIV_KOLONE
 from core.decision.decision_model import DecisionField
 from services.decision.integration import sync_decision_state_after_manual_edit
@@ -986,10 +989,15 @@ def _resolve_contextual_request(ctrl, message: str) -> bool:
     return False
 
 
+def _audit_routing(routing_layer: str, **kwargs) -> None:
+    """Zabilježi koji routing sloj je obradio poruku (Faza D, §8.2)."""
+    record_audit(AuditEvent(routing_layer=routing_layer, **kwargs))
+
+
 def _handle_message(ctrl, message: str) -> None:
     """
     Primarni entry point za chat poruke.
-    Flow: injection → pending → Tool Use (DeepSeek) → regex fallback → ChatWorker.
+    Flow: injection → pending → Tool Use (Groq/Gemini) → regex fallback → ChatWorker.
 
     📄 docs/decisions/002-tool-dispatcher-integration.md
     """
@@ -1006,14 +1014,17 @@ def _handle_message(ctrl, message: str) -> None:
     msg_lower = message.lower().strip()
 
     if _resolve_followup(ctrl, message):
+        _audit_routing("local", tool="followup", status="ok")
         return
 
     if _resolve_contextual_request(ctrl, message):
+        _audit_routing("contextual", status="ok")
         return
 
     scope = _application_context_scope(message)
     if scope:
         _pregled_stanja_aplikacije(ctrl, scope)
+        _audit_routing("local", tool="pregled_stanja_aplikacije", status="ok")
         return
 
     if _is_naimenovanja_review_request(message):
@@ -1021,12 +1032,14 @@ def _handle_message(ctrl, message: str) -> None:
             _provjeri_naimenovanja(ctrl)
         else:
             _pregledaj_naimenovanja(ctrl)
+        _audit_routing("local", tool="naimenovanja_review", status="ok")
         return
 
     origin_query = _extract_origin_product_query(message)
     if origin_query:
         _remember_subject(ctrl, origin_query)
         _pretrazi_porijeklo(ctrl, origin_query)
+        _audit_routing("local", tool="pretrazi_porijeklo", status="ok")
         return
 
     # --- POTVRDA pending akcije ---
@@ -1036,20 +1049,23 @@ def _handle_message(ctrl, message: str) -> None:
     if ctrl._pending_action:
         if msg_lower in POTVRDE or msg_lower.startswith('da ') or msg_lower.startswith('odobr'):
             ctrl._execute_pending_action()
+            _audit_routing("local", tool="pending_action", confirmation="confirmed")
             return
         if msg_lower in OTKAZI:
             ctrl._pending_action = None
             chat.add_agent_message("❌ Akcija otkazana.")
+            _audit_routing("local", tool="pending_action", confirmation="rejected")
             return
 
     similar_query = _extract_similar_product_query(message)
     if similar_query:
         _remember_subject(ctrl, similar_query)
         _pronadji_slicne_proizvode(ctrl, similar_query)
+        _audit_routing("local", tool="pronadji_slicne_proizvode", status="ok")
         return
 
     # ═══════════════════════════════════════════════════════════════
-    # Faza 2: Tool Use routing (PRIMARNI) — DeepSeek bira alat
+    # Faza 2: Tool Use routing (PRIMARNI) — LLMProvider (Groq → Gemini) bira alat
     # Ako uspije → izvrši alat i gotovo
     # Ako fallback_to_chat → ChatWorker
     # Ako error → regex fallback (_handle_message_regex_fallback)
@@ -1058,22 +1074,25 @@ def _handle_message(ctrl, message: str) -> None:
 
     dispatcher = ToolDispatcherWorker(message, parent=ctrl.view)
 
-    def _on_tool_call(name: str, args: dict):
+    def _on_tool_call(name: str, args: dict, provider: str):
         logger.debug(f"[ToolUse] → {name}({args})")
-        _execute_tool(ctrl, name, args)
+        _execute_tool(ctrl, name, args, provider=provider)
 
-    def _on_fallback(text: str):
+    def _on_fallback(text: str, provider: str):
         logger.debug(f"[ToolUse] → fallback to ChatWorker")
-        _start_chat_worker(ctrl, message)
+        _audit_routing("tool_use", status="fallback_to_chat", provider=provider)
+        _start_chat_worker(ctrl, message, fallback_reason="tool_use_no_match", provider=provider)
 
     def _on_error(err: str):
         logger.warning(f"[ToolUse] Error, falling back to regex: {err}")
         err_l = (err or "").lower()
-        # Ako Tool Use padne jer DeepSeek nije podešen, idi na standardni chat
-        # (Groq/Gemini) umjesto regex fallback-a koji daje "prebrz" lokalni routing.
-        if "deepseek api ključ nije podešen" in err_l or "deepseek" in err_l and "ključ" in err_l:
+        _audit_routing("tool_use", status="error", fallback_reason=(err or "")[:200])
+        # Ako Tool Use padne jer nijedan provider (Groq/Gemini) nije podešen,
+        # idi direktno na standardni chat umjesto regex fallback-a — nema
+        # smisla probati Tool Use LLM poziv drugi put kroz drugi kod put.
+        if "nema dostupnog ai providera" in err_l:
             chat.add_activity("⚠️ Tool use nedostupan, prelazim na standardni AI chat...")
-            _start_chat_worker(ctrl, message)
+            _start_chat_worker(ctrl, message, fallback_reason="no_provider_configured")
             return
         chat.add_activity("⚠️ Tool use nedostupan, koristim regex fallback...")
         _handle_message_regex_fallback(ctrl, message)
@@ -1132,7 +1151,7 @@ def _extract_similar_product_query(message: str) -> str:
 # ── Tool execution (mapira tool → servis) ────────────────────────────
 # Vidi: docs/decisions/002-tool-dispatcher-integration.md#execute_tool-mapiranje
 
-def _execute_tool(ctrl, name: str, args: dict) -> None:
+def _execute_tool(ctrl, name: str, args: dict, provider: str = "") -> None:
     """
     Izvrši tool call pozivom postojećeg servisa.
     Svaki tool mapira na postojeću funkciju/metodu.
@@ -1142,13 +1161,18 @@ def _execute_tool(ctrl, name: str, args: dict) -> None:
     dispatch-a — bez obzira da li ime slučajno odgovara nekoj if/elif grani
     ispod. MUTATE alati ne smiju direktno izvršiti izmjenu drafta — vidi
     _propose_kolona_upis().
+
+    Audit (Faza D, §8.2): svaki dispatch (uspješan ili sa izuzetkom) se
+    bilježi sa trajanjem — izuzetak se samo loguje pa propagira dalje
+    nepromijenjen (audit ne smije promijeniti postojeće ponašanje greške).
     """
     chat = ctrl.view.get_chat_panel()
 
     def _emit(result: ToolResult) -> None:
         chat.add_agent_message(render_tool_result_html(result))
 
-    if effect_for(name) is None:
+    effect = effect_for(name)
+    if effect is None:
         logger.warning(f"[ToolUse] Nepoznat alat (nije u ToolPolicy registry): {name}")
         _emit(ToolResult.unknown(
             "tool_dispatch",
@@ -1156,8 +1180,27 @@ def _execute_tool(ctrl, name: str, args: dict) -> None:
             "ToolPolicy",
             args=args,
         ))
+        _audit_routing("tool_use", tool=name, status="unknown_tool", provider=provider, source="ToolPolicy")
         return
 
+    started = time.perf_counter()
+    try:
+        _dispatch_known_tool(ctrl, name, args, _emit)
+    except Exception:
+        _audit_routing(
+            "tool_use", tool=name, effect=effect.value, status="error", provider=provider,
+            source="_execute_tool", duration_ms=(time.perf_counter() - started) * 1000,
+        )
+        raise
+    else:
+        _audit_routing(
+            "tool_use", tool=name, effect=effect.value, status="dispatched", provider=provider,
+            source="_execute_tool", duration_ms=(time.perf_counter() - started) * 1000,
+        )
+
+
+def _dispatch_known_tool(ctrl, name: str, args: dict, _emit) -> None:
+    """Elif lanac za poznate alate — izdvojeno iz _execute_tool radi audit omotača."""
     if name == "predlozi_tarife":
         filter_kw = args.get("filter", "")
         if filter_kw:
@@ -1184,6 +1227,7 @@ def _execute_tool(ctrl, name: str, args: dict) -> None:
                 args=args,
             )
             result.next_action = "Primjer: tarifni broj za startno uze"
+            result.effect = effect_for(name)
             _emit(result)
 
     elif name == "pretrazi_porijeklo":
@@ -1198,6 +1242,7 @@ def _execute_tool(ctrl, name: str, args: dict) -> None:
                 args=args,
             )
             result.next_action = "Primjer: porijeklo za kondenzator GCVC"
+            result.effect = effect_for(name)
             _emit(result)
 
     elif name == "validuj_deklaraciju":
@@ -1222,6 +1267,7 @@ def _execute_tool(ctrl, name: str, args: dict) -> None:
                 args=args,
             )
             result.next_action = "Primjer: upisi zemlja porijekla RS u faktura"
+            result.effect = effect_for(name)
             _emit(result)
             return
 
@@ -1237,6 +1283,7 @@ def _execute_tool(ctrl, name: str, args: dict) -> None:
                 tab=tab,
             )
             result.next_action = "Pokušaj: tarifni broj, zemlja porijekla, povlastica, procedura, oznake, pakovanje, valuta, napomena"
+            result.effect = effect_for(name)
             _emit(result)
             return
 
@@ -1262,6 +1309,7 @@ def _execute_tool(ctrl, name: str, args: dict) -> None:
                 args=args,
             )
             result.next_action = "Primjer: slicni proizvodi za grejac 2000w"
+            result.effect = effect_for(name)
             _emit(result)
 
     else:
@@ -1274,12 +1322,13 @@ def _execute_tool(ctrl, name: str, args: dict) -> None:
         ))
 
 
-def _start_chat_worker(ctrl, message: str) -> None:
+def _start_chat_worker(ctrl, message: str, fallback_reason: str = "", provider: str = "") -> None:
     """Pokreće standardni ChatWorker za plain chat odgovor."""
     from gui.tabs.agent.widgets.chat_worker import ChatWorker
     chat = ctrl.view.get_chat_panel()
     memory_service = chat.get_memory_service()
 
+    _audit_routing("plain_chat", source="_start_chat_worker", fallback_reason=fallback_reason, provider=provider)
     chat.add_activity("💬 Šaljem upit AI-u...")
     chat.show_typing_indicator()
 
@@ -1319,6 +1368,7 @@ def _handle_message_regex_fallback(ctrl, message: str) -> None:
     """
     from gui.tabs.agent.widgets.chat_worker import ChatWorker, check_injection
 
+    _audit_routing("regex_fallback", source="_handle_message_regex_fallback")
     chat = ctrl.view.get_chat_panel()
     msg = message.lower().strip()
 
@@ -2639,6 +2689,9 @@ def _propose_kolona_upis(ctrl, atribut: str, vrijednost: str, tab: str) -> None:
     # Zapamti tab za _on_proposal_confirmed — proposal_confirmed signal nosi
     # samo {atribut: vrijednost} dict, bez mjesta za tab, pa se čuva na ctrl.
     ctrl._pending_kolona_tab = tab
+    # operation_id (Faza D, §16) — konzumira se atomarno u _on_proposal_confirmed/
+    # _on_proposal_rejected, sprječava dvostruko izvršenje pri repliciranom signalu.
+    ctrl._pending_kolona_operation_id = uuid.uuid4().hex
 
     akcija = f"Briše se {naziv_kolone}" if not vrijednost else f"Upisuje se {naziv_kolone}"
     proposal = {
@@ -2663,6 +2716,18 @@ def _show_proposal_card(ctrl, proposal: dict) -> None:
 def _on_proposal_confirmed(ctrl, values: dict) -> None:
     from gui.tabs.agent.workflow_state import WorkflowState
     chat = ctrl.view.get_chat_panel()
+
+    # Idempotencija (Faza D, §16 — zatvara poznat gap iz Faze A): operation_id
+    # se konzumira ATOMARNO prije bilo kakvog izvršenja. Ako ga nema (već
+    # obrađeno, ili repliciran/dupli signal na istoj proposal kartici),
+    # tretiraj kao no-op umjesto da se mutacija izvrši drugi put.
+    if not hasattr(ctrl, '_pending_kolona_operation_id'):
+        logger.warning("[MutationGate] Potvrda bez pending operation_id — ignorišem (već obrađeno).")
+        _audit_routing("local", tool="upisi_u_kolonu", status="ignored_no_pending_operation", confirmation="confirmed")
+        return
+    operation_id = ctrl._pending_kolona_operation_id
+    del ctrl._pending_kolona_operation_id
+
     ctrl.workflow.transition(WorkflowState.APPLYING)
 
     # Tab je zapamćen u _propose_kolona_upis (proposal_confirmed signal nosi
@@ -2708,10 +2773,21 @@ def _on_proposal_confirmed(ctrl, values: dict) -> None:
     )
     ctrl.workflow.transition(WorkflowState.COMPLETED)
     ctrl._save_session()
+    _audit_routing(
+        "local", tool="upisi_u_kolonu", status="ok", confirmation="confirmed",
+        extra={"operation_id": operation_id, "upisano": upisano},
+    )
 
 
 def _on_proposal_rejected(ctrl) -> None:
     from gui.tabs.agent.workflow_state import WorkflowState
+    operation_id = getattr(ctrl, '_pending_kolona_operation_id', '')
+    if hasattr(ctrl, '_pending_kolona_operation_id'):
+        del ctrl._pending_kolona_operation_id
     if hasattr(ctrl, '_pending_kolona_tab'):
         del ctrl._pending_kolona_tab
     ctrl.workflow.transition(WorkflowState.COMPLETED)
+    _audit_routing(
+        "local", tool="upisi_u_kolonu", status="ok", confirmation="rejected",
+        extra={"operation_id": operation_id},
+    )

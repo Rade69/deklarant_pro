@@ -367,8 +367,17 @@ def _finish_puna_auto_pipeline(ctrl, chat, results: list) -> None:
     from gui.tabs.agent.services.pipeline_stage_result import (
         PipelineStageStatus, overall_outcome,
     )
+    from services.agent.chat.audit_log import AuditEvent, record as record_audit
 
     outcome = overall_outcome(results)
+    for r in results:
+        record_audit(AuditEvent(
+            routing_layer="pipeline",
+            tool="_puna_auto_pipeline",
+            status=r.status.value,
+            pipeline_stage=r.stage,
+            extra={"outcome": outcome} if r is results[-1] else {},
+        ))
 
     if outcome == "CANCELLED":
         return  # Poruka je već ispisana u koraku 4 (deklarantska_potvrda)
@@ -720,3 +729,4 @@ def _otvori_faktura_tab_nakon_uvoza(ctrl, chat) -> None:
             chat.add_activity(f"⚠️ Greška pri otvaranju Faktura taba: {e}")
     else:
         chat.add_activity("⚠️ Parent window nije pronađen")
+

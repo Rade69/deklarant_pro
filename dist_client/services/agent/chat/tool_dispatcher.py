@@ -38,6 +38,7 @@ class DispatchResult:
     tool_call: Optional[ToolCall] = None   # Ako je model pozvao alat
     plain_text: str = ""                   # Ako je model odgovorio direktno
     error: str = ""                        # Ako je došlo do greške
+    provider: str = ""                     # "local", "groq", "gemini" ili "" (nepoznato/greška)
 
 
 def _clean_query(value: str) -> str:
@@ -121,16 +122,16 @@ class ToolDispatcherWorker(QThread):
     QThread worker koji šalje korisničku poruku LLM-u (Groq → Gemini) sa Tool Use.
 
     Signali:
-        tool_call_received(name: str, arguments: dict)
+        tool_call_received(name: str, arguments: dict, provider: str)
             Emituje se kada model pozove alat.
-        fallback_to_chat(text: str)
+        fallback_to_chat(text: str, provider: str)
             Emituje se kada model odgovori direktno (plain text).
         error_occurred(message: str)
             Emituje se kada dođe do greške.
     """
 
-    tool_call_received = Signal(str, dict)
-    fallback_to_chat = Signal(str)
+    tool_call_received = Signal(str, dict, str)
+    fallback_to_chat = Signal(str, str)
     error_occurred = Signal(str)
 
     def __init__(self, message: str, parent=None):
@@ -138,7 +139,7 @@ class ToolDispatcherWorker(QThread):
         self._message = message
 
     def run(self):
-        """Pošalji poruku DeepSeek-u i emituj rezultat."""
+        """Pošalji poruku LLMProvider-u (Groq → Gemini) i emituj rezultat."""
         try:
             result = self._dispatch(self._message)
             if result.error:
@@ -146,10 +147,11 @@ class ToolDispatcherWorker(QThread):
             elif result.tool_call:
                 self.tool_call_received.emit(
                     result.tool_call.name,
-                    result.tool_call.arguments
+                    result.tool_call.arguments,
+                    result.provider,
                 )
             else:
-                self.fallback_to_chat.emit(result.plain_text or "")
+                self.fallback_to_chat.emit(result.plain_text or "", result.provider)
         except Exception as e:
             logger.error(f"[ToolDispatcher] Fatal error: {e}", exc_info=True)
             self.error_occurred.emit(str(e))
@@ -164,7 +166,7 @@ class ToolDispatcherWorker(QThread):
         local_tool = route_local_tool(message)
         if local_tool is not None:
             logger.debug("[ToolDispatcher] Local tool routed: %s(%s)", local_tool.name, local_tool.arguments)
-            return DispatchResult(tool_call=local_tool)
+            return DispatchResult(tool_call=local_tool, provider="local")
 
         from gui.tabs.agent.widgets.llm_provider import LLMProvider
         from services.agent.chat.tool_policy import is_known_tool
@@ -185,7 +187,7 @@ class ToolDispatcherWorker(QThread):
 
         if response.error:
             logger.warning(f"[ToolDispatcher] API error ({response.provider or '?'}): {response.error}")
-            return DispatchResult(error=response.error)
+            return DispatchResult(error=response.error, provider=response.provider or "")
 
         if response.tool_name:
             if not is_known_tool(response.tool_name):
@@ -194,15 +196,17 @@ class ToolDispatcherWorker(QThread):
                     response.provider, response.tool_name,
                 )
                 return DispatchResult(
-                    error=f"Model je pozvao nepoznat alat: {response.tool_name}"
+                    error=f"Model je pozvao nepoznat alat: {response.tool_name}",
+                    provider=response.provider or "",
                 )
             logger.debug(
                 "[ToolDispatcher] Tool called (%s): %s(%s)",
                 response.provider, response.tool_name, response.tool_arguments,
             )
             return DispatchResult(
-                tool_call=ToolCall(name=response.tool_name, arguments=response.tool_arguments)
+                tool_call=ToolCall(name=response.tool_name, arguments=response.tool_arguments),
+                provider=response.provider or "",
             )
 
         logger.debug(f"[ToolDispatcher] Plain text ({response.provider}): {response.content[:80]}...")
-        return DispatchResult(plain_text=response.content)
+        return DispatchResult(plain_text=response.content, provider=response.provider or "")
