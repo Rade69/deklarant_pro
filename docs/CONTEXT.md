@@ -478,3 +478,39 @@ pucao (`AttributeError`). Dobar podsjetnik da `gitnexus_impact` treba
 pokrenuti i za "očigledne" izmjene — plan ne vidi sve vanjske pozivaoce.
 
 Detalji: `agent_reports/2026-07-19_faza-b-llm-provider-unifikacija.md`.
+
+---
+
+## 22. Agent mode Faza C — pouzdan status pune automatizacije (2026-07-19)
+
+`gui/tabs/agent/services/import_pipeline_service.py::_puna_auto_pipeline`
+nije imao konzistentan mehanizam da zaustavi pipeline nakon kritičnog pada
+jedne faze — nastavljao bi na sljedeću fazu (auto-popuna → validacija →
+naimenovanja) čak i kad je prethodna faza (npr. izračun masa) pukla, jer
+4 View metode u `faktura_view.py` (`_on_calculate_masses`, `_on_auto_fill`,
+`_on_validate_all`, `_on_create_naimenovanja`) nisu imale konzistentan
+povratni ugovor iz kojeg bi se ishod mogao pouzdano pročitati. Popravljeno:
+sve 4 metode sad vraćaju strukturisan rezultat (bool/tuple); novi
+`PipelineStageResult` model (`gui/tabs/agent/services/pipeline_stage_result.py`)
+prati ishod svake faze; kritična faza odmah zaustavlja pipeline umjesto da
+"tiho" propadne kroz preostale korake.
+
+**Otkriven skriven bug (auto mod je i dalje prikazivao blokirajući dijalog)**:
+`_run_historical_tariff_validation(modal=auto)` je u punoj automatizaciji
+(`auto=True`), kad postoje istorijski prijedlozi tarifa, otvarao
+BLOKIRAJUĆI Qt modalni `TariffValidationDialog` i čekao korisnika — potpuno
+suprotno namjeri "auto mod = bez dijaloga", praktično bi zamrznuo pipeline
+bez ijedne poruke u chatu. Fix: zaseban `auto` parametar koji dijalog
+potpuno preskače (samo loguje broj prijedloga) umjesto da ga čini modalnim.
+Isti obrazac (dijeljeni `ErrorHandler.handle_*_error()` bez `auto`-guard-a)
+popravljen na 3 mjesta u `faktura_view.py` — inače bi i tu blokirajući
+dijalog iskrsnuo usred bezglave automatizacije.
+
+**Namjerno NIJE povezano sa `WorkflowState`** (`gui/tabs/agent/workflow_state.py`):
+`WorkflowState.APPLYING` nije dostižan iz `WorkflowState.COMPLETED`, stanja
+koje `agent_controller.py` postavlja neposredno prije poziva
+`_puna_auto_pipeline` — dodavanje tranzicija bi zahtijevalo restrukturiranje
+state machine-a, van scope-a ove faze. `PipelineStageResult` ostaje uži,
+zaseban koncept po nivou pojedinačne faze, ne cijele sesije.
+
+Detalji: `agent_reports/2026-07-19_faza-c-pouzdan-status-pune-automatizacije.md`.
