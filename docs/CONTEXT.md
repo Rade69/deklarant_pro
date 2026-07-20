@@ -532,9 +532,16 @@ obrazac kao `_check_license_on_startup` (non-blocking, nakon `window.show()`).
 Ako autosave fajl postoji, korisnik dobija Yes/No dijalog sa vremenom
 zadnjeg autosave-a. Yes → učitava u MainWindow.draft, No → briše autosave.
 
-**Autosave se briše pri urednom zatvaranju** (`_on_exit_clicked` →
-`clear_autosave()` prije `self.close()`), tako da se recovery dijalog
-prikazuje samo ako je aplikacija neočekivano prekinuta.
+**Autosave se briše pri urednom zatvaranju** — `clear_autosave()` se poziva
+iz `MainWindow.closeEvent()`, NE iz `_on_exit_clicked` (Pi-jev prvi prolaz je
+imao poziv samo tamo — code review nalaz: `closeEvent` se okida i pri
+zatvaranju preko standardnog Windows X dugmeta u naslovnoj traci, ne samo
+preko custom "Izlaz" dugmeta u tab traci; bez pomjeranja u `closeEvent`,
+svaki izlazak preko X dugmeta je ostavljao lažni "nesačuvan rad" prompt na
+sljedećem startu iako nije bilo pada). `_on_exit_clicked` više ne zove
+`clear_autosave()` direktno — `self.close()` na kraju te metode ionako
+okida `closeEvent`, koji sad pokriva oba puta zatvaranja.
 
 **Grana**: `feature/draft-autosave-nacrt` (paralelno sa Fazom D na `windows`).
-Detalji: `agent_reports/2026-07-20_pi-autosave-nacrt.md`.
+Detalji: `agent_reports/2026-07-20_pi-autosave-nacrt.md` (Pi),
+`agent_reports/2026-07-20_review-fix-autosave-closeevent.md` (Claude review + fix).
