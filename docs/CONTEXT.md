@@ -514,3 +514,39 @@ state machine-a, van scope-a ove faze. `PipelineStageResult` ostaje uži,
 zaseban koncept po nivou pojedinačne faze, ne cijele sesije.
 
 Detalji: `agent_reports/2026-07-19_faza-c-pouzdan-status-pune-automatizacije.md`.
+
+---
+
+## 23. Agent mode Faza D — standardizovani rezultati i audit (2026-07-20)
+
+`ToolResult` je do sada imao strukturisan oblik samo za needs_review/unknown/error
+— uspješan rezultat nije. Dodana polja `effect`/`confirmation_required`/
+`operation_id` + `ToolResult.ok()`. Novi `services/agent/chat/audit_log.py`
+(logging-baziran, NE nova DB tabela — vidi obrazloženje u agent reportu) bilježi
+strukturisan zapis za sve routing slojeve: contextual/local/tool_use/regex_fallback/
+plain_chat/pipeline.
+
+**Zatvoren poznat gap iz Faze A** (plan §16, dokumentovan kao `xfail(strict=True)`
+test): `_propose_kolona_upis` sad dodjeljuje `operation_id` koji
+`_on_proposal_confirmed`/`_on_proposal_rejected` atomarno konzumiraju PRIJE
+izvršenja — drugi/repliciran signal na istoj proposal kartici je no-op umjesto
+dvostrukog upisa u draft.
+
+**Otkriveno i ispravljeno usput (dead code)**: `chat_intent_handler.py::_on_error`
+je provjeravao poruku greške `"deepseek api ključ nije podešen"` — ta grana je
+bila mrtav kod od Faze B (DeepSeek trajno uklonjen iz `LLMProvider`, ta poruka se
+više nikad ne može desiti). Zamijenjena tačnom provjerom stvarne poruke
+(`"nema dostupnog ai providera"`). Isti obrazac (stale DeepSeek referenca) nađen
+i u `tool_dispatcher.py` docstring-u.
+
+**GitNexus CRITICAL nakon ove faze — provjereno i objašnjeno, nije stvaran rizik**:
+141 promijenjenih simbola/36 affected_processes je artefakt obima (9 fajlova u
+jednom prolazu) i GitNexus fan-out brojanja kroz centralne funkcije
+(`ChatWorker.run`, `_pg_today_stats`) — 5 od 9 fajlova su isključivo `print()`→
+`logger` konverzije unutar `except` blokova (provjereno liniju-po-liniju, nulti
+uticaj na kontrolni tok/return vrijednosti). Jedina promjena oblika postojećeg
+ugovora (Qt signal `tool_call_received`/`fallback_to_chat` dobio `provider`
+parametar) ima tačno jednog pozivaoca u cijelom repou, već ažuriranog. Puna
+analiza: `project_rooms/2026-07-20_faza-d-standardizovani-rezultati-audit.md`.
+
+Detalji: `agent_reports/2026-07-20_faza-d-standardizovani-rezultati-observability.md`.
