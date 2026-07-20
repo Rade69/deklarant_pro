@@ -145,7 +145,7 @@ def test_confirmed_exporter_history_shows_jak_label(qtbot):
 
     labels = [label.text() for label in dialog.findChildren(QLabel)]
     rendered = "\n".join(labels)
-    assert "Pouzdanost prijedloga" in rendered
+    assert "Sigurnost preporuke" in rendered
     assert "jak" in rendered
 
 
@@ -168,8 +168,8 @@ def test_evidence_badge_shows_score_and_differs_strong_vs_weak(qtbot):
     qtbot.addWidget(dialog)
 
     labels = [label.text() for label in dialog.findChildren(QLabel)]
-    strong_label = next(t for t in labels if "Pouzdanost prijedloga" in t and "jak" in t)
-    weak_label = next(t for t in labels if "Pouzdanost prijedloga" in t and "slab" in t)
+    strong_label = next(t for t in labels if "Sigurnost preporuke" in t and "jak" in t)
+    weak_label = next(t for t in labels if "Sigurnost preporuke" in t and "slab" in t)
 
     assert "90%" in strong_label
     assert "60%" in weak_label
