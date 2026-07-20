@@ -11,6 +11,8 @@ from psycopg2 import sql as pg_sql
 from PySide6.QtCore import QThread, Signal
 from services.agent.chat.tool_result import TOOL_RESULT_PROMPT_RULE
 
+logger = logging.getLogger("deklarant_pro.agent.chat_worker")
+
 
 # Kompatibilnost — stari kod koji importuje ovo ime
 def _parse_groq_error(exc) -> str:
@@ -72,7 +74,7 @@ def check_injection(message: str) -> str | None:
 
     for pattern, opis in _INJECTION_RE:
         if pattern.search(message):
-            print(f"[SecurityFilter] Blokirana poruka — {opis}: {message[:80]!r}")
+            logger.warning("[SecurityFilter] Blokirana poruka — %s: %r", opis, message[:80])
             return (
                 "⚠️ Poruka je blokirana iz sigurnosnih razloga.\n"
                 "Ako imaš legitimno pitanje o carinjenju, molim te preformuliši ga."
@@ -154,10 +156,8 @@ class ChatWorker(QThread):
             self.response_ready.emit(text)
 
         except Exception as e:
-            import traceback
             from .llm_provider import parse_llm_error
-            print(f"[ChatWorker] GREŠKA: {e}")
-            print(traceback.format_exc())
+            logger.error("[ChatWorker] GREŠKA: %s", e, exc_info=True)
             self.error_occurred.emit(parse_llm_error(e))
 
     def _build_messages(self, context: str, chat_history: list) -> list:
@@ -846,7 +846,7 @@ class ChatWorker(QThread):
                     result[orig] = (row['opis'] or '')[:150]
 
         except Exception as e:
-            print(f"[ChatWorker] PG tariff lookup greška: {e}")
+            logger.warning("[ChatWorker] PG tariff lookup greška: %s", e)
 
         return result
 
@@ -1182,7 +1182,7 @@ class ChatWorker(QThread):
             from .llm_provider import LLMProvider
             provider = LLMProvider().active_provider()
             if provider not in ("none", "ollama", "local"):
-                logging.getLogger("deklarant_pro.agent.chat_worker").warning(
+                logger.warning(
                     "SEND_SENSITIVE_DATA=true sa cloud providerom '%s' -> forsirano maskiranje",
                     provider,
                 )

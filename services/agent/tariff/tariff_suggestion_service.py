@@ -441,7 +441,7 @@ class EnhancedTariffSuggestionService:
                     })
             return suggestions
         except Exception as e:
-            print(f"⚠️ Greška pri dobavljanju basic suggestions: {e}")
+            logger.warning("Greška pri dobavljanju basic suggestions: %s", e)
             return []
 
     def _get_agent_suggestions(self, product_name, supplier_name, origin_country, invoice_lines):
@@ -477,7 +477,7 @@ class EnhancedTariffSuggestionService:
                             'needs_review': similarity < 0.8
                         })
         except Exception as e:
-            print(f"⚠️ Greška pri dobavljanju istorijskih suggestions: {e}")
+            logger.warning("Greška pri dobavljanju istorijskih suggestions: %s", e)
         return suggestions
 
     def _get_hybrid_matching_suggestions(self, product_name, supplier_name, origin_country):
@@ -499,7 +499,7 @@ class EnhancedTariffSuggestionService:
                     'needs_review': match_result.confidence < 0.70
                 })
         except Exception as e:
-            print(f"⚠️ Greška pri hybrid matching: {e}")
+            logger.warning("Greška pri hybrid matching: %s", e)
         return suggestions
 
     def _get_contextual_suggestions(self, product_name, supplier_name, invoice_lines):
@@ -552,7 +552,7 @@ class EnhancedTariffSuggestionService:
                     'is_warning': True
                 })
         except Exception as e:
-            print(f"⚠️ Greška pri kontekstualnim suggestions: {e}")
+            logger.warning("Greška pri kontekstualnim suggestions: %s", e)
         return suggestions
 
     def _get_best_suggestion(self, basic_suggestions, agent_suggestions, context):
@@ -625,7 +625,7 @@ class EnhancedTariffSuggestionService:
 
     def clear_cache(self):
         self.supplier_cache.clear()
-        print("🧹 Enhanced suggestion cache cleared")
+        logger.debug("🧹 Enhanced suggestion cache cleared")
 
 
 # ─────────────────────────────────────────────────────────────────────────────

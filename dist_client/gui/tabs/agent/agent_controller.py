@@ -9,9 +9,12 @@ from PySide6.QtWidgets import QFileDialog, QApplication
 from pathlib import Path
 import os
 import re
+import logging
 from .agent_view import AgentView
 from .widgets.processing_worker import ProcessingWorker
 from services.faktura.weight_guards import normalize_invoice_key
+
+logger = logging.getLogger("deklarant_pro.agent.controller")
 
 
 def _agent_invoice_token(value: str) -> str:
@@ -415,7 +418,10 @@ class AgentController:
         completed = sorted(completed, key=_agent_invoice_sort_key)
         errors = [f for f in files if f.status == 'Error']
 
-        print(f"[AgentController] _on_all_completed: mode='{self._current_mode}', completed={len(completed)}, errors={len(errors)}")
+        logger.debug(
+            "_on_all_completed: mode=%r, completed=%d, errors=%d",
+            self._current_mode, len(completed), len(errors),
+        )
 
         chat.add_activity(
             f"✅ Procesiranje završeno: {len(completed)} uspješno, {len(errors)} grešaka"
@@ -553,7 +559,7 @@ class AgentController:
         # ⭐ SAČUVAJ SVE LINJE U DRAFT (sve fakture zajedno)
         self.draft.invoice_lines.clear()
         self.draft.invoice_lines.extend(all_processed_lines)
-        print(f"[AgentController] Draft sada ima {len(self.draft.invoice_lines)} stavki")
+        logger.debug("Draft sada ima %d stavki", len(self.draft.invoice_lines))
 
         # Osvježi Faktura tab i upiši akumulirane težine u toolbar
         fw = self.faktura_tab.view if hasattr(self.faktura_tab, 'view') else self.faktura_tab

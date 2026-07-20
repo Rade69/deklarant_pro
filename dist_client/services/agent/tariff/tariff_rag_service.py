@@ -10,8 +10,11 @@ SVE KORISTI POSTGRESQL - nema SQLite!
 """
 
 import re
+import logging
 from typing import Dict, List, Optional, Any
 from database.db import get_db_connection
+
+logger = logging.getLogger("deklarant_pro.agent.tariff_rag")
 
 
 class TextNormalizer:
@@ -189,8 +192,8 @@ class TariffRAGService:
                     })
                 
         except Exception as e:
-            print(f"⚠️ Greška pri pretrazi istorije: {e}")
-        
+            logger.warning("Greška pri pretrazi istorije: %s", e)
+
         return results
     
     def _detect_category_hint(self, naziv_robe: str) -> Optional[str]:
@@ -275,7 +278,7 @@ class TariffRAGService:
                     })
 
         except Exception as e:
-            print(f"⚠️ Greška pri pretrazi zvaničnih tarifa: {e}")
+            logger.warning("Greška pri pretrazi zvaničnih tarifa: %s", e)
 
         return results
     

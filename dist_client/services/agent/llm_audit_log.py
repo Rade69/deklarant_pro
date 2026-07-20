@@ -15,8 +15,11 @@ Tabela llm_audit:
 
 import os
 import sqlite3
+import logging
 from datetime import datetime
 from pathlib import Path
+
+logger = logging.getLogger("deklarant_pro.agent.llm_audit_log")
 
 _SQLITE_PATH = Path(__file__).parent.parent.parent / "database" / "llm_audit.db"
 
@@ -78,7 +81,7 @@ def _pg_log(provider: str, tokens_in: int, tokens_out: int, blocked: bool) -> bo
                 )
         return True
     except Exception as e:
-        print(f"[AuditLog] PG greška, prelazim na SQLite: {e}")
+        logger.warning("[AuditLog] PG greška, prelazim na SQLite: %s", e)
         return False
 
 
@@ -156,7 +159,7 @@ def _sqlite_log(provider: str, tokens_in: int, tokens_out: int, blocked: bool) -
                 ),
             )
     except Exception as e:
-        print(f"[AuditLog] SQLite greška: {e}")
+        logger.warning("[AuditLog] SQLite greška: %s", e)
 
 
 def _sqlite_today_stats() -> dict:
@@ -201,9 +204,9 @@ def check_budget(tokens_needed: int) -> str | None:
         )
     used_pct = _session_tokens / budget * 100 if budget else 0
     if used_pct >= 80:
-        print(
-            f"[TokenBudget] ⚠️ {used_pct:.0f}% sesijskog budžeta potrošeno "
-            f"({_session_tokens:,}/{budget:,})."
+        logger.warning(
+            "[TokenBudget] %.0f%% sesijskog budžeta potrošeno (%d/%d).",
+            used_pct, _session_tokens, budget,
         )
     return None
 
