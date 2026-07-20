@@ -79,6 +79,45 @@ def _check_ocr_availability():
         )
 
 
+def _check_autosave_on_startup(parent=None):
+    """Ponudi oporavak autosave-a pri startu. Ne blokira aplikaciju ako nema."""
+    try:
+        from services.draft_autosave_service import has_autosave, autosave_timestamp, load_autosave, clear_autosave
+        if not has_autosave():
+            return
+        ts = autosave_timestamp()
+        ts_str = ts.strftime("%d.%m.%Y. %H:%M") if ts else "nepoznato vrijeme"
+        reply = QMessageBox.question(
+            parent,
+            "Nesačuvan rad",
+            f"Pronađen je nesačuvan rad iz {ts_str}.\n\n"
+            "Da li želite da učitate automatski sačuvanu deklaraciju?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.Yes,
+        )
+        if reply == QMessageBox.Yes:
+            draft = load_autosave()
+            if draft is not None:
+                # Zamijeni trenutni draft u MainWindow
+                from copy import deepcopy
+                from dataclasses import fields
+                if parent and hasattr(parent, 'draft'):
+                    callbacks = list(getattr(parent.draft, "_data_change_callbacks", []) or [])
+                    for field_info in fields(type(parent.draft)):
+                        if field_info.name == "_data_change_callbacks":
+                            continue
+                        setattr(parent.draft, field_info.name, deepcopy(getattr(draft, field_info.name)))
+                    parent.draft._data_change_callbacks = callbacks
+                    parent.draft.dirty = False
+                    parent._reload_all_tabs_from_draft()
+                    parent._on_dirty()
+                    logging.getLogger("deklarant_pro").info("📂 Autosave oporavljen na startu")
+        else:
+            clear_autosave()
+    except Exception as e:
+        logging.getLogger("deklarant_pro").warning(f"⚠️ Autosave recovery nije uspio: {e}")
+
+
 def _check_license_on_startup(parent=None):
     """Proveri licencu pri startu. Ne blokira aplikaciju ako nije validna."""
     try:
@@ -159,6 +198,9 @@ def main():
         _startup_ms = (time.perf_counter() - _t0) * 1000
         logging.getLogger("deklarant_pro").warning(f"⏱️ Startup: {_startup_ms:.0f}ms")
 
+        # Autosave recovery — ponudi oporavak ako postoji nesačuvan rad
+        _check_autosave_on_startup(window)
+
         # Licenca provera — ne blokira aplikaciju, samo upozorenje
         _check_license_on_startup(window)
     except Exception as e:
@@ -197,3 +239,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+

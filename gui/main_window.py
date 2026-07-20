@@ -111,6 +111,11 @@ class MainWindow(QMainWindow):
             self.faktura_tab.naimenovanja_created.connect(
                 self.agent_tab.controller.auto_provjeri_naimenovanja
             )
+            self.faktura_tab.naimenovanja_created.connect(
+                self._on_autosave_after_naimenovanja
+            )
+
+        self._setup_autosave()
 
         # Postavi Admin Tab kao trenutni tab za testiranje (opciono - za development)
         # tabs.setCurrentWidget(self.admin_tab)
@@ -168,6 +173,7 @@ class MainWindow(QMainWindow):
             self.zaglavlje_tab.save_to_draft()
         except Exception as e:
             logger.error(f"Snimanje Zaglavlje drafta pri izlasku nije uspjelo: {e}", exc_info=True)
+        # Autosave se briše u closeEvent() — pokriva i ovaj put i OS X dugme
         self.close()
 
     def _confirm_safe_to_exit(self) -> bool:
@@ -314,6 +320,31 @@ class MainWindow(QMainWindow):
             if hasattr(self.zaglavlje_tab, "load_from_draft"):
                 QTimer.singleShot(0, lambda draft=active_draft: self.zaglavlje_tab.load_from_draft(draft))
 
+    # ── Autosave ──────────────────────────────────────────────────
+
+    def _setup_autosave(self) -> None:
+        """Postavi periodični autosave timer (5 min).
+        Ne ometa korisnika — radi tiho u pozadini."""
+        self._autosave_timer = QTimer(self)
+        self._autosave_timer.setInterval(5 * 60 * 1000)  # 5 minuta
+        self._autosave_timer.timeout.connect(self._autosave_tick)
+        self._autosave_timer.start()
+        logger.debug("⏱️ Autosave timer pokrenut (5 min)")
+
+    def _autosave_tick(self) -> None:
+        """Periodični autosave — čuva trenutni draft na fiksnu putanju."""
+        from services.draft_autosave_service import save_autosave
+        faktura_view = getattr(self.faktura_tab, 'view', self.faktura_tab)
+        draft = getattr(faktura_view, 'draft', self.draft)
+        save_autosave(draft)
+
+    def _on_autosave_after_naimenovanja(self) -> None:
+        """Autosave odmah nakon uspješnog kreiranja naimenovanja."""
+        from services.draft_autosave_service import save_autosave
+        faktura_view = getattr(self.faktura_tab, 'view', self.faktura_tab)
+        draft = getattr(faktura_view, 'draft', self.draft)
+        save_autosave(draft)
+
     def _on_draft_data_changed(self) -> None:
         """Poziva se kada se draft podaci promene - ažurira sve tabove koji treba da se osveže."""
         # Sačuvaj samo ref-ove iz UI tabele u draft (ne zamjenjuje listu — čuva programatski dodane doc-ove)
@@ -459,4 +490,11 @@ class MainWindow(QMainWindow):
         screen = self.windowHandle().screen() if self.windowHandle() else self._active_screen
         if screen is not None:
             self._save_window_state(screen)
+        # Obriši autosave i pri zatvaranju preko OS X dugmeta (ne samo "Izlaz" dugmeta) —
+        # inače sljedeći start uvijek lažno prijavi "nesačuvan rad" iako je zatvaranje bilo uredno.
+        try:
+            from services.draft_autosave_service import clear_autosave
+            clear_autosave()
+        except Exception:
+            pass
         super().closeEvent(event)

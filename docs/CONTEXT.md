@@ -550,3 +550,43 @@ parametar) ima tačno jednog pozivaoca u cijelom repou, već ažuriranog. Puna
 analiza: `project_rooms/2026-07-20_faza-d-standardizovani-rezultati-audit.md`.
 
 Detalji: `agent_reports/2026-07-20_faza-d-standardizovani-rezultati-observability.md`.
+
+---
+
+## 24. Autosave / recovery nacrta deklaracije (2026-07-20)
+
+**Dodat servis `services/draft_autosave_service.py`**: periodično automatsko
+čuvanje trenutnog nacrta (svakih 5 min) + odmah nakon kreiranja naimenovanja
+(hook na `FakturaView.naimenovanja_created` signal). Čuva se na fiksnu putanju:
+`~/Documents/Deklarant Pro/Nacrti/.autosave/autosave.xml`.
+
+**Ne mijenja postojeće ponašanje**:
+- Ne dira `_persistent_draft_path` (ostaje samo za ručno "Sačuvaj nacrt")
+- Ne dira `drafts/lastDirectory` QSettings
+- Ne prikazuje dijaloge tokom rada — autosave je potpuno tih
+
+**Recovery na startu**: `_check_autosave_on_startup()` u `run.py` — isti
+obrazac kao `_check_license_on_startup` (non-blocking, nakon `window.show()`).
+Ako autosave fajl postoji, korisnik dobija Yes/No dijalog sa vremenom
+zadnjeg autosave-a. Yes → učitava u MainWindow.draft, No → briše autosave.
+
+**Autosave se briše pri urednom zatvaranju** — `clear_autosave()` se poziva
+iz `MainWindow.closeEvent()`, NE iz `_on_exit_clicked` (Pi-jev prvi prolaz je
+imao poziv samo tamo — code review nalaz: `closeEvent` se okida i pri
+zatvaranju preko standardnog Windows X dugmeta u naslovnoj traci, ne samo
+preko custom "Izlaz" dugmeta u tab traci; bez pomjeranja u `closeEvent`,
+svaki izlazak preko X dugmeta je ostavljao lažni "nesačuvan rad" prompt na
+sljedećem startu iako nije bilo pada). `_on_exit_clicked` više ne zove
+`clear_autosave()` direktno — `self.close()` na kraju te metode ionako
+okida `closeEvent`, koji sad pokriva oba puta zatvaranja.
+
+**Grana**: `feature/draft-autosave-nacrt`, spojena u `windows` nakon Faze D.
+Detalji: `agent_reports/2026-07-20_pi-autosave-nacrt.md` (Pi),
+`agent_reports/2026-07-20_review-fix-autosave-closeevent.md` (Claude review + fix).
+
+**Merge napomena**: nezavisno od ovog autosave rada, `windows` je (fix commit
+`879a93e`, nakon Faze D) dodao `_confirm_safe_to_exit()` provjeru u isti
+`closeEvent()` — ista motivacija ("X dugme zaobilazi provjere"), drugi problem
+(upozorenje da agent još radi u pozadini, ne autosave brisanje). Automatski
+(git ort) merge je ispravno spojio oba — `closeEvent()` sad redom: provjerava
+agent worker → čuva geometriju prozora → briše autosave → `super().closeEvent()`.
