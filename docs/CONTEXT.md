@@ -590,3 +590,14 @@ Detalji: `agent_reports/2026-07-20_pi-autosave-nacrt.md` (Pi),
 (upozorenje da agent još radi u pozadini, ne autosave brisanje). Automatski
 (git ort) merge je ispravno spojio oba — `closeEvent()` sad redom: provjerava
 agent worker → čuva geometriju prozora → briše autosave → `super().closeEvent()`.
+
+---
+
+## 25. Dist runtime i tarifna safety mreža (2026-07-21)
+
+`dist_client` učitava `tariff_facade`/`tariff_mapping_service` iz `.pyd`, ali
+`hybrid_tariff_agent` iz običnog `.py`; dist i source hash tog fajla su isti i oba
+sadrže aktivni `_decide_free()` put. XML builder je takođe `.py`; trenutni dist diff
+mijenja samo dokumentaciju/logovanje, ne XML logiku. Prije tarifnog fixa obavezni su
+hash instaliranog klijentskog artefakta i izolovana PostgreSQL test baza sa rollbackom.
+Agent `AuditEvent.extra` se trenutno ne ispisuje u log, a GUI auto-fill nema audit trag.
