@@ -3926,6 +3926,13 @@ class FakturaView(BaseTabView):
         modalno — inače bi pipeline visio čekajući korisnika za nešto što nije
         jedina obavezna deklarantska potvrda (vidi plan §7, korak 4). Prijedlozi
         se samo loguju kao informacija.
+
+        Selekcija redova (korisnička primjedba 2026-07-21): ako korisnik ima
+        selektovane redove u tabeli, "Provjeri" provjerava SAMO te redove —
+        isti obrazac kao Auto-popuni (_on_auto_fill). Bez ovoga se uvijek
+        provjeravaju SVE stavke, pa dijalog sa prijedlozima za desetine
+        nepovezanih redova zbunjuje korisnika koji je namjerno selektovao
+        konkretnu(e) stavku(e) i pokušava prihvatiti baš njen prijedlog.
         """
         try:
             from services.agent.validation.historical_tariff_search_service import (
@@ -3936,13 +3943,47 @@ class FakturaView(BaseTabView):
             izvoznik = getattr(self.draft, 'izvoznik_naziv', '') or ''
             primalac = getattr(self.draft, 'primalac_naziv', '') or ''
 
+            target_lines = self.draft.invoice_lines
+            row_indexes = None
+            if not auto and hasattr(self, "table"):
+                selection = self.table.selectionModel()
+                selected_rows = selection.selectedRows() if selection else []
+                if selected_rows:
+                    candidate_indexes = sorted(
+                        {
+                            idx.row()
+                            for idx in selected_rows
+                            if 0 <= idx.row() < len(self.draft.invoice_lines)
+                        }
+                    )
+                    if candidate_indexes:
+                        row_indexes = candidate_indexes
+                        target_lines = [
+                            self.draft.invoice_lines[row] for row in row_indexes
+                        ]
+
             svc = HistoricalTariffSearchService()
             matches = svc.validate_lines(
-                self.draft.invoice_lines,
+                target_lines,
                 izvoznik_naziv=izvoznik,
                 uvoznik_naziv=primalac,
             )
             auto_applied = getattr(svc, 'last_auto_applied', [])
+
+            # KRITIČNO: match.line_index i auto_applied indeksi su pozicije
+            # UNUTAR target_lines (0..len(target_lines)-1), ne stvarni red u
+            # self.draft.invoice_lines — kad je target_lines filtrirana
+            # selekcija, indeks mora nazad na pravi red prije upisa u tabelu
+            # ili u draft, inače se promjena upiše u POGREŠAN red.
+            if row_indexes is not None:
+                for match in matches:
+                    if 0 <= match.line_index < len(row_indexes):
+                        match.line_index = row_indexes[match.line_index]
+                auto_applied = [
+                    (row_indexes[local_idx], tarif)
+                    for local_idx, tarif in auto_applied
+                    if 0 <= local_idx < len(row_indexes)
+                ]
             if auto_applied:
                 self.table.blockSignals(True)
                 try:

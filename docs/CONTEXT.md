@@ -687,3 +687,20 @@ tiho auto-primijeni promjenu (`HistoricalTariffSearchService._feedback_action` �
 `FakturaView._notify_auto_applied_tariffs()` (novo) prikazuje jasnu poruku u interaktivnom
 modu — nabraja auto-primijenjene stavke i eksplicitno navodi da je razlog ranija ručna
 potvrda, uz poziv da se ponovo provjeri. U auto modu (puna automatizacija) samo se loguje.
+
+**Dopuna 3 (isti dan) — "Provjeri" ignorisao selekciju redova**: korisnik prijavio da nakon
+selektovanja N stavki u Faktura tabeli i klika na "Provjeri" (dugme pored Bruto/Neto,
+`btn_validate` → `_on_validate_all` → `_run_historical_tariff_validation`), tarifni brojevi
+"koji su došli iz fakture" ostaju nepromijenjeni čak i nakon prihvatanja prijedloga. Uzrok:
+funkcija je UVIJEK provjeravala SVE `draft.invoice_lines`, bez obzira na selekciju u tabeli —
+za razliku od Auto-popuni (`_on_auto_fill`), koji već poštuje `table.selectionModel()`.
+Kad korisnik selektuje 1-2 konkretne stavke, dijalog je prikazivao prijedloge za desetine
+NEPOVEZANIH redova — lako je moguće prihvatiti prijedlog za pogrešan red misleći da je to
+baš selektovana stavka. Popravljeno: `_run_historical_tariff_validation` sada gradi
+`target_lines` iz `selected_row_indexes` (isti obrazac kao Auto-popuni) kad selekcija
+postoji i `auto=False`. **Kritičan detalj**: `HistoricalTariffSearchService.validate_lines`
+vraća `match.line_index`/`last_auto_applied` kao poziciju UNUTAR proslijeđene liste (0..N-1),
+ne stvarni red u `draft.invoice_lines` — bez remapiranja nazad (`row_indexes[local_idx]`)
+promjena bi se upisala u POGREŠAN red tabele kad je selekcija filtrirana lista. Testovi:
+`tests/unit/test_faktura_view_provjeri_selekcija.py` (4 nova, uklj. regresioni test za
+remapiranje indeksa).
