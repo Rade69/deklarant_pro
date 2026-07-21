@@ -49,3 +49,24 @@ def test_record_default_polja_su_prazna():
     assert event.provider == ""
     assert event.duration_ms == 0.0
     assert event.extra == {}
+
+
+def test_record_upisuje_extra_operation_id_u_log(caplog):
+    """
+    Regresioni test: record() je ranije primao AuditEvent.extra (npr.
+    operation_id iz _on_proposal_confirmed) ali ga nikad nije uključivao u
+    format string loggera - operation_id je bio prisutan u memoriji radi
+    idempotencije, ali odsutan iz emitovanog audit zapisa.
+    """
+    caplog.set_level(logging.INFO, logger="deklarant_pro.agent.audit")
+
+    record(AuditEvent(
+        routing_layer="local",
+        tool="upisi_u_kolonu",
+        confirmation="confirmed",
+        extra={"operation_id": "abc123", "upisano": 2},
+    ))
+
+    msg = caplog.records[0].getMessage()
+    assert "operation_id" in msg
+    assert "abc123" in msg

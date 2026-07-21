@@ -35,7 +35,7 @@ def record(event: AuditEvent) -> None:
     try:
         logger.info(
             "routing=%s tool=%s effect=%s status=%s source=%s provider=%s "
-            "duration_ms=%.1f fallback_reason=%s confirmation=%s pipeline_stage=%s",
+            "duration_ms=%.1f fallback_reason=%s confirmation=%s pipeline_stage=%s extra=%s",
             event.routing_layer,
             event.tool,
             event.effect,
@@ -46,6 +46,7 @@ def record(event: AuditEvent) -> None:
             event.fallback_reason,
             event.confirmation,
             event.pipeline_stage,
+            event.extra,
         )
     except Exception:
         pass
