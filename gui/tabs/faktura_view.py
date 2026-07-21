@@ -1015,7 +1015,7 @@ class FakturaView(BaseTabView):
             return lbl
 
         def _sep() -> QLabel:
-            s = QLabel("|")
+            s = QLabel("•")
             s.setObjectName("statusSeparator")
             return s
 
@@ -1032,12 +1032,12 @@ class FakturaView(BaseTabView):
         self._sep_analysis.setVisible(False)
 
         for widget in [
-            self.lbl_item_count,    _sep(),
-            self.lbl_total_amount,  _sep(),
+            self.lbl_item_count,
+            self.lbl_total_amount,
             self.lbl_total_quantity, _sep(),
-            self.lbl_bruto,          _sep(),
-            self.lbl_neto,           _sep(),
-            self.lbl_validation,     _sep(),
+            self.lbl_bruto,
+            self.lbl_neto, _sep(),
+            self.lbl_validation,
             self.lbl_assembly,       self._sep_analysis,
             self.lbl_analysis,
         ]:
@@ -1829,11 +1829,6 @@ class FakturaView(BaseTabView):
             country = country or "(nepoznato)"
             countries[country] = countries.get(country, 0) + 1
 
-        zemlja_str = " | ".join(
-            f"{country}:{count}"
-            for country, count in sorted(countries.items(), key=lambda item: -item[1])
-        )
-
         problemi = []
         if bez_tarife:
             problemi.append(f"⚠️ {len(bez_tarife)} bez tarife")
@@ -1842,7 +1837,8 @@ class FakturaView(BaseTabView):
         if bez_eur1:
             problemi.append(f"⚠️ {len(bez_eur1)} bez EUR1")
 
-        text = f"🌍 {zemlja_str}"
+        country_label = "zemlja" if len(countries) == 1 else "zemalja"
+        text = f"🌍 Porijeklo: {len(countries)} {country_label}"
         if problemi:
             text += "  " + " | ".join(problemi)
         return text, "warning" if problemi else "success"
