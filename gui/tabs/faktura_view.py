@@ -661,22 +661,23 @@ class FakturaView(BaseTabView):
 
             self.btn_export_pdf = self._create_button(
                 "PDF",
-                "Export u PDF — grupisanje po naimenovanjima",
+                "Izaberi vrstu PDF izvještaja",
                 object_name="btnPDF",
                 compact=True,
                 icon_name="fa5s.file-pdf",
             )
-            self.btn_export_pdf.clicked.connect(self._on_export_pdf)
-
-            # docs/sections/export-pdf-excel.md — dugme Pregled faktura
-            self.btn_pregled_faktura = self._create_button(
-                "Pregled",
-                "Pregled faktura — grupisanje po fakturi za carinika",
-                object_name="btnPregledFaktura",
-                compact=True,
-                icon_name="fa5s.eye",
+            self.pdf_export_menu = QMenu(self.btn_export_pdf)
+            self.action_export_naimenovanja_pdf = self.pdf_export_menu.addAction(
+                "Spisak naimenovanja"
             )
-            self.btn_pregled_faktura.clicked.connect(self._on_export_pregled_faktura)
+            self.action_export_naimenovanja_pdf.triggered.connect(self._on_export_pdf)
+            self.action_export_pregled_faktura = self.pdf_export_menu.addAction(
+                "Pregled po fakturama"
+            )
+            self.action_export_pregled_faktura.triggered.connect(
+                self._on_export_pregled_faktura
+            )
+            self.btn_export_pdf.setMenu(self.pdf_export_menu)
             layout.addWidget(self.btn_export_pdf)
 
             self.btn_create_naimenovanja = self._create_button(
