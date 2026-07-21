@@ -476,13 +476,13 @@ class FakturaView(BaseTabView):
         """Populate grid with header and toolbar sections sharing same columns for PERFECT alignment."""
         from PySide6.QtWidgets import QGridLayout
 
-        # Sekcije: (naziv, pozadina, boja teksta) — neutralna toolbar paleta
+        # Sekcije: (naziv, pozadina, boja teksta) — umjereno naglašena toolbar paleta
         sections = [
-            ("Glavna lista", "#E9EEF3", "#2C5570"),
-            ("Uvezi", "#E9EEF3", "#34414C"),
-            ("Uredi", "#E9EEF3", "#34414C"),
-            ("Izvezi", "#E9EEF3", "#34414C"),
-            ("Pametna pomoć", "#E9EEF3", "#5A4788"),
+            ("Glavna lista", "#D8E7F0", "#214F6B"),
+            ("Uvezi", "#E0E6EC", "#2D3F4D"),
+            ("Uredi", "#ECE6D7", "#59481F"),
+            ("Izvezi", "#D9E9E4", "#245E50"),
+            ("Pametna pomoć", "#E5DDF0", "#563A82"),
         ]
 
         col = 0
@@ -509,7 +509,7 @@ class FakturaView(BaseTabView):
                     font-size: 17px;
                     padding: 10px 6px;
                     border: none;
-                    border-bottom: 2px solid #8FA6B7;
+                    border-bottom: 2px solid #7893A6;
                     {border_radius}
                 }}
                 QPushButton:disabled {{
