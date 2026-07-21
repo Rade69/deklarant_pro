@@ -714,3 +714,14 @@ izvoz pregleda po fakturama završavao generičkom greškom prije gradnje PDF-a.
 naslovu sada se sastavlja iz kanonskih polja `deklaracija_tip`, `deklaracija_oznaka` i
 `deklaracija_a`. Regresioni test mora napraviti stvarni `%PDF` fajl, ne samo mockovati
 ReportLab poziv.
+
+---
+
+## 29. PDF spisak naimenovanja — ne odbacivati stavke bez veze (2026-07-21)
+
+`PDFInvoiceExporter._group_by_naimenovanje()` je ranije tiho odbacivao svaku faktura
+stavku čiji je `assigned_naimenovanje_ordinal` bio 0. Ako su `draft.items` postojali,
+GUI je prijavljivao uspješan izvoz, ali je PDF sadržao samo naslov i datum. Exporter sada
+uvijek uključuje takve redove u grupu `STAVKE BEZ NAIMENOVANJA`; ne pokušava sam ponovo
+grupisati stavke niti mijenja draft. Regresioni test mora provjeriti tekst stvarno
+generisanog PDF-a, a ne samo `%PDF` zaglavlje.
