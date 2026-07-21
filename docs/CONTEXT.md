@@ -665,3 +665,13 @@ SAMO na interaktivni `dist_client` venv put (`start_debug.bat`).
 
 Detalji: `agent_reports/2026-07-21_preciznost-tarifnih-prijedloga.md`,
 `project_rooms/2026-07-21_preciznost-tarifnih-prijedloga.md`.
+
+**Dopuna (isti dan) — korisnička primjedba nakon testiranja na rebuildovanom `.exe`-u**:
+"Sigurnost preporuke" broj i tekstualna labela (jak/srednji/slab) i dalje su djelovali
+kontradiktorno (npr. "slab (72%)") jer `match.decision_score` (kontinuiran, iz
+`decide_tariff_match`) i `tariff_confidence_label` (diskretna `DecisionConfidence`
+kategorija) dolaze iz dva nekalibrisana sistema. Dodata `score_band_for_confidence()`
+(čisto aditivna, `core/decision/evidence.py`, ne dira `build_evidence`) — vraća (min, max)
+opseg po kategoriji, isti pragovi kao `evidence_score_category()` (95/85/70/50). Dijalog
+sad ulašti sirov `decision_score` u taj opseg prije prikaza — broj i dalje varira, ali
+nikad ne izgleda jače/slabije od riječi pored njega.
