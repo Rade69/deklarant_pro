@@ -891,9 +891,7 @@ class FakturaView(BaseTabView):
         header.setStretchLastSection(False)
 
         # Table settings
-        table.setAlternatingRowColors(
-            False
-        )  # Isključeno - koristimo validacione boje umjesto
+        table.setAlternatingRowColors(True)
         table.setSelectionBehavior(QAbstractItemView.SelectRows)
         table.setSelectionMode(QAbstractItemView.ExtendedSelection)
         table.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
@@ -906,9 +904,9 @@ class FakturaView(BaseTabView):
             QTableWidget {
                 font-size: 10pt;
                 background-color: #ffffff;
-                alternate-background-color: #f7f9fb;
-                gridline-color: #dfe5ea;
-                border: 1px solid #c9d2dc;
+                alternate-background-color: #f4f7f9;
+                gridline-color: #d5dde4;
+                border: 1px solid #b8c5cf;
             }
             QTableWidget::item {
                 padding: 6px 4px;
@@ -916,16 +914,16 @@ class FakturaView(BaseTabView):
                 color: #17212b;
             }
             QTableWidget::item:selected {
-                background-color: #2f6f9f;
+                background-color: #2c668f;
                 color: white;
             }
             QHeaderView::section {
-                background-color: #e9eef3;
-                color: #26343f;
+                background-color: #d7e1e9;
+                color: #1f303c;
                 padding: 8px 6px;
                 border: none;
-                border-right: 1px solid #d2dae2;
-                border-bottom: 1px solid #b8c4cf;
+                border-right: 1px solid #b8c5cf;
+                border-bottom: 2px solid #7893a6;
                 font-weight: bold;
                 font-size: 11pt;
             }
