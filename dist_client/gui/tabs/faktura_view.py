@@ -357,19 +357,132 @@ class FakturaView(BaseTabView):
         # Create header and toolbar sections that share columns
         self._populate_grid_sections(grid)
 
+        container.setStyleSheet(
+            """
+            QWidget#controlsContainer QPushButton#btnUcitajListu,
+            QWidget#controlsContainer QPushButton#btnUveziPDF,
+            QWidget#controlsContainer QPushButton#btnUveziExcel,
+            QWidget#controlsContainer QPushButton#btnUveziXML,
+            QWidget#controlsContainer QPushButton#btnDodaj,
+            QWidget#controlsContainer QPushButton#btnExcel,
+            QWidget#controlsContainer QPushButton#btnPDF,
+            QWidget#controlsContainer QPushButton#btnPregledFaktura,
+            QWidget#controlsContainer QPushButton#btnPrethodnaDekl {
+                background-color: #52697A;
+                color: #FFFFFF;
+                border: none;
+            }
+            QWidget#controlsContainer QPushButton#btnUcitajListu:hover,
+            QWidget#controlsContainer QPushButton#btnUveziPDF:hover,
+            QWidget#controlsContainer QPushButton#btnUveziExcel:hover,
+            QWidget#controlsContainer QPushButton#btnUveziXML:hover,
+            QWidget#controlsContainer QPushButton#btnDodaj:hover,
+            QWidget#controlsContainer QPushButton#btnExcel:hover,
+            QWidget#controlsContainer QPushButton#btnPDF:hover,
+            QWidget#controlsContainer QPushButton#btnPregledFaktura:hover,
+            QWidget#controlsContainer QPushButton#btnPrethodnaDekl:hover {
+                background-color: #607B8E;
+            }
+            QWidget#controlsContainer QPushButton#btnUcitajListu:pressed,
+            QWidget#controlsContainer QPushButton#btnUveziPDF:pressed,
+            QWidget#controlsContainer QPushButton#btnUveziExcel:pressed,
+            QWidget#controlsContainer QPushButton#btnUveziXML:pressed,
+            QWidget#controlsContainer QPushButton#btnDodaj:pressed,
+            QWidget#controlsContainer QPushButton#btnExcel:pressed,
+            QWidget#controlsContainer QPushButton#btnPDF:pressed,
+            QWidget#controlsContainer QPushButton#btnPregledFaktura:pressed,
+            QWidget#controlsContainer QPushButton#btnPrethodnaDekl:pressed {
+                background-color: #405563;
+            }
+            QWidget#controlsContainer QPushButton#btnKreirajNaimenovanja {
+                background-color: #2F6F9F;
+                color: #FFFFFF;
+                border: none;
+            }
+            QWidget#controlsContainer QPushButton#btnKreirajNaimenovanja:hover {
+                background-color: #245F88;
+            }
+            QWidget#controlsContainer QPushButton#btnKreirajNaimenovanja:pressed {
+                background-color: #1E4B6A;
+            }
+            QWidget#controlsContainer QWidget#massControlsPanel {
+                background-color: #EEF4F1;
+                border: 1px solid #B7CCC0;
+                border-radius: 5px;
+            }
+            QWidget#controlsContainer QWidget#massControlsPanel QLabel {
+                color: #34483E;
+            }
+            QWidget#controlsContainer QWidget#massControlsPanel QLineEdit {
+                background-color: #FFFFFF;
+                border: 1px solid #AABCB2;
+            }
+            QWidget#controlsContainer QPushButton#btnValidacija {
+                background-color: #2F7D5A;
+                color: #FFFFFF;
+                border: none;
+            }
+            QWidget#controlsContainer QPushButton#btnValidacija:hover {
+                background-color: #3B906B;
+            }
+            QWidget#controlsContainer QPushButton#btnValidacija:pressed {
+                background-color: #256347;
+            }
+            QWidget#controlsContainer QPushButton#btnIzracunajMase,
+            QWidget#controlsContainer QPushButton#btnAutoPopuni {
+                background-color: #6A55A3;
+                color: #FFFFFF;
+                border: none;
+            }
+            QWidget#controlsContainer QPushButton#btnIzracunajMase:hover,
+            QWidget#controlsContainer QPushButton#btnAutoPopuni:hover {
+                background-color: #59458D;
+            }
+            QWidget#controlsContainer QPushButton#btnIzracunajMase:pressed,
+            QWidget#controlsContainer QPushButton#btnAutoPopuni:pressed {
+                background-color: #493875;
+            }
+            QWidget#controlsContainer QPushButton#btnObrisi,
+            QWidget#controlsContainer QPushButton#btnOcistiSve {
+                background-color: #A6403D;
+                color: #FFFFFF;
+                border: none;
+            }
+            QWidget#controlsContainer QPushButton#btnObrisi:hover,
+            QWidget#controlsContainer QPushButton#btnOcistiSve:hover {
+                background-color: #B9514D;
+            }
+            QWidget#controlsContainer QPushButton#btnObrisi:pressed,
+            QWidget#controlsContainer QPushButton#btnOcistiSve:pressed {
+                background-color: #85322F;
+            }
+            QWidget#controlsContainer QPushButton:hover {
+                border: 1px solid rgba(255, 255, 255, 90);
+            }
+            QWidget#controlsContainer QPushButton:pressed {
+                border: 1px solid rgba(0, 0, 0, 80);
+            }
+            QWidget#controlsContainer QPushButton:disabled {
+                background-color: #D5DCE3;
+                color: #7D8994;
+                border: none;
+            }
+            """
+        )
+
         return container
 
     def _populate_grid_sections(self, grid):
         """Populate grid with header and toolbar sections sharing same columns for PERFECT alignment."""
         from PySide6.QtWidgets import QGridLayout
 
-        # Sekcije: (naziv, pozadina, boja teksta) — unified_color_system v3.0 paleta
+        # Sekcije: (naziv, pozadina, boja teksta) — neutralna toolbar paleta
         sections = [
-            ("Glavna lista", "#DAE8F2", "#2C5570"),  # plava familija
-            ("Uvezi", "#EDE4F5", "#4A2E6B"),  # ljubičasta familija
-            ("Uredi", "#F5EDD8", "#5C4A1E"),  # žuta familija
-            ("Izvezi", "#D8F0EC", "#1E5A50"),  # teal familija
-            ("Pametna pomoć", "#EDE4F5", "#4A2E6B"),  # ljubičasta (AI)
+            ("Glavna lista", "#E9EEF3", "#2C5570"),
+            ("Uvezi", "#E9EEF3", "#34414C"),
+            ("Uredi", "#E9EEF3", "#34414C"),
+            ("Izvezi", "#E9EEF3", "#34414C"),
+            ("Pametna pomoć", "#E9EEF3", "#5A4788"),
         ]
 
         col = 0
@@ -396,7 +509,7 @@ class FakturaView(BaseTabView):
                     font-size: 17px;
                     padding: 10px 6px;
                     border: none;
-                    border-bottom: 2px solid {self._darken_color(color)};
+                    border-bottom: 2px solid #8FA6B7;
                     {border_radius}
                 }}
                 QPushButton:disabled {{
@@ -431,6 +544,7 @@ class FakturaView(BaseTabView):
             toolbar_container.setStyleSheet(
                 f"""
                 QWidget {{
+                    background-color: #F8FAFC;
                     {t_border_radius}
                 }}
             """
@@ -519,6 +633,7 @@ class FakturaView(BaseTabView):
                 icon_name="fa5s.broom",
             )
             self.btn_clear.clicked.connect(self._on_clear_all)
+            layout.addSpacing(8)
             layout.addWidget(self.btn_clear)
 
         elif section_idx == 3:  # Izvezi
@@ -601,8 +716,6 @@ class FakturaView(BaseTabView):
             self._weights_layout = weights_layout
             self._weights_widget = weights_widget
 
-            layout.addWidget(weights_widget)
-
             self.btn_validate = self._create_button(
                 "Provjeri",
                 "Provaliziraj sve stavke",
@@ -610,7 +723,15 @@ class FakturaView(BaseTabView):
                 icon_name="fa5s.check-circle",
             )
             self.btn_validate.clicked.connect(self._on_validate_all)
-            layout.addWidget(self.btn_validate)
+
+            mass_controls_panel = QWidget()
+            mass_controls_panel.setObjectName("massControlsPanel")
+            mass_controls_layout = QHBoxLayout(mass_controls_panel)
+            mass_controls_layout.setContentsMargins(4, 3, 4, 3)
+            mass_controls_layout.setSpacing(4)
+            mass_controls_layout.addWidget(weights_widget)
+            mass_controls_layout.addWidget(self.btn_validate)
+            layout.addWidget(mass_controls_panel)
 
         elif section_idx == 4:  # Pametna pomoć
             self.btn_calc_masses = self._create_button(
@@ -712,7 +833,7 @@ class FakturaView(BaseTabView):
                     font-size: {header_font_size}px;
                     padding: 8px 4px;
                     border: none;
-                    border-bottom: 2px solid {self._darken_color(color)};
+                    border-bottom: 2px solid #8FA6B7;
                     {border_radius}
                 }}
                 QPushButton:disabled {{
@@ -783,23 +904,27 @@ class FakturaView(BaseTabView):
             """
             QTableWidget {
                 font-size: 10pt;
-                gridline-color: #ddd;
-                border: 1px solid #ccc;
+                background-color: #ffffff;
+                alternate-background-color: #f7f9fb;
+                gridline-color: #dfe5ea;
+                border: 1px solid #c9d2dc;
             }
             QTableWidget::item {
                 padding: 6px 4px;
                 border: none;
-                color: #000000;
+                color: #17212b;
             }
             QTableWidget::item:selected {
-                background-color: #0078d7;
+                background-color: #2f6f9f;
                 color: white;
             }
             QHeaderView::section {
-                background-color: #f5f5f5;
-                color: #000000;
+                background-color: #e9eef3;
+                color: #26343f;
                 padding: 8px 6px;
-                border: 1px solid #ddd;
+                border: none;
+                border-right: 1px solid #d2dae2;
+                border-bottom: 1px solid #b8c4cf;
                 font-weight: bold;
                 font-size: 11pt;
             }
@@ -1048,7 +1173,7 @@ class FakturaView(BaseTabView):
         sep.setStyleSheet(
             """
             QFrame {
-                color: #999;
+                color: #D1D9E0;
                 margin: 0px 8px;
             }
         """
@@ -1225,7 +1350,7 @@ class FakturaView(BaseTabView):
             tooltip = "⚠️ Upozorenje: " + "; ".join([e.message for e in result.warnings])
         elif result.valid:
             # ZELENA boja za validne stavke
-            color_hex = "#ccffcc"  # Green for valid
+            color_hex = "#EAF4EE"  # Green for valid
             tooltip = "✅ Validna stavka"
         else:
             # Bijela boja za neprovjerene
@@ -3830,6 +3955,24 @@ class FakturaView(BaseTabView):
                 self.table.viewport().update()
                 self._update_status_bar()
 
+                # Transparentnost (korisnička primjedba 2026-07-21): ovo se
+                # ranije dešavalo POTPUNO tiho kad god postoji ranija ručna
+                # potvrda (user_feedback) za baš ovaj par naziv→tarifa — jača
+                # dokaz od "korišten Nx u deklaracijama" (carina nije odbila
+                # ≠ neko je stvarno provjerio), ali je i dalje samo JEDNA
+                # ranija ljudska odluka koja se od tad tiho ponavlja bez ikad
+                # ponovnog pregleda — isti obrazac kao poznat bug GREJAC
+                # SPIRALA/Plamenik. Korisnik sad MORA vidjeti šta se i zašto
+                # promijenilo, u interaktivnom modu.
+                if not auto:
+                    self._notify_auto_applied_tariffs(auto_applied)
+                else:
+                    logger.info(
+                        "Istorijska validacija (auto mod): %d tarifa automatski "
+                        "primijenjeno na osnovu ranije ručne potvrde",
+                        len(auto_applied),
+                    )
+
             if not matches:
                 return  # Nema prijedloga — tiho
 
@@ -3863,6 +4006,34 @@ class FakturaView(BaseTabView):
 
         except Exception as e:
             logger.warning("Istorijska validacija greška: %s", e)
+
+    def _notify_auto_applied_tariffs(self, auto_applied: list) -> None:
+        """
+        Prikaži jasnu poruku kad se tarifa automatski upiše zbog RANIJE
+        RUČNE potvrde (user_feedback), ne samo zato što je viđena u ranijim
+        deklaracijama. Ovo je jača evidencija od "korišten Nx", ali je i
+        dalje samo JEDNA ljudska odluka koja se od tad tiho ponavlja bez
+        ikad ponovnog pregleda — korisnik mora imati priliku da je uhvati
+        ako je bila pogrešna (vidi project_rooms/2026-07-21_preciznost-tarifnih-prijedloga.md).
+        """
+        naziv_by_idx = {
+            idx: (self.draft.invoice_lines[idx].naziv_robe or "")
+            for idx, _ in auto_applied
+            if 0 <= idx < len(self.draft.invoice_lines)
+        }
+        lines_txt = "\n".join(
+            f"  Rb.{idx + 1}: {naziv_by_idx.get(idx, '')[:45]} → {tarif}"
+            for idx, tarif in auto_applied
+        )
+        self._show_scrollable_info_dialog(
+            "Automatski ažurirane tarife (ranija potvrda)",
+            f"Automatski je ažurirano {len(auto_applied)} tarifnih brojeva jer ste ih "
+            f"RANIJE RUČNO potvrdili kroz 'Provjeri' — to je jača evidencija od pukog "
+            f"korištenja u prethodnim deklaracijama, ali je i dalje samo jedna ranija "
+            f"odluka koja se ponavlja bez novog pregleda.\n\n"
+            f"{lines_txt}\n\n"
+            f"Provjerite da li su i dalje ispravne."
+        )
 
     def _update_weight_totals(self):
         """

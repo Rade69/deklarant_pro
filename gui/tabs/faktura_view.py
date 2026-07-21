@@ -3955,6 +3955,24 @@ class FakturaView(BaseTabView):
                 self.table.viewport().update()
                 self._update_status_bar()
 
+                # Transparentnost (korisnička primjedba 2026-07-21): ovo se
+                # ranije dešavalo POTPUNO tiho kad god postoji ranija ručna
+                # potvrda (user_feedback) za baš ovaj par naziv→tarifa — jača
+                # dokaz od "korišten Nx u deklaracijama" (carina nije odbila
+                # ≠ neko je stvarno provjerio), ali je i dalje samo JEDNA
+                # ranija ljudska odluka koja se od tad tiho ponavlja bez ikad
+                # ponovnog pregleda — isti obrazac kao poznat bug GREJAC
+                # SPIRALA/Plamenik. Korisnik sad MORA vidjeti šta se i zašto
+                # promijenilo, u interaktivnom modu.
+                if not auto:
+                    self._notify_auto_applied_tariffs(auto_applied)
+                else:
+                    logger.info(
+                        "Istorijska validacija (auto mod): %d tarifa automatski "
+                        "primijenjeno na osnovu ranije ručne potvrde",
+                        len(auto_applied),
+                    )
+
             if not matches:
                 return  # Nema prijedloga — tiho
 
@@ -3988,6 +4006,34 @@ class FakturaView(BaseTabView):
 
         except Exception as e:
             logger.warning("Istorijska validacija greška: %s", e)
+
+    def _notify_auto_applied_tariffs(self, auto_applied: list) -> None:
+        """
+        Prikaži jasnu poruku kad se tarifa automatski upiše zbog RANIJE
+        RUČNE potvrde (user_feedback), ne samo zato što je viđena u ranijim
+        deklaracijama. Ovo je jača evidencija od "korišten Nx", ali je i
+        dalje samo JEDNA ljudska odluka koja se od tad tiho ponavlja bez
+        ikad ponovnog pregleda — korisnik mora imati priliku da je uhvati
+        ako je bila pogrešna (vidi project_rooms/2026-07-21_preciznost-tarifnih-prijedloga.md).
+        """
+        naziv_by_idx = {
+            idx: (self.draft.invoice_lines[idx].naziv_robe or "")
+            for idx, _ in auto_applied
+            if 0 <= idx < len(self.draft.invoice_lines)
+        }
+        lines_txt = "\n".join(
+            f"  Rb.{idx + 1}: {naziv_by_idx.get(idx, '')[:45]} → {tarif}"
+            for idx, tarif in auto_applied
+        )
+        self._show_scrollable_info_dialog(
+            "Automatski ažurirane tarife (ranija potvrda)",
+            f"Automatski je ažurirano {len(auto_applied)} tarifnih brojeva jer ste ih "
+            f"RANIJE RUČNO potvrdili kroz 'Provjeri' — to je jača evidencija od pukog "
+            f"korištenja u prethodnim deklaracijama, ali je i dalje samo jedna ranija "
+            f"odluka koja se ponavlja bez novog pregleda.\n\n"
+            f"{lines_txt}\n\n"
+            f"Provjerite da li su i dalje ispravne."
+        )
 
     def _update_weight_totals(self):
         """
