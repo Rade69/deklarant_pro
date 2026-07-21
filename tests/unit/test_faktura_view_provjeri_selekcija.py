@@ -130,3 +130,44 @@ def test_provjeri_match_line_index_remapiran_na_pravi_red():
     # target_lines = [invoice_lines[1], invoice_lines[3]]; match.line_index=1 -> stvarni red 3
     assert match.line_index == 3
     dlg_cls.assert_called_once()
+
+
+def test_provjeri_selekcija_bez_prijedloga_prikazuje_poruku_umjesto_tisine():
+    """
+    Prije ove izmjene je "nema prijedloga" bilo POTPUNO tiho — kad korisnik
+    eksplicitno selektuje stavke i klikne "Provjeri", tišina se lako
+    protumači kao da dijalog "nije htio" da se otvori (korisnička primjedba
+    2026-07-21). Bez selekcije tišina ostaje namjerna (provjereno niže).
+    """
+    mock_self = _mock_self_with_selected_rows(num_lines=5, selected_rows=[2])
+
+    svc_instance = MagicMock()
+    svc_instance.validate_lines.return_value = []
+    svc_instance.last_auto_applied = []
+
+    with patch(
+        "services.agent.validation.historical_tariff_search_service.HistoricalTariffSearchService",
+        return_value=svc_instance,
+    ), patch("gui.tabs.faktura_view.QMessageBox") as mock_msgbox:
+        FakturaView._run_historical_tariff_validation(mock_self, auto=False)
+
+    mock_msgbox.information.assert_called_once()
+    message_text = mock_msgbox.information.call_args[0][2]
+    assert "1 selektovan" in message_text
+
+
+def test_provjeri_bez_selekcije_bez_prijedloga_ostaje_tih():
+    """Bez selekcije (provjera cijele fakture) tisina ostaje namjerna - nema poruke po svakom kliku."""
+    mock_self = _mock_self_with_selected_rows(num_lines=5, selected_rows=[])
+
+    svc_instance = MagicMock()
+    svc_instance.validate_lines.return_value = []
+    svc_instance.last_auto_applied = []
+
+    with patch(
+        "services.agent.validation.historical_tariff_search_service.HistoricalTariffSearchService",
+        return_value=svc_instance,
+    ), patch("gui.tabs.faktura_view.QMessageBox") as mock_msgbox:
+        FakturaView._run_historical_tariff_validation(mock_self, auto=False)
+
+    mock_msgbox.information.assert_not_called()

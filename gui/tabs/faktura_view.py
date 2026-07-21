@@ -1881,8 +1881,11 @@ class FakturaView(BaseTabView):
         if bez_eur1:
             problemi.append(f"⚠️ {len(bez_eur1)} bez EUR1")
 
-        country_label = "zemlja" if len(countries) == 1 else "zemalja"
-        text = f"🌍 Porijeklo: {len(countries)} {country_label}"
+        zemlja_str = " | ".join(
+            f"{country}:{count}"
+            for country, count in sorted(countries.items(), key=lambda item: -item[1])
+        )
+        text = f"🌍 {zemlja_str}"
         if problemi:
             text += "  " + " | ".join(problemi)
         return text, "warning" if problemi else "success"
@@ -2093,7 +2096,7 @@ class FakturaView(BaseTabView):
         self.lbl_total_amount.setText(
             f"💰 Ukupno: {float(total_amount):.2f} {currency}"
         )
-        self.lbl_total_quantity.setText(f"📦 Komada: {total_quantity:,}")
+        self.lbl_total_quantity.setText(f"📦 Komada: {int(round(total_quantity)):,}")
         # Use _format_weight to show full precision with thousands separator
         self.lbl_bruto.setText(f"⚖️ Bruto: {self._format_weight(total_bruto)} kg")
         self.lbl_neto.setText(f"📊 Neto: {self._format_weight(total_neto)} kg")
@@ -4055,6 +4058,20 @@ class FakturaView(BaseTabView):
                     )
 
             if not matches:
+                # Kad je korisnik eksplicitno selektovao stavke i kliknuo
+                # "Provjeri", tišina (bez ijedne poruke) se lako protumači kao
+                # da dijalog "nije htio" da se otvori. Bez selekcije (provjera
+                # cijele fakture) tišina ostaje namjerna — ne zamarati porukom
+                # na svaki klik kad nema šta reći za desetine stavki.
+                if row_indexes is not None and not auto_applied:
+                    n = len(row_indexes)
+                    QMessageBox.information(
+                        self,
+                        "Provjeri",
+                        f"Provjereno {n} selektovan{'a' if n == 1 else 'ih'} "
+                        f"stavk{'a' if n == 1 else 'i'} — nema boljeg istorijskog "
+                        f"prijedloga od trenutno unesenog tarifnog broja.",
+                    )
                 return  # Nema prijedloga — tiho
 
             if auto:

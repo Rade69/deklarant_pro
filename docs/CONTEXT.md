@@ -704,3 +704,24 @@ ne stvarni red u `draft.invoice_lines` — bez remapiranja nazad (`row_indexes[l
 promjena bi se upisala u POGREŠAN red tabele kad je selekcija filtrirana lista. Testovi:
 `tests/unit/test_faktura_view_provjeri_selekcija.py` (4 nova, uklj. regresioni test za
 remapiranje indeksa).
+
+**Dopuna 4 (isti dan) — 3 nalaza nakon testiranja rebuildovanog `.exe`-a**:
+1) Selekcijski fix je otkrio da "nema prijedloga" grana (`if not matches: return`) NIKAD
+   nije davala korisniku ikakvu potvrdu — prije scoping-a to je bilo rijetko primjetno (94
+   stavki skoro uvijek nešto vrati), ali kad je "Provjeri" scoped na 1-2 selektovane stavke,
+   tišina se lako protumači kao da dijalog "nije htio da se otvori". Dodato: eksplicitna
+   `QMessageBox.information` SAMO kad je `row_indexes is not None` (aktivna selekcija) i nema
+   `auto_applied` — bez selekcije tišina ostaje namjerna (ne zamarati na svaki klik za
+   desetine stavki).
+2) `lbl_total_quantity` ("Komada") je prikazivao `total_quantity:,` bez `int()` — `kolicina`
+   je float, pa zbir (npr. 8045.0) prikazuje "8,045.0". U carinskom postupku količina MORA
+   biti cio broj (ne postoji decimalna količina komada) — fix: `int(round(total_quantity))`.
+3) `_build_analysis_summary_from_draft` (status bar "🌍 Porijeklo") je u komitu `735400a`
+   ("style(faktura): sažmi statusnu traku", Co-Authored-By: OpenAI Codex, 2026-07-21 16:44)
+   IZGUBIO breakdown po zemlji (`DE:9 | IT:8...`) — zamijenjen golim brojem ("9 zemalja").
+   Korisnik je eksplicitno tražio da se breakdown vrati (bitno je koliko naimenovanja
+   pripada kojoj zemlji, ne samo broj zemalja). `dist_client` kopija NIJE imala ovu
+   regresiju (zaostala/nesinhronizovana sa tim komitom) — root vraćen da odgovara
+   dist_client-u. **Napomena za buduće agente**: ako opet neko "sažme" ovu statusnu traku,
+   provjeriti sa korisnikom prije brisanja breakdown-a — već je jednom vraćen na
+   eksplicitan zahtjev. Testovi: `tests/unit/test_faktura_view_status_bar.py` (3 nova).

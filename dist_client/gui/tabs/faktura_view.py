@@ -2053,7 +2053,7 @@ class FakturaView(BaseTabView):
         self.lbl_total_amount.setText(
             f"💰 Ukupno: {float(total_amount):.2f} {currency}"
         )
-        self.lbl_total_quantity.setText(f"📦 Komada: {total_quantity:,}")
+        self.lbl_total_quantity.setText(f"📦 Komada: {int(round(total_quantity)):,}")
         # Use _format_weight to show full precision with thousands separator
         self.lbl_bruto.setText(f"⚖️ Bruto: {self._format_weight(total_bruto)} kg")
         self.lbl_neto.setText(f"📊 Neto: {self._format_weight(total_neto)} kg")
@@ -4015,6 +4015,20 @@ class FakturaView(BaseTabView):
                     )
 
             if not matches:
+                # Kad je korisnik eksplicitno selektovao stavke i kliknuo
+                # "Provjeri", tišina (bez ijedne poruke) se lako protumači kao
+                # da dijalog "nije htio" da se otvori. Bez selekcije (provjera
+                # cijele fakture) tišina ostaje namjerna — ne zamarati porukom
+                # na svaki klik kad nema šta reći za desetine stavki.
+                if row_indexes is not None and not auto_applied:
+                    n = len(row_indexes)
+                    QMessageBox.information(
+                        self,
+                        "Provjeri",
+                        f"Provjereno {n} selektovan{'a' if n == 1 else 'ih'} "
+                        f"stavk{'a' if n == 1 else 'i'} — nema boljeg istorijskog "
+                        f"prijedloga od trenutno unesenog tarifnog broja.",
+                    )
                 return  # Nema prijedloga — tiho
 
             if auto:
