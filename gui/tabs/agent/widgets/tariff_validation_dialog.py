@@ -175,7 +175,7 @@ class TariffValidationDialog(QDialog):
             f"<span style='color:#888; font-size:13px;'>"
             f"Izvor: </span>{source_lbl}"
             f"<span style='color:#888; font-size:13px;'>"
-            f" &nbsp;|&nbsp; Korišten {match.usage_count}× &nbsp;|&nbsp; Podudarnost: {pct}%"
+            f" &nbsp;|&nbsp; Korišten {match.usage_count}× &nbsp;|&nbsp; Učestalost korištenja: {pct}%"
             f"</span>"
         )
         meta_label.setTextFormat(Qt.RichText)
@@ -188,11 +188,17 @@ class TariffValidationDialog(QDialog):
         evidence_label = None
         if evidence is not None:
             badge_color, badge_bg = evidence_badge_colors(evidence)
+            # Prikazujemo match.decision_score (stvaran, promjenjiv izračun iz
+            # decide_tariff_match) umjesto evidence.score — potonji je namjerno
+            # fiksna konstanta po kategoriji (vidi evidence_from_tariff_decision
+            # docstring) i uvijek bi pokazivao istu brojku za svaki "slab"
+            # prijedlog bez obzira na stvarnu jačinu dokaza.
+            real_score = max(0, min(100, getattr(match, "decision_score", 0) or 0))
             evidence_label = QLabel(
                 f"<span style='color:#888; font-size:12px;'>Sigurnost preporuke: </span>"
                 f"<span style='background:{badge_bg}; color:{badge_color}; font-size:12px; "
                 f"padding:2px 8px; border-radius:4px; font-weight:600;'>"
-                f"{tariff_confidence_label(evidence)} ({evidence.score}%)</span>"
+                f"{tariff_confidence_label(evidence)} ({real_score}%)</span>"
             )
             evidence_label.setTextFormat(Qt.RichText)
 

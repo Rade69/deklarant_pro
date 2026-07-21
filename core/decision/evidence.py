@@ -139,6 +139,18 @@ def evidence_from_tariff_decision(
     usage_count: int,
     source: str,
 ) -> Evidence:
+    """
+    NAPOMENA: score/score_category ovdje namjerno OSTAJE na fiksnoj podrazumijevanoj
+    vrijednosti po kategoriji (60/75/90/100 — vidi _DEFAULT_SCORES) — to je
+    stabilan, dijeljen prag koji određuje boju bedža (evidence_badge_colors)
+    preko 5 kategorija (CONFIRMED/STRONG_HISTORY/NEEDS_REVIEW/WEAK_INFORMATIONAL/
+    HIDDEN, pragovi 95/85/70/50). Da je ovdje proslijeđen stvaran
+    TariffDecision.score (koji može pasti ispod 50 i za SHOW_WEAK prijedloge
+    koji se AKTIVNO prikazuju), stavka bi dobila HIDDEN (crvenu) boju iako
+    nije potisnuta — pogrešan signal. Stvaran, promjenjiv broj se prikazuje
+    ODVOJENO u dijalogu preko match.decision_score (vidi
+    tariff_validation_dialog.py i project_rooms/2026-07-21_preciznost-tarifnih-prijedloga.md).
+    """
     data = {"usage_count": usage_count, "source": source, "supplier_match": supplier_match}
 
     if not has_meaningful_source(source):
