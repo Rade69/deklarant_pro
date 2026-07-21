@@ -3,6 +3,7 @@ import pytest
 pytest.importorskip("reportlab")
 
 from exporters import pdf_faktura_pregled as exporter_mod
+from core.draft import DeclarationDraft, InvoiceLine, NaimenovanjeDraft
 
 
 def test_register_fonts_uses_discovered_directory(monkeypatch):
@@ -68,3 +69,37 @@ def test_register_fonts_exception_keeps_defaults(monkeypatch):
     assert exporter.font_italic == "Helvetica-Oblique"
     assert exporter.styles["PregledFakturaHeader"].fontName == "Helvetica-Bold"
     assert exporter.styles["PregledSubTitle"].fontName == "Helvetica"
+
+
+def test_export_uses_real_declaration_code_fields(tmp_path):
+    draft = DeclarationDraft(
+        deklaracija_tip="IM",
+        deklaracija_oznaka="H",
+        deklaracija_a="A",
+        ref_br="1476/26",
+    )
+    draft.invoice_lines = [
+        InvoiceLine(
+            line_no=1,
+            invoice_number="1476/26",
+            naziv_robe="TEST ROBA",
+            tarifni_broj="21069098",
+            jm="KOM",
+            kolicina=10,
+            iznos=25.5,
+            bruto_kg=2.1,
+            neto_kg=1.9,
+            assigned_naimenovanje_ordinal=1,
+        )
+    ]
+    draft.items = [
+        NaimenovanjeDraft(
+            item_id="test-1",
+            ordinal_no=1,
+            tariff_code="21069098",
+        )
+    ]
+    output_path = tmp_path / "pregled_faktura.pdf"
+
+    assert exporter_mod.export_faktura_pregled(draft, str(output_path)) is True
+    assert output_path.read_bytes().startswith(b"%PDF")

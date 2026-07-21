@@ -200,7 +200,15 @@ class PDFFakturaPregled:
 
             # ── ZAGLAVLJE ──
             ref_br = draft.ref_br or "(nepoznata)"
-            sifra = draft.sifra_deklaracije or ""
+            sifra = " ".join(
+                value
+                for value in (
+                    draft.deklaracija_tip,
+                    draft.deklaracija_oznaka,
+                    draft.deklaracija_a,
+                )
+                if value
+            )
             elements.append(Paragraph(
                 f"<b>PREGLED FAKTURA — {sifra}</b>",
                 self.styles['PregledTitle']
