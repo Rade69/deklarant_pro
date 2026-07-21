@@ -197,8 +197,7 @@ class PDFInvoiceExporter:
 
         for line in invoice_lines:
             ordinal = line.assigned_naimenovanje_ordinal
-            if ordinal > 0:  # Samo stavke koje su assigned naimenovanju
-                grouped[ordinal].append(line)
+            grouped[ordinal if ordinal > 0 else 0].append(line)
 
         return grouped
 
@@ -245,8 +244,9 @@ class PDFInvoiceExporter:
             country = lines[0].zemlja_porijekla if lines else "N/A"
             preference = lines[0].povlastica if lines else "N/A"
 
+        group_name = f"NAIMENOVANJE {ordinal}" if ordinal > 0 else "STAVKE BEZ NAIMENOVANJA"
         header_text = (
-            f"<b>NAIMENOVANJE {ordinal}</b> | "
+            f"<b>{group_name}</b> | "
             f"Tarifni broj: {tariff} | "
             f"Zemlja porijekla: {country} | "
             f"Povlastica: {preference} | "
