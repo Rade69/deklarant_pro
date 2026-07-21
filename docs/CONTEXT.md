@@ -725,3 +725,25 @@ remapiranje indeksa).
    dist_client-u. **Napomena za buduće agente**: ako opet neko "sažme" ovu statusnu traku,
    provjeriti sa korisnikom prije brisanja breakdown-a — već je jednom vraćen na
    eksplicitan zahtjev. Testovi: `tests/unit/test_faktura_view_status_bar.py` (3 nova).
+
+**Dopuna 5 (isti dan) — "Provjeri" ne vidi XML arhivu direktno (SUSSINA slučaj, NEDOVRŠENO)**:
+korisnik prijavio da za SUSSINA 650/200 tbl. (trenutni tarifni broj 38249993, poglavlje 3824)
+"Provjeri" kaže "nema boljeg prijedloga", iako `data/knowledge_base/NOVA ASIKUDA/` sadrži
+33 XML fajla gdje je SUSSINA UVIJEK 21069098 (poglavlje 2106 — prehrambeni proizvod/dodatak,
+100% konzistentno). **Uzrok NIJE bug u matching logici** — `HistoricalTariffSearchService`
+traži isključivo u `catalogs.product_tariff_mapping` (PostgreSQL), koja se puni SAMO ručno
+kroz Admin → "Učenje iz XML-ova" (`_ReindexWorker` → `TariffMappingService.
+import_from_xml_files()`, `gui/tabs/admin/panels/learning_panel.py`) — nema automatskog
+triggera. Ako reindex nije pokretan otkad su ovi XML fajlovi dodati u arhivu, baza "ne zna"
+za njih, pa je "nema boljeg prijedloga" tehnički tačno za bazu ali pogrešno u praksi (arhiva
+ima dokaz, baza ga nije apsorbovala). **Provjera blokirana**: agent okruženje trenutno nema
+mrežni pristup PostgreSQL serveru (192.168.100.154 timeout sa `192.168.0.27` — ista mrežna
+podjela kao na početku ove sesije), pa nije potvrđeno direktnim upitom da li je red za
+SUSSINA/21069098 uopšte u `product_tariff_mapping`. **Sljedeći korak (kad se nastavi)**:
+korisnik treba pokrenuti Admin → "Učenje iz XML-ova", zatim ponovo "Provjeri" na istoj
+fakturi; ako i dalje ništa ne predloži, provjeriti `MIN_USAGE_FOR_CROSS_CHAPTER = 5` prag u
+`historical_tariff_search_service.py` (2106→3824 je cross-chapter skok koji zahtijeva
+usage_count ≥ 5 da ne bude suprimiran) i/ili da li `_is_noisy_name`/`_clean_product_name`
+(u `tariff_mapping_service.py::import_from_xml_files`) ispravno zadržava "SUSSINA" iz
+`Commercial_Description` teksta (koji je mješavina generičkog boilerplate-a i imena
+proizvoda, npr. "prehrambeni proizvodi... ostali:; ostali. SUSSINA").
