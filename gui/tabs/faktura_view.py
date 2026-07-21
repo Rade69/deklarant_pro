@@ -981,12 +981,20 @@ class FakturaView(BaseTabView):
             QWidget#statusBarContainer QLabel {
                 font-size: 13px;
                 font-weight: 600;
-                color: #CBD8E8;
+                color: #E2EAF3;
                 background: transparent;
                 padding: 0 2px;
             }
+            QWidget#statusBarContainer QLabel#primaryMetric {
+                color: #FFFFFF;
+                font-weight: 700;
+            }
+            QWidget#statusBarContainer QLabel#weightMetric {
+                color: #D7E8F5;
+                font-weight: 700;
+            }
             QWidget#statusBarContainer QLabel#statusSeparator {
-                color: #3A5F82;
+                color: #6684A1;
                 font-size: 15px;
                 font-weight: 400;
                 background: transparent;
@@ -1000,6 +1008,30 @@ class FakturaView(BaseTabView):
             }
             QWidget#statusBarContainer QLabel[status="success"] {
                 color: #6BCB77;
+            }
+            QWidget#statusBarContainer QLabel#validationStatus {
+                border: 1px solid #6684A1;
+                border-radius: 9px;
+                padding: 3px 8px;
+            }
+            QWidget#statusBarContainer QLabel#validationStatus[status=""] {
+                color: #F1F5F9;
+                background-color: #304D6B;
+            }
+            QWidget#statusBarContainer QLabel#validationStatus[status="error"] {
+                color: #FFD9D9;
+                background-color: #7A3038;
+                border-color: #B7555F;
+            }
+            QWidget#statusBarContainer QLabel#validationStatus[status="warning"] {
+                color: #FFF2C2;
+                background-color: #735B20;
+                border-color: #A98731;
+            }
+            QWidget#statusBarContainer QLabel#validationStatus[status="success"] {
+                color: #DDF8E3;
+                background-color: #2C6848;
+                border-color: #4A946B;
             }
         """)
         layout = QHBoxLayout(container)
@@ -1018,12 +1050,13 @@ class FakturaView(BaseTabView):
             s.setObjectName("statusSeparator")
             return s
 
-        self.lbl_item_count    = _stat_lbl("📦 Stavki: 0")
-        self.lbl_total_amount  = _stat_lbl("💰 Ukupno: 0.00 EUR")
+        self.lbl_item_count    = _stat_lbl("📦 Stavki: 0", "primaryMetric")
+        self.lbl_total_amount  = _stat_lbl("💰 Ukupno: 0.00 EUR", "primaryMetric")
         self.lbl_total_quantity = _stat_lbl("⬛ Komada: 0")
-        self.lbl_bruto         = _stat_lbl("⚖  Bruto: 0.00 kg")
-        self.lbl_neto          = _stat_lbl("◈  Neto: 0.00 kg")
-        self.lbl_validation    = _stat_lbl("⚪ Neprovjereno")
+        self.lbl_bruto         = _stat_lbl("⚖  Bruto: 0.00 kg", "weightMetric")
+        self.lbl_neto          = _stat_lbl("◈  Neto: 0.00 kg", "weightMetric")
+        self.lbl_validation    = _stat_lbl("⚪ Neprovjereno", "validationStatus")
+        self.lbl_validation.setProperty("status", "")
         self.lbl_assembly      = _stat_lbl("📋 Assembly: N/A")
         self.lbl_analysis      = _stat_lbl("")
         self._sep_analysis     = _sep()
