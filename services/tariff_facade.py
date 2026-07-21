@@ -230,10 +230,18 @@ class TariffFacade:
     def auto_populate_tariffs(self, invoice_lines: list, **kwargs):
         """
         Batch auto-popunjavanje tarifnih brojeva za sve stavke fakture.
-        Pass-through na TariffMappingService.auto_populate_tariffs().
+        Pass-through na TariffMappingService.auto_populate_tariffs()
+        (uklj. dry_run=True za preview bez upisa — vidi commit_proposals()).
         Koristi faktura_view za auto-fill dugme.
         """
         return self._mapping().auto_populate_tariffs(invoice_lines, **kwargs)
+
+    def commit_proposals(self, invoice_lines: list, proposals: list):
+        """
+        Upiši prijedloge iz auto_populate_tariffs(dry_run=True) bez ponovnog
+        računanja. Pass-through na TariffMappingService.commit_proposals().
+        """
+        return self._mapping().commit_proposals(invoice_lines, proposals)
 
     def learn_from_draft(self, invoice_lines: list) -> int:
         """

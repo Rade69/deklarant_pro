@@ -79,6 +79,24 @@ class TariffMapping:
 
 
 @dataclass
+class TariffProposal:
+    """
+    Jedan prijedlog tarifnog broja iz auto_populate_tariffs(dry_run=True).
+
+    Nosi i sam `mapping` objekat da bi commit_proposals() mogao upisati TAČNO
+    ovaj prijedlog bez ponovnog računanja — preview i stvarni upis moraju biti
+    isti proračun (vidi project_rooms/2026-07-21_preciznost-tarifnih-prijedloga.md).
+    """
+    line_no: int
+    naziv_ili_kod: str
+    tarifni_broj: str
+    precision_1: str
+    source: str          # "istorija" | "baza_znanja"
+    confidence: float
+    mapping: "TariffMapping" = None
+
+
+@dataclass
 class MappingResult:
     """Rezultat auto-popunjavanja tarifnih brojeva."""
     total_items: int
@@ -88,6 +106,7 @@ class MappingResult:
     matched_details: List[Tuple[int, str, str]] | None = None  # (line_no, product_code, tarifni_broj)
     unmatched_details: List[Tuple[int, str, str]] | None = None  # (line_no, product_code, naziv_robe)
     skipped_details: List[Tuple[int, str, str]] | None = None  # (line_no, product_code, tarifni_broj)
+    proposals: List[TariffProposal] | None = None  # Popunjeno samo kad je dry_run=True
 
     def __post_init__(self):
         """Inicijalizuj liste ako nisu postavljene."""
@@ -97,6 +116,8 @@ class MappingResult:
             self.unmatched_details = []
         if self.skipped_details is None:
             self.skipped_details = []
+        if self.proposals is None:
+            self.proposals = []
 
 
 def extract_meaningful_words(text: str) -> str:
@@ -167,30 +188,40 @@ class TariffMappingService:
     def auto_populate_tariffs(
         self,
         invoice_lines: List[InvoiceLine],
-        min_similarity: float = 0.70,
+        min_similarity: float = 0.92,
         overwrite_existing: bool = False,
-        supplier: str = ""
+        supplier: str = "",
+        dry_run: bool = False,
     ) -> MappingResult:
         """
         Automatski popuni tarifne brojeve za invoice lines.
 
         Args:
             invoice_lines: Lista fakturnih stavki
-            min_similarity: Minimalna sličnost za fuzzy match (0.0-1.0)
+            min_similarity: Minimalna sličnost za fuzzy match (0.0-1.0) — projektni
+                kanon je 0.92 (vidi AGENTS.md), ne spuštati bez eksplicitnog razloga.
             overwrite_existing: Da li prepisati postojeće tarifne brojeve
+            dry_run: Ako True, samo IZRAČUNAJ prijedloge (rezultat.proposals) i ne
+                upisuj ništa u invoice_lines. Koristi se za preview dijalog PRIJE
+                potvrde korisnika — commit_proposals() kasnije upisuje TAČNO ove
+                prijedloge, bez ponovnog računanja (vidi
+                project_rooms/2026-07-21_preciznost-tarifnih-prijedloga.md).
 
         Returns:
             MappingResult sa statistikom i detaljima
         """
-        logger.info(f"🎯 Auto-popunjavanje tarifnih brojeva za {len(invoice_lines)} stavki...")
+        logger.info(
+            f"🎯 Auto-popunjavanje tarifnih brojeva za {len(invoice_lines)} stavki"
+            f"{' (dry_run)' if dry_run else ''}..."
+        )
 
-        # Inicijalizuj detektor izjava (jednom za sve stavke)
         detector = OriginStatementDetector()
 
         matched_count = 0
         unmatched_count = 0
         matched_details = []
         unmatched_details = []
+        proposals: List[TariffProposal] = []
 
         effective_supplier = supplier or ""
 
@@ -199,74 +230,25 @@ class TariffMappingService:
             if line.tarifni_broj and not overwrite_existing:
                 continue
 
-            # Dobavi ime dobavljača za ovu liniju
             line_supplier = effective_supplier or (line.exporter.name if line.exporter.name else "")
 
-            mapping = None
-
-            # ── 0. Prvo istorija dobavljača (XML fajlovi sa carine — najvalidniji) ──
-            if line_supplier:
-                try:
-                    from services.agent.tariff.tariff_suggestion_service import HybridMatchingService
-                    hybrid = HybridMatchingService()
-                    hist_match = hybrid.find_hybrid_mapping(
-                        product_code=line.product_code,
-                        naziv_robe=line.naziv_robe,
-                        supplier=line_supplier,
-                        country=line.zemlja_porijekla,
-                        min_confidence=0.75
-                    )
-                    if hist_match and hist_match.confidence >= 0.82:
-                        mapping = hist_match.tariff_mapping
-                        logger.debug(
-                            f"  📚 Istorija [{line_supplier}]: stavka #{line.line_no} "
-                            f"→ {mapping.tarifni_broj} (pouzdanost: {hist_match.confidence:.0%})"
-                        )
-                except Exception:
-                    pass  # Silent — istorijski match nije kritičan
-
-            # ── 1. Baza znanja (ako istorija nije dala rezultat) ──
-            if mapping is None:
-                mapping = self.find_mapping(
-                    product_code=line.product_code,
-                    naziv_robe=line.naziv_robe,
-                    min_similarity=min_similarity,
-                    zemlja_porijekla=line.zemlja_porijekla,
-                    supplier=line_supplier
-                )
+            mapping, source, confidence = self._compute_line_mapping(
+                line, min_similarity, line_supplier
+            )
 
             if mapping:
-                # Pronađen mapping - popuni tarifni broj i precision_1
-                # DEPRECATED (Faza 6): Direktan upis. Koristi DeclarationDecisionService.apply_candidate().
-                line.tarifni_broj = mapping.tarifni_broj
-                line.tariff_suffix = mapping.precision_1
-
-                # ⚠️ NE DIRAJ povlasticu i eur1_number ako već postoje!
-                # Korisnik je već uneo kroz EUR.1/PE2 dialog
-
-                # Ako nema povlasticu, popuni iz mapping-a
-                if not line.povlastica and not line.eur1_number:
-                    # DETEKTUJ da li PDF sadrži izjavu o poreklu
-                    has_origin_statement = line.raw.get('has_origin_statement', False)
-
-                    # KORISTI merge_country_origin() za validaciju
-                    validation_result = merge_country_origin(
-                        zemlja_pdf=line.zemlja_porijekla,
-                        zemlja_baza=mapping.zemlja_porijekla,
-                        povlastica_baza=mapping.povlastica,
-                        has_origin_statement=has_origin_statement
-                    )
-
-                    # Ažuriraj zemlju i confidence polja
-                    line.zemlja_porijekla = validation_result.final_country
-                    line.country_confidence = validation_result.confidence.value
-                    line.country_source = validation_result.source
-                    if validation_result.conflict_details:
-                        line.country_conflict_details = validation_result.conflict_details
+                if dry_run:
+                    proposals.append(TariffProposal(
+                        line_no=line.line_no,
+                        naziv_ili_kod=line.product_code or (line.naziv_robe or "")[:30],
+                        tarifni_broj=mapping.tarifni_broj,
+                        precision_1=mapping.precision_1,
+                        source=source,
+                        confidence=round(confidence, 2),
+                        mapping=mapping,
+                    ))
                 else:
-                    # Već ima povlasticu/eur1_number - samo ažuriraj zemlju iz mapping-a ako je prazna
-                    if not line.zemlja_porijekla and mapping.zemlja_porijekla:
-                        line.zemlja_porijekla = mapping.zemlja_porijekla
+                    self._apply_mapping_to_line(line, mapping, detector)
 
                 matched_count += 1
                 matched_details.append((
@@ -274,40 +256,15 @@ class TariffMappingService:
                     line.product_code or line.naziv_robe[:30],
                     mapping.tarifni_broj
                 ))
-
-                # Inkrementiraj usage_count
-                self._increment_usage(mapping.tarifni_broj, mapping.product_code, mapping.naziv_robe)
-
-                logger.debug(f"  ✅ Stavka #{line.line_no}: {line.product_code} → {mapping.tarifni_broj} "
-                            f"(povlastica={line.povlastica or 'N/A'}, eur1={line.eur1_number or 'N/A'})")
-
-                # DEPRECATED (Faza 6): Direktan upis u InvoiceLine.
-                # Umjesto ovoga, korisiti DeclarationDecisionService.apply_candidate().
-                # Vidi agent_tasks/2026-07-18_jedan-izvor-istine-odluke-deklaracije.md
             else:
-                # Nije pronađen mapping
                 unmatched_count += 1
                 unmatched_details.append((
                     line.line_no,
                     line.product_code,
                     line.naziv_robe[:50]
                 ))
-
-                # Ako nema mappinga, ali PDF ima zemlju → postavi confidence na osnovu toga da li ima izjavu
-                has_origin_statement = line.raw.get('has_origin_statement', False)
-                if line.zemlja_porijekla:
-                    if has_origin_statement:
-                        line.country_confidence = "HIGH"
-                        line.country_source = "PDF_IZJAVA"
-                    else:
-                        line.country_confidence = "HIGH"
-                        line.country_source = "PDF_OZNAKA"
-                        line.country_conflict_details = "PDF nema izjavu o poreklu - potrebna intervencija za povlasticu"
-                else:
-                    line.country_confidence = "LOW"
-                    line.country_source = "NONE"
-                    line.country_conflict_details = "Nema podataka o poreklu - potreban manuelni unos ili EUR1"
-
+                if not dry_run:
+                    self._apply_unmatched_country_fallback(line)
                 logger.debug(f"  ⚠️  Stavka #{line.line_no}: {line.product_code} - nije pronađen mapping")
 
         result = MappingResult(
@@ -315,12 +272,135 @@ class TariffMappingService:
             matched_items=matched_count,
             unmatched_items=unmatched_count,
             matched_details=matched_details,
-            unmatched_details=unmatched_details
+            unmatched_details=unmatched_details,
+            proposals=proposals,
         )
 
         logger.info(f"✅ Auto-popunjavanje završeno: {matched_count}/{len(invoice_lines)} stavki popunjeno")
 
         return result
+
+    def _compute_line_mapping(
+        self, line: InvoiceLine, min_similarity: float, line_supplier: str
+    ) -> Tuple[Optional["TariffMapping"], str, float]:
+        """
+        Izračunaj (mapping, source, confidence) za jednu stavku — BEZ upisa.
+        Zajednička logika za dry_run preview i stvarni upis (isti proračun).
+
+        Matching prioritet:
+          0. Istorija dobavljača (XML fajlovi sa carine — najvalidniji)
+          1. Baza znanja (find_mapping — tačan/prefix/glasanje/fuzzy)
+        """
+        # ── 0. Prvo istorija dobavljača ──
+        if line_supplier:
+            try:
+                from services.agent.tariff.tariff_suggestion_service import HybridMatchingService
+                hybrid = HybridMatchingService()
+                hist_match = hybrid.find_hybrid_mapping(
+                    product_code=line.product_code,
+                    naziv_robe=line.naziv_robe,
+                    supplier=line_supplier,
+                    country=line.zemlja_porijekla,
+                    min_confidence=0.75
+                )
+                if hist_match and hist_match.confidence >= 0.82:
+                    logger.debug(
+                        f"  📚 Istorija [{line_supplier}]: stavka #{line.line_no} "
+                        f"→ {hist_match.tariff_mapping.tarifni_broj} (pouzdanost: {hist_match.confidence:.0%})"
+                    )
+                    return hist_match.tariff_mapping, "istorija", float(hist_match.confidence)
+            except Exception:
+                pass  # Silent — istorijski match nije kritičan
+
+        # ── 1. Baza znanja (ako istorija nije dala rezultat) ──
+        mapping = self.find_mapping(
+            product_code=line.product_code,
+            naziv_robe=line.naziv_robe,
+            min_similarity=min_similarity,
+            zemlja_porijekla=line.zemlja_porijekla,
+            supplier=line_supplier
+        )
+        if mapping:
+            return mapping, "baza_znanja", float(getattr(mapping, "similarity", min_similarity))
+
+        return None, "", 0.0
+
+    def _apply_mapping_to_line(self, line: InvoiceLine, mapping: "TariffMapping", detector) -> None:
+        """Upisuje pronađeni mapping u InvoiceLine (tarifni broj + zemlja/povlastica ako fali)."""
+        # DEPRECATED (Faza 6): Direktan upis. Koristi DeclarationDecisionService.apply_candidate().
+        line.tarifni_broj = mapping.tarifni_broj
+        line.tariff_suffix = mapping.precision_1
+
+        # ⚠️ NE DIRAJ povlasticu i eur1_number ako već postoje!
+        # Korisnik je već uneo kroz EUR.1/PE2 dialog
+        if not line.povlastica and not line.eur1_number:
+            has_origin_statement = line.raw.get('has_origin_statement', False)
+            validation_result = merge_country_origin(
+                zemlja_pdf=line.zemlja_porijekla,
+                zemlja_baza=mapping.zemlja_porijekla,
+                povlastica_baza=mapping.povlastica,
+                has_origin_statement=has_origin_statement
+            )
+            line.zemlja_porijekla = validation_result.final_country
+            line.country_confidence = validation_result.confidence.value
+            line.country_source = validation_result.source
+            if validation_result.conflict_details:
+                line.country_conflict_details = validation_result.conflict_details
+        else:
+            if not line.zemlja_porijekla and mapping.zemlja_porijekla:
+                line.zemlja_porijekla = mapping.zemlja_porijekla
+
+        self._increment_usage(mapping.tarifni_broj, mapping.product_code, mapping.naziv_robe)
+
+        logger.debug(f"  ✅ Stavka #{line.line_no}: {line.product_code} → {mapping.tarifni_broj} "
+                    f"(povlastica={line.povlastica or 'N/A'}, eur1={line.eur1_number or 'N/A'})")
+
+    @staticmethod
+    def _apply_unmatched_country_fallback(line: InvoiceLine) -> None:
+        """Postavi country_confidence kad nije pronađen tarifni mapping za stavku."""
+        has_origin_statement = line.raw.get('has_origin_statement', False)
+        if line.zemlja_porijekla:
+            if has_origin_statement:
+                line.country_confidence = "HIGH"
+                line.country_source = "PDF_IZJAVA"
+            else:
+                line.country_confidence = "HIGH"
+                line.country_source = "PDF_OZNAKA"
+                line.country_conflict_details = "PDF nema izjavu o poreklu - potrebna intervencija za povlasticu"
+        else:
+            line.country_confidence = "LOW"
+            line.country_source = "NONE"
+            line.country_conflict_details = "Nema podataka o poreklu - potreban manuelni unos ili EUR1"
+
+    def commit_proposals(
+        self, invoice_lines: List[InvoiceLine], proposals: List[TariffProposal]
+    ) -> MappingResult:
+        """
+        Upiši prijedloge iz auto_populate_tariffs(dry_run=True) BEZ ponovnog
+        računanja — garantuje da je ono što je korisnik odobrio u preview
+        dijalogu identično onome što se stvarno upiše (vidi
+        project_rooms/2026-07-21_preciznost-tarifnih-prijedloga.md, Fix Set A).
+        """
+        detector = OriginStatementDetector()
+        by_line_no = {p.line_no: p for p in proposals}
+        matched_count = 0
+        matched_details = []
+
+        for line in invoice_lines:
+            proposal = by_line_no.get(line.line_no)
+            if proposal is None or proposal.mapping is None:
+                continue
+            self._apply_mapping_to_line(line, proposal.mapping, detector)
+            matched_count += 1
+            matched_details.append((line.line_no, proposal.naziv_ili_kod, proposal.tarifni_broj))
+
+        return MappingResult(
+            total_items=len(invoice_lines),
+            matched_items=matched_count,
+            unmatched_items=0,
+            matched_details=matched_details,
+            unmatched_details=[],
+        )
 
     def find_batch_by_product_codes(
         self, product_codes: List[str]
