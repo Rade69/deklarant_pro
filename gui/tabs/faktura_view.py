@@ -528,6 +528,7 @@ class FakturaView(BaseTabView):
 
             # Create TOOLBAR section for this column
             toolbar_container = QWidget()
+            toolbar_container.setObjectName("toolbarSection")
             toolbar_layout = QHBoxLayout(toolbar_container)
             toolbar_layout.setContentsMargins(8, 8, 8, 8)
             toolbar_layout.setSpacing(6)
@@ -543,7 +544,7 @@ class FakturaView(BaseTabView):
 
             toolbar_container.setStyleSheet(
                 f"""
-                QWidget {{
+                QWidget#toolbarSection {{
                     background-color: #F8FAFC;
                     {t_border_radius}
                 }}
