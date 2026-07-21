@@ -783,23 +783,27 @@ class FakturaView(BaseTabView):
             """
             QTableWidget {
                 font-size: 10pt;
-                gridline-color: #ddd;
-                border: 1px solid #ccc;
+                background-color: #ffffff;
+                alternate-background-color: #f7f9fb;
+                gridline-color: #dfe5ea;
+                border: 1px solid #c9d2dc;
             }
             QTableWidget::item {
                 padding: 6px 4px;
                 border: none;
-                color: #000000;
+                color: #17212b;
             }
             QTableWidget::item:selected {
-                background-color: #0078d7;
+                background-color: #2f6f9f;
                 color: white;
             }
             QHeaderView::section {
-                background-color: #f5f5f5;
-                color: #000000;
+                background-color: #e9eef3;
+                color: #26343f;
                 padding: 8px 6px;
-                border: 1px solid #ddd;
+                border: none;
+                border-right: 1px solid #d2dae2;
+                border-bottom: 1px solid #b8c4cf;
                 font-weight: bold;
                 font-size: 11pt;
             }
