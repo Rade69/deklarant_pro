@@ -601,3 +601,33 @@ sadrže aktivni `_decide_free()` put. XML builder je takođe `.py`; trenutni dis
 mijenja samo dokumentaciju/logovanje, ne XML logiku. Prije tarifnog fixa obavezni su
 hash instaliranog klijentskog artefakta i izolovana PostgreSQL test baza sa rollbackom.
 Agent `AuditEvent.extra` se trenutno ne ispisuje u log, a GUI auto-fill nema audit trag.
+
+---
+
+## 26. PyInstaller rebuild + audit_log.extra fix (2026-07-21)
+
+**Dvije distribucije, ne dvije alternative.** `dist_client/` (source-mirror +
+lokalni `.venv`) i `dist/DeklarantPro.exe` (PyInstaller frozen build) nisu
+konkurentske opcije — `dist_client` je razvojna zgodnost (venv ~1GB, cio
+source čitljiv), `.exe` je jedini realan isporučni artefakat klijentu.
+Zatečeni `.exe` je bio od 9. juna (250 commitova zaostatka). Rebuildovan iz
+trenutnog `windows` HEAD-a preko root `deklarant_pro.spec` (builda iz
+`run.py`, `pathex=[ROOT]` — čist source, ne dist_client). `dist_client/
+deklarant_pro.spec` (drugi, stariji spec fajl koji je pravio pometnju
+"koji je pravi") obrisan — root spec je jedini kanonski. Smoke test:
+`.exe` pokrenut, GUI se ispravno renderuje (uklj. učitanu sesiju sa EUR.1
+dijalogom), 78MB exe / 1.5GB cio folder (torch bundle zbog embeddings
+extra-a). **Rebuild treba ponoviti nakon svake veće izmjene** — nema
+automatskog CI koraka za ovo.
+
+**`AuditEvent.extra` fix** (Codex-ov nalaz, §6.11 tehničke analize,
+potvrđen čitanjem koda): `audit_log.py::record()` je primao `extra` dict
+(npr. `operation_id` iz `_on_proposal_confirmed`) ali ga nikad nije
+uključivao u `logger.info()` format string — polje je postojalo u memoriji
+(idempotencija je radila ispravno), ali se gubilo prije nego uđe u stvarni
+audit zapis. Popravljeno dodavanjem `extra=%s` u format string. GitNexus
+impact na `record()`: HIGH (34 pozivaoca/fan-in), ali izmjena čisto
+aditivna — 0 affected_processes nakon fix-a.
+
+Detalji: `docs/architecture/DEKLARANT_PRO_TEHNICKA_ANALIZA_2026-07-20.md`
+§6.0/§6.11, `agent_reports/2026-07-21_opus-review-dopuna-tehnicke-analize.md`.
