@@ -542,6 +542,7 @@ class FakturaView(BaseTabView):
             toolbar_layout = QHBoxLayout(toolbar_container)
             toolbar_layout.setContentsMargins(8, 8, 8, 8)
             toolbar_layout.setSpacing(6)
+            toolbar_layout.setAlignment(Qt.AlignVCenter)
             self._toolbar_layouts.append(toolbar_layout)
 
             # Border radius for toolbar
@@ -801,6 +802,7 @@ class FakturaView(BaseTabView):
             prefix = "" if compact or button.icon().isNull() else " "
             button.setText(prefix + standard_text)
             button.setIconSize(QSize(12, 12) if compact else QSize(16, 16))
+            button.setFixedHeight(32 if compact else 36)
 
         weight_font_size = 15 if compact else 14
         input_width = 62 if compact else 90
@@ -810,8 +812,8 @@ class FakturaView(BaseTabView):
             font.setPixelSize(weight_font_size)
             font.setWeight(QFont.Weight.Bold)
             label.setFont(font)
-            label.setStyleSheet("color: #111;")
-            label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            label.setStyleSheet("")
+            label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         if weight_labels:
             label_width = max(
                 QFontMetrics(label.font()).horizontalAdvance(label.text())
@@ -846,7 +848,7 @@ class FakturaView(BaseTabView):
                     font-size: {header_font_size}px;
                     padding: 8px 4px;
                     border: none;
-                    border-bottom: 2px solid #8FA6B7;
+                    border-bottom: 2px solid #7893A6;
                     {border_radius}
                 }}
                 QPushButton:disabled {{
