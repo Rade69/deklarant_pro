@@ -1225,7 +1225,7 @@ class FakturaView(BaseTabView):
             tooltip = "⚠️ Upozorenje: " + "; ".join([e.message for e in result.warnings])
         elif result.valid:
             # ZELENA boja za validne stavke
-            color_hex = "#ccffcc"  # Green for valid
+            color_hex = "#EAF4EE"  # Green for valid
             tooltip = "✅ Validna stavka"
         else:
             # Bijela boja za neprovjerene
