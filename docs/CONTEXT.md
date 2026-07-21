@@ -704,3 +704,13 @@ ne stvarni red u `draft.invoice_lines` — bez remapiranja nazad (`row_indexes[l
 promjena bi se upisala u POGREŠAN red tabele kad je selekcija filtrirana lista. Testovi:
 `tests/unit/test_faktura_view_provjeri_selekcija.py` (4 nova, uklj. regresioni test za
 remapiranje indeksa).
+
+---
+
+## 28. PDF pregled po fakturama — stvarna polja šifre deklaracije (2026-07-21)
+
+`PDFFakturaPregled.export()` je čitao nepostojeći `draft.sifra_deklaracije`, pa je svaki
+izvoz pregleda po fakturama završavao generičkom greškom prije gradnje PDF-a. Šifra u
+naslovu sada se sastavlja iz kanonskih polja `deklaracija_tip`, `deklaracija_oznaka` i
+`deklaracija_a`. Regresioni test mora napraviti stvarni `%PDF` fajl, ne samo mockovati
+ReportLab poziv.
