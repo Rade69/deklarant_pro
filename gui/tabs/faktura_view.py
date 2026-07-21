@@ -357,6 +357,99 @@ class FakturaView(BaseTabView):
         # Create header and toolbar sections that share columns
         self._populate_grid_sections(grid)
 
+        container.setStyleSheet(
+            """
+            QWidget#controlsContainer QPushButton#btnUcitajListu,
+            QWidget#controlsContainer QPushButton#btnUveziPDF,
+            QWidget#controlsContainer QPushButton#btnUveziExcel,
+            QWidget#controlsContainer QPushButton#btnUveziXML,
+            QWidget#controlsContainer QPushButton#btnDodaj,
+            QWidget#controlsContainer QPushButton#btnExcel,
+            QWidget#controlsContainer QPushButton#btnPDF,
+            QWidget#controlsContainer QPushButton#btnPregledFaktura,
+            QWidget#controlsContainer QPushButton#btnValidacija,
+            QWidget#controlsContainer QPushButton#btnPrethodnaDekl {
+                background-color: #52697A;
+                color: #FFFFFF;
+                border: none;
+            }
+            QWidget#controlsContainer QPushButton#btnUcitajListu:hover,
+            QWidget#controlsContainer QPushButton#btnUveziPDF:hover,
+            QWidget#controlsContainer QPushButton#btnUveziExcel:hover,
+            QWidget#controlsContainer QPushButton#btnUveziXML:hover,
+            QWidget#controlsContainer QPushButton#btnDodaj:hover,
+            QWidget#controlsContainer QPushButton#btnExcel:hover,
+            QWidget#controlsContainer QPushButton#btnPDF:hover,
+            QWidget#controlsContainer QPushButton#btnPregledFaktura:hover,
+            QWidget#controlsContainer QPushButton#btnValidacija:hover,
+            QWidget#controlsContainer QPushButton#btnPrethodnaDekl:hover {
+                background-color: #607B8E;
+            }
+            QWidget#controlsContainer QPushButton#btnUcitajListu:pressed,
+            QWidget#controlsContainer QPushButton#btnUveziPDF:pressed,
+            QWidget#controlsContainer QPushButton#btnUveziExcel:pressed,
+            QWidget#controlsContainer QPushButton#btnUveziXML:pressed,
+            QWidget#controlsContainer QPushButton#btnDodaj:pressed,
+            QWidget#controlsContainer QPushButton#btnExcel:pressed,
+            QWidget#controlsContainer QPushButton#btnPDF:pressed,
+            QWidget#controlsContainer QPushButton#btnPregledFaktura:pressed,
+            QWidget#controlsContainer QPushButton#btnValidacija:pressed,
+            QWidget#controlsContainer QPushButton#btnPrethodnaDekl:pressed {
+                background-color: #405563;
+            }
+            QWidget#controlsContainer QPushButton#btnKreirajNaimenovanja {
+                background-color: #2F6F9F;
+                color: #FFFFFF;
+                border: none;
+            }
+            QWidget#controlsContainer QPushButton#btnKreirajNaimenovanja:hover {
+                background-color: #245F88;
+            }
+            QWidget#controlsContainer QPushButton#btnKreirajNaimenovanja:pressed {
+                background-color: #1E4B6A;
+            }
+            QWidget#controlsContainer QPushButton#btnIzracunajMase,
+            QWidget#controlsContainer QPushButton#btnAutoPopuni {
+                background-color: #6A55A3;
+                color: #FFFFFF;
+                border: none;
+            }
+            QWidget#controlsContainer QPushButton#btnIzracunajMase:hover,
+            QWidget#controlsContainer QPushButton#btnAutoPopuni:hover {
+                background-color: #59458D;
+            }
+            QWidget#controlsContainer QPushButton#btnIzracunajMase:pressed,
+            QWidget#controlsContainer QPushButton#btnAutoPopuni:pressed {
+                background-color: #493875;
+            }
+            QWidget#controlsContainer QPushButton#btnObrisi,
+            QWidget#controlsContainer QPushButton#btnOcistiSve {
+                background-color: #A6403D;
+                color: #FFFFFF;
+                border: none;
+            }
+            QWidget#controlsContainer QPushButton#btnObrisi:hover,
+            QWidget#controlsContainer QPushButton#btnOcistiSve:hover {
+                background-color: #B9514D;
+            }
+            QWidget#controlsContainer QPushButton#btnObrisi:pressed,
+            QWidget#controlsContainer QPushButton#btnOcistiSve:pressed {
+                background-color: #85322F;
+            }
+            QWidget#controlsContainer QPushButton:hover {
+                border: 1px solid rgba(255, 255, 255, 90);
+            }
+            QWidget#controlsContainer QPushButton:pressed {
+                border: 1px solid rgba(0, 0, 0, 80);
+            }
+            QWidget#controlsContainer QPushButton:disabled {
+                background-color: #D5DCE3;
+                color: #7D8994;
+                border: none;
+            }
+            """
+        )
+
         return container
 
     def _populate_grid_sections(self, grid):
@@ -520,6 +613,7 @@ class FakturaView(BaseTabView):
                 icon_name="fa5s.broom",
             )
             self.btn_clear.clicked.connect(self._on_clear_all)
+            layout.addSpacing(8)
             layout.addWidget(self.btn_clear)
 
         elif section_idx == 3:  # Izvezi
