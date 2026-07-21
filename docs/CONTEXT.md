@@ -675,3 +675,15 @@ kategorija) dolaze iz dva nekalibrisana sistema. Dodata `score_band_for_confiden
 opseg po kategoriji, isti pragovi kao `evidence_score_category()` (95/85/70/50). Dijalog
 sad ulašti sirov `decision_score` u taj opseg prije prikaza — broj i dalje varira, ali
 nikad ne izgleda jače/slabije od riječi pored njega.
+
+**Dopuna 2 (isti dan) — "korišten Nx" ≠ "verifikovano tačno"**: korisnik primijetio da
+istorijska validacija tretira "carina nije odbila N puta" kao jak dokaz, iako carina radi
+SELEKTIVNU kontrolu (ne pregledava svaku stavku) — isti obrazac kao poznat bug GREJAC
+SPIRALA/Plamenik (jedna greška se ponavlja i izgleda pouzdano samo zato što se ponavlja).
+Otkriveno: sistem VEĆ ima jači signal — `catalogs.user_feedback` pamti kad je ČOVJEK
+eksplicitno potvrdio baš taj par kroz "Provjeri" dijalog — ali se to koristilo SAMO da
+tiho auto-primijeni promjenu (`HistoricalTariffSearchService._feedback_action` →
+"accept" grana), bez ikad obavijestiti korisnika šta se promijenilo i zašto. Popravljeno:
+`FakturaView._notify_auto_applied_tariffs()` (novo) prikazuje jasnu poruku u interaktivnom
+modu — nabraja auto-primijenjene stavke i eksplicitno navodi da je razlog ranija ručna
+potvrda, uz poziv da se ponovo provjeri. U auto modu (puna automatizacija) samo se loguje.
