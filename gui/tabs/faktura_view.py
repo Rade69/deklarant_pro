@@ -4222,12 +4222,11 @@ class FakturaView(BaseTabView):
                 progress.setValue(0)
                 QCoreApplication.processEvents()
 
-                preview_details = self._collect_tariff_previews(target_lines, facade)
+                preview_result = self._collect_tariff_previews(target_lines, facade, supplier_name)
                 progress.setValue(len(target_lines))
 
-                if not preview_details:
+                if not preview_result or not preview_result.proposals:
                     # Nema prijedloga — prikaži poruku i završi bez pisanja
-                    from dataclasses import dataclass, field as dc_field
                     from services.tariff.tariff_mapping_service import MappingResult
                     empty = MappingResult(
                         total_items=len(target_lines),
@@ -4240,21 +4239,28 @@ class FakturaView(BaseTabView):
                     return empty
 
                 # Prikaži dijalog potvrde s opisima tarifa PRIJE popunjavanja
-                confirmed = self._show_tariff_preview_dialog(target_lines, preview_details)
+                confirmed = self._show_tariff_preview_dialog(target_lines, preview_result.proposals)
                 if not confirmed:
                     return None
 
             else:
                 progress = None
+                preview_result = None
 
             # Primijeni (ili auto mod bez potvrde)
             self._push_undo_snapshot()
-            result = facade.auto_populate_tariffs(
-                target_lines,
-                min_similarity=0.70,
-                overwrite_existing=False,
-                supplier=supplier_name,
-            )
+            if preview_result is not None:
+                # Interaktivni tok: upiši TAČNO ono što je odobreno u dijalogu,
+                # bez ponovnog računanja (preview ≡ upis — vidi
+                # project_rooms/2026-07-21_preciznost-tarifnih-prijedloga.md).
+                result = facade.commit_proposals(target_lines, preview_result.proposals)
+            else:
+                result = facade.auto_populate_tariffs(
+                    target_lines,
+                    min_similarity=0.92,
+                    overwrite_existing=False,
+                    supplier=supplier_name,
+                )
 
             # Dodaj skipped info u result
             result.skipped_items = len(skipped_details)
@@ -4426,45 +4432,49 @@ class FakturaView(BaseTabView):
         except Exception:
             return tariff_code
 
-    def _collect_tariff_previews(self, target_lines: list, facade) -> list:
+    def _collect_tariff_previews(self, target_lines: list, facade, supplier: str = ""):
         """
-        Dohvati prijedloge tarifnih za svaku stavku BEZ pisanja u draft.
-        Vraća listu tuple-ova (line_no, naziv, predloženi_tarifni_broj).
-        Koristi suggest_fast() (Level 1 baza znanja) — radi i na kompajliranoj i .py verziji servisa.
-        """
-        preview = []
-        print(f"🔍 _collect_tariff_previews: {len(target_lines)} stavki za pregled")
-        for line in target_lines:
-            naziv = getattr(line, 'naziv_robe', '') or ''
-            product_code = getattr(line, 'product_code', '') or ''
-            if getattr(line, 'tarifni_broj', None):
-                print(f"   ⏭️  Rb.{line.line_no} '{naziv[:35]}' — već ima tarifu {line.tarifni_broj}, preskočeno")
-                continue
-            try:
-                result = facade.suggest_fast(
-                    naziv_robe=naziv,
-                    product_code=product_code,
-                )
-                if result and getattr(result, 'tarifni_broj', None):
-                    conf = getattr(result, 'confidence', 0)
-                    print(f"   ✅ Rb.{line.line_no} '{naziv[:35]}' (kod={product_code}) → {result.tarifni_broj} conf={conf:.2f}")
-                    preview.append((
-                        line.line_no,
-                        naziv or product_code or '',
-                        result.tarifni_broj,
-                    ))
-                else:
-                    print(f"   ❌ Rb.{line.line_no} '{naziv[:35]}' (kod={product_code}) → nema (result={result})")
-            except Exception as e:
-                print(f"   ⚠️  Rb.{line.line_no} '{naziv[:35]}' (kod={product_code}) → GREŠKA: {type(e).__name__}: {e}")
-        print(f"🔍 Ukupno prijedloga: {len(preview)}")
-        return preview
+        Izračunaj prijedloge tarifnih brojeva za sve stavke BEZ pisanja u draft
+        (dry_run). Vraća MappingResult sa popunjenim .proposals.
 
-    def _show_tariff_preview_dialog(self, target_lines: list, preview_details: list) -> bool:
+        VAŽNO: ovo je ISTI proračun koji će _on_auto_fill kasnije stvarno upisati
+        preko facade.commit_proposals(target_lines, result.proposals) — preview
+        i upis se više NE računaju odvojeno (raniji suggest_fast() nije uzimao
+        u obzir dobavljača ni istoriju XML deklaracija, pa je prikazana tarifa
+        mogla biti drugačija od one koja se stvarno upiše). Vidi
+        project_rooms/2026-07-21_preciznost-tarifnih-prijedloga.md.
+        """
+        try:
+            result = facade.auto_populate_tariffs(
+                target_lines,
+                min_similarity=0.92,
+                overwrite_existing=False,
+                supplier=supplier,
+                dry_run=True,
+            )
+            logger.debug(
+                "Auto-popuni preview: %d prijedloga od %d stavki",
+                len(result.proposals), len(target_lines),
+            )
+            return result
+        except Exception as e:
+            logger.warning("Auto-popuni preview greška: %s", e, exc_info=True)
+            return None
+
+    _TARIFF_SOURCE_LABELS = {
+        "istorija": "Istorija dobavljača",
+        "baza_znanja": "Baza znanja",
+    }
+
+    def _show_tariff_preview_dialog(self, target_lines: list, proposals: list) -> bool:
         """
         Prikaži dijalog potvrde PRIJE auto-popunjavanja.
-        Tabela: Rb | Naziv proizvoda | Predložena tarifa | Opis tarife
-        preview_details: lista tuple (line_no, naziv, tarifa)
+        Tabela: Rb | Naziv proizvoda | Tarifa | Izvor / Pouzdanost | Opis tarife
+        proposals: lista TariffProposal (iz auto_populate_tariffs(dry_run=True)) —
+        isti proračun koji će _on_auto_fill kasnije stvarno upisati preko
+        facade.commit_proposals(), pa je i confidence/source ovdje istinit,
+        ne odbačen kao ranije (vidi
+        project_rooms/2026-07-21_preciznost-tarifnih-prijedloga.md).
         Vraća True ako korisnik potvrdi, False ako odustane.
         """
         from PySide6.QtWidgets import (
@@ -4480,16 +4490,18 @@ class FakturaView(BaseTabView):
         layout.setSpacing(10)
 
         label = QLabel(
-            f"Pronađeno <b>{len(preview_details)}</b> prijedloga tarifnih brojeva.<br>"
+            f"Pronađeno <b>{len(proposals)}</b> prijedloga tarifnih brojeva.<br>"
             "Provjerite opise tarifa — ako je opis netačan za dati proizvod, kliknite <b>Odustani</b>."
         )
         label.setWordWrap(True)
         layout.addWidget(label)
 
         table = QTableWidget()
-        table.setColumnCount(4)
-        table.setHorizontalHeaderLabels(["Rb.", "Naziv proizvoda", "Tarifa", "Opis tarife (provjeri!)"])
-        table.setRowCount(len(preview_details))
+        table.setColumnCount(5)
+        table.setHorizontalHeaderLabels(
+            ["Rb.", "Naziv proizvoda", "Tarifa", "Izvor / Pouzdanost", "Opis tarife (provjeri!)"]
+        )
+        table.setRowCount(len(proposals))
         table.setEditTriggers(QTableWidget.NoEditTriggers)
         table.setAlternatingRowColors(False)
         table.verticalHeader().setVisible(False)
@@ -4529,31 +4541,43 @@ class FakturaView(BaseTabView):
         clr_even = QColor("#ffffff")
         clr_odd  = QColor("#f5f7fa")
 
-        for i, (line_no, naziv, tarif) in enumerate(preview_details):
+        naziv_by_line = {
+            line.line_no: (getattr(line, 'naziv_robe', '') or '')
+            for line in target_lines
+        }
+
+        for i, proposal in enumerate(proposals):
+            naziv = naziv_by_line.get(proposal.line_no) or proposal.naziv_ili_kod
+            tarif = proposal.tarifni_broj
             opis = self._get_tariff_description(tarif)
+            izvor_label = self._TARIFF_SOURCE_LABELS.get(proposal.source, proposal.source or "?")
+            izvor_text = f"{izvor_label} ({int(proposal.confidence * 100)}%)"
             bg = clr_even if i % 2 == 0 else clr_odd
 
-            item_rb = QTableWidgetItem(str(line_no))
+            item_rb = QTableWidgetItem(str(proposal.line_no))
             item_rb.setTextAlignment(Qt.AlignCenter)
             item_naziv = QTableWidgetItem(naziv[:60])
             item_tarif = QTableWidgetItem(tarif)
             item_tarif.setFont(bold_font)
             item_tarif.setTextAlignment(Qt.AlignCenter)
+            item_izvor = QTableWidgetItem(izvor_text)
             item_opis = QTableWidgetItem(opis)
 
-            for item in (item_rb, item_naziv, item_tarif, item_opis):
+            for item in (item_rb, item_naziv, item_tarif, item_izvor, item_opis):
                 item.setBackground(bg)
                 item.setForeground(QColor("#1a1a1a"))
 
             table.setItem(i, 0, item_rb)
             table.setItem(i, 1, item_naziv)
             table.setItem(i, 2, item_tarif)
-            table.setItem(i, 3, item_opis)
+            table.setItem(i, 3, item_izvor)
+            table.setItem(i, 4, item_opis)
 
         table.setColumnWidth(0, 45)
         table.setColumnWidth(2, 90)
+        table.setColumnWidth(3, 160)
         table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
-        table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)
+        table.horizontalHeader().setSectionResizeMode(4, QHeaderView.Stretch)
         table.resizeRowsToContents()
         layout.addWidget(table)
 
@@ -4573,7 +4597,7 @@ class FakturaView(BaseTabView):
         screen = self.screen() or QApplication.primaryScreen()
         available = screen.availableGeometry()
         dialog.resize(
-            min(950, available.width() - 80),
+            min(1100, available.width() - 80),
             min(600, available.height() - 80),
         )
 
