@@ -363,13 +363,13 @@ class FakturaView(BaseTabView):
         """Populate grid with header and toolbar sections sharing same columns for PERFECT alignment."""
         from PySide6.QtWidgets import QGridLayout
 
-        # Sekcije: (naziv, pozadina, boja teksta) — unified_color_system v3.0 paleta
+        # Sekcije: (naziv, pozadina, boja teksta) — neutralna toolbar paleta
         sections = [
-            ("Glavna lista", "#DAE8F2", "#2C5570"),  # plava familija
-            ("Uvezi", "#EDE4F5", "#4A2E6B"),  # ljubičasta familija
-            ("Uredi", "#F5EDD8", "#5C4A1E"),  # žuta familija
-            ("Izvezi", "#D8F0EC", "#1E5A50"),  # teal familija
-            ("Pametna pomoć", "#EDE4F5", "#4A2E6B"),  # ljubičasta (AI)
+            ("Glavna lista", "#E9EEF3", "#2C5570"),
+            ("Uvezi", "#E9EEF3", "#34414C"),
+            ("Uredi", "#E9EEF3", "#34414C"),
+            ("Izvezi", "#E9EEF3", "#34414C"),
+            ("Pametna pomoć", "#E9EEF3", "#5A4788"),
         ]
 
         col = 0
@@ -396,7 +396,7 @@ class FakturaView(BaseTabView):
                     font-size: 17px;
                     padding: 10px 6px;
                     border: none;
-                    border-bottom: 2px solid {self._darken_color(color)};
+                    border-bottom: 2px solid #8FA6B7;
                     {border_radius}
                 }}
                 QPushButton:disabled {{
@@ -431,6 +431,7 @@ class FakturaView(BaseTabView):
             toolbar_container.setStyleSheet(
                 f"""
                 QWidget {{
+                    background-color: #F8FAFC;
                     {t_border_radius}
                 }}
             """
@@ -712,7 +713,7 @@ class FakturaView(BaseTabView):
                     font-size: {header_font_size}px;
                     padding: 8px 4px;
                     border: none;
-                    border-bottom: 2px solid {self._darken_color(color)};
+                    border-bottom: 2px solid #8FA6B7;
                     {border_radius}
                 }}
                 QPushButton:disabled {{
@@ -1052,7 +1053,7 @@ class FakturaView(BaseTabView):
         sep.setStyleSheet(
             """
             QFrame {
-                color: #999;
+                color: #D1D9E0;
                 margin: 0px 8px;
             }
         """
