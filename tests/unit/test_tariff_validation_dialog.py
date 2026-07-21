@@ -13,7 +13,7 @@ from services.agent.validation.evidence_model import (
 )
 
 
-def _match(line_index: int, outcome: str, evidence=None):
+def _match(line_index: int, outcome: str, evidence=None, decision_score: int = 50):
     return SimpleNamespace(
         line_index=line_index,
         naziv_robe_original=f"Roba {line_index}",
@@ -25,7 +25,7 @@ def _match(line_index: int, outcome: str, evidence=None):
         confidence=0.66,
         decision_reason="Ista tarifna glava; istorija ukazuje na precizniji broj.",
         decision_outcome=outcome,
-        decision_score=50,
+        decision_score=decision_score,
         evidence=evidence,
     )
 
@@ -150,7 +150,13 @@ def test_confirmed_exporter_history_shows_jak_label(qtbot):
 
 
 def test_evidence_badge_shows_score_and_differs_strong_vs_weak(qtbot):
-    """Faza 5/6: jak (90%) i slab (60%) prijedlog ne smiju imati isti badge."""
+    """
+    Faza 5/6 + Faza D-precision fix (2026-07-21): jak i slab prijedlog ne smiju
+    imati isti badge. Prikazani procenat je match.decision_score (stvaran,
+    promjenjiv izračun iz decide_tariff_match) — NE evidence.score (fiksna
+    konstanta po kategoriji) — zato dva prijedloga s različitim decision_score
+    moraju pokazati različite brojeve čak i unutar iste kategorije.
+    """
     strong = build_evidence(
         DecisionSource.EXPORTER_HISTORY,
         DecisionConfidence.CONFIRMED_FROM_SAME_EXPORTER_HISTORY,
@@ -161,8 +167,8 @@ def test_evidence_badge_shows_score_and_differs_strong_vs_weak(qtbot):
         DecisionConfidence.WEAK_GUESS,
         "Slabiji prijedlog.",
     )
-    strong_match = _match(0, "show_strong", evidence=strong)
-    weak_match = _match(1, "show_weak", evidence=weak)
+    strong_match = _match(0, "show_strong", evidence=strong, decision_score=82)
+    weak_match = _match(1, "show_weak", evidence=weak, decision_score=47)
 
     dialog = TariffValidationDialog([strong_match, weak_match])
     qtbot.addWidget(dialog)
@@ -171,8 +177,8 @@ def test_evidence_badge_shows_score_and_differs_strong_vs_weak(qtbot):
     strong_label = next(t for t in labels if "Sigurnost preporuke" in t and "jak" in t)
     weak_label = next(t for t in labels if "Sigurnost preporuke" in t and "slab" in t)
 
-    assert "90%" in strong_label
-    assert "60%" in weak_label
+    assert "82%" in strong_label
+    assert "47%" in weak_label
 
     badge_pattern = r"background:(#[0-9a-fA-F]+); color:(#[0-9a-fA-F]+)"
     strong_bg, strong_color = re.search(badge_pattern, strong_label).groups()
