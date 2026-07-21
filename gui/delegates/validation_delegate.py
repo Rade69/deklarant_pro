@@ -80,7 +80,7 @@ class ValidationDelegate(QStyledItemDelegate):
             index: QModelIndex for the item being painted
         """
         # Povećaj font za display text
-        font = QFont()
+        font = QFont("Consolas") if index.column() == 4 else QFont()
         font.setPointSize(12)  # Čitljiv font za prikaz
         option.font = font
 
