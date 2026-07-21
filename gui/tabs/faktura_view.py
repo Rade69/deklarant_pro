@@ -367,7 +367,6 @@ class FakturaView(BaseTabView):
             QWidget#controlsContainer QPushButton#btnExcel,
             QWidget#controlsContainer QPushButton#btnPDF,
             QWidget#controlsContainer QPushButton#btnPregledFaktura,
-            QWidget#controlsContainer QPushButton#btnValidacija,
             QWidget#controlsContainer QPushButton#btnPrethodnaDekl {
                 background-color: #52697A;
                 color: #FFFFFF;
@@ -381,7 +380,6 @@ class FakturaView(BaseTabView):
             QWidget#controlsContainer QPushButton#btnExcel:hover,
             QWidget#controlsContainer QPushButton#btnPDF:hover,
             QWidget#controlsContainer QPushButton#btnPregledFaktura:hover,
-            QWidget#controlsContainer QPushButton#btnValidacija:hover,
             QWidget#controlsContainer QPushButton#btnPrethodnaDekl:hover {
                 background-color: #607B8E;
             }
@@ -393,7 +391,6 @@ class FakturaView(BaseTabView):
             QWidget#controlsContainer QPushButton#btnExcel:pressed,
             QWidget#controlsContainer QPushButton#btnPDF:pressed,
             QWidget#controlsContainer QPushButton#btnPregledFaktura:pressed,
-            QWidget#controlsContainer QPushButton#btnValidacija:pressed,
             QWidget#controlsContainer QPushButton#btnPrethodnaDekl:pressed {
                 background-color: #405563;
             }
@@ -407,6 +404,29 @@ class FakturaView(BaseTabView):
             }
             QWidget#controlsContainer QPushButton#btnKreirajNaimenovanja:pressed {
                 background-color: #1E4B6A;
+            }
+            QWidget#controlsContainer QWidget#massControlsPanel {
+                background-color: #EEF4F1;
+                border: 1px solid #B7CCC0;
+                border-radius: 5px;
+            }
+            QWidget#controlsContainer QWidget#massControlsPanel QLabel {
+                color: #34483E;
+            }
+            QWidget#controlsContainer QWidget#massControlsPanel QLineEdit {
+                background-color: #FFFFFF;
+                border: 1px solid #AABCB2;
+            }
+            QWidget#controlsContainer QPushButton#btnValidacija {
+                background-color: #2F7D5A;
+                color: #FFFFFF;
+                border: none;
+            }
+            QWidget#controlsContainer QPushButton#btnValidacija:hover {
+                background-color: #3B906B;
+            }
+            QWidget#controlsContainer QPushButton#btnValidacija:pressed {
+                background-color: #256347;
             }
             QWidget#controlsContainer QPushButton#btnIzracunajMase,
             QWidget#controlsContainer QPushButton#btnAutoPopuni {
@@ -696,8 +716,6 @@ class FakturaView(BaseTabView):
             self._weights_layout = weights_layout
             self._weights_widget = weights_widget
 
-            layout.addWidget(weights_widget)
-
             self.btn_validate = self._create_button(
                 "Provjeri",
                 "Provaliziraj sve stavke",
@@ -705,7 +723,15 @@ class FakturaView(BaseTabView):
                 icon_name="fa5s.check-circle",
             )
             self.btn_validate.clicked.connect(self._on_validate_all)
-            layout.addWidget(self.btn_validate)
+
+            mass_controls_panel = QWidget()
+            mass_controls_panel.setObjectName("massControlsPanel")
+            mass_controls_layout = QHBoxLayout(mass_controls_panel)
+            mass_controls_layout.setContentsMargins(4, 3, 4, 3)
+            mass_controls_layout.setSpacing(4)
+            mass_controls_layout.addWidget(weights_widget)
+            mass_controls_layout.addWidget(self.btn_validate)
+            layout.addWidget(mass_controls_panel)
 
         elif section_idx == 4:  # Pametna pomoć
             self.btn_calc_masses = self._create_button(
