@@ -631,3 +631,37 @@ aditivna — 0 affected_processes nakon fix-a.
 
 Detalji: `docs/architecture/DEKLARANT_PRO_TEHNICKA_ANALIZA_2026-07-20.md`
 §6.0/§6.11, `agent_reports/2026-07-21_opus-review-dopuna-tehnicke-analize.md`.
+
+---
+
+## 27. Preciznost tarifnih prijedloga — Auto-popuni + Provjeri (2026-07-21)
+
+**Auto-popuni (Faktura toolbar) — otkriven P0 bug**: dijalog za potvrdu (`suggest_fast()`,
+bez dobavljača, prag 0.70) i stvaran upis (`auto_populate_tariffs()`, sa dobavljačem +
+istorijom XML deklaracija) su bila DVA NEZAVISNA proračuna — tarifa koju korisnik odobri
+nije nužno bila tarifa koja se upiše. Popravljeno: `TariffMappingService.auto_populate_tariffs(
+dry_run=True)` računa `TariffProposal` listu bez upisa; `commit_proposals()` upisuje TAČNO
+te prijedloge bez ponovnog računanja. `min_similarity` default 0.70 → 0.92 (projektni kanon).
+
+**Istorijska validacija ("Provjeri") — dvije zbunjujuće brojke**: "Podudarnost %"
+(`match.confidence`) mjeri UČESTALOST KORIŠTENJA (`0.60 + usage*0.003 + 0.05`), ne
+tekstualnu sličnost naziva — preimenovano u "Učestalost korištenja". "Sigurnost preporuke"
+je uvijek pokazivala FIKSNU konstantu (60/75/90/100 po `DecisionConfidence` kategoriji) —
+stvarni `TariffDecision.score` se računao ali nikad nije stizao do UI-ja. **Probano i
+odbačeno**: prosljeđivanje `decision.score` u `build_evidence()` — score<50 (čest za
+show_weak) bi prebacio prijedlog u HIDDEN (crvenu) kategoriju iako je aktivno prikazan.
+Sigurnije rješenje: dijalog prikazuje `match.decision_score` (već izračunat, samo
+neprikazan) kao broj, `evidence.score`/boja bedža ostaju netaknuti — `build_evidence()`
+(CRITICAL, 44 pozivaoca) nije dirano.
+
+**Otkriveno tokom dist_client mirroringa — `.pyd` sloj širi nego pretpostavljeno**:
+`tariff_mapping_service.py`/`tariff_facade.py` u dist_client su SAMO kompajlirani `.pyd`
+(nema `.py` para) — mirror fizički nemoguć bez Nuitka rekompilacije. Isto važi za
+`core/licensing`, `core/validation`, `services/declaration_assembly`, `services/export_service`,
+`services/faktura`, `services/licensing`, `services/tariff_controls_service`,
+`services/tariff_doc_history_service`, `services/tariff_tree_service`, `services/validation`.
+**Ne utiče na `.exe`** (builda iz root `.py` source-a preko `deklarant_pro.spec`), utiče
+SAMO na interaktivni `dist_client` venv put (`start_debug.bat`).
+
+Detalji: `agent_reports/2026-07-21_preciznost-tarifnih-prijedloga.md`,
+`project_rooms/2026-07-21_preciznost-tarifnih-prijedloga.md`.
