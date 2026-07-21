@@ -17,6 +17,7 @@ from PySide6.QtGui import QGuiApplication
 from services.agent.validation.evidence_model import (
     DecisionConfidence,
     evidence_badge_colors,
+    score_band_for_confidence,
     tariff_confidence_label,
 )
 
@@ -193,7 +194,13 @@ class TariffValidationDialog(QDialog):
             # fiksna konstanta po kategoriji (vidi evidence_from_tariff_decision
             # docstring) i uvijek bi pokazivao istu brojku za svaki "slab"
             # prijedlog bez obzira na stvarnu jačinu dokaza.
-            real_score = max(0, min(100, getattr(match, "decision_score", 0) or 0))
+            #
+            # Broj se dodatno ULAŠTI u opseg koji odgovara tekstualnoj labeli
+            # (score_band_for_confidence) — bez ovoga bi npr. "slab (72%)" moglo
+            # djelovati kontradiktorno (72% zvuči jače od "slab").
+            raw_score = getattr(match, "decision_score", 0) or 0
+            band_min, band_max = score_band_for_confidence(evidence.confidence)
+            real_score = max(band_min, min(band_max, raw_score))
             evidence_label = QLabel(
                 f"<span style='color:#888; font-size:12px;'>Sigurnost preporuke: </span>"
                 f"<span style='background:{badge_bg}; color:{badge_color}; font-size:12px; "

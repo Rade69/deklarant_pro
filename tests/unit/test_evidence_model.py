@@ -12,6 +12,7 @@ from services.agent.validation.evidence_model import (
     evidence_score_category,
     evidence_from_preference,
     evidence_from_tariff_decision,
+    score_band_for_confidence,
     tariff_confidence_label,
 )
 
@@ -322,3 +323,30 @@ def test_badge_colors_for_score_matches_evidence_badge_colors():
 
     # jak (90%) i slab (60%) prijedlog moraju biti vizuelno razliciti
     assert badge_colors_for_score(90) != badge_colors_for_score(60)
+
+
+def test_score_band_for_confidence_ne_preklapa_kategorije():
+    """
+    Opsezi po kategoriji se ne smiju preklapati — inace bi isti broj mogao
+    izgledati ispravno i za "jak" i za "slab" (korisnicka primjedba
+    2026-07-21: rijec i procenat su djelovali kontradiktorno).
+    """
+    bands = [
+        score_band_for_confidence(DecisionConfidence.UNKNOWN),
+        score_band_for_confidence(DecisionConfidence.WEAK_GUESS),
+        score_band_for_confidence(DecisionConfidence.SUGGESTED_BY_SIMILARITY),
+        score_band_for_confidence(DecisionConfidence.CONFIRMED_FROM_SAME_EXPORTER_HISTORY),
+        score_band_for_confidence(DecisionConfidence.CONFIRMED_FROM_DOCUMENT),
+    ]
+    for (_, prev_max), (next_min, _) in zip(bands, bands[1:]):
+        assert next_min == prev_max + 1
+
+    # Svaki bucket-default (_DEFAULT_SCORES) mora pasti unutar sopstvenog banda.
+    for confidence, default_score in [
+        (DecisionConfidence.CONFIRMED_FROM_DOCUMENT, 100),
+        (DecisionConfidence.CONFIRMED_FROM_SAME_EXPORTER_HISTORY, 90),
+        (DecisionConfidence.SUGGESTED_BY_SIMILARITY, 75),
+        (DecisionConfidence.WEAK_GUESS, 60),
+    ]:
+        band_min, band_max = score_band_for_confidence(confidence)
+        assert band_min <= default_score <= band_max

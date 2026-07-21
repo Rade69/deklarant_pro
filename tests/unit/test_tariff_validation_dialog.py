@@ -167,8 +167,10 @@ def test_evidence_badge_shows_score_and_differs_strong_vs_weak(qtbot):
         DecisionConfidence.WEAK_GUESS,
         "Slabiji prijedlog.",
     )
-    strong_match = _match(0, "show_strong", evidence=strong, decision_score=82)
-    weak_match = _match(1, "show_weak", evidence=weak, decision_score=47)
+    # decision_score vrijednosti su namjerno UNUTAR banda koji odgovara
+    # labeli (jak: 85-94, slab: 50-69) — vidi score_band_for_confidence.
+    strong_match = _match(0, "show_strong", evidence=strong, decision_score=88)
+    weak_match = _match(1, "show_weak", evidence=weak, decision_score=62)
 
     dialog = TariffValidationDialog([strong_match, weak_match])
     qtbot.addWidget(dialog)
@@ -177,11 +179,36 @@ def test_evidence_badge_shows_score_and_differs_strong_vs_weak(qtbot):
     strong_label = next(t for t in labels if "Sigurnost preporuke" in t and "jak" in t)
     weak_label = next(t for t in labels if "Sigurnost preporuke" in t and "slab" in t)
 
-    assert "82%" in strong_label
-    assert "47%" in weak_label
+    assert "88%" in strong_label
+    assert "62%" in weak_label
 
     badge_pattern = r"background:(#[0-9a-fA-F]+); color:(#[0-9a-fA-F]+)"
     strong_bg, strong_color = re.search(badge_pattern, strong_label).groups()
     weak_bg, _ = re.search(badge_pattern, weak_label).groups()
     assert strong_bg != weak_bg
     assert (strong_color, strong_bg) == evidence_badge_colors(strong)
+
+
+def test_slab_procenat_nikad_ne_izgleda_jace_od_rijeci(qtbot):
+    """
+    Korisnička primjedba (2026-07-21): riječ i procenat su djelovali
+    kontradiktorno (npr. "slab (72%)" zvuči jače nego "slab"). decision_score
+    koji bi prirodno pao IZVAN opsega labele (WEAK_GUESS: 50-69%) mora biti
+    ulašten (clamped) u taj opseg, ne prikazan sirov.
+    """
+    weak = build_evidence(
+        DecisionSource.SIMILARITY,
+        DecisionConfidence.WEAK_GUESS,
+        "Slabiji prijedlog.",
+    )
+    # 82 je prirodno IZVAN "slab" banda (50-69) — mora se ulaštiti na 69.
+    weak_match = _match(0, "show_weak", evidence=weak, decision_score=82)
+
+    dialog = TariffValidationDialog([weak_match])
+    qtbot.addWidget(dialog)
+
+    labels = [label.text() for label in dialog.findChildren(QLabel)]
+    weak_label = next(t for t in labels if "Sigurnost preporuke" in t and "slab" in t)
+
+    assert "82%" not in weak_label
+    assert "69%" in weak_label

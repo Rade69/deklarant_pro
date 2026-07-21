@@ -18,4 +18,5 @@ from core.decision.evidence import (  # noqa: F401
     evidence_badge_colors,
     badge_colors_for_score,
     evidence_score_category,
+    score_band_for_confidence,
 )

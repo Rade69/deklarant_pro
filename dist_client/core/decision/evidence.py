@@ -197,6 +197,31 @@ def tariff_confidence_label(evidence: Evidence) -> str:
     return _TARIFF_CONFIDENCE_LABELS.get(evidence.confidence, "nepoznat")
 
 
+# Isti pragovi kao evidence_score_category() (95/85/70/50) — namjerno se
+# poklapa 1:1 sa _DEFAULT_SCORES da tekstualna labela (jak/srednji/slab) i
+# prikazan procenat NIKAD ne budu kontradiktorni (npr. "slab (72%)" bi
+# djelovalo jače od same riječi). Vidi score_band_for_confidence().
+_CONFIDENCE_SCORE_BANDS: dict[DecisionConfidence, tuple[int, int]] = {
+    DecisionConfidence.CONFIRMED_FROM_DOCUMENT: (95, 100),
+    DecisionConfidence.CONFIRMED_FROM_SAME_EXPORTER_HISTORY: (85, 94),
+    DecisionConfidence.SUGGESTED_BY_SIMILARITY: (70, 84),
+    DecisionConfidence.WEAK_GUESS: (50, 69),
+    DecisionConfidence.UNKNOWN: (0, 49),
+}
+
+
+def score_band_for_confidence(confidence: DecisionConfidence) -> tuple[int, int]:
+    """
+    Vrati (min, max) opseg prikaza za datu DecisionConfidence kategoriju.
+
+    Koristi se da se stvaran, promjenjiv broj (npr. TariffDecision.score)
+    prikaže ULAŠTEN u opseg koji odgovara tekstualnoj labeli — broj i dalje
+    varira (nije fiksna konstanta), ali nikad ne izgleda kontradiktorno
+    riječi (npr. "slab" uvijek 50-69%, nikad 72%).
+    """
+    return _CONFIDENCE_SCORE_BANDS.get(confidence, (0, 49))
+
+
 def evidence_badge_colors(evidence: Evidence) -> tuple[str, str]:
     return _SCORE_CATEGORY_BADGE_COLORS.get(
         evidence.score_category, _SCORE_CATEGORY_BADGE_COLORS[DecisionScoreCategory.HIDDEN]
