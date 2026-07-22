@@ -60,7 +60,7 @@ copy .env.example dist\DeklarantPro\.env.example
 
 REM Provjeri da li postoji NOVA ASIKUDA XML arhiv
 if exist "data\knowledge_base\NOVA ASIKUDA" (
-    echo NAPOMENA: XML arhiv (NOVA ASIKUDA) je prevelik za bundling.
+    echo NAPOMENA: XML arhiv NOVA ASIKUDA je prevelik za bundling.
     echo          Kopiraj ga rucno u: dist\DeklarantPro\data\knowledge_base\NOVA ASIKUDA
 ) else (
     echo NAPOMENA: XML arhiv nije pronadjen lokalno - dodaj ga rucno u dist folder.
