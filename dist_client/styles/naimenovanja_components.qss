@@ -235,32 +235,36 @@ QWidget#naimenovanjaUiWidget QLineEdit {
 }
 
 QGroupBox#group_31 {
-    background-color: #edf7ef;
+    background-color: #edf4ef;
 }
 
 QLabel#lbl_rubrika31 {
-    background-color: #d8ebdd;
-    color: #1f5d35;
+    background-color: #d5e6da;
+    color: #244f38;
+    border-left: 3px solid #4f7f61;
     border-radius: 4px;
-    padding-left: 4px;
+    padding-left: 6px;
 }
 
 QLabel#lbl_r31_oznake {
-    color: #1f5d35;
+    color: #245f45;
     font-size: 14px;
     font-weight: 700;
 }
 
 QLineEdit#le_r31_oznake_br,
 QLineEdit#le_r31_paketa,
-QLineEdit#le_r31_broj {
-    border: 1px solid #b7c9bd;
+QLineEdit#le_r31_broj,
+QLineEdit#le_r31_vrsta_naziv {
+    background-color: #ffffff;
+    border: 1px solid #a8b9ae;
     border-radius: 4px;
 }
 
 QLineEdit#le_r31_oznake_br:focus,
 QLineEdit#le_r31_paketa:focus,
-QLineEdit#le_r31_broj:focus {
+QLineEdit#le_r31_broj:focus,
+QLineEdit#le_r31_vrsta_naziv:focus {
     border: 2px solid #3f7898;
 }
 
@@ -373,13 +377,14 @@ QGroupBox#group_45_46 > QLineEdit:read-only {
 
 
 QLineEdit#le_r31_vrsta_naziv {
-    background-color: #e3f2fd;
-    border: 2px solid #2196f3;
+    background-color: #f4f8fb;
+    border: 1px solid #7d9caf;
+    border-left: 3px solid #3f7898;
     border-radius: 4px;
-    padding: 2px 5px;
-    font-weight: bold;
+    padding: 2px 6px;
+    font-weight: 600;
     font-size: 13px;
-    color: #1565c0;
+    color: #18354a;
 }
 
 QWidget#naimenovanjaUiWidget QComboBox {
@@ -566,13 +571,20 @@ QLabel#lbl_tariff_warning {
    ═══════════════════════════════════════════════════════════ */
 
 QTextEdit#le_r31_trg_naziv {
-    background-color: #e3f2fd;
-    border: 2px solid #2196f3;
-    border-radius: 4px;
-    padding: 5px;
+    background-color: #f4f8fb;
+    border: 1px solid #7d9caf;
+    border-left: 4px solid #3f7898;
+    border-radius: 5px;
+    padding: 6px 8px;
     font-size: 14px;
     font-weight: 600;
-    color: #1565c0;
+    color: #18354a;
+    selection-background-color: #b8d6e8;
+}
+
+QTextEdit#le_r31_trg_naziv:focus {
+    background-color: #ffffff;
+    border: 2px solid #3f7898;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -591,6 +603,8 @@ QFrame#main_grid_frame {
 
 /* Podbroj (te_r31_opis) - base styling */
 QLineEdit#te_r31_opis {
+    background-color: #f3f8f4;
+    border: 1px solid #8cab96;
     border-radius: 4px;
     padding: 3px 6px;
     font-weight: bold;
@@ -599,6 +613,8 @@ QLineEdit#te_r31_opis {
 
 /* Heading (te_r31_opis_2) - base styling */
 QLineEdit#te_r31_opis_2 {
+    background-color: #f2f7fa;
+    border: 1px solid #8fa9ba;
     border-radius: 4px;
     padding: 3px 6px;
     font-weight: bold;
