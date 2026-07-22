@@ -977,3 +977,22 @@ kad postoji `auto_rejected` (specifičnija poruka je tačnija i dovoljna). Testo
 `tests/unit/test_faktura_view_auto_rejected_notice.py` (2 nova), dopune u
 `test_faktura_view_provjeri_selekcija.py` (3 nova) i `test_historical_tariff_validation.py`
 (dopunjen postojeći test da provjeri `last_auto_rejected`).
+
+## 40. "Pregled po fakturama" PDF fusnota — hardkodovan "(Rb.32)" primjer (2026-07-22)
+
+Korisnik testirao oba nova PDF izvještaja (Codex meni, §32-34) i primijetio da je fusnota
+zbunjujuća. Otkriveno: `PDFFakturaPregled.export()` fusnota je od SAMOG POČETNOG commita
+(`0149de9`, prije bilo kakvog rada ove sesije ili Codex-a) imala hardkodovan literalni
+primjer `"(Rb.32)"` u statičkom objašnjenju kolone "Naimen." — potpuno nepovezan sa stvarnim
+podacima deklaracije (samo se slučajno poklopio jer je "32" bio jedan od 40 naimenovanja u
+test fakturi). Fix: uklonjen hardkodovan primjer, fusnota sad glasi generički "...pokazuje
+redni broj naimenovanja u koje je stavka raspoređena." bez primjera broja.
+
+**Napomena o dva PDF izvještaja** (za razjašnjenje korisnikovog pitanja "ne vidim veliku
+razliku"): "Faktura stavke po naimenovanjima" grupiše PO NAIMENOVANJU (tarifna
+klasifikacija) — koristan za carinski pregled ("šta je svrstano pod ovu tarifu"). "Pregled
+po fakturama" (Codex meni, §32) grupiše PO ORIGINALNOJ FAKTURI dobavljača, sa kolonom
+"Naimen." kao referencom, i dodaje PODZBIRIVE po fakturi (Količina/Iznos/Bruto/Neto) i
+ukupan zbir cijele deklaracije na kraju — koristan za usaglašavanje sa fakturama dobavljača.
+Prvi izvještaj NEMA podzbir po grupi niti ukupan zbir; ovo je namjerna razlika u svrsi, ne
+duplikat.

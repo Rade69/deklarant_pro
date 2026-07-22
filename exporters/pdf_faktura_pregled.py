@@ -310,7 +310,7 @@ class PDFFakturaPregled:
             elements.append(Spacer(1, 0.5*cm))
             napomena = Paragraph(
                 "<i>Napomena: Kolona 'Naimen.' pokazuje redni broj naimenovanja "
-                "(Rb.32) u koje je stavka raspoređena.</i>",
+                "u koje je stavka raspoređena.</i>",
                 ParagraphStyle(
                     'Napomena',
                     parent=self.styles['Normal'],
