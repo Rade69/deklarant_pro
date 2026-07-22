@@ -919,3 +919,20 @@ renderovanje stila koje očigledno nije bilo dovoljno vidljivo.
 dobija `padding-right: 18px` (mjesto za strelicu) i eksplicitan
 `QPushButton#btnPDF::menu-indicator` (8×8px, pozicioniran `right center`). Čisto dodatna QSS
 izmjena — ne dira Python kod, `_populate_toolbar_section` ni handler funkcije.
+
+## 37. DB čišćenje — obrisano 7 pogrešnih SUSSINA→38249993 zapisa (2026-07-22)
+
+Nastavak §29. Direktnim upitom otkriveno: nije postojao samo 1 sporedni pogrešan zapis nego
+**7** (id 62558, 62544, 64709, 64725, 122191, 122192, 122220) — sva "SUSSINA ..." varijanta
+imena mapirana na 38249993 umjesto ispravnog 21069098. Tri od njih (122191/122192/122220)
+imala su `created_at`/`last_used` iz **2026-07-21/22** (usage_count skočio 2→4) — vjerovatno
+posljedica reindeksiranja XML-ova (§27 dopuna 5) koje je vjerno prebrojalo stvarne stare
+deklaracije gdje je pogrešan broj bio upisan (korisnikova ranija greška, ne bug u kodu).
+
+**Akcija** (uz eksplicitnu korisničku potvrdu prije DELETE-a — auto-mode klasifikator je
+ispravno blokirao prvi pokušaj kao destruktivnu akciju nad produkcijskom bazom): svih 7
+redova obrisano ciljano po tačnim `id` vrijednostima (ne widlcard WHERE). Verifikovano:
+0 preostalih pogrešnih zapisa, 36 ispravnih (21069098) zapisa netaknuto. Nije bio potreban
+kod-nivo fix — ovo je bilo čisto čišćenje podataka, `HistoricalTariffSearchService` već
+ispravno bira jači zapis po `usage_count`; problem bi postao vidljiv tek da pogrešan broj
+usage_count-om prestigne ispravan (nije bio blizu: 4 vs 40).
