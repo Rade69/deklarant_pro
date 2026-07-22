@@ -1008,6 +1008,14 @@ class FakturaView(BaseTabView):
                 color: #D7E8F5;
                 font-weight: 700;
             }
+            QWidget#statusBarContainer QLabel#secondaryMetric {
+                color: #91A7BD;
+                font-weight: 500;
+            }
+            QWidget#statusBarContainer QLabel#analysisSummary {
+                color: #75E098;
+                font-weight: 600;
+            }
             QWidget#statusBarContainer QLabel#statusSeparator {
                 color: #6684A1;
                 font-size: 15px;
@@ -1072,8 +1080,8 @@ class FakturaView(BaseTabView):
         self.lbl_neto          = _stat_lbl("◈  Neto: 0.00 kg", "weightMetric")
         self.lbl_validation    = _stat_lbl("⚪ Neprovjereno", "validationStatus")
         self.lbl_validation.setProperty("status", "")
-        self.lbl_assembly      = _stat_lbl("📋 Assembly: N/A")
-        self.lbl_analysis      = _stat_lbl("")
+        self.lbl_assembly      = _stat_lbl("📋 Assembly: N/A", "secondaryMetric")
+        self.lbl_analysis      = _stat_lbl("", "analysisSummary")
         self._sep_analysis     = _sep()
         self.lbl_analysis.setVisible(False)
         self._sep_analysis.setVisible(False)
@@ -1085,12 +1093,13 @@ class FakturaView(BaseTabView):
             self.lbl_bruto,
             self.lbl_neto, _sep(),
             self.lbl_validation,
-            self.lbl_assembly,       self._sep_analysis,
-            self.lbl_analysis,
+            self.lbl_assembly,
         ]:
             layout.addWidget(widget)
 
         layout.addStretch()
+        layout.addWidget(self._sep_analysis)
+        layout.addWidget(self.lbl_analysis)
 
         # Progress bar for imports (initially hidden)
         self.progress_bar = QProgressBar()
