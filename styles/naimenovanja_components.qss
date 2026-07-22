@@ -125,6 +125,7 @@ QWidget#sectionHeading QPushButton#btnSnimi {
     background-color: #5d8068;
     color: #ffffff;
     border: 1px solid #7da087;
+    min-width: 142px;
 }
 
 QWidget#sectionHeading QPushButton#btnSnimi:hover {
@@ -135,6 +136,7 @@ QWidget#sectionHeading QPushButton#btnIzlaz {
     background-color: #687785;
     color: #ffffff;
     border: 1px solid #8795a1;
+    min-width: 89px;
 }
 
 QWidget#sectionHeading QPushButton#btnIzlaz:hover {
