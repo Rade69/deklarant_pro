@@ -276,6 +276,81 @@ QGroupBox#group_32_39 > QLineEdit:read-only {
     color: #526159;
 }
 
+/* Rubrike 40-46: dokumenti, vrijednosti i prilagođenja */
+QGroupBox#group_40 {
+    background-color: #eef4f6;
+    border: 1px solid #78919c;
+}
+
+QGroupBox#group_40 > QLabel {
+    color: #365f70;
+    font-weight: 700;
+}
+
+QGroupBox#group_41_43 {
+    background-color: #edf3ef;
+    border: 1px solid #83988b;
+}
+
+QGroupBox#group_41_43 > QLabel {
+    color: #245f45;
+    font-weight: 700;
+}
+
+QGroupBox#group_44 {
+    background-color: #eef4f6;
+    border: 1px solid #78919c;
+}
+
+QGroupBox#group_44 > QLabel {
+    color: #365f70;
+    font-weight: 700;
+}
+
+QGroupBox#group_45_46 {
+    background-color: #f1f4f2;
+    border: 1px solid #8c9c92;
+}
+
+QGroupBox#group_45_46 > QLabel {
+    color: #3f5d4c;
+    font-weight: 700;
+}
+
+QGroupBox#group_40 > QLineEdit,
+QGroupBox#group_41_43 > QLineEdit,
+QGroupBox#group_44 > QLineEdit,
+QGroupBox#group_45_46 > QLineEdit {
+    background-color: #ffffff;
+    border: 1px solid #a8b9ae;
+    border-radius: 4px;
+    color: #26352d;
+}
+
+QGroupBox#group_40 > QLineEdit:hover,
+QGroupBox#group_41_43 > QLineEdit:hover,
+QGroupBox#group_44 > QLineEdit:hover,
+QGroupBox#group_45_46 > QLineEdit:hover {
+    border-color: #789383;
+}
+
+QGroupBox#group_40 > QLineEdit:focus,
+QGroupBox#group_41_43 > QLineEdit:focus,
+QGroupBox#group_44 > QLineEdit:focus,
+QGroupBox#group_45_46 > QLineEdit:focus {
+    border: 2px solid #2f7d5a;
+    background-color: #fbfefc;
+}
+
+QGroupBox#group_40 > QLineEdit:read-only,
+QGroupBox#group_41_43 > QLineEdit:read-only,
+QGroupBox#group_44 > QLineEdit:read-only,
+QGroupBox#group_45_46 > QLineEdit:read-only {
+    background-color: #f2f5f3;
+    color: #526159;
+    border-color: #bcc8c0;
+}
+
 
 QLineEdit#le_r31_vrsta_naziv {
     background-color: #e3f2fd;
