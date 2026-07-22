@@ -1550,12 +1550,14 @@ class NaimenovanjaView(BaseTabView):
         if not hasattr(self, "ui") or not hasattr(self, "_heading_layout"):
             return
 
-        group = self.ui.findChild(QGroupBox, "group_32_39")
-        if not group:
+        main_grid = self.ui.findChild(QFrame, "main_grid_frame")
+        if not main_grid:
             return
 
-        group_right = group.mapTo(self.section_heading, QPoint(group.width(), 0)).x()
-        right_margin = max(10, self.section_heading.width() - group_right + 10)
+        grid_right = main_grid.mapTo(
+            self.section_heading, QPoint(main_grid.width(), 0)
+        ).x()
+        right_margin = max(10, self.section_heading.width() - grid_right + 10)
         left, top, _, bottom = self._heading_layout.getContentsMargins()
         if self._heading_layout.contentsMargins().right() != right_margin:
             self._heading_layout.setContentsMargins(left, top, right_margin, bottom)
