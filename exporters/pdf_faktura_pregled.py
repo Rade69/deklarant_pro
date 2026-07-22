@@ -27,8 +27,41 @@ from reportlab.platypus import (
 )
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfgen.canvas import Canvas
 
 from core.draft import DeclarationDraft, InvoiceLine, NaimenovanjeDraft
+
+
+class _NumberedCanvas(Canvas):
+    """
+    Canvas koji na dno svake stranice dodaje "Strana X od Y".
+
+    Dvoprolazno rješenje (standardni ReportLab obrazac) — ukupan broj
+    stranica nije poznat dok se sve stranice ne nacrtaju, pa se prvo
+    snimi stanje svake stranice, a broj se ucrtava tek u save().
+    """
+
+    def __init__(self, *args, **kwargs):
+        Canvas.__init__(self, *args, **kwargs)
+        self._saved_page_states = []
+
+    def showPage(self):
+        self._saved_page_states.append(dict(self.__dict__))
+        self._startPage()
+
+    def save(self):
+        num_pages = len(self._saved_page_states)
+        for state in self._saved_page_states:
+            self.__dict__.update(state)
+            self._draw_page_number(num_pages)
+            Canvas.showPage(self)
+        Canvas.save(self)
+
+    def _draw_page_number(self, page_count):
+        width, _ = landscape(A4)
+        self.setFont('Helvetica', 8)
+        self.setFillColor(colors.grey)
+        self.drawRightString(width - 1*cm, 0.8*cm, f"Strana {self._pageNumber} od {page_count}")
 
 
 class PDFFakturaPregled:
@@ -321,7 +354,7 @@ class PDFFakturaPregled:
             )
             elements.append(napomena)
 
-            doc.build(elements)
+            doc.build(elements, canvasmaker=_NumberedCanvas)
             return True
 
         except Exception as e:

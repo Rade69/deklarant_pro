@@ -126,3 +126,38 @@ def test_export_uses_real_declaration_code_fields(tmp_path):
         text = "\n".join(page.extract_text() or "" for page in pdf.pages)
 
     assert "ŠEĆER, ČAJ, ŽITO I ĐEVREK" in text
+
+
+def test_export_shows_page_number(tmp_path):
+    draft = DeclarationDraft(
+        deklaracija_tip="IM",
+        deklaracija_oznaka="H",
+        deklaracija_a="A",
+        ref_br="1476/26",
+    )
+    draft.invoice_lines = [
+        InvoiceLine(
+            line_no=1,
+            invoice_number="1476/26",
+            naziv_robe="STAVKA A",
+            tarifni_broj="21069098",
+            jm="KOM",
+            kolicina=1,
+            iznos=1.0,
+            bruto_kg=1.0,
+            neto_kg=1.0,
+            assigned_naimenovanje_ordinal=1,
+        )
+    ]
+    draft.items = [
+        NaimenovanjeDraft(item_id="test-1", ordinal_no=1, tariff_code="21069098")
+    ]
+    output_path = tmp_path / "pregled_faktura_stranica.pdf"
+
+    assert exporter_mod.export_faktura_pregled(draft, str(output_path)) is True
+
+    pdfplumber = pytest.importorskip("pdfplumber")
+    with pdfplumber.open(output_path) as pdf:
+        text = "\n".join(page.extract_text() or "" for page in pdf.pages)
+
+    assert "Strana 1 od 1" in text

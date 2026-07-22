@@ -996,3 +996,34 @@ po fakturama" (Codex meni, §32) grupiše PO ORIGINALNOJ FAKTURI dobavljača, sa
 ukupan zbir cijele deklaracije na kraju — koristan za usaglašavanje sa fakturama dobavljača.
 Prvi izvještaj NEMA podzbir po grupi niti ukupan zbir; ovo je namjerna razlika u svrsi, ne
 duplikat.
+
+## 41. Oba PDF izvještaja — podzbir po naimenovanju + broj stranice (2026-07-22)
+
+Korisnik zatražio da se realizuju dvije predložene poboljšice iz §40 razgovora.
+
+**Podzbir po naimenovanju** (`PDFInvoiceExporter.export`, "Faktura stavke po naimenovanjima"):
+poslije svake tabele naimenovanja dodat red "UKUPNO NAIMENOVANJE N: Količina | Iznos | Bruto
+| Neto", i "UKUPNO DEKLARACIJA" na kraju — identičan obrazac kao već postojeći u
+`PDFFakturaPregled` (kopiran `_format_float` helper). Sad oba izvještaja imaju konzistentne
+zbirove.
+
+**Broj stranice** ("Strana X od Y", oba exportera): dodata `_NumberedCanvas(Canvas)` klasa —
+standardni ReportLab dvoprolazni obrazac (broj stranica nepoznat dok se sve ne nacrta, pa se
+stanja snime u `showPage()` i broj ucrta tek u `save()`). `doc.build(elements,
+canvasmaker=_NumberedCanvas)` umjesto golog `doc.build(elements)`. Fusnota koristi plain
+"Helvetica" (nema dijakritika u "Strana X od Y", sigurno bez font-registracije).
+
+**Otkriven propust u testovima (Codex)**: `tests/unit/pdf_invoice_exporter_fonts_test.py` i
+`pdf_faktura_pregled_fonts_test.py` NIKAD nisu bili dio standardnog `pytest tests/` sweep-a —
+`pyproject.toml` ima `python_files = ["test_*.py"]` (prefiks), a ova dva fajla su imala
+sufiks `_test.py`. Testovi su radili SAMO kad se eksplicitno pozovu po putanji fajla (što je
+i ovaj i prethodni agent radio, pa se nije primijetilo). Preimenovano u `test_pdf_invoice_
+exporter_fonts.py`/`test_pdf_faktura_pregled_fonts.py` (`git mv`, istorija sačuvana) —
+potvrđeno: puni suite sad ima 872 passed (859+13, umjesto ranijih 859 koji NIKAD nisu
+uključivali ova 13). **Napomena za buduće agente**: pri kreiranju novih test fajlova uvijek
+provjeriti da ime počinje sa `test_`, ne završava sa `_test.py` — provjera "testovi prolaze"
+je lažno-pozitivna ako se fajl nikad ne kolektuje u punom sweep-u.
+
+Testovi (novi, uz postojećih 9 font testova): `test_export_shows_naimenovanje_subtotal`,
+`test_export_shows_page_number` (oba fajla) — svi generišu stvaran PDF i provjeravaju sadržaj
+preko pdfplumber-a (isti obrazac kao Codexovi raniji regresioni testovi).

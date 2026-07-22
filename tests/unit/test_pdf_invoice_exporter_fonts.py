@@ -117,3 +117,62 @@ def test_export_includes_lines_without_assigned_ordinal(tmp_path):
 
     assert "STAVKE BEZ NAIMENOVANJA" in text
     assert "ŠEĆER, ČAJ, ŽITO I ĐEVREK" in text
+
+
+def test_export_shows_naimenovanje_subtotal(tmp_path):
+    """
+    Korisnička primjedba 2026-07-22: ovaj izvještaj nije imao nikakav zbir
+    po naimenovanju, za razliku od "Pregled po fakturama" koji ima i
+    podzbir po fakturi i ukupan zbir - nekonzistentnost između dva
+    izvještaja. Zbir mora tačno sabrati stavke unutar ISTOG naimenovanja.
+    """
+    draft = DeclarationDraft()
+    draft.invoice_lines = [
+        InvoiceLine(
+            line_no=1, invoice_number="1476/26", naziv_robe="STAVKA A",
+            tarifni_broj="21069098", jm="KOM", kolicina=10, iznos=25.5,
+            bruto_kg=2.0, neto_kg=1.5, assigned_naimenovanje_ordinal=1,
+        ),
+        InvoiceLine(
+            line_no=2, invoice_number="1476/26", naziv_robe="STAVKA B",
+            tarifni_broj="21069098", jm="KOM", kolicina=5, iznos=14.5,
+            bruto_kg=1.0, neto_kg=0.5, assigned_naimenovanje_ordinal=1,
+        ),
+    ]
+    draft.items = [
+        NaimenovanjeDraft(item_id="test-1", ordinal_no=1, tariff_code="21069098")
+    ]
+    output_path = tmp_path / "faktura_naimenovanja_zbir.pdf"
+
+    assert exporter_mod.export_invoice_to_pdf(draft, str(output_path)) is True
+
+    pdfplumber = pytest.importorskip("pdfplumber")
+    with pdfplumber.open(output_path) as pdf:
+        text = "\n".join(page.extract_text() or "" for page in pdf.pages)
+
+    assert "UKUPNO NAIMENOVANJE 1" in text
+    assert "15.00" in text  # kolicina: 10 + 5
+    assert "40.00" in text  # iznos: 25.5 + 14.5
+
+
+def test_export_shows_page_number(tmp_path):
+    draft = DeclarationDraft()
+    draft.invoice_lines = [
+        InvoiceLine(
+            line_no=1, invoice_number="1476/26", naziv_robe="STAVKA A",
+            tarifni_broj="21069098", jm="KOM", kolicina=1, iznos=1.0,
+            bruto_kg=1.0, neto_kg=1.0, assigned_naimenovanje_ordinal=1,
+        ),
+    ]
+    draft.items = [
+        NaimenovanjeDraft(item_id="test-1", ordinal_no=1, tariff_code="21069098")
+    ]
+    output_path = tmp_path / "faktura_naimenovanja_stranica.pdf"
+
+    assert exporter_mod.export_invoice_to_pdf(draft, str(output_path)) is True
+
+    pdfplumber = pytest.importorskip("pdfplumber")
+    with pdfplumber.open(output_path) as pdf:
+        text = "\n".join(page.extract_text() or "" for page in pdf.pages)
+
+    assert "Strana 1 od 1" in text

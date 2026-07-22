@@ -23,8 +23,41 @@ from reportlab.platypus import (
 )
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfgen.canvas import Canvas
 
 from core.draft import DeclarationDraft, InvoiceLine, NaimenovanjeDraft
+
+
+class _NumberedCanvas(Canvas):
+    """
+    Canvas koji na dno svake stranice dodaje "Strana X od Y".
+
+    Dvoprolazno rješenje (standardni ReportLab obrazac) — ukupan broj
+    stranica nije poznat dok se sve stranice ne nacrtaju, pa se prvo
+    snimi stanje svake stranice, a broj se ucrtava tek u save().
+    """
+
+    def __init__(self, *args, **kwargs):
+        Canvas.__init__(self, *args, **kwargs)
+        self._saved_page_states = []
+
+    def showPage(self):
+        self._saved_page_states.append(dict(self.__dict__))
+        self._startPage()
+
+    def save(self):
+        num_pages = len(self._saved_page_states)
+        for state in self._saved_page_states:
+            self.__dict__.update(state)
+            self._draw_page_number(num_pages)
+            Canvas.showPage(self)
+        Canvas.save(self)
+
+    def _draw_page_number(self, page_count):
+        width, _ = landscape(A4)
+        self.setFont('Helvetica', 8)
+        self.setFillColor(colors.grey)
+        self.drawRightString(width - 1*cm, 0.8*cm, f"Strana {self._pageNumber} od {page_count}")
 
 
 class PDFInvoiceExporter:
@@ -98,6 +131,16 @@ class PDFInvoiceExporter:
             logger.warning("Liberation Sans nije pronađen, koristim ReportLab default fontove")
         except Exception as e:
             logger.warning("Greška pri registrovanju fontova: %s — koristim ReportLab default", e)
+
+    def _format_float(self, val, decimals: int = 2) -> str:
+        """Formatiraj broj sa zarezom kao separator hiljada."""
+        try:
+            f = float(val)
+            if f == 0:
+                return "0"
+            return f"{f:,.{decimals}f}"
+        except (ValueError, TypeError):
+            return str(val) if val is not None else ""
 
     def _setup_styles(self):
         """Postavi custom stilove za PDF."""
@@ -175,6 +218,12 @@ class PDFInvoiceExporter:
             # Grupiši invoice_lines po naimenovanjima
             grouped_lines = self._group_by_naimenovanje(draft.invoice_lines)
 
+            # Ukupni totali za cijelu deklaraciju
+            uk_kolicina = 0.0
+            uk_iznos = 0.0
+            uk_bruto = 0.0
+            uk_neto = 0.0
+
             # Prođi kroz sva naimenovanja i kreiraj tabele
             for ordinal in sorted(grouped_lines.keys()):
                 lines = grouped_lines[ordinal]
@@ -190,10 +239,62 @@ class PDFInvoiceExporter:
 
                 # Dodaj tabelu sa stavkama
                 elements.append(self._create_items_table(lines))
-                elements.append(Spacer(1, 0.8*cm))
+                elements.append(Spacer(1, 0.15*cm))
 
-            # Sačuvaj PDF
-            doc.build(elements)
+                # Podzbir za ovo naimenovanje (korisnička primjedba 2026-07-22:
+                # ovaj izvještaj nije imao nikakav zbir, za razliku od
+                # "Pregled po fakturama" — nekonzistentnost između dva izvještaja)
+                grupa_naziv = f"NAIMENOVANJE {ordinal}" if ordinal > 0 else "STAVKE BEZ NAIMENOVANJA"
+                total_kolicina = sum(line.kolicina or 0.0 for line in lines)
+                total_iznos = sum(line.iznos or 0.0 for line in lines)
+                total_bruto = sum(line.bruto_kg or 0.0 for line in lines)
+                total_neto = sum(line.neto_kg or 0.0 for line in lines)
+                zbir_text = (
+                    f"<b>UKUPNO {grupa_naziv}:  "
+                    f"Količina: {self._format_float(total_kolicina, 2)}  |  "
+                    f"Iznos: {self._format_float(total_iznos, 2)} EUR  |  "
+                    f"Bruto: {self._format_float(total_bruto, 3)} kg  |  "
+                    f"Neto: {self._format_float(total_neto, 3)} kg</b>"
+                )
+                elements.append(Paragraph(zbir_text, ParagraphStyle(
+                    'ZbirNaimenovanja',
+                    parent=self.styles['Normal'],
+                    fontSize=9,
+                    fontName=self.font_bold,
+                    textColor=colors.HexColor('#374151'),
+                    spaceAfter=8,
+                    leftIndent=6
+                )))
+                elements.append(Spacer(1, 0.65*cm))
+
+                uk_kolicina += total_kolicina
+                uk_iznos += total_iznos
+                uk_bruto += total_bruto
+                uk_neto += total_neto
+
+            # ── UKUPNO DEKLARACIJA ──
+            if len(grouped_lines) > 1:
+                elements.append(Spacer(1, 0.2*cm))
+                elements.append(Paragraph("_" * 120, self.styles['Normal']))
+                ukupno_text = (
+                    f"<b>UKUPNO DEKLARACIJA:  "
+                    f"Količina: {self._format_float(uk_kolicina, 2)}  |  "
+                    f"Iznos: {self._format_float(uk_iznos, 2)} EUR  |  "
+                    f"Bruto: {self._format_float(uk_bruto, 3)} kg  |  "
+                    f"Neto: {self._format_float(uk_neto, 3)} kg</b>"
+                )
+                elements.append(Paragraph(ukupno_text, ParagraphStyle(
+                    'UkupnoDeklaracija',
+                    parent=self.styles['Normal'],
+                    fontSize=11,
+                    fontName=self.font_bold,
+                    textColor=colors.HexColor('#1F2937'),
+                    spaceBefore=6,
+                    spaceAfter=12
+                )))
+
+            # Sačuvaj PDF (numerisane stranice — "Strana X od Y")
+            doc.build(elements, canvasmaker=_NumberedCanvas)
             return True
 
         except Exception as e:
