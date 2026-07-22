@@ -477,7 +477,7 @@ class ZaglavljeView(BaseTabView):
         """Kreiraj glavni widget sa 3 kolone (QHBoxLayout)."""
         grid_widget = QWidget()
         grid_widget.setAttribute(Qt.WA_StyledBackground, True)
-        grid_widget.setStyleSheet("QWidget { background-color: #e5edf2; }")
+        grid_widget.setStyleSheet("QWidget { background-color: #e8f2ed; }")
         grid_layout = QHBoxLayout(grid_widget)
         grid_layout.setContentsMargins(6, 6, 6, 6)
         grid_layout.setSpacing(4)
@@ -519,7 +519,7 @@ class ZaglavljeView(BaseTabView):
         column.setFixedWidth(470)
         column.setObjectName("left_column")
         column.setAttribute(Qt.WA_StyledBackground, True)
-        column.setStyleSheet(("QFrame#left_column { background-color: #f4f7f8; }" + """
+        column.setStyleSheet(("QFrame#left_column { background-color: #eef5f1; }" + """
     QLineEdit {
         background: #fafcfa;
         border: 1px solid #a0c4a0;
@@ -1036,7 +1036,7 @@ class ZaglavljeView(BaseTabView):
             "\n    QLabel { font-size: 10pt; color: #102814; font-weight: 600; }"
             if sys.platform.startswith("win") else ""
         )
-        column.setStyleSheet(("QFrame#middle_column { background-color: #f5f8f6; }" + _win_label_css + """
+        column.setStyleSheet(("QFrame#middle_column { background-color: #f2f7f4; }" + _win_label_css + """
     QLineEdit {
         background: #fafcfa;
         border: 1px solid #a0c4a0;
@@ -1762,7 +1762,7 @@ class ZaglavljeView(BaseTabView):
         column.setAttribute(Qt.WA_StyledBackground, True)
         column.setMinimumWidth(420)
         column.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        column.setStyleSheet(("QFrame#right_column { background-color: #f4f7f8; }" + """
+        column.setStyleSheet(("QFrame#right_column { background-color: #eef5f1; }" + """
     QLineEdit {
         background: #fafcfa;
         border: 1px solid #a0c4a0;
@@ -1971,19 +1971,19 @@ class ZaglavljeView(BaseTabView):
             """
             /* POZADINA */
             #ZaglavljeTab {
-                background-color: #e5edf2;
+                background-color: #e8f2ed;
             }
 
             /* KOLONE — bijela pozadina sa sage zelenim okvirom */
             #left_column, #middle_column, #right_column {
-                border: 1px solid #9fb2c1;
+                border: 1px solid #a7c5b5;
                 border-radius: 5px;
             }
 
             /* SEKCIJA KARTICE — bijele kartice sa zaobljenim uglovima */
             QWidget[section_card="true"] {
-                background-color: #fbfcfd;
-                border: 1px solid #c3d0d9;
+                background-color: #f8fffb;
+                border: 1px solid #bed2c7;
                 border-radius: 6px;
                 padding: 2px 4px;
             }
@@ -1994,12 +1994,12 @@ class ZaglavljeView(BaseTabView):
             #middle_column QWidget[section_card="true"] {
                 padding: 0px 1px;
                 border-radius: 3px;
-                background-color: #fafcfb;
+                background-color: #fbfefc;
             }
 
             /* HORIZONTALNI SEPARATORI — tanka sage linija između sekcija */
             QFrame[frameShape="4"] {
-                background-color: #b7c5cf;
+                background-color: #b8cec1;
                 border: none;
                 max-height: 1px;
                 min-height: 1px;
@@ -2151,11 +2151,11 @@ class ZaglavljeView(BaseTabView):
                 background: transparent;
             }
             QLabel#section_title {
-                color: #29485f;
+                color: #245f45;
                 font-size: 10pt;
                 font-weight: 700;
                 padding-bottom: 1px;
-                border-bottom: 2px solid #7892a5;
+                border-bottom: 2px solid #6f9a7d;
             }
             #left_column QLabel#section_title {
                 font-size: 10pt;
