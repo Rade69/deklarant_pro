@@ -406,16 +406,27 @@ class FakturaView(BaseTabView):
                 background-color: #1E4B6A;
             }
             QWidget#controlsContainer QWidget#massControlsPanel {
-                background-color: #EEF4F1;
-                border: 1px solid #B7CCC0;
-                border-radius: 5px;
+                background-color: #E8F2ED;
+                border: 1px solid #7FA895;
+                border-radius: 6px;
             }
-            QWidget#controlsContainer QWidget#massControlsPanel QLabel {
-                color: #34483E;
+            QWidget#controlsContainer QWidget#massControlsPanel QLabel#massLabel {
+                color: #244B3C;
+                font-size: 14px;
+                font-weight: 700;
             }
-            QWidget#controlsContainer QWidget#massControlsPanel QLineEdit {
+            QWidget#controlsContainer QWidget#massControlsPanel QLineEdit#massInput {
                 background-color: #FFFFFF;
-                border: 1px solid #AABCB2;
+                color: #18382C;
+                border: 1px solid #8EAA9C;
+                border-radius: 4px;
+                padding: 3px 6px;
+                font-size: 13px;
+                font-weight: 700;
+            }
+            QWidget#controlsContainer QWidget#massControlsPanel QLineEdit#massInput:focus {
+                border: 2px solid #2F7D5A;
+                background-color: #F8FFFB;
             }
             QWidget#controlsContainer QPushButton#btnValidacija {
                 background-color: #2F7D5A;
@@ -686,14 +697,15 @@ class FakturaView(BaseTabView):
             bruto_row = QHBoxLayout()
             bruto_row.setSpacing(4)
             bruto_label = QLabel("Bruto:")
+            bruto_label.setObjectName("massLabel")
             bruto_label.setFixedWidth(50)
-            bruto_label.setStyleSheet(
-                "color: #222; font-size: 14px; font-weight: bold;"
-            )
             bruto_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
             bruto_row.addWidget(bruto_label)
             self.input_bruto = QLineEdit()
+            self.input_bruto.setObjectName("massInput")
             self.input_bruto.setFixedWidth(90)
+            self.input_bruto.setFixedHeight(26)
+            self.input_bruto.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
             self.input_bruto.setToolTip("Ukupna bruto težina sa fakture (kg)")
             bruto_row.addWidget(self.input_bruto)
             weights_layout.addLayout(bruto_row)
@@ -701,12 +713,15 @@ class FakturaView(BaseTabView):
             neto_row = QHBoxLayout()
             neto_row.setSpacing(4)
             neto_label = QLabel("Neto:")
+            neto_label.setObjectName("massLabel")
             neto_label.setFixedWidth(50)
-            neto_label.setStyleSheet("color: #222; font-size: 14px; font-weight: bold;")
             neto_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
             neto_row.addWidget(neto_label)
             self.input_neto = QLineEdit()
+            self.input_neto.setObjectName("massInput")
             self.input_neto.setFixedWidth(90)
+            self.input_neto.setFixedHeight(26)
+            self.input_neto.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
             self.input_neto.setToolTip("Ukupna neto težina sa fakture (kg)")
             neto_row.addWidget(self.input_neto)
             weights_layout.addLayout(neto_row)
@@ -727,8 +742,8 @@ class FakturaView(BaseTabView):
             mass_controls_panel = QWidget()
             mass_controls_panel.setObjectName("massControlsPanel")
             mass_controls_layout = QHBoxLayout(mass_controls_panel)
-            mass_controls_layout.setContentsMargins(4, 3, 4, 3)
-            mass_controls_layout.setSpacing(4)
+            mass_controls_layout.setContentsMargins(2, 3, 2, 3)
+            mass_controls_layout.setSpacing(8)
             mass_controls_layout.addWidget(weights_widget)
             mass_controls_layout.addWidget(self.btn_validate)
             layout.addWidget(mass_controls_panel)
@@ -890,12 +905,11 @@ class FakturaView(BaseTabView):
         header.setStretchLastSection(False)
 
         # Table settings
-        table.setAlternatingRowColors(
-            False
-        )  # Isključeno - koristimo validacione boje umjesto
+        table.setAlternatingRowColors(True)
         table.setSelectionBehavior(QAbstractItemView.SelectRows)
         table.setSelectionMode(QAbstractItemView.ExtendedSelection)
         table.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
+        table.setMouseTracking(True)
         table.verticalHeader().setVisible(False)
 
         # Optimalna visina redova i font za čitljivost
@@ -905,9 +919,9 @@ class FakturaView(BaseTabView):
             QTableWidget {
                 font-size: 10pt;
                 background-color: #ffffff;
-                alternate-background-color: #f7f9fb;
-                gridline-color: #dfe5ea;
-                border: 1px solid #c9d2dc;
+                alternate-background-color: #eef4f7;
+                gridline-color: #c9d5de;
+                border: 1px solid #aebfcb;
             }
             QTableWidget::item {
                 padding: 6px 4px;
@@ -915,16 +929,19 @@ class FakturaView(BaseTabView):
                 color: #17212b;
             }
             QTableWidget::item:selected {
-                background-color: #2f6f9f;
+                background-color: #2c668f;
                 color: white;
             }
+            QTableWidget::item:hover:!selected {
+                background-color: #dfeaf1;
+            }
             QHeaderView::section {
-                background-color: #e9eef3;
-                color: #26343f;
+                background-color: #c8d7e2;
+                color: #172b39;
                 padding: 8px 6px;
                 border: none;
-                border-right: 1px solid #d2dae2;
-                border-bottom: 1px solid #b8c4cf;
+                border-right: 1px solid #aebfcb;
+                border-bottom: 2px solid #557d9a;
                 font-weight: bold;
                 font-size: 11pt;
             }
@@ -982,12 +999,28 @@ class FakturaView(BaseTabView):
             QWidget#statusBarContainer QLabel {
                 font-size: 13px;
                 font-weight: 600;
-                color: #CBD8E8;
+                color: #E2EAF3;
                 background: transparent;
                 padding: 0 2px;
             }
+            QWidget#statusBarContainer QLabel#primaryMetric {
+                color: #FFFFFF;
+                font-weight: 700;
+            }
+            QWidget#statusBarContainer QLabel#weightMetric {
+                color: #D7E8F5;
+                font-weight: 700;
+            }
+            QWidget#statusBarContainer QLabel#secondaryMetric {
+                color: #91A7BD;
+                font-weight: 500;
+            }
+            QWidget#statusBarContainer QLabel#analysisSummary {
+                color: #75E098;
+                font-weight: 600;
+            }
             QWidget#statusBarContainer QLabel#statusSeparator {
-                color: #3A5F82;
+                color: #6684A1;
                 font-size: 15px;
                 font-weight: 400;
                 background: transparent;
@@ -1002,6 +1035,30 @@ class FakturaView(BaseTabView):
             QWidget#statusBarContainer QLabel[status="success"] {
                 color: #6BCB77;
             }
+            QWidget#statusBarContainer QLabel#validationStatus {
+                border: 1px solid #6684A1;
+                border-radius: 9px;
+                padding: 3px 8px;
+            }
+            QWidget#statusBarContainer QLabel#validationStatus[status=""] {
+                color: #F1F5F9;
+                background-color: #304D6B;
+            }
+            QWidget#statusBarContainer QLabel#validationStatus[status="error"] {
+                color: #FFD9D9;
+                background-color: #7A3038;
+                border-color: #B7555F;
+            }
+            QWidget#statusBarContainer QLabel#validationStatus[status="warning"] {
+                color: #FFF2C2;
+                background-color: #735B20;
+                border-color: #A98731;
+            }
+            QWidget#statusBarContainer QLabel#validationStatus[status="success"] {
+                color: #DDF8E3;
+                background-color: #2C6848;
+                border-color: #4A946B;
+            }
         """)
         layout = QHBoxLayout(container)
         layout.setContentsMargins(16, 0, 16, 0)
@@ -1015,35 +1072,37 @@ class FakturaView(BaseTabView):
             return lbl
 
         def _sep() -> QLabel:
-            s = QLabel("|")
+            s = QLabel("•")
             s.setObjectName("statusSeparator")
             return s
 
-        self.lbl_item_count    = _stat_lbl("📦 Stavki: 0")
-        self.lbl_total_amount  = _stat_lbl("💰 Ukupno: 0.00 EUR")
+        self.lbl_item_count    = _stat_lbl("📦 Stavki: 0", "primaryMetric")
+        self.lbl_total_amount  = _stat_lbl("💰 Ukupno: 0.00 EUR", "primaryMetric")
         self.lbl_total_quantity = _stat_lbl("⬛ Komada: 0")
-        self.lbl_bruto         = _stat_lbl("⚖  Bruto: 0.00 kg")
-        self.lbl_neto          = _stat_lbl("◈  Neto: 0.00 kg")
-        self.lbl_validation    = _stat_lbl("⚪ Neprovjereno")
-        self.lbl_assembly      = _stat_lbl("📋 Assembly: N/A")
-        self.lbl_analysis      = _stat_lbl("")
+        self.lbl_bruto         = _stat_lbl("⚖  Bruto: 0.00 kg", "weightMetric")
+        self.lbl_neto          = _stat_lbl("◈  Neto: 0.00 kg", "weightMetric")
+        self.lbl_validation    = _stat_lbl("⚪ Neprovjereno", "validationStatus")
+        self.lbl_validation.setProperty("status", "")
+        self.lbl_assembly      = _stat_lbl("📋 Assembly: N/A", "secondaryMetric")
+        self.lbl_analysis      = _stat_lbl("", "analysisSummary")
         self._sep_analysis     = _sep()
         self.lbl_analysis.setVisible(False)
         self._sep_analysis.setVisible(False)
 
         for widget in [
-            self.lbl_item_count,    _sep(),
-            self.lbl_total_amount,  _sep(),
+            self.lbl_item_count,
+            self.lbl_total_amount,
             self.lbl_total_quantity, _sep(),
-            self.lbl_bruto,          _sep(),
+            self.lbl_bruto,
             self.lbl_neto,           _sep(),
-            self.lbl_validation,     _sep(),
-            self.lbl_assembly,       self._sep_analysis,
-            self.lbl_analysis,
+            self.lbl_validation,
+            self.lbl_assembly,
         ]:
             layout.addWidget(widget)
 
         layout.addStretch()
+        layout.addWidget(self._sep_analysis)
+        layout.addWidget(self.lbl_analysis)
 
         # Progress bar for imports (initially hidden)
         self.progress_bar = QProgressBar()

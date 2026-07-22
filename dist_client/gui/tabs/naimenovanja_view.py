@@ -1395,11 +1395,11 @@ class NaimenovanjaView(BaseTabView):
         self.nav_bar.setObjectName(
             "navBar"
         )  # CSS styling in naimenovanja_components.qss
-        self.nav_bar.setFixedHeight(38)
+        self.nav_bar.setFixedHeight(46)
 
         nav_layout = QHBoxLayout(self.nav_bar)
-        nav_layout.setContentsMargins(10, 3, 10, 3)
-        nav_layout.setSpacing(7)
+        nav_layout.setContentsMargins(12, 6, 12, 6)
+        nav_layout.setSpacing(8)
 
         # Section 1: Dropdown selector
         lbl_nav = QLabel("Naimenovanje:")
@@ -1408,7 +1408,7 @@ class NaimenovanjaView(BaseTabView):
 
         self.combo_items = _ScrollableCombo()
         self.combo_items.setMinimumWidth(380)
-        self.combo_items.setFixedHeight(28)
+        self.combo_items.setFixedHeight(32)
         self.combo_items.setMaxVisibleItems(99)
         self.combo_items.setProperty(
             "class", "nav-combo"
@@ -1438,14 +1438,14 @@ class NaimenovanjaView(BaseTabView):
         self.btn_previous.setObjectName(
             "btnPrethodno"
         )  # žuta/braon — navigacija unazad
-        self.btn_previous.setFixedHeight(30)
+        self.btn_previous.setFixedHeight(32)
         self.btn_previous.clicked.connect(self._on_previous)
         nav_layout.addWidget(self.btn_previous)
 
         # Next button
         self.btn_next = self._create_icon_button("Sljedeće", "fa5s.arrow-right")
         self.btn_next.setObjectName("btnSljedece")  # teal — navigacija naprijed
-        self.btn_next.setFixedHeight(30)
+        self.btn_next.setFixedHeight(32)
         self.btn_next.clicked.connect(self._on_next)
         nav_layout.addWidget(self.btn_next)
 
@@ -1455,13 +1455,13 @@ class NaimenovanjaView(BaseTabView):
         # Section 3: CRUD buttons
         self.btn_add = self._create_icon_button("Dodaj", "fa5s.plus")
         self.btn_add.setObjectName("btnDodaj")  # zelena
-        self.btn_add.setFixedHeight(30)
+        self.btn_add.setFixedHeight(32)
         self.btn_add.clicked.connect(self._on_add_item)
         nav_layout.addWidget(self.btn_add)
 
         self.btn_delete = self._create_icon_button("Obriši", "fa5s.trash-alt")
         self.btn_delete.setObjectName("btnObrisi")  # crvena
-        self.btn_delete.setFixedHeight(30)
+        self.btn_delete.setFixedHeight(32)
         self.btn_delete.clicked.connect(self._on_delete_item)
         nav_layout.addWidget(self.btn_delete)
 
@@ -1471,7 +1471,7 @@ class NaimenovanjaView(BaseTabView):
         # Section 4: Action buttons
         self.btn_suggest = self._create_icon_button("Sugeriši tarifu", "fa5s.lightbulb")
         self.btn_suggest.setObjectName("btnAutoPopuni")  # ljubičasta (AI)
-        self.btn_suggest.setFixedHeight(30)
+        self.btn_suggest.setFixedHeight(32)
         self.btn_suggest.clicked.connect(self._on_suggest_tariff)
         nav_layout.addWidget(self.btn_suggest)
 
@@ -1481,7 +1481,7 @@ class NaimenovanjaView(BaseTabView):
         self.btn_import_xml.setToolTip(
             "Uvezi ASYCUDA XML ili otvori sačuvani Deklarant Pro nacrt"
         )
-        self.btn_import_xml.setFixedHeight(30)
+        self.btn_import_xml.setFixedHeight(32)
         self.btn_import_xml.clicked.connect(self._on_import_xml)
         nav_layout.addWidget(self.btn_import_xml)
 
@@ -1489,7 +1489,7 @@ class NaimenovanjaView(BaseTabView):
         self.btn_inspekcije = self._create_icon_button("Inspekcije", "fa5s.clipboard-check")
         self.btn_inspekcije.setObjectName("btnInspekcije")
         self.btn_inspekcije.setToolTip("Pregled naimenovanja koja zahtijevaju inspekciju")
-        self.btn_inspekcije.setFixedHeight(30)
+        self.btn_inspekcije.setFixedHeight(32)
         self.btn_inspekcije.clicked.connect(self._on_inspekcije)
         nav_layout.addWidget(self.btn_inspekcije)
 
@@ -1502,10 +1502,10 @@ class NaimenovanjaView(BaseTabView):
         self.section_heading.setObjectName(
             "sectionHeading"
         )  # CSS in naimenovanja_components.qss
-        self.section_heading.setFixedHeight(30)
+        self.section_heading.setFixedHeight(38)
 
         heading_layout = QHBoxLayout(self.section_heading)
-        heading_layout.setContentsMargins(20, 2, 20, 2)
+        heading_layout.setContentsMargins(20, 4, 20, 4)
         heading_layout.setSpacing(8)
 
         # Left: Heading label
@@ -1522,8 +1522,8 @@ class NaimenovanjaView(BaseTabView):
         self.lbl_tariff_warning.setVisible(False)
         heading_layout.addWidget(self.lbl_tariff_warning)
 
-        # Spacer to position buttons at 1257px from left edge
-        heading_layout.addSpacing(1017)
+        # Spacer keeps actions aligned with the right edge of the form grid.
+        heading_layout.addSpacing(917)
 
         # Create a separate layout for action buttons to allow independent positioning
         button_layout = QHBoxLayout()
@@ -1556,30 +1556,21 @@ class NaimenovanjaView(BaseTabView):
         if not hasattr(self, "ui") or not hasattr(self, "section_heading"):
             return
 
-        group = self.ui.findChild(QGroupBox, "group_32_39")
-        if not group or not group.isVisible():
+        main_grid = self.ui.findChild(QFrame, "main_grid_frame")
+        if not main_grid or not main_grid.isVisible():
             return
 
-        # group x in coordinate system of 'self'
-        gx_in_self = group.mapTo(self, QPoint(0, 0)).x()
-
-        # convert to section_heading coordinates (safety; usually section_heading.x == 0)
-        heading_x_in_self = self.section_heading.mapTo(self, QPoint(0, 0)).x()
-        target_x = gx_in_self - heading_x_in_self
+        grid_right = main_grid.mapTo(
+            self.section_heading, QPoint(main_grid.width(), 0)
+        ).x()
 
         # vertical center within heading bar
         y = (self.section_heading.height() - self.btn_sacuvaj.height()) // 2
 
-        # small inner padding so it doesn't sit exactly on the border
-        pad = 10
-
-        save_x = target_x + pad
-        cancel_x = save_x + self.btn_sacuvaj.width() + 12
+        cancel_x = grid_right - self.btn_ponisti.width()
+        save_x = cancel_x - self.btn_sacuvaj.width() - 12
         self.btn_sacuvaj.move(save_x, y)
         self.btn_ponisti.move(cancel_x, y)
-
-        # Debug (da vidiš da se X mijenja realno)
-        # print(f"DEBUG: group_32_39.x(self)={gx_in_self}, heading.x(self)={heading_x_in_self}, target_x={target_x}")
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)

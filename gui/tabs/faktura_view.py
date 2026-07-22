@@ -406,9 +406,9 @@ class FakturaView(BaseTabView):
                 background-color: #1E4B6A;
             }
             QWidget#controlsContainer QWidget#massControlsPanel {
-                background-color: #DDEBE5;
-                border: 1px solid #91B2A2;
-                border-radius: 5px;
+                background-color: #E8F2ED;
+                border: 1px solid #7FA895;
+                border-radius: 6px;
             }
             QWidget#controlsContainer QWidget#massControlsPanel QLabel#massLabel {
                 color: #244B3C;
@@ -421,6 +421,7 @@ class FakturaView(BaseTabView):
                 border: 1px solid #8EAA9C;
                 border-radius: 4px;
                 padding: 3px 6px;
+                font-size: 13px;
                 font-weight: 700;
             }
             QWidget#controlsContainer QWidget#massControlsPanel QLineEdit#massInput:focus {
@@ -542,6 +543,7 @@ class FakturaView(BaseTabView):
             toolbar_layout = QHBoxLayout(toolbar_container)
             toolbar_layout.setContentsMargins(8, 8, 8, 8)
             toolbar_layout.setSpacing(6)
+            toolbar_layout.setAlignment(Qt.AlignVCenter)
             self._toolbar_layouts.append(toolbar_layout)
 
             # Border radius for toolbar
@@ -660,22 +662,23 @@ class FakturaView(BaseTabView):
 
             self.btn_export_pdf = self._create_button(
                 "PDF",
-                "Export u PDF — grupisanje po naimenovanjima",
+                "Izaberi vrstu PDF izvještaja",
                 object_name="btnPDF",
                 compact=True,
                 icon_name="fa5s.file-pdf",
             )
-            self.btn_export_pdf.clicked.connect(self._on_export_pdf)
-
-            # docs/sections/export-pdf-excel.md — dugme Pregled faktura
-            self.btn_pregled_faktura = self._create_button(
-                "Pregled",
-                "Pregled faktura — grupisanje po fakturi za carinika",
-                object_name="btnPregledFaktura",
-                compact=True,
-                icon_name="fa5s.eye",
+            self.pdf_export_menu = QMenu(self.btn_export_pdf)
+            self.action_export_naimenovanja_pdf = self.pdf_export_menu.addAction(
+                "Spisak naimenovanja"
             )
-            self.btn_pregled_faktura.clicked.connect(self._on_export_pregled_faktura)
+            self.action_export_naimenovanja_pdf.triggered.connect(self._on_export_pdf)
+            self.action_export_pregled_faktura = self.pdf_export_menu.addAction(
+                "Pregled po fakturama"
+            )
+            self.action_export_pregled_faktura.triggered.connect(
+                self._on_export_pregled_faktura
+            )
+            self.btn_export_pdf.setMenu(self.pdf_export_menu)
             layout.addWidget(self.btn_export_pdf)
 
             self.btn_create_naimenovanja = self._create_button(
@@ -704,6 +707,7 @@ class FakturaView(BaseTabView):
             self.input_bruto = QLineEdit()
             self.input_bruto.setObjectName("massInput")
             self.input_bruto.setFixedWidth(90)
+            self.input_bruto.setFixedHeight(26)
             self.input_bruto.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
             self.input_bruto.setToolTip("Ukupna bruto težina sa fakture (kg)")
             bruto_row.addWidget(self.input_bruto)
@@ -719,6 +723,7 @@ class FakturaView(BaseTabView):
             self.input_neto = QLineEdit()
             self.input_neto.setObjectName("massInput")
             self.input_neto.setFixedWidth(90)
+            self.input_neto.setFixedHeight(26)
             self.input_neto.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
             self.input_neto.setToolTip("Ukupna neto težina sa fakture (kg)")
             neto_row.addWidget(self.input_neto)
@@ -740,8 +745,8 @@ class FakturaView(BaseTabView):
             mass_controls_panel = QWidget()
             mass_controls_panel.setObjectName("massControlsPanel")
             mass_controls_layout = QHBoxLayout(mass_controls_panel)
-            mass_controls_layout.setContentsMargins(4, 3, 4, 3)
-            mass_controls_layout.setSpacing(4)
+            mass_controls_layout.setContentsMargins(2, 3, 2, 3)
+            mass_controls_layout.setSpacing(8)
             mass_controls_layout.addWidget(weights_widget)
             mass_controls_layout.addWidget(self.btn_validate)
             layout.addWidget(mass_controls_panel)
@@ -801,6 +806,7 @@ class FakturaView(BaseTabView):
             prefix = "" if compact or button.icon().isNull() else " "
             button.setText(prefix + standard_text)
             button.setIconSize(QSize(12, 12) if compact else QSize(16, 16))
+            button.setFixedHeight(32 if compact else 36)
 
         weight_font_size = 15 if compact else 14
         input_width = 62 if compact else 90
@@ -810,8 +816,8 @@ class FakturaView(BaseTabView):
             font.setPixelSize(weight_font_size)
             font.setWeight(QFont.Weight.Bold)
             label.setFont(font)
-            label.setStyleSheet("color: #111;")
-            label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            label.setStyleSheet("")
+            label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         if weight_labels:
             label_width = max(
                 QFontMetrics(label.font()).horizontalAdvance(label.text())
@@ -846,7 +852,7 @@ class FakturaView(BaseTabView):
                     font-size: {header_font_size}px;
                     padding: 8px 4px;
                     border: none;
-                    border-bottom: 2px solid #8FA6B7;
+                    border-bottom: 2px solid #7893A6;
                     {border_radius}
                 }}
                 QPushButton:disabled {{
@@ -907,6 +913,7 @@ class FakturaView(BaseTabView):
         table.setSelectionBehavior(QAbstractItemView.SelectRows)
         table.setSelectionMode(QAbstractItemView.ExtendedSelection)
         table.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
+        table.setMouseTracking(True)
         table.verticalHeader().setVisible(False)
 
         # Optimalna visina redova i font za čitljivost
@@ -916,9 +923,9 @@ class FakturaView(BaseTabView):
             QTableWidget {
                 font-size: 10pt;
                 background-color: #ffffff;
-                alternate-background-color: #f4f7f9;
-                gridline-color: #d5dde4;
-                border: 1px solid #b8c5cf;
+                alternate-background-color: #eef4f7;
+                gridline-color: #c9d5de;
+                border: 1px solid #aebfcb;
             }
             QTableWidget::item {
                 padding: 6px 4px;
@@ -929,13 +936,16 @@ class FakturaView(BaseTabView):
                 background-color: #2c668f;
                 color: white;
             }
+            QTableWidget::item:hover:!selected {
+                background-color: #dfeaf1;
+            }
             QHeaderView::section {
-                background-color: #d7e1e9;
-                color: #1f303c;
+                background-color: #c8d7e2;
+                color: #172b39;
                 padding: 8px 6px;
                 border: none;
-                border-right: 1px solid #b8c5cf;
-                border-bottom: 2px solid #7893a6;
+                border-right: 1px solid #aebfcb;
+                border-bottom: 2px solid #557d9a;
                 font-weight: bold;
                 font-size: 11pt;
             }
@@ -1005,6 +1015,14 @@ class FakturaView(BaseTabView):
                 color: #D7E8F5;
                 font-weight: 700;
             }
+            QWidget#statusBarContainer QLabel#secondaryMetric {
+                color: #91A7BD;
+                font-weight: 500;
+            }
+            QWidget#statusBarContainer QLabel#analysisSummary {
+                color: #75E098;
+                font-weight: 600;
+            }
             QWidget#statusBarContainer QLabel#statusSeparator {
                 color: #6684A1;
                 font-size: 15px;
@@ -1069,8 +1087,8 @@ class FakturaView(BaseTabView):
         self.lbl_neto          = _stat_lbl("◈  Neto: 0.00 kg", "weightMetric")
         self.lbl_validation    = _stat_lbl("⚪ Neprovjereno", "validationStatus")
         self.lbl_validation.setProperty("status", "")
-        self.lbl_assembly      = _stat_lbl("📋 Assembly: N/A")
-        self.lbl_analysis      = _stat_lbl("")
+        self.lbl_assembly      = _stat_lbl("📋 Assembly: N/A", "secondaryMetric")
+        self.lbl_analysis      = _stat_lbl("", "analysisSummary")
         self._sep_analysis     = _sep()
         self.lbl_analysis.setVisible(False)
         self._sep_analysis.setVisible(False)
@@ -1082,12 +1100,13 @@ class FakturaView(BaseTabView):
             self.lbl_bruto,
             self.lbl_neto, _sep(),
             self.lbl_validation,
-            self.lbl_assembly,       self._sep_analysis,
-            self.lbl_analysis,
+            self.lbl_assembly,
         ]:
             layout.addWidget(widget)
 
         layout.addStretch()
+        layout.addWidget(self._sep_analysis)
+        layout.addWidget(self.lbl_analysis)
 
         # Progress bar for imports (initially hidden)
         self.progress_bar = QProgressBar()

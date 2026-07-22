@@ -10,8 +10,9 @@ Centralized styles for Naimenovanja tab UI components
    ═══════════════════════════════════════════════════════════ */
 
 QWidget#navBar {
-    background: #f8f9fa;
-    border-bottom: 2px solid #dee2e6;
+    background: #eef3f7;
+    border-top: 1px solid #d6e0e8;
+    border-bottom: 2px solid #9fb2c1;
 }
 
 /* Globalni QPushButton min-height (QSS_header_toolbar_sistem.qss) nadjacava
@@ -20,7 +21,10 @@ QWidget#navBar {
    ispod. Ovo pravilo (ID selektor) ima vecu specificnost od globalnog. */
 QWidget#navBar QPushButton {
     min-height: 16px;
-    padding: 4px 12px;
+    padding: 4px 14px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 600;
 }
 
 /* Navigation labels (bold, dark text) */
@@ -40,11 +44,15 @@ QLabel.nav-counter {
 
 /* Dropdown selector in navigation */
 QComboBox[class="nav-combo"] {
-    padding: 3px 8px;
-    border: 1px solid #ced4da;
+    padding: 5px 10px;
+    border: 1px solid #9fb2c1;
     border-radius: 4px;
     background: white;
-    font-size: 12px;
+    font-size: 13px;
+}
+
+QComboBox[class="nav-combo"]:focus {
+    border: 2px solid #3f7898;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -54,6 +62,12 @@ QComboBox[class="nav-combo"] {
 QWidget#sectionHeading {
     background: #2c3e50;
     color: white;
+}
+
+QWidget#sectionHeading QPushButton {
+    min-height: 16px;
+    padding: 3px 12px;
+    border-radius: 4px;
 }
 
 /* Section heading label ("📋 Naimenovanje #X") */

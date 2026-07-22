@@ -73,6 +73,24 @@ class PDFInvoiceExporter:
                 print(f"✅ Liberation Sans fontovi registrovani: {font_dir}")
                 return
 
+            windows_fonts = Path("C:/Windows/Fonts")
+            arial_files = {
+                'regular': windows_fonts / 'arial.ttf',
+                'bold': windows_fonts / 'arialbd.ttf',
+                'italic': windows_fonts / 'ariali.ttf',
+                'bold_italic': windows_fonts / 'arialbi.ttf',
+            }
+            if all(path.exists() for path in arial_files.values()):
+                pdfmetrics.registerFont(TTFont('DPArial', str(arial_files['regular'])))
+                pdfmetrics.registerFont(TTFont('DPArial-Bold', str(arial_files['bold'])))
+                pdfmetrics.registerFont(TTFont('DPArial-Italic', str(arial_files['italic'])))
+                pdfmetrics.registerFont(TTFont('DPArial-BoldItalic', str(arial_files['bold_italic'])))
+                self.font_regular = 'DPArial'
+                self.font_bold = 'DPArial-Bold'
+                self.font_italic = 'DPArial-Italic'
+                self.font_bold_italic = 'DPArial-BoldItalic'
+                return
+
             print("⚠️ Liberation Sans nije pronađen, koristim ReportLab default fontove")
         except Exception as e:
             print(f"⚠️ Greška pri registrovanju fontova: {e}")
@@ -195,8 +213,7 @@ class PDFInvoiceExporter:
 
         for line in invoice_lines:
             ordinal = line.assigned_naimenovanje_ordinal
-            if ordinal > 0:  # Samo stavke koje su assigned naimenovanju
-                grouped[ordinal].append(line)
+            grouped[ordinal if ordinal > 0 else 0].append(line)
 
         return grouped
 
@@ -243,8 +260,9 @@ class PDFInvoiceExporter:
             country = lines[0].zemlja_porijekla if lines else "N/A"
             preference = lines[0].povlastica if lines else "N/A"
 
+        group_name = f"NAIMENOVANJE {ordinal}" if ordinal > 0 else "STAVKE BEZ NAIMENOVANJA"
         header_text = (
-            f"<b>NAIMENOVANJE {ordinal}</b> | "
+            f"<b>{group_name}</b> | "
             f"Tarifni broj: {tariff} | "
             f"Zemlja porijekla: {country} | "
             f"Povlastica: {preference} | "

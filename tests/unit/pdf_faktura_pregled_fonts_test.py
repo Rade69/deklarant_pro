@@ -3,6 +3,7 @@ import pytest
 pytest.importorskip("reportlab")
 
 from exporters import pdf_faktura_pregled as exporter_mod
+from core.draft import DeclarationDraft, InvoiceLine, NaimenovanjeDraft
 
 
 def test_register_fonts_uses_discovered_directory(monkeypatch):
@@ -18,7 +19,7 @@ def test_register_fonts_uses_discovered_directory(monkeypatch):
     monkeypatch.setattr(exporter_mod.Path, "home", lambda: exporter_mod.Path("/home/test"))
 
     def fake_exists(path_obj):
-        path_str = str(path_obj)
+        path_str = str(path_obj).replace("\\", "/")
         return path_str.startswith(target_prefix) and any(
             path_str.endswith(suffix) for suffix in font_suffixes
         )
@@ -35,7 +36,7 @@ def test_register_fonts_uses_discovered_directory(monkeypatch):
     assert exporter.styles["PregledSubTitle"].fontName == "LibSans"
     assert exporter.styles["PregledTableCell"].fontName == "LibSans"
     assert len(registered) == 4
-    assert all(path.startswith(target_prefix) for _, path in registered)
+    assert all(path.replace("\\", "/").startswith(target_prefix) for _, path in registered)
 
 
 def test_register_fonts_fallback_to_reportlab_defaults(monkeypatch):
@@ -49,6 +50,23 @@ def test_register_fonts_fallback_to_reportlab_defaults(monkeypatch):
     assert exporter.font_bold == "Helvetica-Bold"
     assert exporter.styles["PregledTitle"].fontName == "Helvetica-Bold"
     assert exporter.styles["PregledSubTitle"].fontName == "Helvetica"
+
+
+def test_register_fonts_uses_windows_arial(monkeypatch):
+    monkeypatch.setattr(
+        exporter_mod.Path,
+        "exists",
+        lambda path: str(path).lower().startswith("c:\\windows\\fonts\\arial"),
+        raising=False,
+    )
+    monkeypatch.setattr(exporter_mod, "TTFont", lambda name, path: (name, path))
+    monkeypatch.setattr(exporter_mod.pdfmetrics, "registerFont", lambda _font: None)
+
+    exporter = exporter_mod.PDFFakturaPregled()
+
+    assert exporter.font_regular == "DPArial"
+    assert exporter.font_bold == "DPArial-Bold"
+    assert exporter.styles["PregledSubTitle"].fontName == "DPArial"
 
 
 def test_register_fonts_exception_keeps_defaults(monkeypatch):
@@ -68,3 +86,43 @@ def test_register_fonts_exception_keeps_defaults(monkeypatch):
     assert exporter.font_italic == "Helvetica-Oblique"
     assert exporter.styles["PregledFakturaHeader"].fontName == "Helvetica-Bold"
     assert exporter.styles["PregledSubTitle"].fontName == "Helvetica"
+
+
+def test_export_uses_real_declaration_code_fields(tmp_path):
+    draft = DeclarationDraft(
+        deklaracija_tip="IM",
+        deklaracija_oznaka="H",
+        deklaracija_a="A",
+        ref_br="1476/26",
+    )
+    draft.invoice_lines = [
+        InvoiceLine(
+            line_no=1,
+            invoice_number="1476/26",
+            naziv_robe="ŠEĆER, ČAJ, ŽITO I ĐEVREK",
+            tarifni_broj="21069098",
+            jm="KOM",
+            kolicina=10,
+            iznos=25.5,
+            bruto_kg=2.1,
+            neto_kg=1.9,
+            assigned_naimenovanje_ordinal=1,
+        )
+    ]
+    draft.items = [
+        NaimenovanjeDraft(
+            item_id="test-1",
+            ordinal_no=1,
+            tariff_code="21069098",
+        )
+    ]
+    output_path = tmp_path / "pregled_faktura.pdf"
+
+    assert exporter_mod.export_faktura_pregled(draft, str(output_path)) is True
+    assert output_path.read_bytes().startswith(b"%PDF")
+
+    pdfplumber = pytest.importorskip("pdfplumber")
+    with pdfplumber.open(output_path) as pdf:
+        text = "\n".join(page.extract_text() or "" for page in pdf.pages)
+
+    assert "ŠEĆER, ČAJ, ŽITO I ĐEVREK" in text

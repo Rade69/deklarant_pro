@@ -865,3 +865,43 @@ uvoza": (1) `FakturaView._on_import_finished` (obični GUI import, pojedinačni/
 "Puna automatizacija" grane unutra). Provjeriti sva tri prije zaključka da je "auto nakon
 uvoza" fix kompletan. Testovi: `tests/unit/test_agent_controller_provjeri_nakon_uvoza.py`
 (2 nova — "Uvezi u deklaraciju" dobija poziv, "Puna automatizacija" ne duplira).
+
+## 32. PDF pregled po fakturama — stvarna polja šifre deklaracije (2026-07-21, Codex)
+
+`PDFFakturaPregled.export()` je čitao nepostojeći `draft.sifra_deklaracije`, pa je svaki
+izvoz pregleda po fakturama završavao generičkom greškom prije gradnje PDF-a. Šifra u
+naslovu sada se sastavlja iz kanonskih polja `deklaracija_tip`, `deklaracija_oznaka` i
+`deklaracija_a`. Regresioni test mora napraviti stvarni `%PDF` fajl, ne samo mockovati
+ReportLab poziv.
+
+## 33. PDF spisak naimenovanja — ne odbacivati stavke bez veze (2026-07-21, Codex)
+
+`PDFInvoiceExporter._group_by_naimenovanje()` je ranije tiho odbacivao svaku faktura
+stavku čiji je `assigned_naimenovanje_ordinal` bio 0. Ako su `draft.items` postojali,
+GUI je prijavljivao uspješan izvoz, ali je PDF sadržao samo naslov i datum. Exporter sada
+uvijek uključuje takve redove u grupu `STAVKE BEZ NAIMENOVANJA`; ne pokušava sam ponovo
+grupisati stavke niti mijenja draft. Regresioni test mora provjeriti tekst stvarno
+generisanog PDF-a, a ne samo `%PDF` zaglavlje.
+
+## 34. PDF dijakritici na Windowsu (2026-07-22, Codex)
+
+Oba Faktura PDF exportera prvo traže Liberation Sans, ali taj font standardno nije
+prisutan u `C:/Windows/Fonts`; prethodni fallback na ReportLab Helvetica kvario je
+`š, ž, č, ć, đ`. Na Windowsu se sada, nakon Liberation Sans pokušaja, registruju četiri
+Arial TTF varijante iz sistemskog font direktorija. Test mora iz stvarno generisanog
+PDF-a izvući i uporediti tekst `ŠEĆER, ČAJ, ŽITO I ĐEVREK`.
+
+## 35. Faktura toolbar/statusni bar/Naimenovanja stilski redizajn (2026-07-22, Codex)
+
+Codex grana `codex/faktura-toolbar-razmaci` (spojena u `windows` ovog dana) sadrži niz
+kozmetičkih QSS/layout izmjena, svaka eksplicitno dokumentovana kao "nisu mijenjani
+signali/validacija/poslovna logika": Faktura statusni bar (razdvajanje lijeve/desne zone),
+Bruto/Neto/Provjeri blok (spacing/visina), čitljivost glavne tabele, i višestruke iteracije
+poravnanja dugmadi "Sačuvaj nacrt"/"Poništi" u naslovnoj traci Naimenovanja (14 uzastopnih
+commit-a, probaj-pa-vrati stil). Pojedinačni izvještaji: `agent_reports/
+2026-07-22_faktura-statusni-bar-redizajn.md`, `2026-07-22_faktura-blok-masa.md`,
+`2026-07-22_faktura-tabela-citljivost.md`, i ostatak `2026-07-22_*-naimenovanja.md`/
+`*-akcija*.md` serije. Merge je bio čist (bez konflikta u `gui/tabs/faktura_view.py`) —
+Codexove izmjene su u toolbar/QSS konstrukciji, moje (isti dan) u funkciji
+`_run_historical_tariff_validation`/`_update_status_bar`/`_build_analysis_summary_from_draft`
+tijelima, bez preklapanja linija.

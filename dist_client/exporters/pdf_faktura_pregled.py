@@ -91,6 +91,24 @@ class PDFFakturaPregled:
                 print(f"✅ Liberation Sans fontovi registrovani: {font_dir}")
                 return
 
+            windows_fonts = Path("C:/Windows/Fonts")
+            arial_files = {
+                'regular': windows_fonts / 'arial.ttf',
+                'bold': windows_fonts / 'arialbd.ttf',
+                'italic': windows_fonts / 'ariali.ttf',
+                'bold_italic': windows_fonts / 'arialbi.ttf',
+            }
+            if all(path.exists() for path in arial_files.values()):
+                pdfmetrics.registerFont(TTFont('DPArial', str(arial_files['regular'])))
+                pdfmetrics.registerFont(TTFont('DPArial-Bold', str(arial_files['bold'])))
+                pdfmetrics.registerFont(TTFont('DPArial-Italic', str(arial_files['italic'])))
+                pdfmetrics.registerFont(TTFont('DPArial-BoldItalic', str(arial_files['bold_italic'])))
+                self.font_regular = 'DPArial'
+                self.font_bold = 'DPArial-Bold'
+                self.font_italic = 'DPArial-Italic'
+                self.font_bold_italic = 'DPArial-BoldItalic'
+                return
+
             print("⚠️ Liberation Sans nije pronađen, koristim ReportLab default fontove")
         except Exception as e:
             print(f"⚠️ Greška pri registrovanju fontova: {e}")
