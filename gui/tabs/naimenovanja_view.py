@@ -1502,10 +1502,10 @@ class NaimenovanjaView(BaseTabView):
         self.section_heading.setObjectName(
             "sectionHeading"
         )  # CSS in naimenovanja_components.qss
-        self.section_heading.setFixedHeight(30)
+        self.section_heading.setFixedHeight(38)
 
         heading_layout = QHBoxLayout(self.section_heading)
-        heading_layout.setContentsMargins(20, 2, 20, 2)
+        heading_layout.setContentsMargins(20, 4, 20, 4)
         heading_layout.setSpacing(8)
 
         # Left: Heading label
