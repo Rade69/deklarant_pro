@@ -1523,7 +1523,7 @@ class NaimenovanjaView(BaseTabView):
         heading_layout.addWidget(self.lbl_tariff_warning)
 
         # Spacer keeps actions aligned with the right edge of the form grid.
-        heading_layout.addSpacing(863)
+        heading_layout.addSpacing(917)
 
         # Create a separate layout for action buttons to allow independent positioning
         button_layout = QHBoxLayout()
