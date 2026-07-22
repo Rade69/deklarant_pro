@@ -1522,8 +1522,8 @@ class NaimenovanjaView(BaseTabView):
         self.lbl_tariff_warning.setVisible(False)
         heading_layout.addWidget(self.lbl_tariff_warning)
 
-        # Spacer to position buttons at 1257px from left edge
-        heading_layout.addSpacing(1017)
+        # Spacer keeps actions aligned with the right edge of the form grid.
+        heading_layout.addSpacing(863)
 
         # Create a separate layout for action buttons to allow independent positioning
         button_layout = QHBoxLayout()
