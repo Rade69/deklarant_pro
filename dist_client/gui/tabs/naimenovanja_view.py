@@ -777,19 +777,23 @@ class NaimenovanjaView(BaseTabView):
         self.combo_vrsta_pakovanja.setStyleSheet(
             """
             QComboBox#le_r31_vrsta {
-                border: 2px solid #28a745;
-                border-radius: 6px;
+                border: 1px solid #7d9caf;
+                border-radius: 4px;
                 padding: 2px 18px 2px 6px;
                 background-color: #ffffff;
                 font-size: 13px;
                 font-weight: 500;
-                color: #333333;
+                color: #18354a;
+            }
+            QComboBox#le_r31_vrsta:focus {
+                border: 2px solid #3f7898;
+                background-color: #ffffff;
             }
             QComboBox#le_r31_vrsta::drop-down {
                 subcontrol-origin: padding;
                 subcontrol-position: top right;
                 width: 18px;
-                border-left: 1px solid #28a745;
+                border-left: 1px solid #7d9caf;
                 background: #ffffff;
             }
             QComboBox#le_r31_vrsta::down-arrow {
@@ -2075,9 +2079,13 @@ class NaimenovanjaView(BaseTabView):
             te_opis.setStyleSheet(
                 """
                 QLineEdit#te_r31_opis {
-                    background-color: #e8f5e8;
-                    border: 2px solid #4caf50;
-                    color: #2e7d32;
+                    background-color: #eef6f0;
+                    border: 1px solid #7f9f89;
+                    color: #245f45;
+                }
+                QLineEdit#te_r31_opis:focus {
+                    background-color: #ffffff;
+                    border: 2px solid #3f7898;
                 }
             """
             )
@@ -2090,9 +2098,13 @@ class NaimenovanjaView(BaseTabView):
             te_opis_2.setStyleSheet(
                 """
                 QLineEdit#te_r31_opis_2 {
-                    background-color: #e3f2fd;
-                    border: 2px solid #2196f3;
-                    color: #1565c0;
+                    background-color: #f2f7fa;
+                    border: 1px solid #8fa9ba;
+                    color: #29485f;
+                }
+                QLineEdit#te_r31_opis_2:focus {
+                    background-color: #ffffff;
+                    border: 2px solid #3f7898;
                 }
             """
             )

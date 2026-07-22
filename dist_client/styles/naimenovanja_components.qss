@@ -452,8 +452,8 @@ QWidget#naimenovanjaUiWidget QTextEdit {
 
 /* Rb.31 Vrsta pakovanja dropdown */
 QComboBox#le_r31_vrsta {
-    border: 2px solid #28a745;
-    border-radius: 6px;
+    border: 1px solid #7d9caf;
+    border-radius: 4px;
     padding: 2px 18px 2px 6px;
     background-color: #ffffff;
     font-size: 13px;
@@ -462,12 +462,12 @@ QComboBox#le_r31_vrsta {
 }
 
 QComboBox#le_r31_vrsta:hover {
-    border: 2px solid #4a90e2;
+    border: 1px solid #5f849b;
 }
 
 QComboBox#le_r31_vrsta:focus {
-    border: 2px solid #4a90e2;
-    background-color: #f8faff;
+    border: 2px solid #3f7898;
+    background-color: #ffffff;
 }
 
 QComboBox#le_r31_vrsta:editable {
@@ -478,9 +478,9 @@ QComboBox#le_r31_vrsta::drop-down {
     subcontrol-origin: padding;
     subcontrol-position: top right;
     width: 18px;
-    border-left: 1px solid #28a745;
-    border-top-right-radius: 6px;
-    border-bottom-right-radius: 6px;
+    border-left: 1px solid #7d9caf;
+    border-top-right-radius: 4px;
+    border-bottom-right-radius: 4px;
     background: #ffffff;
 }
 
@@ -522,23 +522,23 @@ QComboBox#le_r31_vrsta QAbstractItemView::item:hover {
 
 /* Navigation dropdown - uses dynamic property class="nav-combo" */
 QComboBox[class="nav-combo"] {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
-    padding: 2px 8px;
-    border: 2px solid #4A7FA5;
+    padding: 5px 10px;
+    border: 1px solid #8fa7b8;
     border-radius: 5px;
     background: white;
-    color: #1a1a2e;
+    color: #18354a;
 }
 
 QComboBox[class="nav-combo"]:focus {
-    border-color: #2563eb;
-    background: #f0f7ff;
+    border: 2px solid #3f7898;
+    background: #ffffff;
 }
 
 QComboBox[class="nav-combo"]::drop-down {
     width: 22px;
-    border-left: 1px solid #4A7FA5;
+    border-left: 1px solid #8fa7b8;
 }
 
 /* CSS triangle arrow for nav-combo */
