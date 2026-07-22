@@ -19,7 +19,7 @@ def test_register_fonts_uses_discovered_directory(monkeypatch):
     monkeypatch.setattr(exporter_mod.Path, "home", lambda: exporter_mod.Path("/home/test"))
 
     def fake_exists(path_obj):
-        path_str = str(path_obj)
+        path_str = str(path_obj).replace("\\", "/")
         return path_str.startswith(target_prefix) and any(
             path_str.endswith(suffix) for suffix in font_suffixes
         )
@@ -35,7 +35,7 @@ def test_register_fonts_uses_discovered_directory(monkeypatch):
     assert exporter.styles["CustomHeading"].fontName == "LibSans-Bold"
     assert exporter.styles["TableCell"].fontName == "LibSans"
     assert len(registered) == 4
-    assert all(path.startswith(target_prefix) for _, path in registered)
+    assert all(path.replace("\\", "/").startswith(target_prefix) for _, path in registered)
 
 
 def test_register_fonts_fallback_to_reportlab_defaults(monkeypatch):
@@ -49,6 +49,23 @@ def test_register_fonts_fallback_to_reportlab_defaults(monkeypatch):
     assert exporter.font_bold == "Helvetica-Bold"
     assert exporter.styles["CustomHeading"].fontName == "Helvetica-Bold"
     assert exporter.styles["TableCell"].fontName == "Helvetica"
+
+
+def test_register_fonts_uses_windows_arial(monkeypatch):
+    monkeypatch.setattr(
+        exporter_mod.Path,
+        "exists",
+        lambda path: str(path).lower().startswith("c:\\windows\\fonts\\arial"),
+        raising=False,
+    )
+    monkeypatch.setattr(exporter_mod, "TTFont", lambda name, path: (name, path))
+    monkeypatch.setattr(exporter_mod.pdfmetrics, "registerFont", lambda _font: None)
+
+    exporter = exporter_mod.PDFInvoiceExporter()
+
+    assert exporter.font_regular == "DPArial"
+    assert exporter.font_bold == "DPArial-Bold"
+    assert exporter.styles["TableCell"].fontName == "DPArial"
 
 
 def test_register_fonts_exception_keeps_defaults(monkeypatch):
@@ -75,7 +92,7 @@ def test_export_includes_lines_without_assigned_ordinal(tmp_path):
         InvoiceLine(
             line_no=1,
             invoice_number="1476/26",
-            naziv_robe="TEST ROBA",
+            naziv_robe="ŠEĆER, ČAJ, ŽITO I ĐEVREK",
             tarifni_broj="21069098",
             zemlja_porijekla="AT",
             povlastica="EUPR",
@@ -99,4 +116,4 @@ def test_export_includes_lines_without_assigned_ordinal(tmp_path):
         text = "\n".join(page.extract_text() or "" for page in pdf.pages)
 
     assert "STAVKE BEZ NAIMENOVANJA" in text
-    assert "TEST ROBA" in text
+    assert "ŠEĆER, ČAJ, ŽITO I ĐEVREK" in text
