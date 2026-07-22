@@ -417,14 +417,7 @@ class ZaglavljeView(BaseTabView):
             btn.setFixedHeight(30)
         if _QTA:
             try:
-                icon_colors = {
-                    "fa5s.plus-square": "#0D47A1",
-                    "fa5s.file-import": "#4A235A",
-                    "fa5s.check-circle": "#0B3D16",
-                    "fa5s.trash-alt": "#7F1D1D",
-                    "fa5s.file-export": "#004D40",
-                }
-                btn.setIcon(qta.icon(icon_name, color=icon_colors.get(icon_name, "#1E3A5F")))
+                btn.setIcon(qta.icon(icon_name, color="#FFFFFF"))
                 btn.setIconSize(QSize(20, 20))
             except Exception:
                 pass
@@ -2018,125 +2011,76 @@ class ZaglavljeView(BaseTabView):
             /* TOOLBAR */
             QFrame#toolbar {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #e8f2e8, stop:1 #c8dcc8);
-                border-bottom: 2px solid #7aa080;
+                    stop:0 #f4f7fa, stop:1 #e7eef4);
+                border-top: 1px solid #c8d5df;
+                border-bottom: 2px solid #7892a5;
             }
 
             /* BUTTONS */
             QPushButton#btnNovi {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #bbdefb, stop:1 #64b5f6);
-                border: 1px solid #2196f3;
-                border-bottom: 3px solid #1565c0;
-                border-radius: 3px;
+                background-color: #2f6f9f;
+                border: 1px solid #285f88;
+                border-radius: 5px;
                 padding: 0px 14px;
-                color: black; font-weight: 600; font-size: 12px;
+                color: white; font-weight: 600; font-size: 13px;
             }
             QPushButton#btnNovi:hover {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #d6ecff, stop:1 #7fc4ff);
-                border: 1px solid #1976d2;
-                border-bottom: 3px solid #0d47a1;
+                background-color: #3d82b7;
             }
             QPushButton#btnNovi:pressed {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #42a5f5, stop:1 #1e88e5);
-                border: 1px solid #1565c0;
-                border-top: 3px solid #0d47a1;
-                border-bottom: 1px solid #1565c0;
-                color: white;
+                background-color: #245779;
             }
             QPushButton#btnUveziXML {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #e1bee7, stop:1 #ce93d8);
-                border: 1px solid #9c27b0;
-                border-bottom: 3px solid #6a1b9a;
-                border-radius: 3px;
+                background-color: #6a55a3;
+                border: 1px solid #59468c;
+                border-radius: 5px;
                 padding: 0px 14px;
-                color: black; font-weight: 600; font-size: 12px;
+                color: white; font-weight: 600; font-size: 13px;
             }
             QPushButton#btnUveziXML:hover {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #f0d4f5, stop:1 #dc9fe6);
-                border: 1px solid #8e24aa;
-                border-bottom: 3px solid #4a148c;
+                background-color: #7b65b5;
             }
             QPushButton#btnUveziXML:pressed {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #ab47bc, stop:1 #8e24aa);
-                border: 1px solid #6a1b9a;
-                border-top: 3px solid #4a148c;
-                border-bottom: 1px solid #6a1b9a;
-                color: white;
+                background-color: #493875;
             }
             QPushButton#btnSnimi {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #5cb85c, stop:1 #449d44);
-                border: 1px solid #398439;
-                border-bottom: 3px solid #1b5e20;
-                border-radius: 3px;
+                background-color: #2f7d5a;
+                border: 1px solid #28694c;
+                border-radius: 5px;
                 padding: 0px 14px;
-                color: black; font-weight: bold; font-size: 12px;
+                color: white; font-weight: 700; font-size: 13px;
             }
             QPushButton#btnSnimi:hover {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #70c970, stop:1 #55ad55);
-                border: 1px solid #2e7d32;
-                border-bottom: 3px solid #0b3d16;
+                background-color: #3c936c;
             }
             QPushButton#btnSnimi:pressed {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #388e3c, stop:1 #2e7d32);
-                border: 1px solid #1b5e20;
-                border-top: 3px solid #0b3d16;
-                border-bottom: 1px solid #1b5e20;
-                color: white;
+                background-color: #245f45;
             }
             QPushButton#btnBrisi {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #ffcdd2, stop:1 #ef9a9a);
-                border: 1px solid #f44336;
-                border-bottom: 3px solid #b71c1c;
-                border-radius: 3px;
+                background-color: #a6403d;
+                border: 1px solid #8e3432;
+                border-radius: 5px;
                 padding: 0px 14px;
-                color: black; font-weight: 600; font-size: 12px;
+                color: white; font-weight: 600; font-size: 13px;
             }
             QPushButton#btnBrisi:hover {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #ffd9dd, stop:1 #f5a8a8);
-                border: 1px solid #d32f2f;
-                border-bottom: 3px solid #7f1d1d;
+                background-color: #b9514d;
             }
             QPushButton#btnBrisi:pressed {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #e57373, stop:1 #d32f2f);
-                border: 1px solid #b71c1c;
-                border-top: 3px solid #7f1d1d;
-                border-bottom: 1px solid #b71c1c;
-                color: white;
+                background-color: #85322f;
             }
             QPushButton#btnIzveziXML {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #b2dfdb, stop:1 #80cbc4);
-                border: 1px solid #009688;
-                border-bottom: 3px solid #00695c;
-                border-radius: 3px;
+                background-color: #2f6f6a;
+                border: 1px solid #285f5b;
+                border-radius: 5px;
                 padding: 0px 14px;
-                color: black; font-weight: 600; font-size: 12px;
+                color: white; font-weight: 600; font-size: 13px;
             }
             QPushButton#btnIzveziXML:hover {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #c6ece8, stop:1 #91d8d1);
-                border: 1px solid #00897b;
-                border-bottom: 3px solid #004d40;
+                background-color: #3d8780;
             }
             QPushButton#btnIzveziXML:pressed {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #4db6ac, stop:1 #00897b);
-                border: 1px solid #00695c;
-                border-top: 3px solid #004d40;
-                border-bottom: 1px solid #00695c;
-                color: white;
+                background-color: #245753;
             }
             QPushButton#btnIzlaz {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
