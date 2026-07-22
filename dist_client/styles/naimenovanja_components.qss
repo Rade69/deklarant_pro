@@ -10,9 +10,18 @@ Centralized styles for Naimenovanja tab UI components
    ═══════════════════════════════════════════════════════════ */
 
 QWidget#navBar {
-    background: #eef3f7;
-    border-top: 1px solid #d6e0e8;
-    border-bottom: 2px solid #9fb2c1;
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 #f4f7fa, stop:1 #e7eef4);
+    border-top: 1px solid #c8d5df;
+    border-bottom: 2px solid #7892a5;
+}
+
+QWidget#navBar QFrame {
+    background-color: #a9bbc8;
+    border: none;
+    margin-top: 3px;
+    margin-bottom: 3px;
+    max-width: 1px;
 }
 
 /* Globalni QPushButton min-height (QSS_header_toolbar_sistem.qss) nadjacava
@@ -21,33 +30,38 @@ QWidget#navBar {
    ispod. Ovo pravilo (ID selektor) ima vecu specificnost od globalnog. */
 QWidget#navBar QPushButton {
     min-height: 16px;
-    padding: 4px 14px;
-    border-radius: 4px;
+    padding: 4px 13px;
+    border-radius: 5px;
     font-size: 13px;
     font-weight: 600;
 }
 
 /* Navigation labels (bold, dark text) */
 QLabel.nav-label {
-    font-weight: 600;
-    color: #212529;
+    font-weight: 700;
+    color: #29485f;
     font-size: 12px;
 }
 
 /* Navigation counter (lighter, gray) */
 QLabel.nav-counter {
-    color: #1a1a2e;
+    color: #29485f;
+    background-color: #ffffff;
+    border: 1px solid #b9c8d3;
+    border-radius: 8px;
     font-size: 12px;
     font-weight: 700;
-    margin-left: 4px;
+    padding: 3px 9px;
+    margin-left: 2px;
 }
 
 /* Dropdown selector in navigation */
 QComboBox[class="nav-combo"] {
     padding: 5px 10px;
-    border: 1px solid #9fb2c1;
-    border-radius: 4px;
+    border: 1px solid #8fa7b8;
+    border-radius: 5px;
     background: white;
+    color: #18354a;
     font-size: 13px;
 }
 QWidget#navBar QPushButton#btnPrethodno,
@@ -57,19 +71,25 @@ QWidget#navBar QPushButton#btnUveziXMLNaim,
 QWidget#navBar QPushButton#btnInspekcije {
     background-color: #52697a;
     color: #ffffff;
-    border: none;
+    border: 1px solid #465c6c;
 }
 
 QWidget#navBar QPushButton#btnObrisi {
     background-color: #a6403d;
     color: #ffffff;
-    border: none;
+    border: 1px solid #8e3432;
 }
 
 QWidget#navBar QPushButton#btnAutoPopuni {
     background-color: #6a55a3;
     color: #ffffff;
-    border: none;
+    border: 1px solid #59468c;
+}
+
+QWidget#navBar QPushButton:disabled {
+    background-color: #c4cdd4;
+    color: #f7f9fa;
+    border-color: #b4c0c8;
 }
 
 QWidget#navBar QPushButton#btnPrethodno:hover,
