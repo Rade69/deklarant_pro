@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QAbstractItemView
 
 from gui.tabs.faktura_view import FakturaView
 
@@ -18,4 +18,21 @@ def test_status_bar_odvaja_sazetak_i_umanjuje_assembly():
     assert view.lbl_analysis.objectName() == "analysisSummary"
     assert layout.indexOf(view.lbl_analysis) > layout.indexOf(view.lbl_assembly)
     assert layout.itemAt(layout.indexOf(view.lbl_analysis) - 2).spacerItem() is not None
+    assert app is not None
+
+
+def test_faktura_tabela_ima_jasnu_hijerarhiju_redova():
+    app = QApplication.instance() or QApplication([])
+    view = MagicMock()
+
+    table = FakturaView._create_table(view)
+    style = table.styleSheet().lower()
+
+    assert table.alternatingRowColors() is True
+    assert table.hasMouseTracking() is True
+    assert table.selectionBehavior() == QAbstractItemView.SelectRows
+    assert "alternate-background-color: #eef4f7" in style
+    assert "qtablewidget::item:hover:!selected" in style
+    assert "background-color: #2c668f" in style
+    assert "border-bottom: 2px solid #557d9a" in style
     assert app is not None

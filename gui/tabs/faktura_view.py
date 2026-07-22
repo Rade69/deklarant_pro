@@ -910,6 +910,7 @@ class FakturaView(BaseTabView):
         table.setSelectionBehavior(QAbstractItemView.SelectRows)
         table.setSelectionMode(QAbstractItemView.ExtendedSelection)
         table.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
+        table.setMouseTracking(True)
         table.verticalHeader().setVisible(False)
 
         # Optimalna visina redova i font za čitljivost
@@ -919,9 +920,9 @@ class FakturaView(BaseTabView):
             QTableWidget {
                 font-size: 10pt;
                 background-color: #ffffff;
-                alternate-background-color: #f4f7f9;
-                gridline-color: #d5dde4;
-                border: 1px solid #b8c5cf;
+                alternate-background-color: #eef4f7;
+                gridline-color: #c9d5de;
+                border: 1px solid #aebfcb;
             }
             QTableWidget::item {
                 padding: 6px 4px;
@@ -932,13 +933,16 @@ class FakturaView(BaseTabView):
                 background-color: #2c668f;
                 color: white;
             }
+            QTableWidget::item:hover:!selected {
+                background-color: #dfeaf1;
+            }
             QHeaderView::section {
-                background-color: #d7e1e9;
-                color: #1f303c;
+                background-color: #c8d7e2;
+                color: #172b39;
                 padding: 8px 6px;
                 border: none;
-                border-right: 1px solid #b8c5cf;
-                border-bottom: 2px solid #7893a6;
+                border-right: 1px solid #aebfcb;
+                border-bottom: 2px solid #557d9a;
                 font-weight: bold;
                 font-size: 11pt;
             }

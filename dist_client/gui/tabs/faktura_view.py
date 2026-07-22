@@ -890,12 +890,11 @@ class FakturaView(BaseTabView):
         header.setStretchLastSection(False)
 
         # Table settings
-        table.setAlternatingRowColors(
-            False
-        )  # Isključeno - koristimo validacione boje umjesto
+        table.setAlternatingRowColors(True)
         table.setSelectionBehavior(QAbstractItemView.SelectRows)
         table.setSelectionMode(QAbstractItemView.ExtendedSelection)
         table.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
+        table.setMouseTracking(True)
         table.verticalHeader().setVisible(False)
 
         # Optimalna visina redova i font za čitljivost
@@ -905,9 +904,9 @@ class FakturaView(BaseTabView):
             QTableWidget {
                 font-size: 10pt;
                 background-color: #ffffff;
-                alternate-background-color: #f7f9fb;
-                gridline-color: #dfe5ea;
-                border: 1px solid #c9d2dc;
+                alternate-background-color: #eef4f7;
+                gridline-color: #c9d5de;
+                border: 1px solid #aebfcb;
             }
             QTableWidget::item {
                 padding: 6px 4px;
@@ -915,16 +914,19 @@ class FakturaView(BaseTabView):
                 color: #17212b;
             }
             QTableWidget::item:selected {
-                background-color: #2f6f9f;
+                background-color: #2c668f;
                 color: white;
             }
+            QTableWidget::item:hover:!selected {
+                background-color: #dfeaf1;
+            }
             QHeaderView::section {
-                background-color: #e9eef3;
-                color: #26343f;
+                background-color: #c8d7e2;
+                color: #172b39;
                 padding: 8px 6px;
                 border: none;
-                border-right: 1px solid #d2dae2;
-                border-bottom: 1px solid #b8c4cf;
+                border-right: 1px solid #aebfcb;
+                border-bottom: 2px solid #557d9a;
                 font-weight: bold;
                 font-size: 11pt;
             }
