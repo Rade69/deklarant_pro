@@ -1027,3 +1027,63 @@ je lažno-pozitivna ako se fajl nikad ne kolektuje u punom sweep-u.
 Testovi (novi, uz postojećih 9 font testova): `test_export_shows_naimenovanje_subtotal`,
 `test_export_shows_page_number` (oba fajla) — svi generišu stvaran PDF i provjeravaju sadržaj
 preko pdfplumber-a (isti obrazac kao Codexovi raniji regresioni testovi).
+
+## 42. Inspekcije — istorijska (informativna) napomena iz stvarnih ASYCUDA XML deklaracija (2026-07-22)
+
+Korisnik pokrenuo pitanje: dugme "Inspekcije" u tabu Naimenovanja se oslanja isključivo na
+`catalogs.inspection_rules` (statični spisak iz "BiH UIO Objedinjen spisak inspekcijskih
+kontrola, mart 2015") koji je zastario i nikad nije bio zvanično ažuriran. Predložio je
+učenje iz istorije, po uzoru na tarifno mapiranje.
+
+**Odluka (nakon rasprave)**: NE graditi zamjenski/samostalni sistem — entitetski zakoni o
+inspekcijama nisu usaglašeni (samo veterinarska inspekcija je na nivou BiH cijele, ostale su
+entitetske), objedinjen spisak ne postoji i vjerovatno nikad neće. Umjesto toga: čisto
+**informativni sloj** koji pokazuje "šta se u praksi dešavalo" (koji je dokument stvarno
+priložen za taj tarifni broj u prošlim deklaracijama) — **nikad ne mijenja niti suprimira**
+pravno pravilo iz `catalogs.inspection_rules`/`InspectionService.check()`. Ista logika kao
+GREJAC SPIRALA/Plamenik bug (frekvencija ≠ ispravnost), ovdje opasnija jer je zakonska/
+sigurnosna oblast — zato striktno "samo informacija, korisnik odlučuje".
+
+**Izvor podataka**: `H:\New folder\NOVA ASIKUDA` (5706 XML fajlova, autoritativni izvor,
+korisnik će ga dalje obogaćivati — VEĆI i BOGATIJI od projektnog `data/knowledge_base/
+NOVA ASIKUDA` sa 2503 fajla koji ima samo stare kodove dokumenata).
+
+**Mapiranje kodova priloženih dokumenata (Rub.44) na inspection_type** (potvrđeno od
+korisnika — stari trocifreni kod i noviji N-prefiksirani kod su ISTA kategorija):
+
+| Stari kod | Novi kod | inspection_type | Naziv |
+|---|---|---|---|
+| SAN | N852 | `sanitary` | "Inspekcija za hranu" (preimenovano sa "Sanitarna") |
+| VET | N853 | `veterinary` | "Veterinarska inspekcija" |
+| FIT | N851 | `phytosanitary` | "Fitosanitarna inspekcija" |
+| UVK | N003 | `market_inspection` | "Tržna inspekcija" (NE `quality_control` — moja prvobitna pretpostavka bila pogrešna) |
+| AGL | (nema) | `medicines_agency` | "Agencija za lijekove" |
+
+Nema koda za `quality_control` ("Zdravstvena inspekcija") — namjerno bez istorijskog signala.
+
+**Implementacija**:
+- `database/migrate_inspection_document_history.py` (nov fajl) — skenira XML arhivu
+  (`xml.etree.ElementTree`, `item.findall(".//Attached_documents")`), agregira
+  `(tarifni_broj, inspection_type) → usage_count`, gradi `catalogs.inspection_document_history`
+  (idempotentno — briše i ponovo gradi cijelu tabelu pri svakom pokretanju, jer arhiva raste).
+  Testirano na H: arhivi: 639 parova, npr. `21069098` (SUSSINA tarifa iz §-ova o pogrešnoj
+  tarifi) ima sanitary=82, market_inspection=86, veterinary=80, medicines_agency=26 —
+  potvrđuje da je podatak stvaran i koristan.
+- `InspectionService.historical_hint(tariff_code)` (nova metoda, `services/
+  inspection_service.py`) — čita `catalogs.inspection_document_history` po TAČNOM (8-cifrenom)
+  tarifnom broju, vraća `list[HistoricalDocumentHint]` (prazno ako nema podatka, BEZ fallback
+  nagađanja na prefiks/poglavlje).
+- `InspectionDialog._build_historical_note()` (novo, `gui/dialogs/inspection_dialog.py`) —
+  po sekciji (tipu inspekcije) prikazuje sivu info-napomenu ("📊 Istorijski podatak
+  (informativno, ne zamjenjuje pravno pravilo): tarifni broj(evi) X (Nx), ... — ranije
+  zabilježeno u stvarnim deklaracijama") ISPOD postojeće tabele/uslovnog upozorenja — nikad
+  ne mijenja boju/status postojećih redova.
+
+**NIJE dirano**: `TariffMappingService.import_from_xml_files` (CRITICAL/`.pyd`-zaključan,
+odvojen prolaz kroz XML kako se ne bi dirao taj kod), `catalogs.inspection_rules` i
+`InspectionService.check()` (pravno pravilo ostaje netaknuto).
+
+**Status migracije**: kod je gotov i testiran (py_compile, unit testovi sa pravim privremenim
+XML fajlovima), ali `migrate()` NIJE pokrenut protiv žive baze — PostgreSQL server nedostupan
+do sutra (2026-07-23). Tabela `catalogs.inspection_document_history` još ne postoji u bazi.
+Vidi `project_rooms/2026-07-22_istorijska-napomena-inspekcije.md` za puni plan.
