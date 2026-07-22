@@ -1502,27 +1502,27 @@ class NaimenovanjaView(BaseTabView):
         self.section_heading.setObjectName(
             "sectionHeading"
         )  # CSS in naimenovanja_components.qss
-        self.section_heading.setFixedHeight(38)
+        self.section_heading.setFixedHeight(42)
 
-        heading_layout = QHBoxLayout(self.section_heading)
-        heading_layout.setContentsMargins(16, 4, 16, 4)
-        heading_layout.setSpacing(10)
+        self._heading_layout = QHBoxLayout(self.section_heading)
+        self._heading_layout.setContentsMargins(16, 5, 16, 5)
+        self._heading_layout.setSpacing(10)
 
         # Left: Heading label
         self.lbl_heading = QLabel("📋 Naimenovanje #1")
         self.lbl_heading.setProperty(
             "class", "section-heading-label"
         )  # CSS in naimenovanja_components.qss
-        heading_layout.addWidget(self.lbl_heading)
+        self._heading_layout.addWidget(self.lbl_heading)
 
         # TASK-004: inline style removed → QLabel#lbl_tariff_warning in naimenovanja_components.qss
         # Upozorenje o inspekcijskoj kontroli (skriveno dok nema kontrolisanog tarifnog broja)
         self.lbl_tariff_warning = QLabel()
         self.lbl_tariff_warning.setObjectName("lbl_tariff_warning")
         self.lbl_tariff_warning.setVisible(False)
-        heading_layout.addWidget(self.lbl_tariff_warning)
+        self._heading_layout.addWidget(self.lbl_tariff_warning)
 
-        heading_layout.addStretch()
+        self._heading_layout.addStretch()
 
         # Create a separate layout for action buttons to allow independent positioning
         button_layout = QHBoxLayout()
@@ -1543,7 +1543,27 @@ class NaimenovanjaView(BaseTabView):
         button_layout.addWidget(self.btn_ponisti)
 
         # Add the button layout to the main heading layout
-        heading_layout.addLayout(button_layout)
+        self._heading_layout.addLayout(button_layout)
+        QTimer.singleShot(0, self._align_section_heading_actions)
+
+    def _align_section_heading_actions(self) -> None:
+        if not hasattr(self, "ui") or not hasattr(self, "_heading_layout"):
+            return
+
+        group = self.ui.findChild(QGroupBox, "group_32_39")
+        if not group:
+            return
+
+        group_right = group.mapTo(self.section_heading, QPoint(group.width(), 0)).x()
+        right_margin = max(10, self.section_heading.width() - group_right + 10)
+        left, top, _, bottom = self._heading_layout.getContentsMargins()
+        if self._heading_layout.contentsMargins().right() != right_margin:
+            self._heading_layout.setContentsMargins(left, top, right_margin, bottom)
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        if hasattr(self, "section_heading"):
+            self._align_section_heading_actions()
 
 
     def _add_status_bar(self) -> None:
