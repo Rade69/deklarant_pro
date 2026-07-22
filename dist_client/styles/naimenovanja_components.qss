@@ -50,6 +50,57 @@ QComboBox[class="nav-combo"] {
     background: white;
     font-size: 13px;
 }
+QWidget#navBar QPushButton#btnPrethodno {
+    background-color: #8b7959;
+    color: #ffffff;
+    border: 1px solid #756548;
+}
+
+QWidget#navBar QPushButton#btnSljedece {
+    background-color: #5f8f84;
+    color: #ffffff;
+    border: 1px solid #4e786f;
+}
+
+QWidget#navBar QPushButton#btnDodaj {
+    background-color: #5d8068;
+    color: #ffffff;
+    border: 1px solid #4c6b56;
+}
+
+QWidget#navBar QPushButton#btnObrisi {
+    background-color: #9a6260;
+    color: #ffffff;
+    border: 1px solid #804e4c;
+}
+
+QWidget#navBar QPushButton#btnAutoPopuni {
+    background-color: #7d688d;
+    color: #ffffff;
+    border: 1px solid #675574;
+}
+
+QWidget#navBar QPushButton#btnUveziXMLNaim {
+    background-color: #5f8e87;
+    color: #ffffff;
+    border: 1px solid #4c756f;
+}
+
+QWidget#navBar QPushButton#btnInspekcije {
+    background-color: #607f95;
+    color: #ffffff;
+    border: 1px solid #4d687b;
+}
+
+QWidget#navBar QPushButton:hover {
+    border-color: #ffffff;
+}
+
+QWidget#navBar QPushButton:pressed {
+    padding-top: 5px;
+    padding-bottom: 3px;
+}
+
 
 QComboBox[class="nav-combo"]:focus {
     border: 2px solid #3f7898;
