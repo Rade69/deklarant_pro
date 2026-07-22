@@ -725,3 +725,13 @@ GUI je prijavljivao uspješan izvoz, ali je PDF sadržao samo naslov i datum. Ex
 uvijek uključuje takve redove u grupu `STAVKE BEZ NAIMENOVANJA`; ne pokušava sam ponovo
 grupisati stavke niti mijenja draft. Regresioni test mora provjeriti tekst stvarno
 generisanog PDF-a, a ne samo `%PDF` zaglavlje.
+
+---
+
+## 30. PDF dijakritici na Windowsu (2026-07-22)
+
+Oba Faktura PDF exportera prvo traže Liberation Sans, ali taj font standardno nije
+prisutan u `C:/Windows/Fonts`; prethodni fallback na ReportLab Helvetica kvario je
+`š, ž, č, ć, đ`. Na Windowsu se sada, nakon Liberation Sans pokušaja, registruju četiri
+Arial TTF varijante iz sistemskog font direktorija. Test mora iz stvarno generisanog
+PDF-a izvući i uporediti tekst `ŠEĆER, ČAJ, ŽITO I ĐEVREK`.
