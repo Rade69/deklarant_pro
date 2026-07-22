@@ -1912,10 +1912,16 @@ class FakturaView(BaseTabView):
         text, level = self._build_analysis_summary_from_draft()
         self._set_analysis_summary_text(text, level)
 
-    def _validation_issue_counts(self) -> tuple[dict[str, int], dict[str, int]]:
+    def _validation_issue_counts(
+        self, row_indexes: list[int] | None = None
+    ) -> tuple[dict[str, int], dict[str, int]]:
         errors: dict[str, int] = {}
         warnings: dict[str, int] = {}
-        for row, line in enumerate(self.draft.invoice_lines):
+        rows = row_indexes if row_indexes is not None else range(len(self.draft.invoice_lines))
+        for row in rows:
+            if row >= len(self.draft.invoice_lines):
+                continue
+            line = self.draft.invoice_lines[row]
             result = self.validation_cache.get(row) or self.validator.validate(line)
             for err in result.errors:
                 label = self._validation_issue_label(err.field, err.message)
@@ -3938,7 +3944,27 @@ class FakturaView(BaseTabView):
             # Sync table data to draft first (in case user edited cells)
             self._sync_table_to_draft()
 
-            # Revalidate all rows
+            # Selekcija redova (isti obrazac kao Auto-popuni i istorijska tarifna
+            # provjera): ako korisnik ima selektovane redove, sažetak/brojevi se
+            # odnose SAMO na te redove — bez ovoga bi "Provjeri" na 2 selektovane
+            # stavke ipak prijavio grešku/upozorenja iz svih 94 stavki fakture.
+            row_indexes = None
+            if not auto and hasattr(self, "table"):
+                selection = self.table.selectionModel()
+                selected_rows = selection.selectedRows() if selection else []
+                if selected_rows:
+                    candidate_indexes = sorted(
+                        {
+                            idx.row()
+                            for idx in selected_rows
+                            if 0 <= idx.row() < len(self.draft.invoice_lines)
+                        }
+                    )
+                    if candidate_indexes:
+                        row_indexes = candidate_indexes
+
+            # Revalidate all rows (bojenje ostaje na SVIM redovima — jeftino i
+            # održava tabelu vizuelno ažurnom bez obzira na selekciju)
             self.table.blockSignals(True)
             try:
                 for row in range(self.table.rowCount()):
@@ -3953,17 +3979,36 @@ class FakturaView(BaseTabView):
             # Update status bar
             self._update_status_bar()
 
-            # Count results iz cache-a (već ažuriran u prethodnoj petlji)
-            error_count = self.validation_cache.get_error_count()
-            warning_count = self.validation_cache.get_warning_count()
-            valid_count = self.validation_cache.get_valid_count()
-            error_issues, warning_issues = self._validation_issue_counts()
+            # Count results iz cache-a (već ažuriran u prethodnoj petlji) —
+            # scoped na selekciju ako je aktivna, inače sve stavke (staro ponašanje)
+            if row_indexes is not None:
+                error_count = warning_count = valid_count = 0
+                for row in row_indexes:
+                    result = self.validation_cache.get(row)
+                    if result is None:
+                        continue
+                    if result.has_blocking_errors():
+                        error_count += 1
+                    elif result.warnings:
+                        warning_count += 1
+                    elif result.valid:
+                        valid_count += 1
+                total_count = len(row_indexes)
+            else:
+                error_count = self.validation_cache.get_error_count()
+                warning_count = self.validation_cache.get_warning_count()
+                valid_count = self.validation_cache.get_valid_count()
+                total_count = len(self.draft.invoice_lines)
+            error_issues, warning_issues = self._validation_issue_counts(row_indexes)
 
             # Show summary
-            message = "╔══════════════════════════════════════╗\n"
+            message = ""
+            if row_indexes is not None:
+                message += f"📌 Prikazano samo za {len(row_indexes)} selektovanih stavki.\n\n"
+            message += "╔══════════════════════════════════════╗\n"
             message += "║      REZULTAT VALIDACIJE             ║\n"
             message += "╠══════════════════════════════════════╣\n"
-            message += f"║  Ukupno stavki: {len(self.draft.invoice_lines):>4}                ║\n"
+            message += f"║  Ukupno stavki: {total_count:>4}                ║\n"
             message += f"║  ✅ Validne:     {valid_count:>4}                ║\n"
             message += f"║  ❌ Nevažeće:    {error_count:>4}                ║\n"
             message += "╠══════════════════════════════════════╣\n"

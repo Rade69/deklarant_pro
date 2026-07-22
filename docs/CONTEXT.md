@@ -936,3 +936,22 @@ redova obrisano ciljano po tačnim `id` vrijednostima (ne widlcard WHERE). Verif
 kod-nivo fix — ovo je bilo čisto čišćenje podataka, `HistoricalTariffSearchService` već
 ispravno bira jači zapis po `usage_count`; problem bi postao vidljiv tek da pogrešan broj
 usage_count-om prestigne ispravan (nije bio blizu: 4 vs 40).
+
+## 38. "Provjeri" — selekcija sad skopira i opštu validaciju, ne samo tarifnu (2026-07-22)
+
+Dio "sitnih stvari" iz follow-up liste (§26-31 selekcijski fix je pokrivao SAMO istorijsku
+tarifnu provjeru — opšta validacija (brojevi grešaka/upozorenja u sažetku) je i dalje uvijek
+prijavljivala stanje SVIH stavki fakture, čak i kad je korisnik selektovao konkretne redove.
+`_validation_issue_counts` je HIGH GitNexus impact simbol (27 impactedCount, transitivno kroz
+`_update_status_bar` sa ~15 pozivalaca) — plan fajl `project_rooms/
+2026-07-22_selekcija-opsta-validacija.md` napisan prije izmjene po AGENTS.md pravilu.
+
+**Fix**: `_validation_issue_counts(self, row_indexes=None)` — novi OPCIONI parametar, default
+zadržava identično ponašanje za sve postojeće pozivaoce (svi zovu bez argumenata). U
+`_on_validate_all` dodat isti selekcijski obrazac kao u istorijskoj provjeri: bojenje redova
+ostaje na SVIM redovima (jeftino, tabela uvijek vizuelno ažurna), ali `error_count`/
+`warning_count`/`valid_count`/`total_count` u sažetku i porukama se računaju SAMO za
+selektovane redove (direktno preko `validation_cache.get(row)` po indeksu, ne globalni
+`get_error_count()`), uz eksplicitnu napomenu u poruci ("Prikazano samo za N selektovanih
+stavki"). `auto=True` (puna automatizacija) potpuno netaknuto — selekcija se provjerava samo
+kad `not auto`. Testovi: `tests/unit/test_faktura_view_validacija_selekcija.py` (3 nova).
