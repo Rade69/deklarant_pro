@@ -234,7 +234,7 @@ class NaimenovanjaView(BaseTabView):
         if hasattr(self, "ui"):
             # Create main layout
             main_layout = QVBoxLayout(self)
-            main_layout.setContentsMargins(0, 0, 0, 0)
+            main_layout.setContentsMargins(1, 0, 1, 0)
             main_layout.setSpacing(0)
 
             # Add navigation bar

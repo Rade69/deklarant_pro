@@ -127,6 +127,37 @@ QWidget#naimenovanjaUiWidget QLineEdit {
     background-color: white;
 }
 
++QGroupBox#group_31 {
+    background-color: #edf7ef;
+}
+
+QLabel#lbl_rubrika31 {
+    background-color: #d8ebdd;
+    color: #1f5d35;
+    border-radius: 4px;
+    padding-left: 4px;
+}
+
+QLabel#lbl_r31_oznake {
+    color: #1f5d35;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+QLineEdit#le_r31_oznake_br,
+QLineEdit#le_r31_paketa,
+QLineEdit#le_r31_broj {
+    border: 1px solid #b7c9bd;
+    border-radius: 4px;
+}
+
+QLineEdit#le_r31_oznake_br:focus,
+QLineEdit#le_r31_paketa:focus,
+QLineEdit#le_r31_broj:focus {
+    border: 2px solid #3f7898;
+}
+
+
 QLineEdit#le_r31_vrsta_naziv {
     background-color: #e3f2fd;
     border: 2px solid #2196f3;
