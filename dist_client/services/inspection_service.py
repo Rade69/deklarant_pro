@@ -212,6 +212,29 @@ class InspectionMatch:
 
 
 @dataclass
+class HistoricalDocumentHint:
+    """
+    Istorijski (INFORMATIVNI) podatak — koliko puta je određena vrsta
+    inspekcijskog dokumenta stvarno bila priložena za ovaj tarifni broj u
+    prošlim ASYCUDA deklaracijama (catalogs.inspection_document_history).
+
+    NIKAD ne zamjenjuje niti suprimira InspectionResult (pravno pravilo iz
+    check()) — vidi project_rooms/2026-07-22_istorijska-napomena-inspekcije.md.
+    """
+    inspection_type: str
+    document_name: str
+    usage_count: int
+
+    @property
+    def label(self) -> str:
+        return INSPECTION_LABELS.get(self.inspection_type, self.inspection_type)
+
+    @property
+    def icon(self) -> str:
+        return INSPECTION_ICONS.get(self.inspection_type, "🔍")
+
+
+@dataclass
 class InspectionResult:
     """
     Rezultat provjere za jedan tarifni broj.
@@ -367,6 +390,45 @@ class InspectionService:
         Vraća dict {tariff_code: InspectionResult}.
         """
         return {code: self.check(code) for code in tariff_codes}
+
+    def historical_hint(self, tariff_code: str) -> list[HistoricalDocumentHint]:
+        """
+        Istorijski (INFORMATIVNI) podatak iz stvarnih prošlih deklaracija: koji
+        je prilog (i koliko puta) zabilježen za TAČAN (8-cifreni) tarifni broj
+        u catalogs.inspection_document_history (vidi database/
+        migrate_inspection_document_history.py).
+
+        NIKAD ne zamjenjuje niti suprimira check() (pravno pravilo) — ovo je
+        samo dodatni kontekst. Prazna lista ako nema podatka (bez fallback
+        nagađanja na prefiks/poglavlje — bolje ništa nego izmišljeno).
+        """
+        result: list[HistoricalDocumentHint] = []
+        if not self._pg_available:
+            return result
+
+        norm = self.normalize(tariff_code)
+        if not norm or len(norm) < 8:
+            return result
+
+        try:
+            with self._get_conn() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        SELECT inspection_type, document_name, usage_count
+                        FROM catalogs.inspection_document_history
+                        WHERE tariff_code_norm = %s
+                        ORDER BY usage_count DESC
+                    """, (norm[:8],))
+                    for row in cur.fetchall():
+                        result.append(HistoricalDocumentHint(
+                            inspection_type=row["inspection_type"],
+                            document_name=row["document_name"] or "",
+                            usage_count=row["usage_count"],
+                        ))
+        except Exception as e:
+            logger.warning("Greška pri dohvatu istorijske napomene za %s: %s", tariff_code, e)
+
+        return result
 
 
 # Singleton za korištenje u cijeloj aplikaciji

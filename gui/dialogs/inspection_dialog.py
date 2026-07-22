@@ -307,7 +307,51 @@ class InspectionDialog(QDialog):
                 layout.addWidget(cond_lbl)
                 break  # Prikaži jednom ako isti uslov dijele stavke iste sekcije
 
+        # --- Istorijska napomena (informativno, ne zamjenjuje pravno pravilo) ---
+        hist_note = self._build_historical_note(itype, entries)
+        if hist_note:
+            layout.addWidget(hist_note)
+
         return frame
+
+    def _build_historical_note(
+        self,
+        itype: str,
+        entries: list[tuple[NaimenovanjeDraft, InspectionMatch]],
+    ) -> QLabel | None:
+        """
+        Istorijska (INFORMATIVNA) napomena — za tarifne brojeve u ovoj sekciji,
+        koliko puta je baš ova vrsta inspekcije zabilježena u stvarnim prošlim
+        ASYCUDA deklaracijama (catalogs.inspection_document_history). NIKAD ne
+        mijenja niti suprimira pravno pravilo iznad (tabela/uslov) — samo
+        dodatni kontekst. Vraća None ako nema podatka (bez fallback nagađanja).
+
+        Vidi project_rooms/2026-07-22_istorijska-napomena-inspekcije.md.
+        """
+        seen_tariffs: dict[str, int] = {}
+        for naim, _ in entries:
+            tarif = naim.tariff_code or ""
+            if not tarif or tarif in seen_tariffs:
+                continue
+            for hint in self._service.historical_hint(tarif):
+                if hint.inspection_type == itype:
+                    seen_tariffs[tarif] = hint.usage_count
+                    break
+
+        if not seen_tariffs:
+            return None
+
+        parts = ", ".join(f"{t} ({c}x)" for t, c in seen_tariffs.items())
+        lbl = QLabel(
+            f"📊 Istorijski podatak (informativno, ne zamjenjuje pravno pravilo): "
+            f"tarifni broj(evi) {parts} — ranije zabilježeno u stvarnim deklaracijama."
+        )
+        lbl.setWordWrap(True)
+        lbl.setStyleSheet(
+            "color: #555; font-size: 11px; background: #eef2f7; "
+            "padding: 4px 12px; border-top: 1px solid #d0d7de;"
+        )
+        return lbl
 
     def _build_table(
         self,
