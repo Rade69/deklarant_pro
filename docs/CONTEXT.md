@@ -955,3 +955,25 @@ selektovane redove (direktno preko `validation_cache.get(row)` po indeksu, ne gl
 `get_error_count()`), uz eksplicitnu napomenu u poruci ("Prikazano samo za N selektovanih
 stavki"). `auto=True` (puna automatizacija) potpuno netaknuto — selekcija se provjerava samo
 kad `not auto`. Testovi: `tests/unit/test_faktura_view_validacija_selekcija.py` (3 nova).
+
+## 39. Transparentnost i za ODBIJENE istorijske prijedloge (2026-07-22)
+
+Posljednja stavka sa "sitnih stvari" liste — simetrično sa `_notify_auto_applied_tariffs`
+(§27 dopuna 2, za ranije PRIHVAĆENE prijedloge). `HistoricalTariffSearchService.validate_lines`
+je u `feedback_action == "reject"` grani potpuno tiho `continue`-ovala — korisnik nikad nije
+vidio DA je prijedlog preskočen niti ZAŠTO (ranija eksplicitna odluka "Odbij" u 'Provjeri').
+`validate_lines` — HIGH GitNexus impact (30, transitivno kroz `chat_intent_handler.
+_prikaz_tarifnih_trenutnih`) — plan fajl `project_rooms/
+2026-07-22_transparentnost-odbijenih-prijedloga.md` napisan prije izmjene; mitigacija: nova
+`self.last_auto_rejected` instanca-atributa ne mijenja povratnu vrijednost/potpis metode.
+
+**Fix**: `HistoricalTariffSearchService` dobija `self.last_auto_rejected: list[tuple[int,
+str]]` (analogan `last_auto_applied`), popunjava se u reject grani prije `continue`.
+`FakturaView._run_historical_tariff_validation` dohvata i remapira indekse (isti obrazac kao
+`auto_applied`) i poziva novu `_notify_auto_rejected_tariffs()` kad `not auto` i ima
+odbijenih — dijalog navodi Rb./naziv/"bio bi predložen: TARIF" i eksplicitno kaže da je
+razlog ranija ručna odluka "Odbij". Generalna "nema boljeg prijedloga" poruka se SUPRIMIRA
+kad postoji `auto_rejected` (specifičnija poruka je tačnija i dovoljna). Testovi:
+`tests/unit/test_faktura_view_auto_rejected_notice.py` (2 nova), dopune u
+`test_faktura_view_provjeri_selekcija.py` (3 nova) i `test_historical_tariff_validation.py`
+(dopunjen postojeći test da provjeri `last_auto_rejected`).

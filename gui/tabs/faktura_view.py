@@ -4100,12 +4100,13 @@ class FakturaView(BaseTabView):
                 uvoznik_naziv=primalac,
             )
             auto_applied = getattr(svc, 'last_auto_applied', [])
+            auto_rejected = getattr(svc, 'last_auto_rejected', [])
 
-            # KRITIČNO: match.line_index i auto_applied indeksi su pozicije
-            # UNUTAR target_lines (0..len(target_lines)-1), ne stvarni red u
-            # self.draft.invoice_lines — kad je target_lines filtrirana
-            # selekcija, indeks mora nazad na pravi red prije upisa u tabelu
-            # ili u draft, inače se promjena upiše u POGREŠAN red.
+            # KRITIČNO: match.line_index i auto_applied/auto_rejected indeksi
+            # su pozicije UNUTAR target_lines (0..len(target_lines)-1), ne
+            # stvarni red u self.draft.invoice_lines — kad je target_lines
+            # filtrirana selekcija, indeks mora nazad na pravi red prije upisa
+            # u tabelu ili u draft, inače se promjena upiše u POGREŠAN red.
             if row_indexes is not None:
                 for match in matches:
                     if 0 <= match.line_index < len(row_indexes):
@@ -4113,6 +4114,11 @@ class FakturaView(BaseTabView):
                 auto_applied = [
                     (row_indexes[local_idx], tarif)
                     for local_idx, tarif in auto_applied
+                    if 0 <= local_idx < len(row_indexes)
+                ]
+                auto_rejected = [
+                    (row_indexes[local_idx], tarif)
+                    for local_idx, tarif in auto_rejected
                     if 0 <= local_idx < len(row_indexes)
                 ]
             if auto_applied:
@@ -4145,13 +4151,27 @@ class FakturaView(BaseTabView):
                         len(auto_applied),
                     )
 
+            if auto_rejected:
+                # Simetrično sa auto_applied transparentnošću: ranije se ODBIJANJE
+                # (baš kao i prihvatanje) dešavalo potpuno tiho — korisnik nikad
+                # nije vidio DA je prijedlog za neku stavku preskočen niti ZAŠTO
+                # (ranija eksplicitna odluka "Odbij" u 'Provjeri' dijalogu).
+                if not auto:
+                    self._notify_auto_rejected_tariffs(auto_rejected)
+                else:
+                    logger.info(
+                        "Istorijska validacija (auto mod): %d prijedloga preskočeno "
+                        "na osnovu ranije ručne odluke 'Odbij'",
+                        len(auto_rejected),
+                    )
+
             if not matches:
                 # Kad je korisnik eksplicitno selektovao stavke i kliknuo
                 # "Provjeri", tišina (bez ijedne poruke) se lako protumači kao
                 # da dijalog "nije htio" da se otvori. Bez selekcije (provjera
                 # cijele fakture) tišina ostaje namjerna — ne zamarati porukom
                 # na svaki klik kad nema šta reći za desetine stavki.
-                if row_indexes is not None and not auto_applied:
+                if row_indexes is not None and not auto_applied and not auto_rejected:
                     n = len(row_indexes)
                     QMessageBox.information(
                         self,
@@ -4219,6 +4239,33 @@ class FakturaView(BaseTabView):
             f"odluka koja se ponavlja bez novog pregleda.\n\n"
             f"{lines_txt}\n\n"
             f"Provjerite da li su i dalje ispravne."
+        )
+
+    def _notify_auto_rejected_tariffs(self, auto_rejected: list) -> None:
+        """
+        Simetrično sa _notify_auto_applied_tariffs — prikaži jasnu poruku kad
+        se istorijski prijedlog PRESKOČI zbog ranije eksplicitne odluke
+        "Odbij" u 'Provjeri' dijalogu. Bez ovoga korisnik ne zna DA je nešto
+        preskočeno niti ZAŠTO — tišina se lako protumači kao "nema prijedloga"
+        umjesto "prijedlog postoji ali ste ga ranije odbili".
+        """
+        naziv_by_idx = {
+            idx: (self.draft.invoice_lines[idx].naziv_robe or "")
+            for idx, _ in auto_rejected
+            if 0 <= idx < len(self.draft.invoice_lines)
+        }
+        lines_txt = "\n".join(
+            f"  Rb.{idx + 1}: {naziv_by_idx.get(idx, '')[:45]} (bio bi predložen: {tarif})"
+            for idx, tarif in auto_rejected
+        )
+        self._show_scrollable_info_dialog(
+            "Prijedlozi preskočeni (ranije odbijeno)",
+            f"Preskočeno je {len(auto_rejected)} istorijskih prijedloga jer ste ih "
+            f"RANIJE EKSPLICITNO ODBILI kroz 'Provjeri' — trenutni tarifni brojevi na "
+            f"tim stavkama ostaju nepromijenjeni.\n\n"
+            f"{lines_txt}\n\n"
+            f"Ako se predomislite, ručno izmijenite tarifni broj pa ponovo pokrenite "
+            f"'Provjeri'."
         )
 
     def _update_weight_totals(self):

@@ -363,6 +363,7 @@ def test_historical_validation_suppresses_previously_rejected_feedback(monkeypat
     assert matches == []
     assert line.tarifni_broj == "3926909710"
     assert svc.last_auto_applied == []
+    assert svc.last_auto_rejected == [(0, "39269097")]
 
 
 def test_historical_validation_drops_tariff_missing_from_official_tariff(monkeypatch):

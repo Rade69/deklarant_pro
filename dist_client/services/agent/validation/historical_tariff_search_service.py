@@ -69,6 +69,7 @@ class HistoricalTariffSearchService:
 
     def __init__(self):
         self.last_auto_applied: list[tuple[int, str]] = []
+        self.last_auto_rejected: list[tuple[int, str]] = []
 
     def validate_lines(
         self,
@@ -87,6 +88,7 @@ class HistoricalTariffSearchService:
         """
         results = []
         self.last_auto_applied = []
+        self.last_auto_rejected = []
         invoice_profile = self._build_invoice_profile(invoice_lines)
         for idx, line in enumerate(invoice_lines):
             naziv = (getattr(line, 'naziv_robe', '') or '').strip()
@@ -115,6 +117,7 @@ class HistoricalTariffSearchService:
 
             feedback_action = self._feedback_action(best)
             if feedback_action == "reject":
+                self.last_auto_rejected.append((idx, best.tarifni_broj_historijski))
                 continue
             if feedback_action == "accept":
                 # DEPRECATED (Faza 6): Direktan upis. Vrati kandidat preko Evidence.

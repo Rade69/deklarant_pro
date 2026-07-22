@@ -51,6 +51,7 @@ def test_provjeri_selekcija_provjerava_samo_selektovane_redove():
     svc_instance = MagicMock()
     svc_instance.validate_lines.return_value = []
     svc_instance.last_auto_applied = []
+    svc_instance.last_auto_rejected = []
 
     with patch(
         "services.agent.validation.historical_tariff_search_service.HistoricalTariffSearchService",
@@ -72,6 +73,7 @@ def test_provjeri_selekcija_remapira_auto_applied_na_pravi_red():
     svc_instance = MagicMock()
     svc_instance.validate_lines.return_value = []
     svc_instance.last_auto_applied = [(0, "85168080")]  # lokalni indeks unutar target_lines
+    svc_instance.last_auto_rejected = []
 
     with patch(
         "services.agent.validation.historical_tariff_search_service.HistoricalTariffSearchService",
@@ -98,6 +100,7 @@ def test_provjeri_bez_selekcije_provjerava_sve_stavke():
     svc_instance = MagicMock()
     svc_instance.validate_lines.return_value = []
     svc_instance.last_auto_applied = []
+    svc_instance.last_auto_rejected = []
 
     with patch(
         "services.agent.validation.historical_tariff_search_service.HistoricalTariffSearchService",
@@ -119,6 +122,7 @@ def test_provjeri_match_line_index_remapiran_na_pravi_red():
     svc_instance = MagicMock()
     svc_instance.validate_lines.return_value = [match]
     svc_instance.last_auto_applied = []
+    svc_instance.last_auto_rejected = []
 
     with patch(
         "services.agent.validation.historical_tariff_search_service.HistoricalTariffSearchService",
@@ -144,6 +148,7 @@ def test_provjeri_selekcija_bez_prijedloga_prikazuje_poruku_umjesto_tisine():
     svc_instance = MagicMock()
     svc_instance.validate_lines.return_value = []
     svc_instance.last_auto_applied = []
+    svc_instance.last_auto_rejected = []
 
     with patch(
         "services.agent.validation.historical_tariff_search_service.HistoricalTariffSearchService",
@@ -163,6 +168,7 @@ def test_provjeri_bez_selekcije_bez_prijedloga_ostaje_tih():
     svc_instance = MagicMock()
     svc_instance.validate_lines.return_value = []
     svc_instance.last_auto_applied = []
+    svc_instance.last_auto_rejected = []
 
     with patch(
         "services.agent.validation.historical_tariff_search_service.HistoricalTariffSearchService",
@@ -171,3 +177,67 @@ def test_provjeri_bez_selekcije_bez_prijedloga_ostaje_tih():
         FakturaView._run_historical_tariff_validation(mock_self, auto=False)
 
     mock_msgbox.information.assert_not_called()
+
+
+def test_provjeri_selekcija_remapira_auto_rejected_na_pravi_red():
+    """
+    Simetrično sa auto_applied remapiranjem: auto_rejected vraća lokalni
+    indeks (0, pozicija unutar target_lines) - mora se remapirati na
+    stvarni red (3) prije notifikacije.
+    """
+    mock_self = _mock_self_with_selected_rows(num_lines=5, selected_rows=[3])
+
+    svc_instance = MagicMock()
+    svc_instance.validate_lines.return_value = []
+    svc_instance.last_auto_applied = []
+    svc_instance.last_auto_rejected = [(0, "39269097")]  # lokalni indeks unutar target_lines
+
+    with patch(
+        "services.agent.validation.historical_tariff_search_service.HistoricalTariffSearchService",
+        return_value=svc_instance,
+    ):
+        FakturaView._run_historical_tariff_validation(mock_self, auto=False)
+
+    mock_self._notify_auto_rejected_tariffs.assert_called_once_with([(3, "39269097")])
+
+
+def test_provjeri_selekcija_auto_rejected_suprimira_generalnu_poruku():
+    """
+    Kad postoji auto_rejected, generalna "nema boljeg prijedloga" poruka se
+    NE prikazuje - specifičnija poruka (_notify_auto_rejected_tariffs) je
+    dovoljna i tačnija (razlog je poznat: ranija odluka "Odbij", ne
+    odsustvo bilo kakvog istorijskog traga).
+    """
+    mock_self = _mock_self_with_selected_rows(num_lines=5, selected_rows=[2])
+
+    svc_instance = MagicMock()
+    svc_instance.validate_lines.return_value = []
+    svc_instance.last_auto_applied = []
+    svc_instance.last_auto_rejected = [(0, "39269097")]
+
+    with patch(
+        "services.agent.validation.historical_tariff_search_service.HistoricalTariffSearchService",
+        return_value=svc_instance,
+    ), patch("gui.tabs.faktura_view.QMessageBox") as mock_msgbox:
+        FakturaView._run_historical_tariff_validation(mock_self, auto=False)
+
+    mock_self._notify_auto_rejected_tariffs.assert_called_once()
+    mock_msgbox.information.assert_not_called()
+
+
+def test_provjeri_auto_mod_loguje_auto_rejected_umjesto_dijaloga():
+    """auto=True (puna automatizacija): auto_rejected se samo loguje, nikad dijalog."""
+    mock_self = _mock_self_with_selected_rows(num_lines=3, selected_rows=[])
+
+    svc_instance = MagicMock()
+    svc_instance.validate_lines.return_value = []
+    svc_instance.last_auto_applied = []
+    svc_instance.last_auto_rejected = [(0, "39269097")]
+
+    with patch(
+        "services.agent.validation.historical_tariff_search_service.HistoricalTariffSearchService",
+        return_value=svc_instance,
+    ):
+        FakturaView._run_historical_tariff_validation(mock_self, auto=True)
+
+    mock_self._notify_auto_rejected_tariffs.assert_not_called()
