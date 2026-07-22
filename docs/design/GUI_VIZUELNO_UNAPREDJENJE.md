@@ -92,11 +92,11 @@ nakon vizuelne potvrde, bez masovne promjene cijelog interfejsa.
 
 | Funkcionalna uloga | Osnovna boja | Primjeri |
 | --- | --- | --- |
-| Kreiranje i čuvanje | `#2D5A48` | Dodaj, Sačuvaj, Snimi |
-| Brisanje | `#7A3432` | Obriši, Briši, Očisti |
-| Poništavanje | `#6B7280` | Poništi, Otkaži |
-| AI pomoć | `#5E4272` | Sugeriši, Auto-popuni, Agent |
-| Standardna akcija | `#3D6A8A` | navigacija, uvoz, izvoz, pregled, inspekcije |
+| Potvrda i čuvanje | `#2F7D5A` | Provjeri, Sačuvaj, Snimi |
+| Brisanje | `#A6403D` | Obriši, Briši, Očisti |
+| AI pomoć | `#6A55A3` | Sugeriši, Auto-popuni, Izračunaj mase |
+| Standardna akcija | `#52697A` | Dodaj, navigacija, uvoz, izvoz, pregled, inspekcije |
+| Istaknuto kreiranje | `#2F6F9F` | Kreiraj naimenovanja |
 
 Boje su namjerno prigušene. Bijeli tekst i ikone ostaju zajednički, hover je
 nešto svjetliji, a disabled stanje neutralno sivo. Zelena ovdje označava

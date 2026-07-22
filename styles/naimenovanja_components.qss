@@ -52,67 +52,56 @@ QComboBox[class="nav-combo"] {
 }
 QWidget#navBar QPushButton#btnPrethodno,
 QWidget#navBar QPushButton#btnSljedece,
+QWidget#navBar QPushButton#btnDodaj,
 QWidget#navBar QPushButton#btnUveziXMLNaim,
 QWidget#navBar QPushButton#btnInspekcije {
-    background-color: #3d6a8a;
-    color: #ffffff;
-    border: none;
-}
-
-QWidget#navBar QPushButton#btnDodaj {
-    background-color: #2d5a48;
+    background-color: #52697a;
     color: #ffffff;
     border: none;
 }
 
 QWidget#navBar QPushButton#btnObrisi {
-    background-color: #7a3432;
+    background-color: #a6403d;
     color: #ffffff;
     border: none;
 }
 
 QWidget#navBar QPushButton#btnAutoPopuni {
-    background-color: #5e4272;
+    background-color: #6a55a3;
     color: #ffffff;
     border: none;
 }
 
 QWidget#navBar QPushButton#btnPrethodno:hover,
 QWidget#navBar QPushButton#btnSljedece:hover,
+QWidget#navBar QPushButton#btnDodaj:hover,
 QWidget#navBar QPushButton#btnUveziXMLNaim:hover,
 QWidget#navBar QPushButton#btnInspekcije:hover {
-    background-color: #4a7fa5;
-}
-
-QWidget#navBar QPushButton#btnDodaj:hover {
-    background-color: #3d7a5f;
+    background-color: #607b8e;
 }
 
 QWidget#navBar QPushButton#btnObrisi:hover {
-    background-color: #9b4a48;
+    background-color: #b9514d;
 }
 
 QWidget#navBar QPushButton#btnAutoPopuni:hover {
-    background-color: #7b5c96;
+    background-color: #59458d;
 }
 
 QWidget#navBar QPushButton#btnPrethodno:pressed,
 QWidget#navBar QPushButton#btnSljedece:pressed,
+QWidget#navBar QPushButton#btnDodaj:pressed,
 QWidget#navBar QPushButton#btnUveziXMLNaim:pressed,
 QWidget#navBar QPushButton#btnInspekcije:pressed {
-    background-color: #2d506b;
-}
-
-QWidget#navBar QPushButton#btnDodaj:pressed {
-    background-color: #1f3d30;
+    background-color: #405563;
 }
 
 QWidget#navBar QPushButton#btnObrisi:pressed {
-    background-color: #5a2422;
+    background-color: #85322f;
 }
 
 QWidget#navBar QPushButton#btnAutoPopuni:pressed {
-    background-color: #452f55;
+    background-color: #493875;
 }
 
 QWidget#navBar QPushButton:pressed {
@@ -141,23 +130,31 @@ QWidget#sectionHeading QPushButton {
 }
 
 QWidget#sectionHeading QPushButton#btnSnimi {
-    background-color: #2d5a48;
+    background-color: #2f7d5a;
     color: #ffffff;
     border: none;
 }
 
 QWidget#sectionHeading QPushButton#btnSnimi:hover {
-    background-color: #3d7a5f;
+    background-color: #3b906b;
+}
+
+QWidget#sectionHeading QPushButton#btnSnimi:pressed {
+    background-color: #256347;
 }
 
 QWidget#sectionHeading QPushButton#btnIzlaz {
-    background-color: #6b7280;
+    background-color: #52697a;
     color: #ffffff;
     border: none;
 }
 
 QWidget#sectionHeading QPushButton#btnIzlaz:hover {
-    background-color: #8a9099;
+    background-color: #607b8e;
+}
+
+QWidget#sectionHeading QPushButton#btnIzlaz:pressed {
+    background-color: #405563;
 }
 
 /* Section heading label ("📋 Naimenovanje #X") */
