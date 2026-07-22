@@ -1524,8 +1524,9 @@ class NaimenovanjaView(BaseTabView):
 
         self._heading_layout.addStretch()
 
-        # Create a separate layout for action buttons to allow independent positioning
-        button_layout = QHBoxLayout()
+        self.heading_actions = QWidget(self.section_heading)
+        self.heading_actions.setObjectName("headingActions")
+        button_layout = QHBoxLayout(self.heading_actions)
         button_layout.setContentsMargins(0, 0, 0, 0)  # No margins around button layout
         button_layout.setSpacing(10)  # Space between buttons
 
@@ -1542,12 +1543,12 @@ class NaimenovanjaView(BaseTabView):
         self.btn_ponisti.clicked.connect(self._on_ponisti)
         button_layout.addWidget(self.btn_ponisti)
 
-        # Add the button layout to the main heading layout
-        self._heading_layout.addLayout(button_layout)
+        self.heading_actions.setFixedSize(button_layout.sizeHint())
+        self.heading_actions.raise_()
         QTimer.singleShot(0, self._align_section_heading_actions)
 
     def _align_section_heading_actions(self) -> None:
-        if not hasattr(self, "ui") or not hasattr(self, "_heading_layout"):
+        if not hasattr(self, "ui") or not hasattr(self, "heading_actions"):
             return
 
         main_grid = self.ui.findChild(QFrame, "main_grid_frame")
@@ -1557,10 +1558,9 @@ class NaimenovanjaView(BaseTabView):
         grid_right = main_grid.mapTo(
             self.section_heading, QPoint(main_grid.width(), 0)
         ).x()
-        right_margin = max(10, self.section_heading.width() - grid_right + 10)
-        left, top, _, bottom = self._heading_layout.getContentsMargins()
-        if self._heading_layout.contentsMargins().right() != right_margin:
-            self._heading_layout.setContentsMargins(left, top, right_margin, bottom)
+        actions_x = max(0, grid_right - self.heading_actions.width())
+        actions_y = (self.section_heading.height() - self.heading_actions.height()) // 2
+        self.heading_actions.move(actions_x, actions_y)
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
