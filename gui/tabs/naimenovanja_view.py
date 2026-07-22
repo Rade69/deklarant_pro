@@ -1502,71 +1502,90 @@ class NaimenovanjaView(BaseTabView):
         self.section_heading.setObjectName(
             "sectionHeading"
         )  # CSS in naimenovanja_components.qss
-        self.section_heading.setFixedHeight(42)
+        self.section_heading.setFixedHeight(30)
 
-        self._heading_layout = QHBoxLayout(self.section_heading)
-        self._heading_layout.setContentsMargins(16, 5, 16, 5)
-        self._heading_layout.setSpacing(10)
+        heading_layout = QHBoxLayout(self.section_heading)
+        heading_layout.setContentsMargins(20, 2, 20, 2)
+        heading_layout.setSpacing(8)
 
         # Left: Heading label
         self.lbl_heading = QLabel("📋 Naimenovanje #1")
         self.lbl_heading.setProperty(
             "class", "section-heading-label"
         )  # CSS in naimenovanja_components.qss
-        self._heading_layout.addWidget(self.lbl_heading)
+        heading_layout.addWidget(self.lbl_heading)
 
         # TASK-004: inline style removed → QLabel#lbl_tariff_warning in naimenovanja_components.qss
         # Upozorenje o inspekcijskoj kontroli (skriveno dok nema kontrolisanog tarifnog broja)
         self.lbl_tariff_warning = QLabel()
         self.lbl_tariff_warning.setObjectName("lbl_tariff_warning")
         self.lbl_tariff_warning.setVisible(False)
-        self._heading_layout.addWidget(self.lbl_tariff_warning)
+        heading_layout.addWidget(self.lbl_tariff_warning)
 
-        self._heading_layout.addStretch()
+        # Spacer to position buttons at 1257px from left edge
+        heading_layout.addSpacing(1017)
 
-        self.heading_actions = QWidget(self.section_heading)
-        self.heading_actions.setObjectName("headingActions")
-        button_layout = QHBoxLayout(self.heading_actions)
+        # Create a separate layout for action buttons to allow independent positioning
+        button_layout = QHBoxLayout()
         button_layout.setContentsMargins(0, 0, 0, 0)  # No margins around button layout
         button_layout.setSpacing(10)  # Space between buttons
 
         # Action buttons (Sačuvaj nacrt, Poništi) - positioned above group_32_39
         self.btn_sacuvaj = self._create_icon_button("Sačuvaj nacrt", "fa5.save")
         self.btn_sacuvaj.setObjectName("btnSnimi")  # zelena
-        self.btn_sacuvaj.setFixedHeight(30)
+        self.btn_sacuvaj.setFixedHeight(26)
         self.btn_sacuvaj.clicked.connect(self._on_save)
+        self.btn_sacuvaj.raise_()  # Bring to front
         button_layout.addWidget(self.btn_sacuvaj)
 
         self.btn_ponisti = self._create_icon_button("Poništi", "fa5s.undo-alt")
         self.btn_ponisti.setObjectName("btnIzlaz")  # siva
-        self.btn_ponisti.setFixedHeight(30)
+        self.btn_ponisti.setFixedHeight(26)
         self.btn_ponisti.clicked.connect(self._on_ponisti)
+        self.btn_ponisti.raise_()  # Bring to front
         button_layout.addWidget(self.btn_ponisti)
 
-        self.heading_actions.setFixedSize(button_layout.sizeHint())
-        self.heading_actions.raise_()
-        QTimer.singleShot(0, self._align_section_heading_actions)
+        # Add the button layout to the main heading layout
+        heading_layout.addLayout(button_layout)
 
-    def _align_section_heading_actions(self) -> None:
-        if not hasattr(self, "ui") or not hasattr(self, "heading_actions"):
+        # Right spacer
+        heading_layout.addStretch()
+
+    def _position_section_heading_buttons(self) -> None:
+        """Place Save/Cancel buttons above group_32_39 using exact geometry (no layout guessing)."""
+        if not hasattr(self, "ui") or not hasattr(self, "section_heading"):
             return
 
-        main_grid = self.ui.findChild(QFrame, "main_grid_frame")
-        if not main_grid:
+        group = self.ui.findChild(QGroupBox, "group_32_39")
+        if not group or not group.isVisible():
             return
 
-        grid_right = main_grid.mapTo(
-            self.section_heading, QPoint(main_grid.width(), 0)
-        ).x()
-        actions_x = max(0, grid_right - self.heading_actions.width())
-        actions_y = (self.section_heading.height() - self.heading_actions.height()) // 2
-        self.heading_actions.move(actions_x, actions_y)
+        # group x in coordinate system of 'self'
+        gx_in_self = group.mapTo(self, QPoint(0, 0)).x()
+
+        # convert to section_heading coordinates (safety; usually section_heading.x == 0)
+        heading_x_in_self = self.section_heading.mapTo(self, QPoint(0, 0)).x()
+        target_x = gx_in_self - heading_x_in_self
+
+        # vertical center within heading bar
+        y = (self.section_heading.height() - self.btn_sacuvaj.height()) // 2
+
+        # small inner padding so it doesn't sit exactly on the border
+        pad = 10
+
+        save_x = target_x + pad
+        cancel_x = save_x + self.btn_sacuvaj.width() + 12
+        self.btn_sacuvaj.move(save_x, y)
+        self.btn_ponisti.move(cancel_x, y)
+
+        # Debug (da vidiš da se X mijenja realno)
+        # print(f"DEBUG: group_32_39.x(self)={gx_in_self}, heading.x(self)={heading_x_in_self}, target_x={target_x}")
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
-        if hasattr(self, "section_heading"):
-            self._align_section_heading_actions()
-
+        # keep buttons aligned even when window/tab resizes
+        if hasattr(self, "section_heading") and hasattr(self, "btn_sacuvaj"):
+            self._position_section_heading_buttons()
 
     def _add_status_bar(self) -> None:
         """Find status bar from .ui file (it's already there with absolute geometry!)"""
