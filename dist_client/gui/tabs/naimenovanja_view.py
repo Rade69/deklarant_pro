@@ -1587,6 +1587,16 @@ class NaimenovanjaView(BaseTabView):
         self.status_bar = self.ui.findChild(QWidget, "status_bar_widget")
 
         if self.status_bar:
+            self.status_bar.setStyleSheet(
+                """
+                QWidget#status_bar_widget {
+                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                        stop:0 #1e3a5f, stop:1 #162d4a);
+                    border-top: 2px solid #2d5a8e;
+                }
+                """
+            )
+
             # Find labels (they're already created in .ui file)
             self.lbl_status_total = self.ui.findChild(QLabel, "lbl_status_total")
             self.lbl_status_items = self.ui.findChild(QLabel, "lbl_status_items")
@@ -1603,18 +1613,27 @@ class NaimenovanjaView(BaseTabView):
 
             status_h = 48
             self.status_bar.setFixedHeight(status_h)
-            for label in (
+            metric_labels = (
                 self.lbl_status_total,
                 self.lbl_status_items,
                 self.lbl_status_bruto,
                 self.lbl_status_netto,
-                self.lbl_status_validation,
-            ):
+            )
+            for label in metric_labels:
                 if label:
                     label.setFixedHeight(30)
                     label.setStyleSheet(
+                        "color: #e2eaf3; background: transparent; "
                         "font-size: 12px; font-weight: 700; padding: 2px 8px;"
                     )
+
+            if self.lbl_status_validation:
+                self.lbl_status_validation.setFixedHeight(30)
+                self.lbl_status_validation.setStyleSheet(
+                    "color: #f1f5f9; background: #304d6b; "
+                    "border: 1px solid #6684a1; border-radius: 9px; "
+                    "font-size: 12px; font-weight: 700; padding: 2px 8px;"
+                )
 
             main_grid = self.ui.findChild(QFrame, "main_grid_frame")
             if main_grid:
