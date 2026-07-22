@@ -1395,11 +1395,11 @@ class NaimenovanjaView(BaseTabView):
         self.nav_bar.setObjectName(
             "navBar"
         )  # CSS styling in naimenovanja_components.qss
-        self.nav_bar.setFixedHeight(38)
+        self.nav_bar.setFixedHeight(46)
 
         nav_layout = QHBoxLayout(self.nav_bar)
-        nav_layout.setContentsMargins(10, 3, 10, 3)
-        nav_layout.setSpacing(7)
+        nav_layout.setContentsMargins(12, 6, 12, 6)
+        nav_layout.setSpacing(8)
 
         # Section 1: Dropdown selector
         lbl_nav = QLabel("Naimenovanje:")
@@ -1408,7 +1408,7 @@ class NaimenovanjaView(BaseTabView):
 
         self.combo_items = _ScrollableCombo()
         self.combo_items.setMinimumWidth(380)
-        self.combo_items.setFixedHeight(28)
+        self.combo_items.setFixedHeight(32)
         self.combo_items.setMaxVisibleItems(99)
         self.combo_items.setProperty(
             "class", "nav-combo"
@@ -1438,14 +1438,14 @@ class NaimenovanjaView(BaseTabView):
         self.btn_previous.setObjectName(
             "btnPrethodno"
         )  # žuta/braon — navigacija unazad
-        self.btn_previous.setFixedHeight(30)
+        self.btn_previous.setFixedHeight(32)
         self.btn_previous.clicked.connect(self._on_previous)
         nav_layout.addWidget(self.btn_previous)
 
         # Next button
         self.btn_next = self._create_icon_button("Sljedeće", "fa5s.arrow-right")
         self.btn_next.setObjectName("btnSljedece")  # teal — navigacija naprijed
-        self.btn_next.setFixedHeight(30)
+        self.btn_next.setFixedHeight(32)
         self.btn_next.clicked.connect(self._on_next)
         nav_layout.addWidget(self.btn_next)
 
@@ -1455,13 +1455,13 @@ class NaimenovanjaView(BaseTabView):
         # Section 3: CRUD buttons
         self.btn_add = self._create_icon_button("Dodaj", "fa5s.plus")
         self.btn_add.setObjectName("btnDodaj")  # zelena
-        self.btn_add.setFixedHeight(30)
+        self.btn_add.setFixedHeight(32)
         self.btn_add.clicked.connect(self._on_add_item)
         nav_layout.addWidget(self.btn_add)
 
         self.btn_delete = self._create_icon_button("Obriši", "fa5s.trash-alt")
         self.btn_delete.setObjectName("btnObrisi")  # crvena
-        self.btn_delete.setFixedHeight(30)
+        self.btn_delete.setFixedHeight(32)
         self.btn_delete.clicked.connect(self._on_delete_item)
         nav_layout.addWidget(self.btn_delete)
 
@@ -1471,7 +1471,7 @@ class NaimenovanjaView(BaseTabView):
         # Section 4: Action buttons
         self.btn_suggest = self._create_icon_button("Sugeriši tarifu", "fa5s.lightbulb")
         self.btn_suggest.setObjectName("btnAutoPopuni")  # ljubičasta (AI)
-        self.btn_suggest.setFixedHeight(30)
+        self.btn_suggest.setFixedHeight(32)
         self.btn_suggest.clicked.connect(self._on_suggest_tariff)
         nav_layout.addWidget(self.btn_suggest)
 
@@ -1481,7 +1481,7 @@ class NaimenovanjaView(BaseTabView):
         self.btn_import_xml.setToolTip(
             "Uvezi ASYCUDA XML ili otvori sačuvani Deklarant Pro nacrt"
         )
-        self.btn_import_xml.setFixedHeight(30)
+        self.btn_import_xml.setFixedHeight(32)
         self.btn_import_xml.clicked.connect(self._on_import_xml)
         nav_layout.addWidget(self.btn_import_xml)
 
@@ -1489,7 +1489,7 @@ class NaimenovanjaView(BaseTabView):
         self.btn_inspekcije = self._create_icon_button("Inspekcije", "fa5s.clipboard-check")
         self.btn_inspekcije.setObjectName("btnInspekcije")
         self.btn_inspekcije.setToolTip("Pregled naimenovanja koja zahtijevaju inspekciju")
-        self.btn_inspekcije.setFixedHeight(30)
+        self.btn_inspekcije.setFixedHeight(32)
         self.btn_inspekcije.clicked.connect(self._on_inspekcije)
         nav_layout.addWidget(self.btn_inspekcije)
 
