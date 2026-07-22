@@ -796,3 +796,25 @@ dobavljača) je vjerovatno čest — provjeriti prije zaključka "nema podataka"
 ovaj filter, ne odsustvo podataka. Sporedni nalaz: baza ima i pogrešan par (SUSSINA →
 38249993, usage=2) — vjerovatno iz istih pogrešnih deklaracija koje je korisnik prijavio;
 nije čišćeno (nema negativan efekat dok jači 21069098 zapis pobjeđuje po usage_count-u).
+
+## 30. "Provjeri" se sad pokreće automatski odmah nakon uvoza fakture (2026-07-22)
+
+Direktan nastavak §29 — korisnik pitao kako trajno riješiti da se pogrešno tarifirana roba
+(SUSSINA tip greške) uhvati čim se uveze, umjesto da zavisi od toga da neko naknadno klikne
+"Provjeri". Razmotrene dvije opcije: (a) tiha notifikacija u statusnoj traci, (b) automatsko
+pokretanje POSTOJEĆEG punog modala (`TariffValidationDialog`) odmah nakon uvoza. Korisnik je
+eksplicitno izabrao (b) — ništa novo graditi, samo ranije pozvati postojeći kod.
+
+**Implementirano**: `_on_import_finished` (pojedinačni/kombinovani uvoz) i
+`_process_batch_records` (grupni uvoz) sad, u svom završnom dijelu, pozivaju
+`self._run_historical_tariff_validation(auto=False)` — identičan kod koji se izvršava na
+klik dugmeta "Provjeri". Dijalog se pojavljuje SAMO kad ima prijedloga (postojeće `if not
+matches: return` ostaje netaknuto) — čista faktura ne prikazuje ništa. Presedan za dijalog
+odmah nakon uvoza već postoji u ovom kodu (EUR.1/PE2 potvrde), pa ovo nije novi UX obrazac.
+
+**Agent mod izuzetak**: poziv se PRESKAČE kad je `self._agent_mode` aktivan, jer puna
+automatizacija (`import_pipeline_service._puna_auto_pipeline`) već zove
+`_on_validate_all(auto=True)` u sopstvenom kontrolisanom redoslijedu (nakon izračuna masa i
+auto-popune tarifa) — automatski poziv ovdje bi ga duplirao ili prekinuo agent chat tok.
+Testovi: `tests/unit/test_faktura_view_provjeri_nakon_uvoza.py` (4 nova — pojedinačni i
+grupni uvoz, oba sa/bez agent moda).

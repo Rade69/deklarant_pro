@@ -2571,6 +2571,12 @@ class FakturaView(BaseTabView):
                 message += f"   ... i još {len(all_warnings) - 5}\n"
 
         QMessageBox.information(self, "Grupni uvoz", message)
+
+        # Istorijska provjera tarifa ODMAH nakon uvoza — vidi napomenu u
+        # _on_import_finished (isti obrazac, ista svrha).
+        if not self._agent_mode:
+            self._run_historical_tariff_validation(auto=False)
+
         self.data_changed.emit()
 
     _KG_FASHION_EXPORTER = '"K... G... FASHION" D.O.O.'
@@ -3526,6 +3532,17 @@ class FakturaView(BaseTabView):
 
             # Update status bar
             self._update_status_bar()
+
+            # Istorijska provjera tarifa ODMAH nakon uvoza (korisnička primjedba
+            # 2026-07-22 — SUSSINA slučaj): čekanje na ručni klik "Provjeri" znači
+            # da se pogrešna tarifa lako provuče ako korisnik pređe dalje prije
+            # klika. Tiho je (bez dijaloga) kad nema prijedloga — vidi
+            # _run_historical_tariff_validation. U agent modu se preskače jer
+            # puna automatizacija (import_pipeline_service._puna_auto_pipeline)
+            # već zove _on_validate_all(auto=True) u sopstvenom kontrolisanom
+            # redoslijedu — ne dupliraj/ne prekidaj taj tok.
+            if not self._agent_mode:
+                self._run_historical_tariff_validation(auto=False)
 
             # Mark as dirty
             if self.on_dirty:
