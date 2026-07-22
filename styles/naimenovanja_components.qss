@@ -50,50 +50,69 @@ QComboBox[class="nav-combo"] {
     background: white;
     font-size: 13px;
 }
-QWidget#navBar QPushButton#btnPrethodno {
-    background-color: #607f95;
+QWidget#navBar QPushButton#btnPrethodno,
+QWidget#navBar QPushButton#btnSljedece,
+QWidget#navBar QPushButton#btnUveziXMLNaim,
+QWidget#navBar QPushButton#btnInspekcije {
+    background-color: #3d6a8a;
     color: #ffffff;
-    border: 1px solid #4d687b;
-}
-
-QWidget#navBar QPushButton#btnSljedece {
-    background-color: #607f95;
-    color: #ffffff;
-    border: 1px solid #4d687b;
+    border: none;
 }
 
 QWidget#navBar QPushButton#btnDodaj {
-    background-color: #5d8068;
+    background-color: #2d5a48;
     color: #ffffff;
-    border: 1px solid #4c6b56;
+    border: none;
 }
 
 QWidget#navBar QPushButton#btnObrisi {
-    background-color: #9a6260;
+    background-color: #7a3432;
     color: #ffffff;
-    border: 1px solid #804e4c;
+    border: none;
 }
 
 QWidget#navBar QPushButton#btnAutoPopuni {
-    background-color: #7d688d;
+    background-color: #5e4272;
     color: #ffffff;
-    border: 1px solid #675574;
+    border: none;
 }
 
-QWidget#navBar QPushButton#btnUveziXMLNaim {
-    background-color: #607f95;
-    color: #ffffff;
-    border: 1px solid #4d687b;
+QWidget#navBar QPushButton#btnPrethodno:hover,
+QWidget#navBar QPushButton#btnSljedece:hover,
+QWidget#navBar QPushButton#btnUveziXMLNaim:hover,
+QWidget#navBar QPushButton#btnInspekcije:hover {
+    background-color: #4a7fa5;
 }
 
-QWidget#navBar QPushButton#btnInspekcije {
-    background-color: #607f95;
-    color: #ffffff;
-    border: 1px solid #4d687b;
+QWidget#navBar QPushButton#btnDodaj:hover {
+    background-color: #3d7a5f;
 }
 
-QWidget#navBar QPushButton:hover {
-    border-color: #ffffff;
+QWidget#navBar QPushButton#btnObrisi:hover {
+    background-color: #9b4a48;
+}
+
+QWidget#navBar QPushButton#btnAutoPopuni:hover {
+    background-color: #7b5c96;
+}
+
+QWidget#navBar QPushButton#btnPrethodno:pressed,
+QWidget#navBar QPushButton#btnSljedece:pressed,
+QWidget#navBar QPushButton#btnUveziXMLNaim:pressed,
+QWidget#navBar QPushButton#btnInspekcije:pressed {
+    background-color: #2d506b;
+}
+
+QWidget#navBar QPushButton#btnDodaj:pressed {
+    background-color: #1f3d30;
+}
+
+QWidget#navBar QPushButton#btnObrisi:pressed {
+    background-color: #5a2422;
+}
+
+QWidget#navBar QPushButton#btnAutoPopuni:pressed {
+    background-color: #452f55;
 }
 
 QWidget#navBar QPushButton:pressed {
@@ -122,23 +141,23 @@ QWidget#sectionHeading QPushButton {
 }
 
 QWidget#sectionHeading QPushButton#btnSnimi {
-    background-color: #5d8068;
+    background-color: #2d5a48;
     color: #ffffff;
-    border: 1px solid #7da087;
+    border: none;
 }
 
 QWidget#sectionHeading QPushButton#btnSnimi:hover {
-    background-color: #6d9278;
+    background-color: #3d7a5f;
 }
 
 QWidget#sectionHeading QPushButton#btnIzlaz {
-    background-color: #687785;
+    background-color: #6b7280;
     color: #ffffff;
-    border: 1px solid #8795a1;
+    border: none;
 }
 
 QWidget#sectionHeading QPushButton#btnIzlaz:hover {
-    background-color: #788997;
+    background-color: #8a9099;
 }
 
 /* Section heading label ("📋 Naimenovanje #X") */
