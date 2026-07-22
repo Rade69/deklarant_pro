@@ -1814,29 +1814,37 @@ class ZaglavljeView(BaseTabView):
             ["Šifra", "Naziv dokumenta", "Referenca"]
         )
         self.table.verticalHeader().setVisible(False)
+        self.table.setAlternatingRowColors(True)
         self.table.setStyleSheet(
             """
             QTableWidget {
                 font-size: 13pt;
-                color: #1e3820;
-                background-color: #dce8dc;
-                gridline-color: #c8dcc8;
+                color: #18354a;
+                background-color: #ffffff;
+                alternate-background-color: #eef4f7;
+                gridline-color: #c9d5de;
+                border: 1px solid #9fb2c1;
+                border-radius: 4px;
             }
             QTableWidget::item {
-                background-color: #fafcfa;
-                color: #1e3820;
+                color: #18354a;
                 padding: 3px 6px;
             }
+            QTableWidget::item:hover {
+                background-color: #dfeaf1;
+            }
             QTableWidget::item:selected {
-                background-color: #c8dcc8;
-                color: #1e3820;
+                background-color: #2c668f;
+                color: #ffffff;
             }
             QHeaderView::section {
                 font-size: 13pt;
                 font-weight: bold;
-                color: #1e3820;
-                background-color: #dce8dc;
-                border: 1px solid #a0c4a0;
+                color: #18354a;
+                background-color: #dfeaf1;
+                border: none;
+                border-right: 1px solid #c8d7e2;
+                border-bottom: 2px solid #7892a5;
                 padding: 4px;
             }
             """
@@ -2226,23 +2234,27 @@ class ZaglavljeView(BaseTabView):
 
             /* TABLE */
             QTableWidget {
-                background: white;
-                border: 1px solid #5a8060;
-                gridline-color: #c8dcc8;
-                color: #1e3820;
+                background: #ffffff;
+                alternate-background-color: #eef4f7;
+                border: 1px solid #9fb2c1;
+                gridline-color: #c9d5de;
+                color: #18354a;
             }
-            QTableWidget::item { padding: 4px; color: #1e3820; }
+            QTableWidget::item { padding: 4px; color: #18354a; }
+            QTableWidget::item:hover { background: #dfeaf1; }
             QTableWidget::item:selected {
-                background: #d4e8d4;
-                color: #1e3820;
+                background: #2c668f;
+                color: #ffffff;
             }
             QHeaderView::section {
-                background: #dce8dc;
-                border: 1px solid #7aa080;
+                background: #dfeaf1;
+                border: none;
+                border-right: 1px solid #c8d7e2;
+                border-bottom: 2px solid #7892a5;
                 padding: 4px;
                 font-weight: bold;
                 font-size: 9pt;
-                color: #1e3820;
+                color: #18354a;
             }
             """.replace("__ARROW_CSS__", _DOWN_ARROW_CSS)
         )
