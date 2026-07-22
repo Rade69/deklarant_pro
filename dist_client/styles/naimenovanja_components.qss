@@ -194,13 +194,13 @@ QWidget#naimenovanjaUiWidget QLabel {
 }
 
 QWidget#naimenovanjaUiWidget QLineEdit {
-    font-size: 13px;
+    font-size: 15px;
     padding: 3px;
     color: #333;
     background-color: white;
 }
 
-+QGroupBox#group_31 {
+QGroupBox#group_31 {
     background-color: #edf7ef;
 }
 
@@ -242,7 +242,7 @@ QLineEdit#le_r31_vrsta_naziv {
 }
 
 QWidget#naimenovanjaUiWidget QComboBox {
-    font-size: 13px;
+    font-size: 15px;
     color: #333;
 }
 
@@ -296,7 +296,7 @@ QPushButton#btnPrevRecord:pressed, QPushButton#btnNextRecord:pressed {
 }
 
 QWidget#naimenovanjaUiWidget QTextEdit {
-    font-size: 13px;
+    font-size: 15px;
 }
 
 /* ═══════════════════════════════════════════════════════════
