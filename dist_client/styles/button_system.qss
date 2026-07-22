@@ -442,6 +442,19 @@ QPushButton#btnPDF:pressed {
     background-color: #3A6180;
 }
 
+/* btnPDF ima setMenu() (izbor "Spisak naimenovanja" / "Pregled po fakturama") —
+   dugme mora vizuelno signalizirati da je padajući meni, ne obicna akcija. */
+QPushButton#btnPDF {
+    padding-right: 18px;
+}
+QPushButton#btnPDF::menu-indicator {
+    subcontrol-origin: padding;
+    subcontrol-position: right center;
+    right: 6px;
+    width: 8px;
+    height: 8px;
+}
+
 QPushButton[btnType="danger"],
 QPushButton#btnBrisi,
 QPushButton#btnObrisi,

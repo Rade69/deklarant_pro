@@ -905,3 +905,17 @@ commit-a, probaj-pa-vrati stil). Pojedinačni izvještaji: `agent_reports/
 Codexove izmjene su u toolbar/QSS konstrukciji, moje (isti dan) u funkciji
 `_run_historical_tariff_validation`/`_update_status_bar`/`_build_analysis_summary_from_draft`
 tijelima, bez preklapanja linija.
+
+## 36. PDF dugme — vidljiv indikator padajućeg menija (2026-07-22)
+
+Nakon merge-a (§35), korisnik testirao novu "meni na PDF dugmetu" funkcionalnost (§32-34,
+Codex) i primijetio da dugme nema vizuelni signal (mali trokutić) da je padajući meni, ne
+obična akcija — `btn_export_pdf.setMenu(...)` postoji u kodu, ali nijedan QSS fajl u
+projektu nikad nije definisao `::menu-indicator` (provjereno: `menu-indicator` se ne
+pojavljuje nigdje u repou prije ove izmjene), pa se dugme oslanjalo na podrazumijevano
+renderovanje stila koje očigledno nije bilo dovoljno vidljivo.
+
+**Fix**: dodato u `styles/button_system.qss` + `dist_client` kopiju — `QPushButton#btnPDF`
+dobija `padding-right: 18px` (mjesto za strelicu) i eksplicitan
+`QPushButton#btnPDF::menu-indicator` (8×8px, pozicioniran `right center`). Čisto dodatna QSS
+izmjena — ne dira Python kod, `_populate_toolbar_section` ni handler funkcije.
