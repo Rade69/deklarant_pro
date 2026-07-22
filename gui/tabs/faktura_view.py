@@ -406,9 +406,9 @@ class FakturaView(BaseTabView):
                 background-color: #1E4B6A;
             }
             QWidget#controlsContainer QWidget#massControlsPanel {
-                background-color: #DDEBE5;
-                border: 1px solid #91B2A2;
-                border-radius: 5px;
+                background-color: #E8F2ED;
+                border: 1px solid #7FA895;
+                border-radius: 6px;
             }
             QWidget#controlsContainer QWidget#massControlsPanel QLabel#massLabel {
                 color: #244B3C;
@@ -421,6 +421,7 @@ class FakturaView(BaseTabView):
                 border: 1px solid #8EAA9C;
                 border-radius: 4px;
                 padding: 3px 6px;
+                font-size: 13px;
                 font-weight: 700;
             }
             QWidget#controlsContainer QWidget#massControlsPanel QLineEdit#massInput:focus {
@@ -706,6 +707,7 @@ class FakturaView(BaseTabView):
             self.input_bruto = QLineEdit()
             self.input_bruto.setObjectName("massInput")
             self.input_bruto.setFixedWidth(90)
+            self.input_bruto.setFixedHeight(26)
             self.input_bruto.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
             self.input_bruto.setToolTip("Ukupna bruto težina sa fakture (kg)")
             bruto_row.addWidget(self.input_bruto)
@@ -721,6 +723,7 @@ class FakturaView(BaseTabView):
             self.input_neto = QLineEdit()
             self.input_neto.setObjectName("massInput")
             self.input_neto.setFixedWidth(90)
+            self.input_neto.setFixedHeight(26)
             self.input_neto.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
             self.input_neto.setToolTip("Ukupna neto težina sa fakture (kg)")
             neto_row.addWidget(self.input_neto)
@@ -742,8 +745,8 @@ class FakturaView(BaseTabView):
             mass_controls_panel = QWidget()
             mass_controls_panel.setObjectName("massControlsPanel")
             mass_controls_layout = QHBoxLayout(mass_controls_panel)
-            mass_controls_layout.setContentsMargins(4, 3, 4, 3)
-            mass_controls_layout.setSpacing(4)
+            mass_controls_layout.setContentsMargins(2, 3, 2, 3)
+            mass_controls_layout.setSpacing(8)
             mass_controls_layout.addWidget(weights_widget)
             mass_controls_layout.addWidget(self.btn_validate)
             layout.addWidget(mass_controls_panel)

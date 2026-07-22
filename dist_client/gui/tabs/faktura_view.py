@@ -406,16 +406,27 @@ class FakturaView(BaseTabView):
                 background-color: #1E4B6A;
             }
             QWidget#controlsContainer QWidget#massControlsPanel {
-                background-color: #EEF4F1;
-                border: 1px solid #B7CCC0;
-                border-radius: 5px;
+                background-color: #E8F2ED;
+                border: 1px solid #7FA895;
+                border-radius: 6px;
             }
-            QWidget#controlsContainer QWidget#massControlsPanel QLabel {
-                color: #34483E;
+            QWidget#controlsContainer QWidget#massControlsPanel QLabel#massLabel {
+                color: #244B3C;
+                font-size: 14px;
+                font-weight: 700;
             }
-            QWidget#controlsContainer QWidget#massControlsPanel QLineEdit {
+            QWidget#controlsContainer QWidget#massControlsPanel QLineEdit#massInput {
                 background-color: #FFFFFF;
-                border: 1px solid #AABCB2;
+                color: #18382C;
+                border: 1px solid #8EAA9C;
+                border-radius: 4px;
+                padding: 3px 6px;
+                font-size: 13px;
+                font-weight: 700;
+            }
+            QWidget#controlsContainer QWidget#massControlsPanel QLineEdit#massInput:focus {
+                border: 2px solid #2F7D5A;
+                background-color: #F8FFFB;
             }
             QWidget#controlsContainer QPushButton#btnValidacija {
                 background-color: #2F7D5A;
@@ -686,14 +697,15 @@ class FakturaView(BaseTabView):
             bruto_row = QHBoxLayout()
             bruto_row.setSpacing(4)
             bruto_label = QLabel("Bruto:")
+            bruto_label.setObjectName("massLabel")
             bruto_label.setFixedWidth(50)
-            bruto_label.setStyleSheet(
-                "color: #222; font-size: 14px; font-weight: bold;"
-            )
             bruto_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
             bruto_row.addWidget(bruto_label)
             self.input_bruto = QLineEdit()
+            self.input_bruto.setObjectName("massInput")
             self.input_bruto.setFixedWidth(90)
+            self.input_bruto.setFixedHeight(26)
+            self.input_bruto.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
             self.input_bruto.setToolTip("Ukupna bruto težina sa fakture (kg)")
             bruto_row.addWidget(self.input_bruto)
             weights_layout.addLayout(bruto_row)
@@ -701,12 +713,15 @@ class FakturaView(BaseTabView):
             neto_row = QHBoxLayout()
             neto_row.setSpacing(4)
             neto_label = QLabel("Neto:")
+            neto_label.setObjectName("massLabel")
             neto_label.setFixedWidth(50)
-            neto_label.setStyleSheet("color: #222; font-size: 14px; font-weight: bold;")
             neto_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
             neto_row.addWidget(neto_label)
             self.input_neto = QLineEdit()
+            self.input_neto.setObjectName("massInput")
             self.input_neto.setFixedWidth(90)
+            self.input_neto.setFixedHeight(26)
+            self.input_neto.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
             self.input_neto.setToolTip("Ukupna neto težina sa fakture (kg)")
             neto_row.addWidget(self.input_neto)
             weights_layout.addLayout(neto_row)
@@ -727,8 +742,8 @@ class FakturaView(BaseTabView):
             mass_controls_panel = QWidget()
             mass_controls_panel.setObjectName("massControlsPanel")
             mass_controls_layout = QHBoxLayout(mass_controls_panel)
-            mass_controls_layout.setContentsMargins(4, 3, 4, 3)
-            mass_controls_layout.setSpacing(4)
+            mass_controls_layout.setContentsMargins(2, 3, 2, 3)
+            mass_controls_layout.setSpacing(8)
             mass_controls_layout.addWidget(weights_widget)
             mass_controls_layout.addWidget(self.btn_validate)
             layout.addWidget(mass_controls_panel)
