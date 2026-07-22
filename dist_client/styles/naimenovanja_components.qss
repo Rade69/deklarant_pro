@@ -60,8 +60,17 @@ QComboBox[class="nav-combo"]:focus {
    ═══════════════════════════════════════════════════════════ */
 
 QWidget#sectionHeading {
-    background: #2c3e50;
+    background: #29475d;
+    border-bottom: 2px solid #1c3446;
     color: white;
+}
+
+QWidget#sectionHeading QPushButton {
+    min-height: 18px;
+    padding: 4px 14px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 600;
 }
 
 /* Section heading label ("📋 Naimenovanje #X") */
@@ -244,7 +253,7 @@ QComboBox#le_r31_vrsta QAbstractItemView {
     outline: 0px;
     border-radius: 6px;
     padding: 5px;
-    font-size: 14px;
+    font-size: 16px;
     min-width: 600px;
 }
 
