@@ -1624,7 +1624,7 @@ class NaimenovanjaView(BaseTabView):
                     label.setFixedHeight(30)
                     label.setStyleSheet(
                         "color: #e2eaf3; background: transparent; "
-                        "font-size: 12px; font-weight: 700; padding: 2px 8px;"
+                        "font-size: 14px; font-weight: 700; padding: 2px 8px;"
                     )
 
             if self.lbl_status_validation:
@@ -1632,7 +1632,7 @@ class NaimenovanjaView(BaseTabView):
                 self.lbl_status_validation.setStyleSheet(
                     "color: #f1f5f9; background: #304d6b; "
                     "border: 1px solid #6684a1; border-radius: 9px; "
-                    "font-size: 12px; font-weight: 700; padding: 2px 8px;"
+                    "font-size: 14px; font-weight: 700; padding: 2px 8px;"
                 )
 
             main_grid = self.ui.findChild(QFrame, "main_grid_frame")
