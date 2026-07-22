@@ -747,3 +747,26 @@ usage_count ≥ 5 da ne bude suprimiran) i/ili da li `_is_noisy_name`/`_clean_pr
 (u `tariff_mapping_service.py::import_from_xml_files`) ispravno zadržava "SUSSINA" iz
 `Commercial_Description` teksta (koji je mješavina generičkog boilerplate-a i imena
 proizvoda, npr. "prehrambeni proizvodi... ostali:; ostali. SUSSINA").
+
+## 28. Desktop prečica pokreće `dist_client/`, ne PyInstaller `.exe` — DVIJE odvojene `.env` kopije (2026-07-22)
+
+Korisnik promijenio `DB_HOST` u (root) `.env` sa stare IP na `192.168.0.25`, ali aplikacija
+i dalje nije mogla da se konektuje. Uzrok: Desktop prečica `Deklarant Pro.lnk` NE pokreće
+`dist/DeklarantPro/DeklarantPro.exe` (PyInstaller build) — pokreće
+`dist_client/start_silent.vbs` (venv-based runtime, `WorkingDirectory: dist_client/`).
+`config/settings.py` učitava `.env` iz `PROJECT_ROOT` koji se računa relativno na trenutni
+proces (`Path(sys.executable).parent` kad je frozen, inače `Path(__file__).parent.parent`) —
+za `dist_client/` runtime to je `dist_client/.env`, POTPUNO ODVOJEN fajl od root `.env`.
+`dist_client/.env` je i dalje imao `DB_HOST=192.168.100.25` (druga podmreža) — korisnikova
+izmjena u root `.env` nije imala nikakav efekat na ono što stvarno pokreće.
+
+**Provjereno direktnim `psycopg2.connect()` pozivom (ne samo TCP test)**: `192.168.0.25:5432`
+je potpuno dostupan i kredencijali rade — mrežni/DB sloj nije bio problem, samo pogrešan
+`.env` fajl. Popravljeno: `dist_client/.env` DB_HOST → `192.168.0.25` (nije commitovano —
+oba `.env` fajla su u `.gitignore`, ovo je samo runtime konfiguracija na ovoj mašini).
+
+**Napomena za buduće agente**: kad korisnik prijavi "promijenio sam .env ali ne radi",
+PRVO provjeriti koju prečicu/launcher korisnik stvarno koristi (Desktop `.lnk` →
+`dist_client/start_silent.vbs` na ovoj mašini) prije nego se pretpostavi da je root `.env`
+relevantan. Ne postoji trenutno automatska sinhronizacija između root `.env` i
+`dist_client/.env` — obje kopije treba ručno ažurirati pri promjeni server IP-a.
