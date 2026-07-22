@@ -244,6 +244,38 @@ QLineEdit#le_r31_broj:focus {
     border: 2px solid #3f7898;
 }
 
+/* Rubrike 32-39: kompaktan blok tarifnih i carinskih podataka */
+QGroupBox#group_32_39 {
+    background-color: #edf3ef;
+    border: 1px solid #83988b;
+}
+
+QGroupBox#group_32_39 > QLabel {
+    color: #245f45;
+    font-weight: 700;
+}
+
+QGroupBox#group_32_39 > QLineEdit {
+    background-color: #ffffff;
+    border: 1px solid #a8b9ae;
+    border-radius: 4px;
+    color: #26352d;
+}
+
+QGroupBox#group_32_39 > QLineEdit:hover {
+    border-color: #789383;
+}
+
+QGroupBox#group_32_39 > QLineEdit:focus {
+    border: 2px solid #2f7d5a;
+    background-color: #fbfefc;
+}
+
+QGroupBox#group_32_39 > QLineEdit:read-only {
+    background-color: #f2f5f3;
+    color: #526159;
+}
+
 
 QLineEdit#le_r31_vrsta_naziv {
     background-color: #e3f2fd;
