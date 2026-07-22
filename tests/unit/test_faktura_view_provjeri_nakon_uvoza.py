@@ -7,9 +7,19 @@ se čeka na ručni klik "Provjeri" nakon uvoza — korisnik pređe dalje i
 zaboravi kliknuti. Odlučeno (uz eksplicitnu korisnikovu potvrdu): ponovo
 iskoristiti POSTOJEĆI _run_historical_tariff_validation (isti kod kao ručni
 klik "Provjeri") automatski na kraju uvoza, umjesto da se čeka klik.
-U agent modu se PRESKAČE jer puna automatizacija
-(import_pipeline_service._puna_auto_pipeline) već zove
-_on_validate_all(auto=True) u sopstvenom kontrolisanom redoslijedu.
+
+ISPRAVKA (isti dan): prvobitna verzija je preskakala poziv kad je
+self._agent_mode aktivan, pod pretpostavkom da puna automatizacija
+(import_pipeline_service._puna_auto_pipeline) uvijek sama pokrene
+_on_validate_all(auto=True) kasnije. Korisnik je testirao uvoz kroz agent
+mod (rutu "Uvezi u deklaraciju", NE "Puna automatizacija") i dobio potpunu
+tišinu — self._agent_mode je aktivan za SVE tri agent rute uvoza ("Analiza",
+"Uvezi u deklaraciju", "Puna automatizacija"), a samo "Puna automatizacija"
+ima taj naknadni poziv. Fix: poziv se sad IZVRŠAVA UVIJEK, bez obzira na
+agent_mode — _puna_auto_pipeline se pokreće odvojeno i kasnije (radi na već
+uvezenom draft-u, ne uvozi sam), a njegov auto=True poziv ostaje tih (samo
+log) bez obzira da li je ovaj eager poziv već nešto prikazao, pa nema
+stvarnog preklapanja/duplikata.
 
 MainWindow.closeEvent test (test_main_window_close_event.py) je isti obrazac:
 nevezana metoda se poziva direktno na MagicMock "self" da se izbjegne teška
@@ -44,7 +54,7 @@ def _mock_self_for_import_finished(agent_mode: bool) -> MagicMock:
     return mock_self
 
 
-def test_uvoz_pojedinacne_fakture_pokrece_provjeru_kad_nije_agent_mod():
+def test_uvoz_pojedinacne_fakture_pokrece_provjeru_bez_agent_moda():
     mock_self = _mock_self_for_import_finished(agent_mode=False)
 
     with patch("gui.tabs.faktura_view.QMessageBox"):
@@ -53,17 +63,18 @@ def test_uvoz_pojedinacne_fakture_pokrece_provjeru_kad_nije_agent_mod():
     mock_self._run_historical_tariff_validation.assert_called_once_with(auto=False)
 
 
-def test_uvoz_pojedinacne_fakture_preskace_provjeru_u_agent_modu():
+def test_uvoz_pojedinacne_fakture_pokrece_provjeru_i_u_agent_modu():
     """
-    Agent mod ima svoj kontrolisani tok (import_pipeline_service) koji kasnije
-    sam zove validaciju - automatski poziv ovdje bi ga duplirao/prekinuo.
+    Regresija: self._agent_mode=True ne znači da je "Puna automatizacija"
+    pipeline u toku - agent_mode je aktivan i za "Uvezi u deklaraciju" rutu,
+    koja NEMA naknadni poziv. Provjera mora raditi u SVIM agent rutama.
     """
     mock_self = _mock_self_for_import_finished(agent_mode=True)
 
     with patch("gui.tabs.faktura_view.QMessageBox"):
         FakturaView._on_import_finished(mock_self, [])
 
-    mock_self._run_historical_tariff_validation.assert_not_called()
+    mock_self._run_historical_tariff_validation.assert_called_once_with(auto=False)
 
 
 def _mock_self_for_batch_records(agent_mode: bool) -> MagicMock:
@@ -83,9 +94,8 @@ def _mock_self_for_batch_records(agent_mode: bool) -> MagicMock:
     return mock_self
 
 
-def test_grupni_uvoz_pokrece_provjeru_kad_nije_agent_mod():
-    mock_self = _mock_self_for_batch_records(agent_mode=False)
-    records = [{
+def _batch_records():
+    return [{
         "skipped": False,
         "items": [MagicMock(naziv_robe="SUSSINA 650 tbl.", tarifni_broj="")],
         "bruto_kg": 0.0,
@@ -96,26 +106,20 @@ def test_grupni_uvoz_pokrece_provjeru_kad_nije_agent_mod():
         "_import_result": None,
     }]
 
+
+def test_grupni_uvoz_pokrece_provjeru_bez_agent_moda():
+    mock_self = _mock_self_for_batch_records(agent_mode=False)
+
     with patch("gui.tabs.faktura_view.QMessageBox"):
-        FakturaView._process_batch_records(mock_self, records)
+        FakturaView._process_batch_records(mock_self, _batch_records())
 
     mock_self._run_historical_tariff_validation.assert_called_once_with(auto=False)
 
 
-def test_grupni_uvoz_preskace_provjeru_u_agent_modu():
+def test_grupni_uvoz_pokrece_provjeru_i_u_agent_modu():
     mock_self = _mock_self_for_batch_records(agent_mode=True)
-    records = [{
-        "skipped": False,
-        "items": [MagicMock(naziv_robe="SUSSINA 650 tbl.", tarifni_broj="")],
-        "bruto_kg": 0.0,
-        "neto_kg": 0.0,
-        "invoice_name": "faktura1.pdf",
-        "filepath": "faktura1.pdf",
-        "parser_warnings": [],
-        "_import_result": None,
-    }]
 
     with patch("gui.tabs.faktura_view.QMessageBox"):
-        FakturaView._process_batch_records(mock_self, records)
+        FakturaView._process_batch_records(mock_self, _batch_records())
 
-    mock_self._run_historical_tariff_validation.assert_not_called()
+    mock_self._run_historical_tariff_validation.assert_called_once_with(auto=False)

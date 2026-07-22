@@ -2573,9 +2573,9 @@ class FakturaView(BaseTabView):
         QMessageBox.information(self, "Grupni uvoz", message)
 
         # Istorijska provjera tarifa ODMAH nakon uvoza — vidi napomenu u
-        # _on_import_finished (isti obrazac, ista svrha).
-        if not self._agent_mode:
-            self._run_historical_tariff_validation(auto=False)
+        # _on_import_finished (isti obrazac, ista svrha; agent_mode uslov
+        # uklonjen istog dana — bio je pogrešan, vidi napomenu tamo).
+        self._run_historical_tariff_validation(auto=False)
 
         self.data_changed.emit()
 
@@ -3537,12 +3537,19 @@ class FakturaView(BaseTabView):
             # 2026-07-22 — SUSSINA slučaj): čekanje na ručni klik "Provjeri" znači
             # da se pogrešna tarifa lako provuče ako korisnik pređe dalje prije
             # klika. Tiho je (bez dijaloga) kad nema prijedloga — vidi
-            # _run_historical_tariff_validation. U agent modu se preskače jer
-            # puna automatizacija (import_pipeline_service._puna_auto_pipeline)
-            # već zove _on_validate_all(auto=True) u sopstvenom kontrolisanom
-            # redoslijedu — ne dupliraj/ne prekidaj taj tok.
-            if not self._agent_mode:
-                self._run_historical_tariff_validation(auto=False)
+            # _run_historical_tariff_validation.
+            #
+            # NAPOMENA (ispravka iste sesije): raniji uslov "if not self._agent_mode"
+            # je bio pogrešan — self._agent_mode je aktivan za SVE agent rute uvoza
+            # ("Analiza", "Uvezi u deklaraciju", "Puna automatizacija"), ne samo za
+            # punu automatizaciju. Samo "Puna automatizacija" ima naknadni
+            # _on_validate_all(auto=True) poziv (import_pipeline_service.
+            # _puna_auto_pipeline); ostale dvije rute NIKAD ne bi dobile provjeru
+            # ako se ovdje preskoči. Pipeline se pokreće ODVOJENO i KASNIJE (radi na
+            # već uvezenom draft-u, ne uvozi sam) — nema stvarnog preklapanja jer
+            # njegov auto=True poziv ostaje tih (samo log), bez obzira da li je
+            # ovaj eager poziv već nešto prikazao.
+            self._run_historical_tariff_validation(auto=False)
 
             # Mark as dirty
             if self.on_dirty:

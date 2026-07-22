@@ -812,9 +812,24 @@ klik dugmeta "Provjeri". Dijalog se pojavljuje SAMO kad ima prijedloga (postoje�
 matches: return` ostaje netaknuto) — čista faktura ne prikazuje ništa. Presedan za dijalog
 odmah nakon uvoza već postoji u ovom kodu (EUR.1/PE2 potvrde), pa ovo nije novi UX obrazac.
 
-**Agent mod izuzetak**: poziv se PRESKAČE kad je `self._agent_mode` aktivan, jer puna
-automatizacija (`import_pipeline_service._puna_auto_pipeline`) već zove
-`_on_validate_all(auto=True)` u sopstvenom kontrolisanom redoslijedu (nakon izračuna masa i
-auto-popune tarifa) — automatski poziv ovdje bi ga duplirao ili prekinuo agent chat tok.
-Testovi: `tests/unit/test_faktura_view_provjeri_nakon_uvoza.py` (4 nova — pojedinačni i
-grupni uvoz, oba sa/bez agent moda).
+**Agent mod izuzetak — DODANO PA ISTOG DANA UKLONJENO (pogrešna pretpostavka)**: prvobitno
+je poziv PRESKAKAN kad je `self._agent_mode` aktivan, pod pretpostavkom da puna
+automatizacija (`import_pipeline_service._puna_auto_pipeline`) uvijek sama zove
+`_on_validate_all(auto=True)` kasnije. Korisnik je odmah testirao uvoz kroz agent mod i
+dobio POTPUNU TIŠINU (ni dijalog ni bilo šta) — ispostavilo se da `self._agent_mode` pokriva
+SVE tri agent rute uvoza (`ImportPipelineService`: "Analiza", "Uvezi u deklaraciju", "Puna
+automatizacija"), a SAMO "Puna automatizacija" ima taj naknadni poziv. Za druge dvije rute
+(uklj. rutu koju je korisnik stvarno koristio) provjera se NIKAD ne bi izvršila.
+
+**Fix**: uslov `if not self._agent_mode:` uklonjen — poziv se sad izvršava UVIJEK, bez
+obzira na agent_mode. Sigurno je jer `_puna_auto_pipeline` radi na VEĆ uvezenom draft-u (ne
+uvozi sam, pokreće se odvojeno i kasnije preko posebne chat komande "uradi sve") — njen
+kasniji `auto=True` poziv ostaje tih (samo log) bez obzira da li je ovaj eager poziv već
+nešto prikazao, pa nema stvarnog preklapanja/duplikata.
+
+**Napomena za buduće agente**: `self._agent_mode` ≠ "puna automatizacija je u toku" — to je
+opšti "radimo iz agent taba" flag. Ne koristiti ga kao proxy za "pipeline će ovo kasnije
+sam odraditi" bez provjere KOJA agent ruta je stvarno aktivna.
+
+Testovi: `tests/unit/test_faktura_view_provjeri_nakon_uvoza.py` (4 — pojedinačni i grupni
+uvoz, oba sa/bez agent moda, svi sad očekuju poziv u SVIM slučajevima).
