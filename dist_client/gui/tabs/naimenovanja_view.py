@@ -1556,30 +1556,21 @@ class NaimenovanjaView(BaseTabView):
         if not hasattr(self, "ui") or not hasattr(self, "section_heading"):
             return
 
-        group = self.ui.findChild(QGroupBox, "group_32_39")
-        if not group or not group.isVisible():
+        main_grid = self.ui.findChild(QFrame, "main_grid_frame")
+        if not main_grid or not main_grid.isVisible():
             return
 
-        # group x in coordinate system of 'self'
-        gx_in_self = group.mapTo(self, QPoint(0, 0)).x()
-
-        # convert to section_heading coordinates (safety; usually section_heading.x == 0)
-        heading_x_in_self = self.section_heading.mapTo(self, QPoint(0, 0)).x()
-        target_x = gx_in_self - heading_x_in_self
+        grid_right = main_grid.mapTo(
+            self.section_heading, QPoint(main_grid.width(), 0)
+        ).x()
 
         # vertical center within heading bar
         y = (self.section_heading.height() - self.btn_sacuvaj.height()) // 2
 
-        # small inner padding so it doesn't sit exactly on the border
-        pad = 10
-
-        save_x = target_x + pad
-        cancel_x = save_x + self.btn_sacuvaj.width() + 12
+        cancel_x = grid_right - self.btn_ponisti.width()
+        save_x = cancel_x - self.btn_sacuvaj.width() - 12
         self.btn_sacuvaj.move(save_x, y)
         self.btn_ponisti.move(cancel_x, y)
-
-        # Debug (da vidiš da se X mijenja realno)
-        # print(f"DEBUG: group_32_39.x(self)={gx_in_self}, heading.x(self)={heading_x_in_self}, target_x={target_x}")
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
