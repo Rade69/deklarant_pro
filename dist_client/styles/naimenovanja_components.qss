@@ -64,6 +64,12 @@ QWidget#sectionHeading {
     color: white;
 }
 
+QWidget#sectionHeading QPushButton {
+    min-height: 16px;
+    padding: 3px 12px;
+    border-radius: 4px;
+}
+
 /* Section heading label ("📋 Naimenovanje #X") */
 QLabel.section-heading-label {
     color: white;
