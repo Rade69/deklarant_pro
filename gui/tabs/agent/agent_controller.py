@@ -609,6 +609,17 @@ class AgentController:
             from .workflow_state import WorkflowState
             self.workflow.transition(WorkflowState.COMPLETED)
 
+            # Istorijska provjera tarifa ODMAH nakon uvoza (korisnička primjedba
+            # 2026-07-22 — SUSSINA slučaj). Ova grana ("Uvezi u deklaraciju" —
+            # sve agent rute osim pune automatizacije, koja ima svoj poziv
+            # gore preko _puna_auto_pipeline) je RAZLIČIT kod-put od
+            # FakturaView._on_import_finished/_process_batch_records (koji su
+            # Qt signal handleri za obični GUI import, ne agent import) — bez
+            # ovoga bi agent uvoz NIKAD ne bio provjeren, čak ni nakon fixa
+            # koji je taj drugi kod-put učinio uslovno-uvijek pozvanim.
+            if fw and hasattr(fw, '_run_historical_tariff_validation'):
+                fw._run_historical_tariff_validation(auto=False)
+
     def _analiza_pipeline(self, completed: list, chat):
         self.import_pipeline_svc.analiza_pipeline(completed, chat)
 

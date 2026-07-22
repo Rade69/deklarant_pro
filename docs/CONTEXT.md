@@ -833,3 +833,35 @@ sam odraditi" bez provjere KOJA agent ruta je stvarno aktivna.
 
 Testovi: `tests/unit/test_faktura_view_provjeri_nakon_uvoza.py` (4 — pojedinačni i grupni
 uvoz, oba sa/bez agent moda, svi sad očekuju poziv u SVIM slučajevima).
+
+## 31. Agent uvoz je i dalje bio potpuno tih — treći, potpuno drugi kod-put (2026-07-22)
+
+Korisnik testirao rebuild (§30 fix) uvozom kroz agent mod — i dalje NIŠTA automatski, tek
+ručni klik "Provjeri" (koji je ispravno predložio 21069098, potvrđujući §29 fix). Uzrok:
+agent uvoz NE ide kroz `FakturaView._on_import_finished`/`_process_batch_records` (Qt signal
+handleri vezani za obični GUI `ImportWorker`) — ide kroz potpuno ODVOJEN kod-put,
+`AgentController._on_all_completed` (`gui/tabs/agent/agent_controller.py`), koji direktno
+puni `self.draft.invoice_lines` i zove `fw._load_data_from_draft()` bez ikad prolaska kroz
+prethodno popravljene funkcije. §30-ov fix (uklanjanje `_agent_mode` uslova) je bio nužan ali
+NEDOVOLJAN — popravio je pogrešan uslov u POGREŠNOM kod-putu.
+
+`_on_all_completed` ima finalnu granu po `self._current_mode`: `"Puna automatizacija"` grana
+već zove `self._puna_auto_pipeline(...)` (koji kasnije, u svom koraku 3, zove
+`_on_validate_all(auto=True)` — tih/log-only). `else` grana (sve OSTALE agent rute, uklj.
+"Uvezi u deklaraciju" — rutu koju je korisnik stvarno koristio) NIJE imala NIŠTA — ni
+poziv provjere ni bilo kakvu alternativu.
+
+**Fix**: dodat `if fw and hasattr(fw, '_run_historical_tariff_validation'):
+fw._run_historical_tariff_validation(auto=False)` u `else` granu, odmah nakon
+`workflow.transition(WorkflowState.COMPLETED)`. Sigurno je jer je ovo JEDINO mjesto gdje
+"Uvezi u deklaraciju" (i "Analiza→Uvezi" akcija) završava obradu — nema rizika od duplikata
+sa "Puna automatizacija" granom jer su međusobno isključive (`if/else`).
+
+**Napomena za buduće agente — VAŽNO**: ova aplikacija ima NAJMANJE TRI odvojena "uvoz
+fakture završen" kod-puta koja SVA moraju biti provjerena kad se dodaje logika "odmah nakon
+uvoza": (1) `FakturaView._on_import_finished` (obični GUI import, pojedinačni/kombinovani),
+(2) `FakturaView._process_batch_records` (obični GUI grupni uvoz), (3)
+`AgentController._on_all_completed` (SVI agent chat uvozi, uklj. "Uvezi u deklaraciju" i
+"Puna automatizacija" grane unutra). Provjeriti sva tri prije zaključka da je "auto nakon
+uvoza" fix kompletan. Testovi: `tests/unit/test_agent_controller_provjeri_nakon_uvoza.py`
+(2 nova — "Uvezi u deklaraciju" dobija poziv, "Puna automatizacija" ne duplira).
