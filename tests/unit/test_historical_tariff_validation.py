@@ -390,3 +390,94 @@ def test_historical_validation_drops_tariff_missing_from_official_tariff(monkeyp
     matches = svc._to_matches(rows, "GW GEL STITNIK CUKLJEVA MALI PRST")
 
     assert [match.tarifni_broj_historijski for match in matches] == ["40149000"]
+
+
+def test_execute_supplier_filter_prihvata_prazan_dobavljac():
+    """
+    Regresija (SUSSINA slučaj, 2026-07-22): najčistiji, najkorišteniji zapisi
+    su često učeni bez upisanog dobavljača (supplier=''). Prije fixa je hard
+    filter zahtijevao TAČNO poklapanje, pa je isključivao baš takve zapise
+    (usage_count=40) u korist slabijih zapisa sa upisanim dobavljačem
+    (usage_count=3) - gore od "nema prijedloga". WHERE klauzula mora
+    prihvatiti i supplier='' i supplier IS NULL.
+    """
+    svc = HistoricalTariffSearchService()
+    captured = {}
+
+    class _FakeCursor:
+        def execute(self, sql, params):
+            captured["sql"] = sql
+            captured["params"] = params
+
+        def fetchall(self):
+            return []
+
+    svc._execute(_FakeCursor(), "naziv_robe ILIKE %s", ["%sussina%"], "MEDICO PHARM SERVIS", "",
+                 supplier_key="MEDICO")
+
+    sql = captured["sql"]
+    assert "supplier ILIKE %s" in sql
+    assert "supplier IS NULL" in sql
+    assert "supplier = ''" in sql
+
+
+def test_to_matches_racuna_supplier_match_po_redu_ne_pausalno():
+    """
+    Regresija: prije fixa je _to_matches primala jedan bool za CIJEL upit —
+    kad filter (gore) počne vraćati i zapise bez dobavljača ZAJEDNO sa
+    zapisima gdje je dobavljač potvrđen, taj bool je netačan za pola redova.
+    supplier_match mora se računati PO REDU iz stvarnog 'supplier' polja.
+    """
+    svc = HistoricalTariffSearchService()
+    rows = [
+        {
+            "commodity_code": "21069098",
+            "naziv_robe": "SUSSINA 650 tbl.",
+            "supplier": "",
+            "usage_count": 40,
+            "source": "",
+        },
+        {
+            "commodity_code": "21069098",
+            "naziv_robe": "SUSSINA nesto drugo",
+            "supplier": "MEDICO PHARM SERVIS",
+            "usage_count": 3,
+            "source": "",
+        },
+    ]
+
+    matches = svc._to_matches(rows, "SUSSINA 650 tbl.", supplier_key="MEDICO")
+
+    by_tarif = {m.usage_count: m for m in matches}
+    assert by_tarif[40].supplier_match is False
+    assert by_tarif[3].supplier_match is True
+
+
+def test_search_one_ne_gubi_najjaci_zapis_bez_dobavljaca(monkeypatch):
+    """
+    End-to-end regresija za SUSSINA slucaj preko validate_lines: kad je
+    izvoznik poznat, najjaci zapis (usage=40, bez dobavljaca) mora se
+    prikazati kao SHOW_STRONG prijedlog umjesto da bude tiho izbacen.
+    """
+    svc = HistoricalTariffSearchService()
+    line = InvoiceLine(
+        line_no=1,
+        naziv_robe="SUSSINA 650 tbl.",
+        tarifni_broj="38249993",
+    )
+
+    def fake_search_one(naziv, izvoznik="", uvoznik=""):
+        assert izvoznik == "MEDICO PHARM SERVIS"
+        return [
+            _match("SUSSINA 650 tbl.", "21069098", usage=40, source="", confidence=0.72),
+            _match("SUSSINA nesto drugo", "21069098", usage=3, source="MEDICO PHARM SERVIS", confidence=0.66),
+        ]
+
+    monkeypatch.setattr(svc, "_search_one", fake_search_one)
+    monkeypatch.setattr(svc, "_feedback_action", lambda m: "")
+
+    matches = svc.validate_lines([line], izvoznik_naziv="MEDICO PHARM SERVIS")
+
+    assert len(matches) == 1
+    assert matches[0].tarifni_broj_historijski == "21069098"
+    assert matches[0].decision_outcome == "show_strong"

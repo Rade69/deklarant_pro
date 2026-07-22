@@ -134,9 +134,13 @@ class HistoricalTariffSearchService:
     ) -> List[TariffHistoryMatch]:
         """Pretraži bazu za jedan naziv robe. Vraća max MAX_RESULTS_PER_LINE.
 
-        Ako je izvoznik poznat, prijedlozi dolaze ISKLJUČIVO iz historije tog
-        izvoznika — nema fallback na druge firme. Bolje bez prijedloga nego
-        pogrešan prijedlog od drugog dobavljača.
+        Ako je izvoznik poznat, prijedlozi dolaze iz historije tog izvoznika ILI
+        iz zapisa gdje dobavljač NIJE upisan (nepoznato ≠ pogrešno) — nema
+        fallback na zapise koji su POUZDANO iz DRUGOG, drugačijeg dobavljača.
+        Otkriveno 2026-07-22 (SUSSINA slučaj): najčistiji, najkorišteniji zapisi
+        (npr. usage_count=40) su često učeni bez upisanog dobavljača, pa ih je
+        stroga verzija filtera (samo tačno poklapanje) tiho isključivala u
+        korist slabijih zapisa — gore od "nema prijedloga".
         """
         try:
             from database.db import get_db_connection
@@ -149,20 +153,18 @@ class HistoricalTariffSearchService:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
                     if supplier_key:
-                        # Strogi filter: SAMO isti izvoznik
                         rows = self._query_strict(cur, words, izvoznik, uvoznik,
                                                   supplier_key=supplier_key)
                         if not rows:
                             rows = self._query_broad(cur, words, izvoznik, uvoznik,
                                                      supplier_key=supplier_key)
-                        # Nema fallback na druge izvoznike — vraćamo što ima (ili [])
-                        return self._to_matches(rows, naziv_robe, supplier_matched=True)
+                        return self._to_matches(rows, naziv_robe, supplier_key=supplier_key)
                     else:
                         # Nepoznat izvoznik — staro ponašanje (pretražuj sve)
                         rows = self._query_strict(cur, words, izvoznik, uvoznik)
                         if not rows:
                             rows = self._query_broad(cur, words, izvoznik, uvoznik)
-                        return self._to_matches(rows, naziv_robe, supplier_matched=False)
+                        return self._to_matches(rows, naziv_robe, supplier_key="")
         except Exception as e:
             logger.warning("HistoricalTariffSearch greška za '%s': %s", naziv_robe[:40], e)
             return []
@@ -194,8 +196,9 @@ class HistoricalTariffSearchService:
         extra_params: list = []
 
         if supplier_key:
-            # Hard filter — SAMO isti izvoznik; nema ORDER BY boosta jer je filter u WHERE
-            extra_where = " AND supplier ILIKE %s"
+            # Filter: isti izvoznik ILI dobavljač nije upisan (nepoznato ≠
+            # pogrešno) — isključuje samo zapise POUZDANO iz DRUGOG dobavljača.
+            extra_where = " AND (supplier ILIKE %s OR supplier IS NULL OR supplier = '')"
             extra_params.append(f"%{supplier_key}%")
         elif izvoznik:
             # Nepoznat ključ ali ima ime — zadrži stari ORDER BY boost
@@ -313,7 +316,7 @@ class HistoricalTariffSearchService:
             return "accept"
         return ""
 
-    def _to_matches(self, rows: list, naziv_original: str, supplier_matched: bool = False) -> List[TariffHistoryMatch]:
+    def _to_matches(self, rows: list, naziv_original: str, supplier_key: str = "") -> List[TariffHistoryMatch]:
         results = []
         for row in rows:
             tarif    = (row['commodity_code'] or '').strip()
@@ -330,6 +333,10 @@ class HistoricalTariffSearchService:
                     naziv_h[:80],
                 )
                 continue
+            # supplier_match: TAČNO poklapanje sa izvoznikom, ne samo "prošao
+            # je filter" — otkad filter (gore) prihvata i prazan supplier,
+            # ovaj flag mora se računati PO REDU, ne paušalno za cijeli upit.
+            supplier_matched = bool(supplier_key) and supplier_key.lower() in supplier.lower()
             # Pouzdanost: bazirana na usage_count i ima li supplier
             conf = min(0.95, 0.60 + min(usage, 100) * 0.003)
             if supplier and supplier not in ('HISTORIJA', '+', ' ', 'A'):

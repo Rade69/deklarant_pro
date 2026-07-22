@@ -770,3 +770,29 @@ PRVO provjeriti koju prečicu/launcher korisnik stvarno koristi (Desktop `.lnk` 
 `dist_client/start_silent.vbs` na ovoj mašini) prije nego se pretpostavi da je root `.env`
 relevantan. Ne postoji trenutno automatska sinhronizacija između root `.env` i
 `dist_client/.env` — obje kopije treba ručno ažurirati pri promjeni server IP-a.
+
+## 29. SUSSINA riješeno — pravi bug je hard supplier filter, ne zastarjela baza (2026-07-22)
+
+Nastavak §27 dopune 5. Kad je baza postala dostupna, direktan upit je pokazao da mapping
+`SUSSINA 650 tbl. → 21069098` (usage_count=40) postoji od **aprila 2026** — reindeksiranje
+(310 novih parova) NIJE bio uzrok niti rješenje. Pravi bug: `HistoricalTariffSearchService.
+_search_one()` je, kad je izvoznik poznat, primjenjivao TVRD filter `AND supplier ILIKE
+'%kljuc%'` — a baš najčistiji, najkorišteniji zapisi za SUSSINA (usage 24-40) su učeni BEZ
+upisanog dobavljača (`supplier=''`), dok su zapisi SA dobavljačem generički/messy tekst iz
+`Commercial_Description` sa niskim usage_count (3-4). Filter je tiho isključivao najjači
+dokaz u korist slabijeg, koji onda nije prošao `decide_tariff_match` prag → "nema boljeg
+prijedloga" iako je arhiva imala jasan, dosljedan odgovor.
+
+**Fix**: `_execute()` WHERE klauzula sad prihvata `supplier ILIKE %s OR supplier IS NULL OR
+supplier = ''` — nepoznat dobavljač više NE isključuje zapis (zaštita od miješanja tarifa
+DRUGOG, potvrđenog dobavljača ostaje netaknuta). `_to_matches()` prije je primala JEDAN
+`supplier_matched: bool` za CIJEL upit — sad se `supplier_match` računa PO REDU
+(`supplier_key.lower() in supplier.lower()`), jer rezultat sad može biti mješavina
+potvrđenih i nepotvrđenih zapisa. Testovi: `tests/unit/test_historical_tariff_validation.py`
+(3 nova: SQL WHERE sadržaj, per-red supplier_match, end-to-end SUSSINA scenario).
+
+**Napomena za buduće agente**: ovaj obrazac (najbolji istorijski zapis nema upisan
+dobavljača) je vjerovatno čest — provjeriti prije zaključka "nema podataka" da li je uzrok
+ovaj filter, ne odsustvo podataka. Sporedni nalaz: baza ima i pogrešan par (SUSSINA →
+38249993, usage=2) — vjerovatno iz istih pogrešnih deklaracija koje je korisnik prijavio;
+nije čišćeno (nema negativan efekat dok jači 21069098 zapis pobjeđuje po usage_count-u).
