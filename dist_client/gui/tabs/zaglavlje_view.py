@@ -486,6 +486,40 @@ class ZaglavljeView(BaseTabView):
         middle_column = self._create_middle_column()
         right_column = self._create_right_column()
 
+        field_state_style = """
+            QLineEdit, QComboBox {
+                background-color: #ffffff;
+                border: 1px solid #a8b9ae;
+                color: #18354a;
+            }
+            QLineEdit:hover, QComboBox:hover {
+                background-color: #fbfefc;
+                border-color: #8fa9ba;
+            }
+            QLineEdit:focus, QComboBox:focus {
+                background-color: #ffffff;
+                border: 2px solid #3f7898;
+            }
+            QLineEdit:read-only {
+                background-color: #f2f5f3;
+                border-color: #bcc8c0;
+                color: #526159;
+            }
+            QLineEdit:disabled, QComboBox:disabled {
+                background-color: #edf1ef;
+                border-color: #c7d0ca;
+                color: #7d8982;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #ffffff;
+                border: 1px solid #a8b9ae;
+                selection-background-color: #dfeaf1;
+                selection-color: #18354a;
+            }
+        """
+        for column in (left_column, middle_column, right_column):
+            column.setStyleSheet(column.styleSheet() + field_state_style)
+
         if sys.platform.startswith("win"):
             for column in (left_column, middle_column, right_column):
                 self._apply_windows_control_metrics(column)
