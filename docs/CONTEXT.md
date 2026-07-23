@@ -1083,7 +1083,11 @@ Nema koda za `quality_control` ("Zdravstvena inspekcija") — namjerno bez istor
 odvojen prolaz kroz XML kako se ne bi dirao taj kod), `catalogs.inspection_rules` i
 `InspectionService.check()` (pravno pravilo ostaje netaknuto).
 
-**Status migracije**: kod je gotov i testiran (py_compile, unit testovi sa pravim privremenim
-XML fajlovima), ali `migrate()` NIJE pokrenut protiv žive baze — PostgreSQL server nedostupan
-do sutra (2026-07-23). Tabela `catalogs.inspection_document_history` još ne postoji u bazi.
-Vidi `project_rooms/2026-07-22_istorijska-napomena-inspekcije.md` za puni plan.
+**Status migracije**: pokrenuta 2026-07-23 protiv `H:\New folder\NOVA ASIKUDA` čim je server
+postao dostupan — `catalogs.inspection_document_history` sad postoji i popunjena je (639
+parova). Uživo potvrđeno za `21069098`: market_inspection=86, sanitary=82, veterinary=80,
+medicines_agency=26 (poklapa se sa ranijim probnim skeniranjem). Reimport je idempotentan
+(briše i ponovo gradi cijelu tabelu) — ponovo pokrenuti `python database/
+migrate_inspection_document_history.py --xml-dir "H:\New folder\NOVA ASIKUDA"` kad korisnik
+obogati arhivu novim XML fajlovima. Vidi `project_rooms/2026-07-22_istorijska-napomena-inspekcije.md`
+za puni plan.
