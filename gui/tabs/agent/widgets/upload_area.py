@@ -40,10 +40,10 @@ class ModeCard(QFrame):
         icon_lbl.setAlignment(Qt.AlignCenter)
         icon_lbl.setStyleSheet("background: transparent;")
 
-        title_lbl = QLabel(self.mode)
-        title_lbl.setAlignment(Qt.AlignCenter)
-        title_lbl.setWordWrap(True)
-        title_lbl.setStyleSheet(f"""
+        self._title_lbl = QLabel(self.mode)
+        self._title_lbl.setAlignment(Qt.AlignCenter)
+        self._title_lbl.setWordWrap(True)
+        self._title_lbl.setStyleSheet(f"""
             font-weight: bold;
             font-size: 13px;
             color: {COLOR_TEXT};
@@ -61,7 +61,7 @@ class ModeCard(QFrame):
         """)
 
         layout.addWidget(icon_lbl)
-        layout.addWidget(title_lbl)
+        layout.addWidget(self._title_lbl)
         layout.addWidget(desc_lbl)
 
         self._apply_style(False)
@@ -93,6 +93,7 @@ class ModeCard(QFrame):
 
     def set_selected(self, selected: bool):
         self._selected = selected
+        self._title_lbl.setText(f"✓ {self.mode}" if selected else self.mode)
         self._apply_style(selected)
 
     def mousePressEvent(self, event):
@@ -110,6 +111,7 @@ class UploadArea(QWidget):
         super().__init__(parent)
         self._mode_cards = {}
         self._current_mode = "Analiza"
+        self._compact = False
         self._setup_ui()
 
     def _setup_ui(self):
@@ -133,14 +135,14 @@ class UploadArea(QWidget):
         drop_layout.setAlignment(Qt.AlignCenter)
         drop_layout.setSpacing(6)
 
-        upload_icon = QLabel()
-        upload_icon.setPixmap(qta.icon(ICON_UPLOAD, color=COLOR_SAGE).pixmap(44, 44))
-        upload_icon.setAlignment(Qt.AlignCenter)
-        upload_icon.setStyleSheet("background: transparent; border: none;")
+        self.upload_icon = QLabel()
+        self.upload_icon.setPixmap(qta.icon(ICON_UPLOAD, color=COLOR_SAGE).pixmap(44, 44))
+        self.upload_icon.setAlignment(Qt.AlignCenter)
+        self.upload_icon.setStyleSheet("background: transparent; border: none;")
 
-        drop_title = QLabel("Prevuci dokumente ovdje")
-        drop_title.setAlignment(Qt.AlignCenter)
-        drop_title.setStyleSheet(f"""
+        self.drop_title = QLabel("Prevuci dokumente ovdje")
+        self.drop_title.setAlignment(Qt.AlignCenter)
+        self.drop_title.setStyleSheet(f"""
             font-size: 16px;
             font-weight: bold;
             color: {COLOR_TEXT};
@@ -148,21 +150,21 @@ class UploadArea(QWidget):
             border: none;
         """)
 
-        drop_sub = QLabel(
+        self.drop_sub = QLabel(
             "PDF, Excel i XML fajlovi za automatsku analizu,\n"
             "tarifiranje i kreiranje naimenovanja"
         )
-        drop_sub.setAlignment(Qt.AlignCenter)
-        drop_sub.setStyleSheet(f"""
+        self.drop_sub.setAlignment(Qt.AlignCenter)
+        self.drop_sub.setStyleSheet(f"""
             font-size: 12px;
             color: {COLOR_TEXT_MUTED};
             background: transparent;
             border: none;
         """)
 
-        drop_layout.addWidget(upload_icon)
-        drop_layout.addWidget(drop_title)
-        drop_layout.addWidget(drop_sub)
+        drop_layout.addWidget(self.upload_icon)
+        drop_layout.addWidget(self.drop_title)
+        drop_layout.addWidget(self.drop_sub)
 
         layout.addWidget(self.drop_frame)
 
@@ -269,10 +271,36 @@ class UploadArea(QWidget):
         self._current_mode = mode
         for name, card in self._mode_cards.items():
             card.set_selected(name == mode)
+        self._update_action_label()
         self.mode_changed.emit(mode)
 
     def get_mode(self) -> str:
         return self._current_mode
+
+    def set_compact(self, compact: bool):
+        self._compact = compact
+        height = 64 if compact else 145
+        icon_size = 26 if compact else 44
+        if compact:
+            self.drop_frame.setFixedHeight(height)
+        else:
+            self.drop_frame.setMaximumHeight(16777215)
+        self.drop_frame.setMinimumHeight(height)
+        self.upload_icon.setPixmap(
+            qta.icon(ICON_UPLOAD, color=COLOR_SAGE).pixmap(icon_size, icon_size)
+        )
+        self.drop_title.setText(
+            "Dodaj još dokumenata" if compact else "Prevuci dokumente ovdje"
+        )
+        self.drop_sub.setVisible(not compact)
+
+    def _update_action_label(self):
+        labels = {
+            "Analiza": " Pokreni analizu",
+            "Uvezi u deklaraciju": " Uvezi u deklaraciju",
+            "Puna automatizacija": " Pokreni automatizaciju",
+        }
+        self.btn_analyze.setText(labels[self._current_mode])
 
     # ── Drag & Drop ───────────────────────────────────────────────────────────
 
@@ -345,7 +373,7 @@ class UploadArea(QWidget):
         else:
             self.btn_analyze.setEnabled(True)
             self.btn_select.setEnabled(True)
-            self.btn_analyze.setText(" Pokreni analizu")
+            self._update_action_label()
             self.btn_analyze.setStyleSheet(f"""
                 QPushButton {{
                     background-color: {COLOR_SECONDARY};

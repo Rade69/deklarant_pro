@@ -359,7 +359,10 @@ class ChatPanel(QWidget):
         layout.setSpacing(8)
 
         self.input_field = _ChatInput()
-        self.input_field.setPlaceholderText("Postavi pitanje... (Enter = pošalji, Shift+Enter = novi red)")
+        self.input_field.setPlaceholderText(
+            "Pitaj agenta o uvezenim dokumentima... "
+            "(Enter = pošalji, Shift+Enter = novi red)"
+        )
         self.input_field.setFixedHeight(74)
         self.input_field.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.input_field.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)

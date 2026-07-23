@@ -97,10 +97,13 @@ class DocumentPanel(QWidget):
         # ⭐ Resetuj loading state — poništava zaostali stylesheet i tekst
         self.upload_area.set_loading(False)
         self.upload_area.btn_analyze.setEnabled(True)
+        self.upload_area.set_compact(True)
         self.files_added.emit(filepaths)
 
     def _on_file_removed(self, filepath: str):
-        if len(self.file_table.get_files()) == 0:
+        has_files = bool(self.file_table.get_files())
+        self.upload_area.set_compact(has_files)
+        if not has_files:
             self.upload_area.set_loading(False)
             self.upload_area.btn_analyze.setEnabled(False)
             self.results_viewer.clear()
@@ -111,6 +114,7 @@ class DocumentPanel(QWidget):
         # ⭐ Prvo resetuj loading state (vraća normalan stylesheet i tekst)
         self.upload_area.set_loading(False)
         self.upload_area.btn_analyze.setEnabled(False)
+        self.upload_area.set_compact(False)
         self.clear_requested.emit()
 
     def get_files(self) -> list:

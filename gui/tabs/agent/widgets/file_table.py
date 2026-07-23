@@ -28,6 +28,13 @@ class FileTable(QTableWidget):
     COL_PARSER = 5
     COL_POUZDANOST = 6
     COL_AKCIJA = 7
+    STATUS_LABELS = {
+        "Uploaded": "Dodano",
+        "Processing": "Obrada",
+        "Completed": "Završeno",
+        "Error": "Greška",
+        "Skipped": "Preskočeno",
+    }
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -39,9 +46,9 @@ class FileTable(QTableWidget):
         # Kolone
         self.setColumnCount(8)
         self.setHorizontalHeaderLabels([
-            "Ikona",
+            "",
             "Tip",
-            "Naziv Fajla",
+            "Naziv fajla",
             "Veličina",
             "Status",
             "Parser",
@@ -50,14 +57,14 @@ class FileTable(QTableWidget):
         ])
 
         # Column widths
-        self.setColumnWidth(self.COL_ICON, 50)
-        self.setColumnWidth(self.COL_TIP, 80)
+        self.setColumnWidth(self.COL_ICON, 36)
+        self.setColumnWidth(self.COL_TIP, 68)
         self.setColumnWidth(self.COL_NAZIV, 250)
-        self.setColumnWidth(self.COL_VELICINA, 100)
-        self.setColumnWidth(self.COL_STATUS, 100)
-        self.setColumnWidth(self.COL_PARSER, 120)
-        self.setColumnWidth(self.COL_POUZDANOST, 150)
-        self.setColumnWidth(self.COL_AKCIJA, 80)
+        self.setColumnWidth(self.COL_VELICINA, 88)
+        self.setColumnWidth(self.COL_STATUS, 106)
+        self.setColumnWidth(self.COL_PARSER, 110)
+        self.setColumnWidth(self.COL_POUZDANOST, 140)
+        self.setColumnWidth(self.COL_AKCIJA, 64)
 
         # Header
         header = self.horizontalHeader()
@@ -146,7 +153,7 @@ class FileTable(QTableWidget):
         self.setItem(row, self.COL_VELICINA, size_item)
 
         # Status
-        status_item = QTableWidgetItem(f"● {file_item.status}")
+        status_item = QTableWidgetItem(f"● {self._status_label(file_item.status)}")
         status_item.setTextAlignment(Qt.AlignCenter)
         status_item.setForeground(self._get_status_color(file_item.status))
         self.setItem(row, self.COL_STATUS, status_item)
@@ -262,6 +269,9 @@ class FileTable(QTableWidget):
         else:
             return QColor(COLOR_TEXT)
 
+    def _status_label(self, status: str) -> str:
+        return self.STATUS_LABELS.get(status, status)
+
     def _on_item_clicked(self, item):
         """Handle item click."""
         row = item.row()
@@ -300,7 +310,7 @@ class FileTable(QTableWidget):
                 # Status
                 status_item = self.item(row, self.COL_STATUS)
                 if status_item:
-                    status_item.setText(f"● {status}")
+                    status_item.setText(f"● {self._status_label(status)}")
                     status_item.setForeground(self._get_status_color(status))
 
                 # Parser
