@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
     QInputDialog, QApplication,
 )
 from PySide6.QtCore import Qt
-from PySide6.QtCore import Signal
+from PySide6.QtCore import QThread, Signal
 from PySide6.QtGui import QFont
 from typing import Dict, Any
 import qtawesome as qta
@@ -19,6 +19,81 @@ import json
 import socket
 from gui.tabs.admin.panels import styles as S
 from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
+
+
+class _AiHealthCheckWorker(QThread):
+    """
+    Testira AI providere (Groq/Gemini) u pozadini — DNS + testni upit.
+
+    Ranije se ovo radilo sinhrono na UI thread-u (AGENTS.md: "QThread workeri
+    za sve LLM pozive — nikad blokirati UI thread"), pa je dugme "AI status"
+    zamrzavalo cijelu aplikaciju dok oba providera ne odgovore.
+    """
+
+    result_ready = Signal(list)
+
+    def run(self) -> None:
+        from gui.tabs.agent.widgets.llm_provider import LLMProvider
+
+        provider = LLMProvider()
+        lines = [
+            "AI HEALTH CHECK",
+            "===============",
+            "",
+            f"Groq ključ:     {'OK' if provider.has_groq() else 'NEDOSTAJE'}",
+            f"Gemini ključ:   {'OK' if provider.has_gemini() else 'NEDOSTAJE'}",
+            f"Aktivni redoslijed (primarni): {provider.active_provider()}",
+            "",
+            "DNS provjera:",
+        ]
+
+        host_map = {
+            "Groq": "api.groq.com",
+            "Gemini": "generativelanguage.googleapis.com",
+        }
+        for name, host in host_map.items():
+            try:
+                ip = socket.gethostbyname(host)
+                lines.append(f"- {name}: OK ({host} -> {ip})")
+            except Exception as e:
+                lines.append(f"- {name}: GREŠKA ({host}) - {e}")
+
+        lines.extend([
+            "",
+            "Test upit (kratki ping):",
+        ])
+
+        tests = [
+            ("Groq", provider.has_groq(), "groq"),
+            ("Gemini", provider.has_gemini(), "gemini"),
+        ]
+        messages = [
+            {"role": "system", "content": "Odgovori samo sa TEST_OK."},
+            {"role": "user", "content": "TEST_OK"},
+        ]
+
+        for name, has_key, forced in tests:
+            if not has_key:
+                lines.append(f"- {name}: preskočeno (nema ključ)")
+                continue
+            prev_groq = provider.groq_key
+            prev_gemini = provider.gemini_key
+            try:
+                if forced == "groq":
+                    provider.gemini_key = ""
+                else:
+                    provider.groq_key = ""
+
+                out = (provider.complete(messages, max_tokens=16) or "").strip()
+                preview = out[:80] if out else "<prazan odgovor>"
+                lines.append(f"- {name}: OK ({preview})")
+            except Exception as e:
+                lines.append(f"- {name}: GREŠKA ({e})")
+            finally:
+                provider.groq_key = prev_groq
+                provider.gemini_key = prev_gemini
+
+        self.result_ready.emit(lines)
 
 
 class SystemPanel(QWidget):
@@ -521,70 +596,16 @@ Generisano: {info.get('generated_at', 'N/A')}
         )
 
     def _on_ai_health_clicked(self):
-        """AI health check: ključevi, DNS i testni odgovor providera (Groq/Gemini)."""
-        from gui.tabs.agent.widgets.llm_provider import LLMProvider
-
-        provider = LLMProvider()
-        lines = [
-            "AI HEALTH CHECK",
-            "===============",
-            "",
-            f"Groq ključ:     {'OK' if provider.has_groq() else 'NEDOSTAJE'}",
-            f"Gemini ključ:   {'OK' if provider.has_gemini() else 'NEDOSTAJE'}",
-            f"Aktivni redoslijed (primarni): {provider.active_provider()}",
-            "",
-            "DNS provjera:",
-        ]
-
-        host_map = {
-            "Groq": "api.groq.com",
-            "Gemini": "generativelanguage.googleapis.com",
-        }
-        for name, host in host_map.items():
-            try:
-                ip = socket.gethostbyname(host)
-                lines.append(f"- {name}: OK ({host} -> {ip})")
-            except Exception as e:
-                lines.append(f"- {name}: GREŠKA ({host}) - {e}")
-
-        lines.extend([
-            "",
-            "Test upit (kratki ping):",
-        ])
-
-        tests = [
-            ("Groq", provider.has_groq(), "groq"),
-            ("Gemini", provider.has_gemini(), "gemini"),
-        ]
-        messages = [
-            {"role": "system", "content": "Odgovori samo sa TEST_OK."},
-            {"role": "user", "content": "TEST_OK"},
-        ]
-
+        """AI health check: ključevi, DNS i testni odgovor providera (Groq/Gemini) — u pozadini (QThread), ne blokira UI."""
+        self.btn_ai_health.setEnabled(False)
         QApplication.setOverrideCursor(Qt.WaitCursor)
-        try:
-            for name, has_key, forced in tests:
-                if not has_key:
-                    lines.append(f"- {name}: preskočeno (nema ključ)")
-                    continue
-                prev_groq = provider.groq_key
-                prev_gemini = provider.gemini_key
-                try:
-                    if forced == "groq":
-                        provider.gemini_key = ""
-                    else:
-                        provider.groq_key = ""
+        self._ai_health_worker = _AiHealthCheckWorker(self)
+        self._ai_health_worker.result_ready.connect(self._on_ai_health_result)
+        self._ai_health_worker.start()
 
-                    out = (provider.complete(messages, max_tokens=16) or "").strip()
-                    preview = out[:80] if out else "<prazan odgovor>"
-                    lines.append(f"- {name}: OK ({preview})")
-                except Exception as e:
-                    lines.append(f"- {name}: GREŠKA ({e})")
-                finally:
-                    provider.groq_key = prev_groq
-                    provider.gemini_key = prev_gemini
-        finally:
-            QApplication.restoreOverrideCursor()
-
+    def _on_ai_health_result(self, lines: list) -> None:
+        """Slot za rezultat _AiHealthCheckWorker-a (poziva se na UI threadu preko signala)."""
+        QApplication.restoreOverrideCursor()
+        self.btn_ai_health.setEnabled(True)
         QMessageBox.information(self, "AI status", "\n".join(lines))
 
