@@ -11,6 +11,7 @@ Izvor podataka: database/deklarant_sistem.db → tarifa_2026
 """
 
 import os
+import sys
 import sqlite3
 from typing import List, Tuple, Any, Optional, Callable
 
@@ -30,9 +31,30 @@ except ImportError:
 # DOC: docs/sections/tariff-hierarchy-display.md
 # ============================================================
 
-_DB_PATH = os.path.normpath(
-    os.path.join(os.path.dirname(__file__), '..', '..', '..', 'database', 'deklarant_sistem.db')
-)
+def _resolve_db_path() -> str:
+    """
+    Pronađi deklarant_sistem.db: probaj više lokacija jer PyInstaller frozen
+    build ima __file__ unutar _internal/ bundle-a (sys._MEIPASS), dok stvarna
+    (read-write) baza živi pored .exe-a i NIJE u deklarant_pro.spec datas
+    listi. Bez ovoga sqlite3.connect() tiho napravi NOVU praznu bazu na
+    pogrešnoj putanji → "no such table: tarifa_2026" na upitu.
+
+    Isti obrazac/objašnjenje kao services/tariff/tarifa_service.py::_resolve_db_path().
+    """
+    candidates = [
+        os.path.normpath(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'database', 'deklarant_sistem.db')),
+    ]
+    if getattr(sys, 'frozen', False):
+        candidates.append(os.path.join(os.path.dirname(sys.executable), 'database', 'deklarant_sistem.db'))
+    candidates.append(os.path.join('database', 'deklarant_sistem.db'))
+
+    for path in candidates:
+        if os.path.exists(path):
+            return path
+    return candidates[0]
+
+
+_DB_PATH = _resolve_db_path()
 
 _NIVO_EMOJI = {
     'glava':        '📂',
