@@ -9,6 +9,7 @@ import logging
 import os
 import re
 import sqlite3
+import sys
 from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 from html import escape
@@ -16,9 +17,30 @@ from typing import Any
 
 logger = logging.getLogger("deklarant_pro.agent.tariff_history_analysis")
 
-_DB_PATH = os.path.join(
-    os.path.dirname(__file__), "..", "..", "..", "database", "deklarant_sistem.db"
-)
+
+def _resolve_db_path() -> str:
+    """
+    Pronađi deklarant_sistem.db: probaj više lokacija jer PyInstaller frozen
+    build ima __file__ unutar _internal/ bundle-a dok stvarna (read-write)
+    baza živi pored .exe-a. Vidi gui/tabs/sifarnici/tariff_hierarchy.py::
+    _resolve_db_path() za isti obrazac/objašnjenje.
+    """
+    candidates = [
+        os.path.normpath(os.path.join(
+            os.path.dirname(__file__), "..", "..", "..", "database", "deklarant_sistem.db"
+        )),
+    ]
+    if getattr(sys, 'frozen', False):
+        candidates.append(os.path.join(os.path.dirname(sys.executable), 'database', 'deklarant_sistem.db'))
+    candidates.append(os.path.join('database', 'deklarant_sistem.db'))
+
+    for path in candidates:
+        if os.path.exists(path):
+            return path
+    return candidates[0]
+
+
+_DB_PATH = _resolve_db_path()
 
 _STOP_WORDS = {
     "the", "and", "for", "with", "without", "kom", "set", "pcs", "art", "type",

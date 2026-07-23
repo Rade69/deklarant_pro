@@ -17,13 +17,38 @@ Nivoi hijerarhije:
 """
 
 import sqlite3
+import sys
 import os
 import logging
 from typing import List, Dict, Optional
 
 logger = logging.getLogger("deklarant_pro.tariff_tree")
 
-DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'database', 'deklarant_sistem.db')
+
+def _resolve_db_path() -> str:
+    """
+    Pronađi deklarant_sistem.db: probaj više lokacija.
+
+    Prvobitni obrazac (samo jedan '..') je pogrešan i za dev mod — ovaj fajl
+    je u services/tariff/, pa treba DVA nivoa gore do korijena projekta, ne
+    jedan. Dodat i frozen-build fallback (vidi services/tariff/
+    tarifa_service.py::_resolve_db_path() i gui/tabs/sifarnici/
+    tariff_hierarchy.py::_resolve_db_path() za isti obrazac/objašnjenje).
+    """
+    candidates = [
+        os.path.normpath(os.path.join(os.path.dirname(__file__), '..', '..', 'database', 'deklarant_sistem.db')),
+    ]
+    if getattr(sys, 'frozen', False):
+        candidates.append(os.path.join(os.path.dirname(sys.executable), 'database', 'deklarant_sistem.db'))
+    candidates.append(os.path.join('database', 'deklarant_sistem.db'))
+
+    for path in candidates:
+        if os.path.exists(path):
+            return path
+    return candidates[0]
+
+
+DB_PATH = _resolve_db_path()
 
 
 def _get_conn() -> sqlite3.Connection:
