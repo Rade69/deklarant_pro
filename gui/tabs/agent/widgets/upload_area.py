@@ -355,7 +355,7 @@ class UploadArea(QWidget):
         if loading:
             self.btn_analyze.setEnabled(False)
             self.btn_select.setEnabled(False)
-            self.btn_analyze.setText(" ⏳ Procesiram...")
+            self.btn_analyze.setText(" ⏳ Obrađujem...")
             self.btn_analyze.setStyleSheet(f"""
                 QPushButton {{
                     background-color: {COLOR_TEXT_MUTED};
