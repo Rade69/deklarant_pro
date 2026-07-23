@@ -598,10 +598,17 @@ def parse_blagic_attos_with_auto_combine(invoice_pdf_path: str) -> ImportResult:
 
         # Combine (pass origin statement flag)
         combined_items = combine_invoice_and_packing(
-            invoice_items, 
+            invoice_items,
             packing_items,
             has_origin_statement
         )
+
+        # NAPOMENA: finalni "Bruto:" red u dokumentu (header) uključuje i
+        # procijenjenu težinu palete (ATTOS paušalno dodaje ~20kg za EUR paletu),
+        # što ne odgovara stvarnoj težini robe. Za ATTOS koristimo zbir bruto/neto
+        # po stavkama iz liste pakovanja (bez palete) — poslovna odluka korisnika.
+        bruto_kg = sum(p.get("bruto_kg", 0.0) for p in packing_items)
+        neto_kg = sum(p.get("neto_kg", 0.0) for p in packing_items)
 
         logger.info(f"Kombinovano {len(combined_items)} stavki iz fakture i liste pakovanja")
     else:
@@ -627,6 +634,10 @@ def parse_blagic_attos_with_auto_combine(invoice_pdf_path: str) -> ImportResult:
             )
             combined_items.append(item)
 
+        # Nema liste pakovanja — nema po-stavci težina, koristi header fakture
+        bruto_kg = header.get("bruto_kg", 0.0)
+        neto_kg = header.get("neto_kg", 0.0)
+
     _imp = Party(name="BLAGIĆ D.O.O.")
     for item in combined_items:
         item.exporter = Party(name="ATTOS")
@@ -635,8 +646,8 @@ def parse_blagic_attos_with_auto_combine(invoice_pdf_path: str) -> ImportResult:
     # Return ImportResult
     return ImportResult(
         items=combined_items,
-        bruto_kg=header.get("bruto_kg", 0.0),
-        neto_kg=header.get("neto_kg", 0.0),
+        bruto_kg=bruto_kg,
+        neto_kg=neto_kg,
         invoice_name=header.get("invoice_number", ""),
         currency=header.get("currency", "EUR"),
         has_origin_statement=has_origin_statement,

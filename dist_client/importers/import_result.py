@@ -97,6 +97,15 @@ class ImportResult:
                 f"Neto ({self.neto_kg} kg) > Bruto ({self.bruto_kg} kg) — fizički nemoguće"
             )
 
+        if self.items and self.bruto_kg > 0 and self.neto_kg <= 0:
+            warnings.append(
+                f"Bruto težina pronađena ({self.bruto_kg} kg), ali Neto nije — provjerite fakturu"
+            )
+        elif self.items and self.neto_kg > 0 and self.bruto_kg <= 0:
+            warnings.append(
+                f"Neto težina pronađena ({self.neto_kg} kg), ali Bruto nije — provjerite fakturu"
+            )
+
         # --- razina stavke ---
         for i, item in enumerate(self.items, 1):
             naziv = (item.naziv_robe or "").strip()

@@ -391,15 +391,24 @@ class DeclarationSearchService:
                     "VALUES (?, ?, ?, ?, ?, ?)",
                     [(decl_id,) + item for item in items]
                 )
-                # FTS5 — upiši commercial_desc + description za pretragu
-                last_id = cur.lastrowid
-                first_id = last_id - len(items) + 1
+                # FTS5 — upiši commercial_desc + description za pretragu.
+                # cur.lastrowid se NE ažurira nakon executemany (ostaje od
+                # prethodnog execute() za deklaraciju), pa se pravi id-evi
+                # upisanih stavki moraju dohvatiti upitom — inače se item_id
+                # u items_fts pomjeri i pretraga vrati podatke pogrešne stavke.
+                # Vidi agent_reports/2026-07-03_declaration-search-fts-item-id-fix.md
+                item_ids = [
+                    row[0] for row in cur.execute(
+                        "SELECT id FROM items WHERE decl_id = ? ORDER BY id",
+                        (decl_id,)
+                    ).fetchall()
+                ]
                 cur.executemany(
                     "INSERT INTO items_fts(item_id, commercial_desc, description) "
                     "VALUES (?, ?, ?)",
                     [
-                        (first_id + i, item[1] or "", item[2] or "")
-                        for i, item in enumerate(items)
+                        (item_id, item[1] or "", item[2] or "")
+                        for item_id, item in zip(item_ids, items)
                     ]
                 )
         self._db.commit()

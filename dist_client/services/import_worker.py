@@ -175,6 +175,7 @@ class ManualBatchImportWorker(QThread):
                 "is_authorized_exporter": is_auth,
                 "has_origin_statement":   has_origin,
                 "parser_warnings":        warnings,
+                "_import_result":         result if is_import_result else None,
                 "skipped": False,
             })
 

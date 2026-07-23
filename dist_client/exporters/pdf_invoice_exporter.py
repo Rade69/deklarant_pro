@@ -6,10 +6,13 @@ Author: Radovan + Claude
 Date: February 2026
 """
 
+import logging
 from pathlib import Path
 from typing import List, Dict, Optional
 from datetime import datetime
 from collections import defaultdict
+
+logger = logging.getLogger(__name__)
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
@@ -103,7 +106,7 @@ class PDFInvoiceExporter:
                 self.font_bold = 'LibSans-Bold'
                 self.font_italic = 'LibSans-Italic'
                 self.font_bold_italic = 'LibSans-BoldItalic'
-                print(f"✅ Liberation Sans fontovi registrovani: {font_dir}")
+                logger.info("Liberation Sans fontovi registrovani: %s", font_dir)
                 return
 
             windows_fonts = Path("C:/Windows/Fonts")
@@ -122,12 +125,12 @@ class PDFInvoiceExporter:
                 self.font_bold = 'DPArial-Bold'
                 self.font_italic = 'DPArial-Italic'
                 self.font_bold_italic = 'DPArial-BoldItalic'
+                logger.info("Arial fontovi registrovani iz Windows font direktorija")
                 return
 
-            print("⚠️ Liberation Sans nije pronađen, koristim ReportLab default fontove")
+            logger.warning("Liberation Sans nije pronađen, koristim ReportLab default fontove")
         except Exception as e:
-            print(f"⚠️ Greška pri registrovanju fontova: {e}")
-            print("   Koristim ReportLab default fontove")
+            logger.warning("Greška pri registrovanju fontova: %s — koristim ReportLab default", e)
 
     def _format_float(self, val, decimals: int = 2) -> str:
         """Formatiraj broj sa zarezom kao separator hiljada."""
@@ -295,7 +298,7 @@ class PDFInvoiceExporter:
             return True
 
         except Exception as e:
-            print(f"❌ Greška pri export-u PDF-a: {e}")
+            logger.error("Greška pri export-u PDF-a: %s", e, exc_info=True)
             import traceback
             traceback.print_exc()
             return False
