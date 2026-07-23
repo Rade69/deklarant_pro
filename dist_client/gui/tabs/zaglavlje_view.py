@@ -699,21 +699,21 @@ class ZaglavljeView(BaseTabView):
         party_field_styles = {
             "izvoznik": (
                 "QLineEdit { background-color: #f1f8f4; border: 1px solid #8fbea3; "
-                "border-radius: 3px; color: #173d2b; }"
+                "border-radius: 3px; color: #123d29; font-weight: 600; }"
                 "QLineEdit:hover { background-color: #e9f4ed; border-color: #5f9a79; }"
                 "QLineEdit:focus { background-color: #ffffff; border: 2px solid #2f7d5a; }"
             ),
             "primalac": (
                 "QLineEdit { background-color: #f1f6fa; border: 1px solid #91b4ca; "
-                "border-radius: 3px; color: #193d56; }"
+                "border-radius: 3px; color: #143a55; font-weight: 600; }"
                 "QLineEdit:hover { background-color: #e8f1f7; border-color: #5f8fad; }"
                 "QLineEdit:focus { background-color: #ffffff; border: 2px solid #2f6f9f; }"
             ),
             "deklarant": (
                 "QLineEdit { background-color: #dfeaf1; border: 1px solid #9fb2c1; "
-                "border-radius: 3px; color: #18354a; }"
+                "border-radius: 3px; color: #18354a; font-weight: 600; }"
                 "QLineEdit:read-only { background-color: #dfeaf1; "
-                "border: 1px solid #9fb2c1; color: #40586a; }"
+                "border: 1px solid #9fb2c1; color: #263f52; font-weight: 600; }"
                 "QLineEdit:hover, QLineEdit:read-only:hover { background-color: #d4e3ec; "
                 "border-color: #7892a5; }"
                 "QLineEdit:focus, QLineEdit:read-only:focus { background-color: #ffffff; "
