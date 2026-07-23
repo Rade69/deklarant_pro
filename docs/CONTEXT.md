@@ -758,3 +758,10 @@ strelice se nikad globalno ne presreću jer pripadaju unosu teksta, tabelama i
 combo poljima. `F6` ulazi u gornji toolbar aktivne kartice; tek kada dugme ima
 fokus, `Left/Right` ili `A/D` mijenjaju dugme, a `Esc` vraća prethodni fokus.
 Zaglavlje ima eksplicitan fokusni lanac kroz `field_widgets`.
+
+## 33. Standard hover stanja dugmadi (2026-07-23)
+
+Aktivna `QPushButton` i `QToolButton` dugmad koriste akcentni obrub `#F2C14E`
+uz promjenu semantičke nijanse. Normalno stanje ima transparentan obrub iste
+debljine, pa hover ne smije mijenjati geometriju, padding niti položaj teksta.
+Onemogućena dugmad ne dobijaju hover akcenat.

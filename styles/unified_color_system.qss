@@ -34,15 +34,102 @@ QTabBar::tab:selected {
 QPushButton {
     background-color: #3D6A8A;
     color: #FFFFFF;
-    border: none;
+    border: 2px solid transparent;
     border-radius: 4px;
     padding: 5px 12px;
     font-weight: 600;
     font-size: 12px;
 }
-QPushButton:hover    { background-color: #4A7FA5; }
+QPushButton:hover:enabled {
+    background-color: #568FB7;
+    border-color: #F2C14E;
+}
 QPushButton:pressed  { background-color: #2D506B; }
 QPushButton:disabled { background-color: #B0BEC5; color: #78909C; }
+
+QToolButton {
+    border: 2px solid transparent;
+}
+QToolButton:hover:enabled {
+    border-color: #F2C14E;
+    background-color: #D7E6F0;
+}
+
+QPushButton.btn_primary,
+QPushButton.btn_navigation,
+QPushButton.btn_secondary,
+QPushButton.btn_destructive,
+QPushButton.btn_assist,
+QPushButton.btn_navigation_orange,
+QPushButton.btn_solid_green,
+QPushButton.btn_solid_red,
+QPushButton.btn_solid_yellow,
+QPushButton.btn_solid_cyan,
+QPushButton.btn_solid_gray,
+QPushButton[btnType],
+QPushButton#btnSnimi,
+QPushButton#btnDodaj,
+QPushButton#btnKreirajNaimenovanja,
+QPushButton#btnUveziXML,
+QPushButton#btnUveziPDF,
+QPushButton#btnUveziExcel,
+QPushButton#btnUveziXMLNaim,
+QPushButton#btnUcitajListu,
+QPushButton#btnUcitajMappinge,
+QPushButton#btnAutoPopuni,
+QPushButton#btnIzracunajMase,
+QPushButton#btnIzveziXML,
+QPushButton#btnExcel,
+QPushButton#btnPDF,
+QPushButton#btnValidacija,
+QPushButton#btnOtvori,
+QPushButton#btnBrisi,
+QPushButton#btnObrisi,
+QPushButton#btnOcistiSve,
+QPushButton#btnIzlaz,
+QPushButton#btnCancel,
+QPushButton#btnPrethodno,
+QPushButton#btnSljedece {
+    border: 2px solid transparent;
+}
+
+QPushButton.btn_primary:hover:enabled,
+QPushButton.btn_navigation:hover:enabled,
+QPushButton.btn_secondary:hover:enabled,
+QPushButton.btn_destructive:hover:enabled,
+QPushButton.btn_assist:hover:enabled,
+QPushButton.btn_navigation_orange:hover:enabled,
+QPushButton.btn_solid_green:hover:enabled,
+QPushButton.btn_solid_red:hover:enabled,
+QPushButton.btn_solid_yellow:hover:enabled,
+QPushButton.btn_solid_cyan:hover:enabled,
+QPushButton.btn_solid_gray:hover:enabled,
+QPushButton[btnType]:hover:enabled,
+QPushButton#btnSnimi:hover:enabled,
+QPushButton#btnDodaj:hover:enabled,
+QPushButton#btnKreirajNaimenovanja:hover:enabled,
+QPushButton#btnUveziXML:hover:enabled,
+QPushButton#btnUveziPDF:hover:enabled,
+QPushButton#btnUveziExcel:hover:enabled,
+QPushButton#btnUveziXMLNaim:hover:enabled,
+QPushButton#btnUcitajListu:hover:enabled,
+QPushButton#btnUcitajMappinge:hover:enabled,
+QPushButton#btnAutoPopuni:hover:enabled,
+QPushButton#btnIzracunajMase:hover:enabled,
+QPushButton#btnIzveziXML:hover:enabled,
+QPushButton#btnExcel:hover:enabled,
+QPushButton#btnPDF:hover:enabled,
+QPushButton#btnValidacija:hover:enabled,
+QPushButton#btnOtvori:hover:enabled,
+QPushButton#btnBrisi:hover:enabled,
+QPushButton#btnObrisi:hover:enabled,
+QPushButton#btnOcistiSve:hover:enabled,
+QPushButton#btnIzlaz:hover:enabled,
+QPushButton#btnCancel:hover:enabled,
+QPushButton#btnPrethodno:hover:enabled,
+QPushButton#btnSljedece:hover:enabled {
+    border-color: #F2C14E;
+}
 
 /* ============================
    ZELENA — Primarna akcija
