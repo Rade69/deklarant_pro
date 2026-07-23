@@ -2373,6 +2373,28 @@ class SifarniciView(BaseTabView):
             return self.validator.validate_required_fields(required_fields)
         return []
 
+    def focus_first_invalid_field(self, category_data) -> None:
+        field_map = {}
+        if self.current_category in ["Pošiljaoci", "Uvoznici", "Deklaranti"]:
+            field_map = {
+                "jib": getattr(self, "jib_field", None),
+                "naziv": getattr(self, "naziv_field", None),
+            }
+        elif self.current_category == "Carinske tarife":
+            field_map = {
+                "tarifni_kod": getattr(self, "tarifni_kod_field", None),
+                "opis": getattr(self, "naziv_robe_field", None),
+            }
+        elif self.current_category == "Carinarnice":
+            field_map = {
+                "sifra": getattr(self, "sifra_field", None),
+                "naziv": getattr(self, "naziv_field", None),
+            }
+        for key, widget in field_map.items():
+            if not category_data.get(key) and widget is not None:
+                widget.setFocus(Qt.OtherFocusReason)
+                return
+
     def _prepare_form_data(self):
         """Priprema podatke iz forme za snimanje"""
         import shiboken6
@@ -3389,6 +3411,7 @@ class SifarniciView(BaseTabView):
             validation_errors = self._validate_form_data(form_data)
 
             if validation_errors:
+                self.focus_first_invalid_field(form_data)
                 error_msg = "Sledeća polja su obavezna:\n" + "\n".join(
                     validation_errors
                 )

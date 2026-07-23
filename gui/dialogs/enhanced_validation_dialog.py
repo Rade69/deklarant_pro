@@ -50,6 +50,7 @@ class EnhancedValidationDialog(QDialog):
     # Signali
     auto_fix_requested = Signal(list)  # Lista ValidationItem za popravku
     export_requested = Signal()  # Zahtjev za export
+    field_requested = Signal(object)
     
     def __init__(
         self,
@@ -410,6 +411,16 @@ class EnhancedValidationDialog(QDialog):
             info_layout.addWidget(expl_label)
         
         layout.addLayout(info_layout, 1)  # Stretch factor 1
+
+        if item in (self.report.zaglavlje_items or []):
+            field_btn = QPushButton("Prikaži polje")
+            field_btn.setToolTip(
+                "Zatvori provjeru i postavi fokus na problematično polje."
+            )
+            field_btn.clicked.connect(
+                lambda checked=False, selected=item: self._request_field(selected)
+            )
+            layout.addWidget(field_btn)
         
         # Checkbox za auto-fix (ako je fixable)
         if item.fixable and self.config.allow_auto_fix:
@@ -440,6 +451,10 @@ class EnhancedValidationDialog(QDialog):
         """)
         
         return widget
+
+    def _request_field(self, item: ValidationItem) -> None:
+        self.field_requested.emit(item)
+        self.reject()
     
     def _create_recommendations_widget(self) -> QGroupBox:
         """Kreiraj widget sa preporukama za popravke."""
@@ -726,7 +741,8 @@ class EnhancedValidationDialog(QDialog):
 def show_enhanced_validation_dialog(
     report: ValidationReport,
     parent=None,
-    config: DialogConfig = None
+    config: DialogConfig = None,
+    field_handler=None,
 ) -> bool:
     """
     Prikaži enhanced validation dijalog.
@@ -740,6 +756,8 @@ def show_enhanced_validation_dialog(
         True ako je dijalog prihvaćen (OK), False ako je odbijen (Cancel)
     """
     dialog = EnhancedValidationDialog(report, config, parent)
+    if field_handler:
+        dialog.field_requested.connect(field_handler)
     return dialog.exec() == QDialog.Accepted
 
 

@@ -735,3 +735,14 @@ prisutan u `C:/Windows/Fonts`; prethodni fallback na ReportLab Helvetica kvario 
 `š, ž, č, ć, đ`. Na Windowsu se sada, nakon Liberation Sans pokušaja, registruju četiri
 Arial TTF varijante iz sistemskog font direktorija. Test mora iz stvarno generisanog
 PDF-a izvući i uporediti tekst `ŠEĆER, ČAJ, ŽITO I ĐEVREK`.
+
+---
+
+## 31. Inline validacija GUI obrazaca (2026-07-23)
+
+Postojeći modali ostaju autoritativni za završne i blokirajuće provjere; inline
+oznake služe samo da korisnika odvedu do mjesta greške. Faktura označava
+konkretnu tarifnu ili zemlja ćeliju, Naimenovanja status vodi do prvog
+neispravnog polja, Zaglavlje modal nudi „Prikaži polje“, a Šifrarnici fokusiraju
+prvo prazno obavezno polje. Ove oznake ne smiju mijenjati poslovna pravila,
+draft podatke ni raspored tabova.

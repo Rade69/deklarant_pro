@@ -1402,24 +1402,38 @@ class FakturaView(BaseTabView):
 
         # Determine color based on validation result
         # ⭐ PRVO provjeri tariff similarity (žuta za fuzzy match < 0.92)
+        cell_overrides = {}
         if item.tarifni_broj and 0.70 <= tariff_sim < 0.92:
             # ŽUTA boja - fuzzy match, preporučuje se provjera
             color_hex = "#FFF4D6"  # Svijetlo žuta
             tooltip = f"⚠️ Tarifni broj: {item.tarifni_broj}\n" \
                       f"Pouzdanje: {tariff_sim:.0%}\n" \
                       f"Preporučuje se ručna provjera tarifnog broja"
+            cell_overrides[4] = (color_hex, tooltip)
+            color_hex = "#ffffff"
+            tooltip = ""
         elif is_unmatched:
             # PLAVA boja za nepodudarajuće stavke (nisu pronađene u master listi)
             color_hex = "#E6F0F8"  # Light blue for unmatched
             tooltip = "🔵 Nepodudarajuća stavka - nije pronađena u master listi. Popunite tarifni broj i zemlju porijekla."
+            cell_overrides[4] = (color_hex, "❌ Nedostaje tarifni broj")
+            cell_overrides[9] = (color_hex, "❌ Nedostaje zemlja porijekla")
+            color_hex = "#ffffff"
+            tooltip = ""
         elif not item.tarifni_broj or len(item.tarifni_broj.strip()) == 0:
             # CRVENA boja samo ako NEMA tarifnog broja
             color_hex = "#F9E4E3"  # Red for missing tariff
             tooltip = "❌ Greška: Nedostaje tarifni broj"
+            cell_overrides[4] = (color_hex, tooltip)
+            color_hex = "#ffffff"
+            tooltip = ""
         elif not item.zemlja_porijekla or len(item.zemlja_porijekla.strip()) == 0:
             # CRVENA boja ako NEMA zemlje porijekla
             color_hex = "#F9E4E3"
             tooltip = "❌ Greška: Nedostaje zemlja porijekla"
+            cell_overrides[9] = (color_hex, tooltip)
+            color_hex = "#ffffff"
+            tooltip = ""
         elif result.has_blocking_errors():
             # CRVENA boja za druge kritične greške
             color_hex = "#F9E4E3"  # Red for errors
@@ -1446,15 +1460,22 @@ class FakturaView(BaseTabView):
             cell_item = self.table.item(row, col)
             if cell_item:
                 cell_item.setData(ValidationDelegate.ValidationColorRole, color_hex)
-                if tooltip:
-                    cell_item.setToolTip(tooltip)
-        
+                cell_item.setToolTip(tooltip)
+
         # DODATNO: Apply country confidence color to zemlja_porijekla column (col 8)
         self._apply_country_confidence_color(row, item)
 
         # I posebno za kolonu Povlastica — "zemlja potvrđena" NE znači
         # "povlastica potvrđena" (vidi _apply_preference_confidence_color)
         self._apply_preference_confidence_color(row, item)
+
+        for col, (cell_color, cell_tooltip) in cell_overrides.items():
+            cell_item = self.table.item(row, col)
+            if cell_item:
+                cell_item.setData(
+                    ValidationDelegate.ValidationColorRole, cell_color
+                )
+                cell_item.setToolTip(cell_tooltip)
 
     def _apply_country_confidence_color(self, row: int, item: InvoiceLine):
         """
