@@ -1091,3 +1091,61 @@ medicines_agency=26 (poklapa se sa ranijim probnim skeniranjem). Reimport je ide
 migrate_inspection_document_history.py --xml-dir "H:\New folder\NOVA ASIKUDA"` kad korisnik
 obogati arhivu novim XML fajlovima. Vidi `project_rooms/2026-07-22_istorijska-napomena-inspekcije.md`
 za puni plan.
+
+## 43. Brzo skeniranje uskih grla i dist_client drifta (2026-07-23)
+
+Korisnik zatražio brzo skeniranje poznatih sumnjivih mjesta (uska grla, kompleksan kod)
+dok Codex radi na redizajnu. Tri originalna nalaza + dodatni otkriveni tokom istrage:
+
+**1. `TariffMappingService.find_mapping()` — sekvencijalni scan po stavci fakture.**
+`_majority_vote()`/fuzzy fallback rade `ILIKE '%riječ%'` upite koji ne mogu koristiti
+B-tree indeks. Izmjereno uživo: `EXPLAIN ANALYZE` 49ms po upitu na 25.231 red (Seq Scan),
+do 4-5 upita po stavci fakture, bez batchovanja → ~7-12s za fakturu od 50 stavki.
+`database/migrations/007_pg_trgm_indices.sql` je već postojao u repou (napisan ranije,
+tačno dijagnostikuje ovaj problem) ali **nikad nije bio primijenjen na živu bazu**.
+Pokrenut 2026-07-23 — isti upit sad 0.58ms (Bitmap Index Scan, ~84x brže). **Provjeriti
+za buduće migracije: postojanje `.sql` fajla u repou ≠ primijenjeno na bazu.**
+
+**2. `dist_client/` vs root drift — kvantifikovano i sanirano.** Bajt-po-bajt poređenje
+369 uparenih `.py` fajlova: 45 različitih (12%), od čega ~25 čist BOM/CRLF/trailing-newline
+šum, a 20 stvarnih razlika. Od tih 20: nekoliko namjerno različitih (`.pyd` re-export shim
+za `tariff_mapping_service.py`, frozen-build DB_PATH patch u `tarifa_service.py`/`run.py`,
+`config.py` frozen/bundle path logika, poznat `asycuda_xml_builder.py` print/logger drift
+već ranije procijenjen) — te NISU dirane. Sedam bilo je stvarni, ranije neprimijećeni
+propusti gdje je root imao fix koji dist_client (shipped runtime) nikad nije dobio:
+- `declaration_search_service._flush_batch`: FTS `item_id` bug (`cur.lastrowid` se ne
+  ažurira nakon `executemany`) — pretraga bi mogla vratiti podatke pogrešne stavke.
+  Root ovo već fiksirao (`agent_reports/2026-07-03_declaration-search-fts-item-id-fix.md`).
+- `pdf_faktura_pregled.py`: `draft.sifra_deklaracije` **ne postoji** na `DeclarationDraft`
+  modelu (samo `deklaracija_tip`/`deklaracija_oznaka`/`deklaracija_a`) — `AttributeError`
+  bi srušio "Pregled po fakturama" PDF u shipped runtimeu. **Aktivan crash bug**, sad fiksiran.
+- `pdf_faktura_pregled.py` + `pdf_invoice_exporter.py`: `print()` sa emoji (✅/⚠️/❌) na
+  stdout umjesto `logger` — isti obrazac koji je već poznat kao uzrok pada na Windows
+  cp1252 konzoli (`feedback_windows_patterns.md`).
+- `blagic_attos_importer.py`: bruto/neto težina uvijek iz header-a fakture (uključuje
+  ATTOS paletni paušal ~20kg) umjesto iz liste pakovanja kad postoji — netačna deklarisana
+  težina u shipped runtimeu. Root već imao fix + test (`test_blagic_attos_pallet_weight.py`).
+- `import_worker.py`: nedostajao `"_import_result"` ključ u batch record dictu —
+  `faktura_view.py` čita taj ključ za Master Frigo detekciju i header auto-fill, koji su
+  u dist_client tiho NIKAD ne okidali (nema exception, samo tiho ne-rade).
+- `import_service.py`: Šumaprom CASE 1B/2B `invoice_name` fallback na `filepath.stem`.
+- `import_result.py`: nedostajalo upozorenje kad je pronađena samo bruto ili samo neto
+  težina (ne oboje).
+
+Također otkriven (ne drift, čist root bug): `processing_worker.py` je imao 5 metoda
+(Master Frigo sparivanje) definisano DVAPUT identično u istoj klasi — drugi primjerak
+je bio mrtav kod (Python koristi zadnju definiciju). `dist_client` je već bio čist.
+Isto za `ocr_utils.py` (`_ocr_cache` deklarisan dvaput).
+
+**3. `system_panel.py._on_ai_health_clicked`** — sinhroni `provider.complete()` na UI
+thread-u (samo `setOverrideCursor`, ne sprječava zamrzavanje) — kršilo AGENTS.md pravilo
+o QThread za sve LLM pozive. Fix: `_AiHealthCheckWorker(QThread)`.
+
+**Pouka za buduće sesije**: dist_client drift nije samo kozmetički rizik — ovaj put je
+sadržavao aktivan crash bug (AttributeError) i netačnu deklarisanu težinu (pravni rizik).
+Vrijedi periodično ponoviti bajt-po-bajt poređenje (skripta u ovoj sesiji, ~15 linija
+Pythona) umjesto čekanja da korisnik prijavi bug specifično na Windows/shipped build.
+
+Commitovi: `eacf3d5` (cleanup dupliciran kod), `b2648f2` (dist_client mirror fixevi),
+`fc08233` (AI health check QThread). Puni test suite: 915 passed nakon svih izmjena
+(isti pre-postojeći 3 fail/1 error nepovezani sa ovim radom).
