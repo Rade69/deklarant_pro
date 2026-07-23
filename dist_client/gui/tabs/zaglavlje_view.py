@@ -54,7 +54,10 @@ from PySide6.QtWidgets import (
     QHeaderView,
 )
 from PySide6.QtCore import Qt, Signal, QSize, QObject, QEvent, QPoint
-from PySide6.QtGui import QFont, QIcon, QRegularExpressionValidator, QPainter, QColor, QPolygon
+from PySide6.QtGui import (
+    QFont, QIcon, QRegularExpressionValidator, QPainter, QColor, QPolygon,
+    QKeySequence, QShortcut,
+)
 from PySide6.QtCore import QRegularExpression
 from typing import Dict, Any, Optional, List
 from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
@@ -368,6 +371,8 @@ class ZaglavljeView(BaseTabView):
 
         # Setup UI
         self._setup_ui()
+        self._setup_tab_order()
+        self._setup_keyboard_shortcuts()
         self._auto_fill_deklarant()
         self._apply_styles()
         self._connect_signals()
@@ -439,6 +444,35 @@ class ZaglavljeView(BaseTabView):
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
         )
         main_layout.addWidget(grid_widget)
+
+    def _setup_tab_order(self) -> None:
+        widgets = []
+        for widget in self.field_widgets.values():
+            if (
+                widget not in widgets
+                and widget.focusPolicy() != Qt.FocusPolicy.NoFocus
+            ):
+                widgets.append(widget)
+        if self.table and self.table.focusPolicy() != Qt.FocusPolicy.NoFocus:
+            widgets.append(self.table)
+        for current, following in zip(widgets, widgets[1:]):
+            QWidget.setTabOrder(current, following)
+
+    def _setup_keyboard_shortcuts(self) -> None:
+        self._keyboard_shortcuts = []
+        bindings = (
+            ("Ctrl+N", self.btn_novi.click),
+            ("Ctrl+S", self.btn_snimi.click),
+        )
+        for sequence, handler in bindings:
+            shortcut = QShortcut(QKeySequence(sequence), self)
+            shortcut.activated.connect(handler)
+            self._keyboard_shortcuts.append(shortcut)
+        self.btn_novi.setToolTip("Nova deklaracija — Ctrl+N")
+        self.btn_snimi.setToolTip("Završna provjera — Ctrl+S")
+        self.btn_brisi.setToolTip(
+            "Obriši deklaraciju; Delete briše označenu referencu u tabeli"
+        )
 
     def _create_toolbar(self) -> QFrame:
         """Kreiraj toolbar sa dugmadima."""

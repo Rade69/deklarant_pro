@@ -746,3 +746,13 @@ konkretnu tarifnu ili zemlja ćeliju, Naimenovanja status vodi do prvog
 neispravnog polja, Zaglavlje modal nudi „Prikaži polje“, a Šifrarnici fokusiraju
 prvo prazno obavezno polje. Ove oznake ne smiju mijenjati poslovna pravila,
 draft podatke ni raspored tabova.
+
+---
+
+## 32. Standard tastaturne navigacije (2026-07-23)
+
+Glavne kartice koriste `Ctrl+1`–`Ctrl+6`; `Ctrl+Tab`/`Shift+Ctrl+Tab` ostaju
+standardni Qt tok. Tamo gdje postoji prethodni/sljedeći zapis koriste se
+`Alt+Left/Right` i opcioni gaming aliasi `Alt+A/D`. Obični `W/A/S/D` i obične
+strelice se nikad globalno ne presreću jer pripadaju unosu teksta, tabelama i
+combo poljima. Zaglavlje ima eksplicitan fokusni lanac kroz `field_widgets`.

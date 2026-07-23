@@ -313,6 +313,7 @@ class FakturaView(BaseTabView):
 
         # Setup UI
         self._setup_ui()
+        self._setup_keyboard_shortcuts()
 
         # Undo/redo shortcuts
         QShortcut(QKeySequence("Ctrl+Z"), self).activated.connect(self._undo)
@@ -324,6 +325,32 @@ class FakturaView(BaseTabView):
 
         # Update status bar
         self._update_status_bar()
+
+    def _setup_keyboard_shortcuts(self) -> None:
+        self._navigation_shortcuts = []
+        bindings = (
+            ("Ctrl+N", self._on_add_item),
+            ("Alt+Left", lambda: self._navigate_invoice_row(-1)),
+            ("Alt+A", lambda: self._navigate_invoice_row(-1)),
+            ("Alt+Right", lambda: self._navigate_invoice_row(1)),
+            ("Alt+D", lambda: self._navigate_invoice_row(1)),
+        )
+        for sequence, handler in bindings:
+            shortcut = QShortcut(QKeySequence(sequence), self)
+            shortcut.activated.connect(handler)
+            self._navigation_shortcuts.append(shortcut)
+        self.btn_add.setToolTip("Dodaj novu stavku ručno — Ctrl+N")
+
+    def _navigate_invoice_row(self, step: int) -> None:
+        total = self.table.rowCount()
+        if total == 0:
+            return
+        current = self.table.currentRow()
+        target = 0 if current < 0 else max(0, min(total - 1, current + step))
+        self.table.selectRow(target)
+        cell = self.table.item(target, 0)
+        if cell:
+            self.table.scrollToItem(cell)
 
     def _setup_ui(self):
         """Setup the complete UI layout."""

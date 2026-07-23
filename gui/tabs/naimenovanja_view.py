@@ -59,7 +59,9 @@ class _ScrollableCombo(QComboBox):
             self.view().setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import QFile, Qt, Signal, QTimer, QPoint, QSize, QSettings
-from PySide6.QtGui import QColor, QIcon, QPainter, QPolygon, QTextOption
+from PySide6.QtGui import (
+    QColor, QIcon, QPainter, QPolygon, QTextOption, QKeySequence, QShortcut
+)
 
 from services.naimenovanja.tariff_service import TariffService
 from services.naimenovanja.constants import NaimenovanjaConstants
@@ -265,6 +267,7 @@ class NaimenovanjaView(BaseTabView):
 
         # 6.6 Postavi redosljed Tab navigacije
         self._setup_tab_order()
+        self._setup_keyboard_shortcuts()
 
         # 7. Load data — redosljed bitan: clear mora biti PRIJE load, inače briše tarife
         self.draft.ensure_min_items(1)
@@ -3012,6 +3015,26 @@ class NaimenovanjaView(BaseTabView):
         for i in range(len(valid) - 1):
             QWidget.setTabOrder(valid[i], valid[i + 1])
 
+    def _setup_keyboard_shortcuts(self) -> None:
+        self._keyboard_shortcuts = []
+        bindings = (
+            ("Ctrl+N", self._on_add_item),
+            ("Ctrl+D", self._on_delete_item),
+            ("Ctrl+S", self._on_save),
+            ("Alt+Left", self._on_previous),
+            ("Alt+A", self._on_previous),
+            ("Alt+Right", self._on_next),
+            ("Alt+D", self._on_next),
+        )
+        for sequence, handler in bindings:
+            shortcut = QShortcut(QKeySequence(sequence), self)
+            shortcut.activated.connect(handler)
+            self._keyboard_shortcuts.append(shortcut)
+        self.btn_previous.setToolTip("Prethodno naimenovanje — Alt+← / Alt+A")
+        self.btn_next.setToolTip("Sljedeće naimenovanje — Alt+→ / Alt+D")
+        self.btn_add.setToolTip("Dodaj naimenovanje — Ctrl+N")
+        self.btn_delete.setToolTip("Obriši naimenovanje — Ctrl+D")
+
     def _connect_special_field_signals(self) -> None:
         """
         Connect special field signals for "apply to all" functionality.
@@ -3823,18 +3846,7 @@ class NaimenovanjaView(BaseTabView):
 
     def keyPressEvent(self, event):
         """Keyboard shortcuts"""
-        if event.modifiers() == Qt.AltModifier:
-            if event.key() == Qt.Key_Left:
-                self._on_previous()
-            elif event.key() == Qt.Key_Right:
-                self._on_next()
-        elif event.modifiers() == Qt.ControlModifier:
-            if event.key() == Qt.Key_N:
-                self._on_add_item()
-            elif event.key() == Qt.Key_D:
-                self._on_delete_item()
-            elif event.key() == Qt.Key_S:
-                self._on_save()
+        super().keyPressEvent(event)
 
     # ============================================================
     # BaseTabView interface

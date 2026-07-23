@@ -828,17 +828,35 @@ class SifarniciView(BaseTabView):
 
     def _setup_shortcuts(self):
         """Setup keyboard shortcuts"""
+        self._keyboard_shortcuts = []
+
+        def bind(sequence, handler):
+            shortcut = QShortcut(QKeySequence(sequence), self)
+            shortcut.activated.connect(handler)
+            self._keyboard_shortcuts.append(shortcut)
+
         # Ctrl+N - Novi
-        QShortcut(QKeySequence("Ctrl+N"), self, self._on_novi)
+        bind("Ctrl+N", self._on_novi)
 
         # Ctrl+E - Uredi
-        QShortcut(QKeySequence("Ctrl+E"), self, self._on_uredi)
+        bind("Ctrl+E", self._on_uredi)
 
         # Del - Obriši
-        QShortcut(QKeySequence("Del"), self, self._on_obrisi)
+        bind("Del", self._on_obrisi)
 
         # Ctrl+S - Snimi
-        QShortcut(QKeySequence("Ctrl+S"), self, self._on_snimi)
+        bind("Ctrl+S", self._on_snimi)
+        bind("Alt+Left", self._prev_record)
+        bind("Alt+A", self._prev_record)
+        bind("Alt+Right", self._next_record)
+        bind("Alt+D", self._next_record)
+
+        self.btn_prev.setToolTip("Prethodni zapis — Alt+← / Alt+A")
+        self.btn_next.setToolTip("Sljedeći zapis — Alt+→ / Alt+D")
+        self.btn_novi.setToolTip("Novi zapis — Ctrl+N")
+        self.btn_uredi.setToolTip("Uredi zapis — Ctrl+E")
+        self.btn_snimi.setToolTip("Snimi zapis — Ctrl+S")
+        self.btn_obrisi.setToolTip("Obriši zapis — Delete")
 
     def _on_category_changed(self, row: int):
         """Category changed u sidebar-u"""

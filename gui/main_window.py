@@ -4,6 +4,7 @@ from dataclasses import fields
 from pathlib import Path
 from PySide6.QtWidgets import QMainWindow, QTabWidget, QApplication, QMessageBox, QPushButton
 from PySide6.QtCore import QFile, QTextStream, QIODevice, QSettings, QSize, Qt, QTimer
+from PySide6.QtGui import QKeySequence, QShortcut
 
 import logging
 
@@ -126,6 +127,7 @@ class MainWindow(QMainWindow):
         # Osvježi naimenovanja izračune (Rb.44/46) kad se tab aktivira
         self.tabs_widget = tabs
         tabs.currentChanged.connect(self._on_tab_changed)
+        self._setup_keyboard_shortcuts()
 
         # Dugme za bezbjedno gašenje aplikacije — odmah desno od trake tabova,
         # pored "Agent" (NE u uglu cijelog prozora — vidi _position_exit_button)
@@ -134,6 +136,20 @@ class MainWindow(QMainWindow):
         self.btn_exit_app.raise_()
         self.btn_exit_app.show()
         self._position_exit_button()
+
+    def _setup_keyboard_shortcuts(self) -> None:
+        self._main_tab_shortcuts = []
+        for index in range(self.tabs_widget.count()):
+            sequence = QKeySequence(f"Ctrl+{index + 1}")
+            shortcut = QShortcut(sequence, self)
+            shortcut.activated.connect(
+                lambda selected=index: self.tabs_widget.setCurrentIndex(selected)
+            )
+            self._main_tab_shortcuts.append(shortcut)
+            label = self.tabs_widget.tabText(index)
+            self.tabs_widget.setTabToolTip(
+                index, f"{label} — Ctrl+{index + 1}"
+            )
 
     def _tab_icon(self, icon_name):
         from PySide6.QtGui import QIcon
