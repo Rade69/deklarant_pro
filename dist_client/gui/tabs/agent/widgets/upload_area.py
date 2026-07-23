@@ -27,10 +27,10 @@ class ModeCard(QFrame):
     def _setup_ui(self, icon_name: str, description: str):
         self.setFrameShape(QFrame.NoFrame)
         self.setCursor(Qt.PointingHandCursor)
-        self.setMinimumHeight(112)
+        self.setMinimumHeight(102)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(14, 8, 14, 8)
+        layout.setContentsMargins(14, 7, 14, 7)
         layout.setSpacing(4)
         layout.setAlignment(Qt.AlignHCenter)
 
@@ -70,10 +70,9 @@ class ModeCard(QFrame):
         if selected:
             self.setStyleSheet(f"""
                 ModeCard {{
-                    background-color: white;
+                    background-color: #eef5f9;
                     border: 2px solid {COLOR_SAGE};
-                    border-radius: 10px;
-                    border-left: 4px solid {COLOR_SAGE};
+                    border-radius: 8px;
                 }}
                 ModeCard:hover {{
                     background-color: {COLOR_SAGE_CARD};
@@ -84,7 +83,7 @@ class ModeCard(QFrame):
                 ModeCard {{
                     background-color: {COLOR_SAGE_CARD};
                     border: 1px solid {COLOR_SAGE_PALE};
-                    border-radius: 10px;
+                    border-radius: 8px;
                 }}
                 ModeCard:hover {{
                     background-color: white;
@@ -120,31 +119,29 @@ class UploadArea(QWidget):
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(14)
+        layout.setSpacing(10)
 
         # ── Drop zona ─────────────────────────────────────────────────────────
         self.drop_frame = QFrame()
         self.drop_frame.setAcceptDrops(True)
-        self.drop_frame.setMinimumHeight(160)
+        self.drop_frame.setMinimumHeight(145)
         self.drop_frame.setCursor(Qt.PointingHandCursor)
         self.drop_frame.mousePressEvent = lambda e: self._on_select_files()
         self._reset_drop_style()
 
         drop_layout = QVBoxLayout(self.drop_frame)
         drop_layout.setAlignment(Qt.AlignCenter)
-        drop_layout.setSpacing(8)
+        drop_layout.setSpacing(6)
 
         upload_icon = QLabel()
-        upload_icon.setPixmap(
-            qta.icon(ICON_UPLOAD, color=COLOR_SAGE).pixmap(48, 48)
-        )
+        upload_icon.setPixmap(qta.icon(ICON_UPLOAD, color=COLOR_SAGE).pixmap(44, 44))
         upload_icon.setAlignment(Qt.AlignCenter)
         upload_icon.setStyleSheet("background: transparent; border: none;")
 
         drop_title = QLabel("Prevuci dokumente ovdje")
         drop_title.setAlignment(Qt.AlignCenter)
         drop_title.setStyleSheet(f"""
-            font-size: 17px;
+            font-size: 16px;
             font-weight: bold;
             color: {COLOR_TEXT};
             background: transparent;
@@ -187,7 +184,7 @@ class UploadArea(QWidget):
                 font-size: 13px;
                 font-weight: bold;
             }}
-            QPushButton:hover {{ background-color: {COLOR_SAGE_DARK}; }}
+            QPushButton:hover {{ background-color: #2b648c; }}
         """)
 
         self.btn_analyze = QPushButton(
@@ -204,7 +201,7 @@ class UploadArea(QWidget):
                 font-size: 13px;
                 font-weight: bold;
             }}
-            QPushButton:hover:enabled {{ background-color: #5a4e8a; }}
+            QPushButton:hover:enabled {{ background-color: #583d86; }}
             QPushButton:disabled {{
                 background-color: {COLOR_SAGE_PALE};
                 color: {COLOR_TEXT_MUTED};
@@ -285,8 +282,8 @@ class UploadArea(QWidget):
             self.drop_frame.setStyleSheet(f"""
                 QFrame {{
                     border: 2px solid {COLOR_SUCCESS};
-                    border-radius: 12px;
-                    background-color: #d4edda;
+                    border-radius: 10px;
+                    background-color: #e2f1e9;
                 }}
             """)
 
@@ -307,7 +304,7 @@ class UploadArea(QWidget):
         self.drop_frame.setStyleSheet(f"""
             QFrame {{
                 border: 2px dashed {COLOR_SAGE_MID};
-                border-radius: 12px;
+                border-radius: 10px;
                 background-color: {COLOR_SAGE_UPLOAD};
             }}
             QFrame:hover {{
@@ -359,7 +356,7 @@ class UploadArea(QWidget):
                     font-size: 13px;
                     font-weight: bold;
                 }}
-                QPushButton:hover:enabled {{ background-color: #5a4e8a; }}
+                QPushButton:hover:enabled {{ background-color: #583d86; }}
                 QPushButton:disabled {{
                     background-color: {COLOR_SAGE_PALE};
                     color: {COLOR_TEXT_MUTED};

@@ -96,11 +96,11 @@ class ProposalCardWidget(QFrame):
         if conf is not None:
             pct = int(conf * 100)
             if pct >= 90:
-                badge_color, badge_bg = "#2d6a30", "#d4edda"
+                badge_color, badge_bg = "#2f7d5b", "#e2f1e9"
             elif pct >= 70:
-                badge_color, badge_bg = "#856404", "#fff3cd"
+                badge_color, badge_bg = "#8a641f", "#f7efd9"
             else:
-                badge_color, badge_bg = "#721c24", "#f8d7da"
+                badge_color, badge_bg = "#943535", "#f5e3e3"
             conf_lbl = QLabel(f"  {pct}%  ")
             conf_lbl.setStyleSheet(f"""
                 QLabel {{
@@ -208,7 +208,7 @@ class ProposalCardWidget(QFrame):
                 font-size: 12px;
                 font-weight: bold;
             }}
-            QPushButton:hover {{ background-color: #3a7a50; }}
+            QPushButton:hover {{ background-color: #286a4e; }}
         """)
         confirm_btn.clicked.connect(self._on_confirm)
 

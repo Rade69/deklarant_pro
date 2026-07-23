@@ -62,6 +62,7 @@ class FileTable(QTableWidget):
         # Header
         header = self.horizontalHeader()
         header.setSectionResizeMode(self.COL_NAZIV, QHeaderView.Stretch)
+        header.setMinimumHeight(42)
 
         # Visina redova
         self.verticalHeader().setDefaultSectionSize(44)
@@ -78,6 +79,8 @@ class FileTable(QTableWidget):
         # Selection
         self.setSelectionBehavior(QTableWidget.SelectRows)
         self.setSelectionMode(QTableWidget.SingleSelection)
+        self.setAlternatingRowColors(True)
+        self.setShowGrid(True)
 
         # Click signal
         self.itemClicked.connect(self._on_item_clicked)
@@ -86,22 +89,25 @@ class FileTable(QTableWidget):
         self.setStyleSheet(f"""
             QTableWidget {{
                 border: 1px solid {COLOR_SAGE_PALE};
-                gridline-color: {COLOR_SAGE_BG};
+                border-radius: 6px;
+                gridline-color: #d6e1e8;
                 background-color: white;
+                alternate-background-color: #f4f8fa;
             }}
             QTableWidget::item {{
                 padding: 5px;
                 font-size: 13px;
             }}
             QTableWidget::item:selected {{
-                background-color: {COLOR_SAGE_PANEL};
-                color: {COLOR_TEXT};
+                background-color: {COLOR_SAGE};
+                color: white;
             }}
             QHeaderView::section {{
-                background-color: {COLOR_SAGE_BG};
+                background-color: #dbe7ee;
                 padding: 8px;
                 border: none;
-                border-bottom: 2px solid {COLOR_SAGE};
+                border-right: 1px solid #c5d5df;
+                border-bottom: 2px solid {COLOR_SAGE_MID};
                 font-weight: bold;
                 font-size: 13px;
                 color: {COLOR_TEXT};
@@ -182,9 +188,9 @@ class FileTable(QTableWidget):
 
         progress.setStyleSheet(f"""
             QProgressBar {{
-                border: 1px solid #ddd;
+                border: 1px solid {COLOR_SAGE_PALE};
                 border-radius: 3px;
-                background-color: #f0f0f0;
+                background-color: #e4ebef;
             }}
             QProgressBar::chunk {{
                 background-color: {color};
@@ -194,7 +200,7 @@ class FileTable(QTableWidget):
 
         # Label sa %
         label = QLabel(f"{confidence_pct}%")
-        label.setStyleSheet("font-weight: bold; color: #333; font-size: 13px;")
+        label.setStyleSheet(f"font-weight: bold; color: {COLOR_TEXT}; font-size: 13px;")
         label.setFixedWidth(40)
         label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
@@ -210,19 +216,19 @@ class FileTable(QTableWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setAlignment(Qt.AlignCenter)
 
-        btn = QPushButton(qta.icon('fa5s.trash-alt', color='#dc3545'), "")
+        btn = QPushButton(qta.icon('fa5s.trash-alt', color=COLOR_DANGER), "")
         btn.setFixedSize(28, 28)
         btn.setToolTip("Ukloni fajl")
         btn.clicked.connect(lambda: self._on_remove_file(filepath))
         btn.setStyleSheet("""
             QPushButton {
-                border: 1px solid #ddd;
+                border: 1px solid #c7d6df;
                 border-radius: 4px;
                 background-color: white;
             }
             QPushButton:hover {
-                background-color: #f8d7da;
-                border-color: #dc3545;
+                background-color: #f5e3e3;
+                border-color: #ad3e3e;
             }
         """)
 
@@ -251,6 +257,8 @@ class FileTable(QTableWidget):
             return QColor(COLOR_SUCCESS)
         elif status == 'Error':
             return QColor(COLOR_DANGER)
+        elif status == 'Skipped':
+            return QColor(COLOR_TEXT_MUTED)
         else:
             return QColor(COLOR_TEXT)
 

@@ -33,8 +33,8 @@ class DocumentPanel(QWidget):
         self.setStyleSheet(f"DocumentPanel {{ background-color: {COLOR_SAGE_BG}; }}")
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 16, 16, 0)
-        layout.setSpacing(14)
+        layout.setContentsMargins(14, 12, 14, 8)
+        layout.setSpacing(10)
 
         # ── Header ────────────────────────────────────────────────────────────
         header_row = QHBoxLayout()
@@ -42,12 +42,12 @@ class DocumentPanel(QWidget):
 
         header_label = QLabel("Dokumenti")
         header_label.setStyleSheet(f"""
-            font-size: 15px;
+            font-size: 16px;
             font-weight: bold;
             color: {COLOR_TEXT};
             background: transparent;
             padding-bottom: 4px;
-            border-bottom: 2px solid {COLOR_SAGE};
+            border-bottom: 3px solid {COLOR_SAGE};
         """)
         header_row.addWidget(header_label)
         header_row.addStretch()
