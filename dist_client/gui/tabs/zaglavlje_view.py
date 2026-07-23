@@ -686,12 +686,14 @@ class ZaglavljeView(BaseTabView):
         title_row.setObjectName(f"party_header_{prefix}")
         party_header_styles = {
             "izvoznik": (
-                "QWidget#party_header_izvoznik { background-color: #dcece5; "
-                "border-left: 3px solid #4f7f61; border-radius: 4px; }"
+                "QWidget#party_header_izvoznik { background-color: #cfe4d8; "
+                "border-left: 5px solid #2f7d5a; border-bottom: 1px solid #7faf91; "
+                "border-radius: 4px; }"
             ),
             "primalac": (
-                "QWidget#party_header_primalac { background-color: #e1eaf0; "
-                "border-left: 3px solid #5b7c91; border-radius: 4px; }"
+                "QWidget#party_header_primalac { background-color: #d3e2ec; "
+                "border-left: 5px solid #2f6f9f; border-bottom: 1px solid #8aabbe; "
+                "border-radius: 4px; }"
             ),
         }
         if prefix in party_header_styles:
@@ -707,11 +709,11 @@ class ZaglavljeView(BaseTabView):
         title_label.setObjectName("section_title")
         if prefix == "izvoznik":
             title_label.setStyleSheet(
-                "color: #245f45; border: none; padding-left: 6px;"
+                "color: #194a32; border: none; padding-left: 7px;"
             )
         elif prefix == "primalac":
             title_label.setStyleSheet(
-                "color: #29485f; border: none; padding-left: 6px;"
+                "color: #1f4f70; border: none; padding-left: 7px;"
             )
         if sys.platform.startswith("win"):
             title_label.setFixedHeight(24)
@@ -794,7 +796,13 @@ class ZaglavljeView(BaseTabView):
         if sys.platform.startswith("win"):
             header_sep = QFrame()
             header_sep.setFixedHeight(1)
-            header_sep.setStyleSheet("background-color: #b8ccb8;")
+            party_separator_styles = {
+                "izvoznik": "background-color: #7faf91;",
+                "primalac": "background-color: #8aabbe;",
+            }
+            header_sep.setStyleSheet(
+                party_separator_styles.get(prefix, "background-color: #b8ccb8;")
+            )
             layout.addWidget(header_sep)
 
         # 5 adresnih polja — na Windowsu rastu sa sekcijom (min/max umjesto fixed)
