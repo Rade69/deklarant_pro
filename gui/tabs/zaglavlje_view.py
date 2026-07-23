@@ -683,6 +683,19 @@ class ZaglavljeView(BaseTabView):
 
         # Naslov red
         title_row = QWidget()
+        title_row.setObjectName(f"party_header_{prefix}")
+        party_header_styles = {
+            "izvoznik": (
+                "QWidget#party_header_izvoznik { background-color: #dcece5; "
+                "border-left: 3px solid #4f7f61; border-radius: 4px; }"
+            ),
+            "primalac": (
+                "QWidget#party_header_primalac { background-color: #e1eaf0; "
+                "border-left: 3px solid #5b7c91; border-radius: 4px; }"
+            ),
+        }
+        if prefix in party_header_styles:
+            title_row.setStyleSheet(party_header_styles[prefix])
         if sys.platform.startswith("win"):
             title_row.setFixedHeight(31)
         title_layout = QHBoxLayout(title_row)
@@ -692,6 +705,14 @@ class ZaglavljeView(BaseTabView):
         title_label = QLabel(title)
         title_label.setFont(QFont("Segoe UI", 10, QFont.Weight.DemiBold))
         title_label.setObjectName("section_title")
+        if prefix == "izvoznik":
+            title_label.setStyleSheet(
+                "color: #245f45; border: none; padding-left: 6px;"
+            )
+        elif prefix == "primalac":
+            title_label.setStyleSheet(
+                "color: #29485f; border: none; padding-left: 6px;"
+            )
         if sys.platform.startswith("win"):
             title_label.setFixedHeight(24)
             title_label.setMinimumWidth(title_label.fontMetrics().horizontalAdvance(title) + 12)
