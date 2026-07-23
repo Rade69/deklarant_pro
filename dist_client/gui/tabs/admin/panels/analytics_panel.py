@@ -89,7 +89,7 @@ class AnalyticsPanel(QWidget):
         super().closeEvent(event)
 
     def _apply_styles(self):
-        self.setStyleSheet("background-color: #f8f9fa;")
+        self.setStyleSheet("background-color: #f3f6f8;")
         for gb in self.findChildren(QGroupBox):
             gb.setStyleSheet("""
                 QGroupBox {
@@ -112,10 +112,10 @@ class AnalyticsPanel(QWidget):
         # Header
         hdr = QHBoxLayout()
         ico = QLabel()
-        ico.setPixmap(qta.icon('fa5s.tachometer-alt', color='#333').pixmap(28, 28))
+        ico.setPixmap(qta.icon('fa5s.tachometer-alt', color='#17324a').pixmap(28, 28))
         hdr.addWidget(ico)
         lbl = QLabel("Upotreba AI agenta")
-        lbl.setStyleSheet("font-size: 18px; font-weight: bold; color: #222; margin-left: 8px;")
+        lbl.setStyleSheet("font-size: 18px; font-weight: bold; color: #17324a; margin-left: 8px;")
         hdr.addWidget(lbl)
         hdr.addStretch()
         layout.addLayout(hdr)
@@ -159,7 +159,7 @@ class AnalyticsPanel(QWidget):
             today_lay.addWidget(QLabel(tekst), i, 1)
             lbl = QLabel("—")
             lbl.setFont(QFont("Arial", 13, QFont.Bold))
-            lbl.setStyleSheet("color: #0078d4;")
+            lbl.setStyleSheet("color: #3477a5;")
             lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
             today_lay.addWidget(lbl, i, 2)
             setattr(self, attr, lbl)
@@ -188,7 +188,7 @@ class AnalyticsPanel(QWidget):
         self.progress_budget.setFixedHeight(12)
         self.progress_budget.setStyleSheet("""
             QProgressBar { border:none; border-radius:6px; background:#e9ecef; }
-            QProgressBar::chunk { border-radius:6px; background:#0078d4; }
+            QProgressBar::chunk { border-radius:6px; background:#3477a5; }
         """)
         budget_lay.addWidget(self.progress_budget)
 
@@ -203,11 +203,11 @@ class AnalyticsPanel(QWidget):
         info_lay = QHBoxLayout()
         self.lbl_cd_count = QLabel("— dokumenata")
         self.lbl_cd_count.setFont(QFont("Arial", 12, QFont.Bold))
-        self.lbl_cd_count.setStyleSheet("color: #0078d4;")
+        self.lbl_cd_count.setStyleSheet("color: #3477a5;")
         info_lay.addWidget(self.lbl_cd_count)
         info_lay.addStretch()
         self.lbl_cd_zadnje = QLabel("")
-        self.lbl_cd_zadnje.setStyleSheet("color: #888; font-size: 11px;")
+        self.lbl_cd_zadnje.setStyleSheet("color: #6f8392; font-size: 11px;")
         info_lay.addWidget(self.lbl_cd_zadnje)
         cd_lay.addLayout(info_lay)
 
@@ -217,7 +217,7 @@ class AnalyticsPanel(QWidget):
         self.cd_lista.setMaximumHeight(320)
         self.cd_lista.setStyleSheet("""
             QListWidget {
-                border: 1px solid #e0e0e0; border-radius: 4px;
+                border: 1px solid #bfd0dc; border-radius: 4px;
                 background: #fafafa; font-size: 12px;
             }
             QListWidget::item { padding: 5px 8px; border-bottom: 1px solid #f0f0f0; }
@@ -235,9 +235,9 @@ class AnalyticsPanel(QWidget):
         # Dugme
         self.btn_refresh = QPushButton(qta.icon('fa5s.sync', color='white'), " Osvježi")
         self.btn_refresh.setStyleSheet("""
-            QPushButton { background:#0078d4; color:white; border:none;
+            QPushButton { background:#3477a5; color:white; border:none;
                           border-radius:4px; padding:8px 20px; font-size:13px; }
-            QPushButton:hover { background:#106ebe; }
+            QPushButton:hover { background:#2b648c; }
             QPushButton:disabled { background:#aaa; }
         """)
         self.btn_refresh.setMinimumHeight(38)
@@ -250,11 +250,11 @@ class AnalyticsPanel(QWidget):
         # Provider
         prov = stats.get('llm_provider', '—')
         boje = {'deepseek': '#6f42c1', 'groq': '#fd7e14', 'gemini': '#1a73e8',
-                'none': '#dc3545', 'nepoznat': '#999'}
+                'none': '#ad3e3e', 'nepoznat': '#8798a5'}
         tekst = prov.capitalize() if prov not in ('none', 'nepoznat') else '⚠️ Nije konfigurisan'
         self.lbl_provider.setText(tekst)
         self.lbl_provider.setStyleSheet(
-            f"color: {boje.get(prov, '#333')}; font-size: 13px; font-weight: bold;"
+            f"color: {boje.get(prov, '#17324a')}; font-size: 13px; font-weight: bold;"
         )
 
         # Danas
@@ -264,7 +264,7 @@ class AnalyticsPanel(QWidget):
         blocked = stats.get('blocked_today', 0)
         self.lbl_blocked.setText(str(blocked))
         self.lbl_blocked.setStyleSheet(
-            "color: #dc3545; font-weight: bold;" if blocked > 0 else "color: #28a745; font-weight: bold;"
+            "color: #ad3e3e; font-weight: bold;" if blocked > 0 else "color: #2f7d5b; font-weight: bold;"
         )
 
         # Sesija
@@ -276,7 +276,7 @@ class AnalyticsPanel(QWidget):
         )
         self.lbl_sess_pct.setText(f"{pct}%")
         self.progress_budget.setValue(min(pct, 100))
-        chunk_color = "#28a745" if pct < 70 else ("#fd7e14" if pct < 90 else "#dc3545")
+        chunk_color = "#2f7d5b" if pct < 70 else ("#fd7e14" if pct < 90 else "#ad3e3e")
         self.progress_budget.setStyleSheet(f"""
             QProgressBar {{ border:none; border-radius:6px; background:#e9ecef; }}
             QProgressBar::chunk {{ border-radius:6px; background:{chunk_color}; }}

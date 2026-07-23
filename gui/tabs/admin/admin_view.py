@@ -47,10 +47,10 @@ class AdminView(BaseTabView):
 
     def setup_ui(self):
         """Setup kompletnog UI-a."""
-        # Main layout (horizontal)
+        self.setObjectName("AdminView")
         main_layout = QHBoxLayout(self)
-        main_layout.setContentsMargins(10, 10, 10, 10)
-        main_layout.setSpacing(10)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
 
         # SIDEBAR (lijevo)
         sidebar_widget = self._create_sidebar()
@@ -63,55 +63,25 @@ class AdminView(BaseTabView):
     def _create_sidebar(self) -> QWidget:
         """Kreiraj sidebar sa navigacijom — isti vizuelni stil kao Šifrarnici tab."""
         sidebar = QFrame()
+        sidebar.setObjectName("AdminSidebar")
         sidebar.setFrameShape(QFrame.NoFrame)
-        sidebar.setMaximumWidth(220)
-        sidebar.setMinimumWidth(180)
-        sidebar.setStyleSheet(
-            "QFrame { background-color: #e8f2e8; border-right: 1px solid #c8dcc8; }"
-        )
+        sidebar.setFixedWidth(278)
 
         layout = QVBoxLayout(sidebar)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
         # Header — sage green stil
-        title = QLabel("<h3>Admin Panel</h3>")
-        title.setStyleSheet(
-            "padding: 12px 16px; font-size: 14px; font-weight: bold;"
-            " color: #1e3820; background-color: #e8f2e8;"
-            " border-bottom: 1px solid #c8dcc8;"
-        )
+        title = QLabel("Admin Panel")
+        title.setObjectName("AdminSidebarTitle")
+        title.setMinimumHeight(60)
         layout.addWidget(title)
 
         # Navigation list — sage green nav
         self.nav_list = QListWidget()
         self.nav_list.setFrameShape(QFrame.NoFrame)
         self.nav_list.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.nav_list.setStyleSheet(
-            """
-            QListWidget {
-                background-color: #e8f2e8;
-                border: none;
-                outline: none;
-                font-size: 13px;
-                padding: 8px;
-            }
-            QListWidget::item {
-                padding: 10px 8px;
-                border-radius: 4px;
-                margin: 2px 0;
-                color: #1e3820;
-            }
-            QListWidget::item:hover {
-                background-color: #c8dcc8;
-            }
-            QListWidget::item:selected {
-                background-color: #5a8060;
-                color: white;
-                font-weight: bold;
-            }
-            """
-        )
+        self.nav_list.setObjectName("AdminNavigation")
 
         items = [
             ("fa5s.box",          "Upravljanje Parserima",  "Instaliraj, ukloni, ponovo učitaj parsere"),
@@ -126,7 +96,7 @@ class AdminView(BaseTabView):
         for icon_name, item_text, tooltip in items:
             icon = qta.icon(
                 icon_name,
-                color="#3d6040",
+                color="#244866",
                 color_active="white",
                 color_selected="white",
                 scale_factor=1.0,
@@ -149,11 +119,13 @@ class AdminView(BaseTabView):
             QWidget sa content area
         """
         content = QWidget()
+        content.setObjectName("AdminContent")
         layout = QVBoxLayout(content)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(14, 12, 14, 12)
 
         # Stacked widget za panele
         self.content_stack = QStackedWidget()
+        self.content_stack.setObjectName("AdminContentStack")
 
         # Kreiraj sve panele i dodaj u stack
         self._create_panels()

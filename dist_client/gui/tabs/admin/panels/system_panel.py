@@ -41,8 +41,8 @@ class SystemPanel(QWidget):
         # Info text styling
         self.info_text.setStyleSheet("""
             QTextEdit {
-                background-color: #f8f9fa;
-                border: 1px solid #e0e0e0;
+                background-color: #f3f6f8;
+                border: 1px solid #bfd0dc;
                 border-radius: 4px;
                 padding: 10px;
                 font-family: 'Courier New', 'Consolas', monospace;
@@ -50,18 +50,18 @@ class SystemPanel(QWidget):
                 line-height: 1.6;
             }
             QTextEdit:focus {
-                border-color: #0078d4;
+                border-color: #3477a5;
             }
         """)
 
         # Label styling
         for label in self.findChildren(QLabel):
             if label.objectName() == "info_label":
-                label.setStyleSheet("color: #666; font-size: 13px;")
+                label.setStyleSheet("color: #52697b; font-size: 13px;")
             elif label.objectName() == "info_value":
-                label.setStyleSheet("color: #333; font-size: 13px; font-weight: 500;")
+                label.setStyleSheet("color: #17324a; font-size: 13px; font-weight: 500;")
             elif label.objectName() == "section_header":
-                label.setStyleSheet("color: #0078d4; font-size: 14px; font-weight: bold;")
+                label.setStyleSheet("color: #3477a5; font-size: 14px; font-weight: bold;")
 
         # Button styling
         button_style = """
@@ -79,39 +79,39 @@ class SystemPanel(QWidget):
                 border-color: #bbb;
             }
             QPushButton:pressed {
-                background-color: #e0e0e0;
+                background-color: #bfd0dc;
             }
             QPushButton#copyButton {
-                background-color: #0078d4;
+                background-color: #3477a5;
                 color: white;
-                border-color: #0078d4;
+                border-color: #3477a5;
             }
             QPushButton#copyButton:hover {
-                background-color: #106ebe;
+                background-color: #2b648c;
             }
             QPushButton#exportButton {
-                background-color: #28a745;
+                background-color: #2f7d5b;
                 color: white;
-                border-color: #28a745;
+                border-color: #2f7d5b;
             }
             QPushButton#exportButton:hover {
-                background-color: #218838;
+                background-color: #286a4e;
             }
             QPushButton#refreshButton {
-                background-color: #6c757d;
+                background-color: #4f6779;
                 color: white;
-                border-color: #6c757d;
+                border-color: #4f6779;
             }
             QPushButton#refreshButton:hover {
-                background-color: #5a6268;
+                background-color: #425868;
             }
             QPushButton#aboutButton {
-                background-color: #17a2b8;
+                background-color: #2f7773;
                 color: white;
-                border-color: #17a2b8;
+                border-color: #2f7773;
             }
             QPushButton#aboutButton:hover {
-                background-color: #138496;
+                background-color: #286662;
             }
             QPushButton#aiHealthButton {
                 background-color: #6f42c1;
@@ -139,11 +139,11 @@ class SystemPanel(QWidget):
         header_layout = QHBoxLayout()
         
         header_icon = QLabel()
-        header_icon.setPixmap(qta.icon('fa5s.info-circle', color='#333333', scale_factor=2).pixmap(32, 32))
+        header_icon.setPixmap(qta.icon('fa5s.info-circle', color='#17324a', scale_factor=2).pixmap(32, 32))
         header_layout.addWidget(header_icon)
         
         header = QLabel("Sistemske Informacije")
-        header.setStyleSheet("font-size: 20px; font-weight: bold; color: #333; margin-left: 10px;")
+        header.setStyleSheet("font-size: 20px; font-weight: bold; color: #17324a; margin-left: 10px;")
         header_layout.addWidget(header)
         header_layout.addStretch()
         

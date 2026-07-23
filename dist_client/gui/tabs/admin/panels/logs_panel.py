@@ -20,7 +20,7 @@ LOG_COLORS = {
     'CRITICAL': '#f28b82',
     'WARNING':  '#fdd663',
     'INFO':     '#d4d4d4',
-    'DEBUG':    '#888888',
+    'DEBUG':    '#8798a5',
 }
 
 
@@ -40,10 +40,10 @@ class LogsPanel(QWidget):
         # Header
         hdr = QHBoxLayout()
         ico = QLabel()
-        ico.setPixmap(qta.icon('fa5s.file-alt', color='#333').pixmap(28, 28))
+        ico.setPixmap(qta.icon('fa5s.file-alt', color='#17324a').pixmap(28, 28))
         hdr.addWidget(ico)
         lbl = QLabel("Logovi aplikacije")
-        lbl.setStyleSheet("font-size: 18px; font-weight: bold; color: #222; margin-left: 8px;")
+        lbl.setStyleSheet("font-size: 18px; font-weight: bold; color: #17324a; margin-left: 8px;")
         hdr.addWidget(lbl)
         hdr.addStretch()
         layout.addLayout(hdr)
@@ -67,14 +67,14 @@ class LogsPanel(QWidget):
         toolbar.addStretch()
 
         self.lbl_fajl = QLabel("")
-        self.lbl_fajl.setStyleSheet("color: #888; font-size: 11px;")
+        self.lbl_fajl.setStyleSheet("color: #6f8392; font-size: 11px;")
         toolbar.addWidget(self.lbl_fajl)
 
         self.btn_refresh = QPushButton(qta.icon('fa5s.sync', color='white'), " Osvježi")
         self.btn_refresh.setStyleSheet("""
-            QPushButton { background:#0078d4; color:white; border:none;
+            QPushButton { background:#3477a5; color:white; border:none;
                           border-radius:4px; padding:7px 18px; font-size:13px; }
-            QPushButton:hover { background:#106ebe; }
+            QPushButton:hover { background:#2b648c; }
         """)
         self.btn_refresh.setMinimumHeight(36)
         self.btn_refresh.clicked.connect(self._on_refresh)
@@ -98,7 +98,7 @@ class LogsPanel(QWidget):
 
         # Info na dnu
         info = QLabel("Tekst možeš selektovati i kopirati (Ctrl+C) da pošalješ razvojnom timu.")
-        info.setStyleSheet("color: #888; font-size: 11px;")
+        info.setStyleSheet("color: #6f8392; font-size: 11px;")
         layout.addWidget(info)
 
         self._load_from_file()
@@ -154,7 +154,7 @@ class LogsPanel(QWidget):
             logs = [l for l in logs if l.get('level') == level]
 
         if not logs:
-            self.log_text.setHtml('<span style="color:#888;">(Nema logova za odabrani filter)</span>')
+            self.log_text.setHtml('<span style="color:#6f8392;">(Nema logova za odabrani filter)</span>')
             return
 
         # Prikaži samo zadnjih 500 linija da ne bude presporo
@@ -164,7 +164,7 @@ class LogsPanel(QWidget):
             lvl = entry.get('level', '')
             msg = entry.get('message', '').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
             color = LOG_COLORS.get(lvl, '#d4d4d4')
-            ts_html = f'<span style="color:#666;">[{ts}]</span> ' if ts else ''
+            ts_html = f'<span style="color:#52697b;">[{ts}]</span> ' if ts else ''
             html_parts.append(
                 f'{ts_html}<span style="color:{color};font-weight:bold;">{lvl:8}</span> '
                 f'<span style="color:#d4d4d4;">{msg}</span>'
