@@ -1127,30 +1127,53 @@ class ZaglavljeView(BaseTabView):
             "\n    QLabel { font-size: 10pt; color: #102814; font-weight: 600; }"
             if sys.platform.startswith("win") else ""
         )
-        column.setStyleSheet(("QFrame#middle_column { background-color: #f2f7f4; }" + _win_label_css + """
+        column.setStyleSheet(("QFrame#middle_column { background-color: #edf3f0; }" + _win_label_css + """
+    #middle_column QWidget[section_card="true"] {
+        border-radius: 4px;
+        padding: 1px 3px;
+    }
+    #middle_column QWidget[visual_tone="identity"] {
+        background-color: #eef5f9;
+        border: 1px solid #b8ccd9;
+    }
+    #middle_column QWidget[visual_tone="geography"] {
+        background-color: #f0f7f3;
+        border: 1px solid #bad1c3;
+    }
+    #middle_column QWidget[visual_tone="finance"] {
+        background-color: #f8f5ec;
+        border: 1px solid #d8ccb0;
+    }
+    #middle_column QWidget[visual_tone="storage"] {
+        background-color: #f3f1f6;
+        border: 1px solid #c9c1d2;
+    }
+    #middle_column QLabel {
+        color: #173f59;
+    }
     QLineEdit {
-        background: #fafcfa;
-        border: 1px solid #a0c4a0;
+        background: #fbfcfd;
+        border: 1px solid #a9bbc7;
         border-radius: 3px;
         padding: 3px 8px;
         min-height: 22px;
         font-size: 11pt;
-        color: #102814;
+        color: #18354a;
     }
-    QLineEdit:hover   { background: #eef6ec; border-color: #7aa080; }
-    QLineEdit:focus   { background: #e8f2e8; border-color: #5a8060; border-width: 2px; }
-    QLineEdit:read-only { background: #eef4ee; border-color: #c8dcc8; color: #4a6a4a; }
+    QLineEdit:hover   { background: #eef4f7; border-color: #7892a5; }
+    QLineEdit:focus   { background: #ffffff; border-color: #2f6f9f; border-width: 2px; }
+    QLineEdit:read-only { background: #eef2f4; border-color: #c4d0d8; color: #526778; }
     QComboBox {
-        background: #fafcfa;
-        border: 1px solid #a0c4a0;
+        background: #fbfcfd;
+        border: 1px solid #a9bbc7;
         border-radius: 3px;
         padding: 3px 8px;
         min-height: 22px;
         font-size: 11pt;
-        color: #102814;
+        color: #18354a;
     }
-    QComboBox:hover { background: #eef6ec; border-color: #7aa080; }
-    QComboBox:focus { background: #e8f2e8; border-color: #5a8060; }
+    QComboBox:hover { background: #eef4f7; border-color: #7892a5; }
+    QComboBox:focus { background: #ffffff; border-color: #2f6f9f; }
     QComboBox::drop-down { border: none; width: 20px; }
     QComboBox::down-arrow {
         __ARROW_CSS__
@@ -1159,11 +1182,11 @@ class ZaglavljeView(BaseTabView):
         margin-right: 5px;
     }
     QComboBox QAbstractItemView {
-        background: #fafcfa;
-        border: 1px solid #a0c4a0;
+        background: #fbfcfd;
+        border: 1px solid #a9bbc7;
         font-size: 13px;
-        selection-background-color: #d4e8d4;
-        color: #1e3820;
+        selection-background-color: #dfeaf1;
+        color: #18354a;
     }
     QComboBox QAbstractItemView::item {
         padding: 5px 10px;
@@ -1174,37 +1197,28 @@ class ZaglavljeView(BaseTabView):
         layout.setContentsMargins(4, 4, 4, 4)
         layout.setSpacing(2 if sys.platform.startswith("win") else 5)
 
-        layout.addWidget(self._create_deklaracija_group())
-        layout.addWidget(self._create_hline())
-
-        layout.addWidget(self._create_obrasci_group())
-        layout.addWidget(self._create_hline())
-
-        layout.addWidget(self._create_stavke_group())
-        layout.addWidget(self._create_hline())
-
-        layout.addWidget(self._create_odgovorna_zemlja_group())
-        layout.addWidget(self._create_hline())
-
-        layout.addWidget(self._create_zem_group())
-        layout.addWidget(self._create_hline())
-
-        layout.addWidget(self._create_drzava_izvoza_group())
-        layout.addWidget(self._create_hline())
-
-        layout.addWidget(self._create_drzava_porijekla_group())
-        layout.addWidget(self._create_hline())
-
-        layout.addWidget(self._create_uslovi_group())
-        layout.addWidget(self._create_hline())
-
-        layout.addWidget(self._create_valuta_group())
-        layout.addWidget(self._create_hline())
-
-        layout.addWidget(self._create_troski_group())
-        layout.addWidget(self._create_hline())
-
-        layout.addWidget(self._create_odgodjeno_group())
+        sections = [
+            (self._create_deklaracija_group(), "identity"),
+            (self._create_obrasci_group(), "identity"),
+            (self._create_stavke_group(), "identity"),
+            (self._create_odgovorna_zemlja_group(), "geography"),
+            (self._create_zem_group(), "geography"),
+            (self._create_drzava_izvoza_group(), "geography"),
+            (self._create_drzava_porijekla_group(), "geography"),
+            (self._create_uslovi_group(), "finance"),
+            (self._create_valuta_group(), "finance"),
+            (self._create_troski_group(), "finance"),
+            (self._create_odgodjeno_group(), "storage"),
+        ]
+        for index, (section, tone) in enumerate(sections):
+            section.setProperty("visual_tone", tone)
+            layout.addWidget(section)
+            if index < len(sections) - 1:
+                separator = self._create_hline()
+                separator.setStyleSheet(
+                    "background-color: #b6c7d2; border: none;"
+                )
+                layout.addWidget(separator)
 
         return column
 
@@ -1853,18 +1867,18 @@ class ZaglavljeView(BaseTabView):
         column.setAttribute(Qt.WA_StyledBackground, True)
         column.setMinimumWidth(420)
         column.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        column.setStyleSheet(("QFrame#right_column { background-color: #eef5f1; }" + """
+        column.setStyleSheet(("QFrame#right_column { background-color: #edf3f6; }" + """
     QLineEdit {
-        background: #fafcfa;
-        border: 1px solid #a0c4a0;
+        background: #fbfcfd;
+        border: 1px solid #a9bbc7;
         border-radius: 3px;
         padding: 3px 8px;
         min-height: 28px;
-        color: #1e3820;
+        color: #18354a;
     }
-    QLineEdit:hover   { background: #eef6ec; border-color: #7aa080; }
-    QLineEdit:focus   { background: #e8f2e8; border-color: #5a8060; border-width: 2px; }
-    QLineEdit:read-only { background: #eef4ee; border-color: #c8dcc8; color: #4a6a4a; }
+    QLineEdit:hover   { background: #eef4f7; border-color: #7892a5; }
+    QLineEdit:focus   { background: #ffffff; border-color: #2f6f9f; border-width: 2px; }
+    QLineEdit:read-only { background: #eef2f4; border-color: #c4d0d8; color: #526778; }
     QComboBox {
         background: #fafcfa;
         border: 1px solid #a0c4a0;
@@ -1913,8 +1927,8 @@ class ZaglavljeView(BaseTabView):
                 color: #18354a;
                 background-color: #ffffff;
                 alternate-background-color: #eef4f7;
-                gridline-color: #c9d5de;
-                border: 1px solid #9fb2c1;
+                gridline-color: #bccbd5;
+                border: 1px solid #8fa7b8;
                 border-radius: 4px;
             }
             QTableWidget::item {
@@ -1932,10 +1946,10 @@ class ZaglavljeView(BaseTabView):
                 font-size: 13pt;
                 font-weight: bold;
                 color: #18354a;
-                background-color: #dfeaf1;
+                background-color: #d7e5ee;
                 border: none;
-                border-right: 1px solid #c8d7e2;
-                border-bottom: 2px solid #7892a5;
+                border-right: 1px solid #bccdd8;
+                border-bottom: 2px solid #68869b;
                 padding: 4px;
             }
             """
