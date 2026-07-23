@@ -18,7 +18,25 @@ uobičajene potvrde korisnika.
 | `Ctrl+4` | Otvaranje kartice Šifrarnici |
 | `Ctrl+5` | Otvaranje kartice Admin |
 | `Ctrl+6` | Otvaranje kartice Agent |
+| `F6` | Prebacivanje fokusa iz forme u toolbar aktivne kartice |
 | `Esc` | Zatvaranje dijaloga ili prekid trenutnog uređivanja kada je dostupno |
+
+## Kretanje kroz toolbar
+
+Kada se kursor nalazi u polju za unos ili tabeli, pritisnite `F6`. Fokus se
+prebacuje na prvo dostupno dugme gornjeg toolbara aktivne kartice.
+
+| Prečica | Funkcija |
+|---|---|
+| `←` ili `A` | Prethodno dostupno dugme |
+| `→` ili `D` | Sljedeće dostupno dugme |
+| `Home` | Prvo dostupno dugme |
+| `End` | Posljednje dostupno dugme |
+| `Enter` ili `Space` | Aktiviranje izabranog dugmeta |
+| `Esc` | Povratak na polje ili kontrolu iz koje je otvoren toolbar |
+
+Onemogućena dugmad se automatski preskaču. Kartice koje nemaju gornji akcioni
+toolbar ne mijenjaju fokus nakon pritiska na `F6`.
 
 ## Kretanje kroz zapise
 

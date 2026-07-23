@@ -755,4 +755,6 @@ Glavne kartice koriste `Ctrl+1`–`Ctrl+6`; `Ctrl+Tab`/`Shift+Ctrl+Tab` ostaju
 standardni Qt tok. Tamo gdje postoji prethodni/sljedeći zapis koriste se
 `Alt+Left/Right` i opcioni gaming aliasi `Alt+A/D`. Obični `W/A/S/D` i obične
 strelice se nikad globalno ne presreću jer pripadaju unosu teksta, tabelama i
-combo poljima. Zaglavlje ima eksplicitan fokusni lanac kroz `field_widgets`.
+combo poljima. `F6` ulazi u gornji toolbar aktivne kartice; tek kada dugme ima
+fokus, `Left/Right` ili `A/D` mijenjaju dugme, a `Esc` vraća prethodni fokus.
+Zaglavlje ima eksplicitan fokusni lanac kroz `field_widgets`.

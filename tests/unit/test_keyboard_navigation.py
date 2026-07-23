@@ -2,7 +2,12 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtWidgets import QApplication, QLineEdit, QMainWindow, QTabWidget
+from PySide6.QtCore import QEvent, Qt
+from PySide6.QtGui import QKeyEvent
+from PySide6.QtWidgets import (
+    QApplication, QHBoxLayout, QLineEdit, QMainWindow, QPushButton,
+    QTabWidget, QVBoxLayout, QWidget,
+)
 
 from gui.main_window import MainWindow
 from gui.tabs.faktura_view import FakturaView
@@ -22,6 +27,7 @@ def test_main_tabs_have_direct_shortcuts_and_tooltips():
         "Šifrarnici", "Admin", "Agent",
     ):
         window.tabs_widget.addTab(QLineEdit(), label)
+    window._focus_active_toolbar = lambda: None
 
     MainWindow._setup_keyboard_shortcuts(window)
 
@@ -30,6 +36,43 @@ def test_main_tabs_have_direct_shortcuts_and_tooltips():
     assert "Ctrl+6" in window.tabs_widget.tabToolTip(5)
     window._main_tab_shortcuts[4].activated.emit()
     assert window.tabs_widget.currentIndex() == 4
+
+
+def test_f6_enters_toolbar_and_keyboard_moves_focus():
+    app = _app()
+    window = QMainWindow()
+    window._active_toolbar_buttons = MainWindow._active_toolbar_buttons.__get__(window)
+    window._focus_active_toolbar = MainWindow._focus_active_toolbar.__get__(window)
+    window.tabs_widget = QTabWidget(window)
+    page = QWidget()
+    page_layout = QVBoxLayout(page)
+    field = QLineEdit(page)
+    toolbar = QWidget(page)
+    toolbar.setObjectName("toolbar")
+    toolbar_layout = QHBoxLayout(toolbar)
+    first = QPushButton("Prvo", toolbar)
+    second = QPushButton("Drugo", toolbar)
+    toolbar_layout.addWidget(first)
+    toolbar_layout.addWidget(second)
+    page_layout.addWidget(toolbar)
+    page_layout.addWidget(field)
+    window.tabs_widget.addTab(page, "Test")
+    window.setCentralWidget(window.tabs_widget)
+    window.show()
+    app.processEvents()
+
+    MainWindow._setup_keyboard_shortcuts(window)
+    field.setFocus()
+    window._toolbar_shortcut.activated.emit()
+    assert app.focusWidget() is first
+
+    right = QKeyEvent(QEvent.KeyPress, Qt.Key_Right, Qt.NoModifier)
+    assert MainWindow.eventFilter(window, first, right)
+    assert app.focusWidget() is second
+
+    escape = QKeyEvent(QEvent.KeyPress, Qt.Key_Escape, Qt.NoModifier)
+    assert MainWindow.eventFilter(window, second, escape)
+    assert app.focusWidget() is field
 
 
 def test_faktura_keyboard_row_navigation_is_bounded():

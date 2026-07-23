@@ -2,8 +2,8 @@
 from copy import deepcopy
 from dataclasses import fields
 from pathlib import Path
-from PySide6.QtWidgets import QMainWindow, QTabWidget, QApplication, QMessageBox, QPushButton
-from PySide6.QtCore import QFile, QTextStream, QIODevice, QSettings, QSize, Qt, QTimer
+from PySide6.QtWidgets import QMainWindow, QTabWidget, QApplication, QMessageBox, QPushButton, QWidget
+from PySide6.QtCore import QEvent, QFile, QTextStream, QIODevice, QSettings, QSize, Qt, QTimer
 from PySide6.QtGui import QKeySequence, QShortcut
 
 import logging
@@ -139,6 +139,7 @@ class MainWindow(QMainWindow):
 
     def _setup_keyboard_shortcuts(self) -> None:
         self._main_tab_shortcuts = []
+        self._focus_before_toolbar = None
         for index in range(self.tabs_widget.count()):
             sequence = QKeySequence(f"Ctrl+{index + 1}")
             shortcut = QShortcut(sequence, self)
@@ -150,6 +151,83 @@ class MainWindow(QMainWindow):
             self.tabs_widget.setTabToolTip(
                 index, f"{label} — Ctrl+{index + 1}"
             )
+        self._toolbar_shortcut = QShortcut(QKeySequence("F6"), self)
+        self._toolbar_shortcut.activated.connect(self._focus_active_toolbar)
+
+    def _active_toolbar_buttons(self) -> list[QPushButton]:
+        page = self.tabs_widget.currentWidget()
+        if page is None:
+            return []
+
+        containers = [
+            widget for widget in page.findChildren(QWidget)
+            if widget.objectName() in {"toolbarSection", "toolbar", "navBar"}
+            and widget.isVisible()
+        ]
+        buttons = []
+        for container in containers:
+            buttons.extend(container.findChildren(QPushButton))
+
+        for widget in page.findChildren(QWidget):
+            if widget.objectName() != "SifarniciTab":
+                continue
+            for name in ("btn_novi", "btn_uredi", "btn_obrisi", "btn_snimi"):
+                button = getattr(widget, name, None)
+                if isinstance(button, QPushButton):
+                    buttons.append(button)
+
+        unique = []
+        seen = set()
+        for button in buttons:
+            if id(button) in seen or not button.isVisible() or not button.isEnabled():
+                continue
+            seen.add(id(button))
+            unique.append(button)
+        unique.sort(key=lambda button: (
+            button.mapTo(page, button.rect().center()).y(),
+            button.mapTo(page, button.rect().center()).x(),
+        ))
+        return unique
+
+    def _focus_active_toolbar(self) -> None:
+        buttons = self._active_toolbar_buttons()
+        if not buttons:
+            return
+        current = QApplication.focusWidget()
+        if current not in buttons:
+            self._focus_before_toolbar = current
+        for button in buttons:
+            button.installEventFilter(self)
+        buttons[0].setFocus(Qt.ShortcutFocusReason)
+
+    def eventFilter(self, watched, event):
+        if event.type() != QEvent.KeyPress:
+            return super().eventFilter(watched, event)
+        buttons = self._active_toolbar_buttons()
+        if watched not in buttons:
+            return super().eventFilter(watched, event)
+
+        key = event.key()
+        if key in (Qt.Key_Left, Qt.Key_A, Qt.Key_Right, Qt.Key_D, Qt.Key_Home, Qt.Key_End):
+            current = buttons.index(watched)
+            if key in (Qt.Key_Left, Qt.Key_A):
+                target = (current - 1) % len(buttons)
+            elif key in (Qt.Key_Right, Qt.Key_D):
+                target = (current + 1) % len(buttons)
+            elif key == Qt.Key_Home:
+                target = 0
+            else:
+                target = len(buttons) - 1
+            buttons[target].setFocus(Qt.ShortcutFocusReason)
+            return True
+        if key == Qt.Key_Escape:
+            previous = self._focus_before_toolbar
+            if previous is not None and previous.isVisible() and previous.isEnabled():
+                previous.setFocus(Qt.ShortcutFocusReason)
+            else:
+                self.tabs_widget.currentWidget().setFocus(Qt.ShortcutFocusReason)
+            return True
+        return super().eventFilter(watched, event)
 
     def _tab_icon(self, icon_name):
         from PySide6.QtGui import QIcon
