@@ -150,6 +150,12 @@ class QuotaPanel(QWidget):
         super().closeEvent(event)
 
     def _init_ui(self):
+        self.setStyleSheet(
+            "QuotaPanel { background:#f5f7f9; color:#18354a; }"
+            "QLineEdit { background:#fbfcfd; border:1px solid #a9bbc7; "
+            "border-radius:4px; padding:6px 8px; color:#18354a; }"
+            "QLineEdit:focus { background:white; border:2px solid #2f6f9f; }"
+        )
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 12, 16, 12)
         layout.setSpacing(8)
@@ -160,17 +166,17 @@ class QuotaPanel(QWidget):
         self.btn_refresh = QPushButton("Osvježi stanje sa UINO")
         self.btn_refresh.setFixedHeight(32)
         self.btn_refresh.setStyleSheet(
-            "QPushButton { background:#2563eb; color:white; border-radius:4px;"
-            " padding:0 16px; font-weight:bold; }"
-            "QPushButton:hover { background:#1d4ed8; }"
-            "QPushButton:disabled { background:#93c5fd; }"
+            "QPushButton { background:#2f6f9f; color:white; border:1px solid #285f88; "
+            "border-radius:5px; padding:0 16px; font-weight:600; }"
+            "QPushButton:hover { background:#3d82b7; }"
+            "QPushButton:disabled { background:#cbd4da; color:#7b858c; }"
         )
         self.btn_refresh.clicked.connect(self._on_refresh_clicked)
         toolbar.addWidget(self.btn_refresh)
 
         toolbar.addSpacing(16)
         self.lbl_status = QLabel("Učitavam podatke iz baze…")
-        self.lbl_status.setStyleSheet("color: #6b7280; font-size: 12px;")
+        self.lbl_status.setStyleSheet("color:#526778; font-size:12px;")
         toolbar.addWidget(self.lbl_status)
         toolbar.addStretch()
 
@@ -187,8 +193,8 @@ class QuotaPanel(QWidget):
         self.info_bar = QFrame()
         self.info_bar.setFrameShape(QFrame.StyledPanel)
         self.info_bar.setStyleSheet(
-            "QFrame { background:#eff6ff; border:1px solid #bfdbfe;"
-            " border-radius:4px; padding:4px 8px; }"
+            "QFrame { background:#eef4f7; border:1px solid #b8c9d5; "
+            "border-radius:5px; padding:4px 8px; }"
         )
         info_layout = QHBoxLayout(self.info_bar)
         info_layout.setContentsMargins(8, 4, 8, 4)
@@ -199,10 +205,10 @@ class QuotaPanel(QWidget):
         self.lbl_napomena    = QLabel(
             "Napomena: Informativno stanje prema javno objavljenom PDF izvještaju."
         )
-        self.lbl_napomena.setStyleSheet("color:#92400e; font-style:italic;")
+        self.lbl_napomena.setStyleSheet("color:#76531f; font-style:italic;")
 
         for lbl in (self.lbl_source, self.lbl_report_dt, self.lbl_download_dt):
-            lbl.setStyleSheet("font-size:12px; color:#1e40af;")
+            lbl.setStyleSheet("font-size:12px; color:#294b62; font-weight:600;")
             info_layout.addWidget(lbl)
             info_layout.addWidget(self._separator())
 
@@ -219,10 +225,15 @@ class QuotaPanel(QWidget):
         self.table.verticalHeader().setVisible(False)
         self.table.setWordWrap(True)
         self.table.setStyleSheet(
-            "QTableWidget { font-size: 12pt; background: #ffffff; alternate-background-color: #f0f7f0; color: #1e3820; }"
-            "QTableWidget::item { color: #1e3820; }"
-            "QTableWidget::item:selected { background-color: #d4e8d4; color: #1e3820; }"
-            "QHeaderView::section { font-size: 12pt; font-weight: bold; padding: 6px 8px; }"
+            "QTableWidget { font-size:12pt; background:#ffffff; "
+            "alternate-background-color:#f3f7f9; color:#18354a; "
+            "border:1px solid #8fa7b8; border-radius:5px; gridline-color:#d2dde4; }"
+            "QTableWidget::item { color:#18354a; padding:5px 7px; }"
+            "QTableWidget::item:hover { background:#e7f0f5; }"
+            "QTableWidget::item:selected { background-color:#2f6f9f; color:white; }"
+            "QHeaderView::section { background:#d7e5ee; color:#18354a; "
+            "font-size:12pt; font-weight:700; padding:6px 8px; border:none; "
+            "border-right:1px solid #bccdd8; border-bottom:2px solid #68869b; }"
         )
 
         hh = self.table.horizontalHeader()
@@ -240,7 +251,7 @@ class QuotaPanel(QWidget):
     def _separator() -> QFrame:
         sep = QFrame()
         sep.setFrameShape(QFrame.VLine)
-        sep.setStyleSheet("color: #bfdbfe;")
+        sep.setStyleSheet("color:#b8c9d5;")
         return sep
 
     # ── Punjenje podataka ─────────────────────────────────────
@@ -373,4 +384,3 @@ class QuotaPanel(QWidget):
             user_msg = f"UINO PDF trenutno nije dostupan.\n\n{msg}"
 
         QMessageBox.warning(self, "Greška pri preuzimanju kvota", user_msg)
-
