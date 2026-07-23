@@ -696,6 +696,20 @@ class ZaglavljeView(BaseTabView):
                 "border-radius: 4px; }"
             ),
         }
+        party_field_styles = {
+            "izvoznik": (
+                "QLineEdit { background-color: #f1f8f4; border: 1px solid #8fbea3; "
+                "border-radius: 3px; color: #173d2b; }"
+                "QLineEdit:hover { background-color: #e9f4ed; border-color: #5f9a79; }"
+                "QLineEdit:focus { background-color: #ffffff; border: 2px solid #2f7d5a; }"
+            ),
+            "primalac": (
+                "QLineEdit { background-color: #f1f6fa; border: 1px solid #91b4ca; "
+                "border-radius: 3px; color: #193d56; }"
+                "QLineEdit:hover { background-color: #e8f1f7; border-color: #5f8fad; }"
+                "QLineEdit:focus { background-color: #ffffff; border: 2px solid #2f6f9f; }"
+            ),
+        }
         if prefix in party_header_styles:
             title_row.setStyleSheet(party_header_styles[prefix])
         if sys.platform.startswith("win"):
@@ -786,6 +800,8 @@ class ZaglavljeView(BaseTabView):
             id_field.setFixedHeight(24)
         if auto:
             id_field.setReadOnly(True)
+        if prefix in party_field_styles:
+            id_field.setStyleSheet(party_field_styles[prefix])
         title_layout.addStretch()
         title_layout.addWidget(id_field)
         title_layout.setAlignment(id_field, Qt.AlignmentFlag.AlignVCenter)
@@ -820,6 +836,8 @@ class ZaglavljeView(BaseTabView):
                 field.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             if auto:
                 field.setReadOnly(True)
+            if prefix in party_field_styles:
+                field.setStyleSheet(party_field_styles[prefix])
             layout.addWidget(field)
             self.field_widgets[f"{prefix}_r{i}"] = field
 
