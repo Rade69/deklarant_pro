@@ -1178,3 +1178,53 @@ Testovi (novi): `test_tariff_hierarchy_db_path.py` — standardna putanja, froze
 exe folder, fallback kad ništa ne postoji (3 testa, monkeypatch `sys.frozen`/`sys.executable`).
 
 Commit: `29f3015`.
+
+## 45. Sistematsko traganje za istom klasom buga + jos 3 pg_trgm indeksa (2026-07-23)
+
+Nakon §44, korisnik zatražio da se ista klasa bugova sistematski potraži kroz cijelu
+kodnu bazu (150k+ linija) — tri ciljane, jeftine provjere umjesto opšteg pregleda:
+
+**a) Isti `__file__`-relativni DB_PATH bez `sys.frozen` svijesti** — grep otkrio JOŠ DVA
+pogođena runtime modula (ne migracioni/admin skriptovi, koji su van scope-a jer se ne
+pokreću iz shipped `.exe`-a):
+- `services/tariff/tariff_tree_service.py` — **gori nego prvobitni bug**: broj `..` u
+  putanji je bio pogrešan (jedan umjesto dva), pa je putanja bila netačna **čak i u dev
+  modu** (rešavala se u `services/database/` koji ne postoji). Vjerovatno ostatak kad je
+  fajl premješten iz `services/tariff_tree_service.py` (postoji i taj, kao re-export shim)
+  u podfolder `services/tariff/`, bez ažuriranja broja `..`. Koristi ga agent chat
+  "pretraži tarifu hijerarhijski" (`chat_intent_handler.py`) — tiho je vraćalo prazne
+  rezultate (uhvaćeno u `try/except`, bez vidljive greške korisniku).
+- `services/agent/chat/tariff_history_analysis_service.py` — putanja tačna u dev modu,
+  ali bez frozen-build fallback-a (isti rizik kao `tarifa_2026` bug iz §44). Koristi ga
+  agent chat "analiziraj tarifne historiju".
+
+Oba popravljena istim `_resolve_db_path()` obrascem (kandidati + frozen fallback na exe
+folder) kao `tariff_hierarchy.py` iz §44. 5 novih testova. Commit `577a3b7`.
+
+**b) AST provjera dupliciranih metoda/funkcija** (isti obrazac kao `processing_worker.py`
+bug iz §43) — **čist rezultat**: nula pogodaka u projektnom kodu (`services/`, `gui/`,
+`importers/`, `core/`, `database/`, `exporters/`, `scripts/`, `config/`, `dist_client/`
+sopstveni izvor, `app/`, root `.py` fajlovi). Jedina 2 pogotka bila su u
+`dist_client/.venv/site-packages/` (vendorisane biblioteke `protobuf`/`openpyxl`) — nisu
+naš kod. **Zaključak**: `processing_worker.py` je bio izolovan slučaj, ne sistemski
+obrazac — nema potrebe za daljom akcijom.
+
+**c) ILIKE upiti bez pg_trgm indeksa** (isti obrazac kao `product_tariff_mapping` iz §43)
+— grep 30 ILIKE poziva u `services/`, provjerene tabele po veličini. Tri dodatne tabele
+potvrđene kao Seq Scan preko `EXPLAIN ANALYZE`:
+- `catalogs.product_similarity_memory` (26.404 reda, "slični proizvodi" agent analiza) —
+  postojao je B-tree `idx_product_similarity_supplier` koji NE pomaže ILIKE-u — 76ms → 0.88ms
+- `catalogs.zvanicna_tarifa` (12.686 redova, "Trgovački nazivi" pretraga) — 38.6ms → 0.69ms
+- `catalogs.declaration_items` (9.798 redova) — postojao `idx_items_naziv_robe_fts` (FTS
+  `@@` operator, DRUGI tip indeksa od ILIKE-ovog `~~*`) — 25.5ms → 0.44ms
+
+Male referentne tabele (`izvoznici` 2116, `uvoznici` 678, `drzave` 249,
+`carinski_postupci` 148 redova) namjerno preskočene — seq scan na tako malim tabelama je
+već sub-milisekundni, dodatni indeks ne bi donio mjerljivu korist. Migracije 011, 012
+(primijenjene na živu bazu + mirrovane u `dist_client/database/migrations/`). Commit `004b67f`.
+
+**Pouka**: sve tri ciljane provjere potvrđuju da je "nađi jedan primjer buga, pa provjeri
+da li postoji ista klasa na drugim mjestima" produktivnija strategija od opšteg code review-a
+— (a) i (c) su odmah dale dodatne, stvarne pogotke, dok je (b) dala koristan NEGATIVAN
+rezultat (potvrda da nešto NIJE sistemski problem, ne samo "nije nađeno jer se nije tražilo
+dovoljno dobro").
