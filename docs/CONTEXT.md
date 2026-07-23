@@ -1149,3 +1149,32 @@ Pythona) umjesto čekanja da korisnik prijavi bug specifično na Windows/shipped
 Commitovi: `eacf3d5` (cleanup dupliciran kod), `b2648f2` (dist_client mirror fixevi),
 `fc08233` (AI health check QThread). Puni test suite: 915 passed nakon svih izmjena
 (isti pre-postojeći 3 fail/1 error nepovezani sa ovim radom).
+
+## 44. "no such table: tarifa_2026" — pretraga trgovačkih naziva u Šifarnicima (2026-07-23)
+
+Korisnik prijavio grešku u Šifarnici tabu (numerička pretraga tarifnog koda) uz sumnju da je
+Codex-ov redizajn tog taba nešto pokvario. **Provjereno: `gui/tabs/sifarnici/tariff_hierarchy.py`
+je bit-za-bit identičan u root-u, `dist_client/` i Codex-ovoj radnoj grani** — Codex NIJE uzrok.
+
+**Pravi uzrok**: `_DB_PATH` u `tariff_hierarchy.py` računat je fiksnom relativnom putanjom od
+`__file__` (`../../../database/deklarant_sistem.db`). U PyInstaller frozen buildu `__file__`
+pokazuje unutar `_internal/` bundle-a, dok stvarna (read-write) `deklarant_sistem.db` živi
+POKRAJ `.exe`-a — ta baza NIJE u `deklarant_pro.spec` `datas` listi (bundluju se samo
+`zvanicna_tarifa.db` i `inspection_rules.db`, read-only referentni podaci). Kad izračunata
+putanja ne postoji, `sqlite3.connect()` **tiho napravi NOVU praznu bazu** na toj putanji —
+upit na `tarifa_2026` onda puca sa "no such table" jer ta nova baza nema nijednu tabelu.
+
+Isti obrazac buga (i isto rješenje) već postoji u `services/tariff/tarifa_service.py::
+_resolve_db_path()` — lista kandidata (standardna dev putanja → frozen exe-folder putanja →
+CWD-relativna) umjesto jedne fiksne putanje. Primijenjen isti pristup u `tariff_hierarchy.py`.
+
+**Pouka**: kad god modul računa putanju do `database/*.db` preko `os.path.dirname(__file__)`
+bez `sys.frozen` provjere, provjeriti da li ta baza uopšte postoji u `deklarant_pro.spec`
+`datas` listi — ako ne postoji (jer je read-write/lokalna), fiksna `__file__`-relativna
+putanja će raditi u dev modu ali tiho pucati u frozen `.exe`-u. Vidi i `config/settings.py`
+(PROJECT_ROOT vs BUNDLE_ROOT) za opšti obrazac.
+
+Testovi (novi): `test_tariff_hierarchy_db_path.py` — standardna putanja, frozen fallback na
+exe folder, fallback kad ništa ne postoji (3 testa, monkeypatch `sys.frozen`/`sys.executable`).
+
+Commit: `29f3015`.
