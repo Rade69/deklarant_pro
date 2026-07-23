@@ -47,7 +47,7 @@ from PySide6.QtCore import (
     QItemSelection,
     QItemSelectionModel,
 )
-from PySide6.QtGui import QColor, QFont, QFontMetrics, QIcon, QShortcut, QKeySequence
+from PySide6.QtGui import QColor, QFont, QFontMetrics, QIcon, QPainter, QShortcut, QKeySequence
 
 try:
     import qtawesome as qta
@@ -88,6 +88,23 @@ _PE_DOC_CODES = {"PE1", "PE2", "PE3"}
 
 
 class _InvoiceTableWidget(QTableWidget):
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if self.rowCount() != 0:
+            return
+
+        painter = QPainter(self.viewport())
+        painter.setPen(QColor("#667d8f"))
+        font = painter.font()
+        font.setPointSize(12)
+        font.setBold(True)
+        painter.setFont(font)
+        painter.drawText(
+            self.viewport().rect(),
+            Qt.AlignCenter,
+            "Nema učitanih stavki\nUčitajte glavnu listu ili fakturu za početak rada.",
+        )
+
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
             modifiers = event.modifiers()
