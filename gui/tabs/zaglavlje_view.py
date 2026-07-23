@@ -709,6 +709,12 @@ class ZaglavljeView(BaseTabView):
                 "QLineEdit:hover { background-color: #e8f1f7; border-color: #5f8fad; }"
                 "QLineEdit:focus { background-color: #ffffff; border: 2px solid #2f6f9f; }"
             ),
+            "deklarant": (
+                "QLineEdit { background-color: #f0f2f4; border: 1px solid #b8c0c8; "
+                "border-radius: 3px; color: #5d6670; }"
+                "QLineEdit:hover { background-color: #eceff2; border-color: #9da7b1; }"
+                "QLineEdit:focus { background-color: #f7f8f9; border: 1px solid #8f99a3; }"
+            ),
         }
         if prefix in party_header_styles:
             title_row.setStyleSheet(party_header_styles[prefix])
