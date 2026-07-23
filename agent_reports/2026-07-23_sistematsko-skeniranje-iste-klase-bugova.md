@@ -75,9 +75,10 @@ po uloženom vremenu, u odnosu na opšti code review.
   seq scan tamo je već sub-milisekundan, indeks ne bi donio mjerljivu korist.
 - `database/migrations/008-010` nedostaju u `dist_client/database/migrations/` (pre-postojeći
   gap, otkriven usput, van scope-a ovog zadatka — vidi "Potreban follow-up").
-- `dist/DeklarantPro/` leftover build folder (stari PyInstaller izlaz sa torch bibliotekom)
-  — otkriven kao izvor šuma u prvom pokušaju AST skeniranja, nije obrisan (nije moje da
-  brišem korisnikove fajlove bez pitanja).
+- `dist/DeklarantPro/` — **ISPRAVKA**: ovo je stvaran, aktuelan izbildani `.exe` (ne
+  "zaostatak"), pogrešno okarakterisan niže u ovom izvještaju prije korisnikove ispravke.
+  Samo je usput otkriven kao izvor šuma u prvom (prije-scoping) pokušaju AST skeniranja —
+  nije i neće biti dirano.
 
 ## Verifikacija
 - `tariff_tree_service.py`: `get_children('85', limit=3)` prije fixa vraćalo prazno/gresku,
@@ -96,9 +97,9 @@ po uloženom vremenu, u odnosu na opšti code review.
   je "pretraži tarifu hijerarhijski" u agent chatu oduvijek tiho ne radilo, bez ijedne
   vidljive greške korisniku ili u testovima (nema postojećih testova za ovu funkciju prije
   ovog rada).
-- Prvi pokušaj AST skeniranja je greškom obuhvatio zaostali `dist/DeklarantPro/_internal/
-  torch/...` PyInstaller build folder (stotine lažno-pozitivnih `@overload` funkcija) —
-  ispravljeno scoping-om na projektne foldere.
+- Prvi pokušaj AST skeniranja je greškom obuhvatio `dist/DeklarantPro/_internal/torch/...`
+  (bundlovana zavisnost unutar stvarnog izbildanog `.exe`-a, stotine lažno-pozitivnih
+  `@overload` funkcija) — ispravljeno scoping-om na projektne foldere.
 
 ## Konflikti / kontradiktorni izvori
 Nema.
@@ -120,13 +121,10 @@ Nema.
 ## Potreban follow-up
 - `database/migrations/008-010` nedostaju u `dist_client/database/migrations/` — pre-postojeći
   gap otkriven usput, nije popravljen (van scope-a ove sesije, ali vrijedi zabilježiti).
-- Razmisliti o čišćenju zaostalog `dist/DeklarantPro/` build foldera (stari PyInstaller
-  izlaz, ometao je AST sken) — nisam ga dirao bez eksplicitnog pitanja korisniku.
-- Rebuild `.exe` i provjera uživo da agent chat "pretraži tarifu hijerarhijski" i
-  "analiziraj tarifne historiju" sad rade ispravno.
+- Rebuild `.exe` (kad korisnik odluči) i provjera uživo da agent chat "pretraži tarifu
+  hijerarhijski" i "analiziraj tarifne historiju" sad rade ispravno u ažuriranom `.exe`-u —
+  trenutni `dist/DeklarantPro/DeklarantPro.exe` je build od PRIJE ovih fixeva.
 
 ## Potrebna korisnička potvrda
 - Potvrda nakon sljedećeg rebuild-a da agent chat funkcije hijerarhijske pretrage i
   analize tarifne historije rade (ranije su bile tiho pokvarene, bez vidljive greške).
-- Da li da obrišem zaostali `dist/DeklarantPro/` build folder (stari, zauzima prostor,
-  ometao skeniranje) — ili ga ostaviti?
