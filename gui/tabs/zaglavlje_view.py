@@ -712,8 +712,12 @@ class ZaglavljeView(BaseTabView):
             "deklarant": (
                 "QLineEdit { background-color: #f0f2f4; border: 1px solid #b8c0c8; "
                 "border-radius: 3px; color: #5d6670; }"
-                "QLineEdit:hover { background-color: #eceff2; border-color: #9da7b1; }"
-                "QLineEdit:focus { background-color: #f7f8f9; border: 1px solid #8f99a3; }"
+                "QLineEdit:read-only { background-color: #f0f2f4; "
+                "border: 1px solid #b8c0c8; color: #5d6670; }"
+                "QLineEdit:hover, QLineEdit:read-only:hover { background-color: #eceff2; "
+                "border-color: #9da7b1; }"
+                "QLineEdit:focus, QLineEdit:read-only:focus { background-color: #f7f8f9; "
+                "border: 1px solid #8f99a3; }"
             ),
         }
         if prefix in party_header_styles:
