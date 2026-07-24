@@ -51,7 +51,7 @@ class SettingsPanel(QWidget):
                 border-color: #bbb;
             }
             QComboBox:focus, QSpinBox:focus, QLineEdit:focus {
-                border-color: #0078d4;
+                border-color: #3477a5;
             }
             QComboBox::drop-down {
                 border: none;
@@ -61,7 +61,7 @@ class SettingsPanel(QWidget):
                 image: none;
                 border-left: 5px solid transparent;
                 border-right: 5px solid transparent;
-                border-top: 6px solid #666;
+                border-top: 6px solid #52697b;
                 margin-right: 10px;
             }
         """
@@ -88,8 +88,8 @@ class SettingsPanel(QWidget):
                 background-color: white;
             }
             QCheckBox::indicator:checked {
-                background-color: #0078d4;
-                border-color: #0078d4;
+                background-color: #3477a5;
+                border-color: #3477a5;
             }
             QCheckBox::indicator:hover {
                 border-color: #bbb;
@@ -115,23 +115,23 @@ class SettingsPanel(QWidget):
                 border-color: #bbb;
             }
             QPushButton:pressed {
-                background-color: #e0e0e0;
+                background-color: #bfd0dc;
             }
             QPushButton#saveButton {
-                background-color: #0078d4;
+                background-color: #3477a5;
                 color: white;
-                border-color: #0078d4;
+                border-color: #3477a5;
             }
             QPushButton#saveButton:hover {
-                background-color: #106ebe;
+                background-color: #2b648c;
             }
             QPushButton#resetButton {
-                background-color: #dc3545;
+                background-color: #ad3e3e;
                 color: white;
-                border-color: #dc3545;
+                border-color: #ad3e3e;
             }
             QPushButton#resetButton:hover {
-                background-color: #c82333;
+                background-color: #943535;
             }
         """
         
@@ -148,11 +148,11 @@ class SettingsPanel(QWidget):
         header_layout = QHBoxLayout()
         
         header_icon = QLabel()
-        header_icon.setPixmap(qta.icon('fa5s.cog', color='#333333', scale_factor=2).pixmap(32, 32))
+        header_icon.setPixmap(qta.icon('fa5s.cog', color='#17324a', scale_factor=2).pixmap(32, 32))
         header_layout.addWidget(header_icon)
         
         header = QLabel("Settings")
-        header.setStyleSheet("font-size: 20px; font-weight: bold; color: #333; margin-left: 10px;")
+        header.setStyleSheet("font-size: 20px; font-weight: bold; color: #17324a; margin-left: 10px;")
         header_layout.addWidget(header)
         header_layout.addStretch()
         

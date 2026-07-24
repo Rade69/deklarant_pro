@@ -58,6 +58,151 @@ from core.utils import FormValidator, ValidationRule, UIHelper
 
 logger = logging.getLogger(__name__)
 
+_ROOT_STYLE = """
+#SifarniciTab {
+    background-color: #f3f6f8;
+}
+#SifarniciTab QGroupBox {
+    background-color: #f8fafb;
+    border: 1px solid #b8c9d5;
+    border-radius: 5px;
+    margin-top: 6px;
+    padding: 12px 8px 6px 8px;
+    color: #18354a;
+    font-size: 12pt;
+    font-weight: 700;
+}
+#SifarniciTab QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    left: 10px;
+    padding: 2px 8px;
+    background-color: #dfeaf1;
+    color: #18354a;
+    border-radius: 3px;
+}
+#SifarniciTab QLineEdit, #SifarniciTab QComboBox {
+    background-color: #fbfcfd;
+    border: 1px solid #a9bbc7;
+    border-radius: 4px;
+    color: #18354a;
+    font-size: 12pt;
+    padding: 5px 8px;
+    min-height: 28px;
+    selection-background-color: #2f6f9f;
+}
+#SifarniciTab QLineEdit:hover, #SifarniciTab QComboBox:hover {
+    background-color: #f3f7f9;
+    border-color: #7892a5;
+}
+#SifarniciTab QLineEdit:focus, #SifarniciTab QComboBox:focus {
+    background-color: #ffffff;
+    border: 2px solid #2f6f9f;
+}
+#SifarniciTab QLabel {
+    color: #18354a;
+}
+"""
+
+_TABLE_STYLE = """
+QTableWidget {
+    border: 1px solid #8fa7b8;
+    border-radius: 5px;
+    gridline-color: #d2dde4;
+    font-size: 13pt;
+    background-color: #ffffff;
+    alternate-background-color: #f3f7f9;
+    color: #18354a;
+    outline: none;
+}
+QTableWidget::item {
+    padding: 12px 8px;
+    min-height: 35px;
+    border-bottom: 1px solid #dbe4e9;
+    color: #18354a;
+}
+QTableWidget::item:hover {
+    background-color: #e7f0f5;
+}
+QTableWidget::item:selected {
+    background-color: #2f6f9f;
+    color: #ffffff;
+}
+QHeaderView::section {
+    background-color: #d7e5ee;
+    padding: 9px 10px;
+    border: none;
+    border-right: 1px solid #bccdd8;
+    border-bottom: 2px solid #68869b;
+    font-weight: 700;
+    font-size: 14pt;
+    color: #18354a;
+}
+"""
+
+_TREE_STYLE = """
+QTreeWidget {
+    font-size: 16pt;
+    border: 1px solid #8fa7b8;
+    border-radius: 5px;
+    background-color: #ffffff;
+    alternate-background-color: #f3f7f9;
+    color: #18354a;
+    outline: none;
+}
+QTreeWidget::item {
+    padding: 10px 6px;
+    min-height: 40px;
+    color: #18354a;
+}
+QTreeWidget::item:hover {
+    background-color: #e7f0f5;
+}
+QTreeWidget::item:selected {
+    background-color: #2f6f9f;
+    color: #ffffff;
+}
+QHeaderView::section {
+    background-color: #d7e5ee;
+    padding: 12px;
+    border: none;
+    border-right: 1px solid #bccdd8;
+    border-bottom: 2px solid #68869b;
+    font-weight: 700;
+    font-size: 15pt;
+    color: #18354a;
+}
+"""
+
+_BTN_ADD_STYLE = (
+    "QPushButton { background:#2f7d5a; color:white; border:1px solid #28694c; "
+    "border-radius:5px; padding:5px 12px; font-weight:600; }"
+    "QPushButton:hover { background:#3c936c; }"
+    "QPushButton:pressed { background:#245f45; }"
+    "QPushButton:disabled { background:#c9d2cd; color:#7b8580; border-color:#b8c1bc; }"
+)
+_BTN_EDIT_STYLE = (
+    "QPushButton { background:#2f6f9f; color:white; border:1px solid #285f88; "
+    "border-radius:5px; padding:5px 12px; font-weight:600; }"
+    "QPushButton:hover { background:#3d82b7; }"
+    "QPushButton:pressed { background:#245779; }"
+    "QPushButton:disabled { background:#cbd4da; color:#7b858c; border-color:#b8c2c9; }"
+)
+_BTN_DELETE_STYLE = (
+    "QPushButton { background:#a6403d; color:white; border:1px solid #8e3432; "
+    "border-radius:5px; padding:5px 12px; font-weight:600; }"
+    "QPushButton:hover { background:#b9514d; }"
+    "QPushButton:pressed { background:#85322f; }"
+    "QPushButton:disabled { background:#d8caca; color:#8a7777; border-color:#c7b8b8; }"
+)
+_BTN_SAVE_STYLE = (
+    "QPushButton { background:#2f6f6a; color:white; border:1px solid #285f5b; "
+    "border-radius:5px; padding:5px 12px; font-weight:600; }"
+    "QPushButton:hover { background:#3d8780; }"
+    "QPushButton:pressed { background:#245753; }"
+    "QPushButton:disabled { background:#c8d3d2; color:#758381; border-color:#b6c4c2; }"
+)
+
 
 class SifarniciView(BaseTabView):
     """
@@ -108,6 +253,7 @@ class SifarniciView(BaseTabView):
 
     def _init_ui(self):
         """Main UI setup"""
+        self.setStyleSheet(_ROOT_STYLE)
         main_layout = QHBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
@@ -124,10 +270,12 @@ class SifarniciView(BaseTabView):
         """Sidebar sa kategorijama — stil usklađen sa Admin tabom (admin_tab.qss)."""
         sidebar = QFrame()
         sidebar.setFrameShape(QFrame.NoFrame)
+        sidebar.setObjectName("sifarnici_sidebar")
         sidebar.setMaximumWidth(220)
         sidebar.setMinimumWidth(180)
         sidebar.setStyleSheet(
-            "QFrame { background-color: #e8f2e8; border-right: 1px solid #c8dcc8; }"
+            "QFrame#sifarnici_sidebar { background-color: #e8eef3; "
+            "border-right: 1px solid #b7c7d2; }"
         )
 
         layout = QVBoxLayout(sidebar)
@@ -138,8 +286,8 @@ class SifarniciView(BaseTabView):
         title = QLabel("<h3>Šifrarnici</h3>")
         title.setStyleSheet(
             "padding: 12px 16px; font-size: 14px; font-weight: bold;"
-            " color: #1e3820; background-color: #e8f2e8;"
-            " border-bottom: 1px solid #c8dcc8;"
+            " color: #18354a; background-color: #dfe8ef;"
+            " border-bottom: 2px solid #7892a5;"
         )
         layout.addWidget(title)
 
@@ -149,7 +297,7 @@ class SifarniciView(BaseTabView):
         self.categories_list.setStyleSheet(
             """
             QListWidget {
-                background-color: #e8f2e8;
+                background-color: #e8eef3;
                 border: none;
                 outline: none;
                 font-size: 13px;
@@ -159,13 +307,13 @@ class SifarniciView(BaseTabView):
                 padding: 10px 8px;
                 border-radius: 4px;
                 margin: 2px 0;
-                color: #1e3820;
+                color: #18354a;
             }
             QListWidget::item:hover {
-                background-color: #c8dcc8;
+                background-color: #d4e1e9;
             }
             QListWidget::item:selected {
-                background-color: #5a8060;
+                background-color: #2f6f9f;
                 color: white;
                 font-weight: bold;
             }
@@ -219,6 +367,7 @@ class SifarniciView(BaseTabView):
             logger.info("Kreiranje glavnog prostora")
 
             main_area = QWidget()
+            main_area.setObjectName("sifarnici_main_area")
             palette = main_area.palette()
             palette.setColor(QPalette.Window, QColor("white"))
             main_area.setPalette(palette)
@@ -233,9 +382,13 @@ class SifarniciView(BaseTabView):
 
             # Content with margins
             content = QWidget()
+            content.setObjectName("sifarnici_content")
+            content.setStyleSheet(
+                "QWidget#sifarnici_content { background-color: #f5f7f9; }"
+            )
             content_layout = QVBoxLayout(content)
-            content_layout.setContentsMargins(15, 15, 15, 15)
-            content_layout.setSpacing(15)
+            content_layout.setContentsMargins(12, 10, 12, 10)
+            content_layout.setSpacing(10)
 
             # Toolbar
             toolbar = self._create_toolbar()
@@ -251,36 +404,7 @@ class SifarniciView(BaseTabView):
             content_layout.addWidget(self.inspection_filter_panel)
 
             # Tabela BEZ scroll area
-            self.table = self._create_configured_table(
-                """
-                QTableWidget {
-                    border: 2px solid #5a8060;
-                    gridline-color: #c8dcc8;
-                    font-size: 13pt;
-                    background: white;
-                    alternate-background-color: #f0f7f0;
-                    color: #1e3820;
-                }
-                QTableWidget::item {
-                    padding: 12px 8px;
-                    min-height: 35px;
-                    border: 1px solid #c8dcc8;
-                    color: #1e3820;
-                }
-                QTableWidget::item:selected {
-                    background-color: #d4e8d4;
-                    color: #1e3820;
-                }
-                QHeaderView::section {
-                    background: #dce8dc;
-                    padding: 14px 10px;
-                    border: 1px solid #5a8060;
-                    font-weight: bold;
-                    font-size: 14pt;
-                    color: #1e3820;
-                }
-            """
-            )
+            self.table = self._create_configured_table(_TABLE_STYLE)
 
             # VAŽNO - forsiraj minimalnu veličinu
             self.table.setMinimumHeight(400)
@@ -298,6 +422,7 @@ class SifarniciView(BaseTabView):
 
             # Detail panel container (GRID layout)
             self.detail_container = QWidget()
+            self.detail_container.setObjectName("sifarnici_details")
             content_layout.addWidget(self.detail_container)
 
             # Pager
@@ -332,19 +457,21 @@ class SifarniciView(BaseTabView):
     def _create_header_bar(self) -> QWidget:
         """Header sa title + dark toggle"""
         header = QWidget()
-        header.setStyleSheet("background: #f0f7f0; border-bottom: 1px solid #c8dcc8;")
+        header.setStyleSheet(
+            "background:#eef4f7; border-bottom:2px solid #7892a5;"
+        )
         layout = QHBoxLayout(header)
         layout.setContentsMargins(20, 10, 20, 10)
 
         icon = QLabel("≡")
-        icon.setStyleSheet("font-size: 18px; color: #5a8060;")
+        icon.setStyleSheet("font-size:18px; color:#2f6f9f;")
 
         self.title_label = QLabel()
         self.title_label.setStyleSheet(
             """
             font-size: 14px;
             font-weight: bold;
-            color: #1e3820;
+            color: #18354a;
         """
         )
 
@@ -376,6 +503,7 @@ class SifarniciView(BaseTabView):
             "Novi (Ctrl+N)", "success", "fa5s.plus-square"
         )
         self.btn_novi.clicked.connect(self._on_novi)
+        self.btn_novi.setStyleSheet(_BTN_ADD_STYLE)
 
         # Uredi
         self.btn_uredi = self.ui_helper.create_styled_button(
@@ -383,6 +511,7 @@ class SifarniciView(BaseTabView):
         )
         self.btn_uredi.setEnabled(False)
         self.btn_uredi.clicked.connect(self._on_uredi)
+        self.btn_uredi.setStyleSheet(_BTN_EDIT_STYLE)
 
         # Obriši
         self.btn_obrisi = self.ui_helper.create_styled_button(
@@ -390,6 +519,7 @@ class SifarniciView(BaseTabView):
         )
         self.btn_obrisi.setEnabled(False)
         self.btn_obrisi.clicked.connect(self._on_obrisi)
+        self.btn_obrisi.setStyleSheet(_BTN_DELETE_STYLE)
 
         # Snimi
         self.btn_snimi = self.ui_helper.create_styled_button(
@@ -397,6 +527,7 @@ class SifarniciView(BaseTabView):
         )
         self.btn_snimi.setEnabled(False)
         self.btn_snimi.clicked.connect(self._on_snimi)
+        self.btn_snimi.setStyleSheet(_BTN_SAVE_STYLE)
 
         layout.addWidget(self.btn_novi)
         layout.addWidget(self.btn_uredi)
@@ -442,22 +573,31 @@ class SifarniciView(BaseTabView):
     def _create_search_panel(self) -> QWidget:
         """Basic search panel (advanced je odvojeno)"""
         search = QWidget()
+        search.setObjectName("sifarnici_search")
+        search.setStyleSheet(
+            "QWidget#sifarnici_search { background:#ffffff; border:1px solid #c4d2dc; "
+            "border-radius:6px; }"
+        )
         layout = QHBoxLayout(search)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(8, 5, 8, 5)
 
         # Icon
         icon = QLabel("🔍")
-        icon.setStyleSheet("font-size: 20px;")
+        icon.setStyleSheet("font-size:18px; color:#2f6f9f;")
 
         # Pretraga label
         label = QLabel("Pretraga:")
-        label.setStyleSheet("font-size: 13pt; font-weight: bold;")
+        label.setStyleSheet(
+            "font-size:12pt; font-weight:700; color:#18354a;"
+        )
 
         # Search input
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Pretraži...")
         self.search_input.setStyleSheet(
-            "font-size: 13pt; padding: 8px; min-height: 35px;"
+            "QLineEdit { font-size:12pt; padding:5px 8px; min-height:28px; "
+            "background:#fbfcfd; border:1px solid #a9bbc7; border-radius:4px; }"
+            "QLineEdit:focus { background:white; border:2px solid #2f6f9f; }"
         )
         self.search_input.returnPressed.connect(self._apply_search)
         self.search_input.textChanged.connect(self._on_search_text_changed)
@@ -467,16 +607,16 @@ class SifarniciView(BaseTabView):
         btn_search.setStyleSheet(
             """
             QPushButton {
-                background: #0078d7;
+                background: #2f6f9f;
                 color: white;
-                border: none;
-                padding: 10px 16px;
-                border-radius: 4px;
-                font-size: 13pt;
-                min-height: 35px;
+                border: 1px solid #285f88;
+                padding: 6px 14px;
+                border-radius: 5px;
+                font-size: 12pt;
+                min-height: 28px;
             }
             QPushButton:hover {
-                background: #006abc;
+                background: #3d82b7;
             }
         """
         )
@@ -506,7 +646,7 @@ class SifarniciView(BaseTabView):
             QToolButton {
                 border: none;
                 background: transparent;
-                color: #0078d7;
+                color: #2f6f9f;
                 padding: 5px;
                 font-weight: bold;
             }
@@ -536,7 +676,7 @@ class SifarniciView(BaseTabView):
         btn_adv_search = QPushButton("🔍 Pretraži")
         btn_adv_search.setStyleSheet(
             """
-            background: #0078d7;
+            background: #2f6f9f;
             color: white;
             border: none;
             padding: 6px 12px;
@@ -566,15 +706,25 @@ class SifarniciView(BaseTabView):
     def _create_pager(self) -> QWidget:
         """Navigation pager"""
         pager = QWidget()
+        pager.setObjectName("sifarnici_pager")
+        pager.setStyleSheet(
+            "QWidget#sifarnici_pager { background:#eef3f6; border-top:1px solid #c4d2dc; }"
+            "QPushButton { background:#3b6f91; color:white; border:1px solid #315f7d; "
+            "border-radius:4px; padding:6px 11px; font-weight:600; }"
+            "QPushButton:hover { background:#4b83a7; }"
+            "QPushButton:disabled { background:#cbd4da; color:#7b858c; border-color:#b8c2c9; }"
+        )
         layout = QHBoxLayout(pager)
-        layout.setContentsMargins(0, 10, 0, 0)
+        layout.setContentsMargins(0, 6, 0, 0)
 
         self.btn_prev = QPushButton("◀ Prethodni")
         self.btn_prev.clicked.connect(self._prev_record)
 
         self.lbl_position = QLabel("Pošiljalac 1 od 0")
         self.lbl_position.setAlignment(Qt.AlignCenter)
-        self.lbl_position.setStyleSheet("font-weight: bold; font-size: 13pt;")
+        self.lbl_position.setStyleSheet(
+            "font-weight:700; font-size:12pt; color:#18354a;"
+        )
 
         self.btn_next = QPushButton("Sledeći ▶")
         self.btn_next.clicked.connect(self._next_record)
@@ -604,20 +754,24 @@ class SifarniciView(BaseTabView):
         status.setFrameShape(QFrame.StyledPanel)
         status.setStyleSheet(
             """
-            background: #f0f0f0;
-            border-top: 1px solid #ccc;
-            padding: 8px;
+            background: #244866;
+            border-top: 2px solid #17354e;
+            padding: 5px;
         """
         )
 
         layout = QHBoxLayout(status)
-        layout.setContentsMargins(15, 5, 15, 5)
+        layout.setContentsMargins(12, 3, 12, 3)
 
         self.lbl_totals = QLabel("Ukupno: 0 pošiljalaca | Prikazano: 0")
-        self.lbl_totals.setStyleSheet("color: #666; font-size: 12pt;")
+        self.lbl_totals.setStyleSheet(
+            "color:#ffffff; font-size:11pt; font-weight:600;"
+        )
 
         self.lbl_last_change = QLabel("Posljednja izmjena: -")
-        self.lbl_last_change.setStyleSheet("color: #666; font-size: 12pt;")
+        self.lbl_last_change.setStyleSheet(
+            "color:#dce8f0; font-size:11pt;"
+        )
 
         layout.addWidget(self.lbl_totals)
         layout.addStretch()
@@ -674,17 +828,35 @@ class SifarniciView(BaseTabView):
 
     def _setup_shortcuts(self):
         """Setup keyboard shortcuts"""
+        self._keyboard_shortcuts = []
+
+        def bind(sequence, handler):
+            shortcut = QShortcut(QKeySequence(sequence), self)
+            shortcut.activated.connect(handler)
+            self._keyboard_shortcuts.append(shortcut)
+
         # Ctrl+N - Novi
-        QShortcut(QKeySequence("Ctrl+N"), self, self._on_novi)
+        bind("Ctrl+N", self._on_novi)
 
         # Ctrl+E - Uredi
-        QShortcut(QKeySequence("Ctrl+E"), self, self._on_uredi)
+        bind("Ctrl+E", self._on_uredi)
 
         # Del - Obriši
-        QShortcut(QKeySequence("Del"), self, self._on_obrisi)
+        bind("Del", self._on_obrisi)
 
         # Ctrl+S - Snimi
-        QShortcut(QKeySequence("Ctrl+S"), self, self._on_snimi)
+        bind("Ctrl+S", self._on_snimi)
+        bind("Alt+Left", self._prev_record)
+        bind("Alt+A", self._prev_record)
+        bind("Alt+Right", self._next_record)
+        bind("Alt+D", self._next_record)
+
+        self.btn_prev.setToolTip("Prethodni zapis — Alt+← / Alt+A")
+        self.btn_next.setToolTip("Sljedeći zapis — Alt+→ / Alt+D")
+        self.btn_novi.setToolTip("Novi zapis — Ctrl+N")
+        self.btn_uredi.setToolTip("Uredi zapis — Ctrl+E")
+        self.btn_snimi.setToolTip("Snimi zapis — Ctrl+S")
+        self.btn_obrisi.setToolTip("Obriši zapis — Delete")
 
     def _on_category_changed(self, row: int):
         """Category changed u sidebar-u"""
@@ -784,8 +956,8 @@ class SifarniciView(BaseTabView):
 
         # Create NEW grid layout
         grid = QGridLayout(self.detail_container)
-        grid.setSpacing(15)
-        grid.setContentsMargins(0, 15, 0, 0)
+        grid.setSpacing(10)
+        grid.setContentsMargins(0, 8, 0, 0)
 
     def _build_partner_form_strip(self) -> PartnerFormStrip:
         """
@@ -977,39 +1149,10 @@ class SifarniciView(BaseTabView):
                 logger.error(f"setHeaderLabels FAILED na QTreeWidget: {str(e)}")
                 raise
 
-            # Stylesheet za povećan font (20pt) - mora biti PRIJE setFont!
-            self.tree_widget.setStyleSheet(
-                """
-                QTreeWidget {
-                    font-size: 20pt;
-                    border: 2px solid #333;
-                    background-color: #ffffff;
-                    alternate-background-color: #f0f7f0;
-                    color: #1e3820;
-                }
-                QTreeWidget::item {
-                    padding: 10px 5px;
-                    min-height: 40px;
-                    color: #1e3820;
-                }
-                QTreeWidget::item:selected {
-                    background: #0078d7;
-                    color: white;
-                }
-                QHeaderView::section {
-                    background: #f5f5f5;
-                    padding: 12px;
-                    border: 1px solid #333;
-                    font-weight: bold;
-                    font-size: 18pt;
-                    color: #1e3820;
-                }
-                """
-            )
+            self.tree_widget.setStyleSheet(_TREE_STYLE)
 
-            # Povećaj font u tree widgetu (dodatno pojačanje)
             font = self.tree_widget.font()
-            font.setPointSize(20)
+            font.setPointSize(16)
             self.tree_widget.setFont(font)
 
             # Podesi širinu kolona
@@ -1163,28 +1306,7 @@ class SifarniciView(BaseTabView):
 
     def _create_table_widget(self) -> QTableWidget:
         """Kreira novu instancu QTableWidget sa osnovnim podešavanjima"""
-        return self._create_configured_table(
-            """
-            QTableWidget {
-                border: 1px solid #ddd;
-                gridline-color: #ddd;
-                font-size: 13pt;
-                alternate-background-color: #f0f7f0;
-            }
-            QTableWidget::item {
-                padding: 12px 8px;
-                min-height: 35px;
-                color: #1e3820;
-            }
-            QHeaderView::section {
-                background: #f5f5f5;
-                padding: 14px 10px;
-                border: 1px solid #ddd;
-                font-weight: bold;
-                font-size: 14pt;
-            }
-        """
-        )
+        return self._create_configured_table(_TABLE_STYLE)
 
     def _create_configured_table(self, stylesheet: str) -> QTableWidget:
         table = QTableWidget()
@@ -2273,6 +2395,28 @@ class SifarniciView(BaseTabView):
             return self.validator.validate_required_fields(required_fields)
         return []
 
+    def focus_first_invalid_field(self, category_data) -> None:
+        field_map = {}
+        if self.current_category in ["Pošiljaoci", "Uvoznici", "Deklaranti"]:
+            field_map = {
+                "jib": getattr(self, "jib_field", None),
+                "naziv": getattr(self, "naziv_field", None),
+            }
+        elif self.current_category == "Carinske tarife":
+            field_map = {
+                "tarifni_kod": getattr(self, "tarifni_kod_field", None),
+                "opis": getattr(self, "naziv_robe_field", None),
+            }
+        elif self.current_category == "Carinarnice":
+            field_map = {
+                "sifra": getattr(self, "sifra_field", None),
+                "naziv": getattr(self, "naziv_field", None),
+            }
+        for key, widget in field_map.items():
+            if not category_data.get(key) and widget is not None:
+                widget.setFocus(Qt.OtherFocusReason)
+                return
+
     def _prepare_form_data(self):
         """Priprema podatke iz forme za snimanje"""
         import shiboken6
@@ -3289,6 +3433,7 @@ class SifarniciView(BaseTabView):
             validation_errors = self._validate_form_data(form_data)
 
             if validation_errors:
+                self.focus_first_invalid_field(form_data)
                 error_msg = "Sledeća polja su obavezna:\n" + "\n".join(
                     validation_errors
                 )

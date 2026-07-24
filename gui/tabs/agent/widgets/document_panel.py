@@ -33,8 +33,8 @@ class DocumentPanel(QWidget):
         self.setStyleSheet(f"DocumentPanel {{ background-color: {COLOR_SAGE_BG}; }}")
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 16, 16, 0)
-        layout.setSpacing(14)
+        layout.setContentsMargins(14, 12, 14, 8)
+        layout.setSpacing(10)
 
         # ── Header ────────────────────────────────────────────────────────────
         header_row = QHBoxLayout()
@@ -42,12 +42,12 @@ class DocumentPanel(QWidget):
 
         header_label = QLabel("Dokumenti")
         header_label.setStyleSheet(f"""
-            font-size: 15px;
+            font-size: 16px;
             font-weight: bold;
             color: {COLOR_TEXT};
             background: transparent;
             padding-bottom: 4px;
-            border-bottom: 2px solid {COLOR_SAGE};
+            border-bottom: 3px solid {COLOR_SAGE};
         """)
         header_row.addWidget(header_label)
         header_row.addStretch()
@@ -97,10 +97,13 @@ class DocumentPanel(QWidget):
         # ⭐ Resetuj loading state — poništava zaostali stylesheet i tekst
         self.upload_area.set_loading(False)
         self.upload_area.btn_analyze.setEnabled(True)
+        self.upload_area.set_compact(True)
         self.files_added.emit(filepaths)
 
     def _on_file_removed(self, filepath: str):
-        if len(self.file_table.get_files()) == 0:
+        has_files = bool(self.file_table.get_files())
+        self.upload_area.set_compact(has_files)
+        if not has_files:
             self.upload_area.set_loading(False)
             self.upload_area.btn_analyze.setEnabled(False)
             self.results_viewer.clear()
@@ -111,6 +114,7 @@ class DocumentPanel(QWidget):
         # ⭐ Prvo resetuj loading state (vraća normalan stylesheet i tekst)
         self.upload_area.set_loading(False)
         self.upload_area.btn_analyze.setEnabled(False)
+        self.upload_area.set_compact(False)
         self.clear_requested.emit()
 
     def get_files(self) -> list:

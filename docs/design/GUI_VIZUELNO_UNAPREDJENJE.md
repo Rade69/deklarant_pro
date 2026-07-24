@@ -84,6 +84,25 @@ Predložena skala:
 | Upozorenje | `#A66A17` | potrebna provjera |
 | Greška | `#A6403D` | greška i destruktivna akcija |
 
+### Funkcionalna paleta dugmadi
+
+Ista funkcija mora koristiti istu porodicu boje na svim tabovima. Naimenovanja
+su pilot za postepeno uvođenje ove palete; ostali tabovi se usklađuju zasebno,
+nakon vizuelne potvrde, bez masovne promjene cijelog interfejsa.
+
+| Funkcionalna uloga | Osnovna boja | Primjeri |
+| --- | --- | --- |
+| Potvrda i čuvanje | `#2F7D5A` | Provjeri, Sačuvaj, Snimi |
+| Brisanje | `#A6403D` | Obriši, Briši, Očisti |
+| AI pomoć | `#6A55A3` | Sugeriši, Auto-popuni, Izračunaj mase |
+| Standardna akcija | `#52697A` | Dodaj, navigacija, uvoz, izvoz, pregled, inspekcije |
+| Istaknuto kreiranje | `#2F6F9F` | Kreiraj naimenovanja |
+
+Boje su namjerno prigušene. Bijeli tekst i ikone ostaju zajednički, hover je
+nešto svjetliji, a disabled stanje neutralno sivo. Zelena ovdje označava
+namjernu radnju kreiranja ili čuvanja; status uspjeha i dalje se prikazuje
+zasebnim indikatorom, ne velikom obojenom površinom.
+
 ## Zajedničke komponente
 
 ### Glavna navigacija
@@ -203,4 +222,3 @@ Predložena skala:
 - Zaglavlje ne gubi nijedno postojeće polje.
 - Agent splitter i skrolovanje ostaju funkcionalni.
 - Admin i Šifrarnici koriste isti vizuelni jezik kao osnovni tabovi.
-

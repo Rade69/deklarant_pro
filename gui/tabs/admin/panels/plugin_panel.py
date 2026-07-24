@@ -36,7 +36,7 @@ class PluginPanel(QWidget):
         # Lista parsera styling
         self.parsers_list.setStyleSheet("""
             QListWidget {
-                background-color: #f5f5f5;
+                background-color: #eef3f6;
                 border: 1px solid #ddd;
                 border-radius: 4px;
                 padding: 5px;
@@ -51,7 +51,7 @@ class PluginPanel(QWidget):
                 background-color: #e8e8e8;
             }
             QListWidget::item:selected {
-                background-color: #0078d4;
+                background-color: #3477a5;
                 color: white;
             }
         """)
@@ -60,14 +60,14 @@ class PluginPanel(QWidget):
         self.info_text.setStyleSheet("""
             QTextEdit {
                 background-color: white;
-                border: 1px solid #e0e0e0;
+                border: 1px solid #bfd0dc;
                 border-radius: 3px;
                 padding: 8px;
                 font-size: 13px;
                 font-family: 'Arial', sans-serif;
             }
             QTextEdit:focus {
-                border-color: #0078d4;
+                border-color: #3477a5;
             }
         """)
 
@@ -85,7 +85,7 @@ class PluginPanel(QWidget):
                 subcontrol-origin: margin;
                 subcontrol-position: top left;
                 padding: 0 5px;
-                color: #333;
+                color: #17324a;
             }
         """)
 
@@ -93,23 +93,38 @@ class PluginPanel(QWidget):
         button_style = """
             QPushButton {
                 padding: 8px 16px;
-                border: 1px solid #ddd;
+                border: 1px solid #425868;
                 border-radius: 4px;
-                background-color: white;
+                background-color: #4f6779;
+                color: white;
                 font-size: 13px;
                 min-width: 100px;
             }
             QPushButton:hover {
-                background-color: #f0f0f0;
-                border-color: #bbb;
+                background-color: #425868;
+                border-color: #354a59;
             }
             QPushButton:pressed {
-                background-color: #e0e0e0;
+                background-color: #bfd0dc;
             }
             QPushButton:disabled {
-                background-color: #f5f5f5;
-                color: #999;
-                border-color: #e0e0e0;
+                background-color: #d7e0e5;
+                color: #8798a5;
+                border-color: #c4d0d7;
+            }
+            QPushButton#installButton {
+                background-color: #2f7d5b;
+                border-color: #286a4e;
+            }
+            QPushButton#installButton:hover {
+                background-color: #286a4e;
+            }
+            QPushButton#removeButton {
+                background-color: #ad3e3e;
+                border-color: #943535;
+            }
+            QPushButton#removeButton:hover {
+                background-color: #943535;
             }
         """
         
@@ -124,7 +139,7 @@ class PluginPanel(QWidget):
                 QLabel {
                     font-size: 20px;
                     font-weight: bold;
-                    color: #333;
+                    color: #17324a;
                     margin-bottom: 15px;
                 }
             """)
@@ -138,7 +153,7 @@ class PluginPanel(QWidget):
         # Header sa objectName za styling
         header = QLabel("<h2>📦 Upravljanje dodatcima</h2>")
         header.setObjectName("header_label")
-        header.setStyleSheet("font-size: 20px; font-weight: bold; color: #333; margin-bottom: 15px;")
+        header.setStyleSheet("font-size: 20px; font-weight: bold; color: #17324a; margin-bottom: 15px;")
         layout.addWidget(header)
 
         # Main content (horizontal layout sa separator-om)
@@ -198,30 +213,33 @@ class PluginPanel(QWidget):
         btn_layout.setSpacing(10)
 
         self.btn_install = QPushButton(
-            qta.icon('fa5s.download', color='#333333'),
+            qta.icon('fa5s.download', color='#17324a'),
             " Instaliraj Novi Parser"
         )
         self.btn_install.setFont(QFont("Arial", 13))
+        self.btn_install.setObjectName("installButton")
         self.btn_install.setToolTip("Odaberi .py fajl parsera i instaliraj ga")
         self.btn_install.clicked.connect(self._on_install_clicked)
         self.btn_install.setMinimumHeight(35)
         btn_layout.addWidget(self.btn_install)
 
         self.btn_reload = QPushButton(
-            qta.icon('fa5s.sync', color='#333333'),
+            qta.icon('fa5s.sync', color='#17324a'),
             " Ponovo učitaj parsere"
         )
         self.btn_reload.setFont(QFont("Arial", 13))
+        self.btn_reload.setObjectName("reloadButton")
         self.btn_reload.setToolTip("Ponovo učitaj sve instalirane parsere")
         self.btn_reload.clicked.connect(self._on_reload_clicked)
         self.btn_reload.setMinimumHeight(35)
         btn_layout.addWidget(self.btn_reload)
 
         self.btn_remove = QPushButton(
-            qta.icon('fa5s.trash-alt', color='#333333'),
+            qta.icon('fa5s.trash-alt', color='#17324a'),
             " Ukloni"
         )
         self.btn_remove.setFont(QFont("Arial", 13))
+        self.btn_remove.setObjectName("removeButton")
         self.btn_remove.setToolTip("Ukloni odabrani parser")
         self.btn_remove.clicked.connect(self._on_remove_clicked)
         self.btn_remove.setEnabled(False)
@@ -304,7 +322,7 @@ class PluginPanel(QWidget):
         if format_tip:
             lbl_fmt = QLabel(format_tip)
             lbl_fmt.setStyleSheet(
-                "font-size: 11px; color: #666; background: #d0e4ff; "
+                "font-size: 11px; color: #52697b; background: #d0e4ff; "
                 "border: none; border-radius: 3px; padding: 1px 5px;"
             )
             lay.addWidget(lbl_fmt)
@@ -314,7 +332,7 @@ class PluginPanel(QWidget):
     def _get_empty_info_html(self):
         """Vraća HTML za prazan info panel."""
         return """
-        <div style="text-align: center; color: #999; padding: 40px;">
+        <div style="text-align: center; color: #8798a5; padding: 40px;">
             <div style="font-size: 48px; margin-bottom: 10px;">📦</div>
             <div style="font-size: 14px;">Nijedan parser nije odabran</div>
             <div style="font-size: 12px; margin-top: 5px;">Odaberite parser iz liste da vidite informacije</div>
@@ -324,7 +342,7 @@ class PluginPanel(QWidget):
     def _get_empty_state_html(self):
         """Vraća HTML za empty state kada nema parsera."""
         return """
-        <div style="text-align: center; color: #999; padding: 40px;">
+        <div style="text-align: center; color: #8798a5; padding: 40px;">
             <div style="font-size: 48px; margin-bottom: 10px;">📦</div>
             <div style="font-size: 16px; font-weight: bold; margin-bottom: 5px;">Nema instaliranih parsera</div>
             <div style="font-size: 13px;">Klikni 'Instaliraj Novi Parser' da dodaš parser</div>
@@ -354,7 +372,7 @@ class PluginPanel(QWidget):
             empty_layout.setAlignment(Qt.AlignCenter)
             
             empty_label = QLabel("📦 Nema instaliranih parsera\n\nKlikni 'Instaliraj Novi Parser' da dodaš parser")
-            empty_label.setStyleSheet("color: #999; font-size: 14px; text-align: center;")
+            empty_label.setStyleSheet("color: #8798a5; font-size: 14px; text-align: center;")
             empty_label.setAlignment(Qt.AlignCenter)
             empty_layout.addWidget(empty_label)
             

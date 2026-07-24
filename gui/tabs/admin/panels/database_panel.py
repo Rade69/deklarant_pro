@@ -79,7 +79,7 @@ class DatabasePanel(QWidget):
         super().closeEvent(event)
 
     def _apply_styles(self):
-        self.setStyleSheet("background-color: #f8f9fa;")
+        self.setStyleSheet("background-color: #f3f6f8;")
         for gb in self.findChildren(QGroupBox):
             gb.setStyleSheet("""
                 QGroupBox {
@@ -102,10 +102,10 @@ class DatabasePanel(QWidget):
         # Header
         hdr = QHBoxLayout()
         ico = QLabel()
-        ico.setPixmap(qta.icon('fa5s.server', color='#333').pixmap(28, 28))
+        ico.setPixmap(qta.icon('fa5s.server', color='#17324a').pixmap(28, 28))
         hdr.addWidget(ico)
         lbl = QLabel("Baza podataka — PostgreSQL")
-        lbl.setStyleSheet("font-size: 18px; font-weight: bold; color: #222; margin-left: 8px;")
+        lbl.setStyleSheet("font-size: 18px; font-weight: bold; color: #17324a; margin-left: 8px;")
         hdr.addWidget(lbl)
         hdr.addStretch()
         layout.addLayout(hdr)
@@ -128,14 +128,14 @@ class DatabasePanel(QWidget):
 
         conn_lay.addWidget(QLabel("Verzija:"), 2, 0)
         self.lbl_ver = QLabel("—")
-        self.lbl_ver.setStyleSheet("color: #666; font-size: 12px;")
+        self.lbl_ver.setStyleSheet("color: #52697b; font-size: 12px;")
         conn_lay.addWidget(self.lbl_ver, 2, 1)
 
         self.btn_test = QPushButton(qta.icon('fa5s.plug', color='white'), " Testiraj konekciju")
         self.btn_test.setStyleSheet("""
-            QPushButton { background:#0078d4; color:white; border:none;
+            QPushButton { background:#3477a5; color:white; border:none;
                           border-radius:4px; padding:7px 16px; font-size:13px; }
-            QPushButton:hover { background:#106ebe; }
+            QPushButton:hover { background:#2b648c; }
             QPushButton:disabled { background:#aaa; }
         """)
         self.btn_test.setMinimumHeight(36)
@@ -170,7 +170,7 @@ class DatabasePanel(QWidget):
 
             val = QLabel("—")
             val.setFont(QFont("Arial", 12, QFont.Bold))
-            val.setStyleSheet("color: #0078d4;")
+            val.setStyleSheet("color: #3477a5;")
             val.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
             tbl_lay.addWidget(val, i, 2)
             self._stat_labels[naziv] = val
@@ -179,9 +179,9 @@ class DatabasePanel(QWidget):
 
         self.btn_refresh = QPushButton(qta.icon('fa5s.sync', color='white'), " Osvježi podatke")
         self.btn_refresh.setStyleSheet("""
-            QPushButton { background:#28a745; color:white; border:none;
+            QPushButton { background:#2f7d5b; color:white; border:none;
                           border-radius:4px; padding:7px 16px; font-size:13px; }
-            QPushButton:hover { background:#218838; }
+            QPushButton:hover { background:#286a4e; }
             QPushButton:disabled { background:#aaa; }
         """)
         self.btn_refresh.setMinimumHeight(36)
@@ -204,11 +204,11 @@ class DatabasePanel(QWidget):
     def set_connection_status(self, ok: bool, info: str = ""):
         if ok:
             self.lbl_status.setText("✅ Spojena")
-            self.lbl_status.setStyleSheet("color: #28a745; font-size: 13px; font-weight: bold;")
+            self.lbl_status.setStyleSheet("color: #2f7d5b; font-size: 13px; font-weight: bold;")
             self.lbl_ver.setText(info)
         else:
             self.lbl_status.setText("❌ Greška")
-            self.lbl_status.setStyleSheet("color: #dc3545; font-size: 13px; font-weight: bold;")
+            self.lbl_status.setStyleSheet("color: #ad3e3e; font-size: 13px; font-weight: bold;")
             self.lbl_ver.setText(info)
 
     def set_table_stats(self, stats: Dict[str, Any]):
@@ -216,10 +216,10 @@ class DatabasePanel(QWidget):
             v = stats.get(naziv)
             if v is None:
                 val_lbl.setText("N/A")
-                val_lbl.setStyleSheet("color: #999; font-size: 12px;")
+                val_lbl.setStyleSheet("color: #8798a5; font-size: 12px;")
             else:
                 val_lbl.setText(f"{v:,}".replace(",", "."))
-                val_lbl.setStyleSheet("color: #0078d4; font-size: 12px; font-weight: bold;")
+                val_lbl.setStyleSheet("color: #3477a5; font-size: 12px; font-weight: bold;")
 
     def show_success(self, message: str):
         QMessageBox.information(self, "Uspjeh", message)
@@ -232,7 +232,7 @@ class DatabasePanel(QWidget):
     def _on_test_conn(self):
         self.btn_test.setEnabled(False)
         self.lbl_status.setText("⏳ Testiranje...")
-        self.lbl_status.setStyleSheet("color: #888; font-size: 13px;")
+        self.lbl_status.setStyleSheet("color: #6f8392; font-size: 13px;")
         self._conn_thread = _TestConnThread(self)
         self._conn_thread.done.connect(self._on_conn_done)
         self._conn_thread.start()

@@ -10,9 +10,18 @@ Centralized styles for Naimenovanja tab UI components
    ═══════════════════════════════════════════════════════════ */
 
 QWidget#navBar {
-    background: #eef3f7;
-    border-top: 1px solid #d6e0e8;
-    border-bottom: 2px solid #9fb2c1;
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 #f4f7fa, stop:1 #e7eef4);
+    border-top: 1px solid #c8d5df;
+    border-bottom: 2px solid #7892a5;
+}
+
+QWidget#navBar QFrame {
+    background-color: #a9bbc8;
+    border: none;
+    margin-top: 3px;
+    margin-bottom: 3px;
+    max-width: 1px;
 }
 
 /* Globalni QPushButton min-height (QSS_header_toolbar_sistem.qss) nadjacava
@@ -21,35 +30,105 @@ QWidget#navBar {
    ispod. Ovo pravilo (ID selektor) ima vecu specificnost od globalnog. */
 QWidget#navBar QPushButton {
     min-height: 16px;
-    padding: 4px 14px;
-    border-radius: 4px;
+    padding: 4px 13px;
+    border-radius: 5px;
     font-size: 13px;
     font-weight: 600;
 }
 
 /* Navigation labels (bold, dark text) */
 QLabel.nav-label {
-    font-weight: 600;
-    color: #212529;
+    font-weight: 700;
+    color: #29485f;
     font-size: 12px;
 }
 
 /* Navigation counter (lighter, gray) */
 QLabel.nav-counter {
-    color: #1a1a2e;
+    color: #29485f;
+    background-color: #ffffff;
+    border: 1px solid #b9c8d3;
+    border-radius: 8px;
     font-size: 12px;
     font-weight: 700;
-    margin-left: 4px;
+    padding: 3px 9px;
+    margin-left: 2px;
 }
 
 /* Dropdown selector in navigation */
 QComboBox[class="nav-combo"] {
     padding: 5px 10px;
-    border: 1px solid #9fb2c1;
-    border-radius: 4px;
+    border: 1px solid #8fa7b8;
+    border-radius: 5px;
     background: white;
+    color: #18354a;
     font-size: 13px;
 }
+QWidget#navBar QPushButton#btnPrethodno,
+QWidget#navBar QPushButton#btnSljedece,
+QWidget#navBar QPushButton#btnDodaj,
+QWidget#navBar QPushButton#btnUveziXMLNaim,
+QWidget#navBar QPushButton#btnInspekcije {
+    background-color: #52697a;
+    color: #ffffff;
+    border: 1px solid #465c6c;
+}
+
+QWidget#navBar QPushButton#btnObrisi {
+    background-color: #a6403d;
+    color: #ffffff;
+    border: 1px solid #8e3432;
+}
+
+QWidget#navBar QPushButton#btnAutoPopuni {
+    background-color: #6a55a3;
+    color: #ffffff;
+    border: 1px solid #59468c;
+}
+
+QWidget#navBar QPushButton:disabled {
+    background-color: #c4cdd4;
+    color: #f7f9fa;
+    border-color: #b4c0c8;
+}
+
+QWidget#navBar QPushButton#btnPrethodno:hover,
+QWidget#navBar QPushButton#btnSljedece:hover,
+QWidget#navBar QPushButton#btnDodaj:hover,
+QWidget#navBar QPushButton#btnUveziXMLNaim:hover,
+QWidget#navBar QPushButton#btnInspekcije:hover {
+    background-color: #607b8e;
+}
+
+QWidget#navBar QPushButton#btnObrisi:hover {
+    background-color: #b9514d;
+}
+
+QWidget#navBar QPushButton#btnAutoPopuni:hover {
+    background-color: #59458d;
+}
+
+QWidget#navBar QPushButton#btnPrethodno:pressed,
+QWidget#navBar QPushButton#btnSljedece:pressed,
+QWidget#navBar QPushButton#btnDodaj:pressed,
+QWidget#navBar QPushButton#btnUveziXMLNaim:pressed,
+QWidget#navBar QPushButton#btnInspekcije:pressed {
+    background-color: #405563;
+}
+
+QWidget#navBar QPushButton#btnObrisi:pressed {
+    background-color: #85322f;
+}
+
+QWidget#navBar QPushButton#btnAutoPopuni:pressed {
+    background-color: #493875;
+}
+
+QWidget#navBar QPushButton:pressed {
+    padding-top: 5px;
+    padding-bottom: 3px;
+}
+
 
 QComboBox[class="nav-combo"]:focus {
     border: 2px solid #3f7898;
@@ -68,6 +147,34 @@ QWidget#sectionHeading QPushButton {
     min-height: 16px;
     padding: 3px 12px;
     border-radius: 4px;
+}
+
+QWidget#sectionHeading QPushButton#btnSnimi {
+    background-color: #2f7d5a;
+    color: #ffffff;
+    border: none;
+}
+
+QWidget#sectionHeading QPushButton#btnSnimi:hover {
+    background-color: #3b906b;
+}
+
+QWidget#sectionHeading QPushButton#btnSnimi:pressed {
+    background-color: #256347;
+}
+
+QWidget#sectionHeading QPushButton#btnIzlaz {
+    background-color: #52697a;
+    color: #ffffff;
+    border: none;
+}
+
+QWidget#sectionHeading QPushButton#btnIzlaz:hover {
+    background-color: #607b8e;
+}
+
+QWidget#sectionHeading QPushButton#btnIzlaz:pressed {
+    background-color: #405563;
 }
 
 /* Section heading label ("📋 Naimenovanje #X") */
@@ -127,14 +234,157 @@ QWidget#naimenovanjaUiWidget QLineEdit {
     background-color: white;
 }
 
-QLineEdit#le_r31_vrsta_naziv {
-    background-color: #e3f2fd;
-    border: 2px solid #2196f3;
+QGroupBox#group_31 {
+    background-color: #edf4ef;
+}
+
+QLabel#lbl_rubrika31 {
+    background-color: #d5e6da;
+    color: #244f38;
+    border-left: 3px solid #4f7f61;
     border-radius: 4px;
-    padding: 2px 5px;
-    font-weight: bold;
+    padding-left: 6px;
+}
+
+QLabel#lbl_r31_oznake {
+    color: #245f45;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+QLineEdit#le_r31_oznake_br,
+QLineEdit#le_r31_paketa,
+QLineEdit#le_r31_broj,
+QLineEdit#le_r31_vrsta_naziv {
+    background-color: #ffffff;
+    border: 1px solid #a8b9ae;
+    border-radius: 4px;
+}
+
+QLineEdit#le_r31_oznake_br:focus,
+QLineEdit#le_r31_paketa:focus,
+QLineEdit#le_r31_broj:focus,
+QLineEdit#le_r31_vrsta_naziv:focus {
+    border: 2px solid #3f7898;
+}
+
+/* Rubrike 32-39: kompaktan blok tarifnih i carinskih podataka */
+QGroupBox#group_32_39 {
+    background-color: #edf3ef;
+    border: 1px solid #83988b;
+}
+
+QGroupBox#group_32_39 > QLabel {
+    color: #245f45;
+    font-weight: 700;
+}
+
+QGroupBox#group_32_39 > QLineEdit {
+    background-color: #ffffff;
+    border: 1px solid #a8b9ae;
+    border-radius: 4px;
+    color: #26352d;
+}
+
+QGroupBox#group_32_39 > QLineEdit:hover {
+    border-color: #789383;
+}
+
+QGroupBox#group_32_39 > QLineEdit:focus {
+    border: 2px solid #2f7d5a;
+    background-color: #fbfefc;
+}
+
+QGroupBox#group_32_39 > QLineEdit:read-only {
+    background-color: #f2f5f3;
+    color: #526159;
+}
+
+/* Rubrike 40-46: dokumenti, vrijednosti i prilagođenja */
+QGroupBox#group_40 {
+    background-color: #eef4f6;
+    border: 1px solid #78919c;
+}
+
+QGroupBox#group_40 > QLabel {
+    color: #365f70;
+    font-weight: 700;
+}
+
+QGroupBox#group_41_43 {
+    background-color: #edf3ef;
+    border: 1px solid #83988b;
+}
+
+QGroupBox#group_41_43 > QLabel {
+    color: #245f45;
+    font-weight: 700;
+}
+
+QGroupBox#group_44 {
+    background-color: #eef4f6;
+    border: 1px solid #78919c;
+}
+
+QGroupBox#group_44 > QLabel {
+    color: #365f70;
+    font-weight: 700;
+}
+
+QGroupBox#group_45_46 {
+    background-color: #f1f4f2;
+    border: 1px solid #8c9c92;
+}
+
+QGroupBox#group_45_46 > QLabel {
+    color: #3f5d4c;
+    font-weight: 700;
+}
+
+QGroupBox#group_40 > QLineEdit,
+QGroupBox#group_41_43 > QLineEdit,
+QGroupBox#group_44 > QLineEdit,
+QGroupBox#group_45_46 > QLineEdit {
+    background-color: #ffffff;
+    border: 1px solid #a8b9ae;
+    border-radius: 4px;
+    color: #26352d;
+}
+
+QGroupBox#group_40 > QLineEdit:hover,
+QGroupBox#group_41_43 > QLineEdit:hover,
+QGroupBox#group_44 > QLineEdit:hover,
+QGroupBox#group_45_46 > QLineEdit:hover {
+    border-color: #789383;
+}
+
+QGroupBox#group_40 > QLineEdit:focus,
+QGroupBox#group_41_43 > QLineEdit:focus,
+QGroupBox#group_44 > QLineEdit:focus,
+QGroupBox#group_45_46 > QLineEdit:focus {
+    border: 2px solid #2f7d5a;
+    background-color: #fbfefc;
+}
+
+QGroupBox#group_40 > QLineEdit:read-only,
+QGroupBox#group_41_43 > QLineEdit:read-only,
+QGroupBox#group_44 > QLineEdit:read-only,
+QGroupBox#group_45_46 > QLineEdit:read-only {
+    background-color: #f2f5f3;
+    color: #526159;
+    border-color: #bcc8c0;
+}
+
+
+QLineEdit#le_r31_vrsta_naziv {
+    background-color: #f4f8fb;
+    border: 1px solid #7d9caf;
+    border-left: 3px solid #3f7898;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-weight: 600;
     font-size: 13px;
-    color: #1565c0;
+    color: #18354a;
 }
 
 QWidget#naimenovanjaUiWidget QComboBox {
@@ -202,8 +452,8 @@ QWidget#naimenovanjaUiWidget QTextEdit {
 
 /* Rb.31 Vrsta pakovanja dropdown */
 QComboBox#le_r31_vrsta {
-    border: 2px solid #28a745;
-    border-radius: 6px;
+    border: 1px solid #7d9caf;
+    border-radius: 4px;
     padding: 2px 18px 2px 6px;
     background-color: #ffffff;
     font-size: 13px;
@@ -212,12 +462,12 @@ QComboBox#le_r31_vrsta {
 }
 
 QComboBox#le_r31_vrsta:hover {
-    border: 2px solid #4a90e2;
+    border: 1px solid #5f849b;
 }
 
 QComboBox#le_r31_vrsta:focus {
-    border: 2px solid #4a90e2;
-    background-color: #f8faff;
+    border: 2px solid #3f7898;
+    background-color: #ffffff;
 }
 
 QComboBox#le_r31_vrsta:editable {
@@ -228,9 +478,9 @@ QComboBox#le_r31_vrsta::drop-down {
     subcontrol-origin: padding;
     subcontrol-position: top right;
     width: 18px;
-    border-left: 1px solid #28a745;
-    border-top-right-radius: 6px;
-    border-bottom-right-radius: 6px;
+    border-left: 1px solid #7d9caf;
+    border-top-right-radius: 4px;
+    border-bottom-right-radius: 4px;
     background: #ffffff;
 }
 
@@ -272,23 +522,23 @@ QComboBox#le_r31_vrsta QAbstractItemView::item:hover {
 
 /* Navigation dropdown - uses dynamic property class="nav-combo" */
 QComboBox[class="nav-combo"] {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
-    padding: 2px 8px;
-    border: 2px solid #4A7FA5;
+    padding: 5px 10px;
+    border: 1px solid #8fa7b8;
     border-radius: 5px;
     background: white;
-    color: #1a1a2e;
+    color: #18354a;
 }
 
 QComboBox[class="nav-combo"]:focus {
-    border-color: #2563eb;
-    background: #f0f7ff;
+    border: 2px solid #3f7898;
+    background: #ffffff;
 }
 
 QComboBox[class="nav-combo"]::drop-down {
     width: 22px;
-    border-left: 1px solid #4A7FA5;
+    border-left: 1px solid #8fa7b8;
 }
 
 /* CSS triangle arrow for nav-combo */
@@ -321,13 +571,20 @@ QLabel#lbl_tariff_warning {
    ═══════════════════════════════════════════════════════════ */
 
 QTextEdit#le_r31_trg_naziv {
-    background-color: #e3f2fd;
-    border: 2px solid #2196f3;
-    border-radius: 4px;
-    padding: 5px;
+    background-color: #f4f8fb;
+    border: 1px solid #7d9caf;
+    border-left: 4px solid #3f7898;
+    border-radius: 5px;
+    padding: 6px 8px;
     font-size: 14px;
     font-weight: 600;
-    color: #1565c0;
+    color: #18354a;
+    selection-background-color: #b8d6e8;
+}
+
+QTextEdit#le_r31_trg_naziv:focus {
+    background-color: #ffffff;
+    border: 2px solid #3f7898;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -346,6 +603,8 @@ QFrame#main_grid_frame {
 
 /* Podbroj (te_r31_opis) - base styling */
 QLineEdit#te_r31_opis {
+    background-color: #f3f8f4;
+    border: 1px solid #8cab96;
     border-radius: 4px;
     padding: 3px 6px;
     font-weight: bold;
@@ -354,6 +613,8 @@ QLineEdit#te_r31_opis {
 
 /* Heading (te_r31_opis_2) - base styling */
 QLineEdit#te_r31_opis_2 {
+    background-color: #f2f7fa;
+    border: 1px solid #8fa9ba;
     border-radius: 4px;
     padding: 3px 6px;
     font-weight: bold;

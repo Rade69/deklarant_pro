@@ -78,8 +78,8 @@ class ResultsViewer(QWidget):
         self.group.setStyleSheet("""
             QGroupBox {
                 font-weight: bold;
-                border: 1px solid #ddd;
-                border-radius: 4px;
+                border: 1px solid #c7d6df;
+                border-radius: 6px;
                 margin-top: 10px;
                 padding-top: 10px;
                 background-color: white;
@@ -88,20 +88,20 @@ class ResultsViewer(QWidget):
                 subcontrol-origin: margin;
                 left: 10px;
                 padding: 0 5px;
-                color: #0078d4;
+                color: #3477a5;
             }
         """)
 
     def _create_field_label(self, text: str) -> QLabel:
         """Kreiraj field label."""
         label = QLabel(text + ":")
-        label.setStyleSheet("font-weight: bold; color: #666;")
+        label.setStyleSheet("font-weight: bold; color: #52697b;")
         return label
 
     def _create_value_label(self) -> QLabel:
         """Kreiraj value label."""
         label = QLabel("-")
-        label.setStyleSheet("color: #333;")
+        label.setStyleSheet("color: #17324a;")
         return label
 
     def show_results(self, file_item: FileItem):
@@ -116,15 +116,15 @@ class ResultsViewer(QWidget):
         if file_item.tariff_code:
             if file_item.needs_review:
                 tarif_text = f"{file_item.tariff_code} ⚠️ Potrebna potvrda"
-                self.val_tarif.setStyleSheet("color: #ffc107; font-weight: bold;")
+                self.val_tarif.setStyleSheet("color: #b1842d; font-weight: bold;")
             else:
                 tarif_text = file_item.tariff_code
-                self.val_tarif.setStyleSheet("color: #28a745; font-weight: bold;")
+                self.val_tarif.setStyleSheet("color: #2f7d5b; font-weight: bold;")
 
             self.val_tarif.setText(tarif_text)
         else:
             self.val_tarif.setText("-")
-            self.val_tarif.setStyleSheet("color: #333;")
+            self.val_tarif.setStyleSheet("color: #17324a;")
 
         # Other values — čitaj iz invoice_lines
         items = file_item.invoice_lines or []

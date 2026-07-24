@@ -1361,3 +1361,32 @@ i pasti u `normalize_partner_name()`.
 `dist_client` je usklađen ručno samo za runtime import workflow promjene. Ne poravnavati
 cijeli `dist_client/gui/tabs/faktura_view.py` sa root fajlom jer postoje starije namjerne
 UI razlike iz redizajna.
+---
+
+## 54. Inline validacija GUI obrazaca (2026-07-23)
+
+Postojeći modali ostaju autoritativni za završne i blokirajuće provjere; inline
+oznake služe samo da korisnika odvedu do mjesta greške. Faktura označava
+konkretnu tarifnu ili zemlja ćeliju, Naimenovanja status vodi do prvog
+neispravnog polja, Zaglavlje modal nudi „Prikaži polje“, a Šifrarnici fokusiraju
+prvo prazno obavezno polje. Ove oznake ne smiju mijenjati poslovna pravila,
+draft podatke ni raspored tabova.
+
+---
+
+## 55. Standard tastaturne navigacije (2026-07-23)
+
+Glavne kartice koriste `Ctrl+1`–`Ctrl+6`; `Ctrl+Tab`/`Shift+Ctrl+Tab` ostaju
+standardni Qt tok. Tamo gdje postoji prethodni/sljedeći zapis koriste se
+`Alt+Left/Right` i opcioni gaming aliasi `Alt+A/D`. Obični `W/A/S/D` i obične
+strelice se nikad globalno ne presreću jer pripadaju unosu teksta, tabelama i
+combo poljima. `F6` ulazi u gornji toolbar aktivne kartice; tek kada dugme ima
+fokus, `Left/Right` ili `A/D` mijenjaju dugme, a `Esc` vraća prethodni fokus.
+Zaglavlje ima eksplicitan fokusni lanac kroz `field_widgets`.
+
+## 56. Standard hover stanja dugmadi (2026-07-23)
+
+Aktivna `QPushButton` i `QToolButton` dugmad koriste akcentni obrub `#F2C14E`
+uz promjenu semantičke nijanse. Normalno stanje ima transparentan obrub iste
+debljine, pa hover ne smije mijenjati geometriju, padding niti položaj teksta.
+Onemogućena dugmad ne dobijaju hover akcenat.

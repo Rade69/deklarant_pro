@@ -50,6 +50,65 @@ QComboBox[class="nav-combo"] {
     background: white;
     font-size: 13px;
 }
+QWidget#navBar QPushButton#btnPrethodno,
+QWidget#navBar QPushButton#btnSljedece,
+QWidget#navBar QPushButton#btnDodaj,
+QWidget#navBar QPushButton#btnUveziXMLNaim,
+QWidget#navBar QPushButton#btnInspekcije {
+    background-color: #52697a;
+    color: #ffffff;
+    border: none;
+}
+
+QWidget#navBar QPushButton#btnObrisi {
+    background-color: #a6403d;
+    color: #ffffff;
+    border: none;
+}
+
+QWidget#navBar QPushButton#btnAutoPopuni {
+    background-color: #6a55a3;
+    color: #ffffff;
+    border: none;
+}
+
+QWidget#navBar QPushButton#btnPrethodno:hover,
+QWidget#navBar QPushButton#btnSljedece:hover,
+QWidget#navBar QPushButton#btnDodaj:hover,
+QWidget#navBar QPushButton#btnUveziXMLNaim:hover,
+QWidget#navBar QPushButton#btnInspekcije:hover {
+    background-color: #607b8e;
+}
+
+QWidget#navBar QPushButton#btnObrisi:hover {
+    background-color: #b9514d;
+}
+
+QWidget#navBar QPushButton#btnAutoPopuni:hover {
+    background-color: #59458d;
+}
+
+QWidget#navBar QPushButton#btnPrethodno:pressed,
+QWidget#navBar QPushButton#btnSljedece:pressed,
+QWidget#navBar QPushButton#btnDodaj:pressed,
+QWidget#navBar QPushButton#btnUveziXMLNaim:pressed,
+QWidget#navBar QPushButton#btnInspekcije:pressed {
+    background-color: #405563;
+}
+
+QWidget#navBar QPushButton#btnObrisi:pressed {
+    background-color: #85322f;
+}
+
+QWidget#navBar QPushButton#btnAutoPopuni:pressed {
+    background-color: #493875;
+}
+
+QWidget#navBar QPushButton:pressed {
+    padding-top: 5px;
+    padding-bottom: 3px;
+}
+
 
 QComboBox[class="nav-combo"]:focus {
     border: 2px solid #3f7898;
@@ -68,6 +127,34 @@ QWidget#sectionHeading QPushButton {
     min-height: 16px;
     padding: 3px 12px;
     border-radius: 4px;
+}
+
+QWidget#sectionHeading QPushButton#btnSnimi {
+    background-color: #2f7d5a;
+    color: #ffffff;
+    border: none;
+}
+
+QWidget#sectionHeading QPushButton#btnSnimi:hover {
+    background-color: #3b906b;
+}
+
+QWidget#sectionHeading QPushButton#btnSnimi:pressed {
+    background-color: #256347;
+}
+
+QWidget#sectionHeading QPushButton#btnIzlaz {
+    background-color: #52697a;
+    color: #ffffff;
+    border: none;
+}
+
+QWidget#sectionHeading QPushButton#btnIzlaz:hover {
+    background-color: #607b8e;
+}
+
+QWidget#sectionHeading QPushButton#btnIzlaz:pressed {
+    background-color: #405563;
 }
 
 /* Section heading label ("📋 Naimenovanje #X") */
@@ -126,6 +213,144 @@ QWidget#naimenovanjaUiWidget QLineEdit {
     color: #333;
     background-color: white;
 }
+
+QGroupBox#group_31 {
+    background-color: #edf7ef;
+}
+
+QLabel#lbl_rubrika31 {
+    background-color: #d8ebdd;
+    color: #1f5d35;
+    border-radius: 4px;
+    padding-left: 4px;
+}
+
+QLabel#lbl_r31_oznake {
+    color: #1f5d35;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+QLineEdit#le_r31_oznake_br,
+QLineEdit#le_r31_paketa,
+QLineEdit#le_r31_broj {
+    border: 1px solid #b7c9bd;
+    border-radius: 4px;
+}
+
+QLineEdit#le_r31_oznake_br:focus,
+QLineEdit#le_r31_paketa:focus,
+QLineEdit#le_r31_broj:focus {
+    border: 2px solid #3f7898;
+}
+
+/* Rubrike 32-39: kompaktan blok tarifnih i carinskih podataka */
+QGroupBox#group_32_39 {
+    background-color: #edf3ef;
+    border: 1px solid #83988b;
+}
+
+QGroupBox#group_32_39 > QLabel {
+    color: #245f45;
+    font-weight: 700;
+}
+
+QGroupBox#group_32_39 > QLineEdit {
+    background-color: #ffffff;
+    border: 1px solid #a8b9ae;
+    border-radius: 4px;
+    color: #26352d;
+}
+
+QGroupBox#group_32_39 > QLineEdit:hover {
+    border-color: #789383;
+}
+
+QGroupBox#group_32_39 > QLineEdit:focus {
+    border: 2px solid #2f7d5a;
+    background-color: #fbfefc;
+}
+
+QGroupBox#group_32_39 > QLineEdit:read-only {
+    background-color: #f2f5f3;
+    color: #526159;
+}
+
+/* Rubrike 40-46: dokumenti, vrijednosti i prilagođenja */
+QGroupBox#group_40 {
+    background-color: #eef4f6;
+    border: 1px solid #78919c;
+}
+
+QGroupBox#group_40 > QLabel {
+    color: #365f70;
+    font-weight: 700;
+}
+
+QGroupBox#group_41_43 {
+    background-color: #edf3ef;
+    border: 1px solid #83988b;
+}
+
+QGroupBox#group_41_43 > QLabel {
+    color: #245f45;
+    font-weight: 700;
+}
+
+QGroupBox#group_44 {
+    background-color: #eef4f6;
+    border: 1px solid #78919c;
+}
+
+QGroupBox#group_44 > QLabel {
+    color: #365f70;
+    font-weight: 700;
+}
+
+QGroupBox#group_45_46 {
+    background-color: #f1f4f2;
+    border: 1px solid #8c9c92;
+}
+
+QGroupBox#group_45_46 > QLabel {
+    color: #3f5d4c;
+    font-weight: 700;
+}
+
+QGroupBox#group_40 > QLineEdit,
+QGroupBox#group_41_43 > QLineEdit,
+QGroupBox#group_44 > QLineEdit,
+QGroupBox#group_45_46 > QLineEdit {
+    background-color: #ffffff;
+    border: 1px solid #a8b9ae;
+    border-radius: 4px;
+    color: #26352d;
+}
+
+QGroupBox#group_40 > QLineEdit:hover,
+QGroupBox#group_41_43 > QLineEdit:hover,
+QGroupBox#group_44 > QLineEdit:hover,
+QGroupBox#group_45_46 > QLineEdit:hover {
+    border-color: #789383;
+}
+
+QGroupBox#group_40 > QLineEdit:focus,
+QGroupBox#group_41_43 > QLineEdit:focus,
+QGroupBox#group_44 > QLineEdit:focus,
+QGroupBox#group_45_46 > QLineEdit:focus {
+    border: 2px solid #2f7d5a;
+    background-color: #fbfefc;
+}
+
+QGroupBox#group_40 > QLineEdit:read-only,
+QGroupBox#group_41_43 > QLineEdit:read-only,
+QGroupBox#group_44 > QLineEdit:read-only,
+QGroupBox#group_45_46 > QLineEdit:read-only {
+    background-color: #f2f5f3;
+    color: #526159;
+    border-color: #bcc8c0;
+}
+
 
 QLineEdit#le_r31_vrsta_naziv {
     background-color: #e3f2fd;

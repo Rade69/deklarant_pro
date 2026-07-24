@@ -32,24 +32,28 @@ class AgentView(QWidget):
         layout.addWidget(self.header)
 
         # Splitter: DocumentPanel | ChatPanel
-        splitter = QSplitter(Qt.Horizontal)
-        splitter.setStyleSheet(f"""
+        self.splitter = QSplitter(Qt.Horizontal)
+        self.splitter.setStyleSheet(f"""
             QSplitter::handle {{
-                background-color: {COLOR_SAGE_PALE};
-                width: 2px;
+                background-color: {COLOR_SAGE_MID};
+                width: 3px;
             }}
         """)
 
         self.document_panel = DocumentPanel()
-        splitter.addWidget(self.document_panel)
+        self.document_panel.setMinimumWidth(700)
+        self.splitter.addWidget(self.document_panel)
 
         self.chat_panel = ChatPanel()
-        splitter.addWidget(self.chat_panel)
+        self.chat_panel.setMinimumWidth(430)
+        self.splitter.addWidget(self.chat_panel)
 
-        splitter.setStretchFactor(0, 7)
-        splitter.setStretchFactor(1, 3)
+        self.splitter.setChildrenCollapsible(False)
+        self.splitter.setStretchFactor(0, 68)
+        self.splitter.setStretchFactor(1, 32)
+        self.splitter.setSizes([1180, 560])
 
-        layout.addWidget(splitter, 1)
+        layout.addWidget(self.splitter, 1)
 
     def paintEvent(self, event):
         """Crta botaničke dekorativne elemente u uglovima."""

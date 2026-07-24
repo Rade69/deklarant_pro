@@ -198,7 +198,7 @@ class LearningPanel(QWidget):
             qta.icon("fa5s.file-import", color="white"), "  Dodaj XML fajlove"
         )
         self.btn_add_xml.setMinimumHeight(42)
-        self.btn_add_xml.setStyleSheet(self._btn_style("#2563eb"))
+        self.btn_add_xml.setStyleSheet(self._btn_style("#3477a5"))
         self.btn_add_xml.clicked.connect(self._on_add_xml)
         btn_lay.addWidget(self.btn_add_xml)
 
@@ -206,7 +206,7 @@ class LearningPanel(QWidget):
             qta.icon("fa5s.sync-alt", color="white"), "  Pokreni reindeksiranje"
         )
         self.btn_reindex.setMinimumHeight(42)
-        self.btn_reindex.setStyleSheet(self._btn_style("#1E3A5F"))
+        self.btn_reindex.setStyleSheet(self._btn_style("#2f7d5b"))
         self.btn_reindex.clicked.connect(self._on_reindex)
         btn_lay.addWidget(self.btn_reindex)
 
@@ -226,7 +226,7 @@ class LearningPanel(QWidget):
         self.progress.setRange(0, 0)
         self.progress.setFixedHeight(18)
         self.progress.setStyleSheet("""
-            QProgressBar { border: 1px solid #ccc; border-radius: 4px; background: #f5f5f5; }
+            QProgressBar { border: 1px solid #ccc; border-radius: 4px; background: #eef3f6; }
             QProgressBar::chunk { background: #1E3A5F; border-radius: 3px; }
         """)
         lay.addWidget(self.progress)
@@ -273,7 +273,7 @@ class LearningPanel(QWidget):
         self.log_output.setFixedHeight(190)
         self.log_output.setFont(QFont("Monospace", 12))
         self.log_output.setStyleSheet(
-            "background: #f8f9fa; border: 1px solid #dee2e6;"
+            "background: #f3f6f8; border: 1px solid #dee2e6;"
             " border-radius: 4px; padding: 6px;"
         )
         self.log_output.setPlaceholderText(
@@ -439,7 +439,7 @@ class LearningPanel(QWidget):
             }
             QGroupBox::title {
                 subcontrol-origin: margin; subcontrol-position: top left;
-                padding: 0 8px; color: #333;
+                padding: 0 8px; color: #17324a;
             }
         """
 

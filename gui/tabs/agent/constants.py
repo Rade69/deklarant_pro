@@ -3,29 +3,29 @@ Konstante za Agent Tab — Botanička Sage Green Paleta.
 """
 
 # ─── BOTANIČKA SAGE GREEN PALETA ──────────────────────────────────────────────
-COLOR_SAGE_DARKEST = "#2d4a30"   # Najdublji zeleni (naslovi, header)
-COLOR_SAGE_DARK    = "#3d6040"   # Tamni sage (dugmad, ikone)
-COLOR_SAGE         = "#5a8060"   # Glavni sage (primarna boja)
-COLOR_SAGE_MID     = "#7aa080"   # Srednji sage
-COLOR_SAGE_LIGHT   = "#a0c4a0"   # Svjetliji sage (hover)
-COLOR_SAGE_PALE    = "#c8dcc8"   # Borderi, rubovi
-COLOR_SAGE_BG      = "#f0f7f0"   # Glavna pozadina taba
-COLOR_SAGE_PANEL   = "#e8f2e8"   # Panel pozadina
-COLOR_SAGE_UPLOAD  = "#eef6ec"   # Upload area pozadina
-COLOR_SAGE_CARD    = "#f7faf7"   # Kartica pozadina
+COLOR_SAGE_DARKEST = "#17324a"
+COLOR_SAGE_DARK    = "#244866"
+COLOR_SAGE         = "#3477a5"
+COLOR_SAGE_MID     = "#7897ad"
+COLOR_SAGE_LIGHT   = "#b8cbd8"
+COLOR_SAGE_PALE    = "#c7d6df"
+COLOR_SAGE_BG      = "#f3f6f8"
+COLOR_SAGE_PANEL   = "#eef3f6"
+COLOR_SAGE_UPLOAD  = "#f8fafb"
+COLOR_SAGE_CARD    = "#ffffff"
 
 # ─── AKCENT BOJE ─────────────────────────────────────────────────────────────
-COLOR_PRIMARY   = "#5a8060"   # Sage Green — primarna akcija (Odaberi fajlove)
-COLOR_SECONDARY = "#7264a0"   # Muted Purple — AI/sekundarna (Pokreni analizu)
-COLOR_SUCCESS   = "#4a9060"   # Uspjeh
-COLOR_WARNING   = "#b8963a"   # Upozorenje
-COLOR_DANGER    = "#b05050"   # Greška
-COLOR_INFO      = "#4a7890"   # Info
+COLOR_PRIMARY   = "#3477a5"
+COLOR_SECONDARY = "#6b4aa2"
+COLOR_SUCCESS   = "#2f7d5b"
+COLOR_WARNING   = "#b1842d"
+COLOR_DANGER    = "#ad3e3e"
+COLOR_INFO      = "#4f6779"
 
 # ─── TEKST ────────────────────────────────────────────────────────────────────
-COLOR_TEXT       = "#1e3820"   # Primarni tekst
-COLOR_TEXT_LIGHT = "#4a6a4a"   # Sekundarni tekst
-COLOR_TEXT_MUTED = "#8a9a8a"   # Blijedi tekst
+COLOR_TEXT       = "#17324a"
+COLOR_TEXT_LIGHT = "#52697b"
+COLOR_TEXT_MUTED = "#7f919f"
 
 # ─── BACKWARDS COMPATIBILITY ──────────────────────────────────────────────────
 COLOR_BACKGROUND = COLOR_SAGE_BG
@@ -60,10 +60,10 @@ STATUS_PAUSED     = "Pauzirano"
 
 # ─── PODRŽANI FORMATI ─────────────────────────────────────────────────────────
 SUPPORTED_FORMATS = {
-    '.pdf':  ('PDF Dokument', ICON_FILE_PDF,   '#b05050'),
-    '.xlsx': ('Excel Tabela', ICON_FILE_EXCEL, '#3d6040'),
-    '.xls':  ('Excel Tabela', ICON_FILE_EXCEL, '#3d6040'),
-    '.xml':  ('XML Dokument', ICON_FILE_XML,   '#4a7890'),
+    '.pdf':  ('PDF Dokument', ICON_FILE_PDF,   COLOR_DANGER),
+    '.xlsx': ('Excel Tabela', ICON_FILE_EXCEL, COLOR_SUCCESS),
+    '.xls':  ('Excel Tabela', ICON_FILE_EXCEL, COLOR_SUCCESS),
+    '.xml':  ('XML Dokument', ICON_FILE_XML,   COLOR_INFO),
 }
 
 # ─── CHAT TAB INDEKSI ─────────────────────────────────────────────────────────

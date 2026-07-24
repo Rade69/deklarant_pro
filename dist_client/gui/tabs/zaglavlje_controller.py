@@ -15,7 +15,7 @@ import logging
 import re
 from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
 from gui.utils.safe_message_box import capture_window_geometry, restore_window_geometry_queued
 from gui.utils.safe_message_box import exec_dialog_preserving_geometry
@@ -190,7 +190,12 @@ class ZaglavljeController:
                 show_export_button=False
             )
 
-            result = show_enhanced_validation_dialog(report, self.view, config)
+            result = show_enhanced_validation_dialog(
+                report,
+                self.view,
+                config,
+                field_handler=self._focus_validation_field,
+            )
 
             if result:
                 self.logger.info(f"Enhanced validation completed: {report.error_count} errors")
@@ -203,6 +208,46 @@ class ZaglavljeController:
         except Exception as e:
             self.logger.error(f"Enhanced validation failed: {e}", exc_info=True)
             return False
+
+    def _focus_validation_field(self, item) -> None:
+        field_map = {
+            "Šifra deklaracije": "deklaracija_1",
+            "Oznaka postupka": "deklaracija_oznaka",
+            "Deklaracija": "deklaracija_1",
+            "Naziv izvoznika": "izvoznik_r1",
+            "Grad izvoznika": "izvoznik_r3",
+            "Država izvoznika": "izvoznik_r5",
+            "Naziv primaoca": "primalac_r1",
+            "Adresa primaoca": "primalac_r2",
+            "Grad primaoca": "primalac_r3",
+            "Naziv deklaranta": "deklarant_r1",
+            "Adresa deklaranta": "deklarant_r2",
+            "Grad deklaranta": "deklarant_r3",
+            "Registracija trans. sredstva": "transport_id",
+            "Registracija na granici": "aktivno_transport",
+            "Vid prevoza na granici": "vid_25",
+            "Uslovi isporuke — kod": "uslovi_kod",
+            "Uslovi isporuke — mjesto": "uslovi_mjesto",
+            "Valuta": "valuta",
+            "Iznos fakture": "iznos",
+            "Broj stavki": "stavke",
+            "Kontejner": "kontejner_broj",
+        }
+        widget = self.view.field_widgets.get(field_map.get(item.field, ""))
+        if widget is None and item.field == "Priloženi dokumenti":
+            widget = getattr(self.view, "table", None)
+        if widget is None:
+            self.view.show_warning(
+                f"Polje „{item.field}” nije dostupno za direktan fokus."
+            )
+            return
+        original_style = widget.styleSheet()
+        widget.setStyleSheet(
+            original_style
+            + "; border: 2px solid #c94b45; background-color: #fff5f4;"
+        )
+        widget.setFocus(Qt.OtherFocusReason)
+        QTimer.singleShot(3500, lambda: widget.setStyleSheet(original_style))
     
     def _fallback_to_basic_validation(
         self,

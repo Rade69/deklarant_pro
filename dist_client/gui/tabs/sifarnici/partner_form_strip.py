@@ -22,12 +22,13 @@ from PySide6.QtCore import Qt
 # ============================================================
 
 _FIELD_STYLE = (
-    "QLineEdit { background: white; border: 1px solid #c8cdd4; "
-    "border-radius: 3px; padding: 4px 7px; font-size: 12px; }"
-    "QLineEdit:focus { border: 1px solid #2196F3; }"
-    "QLineEdit:read-only { background: #f5f5f5; color: #555; }"
+    "QLineEdit { background:#fbfcfd; border:1px solid #a9bbc7; color:#18354a; "
+    "border-radius:4px; padding:5px 8px; font-size:12px; }"
+    "QLineEdit:hover { background:#f3f7f9; border-color:#7892a5; }"
+    "QLineEdit:focus { background:white; border:2px solid #2f6f9f; }"
+    "QLineEdit:read-only { background:#eef2f4; color:#526778; border-color:#c4d0d8; }"
 )
-_LABEL_STYLE = "color: #4a5568; font-size: 12px; font-weight: bold;"
+_LABEL_STYLE = "color:#294b62; font-size:12px; font-weight:700;"
 
 
 class PartnerFormStrip(QWidget):
@@ -49,8 +50,8 @@ class PartnerFormStrip(QWidget):
         self.setObjectName("partner_strip")
         self.setAttribute(Qt.WA_StyledBackground, True)
         self.setStyleSheet(
-            "QWidget#partner_strip { border: 1px solid #c8cdd4; "
-            "border-radius: 4px; background: white; }"
+            "QWidget#partner_strip { border:1px solid #9fb2c1; "
+            "border-radius:5px; background:#f8fafb; }"
         )
 
         outer = QVBoxLayout(self)
@@ -118,8 +119,8 @@ class PartnerFormStrip(QWidget):
         header = QWidget()
         header.setObjectName("strip_header")
         header.setStyleSheet(
-            "QWidget#strip_header { background: #eef2f7; "
-            "border-bottom: 1px solid #d0d5db; }"
+            "QWidget#strip_header { background:#dfeaf1; "
+            "border-bottom:2px solid #7892a5; }"
         )
         h_layout = QHBoxLayout(header)
         h_layout.setContentsMargins(14, 9, 14, 9)
@@ -149,7 +150,7 @@ class PartnerFormStrip(QWidget):
 
     def _create_body(self) -> QWidget:
         body = QWidget()
-        body.setStyleSheet("background: white;")
+        body.setStyleSheet("background:#f8fafb;")
         b_layout = QHBoxLayout(body)
         b_layout.setSpacing(0)
         b_layout.setContentsMargins(0, 0, 0, 0)
@@ -161,7 +162,7 @@ class PartnerFormStrip(QWidget):
         sep = QFrame()
         sep.setFrameShape(QFrame.VLine)
         sep.setFixedWidth(1)
-        sep.setStyleSheet("background: #d0d5db;")
+        sep.setStyleSheet("background:#c4d2dc;")
 
         b_layout.addWidget(left, 6)
         b_layout.addWidget(sep)
@@ -170,7 +171,7 @@ class PartnerFormStrip(QWidget):
 
     def _create_left_panel(self) -> QWidget:
         left = QWidget()
-        left.setStyleSheet("QLabel { color: #4a5568; font-size: 12px; }")
+        left.setStyleSheet("QLabel { color:#294b62; font-size:12px; }")
         lf = QFormLayout(left)
         lf.setContentsMargins(14, 10, 14, 10)
         lf.setSpacing(9)
@@ -187,7 +188,7 @@ class PartnerFormStrip(QWidget):
         self._grad_field.setStyleSheet(_FIELD_STYLE)
         ptt_lbl = QLabel("PTT:")
         ptt_lbl.setFixedWidth(30)
-        ptt_lbl.setStyleSheet("color: #666; font-size: 11px;")
+        ptt_lbl.setStyleSheet("color:#526778; font-size:11px;")
         self._postanski_broj_field = QLineEdit()
         self._postanski_broj_field.setFixedWidth(68)
         self._postanski_broj_field.setStyleSheet(_FIELD_STYLE)
@@ -205,7 +206,7 @@ class PartnerFormStrip(QWidget):
 
     def _create_right_panel(self) -> QWidget:
         right = QWidget()
-        right.setStyleSheet("QLabel { color: #4a5568; font-size: 12px; }")
+        right.setStyleSheet("QLabel { color:#294b62; font-size:12px; }")
         rf = QFormLayout(right)
         rf.setContentsMargins(14, 10, 14, 10)
         rf.setSpacing(9)

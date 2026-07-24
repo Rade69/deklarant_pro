@@ -58,12 +58,14 @@ class ChatPanel(QWidget):
         self.tabs.setUsesScrollButtons(False)
         self.tabs.setStyleSheet(f"""
             QTabWidget::pane {{
-                border: none;
-                background-color: {COLOR_SAGE_PANEL};
+                border: 1px solid {COLOR_SAGE_PALE};
+                border-left: none;
+                border-right: none;
+                background-color: white;
             }}
             QTabBar::tab {{
                 background-color: {COLOR_SAGE_BG};
-                padding: 8px 16px;
+                padding: 9px 14px;
                 margin-right: 2px;
                 border: none;
                 border-bottom: 2px solid transparent;
@@ -73,7 +75,7 @@ class ChatPanel(QWidget):
                 min-width: 70px;
             }}
             QTabBar::tab:selected {{
-                background-color: {COLOR_SAGE_PANEL};
+                background-color: white;
                 color: {COLOR_SAGE_DARK};
                 border-bottom: 2px solid {COLOR_SAGE};
             }}
@@ -140,19 +142,19 @@ class ChatPanel(QWidget):
         """)
 
         layout = QHBoxLayout(header)
-        layout.setContentsMargins(16, 12, 16, 12)
+        layout.setContentsMargins(14, 10, 14, 10)
         layout.setSpacing(12)
 
         # Avatar
         avatar = QLabel()
-        avatar.setPixmap(qta.icon(ICON_ROBOT, color=COLOR_SECONDARY).pixmap(42, 42))
-        avatar.setFixedSize(48, 48)
+        avatar.setPixmap(qta.icon(ICON_ROBOT, color=COLOR_PRIMARY).pixmap(38, 38))
+        avatar.setFixedSize(46, 46)
         avatar.setAlignment(Qt.AlignCenter)
         avatar.setStyleSheet(f"""
             QLabel {{
                 background-color: {COLOR_SAGE_PANEL};
                 border: 2px solid {COLOR_SAGE_PALE};
-                border-radius: 24px;
+                border-radius: 23px;
                 padding: 4px;
             }}
         """)
@@ -207,9 +209,7 @@ class ChatPanel(QWidget):
                 font-size: 12px;
                 font-weight: bold;
             }}
-            QPushButton:hover {{
-                background-color: #5a4e8a;
-            }}
+            QPushButton:hover {{ background-color: #583d86; }}
         """)
         layout.addWidget(self._reset_btn)
 
@@ -293,9 +293,9 @@ class ChatPanel(QWidget):
         view.setReadOnly(True)
         view.setStyleSheet(f"""
             QTextEdit {{
-                background-color: {COLOR_SAGE_PANEL};
+                background-color: white;
                 border: none;
-                padding: 10px;
+                padding: 12px;
                 font-size: 13px;
             }}
         """)
@@ -306,8 +306,8 @@ class ChatPanel(QWidget):
         view.setReadOnly(True)
         view.setStyleSheet(f"""
             QTextEdit {{
-                background-color: {COLOR_SAGE_DARKEST};
-                color: {COLOR_SAGE_LIGHT};
+                background-color: #20384d;
+                color: #d9e5ed;
                 border: none;
                 padding: 10px;
                 font-family: monospace;
@@ -323,7 +323,7 @@ class ChatPanel(QWidget):
         layout.setContentsMargins(14, 14, 14, 14)
 
         faq_text = QLabel("""
-        <h3 style="color: #3d6040;">Često postavljana pitanja</h3>
+        <h3 style="color: #244866;">Često postavljana pitanja</h3>
 
         <p><b>Q: Koliko fajlova mogu uploadovati odjednom?</b><br>
         A: Možete uploadovati do 50 faktura u jednom batch-u.</p>
@@ -359,8 +359,11 @@ class ChatPanel(QWidget):
         layout.setSpacing(8)
 
         self.input_field = _ChatInput()
-        self.input_field.setPlaceholderText("Postavi pitanje... (Enter = pošalji, Shift+Enter = novi red)")
-        self.input_field.setFixedHeight(80)
+        self.input_field.setPlaceholderText(
+            "Pitaj agenta o uvezenim dokumentima... "
+            "(Enter = pošalji, Shift+Enter = novi red)"
+        )
+        self.input_field.setFixedHeight(74)
         self.input_field.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.input_field.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.input_field.send_requested.connect(self._send_message)
@@ -370,11 +373,11 @@ class ChatPanel(QWidget):
                 border: 1px solid {COLOR_SAGE_PALE};
                 border-radius: 12px;
                 font-size: 13px;
-                background-color: {COLOR_SAGE_BG};
+                background-color: #f8fafb;
                 color: {COLOR_TEXT};
             }}
             QTextEdit:focus {{
-                border-color: {COLOR_SAGE};
+                border: 2px solid {COLOR_PRIMARY};
                 background-color: white;
             }}
         """)
@@ -385,11 +388,11 @@ class ChatPanel(QWidget):
         send_btn.setToolTip("Pošalji (Enter)")
         send_btn.setStyleSheet(f"""
             QPushButton {{
-                background-color: {COLOR_SECONDARY};
+                background-color: {COLOR_PRIMARY};
                 border: none;
                 border-radius: 18px;
             }}
-            QPushButton:hover {{ background-color: #5a4e8a; }}
+            QPushButton:hover {{ background-color: #2b648c; }}
         """)
 
         layout.addWidget(self.input_field)
@@ -404,7 +407,7 @@ class ChatPanel(QWidget):
         <table width="100%" cellpadding="0" cellspacing="0" style="margin: 6px 0;">
           <tr>
             <td width="5%" valign="top" style="padding-top:4px;">
-              <span style="font-size:18px;">🌿</span>
+              <span style="font-size:18px;">🤖</span>
             </td>
             <td width="84%" style="background-color:#ffffff;
                     border-radius:4px 16px 16px 16px;
@@ -727,7 +730,7 @@ class ChatPanel(QWidget):
                     font-weight: bold;
                 }}
                 QPushButton:hover {{
-                    background-color: #5a4e8a;
+                    background-color: #583d86;
                 }}
             """)
             def make_handler(cb):
@@ -751,7 +754,7 @@ class ChatPanel(QWidget):
                 font-weight: bold;
             }}
             QPushButton:hover {{
-                background-color: #5a4e8a;
+                background-color: #583d86;
             }}
         """)
         cancel_btn.clicked.connect(self.hide_action_buttons)

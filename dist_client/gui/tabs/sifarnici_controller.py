@@ -368,6 +368,7 @@ class SifarniciController:
                 if validate_method:
                     errors = validate_method(data) if "data" in validate_method.__code__.co_varnames else validate_method(**data)
                     if errors:
+                        self.view.focus_first_invalid_field(data)
                         self.view.show_warning("\n".join(errors))
                         return
 

@@ -37,6 +37,8 @@ class LicensePanel(QWidget):
         self.save_fingerprint_button = QPushButton("Sačuvaj fingerprint (JSON)")
         self.import_license_button = QPushButton("Uvezi licencu")
         self.refresh_button = QPushButton("Osvježi status")
+        self.save_fingerprint_button.setObjectName("primaryButton")
+        self.import_license_button.setObjectName("successButton")
 
         self._setup_ui()
         self._connect_signals()

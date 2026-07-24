@@ -20,8 +20,9 @@ class HeaderBar(QWidget):
 
     def _setup_ui(self):
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(16, 8, 16, 8)
-        layout.setSpacing(12)
+        layout.setContentsMargins(16, 6, 16, 6)
+        layout.setSpacing(10)
+        self.setMinimumHeight(54)
 
         # Status badge
         self.status_badge = QLabel(f"● {STATUS_READY}")
@@ -56,15 +57,15 @@ class HeaderBar(QWidget):
             (ICON_CHAT, "Chat"),
         ]:
             btn = QPushButton(qta.icon(icon_name, color=COLOR_SAGE_DARK), "")
-            btn.setFixedSize(32, 32)
+            btn.setFixedSize(34, 34)
             btn.setToolTip(tooltip)
             btn.setObjectName("iconBtn")
             layout.addWidget(btn)
 
         self.setStyleSheet(f"""
             HeaderBar {{
-                background-color: {COLOR_SAGE_BG};
-                border-bottom: 2px solid {COLOR_SAGE_PALE};
+                background-color: white;
+                border-bottom: 1px solid {COLOR_SAGE_PALE};
             }}
             HeaderBar QLabel {{
                 font-size: 13px;
@@ -99,8 +100,8 @@ class HeaderBar(QWidget):
             }}
             QPushButton#iconBtn {{
                 border: 1px solid {COLOR_SAGE_PALE};
-                border-radius: 16px;
-                background-color: white;
+                border-radius: 17px;
+                background-color: {COLOR_SAGE_BG};
             }}
             QPushButton#iconBtn:hover {{
                 background-color: {COLOR_SAGE_PANEL};
@@ -115,11 +116,11 @@ class HeaderBar(QWidget):
 
     def _set_status_style(self, status: str):
         colors = {
-            STATUS_READY:      (COLOR_SUCCESS,  "#d4edda"),
-            STATUS_PROCESSING: (COLOR_INFO,     "#d0e8ff"),
-            STATUS_COMPLETED:  (COLOR_SUCCESS,  "#d4edda"),
-            STATUS_PAUSED:     (COLOR_WARNING,  "#fff3cd"),
-            STATUS_ERROR:      (COLOR_DANGER,   "#f8d7da"),
+            STATUS_READY:      (COLOR_SUCCESS,  "#e2f1e9"),
+            STATUS_PROCESSING: (COLOR_INFO,     "#e4edf3"),
+            STATUS_COMPLETED:  (COLOR_SUCCESS,  "#e2f1e9"),
+            STATUS_PAUSED:     (COLOR_WARNING,  "#f7efd9"),
+            STATUS_ERROR:      (COLOR_DANGER,   "#f5e3e3"),
         }
         fg, bg = colors.get(status, ("#333", "#e9ecef"))
         self.status_badge.setText(f"● {status}")
@@ -128,8 +129,8 @@ class HeaderBar(QWidget):
                 color: {fg};
                 background-color: {bg};
                 border: 1px solid {fg};
-                border-radius: 10px;
-                padding: 3px 12px;
+                border-radius: 11px;
+                padding: 4px 12px;
                 font-weight: bold;
                 font-size: 13px;
             }}

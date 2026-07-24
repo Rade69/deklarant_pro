@@ -28,6 +28,13 @@ class FileTable(QTableWidget):
     COL_PARSER = 5
     COL_POUZDANOST = 6
     COL_AKCIJA = 7
+    STATUS_LABELS = {
+        "Uploaded": "Dodano",
+        "Processing": "Obrada",
+        "Completed": "Završeno",
+        "Error": "Greška",
+        "Skipped": "Preskočeno",
+    }
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -39,9 +46,9 @@ class FileTable(QTableWidget):
         # Kolone
         self.setColumnCount(8)
         self.setHorizontalHeaderLabels([
-            "Ikona",
+            "",
             "Tip",
-            "Naziv Fajla",
+            "Naziv fajla",
             "Veličina",
             "Status",
             "Parser",
@@ -50,18 +57,19 @@ class FileTable(QTableWidget):
         ])
 
         # Column widths
-        self.setColumnWidth(self.COL_ICON, 50)
-        self.setColumnWidth(self.COL_TIP, 80)
+        self.setColumnWidth(self.COL_ICON, 36)
+        self.setColumnWidth(self.COL_TIP, 68)
         self.setColumnWidth(self.COL_NAZIV, 250)
-        self.setColumnWidth(self.COL_VELICINA, 100)
-        self.setColumnWidth(self.COL_STATUS, 100)
-        self.setColumnWidth(self.COL_PARSER, 120)
-        self.setColumnWidth(self.COL_POUZDANOST, 150)
-        self.setColumnWidth(self.COL_AKCIJA, 80)
+        self.setColumnWidth(self.COL_VELICINA, 88)
+        self.setColumnWidth(self.COL_STATUS, 106)
+        self.setColumnWidth(self.COL_PARSER, 110)
+        self.setColumnWidth(self.COL_POUZDANOST, 140)
+        self.setColumnWidth(self.COL_AKCIJA, 64)
 
         # Header
         header = self.horizontalHeader()
         header.setSectionResizeMode(self.COL_NAZIV, QHeaderView.Stretch)
+        header.setMinimumHeight(42)
 
         # Visina redova
         self.verticalHeader().setDefaultSectionSize(44)
@@ -78,6 +86,8 @@ class FileTable(QTableWidget):
         # Selection
         self.setSelectionBehavior(QTableWidget.SelectRows)
         self.setSelectionMode(QTableWidget.SingleSelection)
+        self.setAlternatingRowColors(True)
+        self.setShowGrid(True)
 
         # Click signal
         self.itemClicked.connect(self._on_item_clicked)
@@ -86,22 +96,25 @@ class FileTable(QTableWidget):
         self.setStyleSheet(f"""
             QTableWidget {{
                 border: 1px solid {COLOR_SAGE_PALE};
-                gridline-color: {COLOR_SAGE_BG};
+                border-radius: 6px;
+                gridline-color: #d6e1e8;
                 background-color: white;
+                alternate-background-color: #f4f8fa;
             }}
             QTableWidget::item {{
                 padding: 5px;
                 font-size: 13px;
             }}
             QTableWidget::item:selected {{
-                background-color: {COLOR_SAGE_PANEL};
-                color: {COLOR_TEXT};
+                background-color: {COLOR_SAGE};
+                color: white;
             }}
             QHeaderView::section {{
-                background-color: {COLOR_SAGE_BG};
+                background-color: #dbe7ee;
                 padding: 8px;
                 border: none;
-                border-bottom: 2px solid {COLOR_SAGE};
+                border-right: 1px solid #c5d5df;
+                border-bottom: 2px solid {COLOR_SAGE_MID};
                 font-weight: bold;
                 font-size: 13px;
                 color: {COLOR_TEXT};
@@ -140,7 +153,7 @@ class FileTable(QTableWidget):
         self.setItem(row, self.COL_VELICINA, size_item)
 
         # Status
-        status_item = QTableWidgetItem(f"● {file_item.status}")
+        status_item = QTableWidgetItem(f"● {self._status_label(file_item.status)}")
         status_item.setTextAlignment(Qt.AlignCenter)
         status_item.setForeground(self._get_status_color(file_item.status))
         self.setItem(row, self.COL_STATUS, status_item)
@@ -182,9 +195,9 @@ class FileTable(QTableWidget):
 
         progress.setStyleSheet(f"""
             QProgressBar {{
-                border: 1px solid #ddd;
+                border: 1px solid {COLOR_SAGE_PALE};
                 border-radius: 3px;
-                background-color: #f0f0f0;
+                background-color: #e4ebef;
             }}
             QProgressBar::chunk {{
                 background-color: {color};
@@ -194,7 +207,7 @@ class FileTable(QTableWidget):
 
         # Label sa %
         label = QLabel(f"{confidence_pct}%")
-        label.setStyleSheet("font-weight: bold; color: #333; font-size: 13px;")
+        label.setStyleSheet(f"font-weight: bold; color: {COLOR_TEXT}; font-size: 13px;")
         label.setFixedWidth(40)
         label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
@@ -210,19 +223,19 @@ class FileTable(QTableWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setAlignment(Qt.AlignCenter)
 
-        btn = QPushButton(qta.icon('fa5s.trash-alt', color='#dc3545'), "")
+        btn = QPushButton(qta.icon('fa5s.trash-alt', color=COLOR_DANGER), "")
         btn.setFixedSize(28, 28)
         btn.setToolTip("Ukloni fajl")
         btn.clicked.connect(lambda: self._on_remove_file(filepath))
         btn.setStyleSheet("""
             QPushButton {
-                border: 1px solid #ddd;
+                border: 1px solid #c7d6df;
                 border-radius: 4px;
                 background-color: white;
             }
             QPushButton:hover {
-                background-color: #f8d7da;
-                border-color: #dc3545;
+                background-color: #f5e3e3;
+                border-color: #ad3e3e;
             }
         """)
 
@@ -251,8 +264,13 @@ class FileTable(QTableWidget):
             return QColor(COLOR_SUCCESS)
         elif status == 'Error':
             return QColor(COLOR_DANGER)
+        elif status == 'Skipped':
+            return QColor(COLOR_TEXT_MUTED)
         else:
             return QColor(COLOR_TEXT)
+
+    def _status_label(self, status: str) -> str:
+        return self.STATUS_LABELS.get(status, status)
 
     def _on_item_clicked(self, item):
         """Handle item click."""
@@ -292,7 +310,7 @@ class FileTable(QTableWidget):
                 # Status
                 status_item = self.item(row, self.COL_STATUS)
                 if status_item:
-                    status_item.setText(f"● {status}")
+                    status_item.setText(f"● {self._status_label(status)}")
                     status_item.setForeground(self._get_status_color(status))
 
                 # Parser

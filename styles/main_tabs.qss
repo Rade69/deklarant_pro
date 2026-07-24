@@ -46,6 +46,26 @@ QTabBar::tab:hover:!selected {
     background-color: #e0e0e0;
 }
 
+QPushButton#btnExitApp {
+    background-color: #3D6A8A;
+    color: #FFFFFF;
+    border: 1px solid #2D506B;
+    border-radius: 6px;
+    padding: 3px 14px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+QPushButton#btnExitApp:hover:enabled {
+    background-color: #568FB7;
+    border: 2px solid #F2C14E;
+}
+
+QPushButton#btnExitApp:pressed {
+    background-color: #2D506B;
+    border-color: #1E3A4F;
+}
+
 /* Kontekstni meniji — spriječi nasljeđivanje color:white od tab selektora */
 QMenu {
     background-color: #ffffff;

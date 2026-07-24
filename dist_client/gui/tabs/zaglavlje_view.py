@@ -54,7 +54,10 @@ from PySide6.QtWidgets import (
     QHeaderView,
 )
 from PySide6.QtCore import Qt, Signal, QSize, QObject, QEvent, QPoint
-from PySide6.QtGui import QFont, QIcon, QRegularExpressionValidator, QPainter, QColor, QPolygon
+from PySide6.QtGui import (
+    QFont, QIcon, QRegularExpressionValidator, QPainter, QColor, QPolygon,
+    QKeySequence, QShortcut,
+)
 from PySide6.QtCore import QRegularExpression
 from typing import Dict, Any, Optional, List
 from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
@@ -368,6 +371,8 @@ class ZaglavljeView(BaseTabView):
 
         # Setup UI
         self._setup_ui()
+        self._setup_tab_order()
+        self._setup_keyboard_shortcuts()
         self._auto_fill_deklarant()
         self._apply_styles()
         self._connect_signals()
@@ -417,14 +422,7 @@ class ZaglavljeView(BaseTabView):
             btn.setFixedHeight(30)
         if _QTA:
             try:
-                icon_colors = {
-                    "fa5s.plus-square": "#0D47A1",
-                    "fa5s.file-import": "#4A235A",
-                    "fa5s.check-circle": "#0B3D16",
-                    "fa5s.trash-alt": "#7F1D1D",
-                    "fa5s.file-export": "#004D40",
-                }
-                btn.setIcon(qta.icon(icon_name, color=icon_colors.get(icon_name, "#1E3A5F")))
+                btn.setIcon(qta.icon(icon_name, color="#FFFFFF"))
                 btn.setIconSize(QSize(20, 20))
             except Exception:
                 pass
@@ -446,6 +444,35 @@ class ZaglavljeView(BaseTabView):
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
         )
         main_layout.addWidget(grid_widget)
+
+    def _setup_tab_order(self) -> None:
+        widgets = []
+        for widget in self.field_widgets.values():
+            if (
+                widget not in widgets
+                and widget.focusPolicy() != Qt.FocusPolicy.NoFocus
+            ):
+                widgets.append(widget)
+        if self.table and self.table.focusPolicy() != Qt.FocusPolicy.NoFocus:
+            widgets.append(self.table)
+        for current, following in zip(widgets, widgets[1:]):
+            QWidget.setTabOrder(current, following)
+
+    def _setup_keyboard_shortcuts(self) -> None:
+        self._keyboard_shortcuts = []
+        bindings = (
+            ("Ctrl+N", self.btn_novi.click),
+            ("Ctrl+S", self.btn_snimi.click),
+        )
+        for sequence, handler in bindings:
+            shortcut = QShortcut(QKeySequence(sequence), self)
+            shortcut.activated.connect(handler)
+            self._keyboard_shortcuts.append(shortcut)
+        self.btn_novi.setToolTip("Nova deklaracija — Ctrl+N")
+        self.btn_snimi.setToolTip("Završna provjera — Ctrl+S")
+        self.btn_brisi.setToolTip(
+            "Obriši deklaraciju; Delete briše označenu referencu u tabeli"
+        )
 
     def _create_toolbar(self) -> QFrame:
         """Kreiraj toolbar sa dugmadima."""
@@ -484,7 +511,7 @@ class ZaglavljeView(BaseTabView):
         """Kreiraj glavni widget sa 3 kolone (QHBoxLayout)."""
         grid_widget = QWidget()
         grid_widget.setAttribute(Qt.WA_StyledBackground, True)
-        grid_widget.setStyleSheet("QWidget { background-color: #dce8dc; }")
+        grid_widget.setStyleSheet("QWidget { background-color: #e8f2ed; }")
         grid_layout = QHBoxLayout(grid_widget)
         grid_layout.setContentsMargins(6, 6, 6, 6)
         grid_layout.setSpacing(4)
@@ -492,6 +519,40 @@ class ZaglavljeView(BaseTabView):
         left_column = self._create_left_column()
         middle_column = self._create_middle_column()
         right_column = self._create_right_column()
+
+        field_state_style = """
+            QLineEdit, QComboBox {
+                background-color: #ffffff;
+                border: 1px solid #a8b9ae;
+                color: #18354a;
+            }
+            QLineEdit:hover, QComboBox:hover {
+                background-color: #fbfefc;
+                border-color: #8fa9ba;
+            }
+            QLineEdit:focus, QComboBox:focus {
+                background-color: #ffffff;
+                border: 2px solid #3f7898;
+            }
+            QLineEdit:read-only {
+                background-color: #f2f5f3;
+                border-color: #bcc8c0;
+                color: #526159;
+            }
+            QLineEdit:disabled, QComboBox:disabled {
+                background-color: #edf1ef;
+                border-color: #c7d0ca;
+                color: #7d8982;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #ffffff;
+                border: 1px solid #a8b9ae;
+                selection-background-color: #dfeaf1;
+                selection-color: #18354a;
+            }
+        """
+        for column in (left_column, middle_column, right_column):
+            column.setStyleSheet(column.styleSheet() + field_state_style)
 
         if sys.platform.startswith("win"):
             for column in (left_column, middle_column, right_column):
@@ -526,7 +587,7 @@ class ZaglavljeView(BaseTabView):
         column.setFixedWidth(470)
         column.setObjectName("left_column")
         column.setAttribute(Qt.WA_StyledBackground, True)
-        column.setStyleSheet(("QFrame#left_column { background-color: #f5f9f5; }" + """
+        column.setStyleSheet(("QFrame#left_column { background-color: #eef5f1; }" + """
     QLineEdit {
         background: #fafcfa;
         border: 1px solid #a0c4a0;
@@ -656,6 +717,45 @@ class ZaglavljeView(BaseTabView):
 
         # Naslov red
         title_row = QWidget()
+        title_row.setObjectName(f"party_header_{prefix}")
+        party_header_styles = {
+            "izvoznik": (
+                "QWidget#party_header_izvoznik { background-color: #cfe4d8; "
+                "border-left: 5px solid #2f7d5a; border-bottom: 1px solid #7faf91; "
+                "border-radius: 4px; }"
+            ),
+            "primalac": (
+                "QWidget#party_header_primalac { background-color: #d3e2ec; "
+                "border-left: 5px solid #2f6f9f; border-bottom: 1px solid #8aabbe; "
+                "border-radius: 4px; }"
+            ),
+        }
+        party_field_styles = {
+            "izvoznik": (
+                "QLineEdit { background-color: #f1f8f4; border: 1px solid #8fbea3; "
+                "border-radius: 3px; color: #123d29; font-weight: 600; }"
+                "QLineEdit:hover { background-color: #e9f4ed; border-color: #5f9a79; }"
+                "QLineEdit:focus { background-color: #ffffff; border: 2px solid #2f7d5a; }"
+            ),
+            "primalac": (
+                "QLineEdit { background-color: #f1f6fa; border: 1px solid #91b4ca; "
+                "border-radius: 3px; color: #143a55; font-weight: 600; }"
+                "QLineEdit:hover { background-color: #e8f1f7; border-color: #5f8fad; }"
+                "QLineEdit:focus { background-color: #ffffff; border: 2px solid #2f6f9f; }"
+            ),
+            "deklarant": (
+                "QLineEdit { background-color: #dfeaf1; border: 1px solid #9fb2c1; "
+                "border-radius: 3px; color: #18354a; font-weight: 600; }"
+                "QLineEdit:read-only { background-color: #dfeaf1; "
+                "border: 1px solid #9fb2c1; color: #263f52; font-weight: 600; }"
+                "QLineEdit:hover, QLineEdit:read-only:hover { background-color: #d4e3ec; "
+                "border-color: #7892a5; }"
+                "QLineEdit:focus, QLineEdit:read-only:focus { background-color: #ffffff; "
+                "border: 1px solid #7892a5; }"
+            ),
+        }
+        if prefix in party_header_styles:
+            title_row.setStyleSheet(party_header_styles[prefix])
         if sys.platform.startswith("win"):
             title_row.setFixedHeight(31)
         title_layout = QHBoxLayout(title_row)
@@ -665,6 +765,14 @@ class ZaglavljeView(BaseTabView):
         title_label = QLabel(title)
         title_label.setFont(QFont("Segoe UI", 10, QFont.Weight.DemiBold))
         title_label.setObjectName("section_title")
+        if prefix == "izvoznik":
+            title_label.setStyleSheet(
+                "color: #194a32; border: none; padding-left: 7px;"
+            )
+        elif prefix == "primalac":
+            title_label.setStyleSheet(
+                "color: #1f4f70; border: none; padding-left: 7px;"
+            )
         if sys.platform.startswith("win"):
             title_label.setFixedHeight(24)
             title_label.setMinimumWidth(title_label.fontMetrics().horizontalAdvance(title) + 12)
@@ -736,6 +844,8 @@ class ZaglavljeView(BaseTabView):
             id_field.setFixedHeight(24)
         if auto:
             id_field.setReadOnly(True)
+        if prefix in party_field_styles:
+            id_field.setStyleSheet(party_field_styles[prefix])
         title_layout.addStretch()
         title_layout.addWidget(id_field)
         title_layout.setAlignment(id_field, Qt.AlignmentFlag.AlignVCenter)
@@ -746,7 +856,13 @@ class ZaglavljeView(BaseTabView):
         if sys.platform.startswith("win"):
             header_sep = QFrame()
             header_sep.setFixedHeight(1)
-            header_sep.setStyleSheet("background-color: #b8ccb8;")
+            party_separator_styles = {
+                "izvoznik": "background-color: #7faf91;",
+                "primalac": "background-color: #8aabbe;",
+            }
+            header_sep.setStyleSheet(
+                party_separator_styles.get(prefix, "background-color: #b8ccb8;")
+            )
             layout.addWidget(header_sep)
 
         # 5 adresnih polja — na Windowsu rastu sa sekcijom (min/max umjesto fixed)
@@ -764,6 +880,8 @@ class ZaglavljeView(BaseTabView):
                 field.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             if auto:
                 field.setReadOnly(True)
+            if prefix in party_field_styles:
+                field.setStyleSheet(party_field_styles[prefix])
             layout.addWidget(field)
             self.field_widgets[f"{prefix}_r{i}"] = field
 
@@ -1043,30 +1161,53 @@ class ZaglavljeView(BaseTabView):
             "\n    QLabel { font-size: 10pt; color: #102814; font-weight: 600; }"
             if sys.platform.startswith("win") else ""
         )
-        column.setStyleSheet(("QFrame#middle_column { background-color: #f5f9f5; }" + _win_label_css + """
+        column.setStyleSheet(("QFrame#middle_column { background-color: #edf3f0; }" + _win_label_css + """
+    #middle_column QWidget[section_card="true"] {
+        border-radius: 4px;
+        padding: 1px 3px;
+    }
+    #middle_column QWidget[visual_tone="identity"] {
+        background-color: #eef5f9;
+        border: 1px solid #b8ccd9;
+    }
+    #middle_column QWidget[visual_tone="geography"] {
+        background-color: #f0f7f3;
+        border: 1px solid #bad1c3;
+    }
+    #middle_column QWidget[visual_tone="finance"] {
+        background-color: #f8f5ec;
+        border: 1px solid #d8ccb0;
+    }
+    #middle_column QWidget[visual_tone="storage"] {
+        background-color: #f3f1f6;
+        border: 1px solid #c9c1d2;
+    }
+    #middle_column QLabel {
+        color: #173f59;
+    }
     QLineEdit {
-        background: #fafcfa;
-        border: 1px solid #a0c4a0;
+        background: #fbfcfd;
+        border: 1px solid #a9bbc7;
         border-radius: 3px;
         padding: 3px 8px;
         min-height: 22px;
         font-size: 11pt;
-        color: #102814;
+        color: #18354a;
     }
-    QLineEdit:hover   { background: #eef6ec; border-color: #7aa080; }
-    QLineEdit:focus   { background: #e8f2e8; border-color: #5a8060; border-width: 2px; }
-    QLineEdit:read-only { background: #eef4ee; border-color: #c8dcc8; color: #4a6a4a; }
+    QLineEdit:hover   { background: #eef4f7; border-color: #7892a5; }
+    QLineEdit:focus   { background: #ffffff; border-color: #2f6f9f; border-width: 2px; }
+    QLineEdit:read-only { background: #eef2f4; border-color: #c4d0d8; color: #526778; }
     QComboBox {
-        background: #fafcfa;
-        border: 1px solid #a0c4a0;
+        background: #fbfcfd;
+        border: 1px solid #a9bbc7;
         border-radius: 3px;
         padding: 3px 8px;
         min-height: 22px;
         font-size: 11pt;
-        color: #102814;
+        color: #18354a;
     }
-    QComboBox:hover { background: #eef6ec; border-color: #7aa080; }
-    QComboBox:focus { background: #e8f2e8; border-color: #5a8060; }
+    QComboBox:hover { background: #eef4f7; border-color: #7892a5; }
+    QComboBox:focus { background: #ffffff; border-color: #2f6f9f; }
     QComboBox::drop-down { border: none; width: 20px; }
     QComboBox::down-arrow {
         __ARROW_CSS__
@@ -1075,11 +1216,11 @@ class ZaglavljeView(BaseTabView):
         margin-right: 5px;
     }
     QComboBox QAbstractItemView {
-        background: #fafcfa;
-        border: 1px solid #a0c4a0;
+        background: #fbfcfd;
+        border: 1px solid #a9bbc7;
         font-size: 13px;
-        selection-background-color: #d4e8d4;
-        color: #1e3820;
+        selection-background-color: #dfeaf1;
+        color: #18354a;
     }
     QComboBox QAbstractItemView::item {
         padding: 5px 10px;
@@ -1090,37 +1231,28 @@ class ZaglavljeView(BaseTabView):
         layout.setContentsMargins(4, 4, 4, 4)
         layout.setSpacing(2 if sys.platform.startswith("win") else 5)
 
-        layout.addWidget(self._create_deklaracija_group())
-        layout.addWidget(self._create_hline())
-
-        layout.addWidget(self._create_obrasci_group())
-        layout.addWidget(self._create_hline())
-
-        layout.addWidget(self._create_stavke_group())
-        layout.addWidget(self._create_hline())
-
-        layout.addWidget(self._create_odgovorna_zemlja_group())
-        layout.addWidget(self._create_hline())
-
-        layout.addWidget(self._create_zem_group())
-        layout.addWidget(self._create_hline())
-
-        layout.addWidget(self._create_drzava_izvoza_group())
-        layout.addWidget(self._create_hline())
-
-        layout.addWidget(self._create_drzava_porijekla_group())
-        layout.addWidget(self._create_hline())
-
-        layout.addWidget(self._create_uslovi_group())
-        layout.addWidget(self._create_hline())
-
-        layout.addWidget(self._create_valuta_group())
-        layout.addWidget(self._create_hline())
-
-        layout.addWidget(self._create_troski_group())
-        layout.addWidget(self._create_hline())
-
-        layout.addWidget(self._create_odgodjeno_group())
+        sections = [
+            (self._create_deklaracija_group(), "identity"),
+            (self._create_obrasci_group(), "identity"),
+            (self._create_stavke_group(), "identity"),
+            (self._create_odgovorna_zemlja_group(), "geography"),
+            (self._create_zem_group(), "geography"),
+            (self._create_drzava_izvoza_group(), "geography"),
+            (self._create_drzava_porijekla_group(), "geography"),
+            (self._create_uslovi_group(), "finance"),
+            (self._create_valuta_group(), "finance"),
+            (self._create_troski_group(), "finance"),
+            (self._create_odgodjeno_group(), "storage"),
+        ]
+        for index, (section, tone) in enumerate(sections):
+            section.setProperty("visual_tone", tone)
+            layout.addWidget(section)
+            if index < len(sections) - 1:
+                separator = self._create_hline()
+                separator.setStyleSheet(
+                    "background-color: #b6c7d2; border: none;"
+                )
+                layout.addWidget(separator)
 
         return column
 
@@ -1769,18 +1901,18 @@ class ZaglavljeView(BaseTabView):
         column.setAttribute(Qt.WA_StyledBackground, True)
         column.setMinimumWidth(420)
         column.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        column.setStyleSheet(("QFrame#right_column { background-color: #f5f9f5; }" + """
+        column.setStyleSheet(("QFrame#right_column { background-color: #edf3f6; }" + """
     QLineEdit {
-        background: #fafcfa;
-        border: 1px solid #a0c4a0;
+        background: #fbfcfd;
+        border: 1px solid #a9bbc7;
         border-radius: 3px;
         padding: 3px 8px;
         min-height: 28px;
-        color: #1e3820;
+        color: #18354a;
     }
-    QLineEdit:hover   { background: #eef6ec; border-color: #7aa080; }
-    QLineEdit:focus   { background: #e8f2e8; border-color: #5a8060; border-width: 2px; }
-    QLineEdit:read-only { background: #eef4ee; border-color: #c8dcc8; color: #4a6a4a; }
+    QLineEdit:hover   { background: #eef4f7; border-color: #7892a5; }
+    QLineEdit:focus   { background: #ffffff; border-color: #2f6f9f; border-width: 2px; }
+    QLineEdit:read-only { background: #eef2f4; border-color: #c4d0d8; color: #526778; }
     QComboBox {
         background: #fafcfa;
         border: 1px solid #a0c4a0;
@@ -1821,29 +1953,37 @@ class ZaglavljeView(BaseTabView):
             ["Šifra", "Naziv dokumenta", "Referenca"]
         )
         self.table.verticalHeader().setVisible(False)
+        self.table.setAlternatingRowColors(True)
         self.table.setStyleSheet(
             """
             QTableWidget {
                 font-size: 13pt;
-                color: #1e3820;
-                background-color: #dce8dc;
-                gridline-color: #c8dcc8;
+                color: #18354a;
+                background-color: #ffffff;
+                alternate-background-color: #eef4f7;
+                gridline-color: #bccbd5;
+                border: 1px solid #8fa7b8;
+                border-radius: 4px;
             }
             QTableWidget::item {
-                background-color: #fafcfa;
-                color: #1e3820;
+                color: #18354a;
                 padding: 3px 6px;
             }
+            QTableWidget::item:hover {
+                background-color: #dfeaf1;
+            }
             QTableWidget::item:selected {
-                background-color: #c8dcc8;
-                color: #1e3820;
+                background-color: #2c668f;
+                color: #ffffff;
             }
             QHeaderView::section {
                 font-size: 13pt;
                 font-weight: bold;
-                color: #1e3820;
-                background-color: #dce8dc;
-                border: 1px solid #a0c4a0;
+                color: #18354a;
+                background-color: #d7e5ee;
+                border: none;
+                border-right: 1px solid #bccdd8;
+                border-bottom: 2px solid #68869b;
                 padding: 4px;
             }
             """
@@ -1978,21 +2118,20 @@ class ZaglavljeView(BaseTabView):
             """
             /* POZADINA */
             #ZaglavljeTab {
-                background-color: #dce8dc;
+                background-color: #e8f2ed;
             }
 
             /* KOLONE — bijela pozadina sa sage zelenim okvirom */
             #left_column, #middle_column, #right_column {
-                background-color: #f5f9f5;
-                border: 1px solid #a0c4a0;
-                border-radius: 4px;
+                border: 1px solid #a7c5b5;
+                border-radius: 5px;
             }
 
             /* SEKCIJA KARTICE — bijele kartice sa zaobljenim uglovima */
             QWidget[section_card="true"] {
-                background-color: rgba(255, 255, 255, 225);
-                border: 1px solid #c8dcc8;
-                border-radius: 8px;
+                background-color: #f8fffb;
+                border: 1px solid #bed2c7;
+                border-radius: 6px;
                 padding: 2px 4px;
             }
             #left_column QWidget[section_card="true"] {
@@ -2002,12 +2141,12 @@ class ZaglavljeView(BaseTabView):
             #middle_column QWidget[section_card="true"] {
                 padding: 0px 1px;
                 border-radius: 3px;
-                background-color: rgba(255, 255, 255, 180);
+                background-color: #fbfefc;
             }
 
             /* HORIZONTALNI SEPARATORI — tanka sage linija između sekcija */
             QFrame[frameShape="4"] {
-                background-color: #b8d0b8;
+                background-color: #b8cec1;
                 border: none;
                 max-height: 1px;
                 min-height: 1px;
@@ -2018,125 +2157,76 @@ class ZaglavljeView(BaseTabView):
             /* TOOLBAR */
             QFrame#toolbar {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #e8f2e8, stop:1 #c8dcc8);
-                border-bottom: 2px solid #7aa080;
+                    stop:0 #f4f7fa, stop:1 #e7eef4);
+                border-top: 1px solid #c8d5df;
+                border-bottom: 2px solid #7892a5;
             }
 
             /* BUTTONS */
             QPushButton#btnNovi {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #bbdefb, stop:1 #64b5f6);
-                border: 1px solid #2196f3;
-                border-bottom: 3px solid #1565c0;
-                border-radius: 3px;
+                background-color: #2f6f9f;
+                border: 1px solid #285f88;
+                border-radius: 5px;
                 padding: 0px 14px;
-                color: black; font-weight: 600; font-size: 12px;
+                color: white; font-weight: 600; font-size: 13px;
             }
             QPushButton#btnNovi:hover {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #d6ecff, stop:1 #7fc4ff);
-                border: 1px solid #1976d2;
-                border-bottom: 3px solid #0d47a1;
+                background-color: #3d82b7;
             }
             QPushButton#btnNovi:pressed {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #42a5f5, stop:1 #1e88e5);
-                border: 1px solid #1565c0;
-                border-top: 3px solid #0d47a1;
-                border-bottom: 1px solid #1565c0;
-                color: white;
+                background-color: #245779;
             }
             QPushButton#btnUveziXML {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #e1bee7, stop:1 #ce93d8);
-                border: 1px solid #9c27b0;
-                border-bottom: 3px solid #6a1b9a;
-                border-radius: 3px;
+                background-color: #6a55a3;
+                border: 1px solid #59468c;
+                border-radius: 5px;
                 padding: 0px 14px;
-                color: black; font-weight: 600; font-size: 12px;
+                color: white; font-weight: 600; font-size: 13px;
             }
             QPushButton#btnUveziXML:hover {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #f0d4f5, stop:1 #dc9fe6);
-                border: 1px solid #8e24aa;
-                border-bottom: 3px solid #4a148c;
+                background-color: #7b65b5;
             }
             QPushButton#btnUveziXML:pressed {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #ab47bc, stop:1 #8e24aa);
-                border: 1px solid #6a1b9a;
-                border-top: 3px solid #4a148c;
-                border-bottom: 1px solid #6a1b9a;
-                color: white;
+                background-color: #493875;
             }
             QPushButton#btnSnimi {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #5cb85c, stop:1 #449d44);
-                border: 1px solid #398439;
-                border-bottom: 3px solid #1b5e20;
-                border-radius: 3px;
+                background-color: #2f7d5a;
+                border: 1px solid #28694c;
+                border-radius: 5px;
                 padding: 0px 14px;
-                color: black; font-weight: bold; font-size: 12px;
+                color: white; font-weight: 700; font-size: 13px;
             }
             QPushButton#btnSnimi:hover {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #70c970, stop:1 #55ad55);
-                border: 1px solid #2e7d32;
-                border-bottom: 3px solid #0b3d16;
+                background-color: #3c936c;
             }
             QPushButton#btnSnimi:pressed {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #388e3c, stop:1 #2e7d32);
-                border: 1px solid #1b5e20;
-                border-top: 3px solid #0b3d16;
-                border-bottom: 1px solid #1b5e20;
-                color: white;
+                background-color: #245f45;
             }
             QPushButton#btnBrisi {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #ffcdd2, stop:1 #ef9a9a);
-                border: 1px solid #f44336;
-                border-bottom: 3px solid #b71c1c;
-                border-radius: 3px;
+                background-color: #a6403d;
+                border: 1px solid #8e3432;
+                border-radius: 5px;
                 padding: 0px 14px;
-                color: black; font-weight: 600; font-size: 12px;
+                color: white; font-weight: 600; font-size: 13px;
             }
             QPushButton#btnBrisi:hover {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #ffd9dd, stop:1 #f5a8a8);
-                border: 1px solid #d32f2f;
-                border-bottom: 3px solid #7f1d1d;
+                background-color: #b9514d;
             }
             QPushButton#btnBrisi:pressed {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #e57373, stop:1 #d32f2f);
-                border: 1px solid #b71c1c;
-                border-top: 3px solid #7f1d1d;
-                border-bottom: 1px solid #b71c1c;
-                color: white;
+                background-color: #85322f;
             }
             QPushButton#btnIzveziXML {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #b2dfdb, stop:1 #80cbc4);
-                border: 1px solid #009688;
-                border-bottom: 3px solid #00695c;
-                border-radius: 3px;
+                background-color: #2f6f6a;
+                border: 1px solid #285f5b;
+                border-radius: 5px;
                 padding: 0px 14px;
-                color: black; font-weight: 600; font-size: 12px;
+                color: white; font-weight: 600; font-size: 13px;
             }
             QPushButton#btnIzveziXML:hover {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #c6ece8, stop:1 #91d8d1);
-                border: 1px solid #00897b;
-                border-bottom: 3px solid #004d40;
+                background-color: #3d8780;
             }
             QPushButton#btnIzveziXML:pressed {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #4db6ac, stop:1 #00897b);
-                border: 1px solid #00695c;
-                border-top: 3px solid #004d40;
-                border-bottom: 1px solid #00695c;
-                color: white;
+                background-color: #245753;
             }
             QPushButton#btnIzlaz {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
@@ -2208,11 +2298,11 @@ class ZaglavljeView(BaseTabView):
                 background: transparent;
             }
             QLabel#section_title {
-                color: #102814;
+                color: #245f45;
                 font-size: 10pt;
-                font-weight: 600;
+                font-weight: 700;
                 padding-bottom: 1px;
-                border-bottom: 2px solid #5a8060;
+                border-bottom: 2px solid #6f9a7d;
             }
             #left_column QLabel#section_title {
                 font-size: 10pt;
@@ -2283,23 +2373,27 @@ class ZaglavljeView(BaseTabView):
 
             /* TABLE */
             QTableWidget {
-                background: white;
-                border: 1px solid #5a8060;
-                gridline-color: #c8dcc8;
-                color: #1e3820;
+                background: #ffffff;
+                alternate-background-color: #eef4f7;
+                border: 1px solid #9fb2c1;
+                gridline-color: #c9d5de;
+                color: #18354a;
             }
-            QTableWidget::item { padding: 4px; color: #1e3820; }
+            QTableWidget::item { padding: 4px; color: #18354a; }
+            QTableWidget::item:hover { background: #dfeaf1; }
             QTableWidget::item:selected {
-                background: #d4e8d4;
-                color: #1e3820;
+                background: #2c668f;
+                color: #ffffff;
             }
             QHeaderView::section {
-                background: #dce8dc;
-                border: 1px solid #7aa080;
+                background: #dfeaf1;
+                border: none;
+                border-right: 1px solid #c8d7e2;
+                border-bottom: 2px solid #7892a5;
                 padding: 4px;
                 font-weight: bold;
                 font-size: 9pt;
-                color: #1e3820;
+                color: #18354a;
             }
             """.replace("__ARROW_CSS__", _DOWN_ARROW_CSS)
         )

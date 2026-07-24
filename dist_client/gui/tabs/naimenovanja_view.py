@@ -59,7 +59,9 @@ class _ScrollableCombo(QComboBox):
             self.view().setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import QFile, Qt, Signal, QTimer, QPoint, QSize, QSettings
-from PySide6.QtGui import QColor, QIcon, QPainter, QPolygon, QTextOption
+from PySide6.QtGui import (
+    QColor, QIcon, QPainter, QPolygon, QTextOption, QKeySequence, QShortcut
+)
 
 from services.naimenovanja.tariff_service import TariffService
 from services.naimenovanja.constants import NaimenovanjaConstants
@@ -234,7 +236,7 @@ class NaimenovanjaView(BaseTabView):
         if hasattr(self, "ui"):
             # Create main layout
             main_layout = QVBoxLayout(self)
-            main_layout.setContentsMargins(0, 0, 0, 0)
+            main_layout.setContentsMargins(1, 0, 1, 0)
             main_layout.setSpacing(0)
 
             # Add navigation bar
@@ -265,6 +267,7 @@ class NaimenovanjaView(BaseTabView):
 
         # 6.6 Postavi redosljed Tab navigacije
         self._setup_tab_order()
+        self._setup_keyboard_shortcuts()
 
         # 7. Load data — redosljed bitan: clear mora biti PRIJE load, inače briše tarife
         self.draft.ensure_min_items(1)
@@ -777,19 +780,23 @@ class NaimenovanjaView(BaseTabView):
         self.combo_vrsta_pakovanja.setStyleSheet(
             """
             QComboBox#le_r31_vrsta {
-                border: 2px solid #28a745;
-                border-radius: 6px;
+                border: 1px solid #7d9caf;
+                border-radius: 4px;
                 padding: 2px 18px 2px 6px;
                 background-color: #ffffff;
                 font-size: 13px;
                 font-weight: 500;
-                color: #333333;
+                color: #18354a;
+            }
+            QComboBox#le_r31_vrsta:focus {
+                border: 2px solid #3f7898;
+                background-color: #ffffff;
             }
             QComboBox#le_r31_vrsta::drop-down {
                 subcontrol-origin: padding;
                 subcontrol-position: top right;
                 width: 18px;
-                border-left: 1px solid #28a745;
+                border-left: 1px solid #7d9caf;
                 background: #ffffff;
             }
             QComboBox#le_r31_vrsta::down-arrow {
@@ -1587,6 +1594,16 @@ class NaimenovanjaView(BaseTabView):
         self.status_bar = self.ui.findChild(QWidget, "status_bar_widget")
 
         if self.status_bar:
+            self.status_bar.setStyleSheet(
+                """
+                QWidget#status_bar_widget {
+                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                        stop:0 #1e3a5f, stop:1 #162d4a);
+                    border-top: 2px solid #2d5a8e;
+                }
+                """
+            )
+
             # Find labels (they're already created in .ui file)
             self.lbl_status_total = self.ui.findChild(QLabel, "lbl_status_total")
             self.lbl_status_items = self.ui.findChild(QLabel, "lbl_status_items")
@@ -1603,18 +1620,31 @@ class NaimenovanjaView(BaseTabView):
 
             status_h = 48
             self.status_bar.setFixedHeight(status_h)
-            for label in (
+            metric_labels = (
                 self.lbl_status_total,
                 self.lbl_status_items,
                 self.lbl_status_bruto,
                 self.lbl_status_netto,
-                self.lbl_status_validation,
-            ):
+            )
+            for label in metric_labels:
                 if label:
                     label.setFixedHeight(30)
                     label.setStyleSheet(
-                        "font-size: 12px; font-weight: 700; padding: 2px 8px;"
+                        "color: #e2eaf3; background: transparent; "
+                        "font-size: 14px; font-weight: 700; padding: 2px 8px;"
                     )
+
+            if self.lbl_status_validation:
+                self.lbl_status_validation.setFixedHeight(30)
+                self.lbl_status_validation.setCursor(Qt.PointingHandCursor)
+                self.lbl_status_validation.mousePressEvent = (
+                    lambda event: self._show_first_validation_issue()
+                )
+                self.lbl_status_validation.setStyleSheet(
+                    "color: #f1f5f9; background: #304d6b; "
+                    "border: 1px solid #6684a1; border-radius: 9px; "
+                    "font-size: 14px; font-weight: 700; padding: 2px 8px;"
+                )
 
             main_grid = self.ui.findChild(QFrame, "main_grid_frame")
             if main_grid:
@@ -2056,9 +2086,13 @@ class NaimenovanjaView(BaseTabView):
             te_opis.setStyleSheet(
                 """
                 QLineEdit#te_r31_opis {
-                    background-color: #e8f5e8;
-                    border: 2px solid #4caf50;
-                    color: #2e7d32;
+                    background-color: #eef6f0;
+                    border: 1px solid #7f9f89;
+                    color: #245f45;
+                }
+                QLineEdit#te_r31_opis:focus {
+                    background-color: #ffffff;
+                    border: 2px solid #3f7898;
                 }
             """
             )
@@ -2071,9 +2105,13 @@ class NaimenovanjaView(BaseTabView):
             te_opis_2.setStyleSheet(
                 """
                 QLineEdit#te_r31_opis_2 {
-                    background-color: #e3f2fd;
-                    border: 2px solid #2196f3;
-                    color: #1565c0;
+                    background-color: #f2f7fa;
+                    border: 1px solid #8fa9ba;
+                    color: #29485f;
+                }
+                QLineEdit#te_r31_opis_2:focus {
+                    background-color: #ffffff;
+                    border: 2px solid #3f7898;
                 }
             """
             )
@@ -2616,11 +2654,16 @@ class NaimenovanjaView(BaseTabView):
             self.lbl_status_validation.setStyleSheet(
                 "color: #856404; background: #fff3cd; font-size: 12px; font-weight: 700; padding: 2px 6px; border-radius: 3px;"
             )
+            self.lbl_status_validation.setToolTip(
+                "Kliknite za prelazak na prvo neispravno polje."
+            )
         else:
             self.lbl_status_validation.setText("✅ Sva naimenovanja kompletna")
             self.lbl_status_validation.setStyleSheet(
                 "color: #155724; background: #d4edda; font-size: 12px; font-weight: 700; padding: 2px 6px; border-radius: 3px;"
             )
+            self.lbl_status_validation.setToolTip("")
+        self._refresh_validation_highlight()
 
     def _sync_header_packages(self) -> None:
         """Calculate total package quantity across all items and write it to
@@ -2971,6 +3014,26 @@ class NaimenovanjaView(BaseTabView):
         valid = [wgt for wgt in order if wgt is not None]
         for i in range(len(valid) - 1):
             QWidget.setTabOrder(valid[i], valid[i + 1])
+
+    def _setup_keyboard_shortcuts(self) -> None:
+        self._keyboard_shortcuts = []
+        bindings = (
+            ("Ctrl+N", self._on_add_item),
+            ("Ctrl+D", self._on_delete_item),
+            ("Ctrl+S", self._on_save),
+            ("Alt+Left", self._on_previous),
+            ("Alt+A", self._on_previous),
+            ("Alt+Right", self._on_next),
+            ("Alt+D", self._on_next),
+        )
+        for sequence, handler in bindings:
+            shortcut = QShortcut(QKeySequence(sequence), self)
+            shortcut.activated.connect(handler)
+            self._keyboard_shortcuts.append(shortcut)
+        self.btn_previous.setToolTip("Prethodno naimenovanje — Alt+← / Alt+A")
+        self.btn_next.setToolTip("Sljedeće naimenovanje — Alt+→ / Alt+D")
+        self.btn_add.setToolTip("Dodaj naimenovanje — Ctrl+N")
+        self.btn_delete.setToolTip("Obriši naimenovanje — Ctrl+D")
 
     def _connect_special_field_signals(self) -> None:
         """
@@ -3645,25 +3708,30 @@ class NaimenovanjaView(BaseTabView):
         - Količina i vrijednost moraju biti > 0
         - Ako Rb.34 + Rb.36 popunjeni → Rb.44 mora biti popunjen
         """
-        errors = []
+        return list(dict.fromkeys(
+            issue["message"] for issue in self._validation_issues()
+        ))
+
+    def _validation_issues(self) -> list:
+        issues = []
 
         # Per-naimenovanje provjere
         for i, item in enumerate(self.draft.items, 1):
             item_errors = []
 
             if not (item.tariff_code or '').strip():
-                item_errors.append("nema tarifnog")
+                item_errors.append(("nema tarifnog", "le_rubrika33"))
 
             if not (item.origin_country_code or '').strip():
-                item_errors.append("nema zemlje porijekla")
+                item_errors.append(("nema zemlje porijekla", "le_rubrika34_zemlja"))
 
             # Rb.40 nije obavezna — korisnik popunjava po potrebi
 
             if not (item.package_qty or 0) > 0:
-                item_errors.append("nema količine")
+                item_errors.append(("nema količine", "le_r31_broj"))
 
             if not (item.item_value or 0) > 0:
-                item_errors.append("nema vrijednosti")
+                item_errors.append(("nema vrijednosti", "le_rubrika42"))
 
             # Ako zemlja + povlastica → mora biti Rb.44
             has_country = bool((item.origin_country_code or '').strip())
@@ -3676,12 +3744,63 @@ class NaimenovanjaView(BaseTabView):
                 (item.attached_document5 or '').strip()
             )
             if has_country and has_preference and not has_doc:
-                item_errors.append("povlastica bez Rb.44")
+                item_errors.append(("povlastica bez Rb.44", "le_rubrika44_4"))
 
             if item_errors:
-                errors.append(f"Naim. {i}: {', '.join(item_errors)}")
+                descriptions = ", ".join(text for text, _ in item_errors)
+                for text, widget_name in item_errors:
+                    issues.append({
+                        "item_index": i - 1,
+                        "widget_name": widget_name,
+                        "message": f"Naim. {i}: {descriptions}",
+                        "detail": text,
+                    })
 
-        return errors
+        return issues
+
+    def _show_first_validation_issue(self) -> None:
+        issues = self._validation_issues()
+        if not issues:
+            return
+        issue = issues[0]
+        if issue["item_index"] != self.current_item_index:
+            self._navigate_to_item(issue["item_index"])
+        self._highlight_validation_widget(issue)
+
+    def _refresh_validation_highlight(self) -> None:
+        issues = [
+            issue for issue in self._validation_issues()
+            if issue["item_index"] == self.current_item_index
+        ]
+        if issues:
+            self._highlight_validation_widget(issues[0], focus=False)
+        else:
+            self._clear_validation_highlight()
+
+    def _highlight_validation_widget(self, issue: dict, focus: bool = True) -> None:
+        self._clear_validation_highlight()
+        widget = self._get_widget(issue["widget_name"])
+        if not widget:
+            return
+        self._validation_highlight = (
+            widget, widget.styleSheet(), widget.toolTip()
+        )
+        widget.setStyleSheet(
+            widget.styleSheet()
+            + "; border: 2px solid #c94b45; background-color: #fff5f4;"
+        )
+        widget.setToolTip(f"Obavezna ispravka: {issue['detail']}")
+        if focus:
+            widget.setFocus(Qt.OtherFocusReason)
+
+    def _clear_validation_highlight(self) -> None:
+        highlighted = getattr(self, "_validation_highlight", None)
+        if not highlighted:
+            return
+        widget, original_style, original_tooltip = highlighted
+        widget.setStyleSheet(original_style)
+        widget.setToolTip(original_tooltip)
+        self._validation_highlight = None
 
     def _on_ponisti(self) -> None:
         """Poništi - reload current item"""
@@ -3727,18 +3846,7 @@ class NaimenovanjaView(BaseTabView):
 
     def keyPressEvent(self, event):
         """Keyboard shortcuts"""
-        if event.modifiers() == Qt.AltModifier:
-            if event.key() == Qt.Key_Left:
-                self._on_previous()
-            elif event.key() == Qt.Key_Right:
-                self._on_next()
-        elif event.modifiers() == Qt.ControlModifier:
-            if event.key() == Qt.Key_N:
-                self._on_add_item()
-            elif event.key() == Qt.Key_D:
-                self._on_delete_item()
-            elif event.key() == Qt.Key_S:
-                self._on_save()
+        super().keyPressEvent(event)
 
     # ============================================================
     # BaseTabView interface

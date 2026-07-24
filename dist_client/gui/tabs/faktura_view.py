@@ -47,7 +47,7 @@ from PySide6.QtCore import (
     QItemSelection,
     QItemSelectionModel,
 )
-from PySide6.QtGui import QColor, QFont, QFontMetrics, QIcon, QShortcut, QKeySequence
+from PySide6.QtGui import QColor, QFont, QFontMetrics, QIcon, QPainter, QShortcut, QKeySequence
 
 try:
     import qtawesome as qta
@@ -88,6 +88,23 @@ _PE_DOC_CODES = {"PE1", "PE2", "PE3"}
 
 
 class _InvoiceTableWidget(QTableWidget):
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if self.rowCount() != 0:
+            return
+
+        painter = QPainter(self.viewport())
+        painter.setPen(QColor("#667d8f"))
+        font = painter.font()
+        font.setPointSize(12)
+        font.setBold(True)
+        painter.setFont(font)
+        painter.drawText(
+            self.viewport().rect(),
+            Qt.AlignCenter,
+            "Nema učitanih stavki\nUčitajte glavnu listu ili fakturu za početak rada.",
+        )
+
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
             modifiers = event.modifiers()
@@ -296,6 +313,7 @@ class FakturaView(BaseTabView):
 
         # Setup UI
         self._setup_ui()
+        self._setup_keyboard_shortcuts()
 
         # Undo/redo shortcuts
         QShortcut(QKeySequence("Ctrl+Z"), self).activated.connect(self._undo)
@@ -307,6 +325,32 @@ class FakturaView(BaseTabView):
 
         # Update status bar
         self._update_status_bar()
+
+    def _setup_keyboard_shortcuts(self) -> None:
+        self._navigation_shortcuts = []
+        bindings = (
+            ("Ctrl+N", self._on_add_item),
+            ("Alt+Left", lambda: self._navigate_invoice_row(-1)),
+            ("Alt+A", lambda: self._navigate_invoice_row(-1)),
+            ("Alt+Right", lambda: self._navigate_invoice_row(1)),
+            ("Alt+D", lambda: self._navigate_invoice_row(1)),
+        )
+        for sequence, handler in bindings:
+            shortcut = QShortcut(QKeySequence(sequence), self)
+            shortcut.activated.connect(handler)
+            self._navigation_shortcuts.append(shortcut)
+        self.btn_add.setToolTip("Dodaj novu stavku ručno — Ctrl+N")
+
+    def _navigate_invoice_row(self, step: int) -> None:
+        total = self.table.rowCount()
+        if total == 0:
+            return
+        current = self.table.currentRow()
+        target = 0 if current < 0 else max(0, min(total - 1, current + step))
+        self.table.selectRow(target)
+        cell = self.table.item(target, 0)
+        if cell:
+            self.table.scrollToItem(cell)
 
     def _setup_ui(self):
         """Setup the complete UI layout."""
@@ -1381,24 +1425,38 @@ class FakturaView(BaseTabView):
 
         # Determine color based on validation result
         # ⭐ PRVO provjeri tariff similarity (žuta za fuzzy match < 0.92)
+        cell_overrides = {}
         if item.tarifni_broj and 0.70 <= tariff_sim < 0.92:
             # ŽUTA boja - fuzzy match, preporučuje se provjera
             color_hex = "#fff9c4"  # Svijetlo žuta
             tooltip = f"⚠️ Tarifni broj: {item.tarifni_broj}\n" \
                       f"Pouzdanje: {tariff_sim:.0%}\n" \
                       f"Preporučuje se ručna provjera tarifnog broja"
+            cell_overrides[4] = (color_hex, tooltip)
+            color_hex = "#ffffff"
+            tooltip = ""
         elif is_unmatched:
             # PLAVA boja za nepodudarajuće stavke (nisu pronađene u master listi)
             color_hex = "#cce5ff"  # Light blue for unmatched
             tooltip = "🔵 Nepodudarajuća stavka - nije pronađena u master listi. Popunite tarifni broj i zemlju porijekla."
+            cell_overrides[4] = (color_hex, "❌ Nedostaje tarifni broj")
+            cell_overrides[9] = (color_hex, "❌ Nedostaje zemlja porijekla")
+            color_hex = "#ffffff"
+            tooltip = ""
         elif not item.tarifni_broj or len(item.tarifni_broj.strip()) == 0:
             # CRVENA boja samo ako NEMA tarifnog broja
             color_hex = "#ffcccc"  # Red for missing tariff
             tooltip = "❌ Greška: Nedostaje tarifni broj"
+            cell_overrides[4] = (color_hex, tooltip)
+            color_hex = "#ffffff"
+            tooltip = ""
         elif not item.zemlja_porijekla or len(item.zemlja_porijekla.strip()) == 0:
             # CRVENA boja ako NEMA zemlje porijekla
             color_hex = "#ffcccc"
             tooltip = "❌ Greška: Nedostaje zemlja porijekla"
+            cell_overrides[9] = (color_hex, tooltip)
+            color_hex = "#ffffff"
+            tooltip = ""
         elif result.has_blocking_errors():
             # CRVENA boja za druge kritične greške
             color_hex = "#ffcccc"  # Red for errors
@@ -1425,15 +1483,22 @@ class FakturaView(BaseTabView):
             cell_item = self.table.item(row, col)
             if cell_item:
                 cell_item.setData(ValidationDelegate.ValidationColorRole, color_hex)
-                if tooltip:
-                    cell_item.setToolTip(tooltip)
-        
+                cell_item.setToolTip(tooltip)
+
         # DODATNO: Apply country confidence color to zemlja_porijekla column (col 8)
         self._apply_country_confidence_color(row, item)
 
         # I posebno za kolonu Povlastica — "zemlja potvrđena" NE znači
         # "povlastica potvrđena" (vidi _apply_preference_confidence_color)
         self._apply_preference_confidence_color(row, item)
+
+        for col, (cell_color, cell_tooltip) in cell_overrides.items():
+            cell_item = self.table.item(row, col)
+            if cell_item:
+                cell_item.setData(
+                    ValidationDelegate.ValidationColorRole, cell_color
+                )
+                cell_item.setToolTip(cell_tooltip)
 
     def _apply_country_confidence_color(self, row: int, item: InvoiceLine):
         """
