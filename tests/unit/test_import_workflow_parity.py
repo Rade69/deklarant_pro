@@ -23,7 +23,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from core.draft.draft import DeclarationDraft, InvoiceLine
 from gui.tabs.faktura_view import FakturaView
+from importers.import_result import ImportResult
 
 
 # ── Helperi za mock ────────────────────────────────────────────────────────
@@ -168,6 +170,45 @@ class TestManualSingleImportCurrentBehavior:
         mock_self = _mock_self_for_manual_import()
         with patch("gui.tabs.faktura_view.QMessageBox"):
             FakturaView._on_import_finished(mock_self, [])
+        mock_self._run_historical_tariff_validation.assert_called_once_with(auto=False)
+
+
+class TestManualSingleImportUnifiedWorkflow:
+    """Dokumentuje fazu 6: obični ImportResult ide kroz zajednički workflow."""
+
+    def test_import_result_primjenjuje_plan_na_draft(self):
+        mock_self = MagicMock()
+        mock_self._agent_mode = False
+        mock_self.draft = DeclarationDraft()
+        mock_self.assembly.master_list_loaded = False
+        mock_self.import_worker.filepath = "INV-006.pdf"
+        mock_self.weight_manager.accumulated_bruto_kg = 0.0
+        mock_self.weight_manager.accumulated_neto_kg = 0.0
+        mock_self._append_imported_files_message.side_effect = lambda msg, min_files=1: msg
+        mock_self.on_dirty = None
+
+        line = InvoiceLine(
+            invoice_number="INV-006",
+            tarifni_broj="3824993",
+            naziv_robe="Test proizvod",
+            kolicina=1,
+            iznos=10.0,
+        )
+        result = ImportResult(
+            items=[line],
+            bruto_kg=2.0,
+            neto_kg=1.8,
+            invoice_name="INV-006",
+        )
+
+        with patch("gui.tabs.faktura_view.QMessageBox"):
+            FakturaView._on_import_finished(mock_self, result)
+
+        assert len(mock_self.draft.invoice_lines) == 1
+        assert mock_self.draft.invoice_lines[0].invoice_number == "INV-006"
+        assert mock_self.draft.invoice_lines[0].tarifni_broj == "03824993"
+        assert mock_self.draft.invoice_weights["inv-006"] == (2.0, 1.8)
+        mock_self._on_import_finished_legacy.assert_not_called()
         mock_self._run_historical_tariff_validation.assert_called_once_with(auto=False)
 
 

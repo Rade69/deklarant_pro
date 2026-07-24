@@ -1306,3 +1306,18 @@ controller je dodaje u Fazama 6-8 prije poziva servisa.
 Faza 5 primjenjuje povlastice samo iz eksplicitnog `OriginDialogResponse.dialog_data`
 (`povlastica`/`preference_code`, `eur1_number`, `zemlja_porijekla` i flags). Ako je origin
 dijalog preskočen, Rub.36 se ne mijenja i servis ne izmišlja povlasticu.
+
+## 51. Jedinstveni import workflow — Faza 6 ručni pojedinačni import (2026-07-24)
+
+Obični ručni pojedinačni `ImportResult` u `FakturaView._on_import_finished()` sada ide
+kroz zajednički tok `from_import_result()` → `prepare_import()` → UI odluke →
+`apply_import_plan()`. Stari `_on_import_finished` ostaje kao `_on_import_finished_legacy`
+fallback za list-import/backward-compat i za Assembly/Master-list tok, jer faza 5 servis
+još ne pokriva `DeclarationAssembly.add_invoice()` matching.
+
+PE2/PE3/EUR1 dijalozi se i dalje prikazuju u View sloju, ali se njihovi podaci više ne
+primjenjuju direktno na `draft.invoice_lines` u novom običnom toku. View skuplja
+`OriginDialogResponse`, a `apply_service` razumije postojeći format dijaloga po zemlji/grupi
+(`items`, `preference`, `invoice_number`, `eur1_number`, `code`) i primjenjuje ga na kopije
+stavki tokom atomske primjene. Ovo je važno za fakture sa više zemalja porijekla; ne vraćati
+na flat povlasticu za cijelu fakturu.

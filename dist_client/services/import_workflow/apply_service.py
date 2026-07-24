@@ -155,6 +155,9 @@ def _apply_origin_decision(
         return
 
     data = response.dialog_data or {}
+    if _apply_grouped_origin_data(lines, data):
+        return
+
     preference = _first(data, "povlastica", "preference", "preference_code")
     eur1_number = _first(data, "eur1_number", "eur1", "document_number")
     origin_country = _first(data, "zemlja_porijekla", "origin_country", "origin_country_code")
@@ -172,6 +175,76 @@ def _apply_origin_decision(
             line.has_origin_statement = bool(has_statement)
         if authorized is not None:
             line.is_authorized_exporter = bool(authorized)
+
+
+def _apply_grouped_origin_data(lines: list[InvoiceLine], data: dict) -> bool:
+    groups = [value for value in data.values() if isinstance(value, dict)]
+    if not groups or not any("items" in group for group in groups):
+        return False
+
+    line_by_id = {_line_identity(line): line for line in lines}
+    for group_key, group in data.items():
+        if not isinstance(group, dict):
+            continue
+
+        item_ids = {_line_identity(item) for item in group.get("items", [])}
+        if not item_ids:
+            continue
+
+        preference = _first(group, "povlastica", "preference", "preference_code")
+        eur1_number = _first(group, "eur1_number", "eur1", "document_number", "invoice_number")
+        origin_country = _first(
+            group, "zemlja_porijekla", "origin_country", "origin_country_code", "country"
+        ) or _country_from_group_key(str(group_key))
+        doc_code = (group.get("code") or "").strip().upper()
+
+        for item_id in item_ids:
+            line = line_by_id.get(item_id)
+            if line is None:
+                continue
+            if preference:
+                line.povlastica = preference
+            if eur1_number:
+                line.eur1_number = eur1_number
+            if origin_country and not getattr(line, "zemlja_porijekla", ""):
+                line.zemlja_porijekla = origin_country
+            if doc_code in {"PE2", "PE3"}:
+                line.has_origin_statement = True
+                line.is_authorized_exporter = doc_code == "PE3"
+            elif "eur1_number" in group:
+                line.has_origin_statement = False
+
+            if preference or eur1_number:
+                line.country_confidence = "HIGH"
+                line.country_conflict_details = ""
+                if doc_code in {"PE2", "PE3"}:
+                    line.country_source = "PDF_IZJAVA"
+                elif "eur1_number" in group:
+                    line.country_source = "EUR1_POTVRDA"
+    return True
+
+
+def _line_identity(line: InvoiceLine) -> tuple:
+    return (
+        getattr(line, "line_no", None),
+        getattr(line, "invoice_number", ""),
+        getattr(line, "product_code", ""),
+        getattr(line, "naziv_robe", ""),
+        getattr(line, "tarifni_broj", ""),
+        getattr(line, "zemlja_porijekla", ""),
+        getattr(line, "kolicina", None),
+        getattr(line, "iznos", None),
+    )
+
+
+def _country_from_group_key(key: str) -> str:
+    if " - " in key:
+        country = key.split(" - ")[-1].strip()
+    else:
+        country = key.strip()
+    if "|rb" in country:
+        country = country.split("|rb", 1)[0].strip()
+    return country
 
 
 def _apply_header_if_empty(draft: DeclarationDraft, invoice: PreparedInvoice) -> None:

@@ -3260,7 +3260,297 @@ class FakturaView(BaseTabView):
 
                 self._notify_data_changed()
 
+    def _can_use_unified_manual_import(self, result) -> bool:
+        if not isinstance(result, ImportResult):
+            return False
+        if getattr(self.assembly, "master_list_loaded", False):
+            return False
+        return isinstance(getattr(self.draft, "invoice_weights", None), dict)
+
+    def _manual_import_source_path(self) -> str:
+        return getattr(self.import_worker, "filepath", "") or ""
+
+    def _existing_invoice_keys_for_import_workflow(self) -> set[str]:
+        keys = set(getattr(self.draft, "invoice_weights", {}) or {})
+        for line in getattr(self.draft, "invoice_lines", []) or []:
+            key = normalize_invoice_key(getattr(line, "invoice_number", "") or "")
+            if key:
+                keys.add(key)
+        return keys
+
+    def _expected_import_partners(self) -> tuple[str, str]:
+        exporter = getattr(self, "_expected_exporter", "") or getattr(
+            self.draft, "izvoznik_naziv", ""
+        )
+        importer = getattr(self, "_expected_importer", "") or getattr(
+            self.draft, "primalac_naziv", ""
+        )
+        return exporter or "", importer or ""
+
+    def _prepare_manual_import_plan(self, result: ImportResult):
+        from services.import_workflow.adapters import from_import_result
+        from services.import_workflow.prepare_service import prepare_import
+
+        candidate = from_import_result(result, self._manual_import_source_path())
+        expected_exporter, expected_importer = FakturaView._expected_import_partners(self)
+        return prepare_import(
+            [candidate],
+            existing_invoice_keys=FakturaView._existing_invoice_keys_for_import_workflow(self),
+            expected_exporter=expected_exporter,
+            expected_importer=expected_importer,
+            expected_currency=getattr(self.draft, "valuta", "") or "",
+        )
+
+    def _collect_manual_import_decisions(self, plan):
+        from services.import_workflow.decision_models import (
+            CurrencyConflictResponse,
+            InvoiceDecision,
+            PartnerConflictResolution,
+            PartnerConflictResponse,
+            UserDecisions,
+        )
+
+        decisions = UserDecisions()
+        for invoice in plan.invoices:
+            decisions.invoice_decisions[invoice.internal_key] = InvoiceDecision(
+                invoice_key=invoice.internal_key
+            )
+
+        if plan.partner_conflicts:
+            if not self._confirm_import_partner_conflicts(plan.partner_conflicts):
+                decisions.aborted = True
+                return decisions
+            for conflict in plan.partner_conflicts:
+                decisions.partner_conflict_responses.append(
+                    PartnerConflictResponse(
+                        invoice_key=conflict.invoice_key,
+                        field_name=conflict.field_name,
+                        expected=conflict.expected,
+                        actual=conflict.actual,
+                        resolution=PartnerConflictResolution.CONTINUE,
+                    )
+                )
+
+        if plan.currency_conflicts:
+            if not self._confirm_import_currency_conflicts(plan.currency_conflicts):
+                decisions.aborted = True
+                return decisions
+            for conflict in plan.currency_conflicts:
+                decisions.currency_conflict_responses.append(
+                    CurrencyConflictResponse(
+                        invoice_key=conflict.invoice_key,
+                        expected=conflict.expected,
+                        actual=conflict.actual,
+                        resolution=PartnerConflictResolution.CONTINUE,
+                    )
+                )
+
+        invoice_by_key = {invoice.internal_key: invoice for invoice in plan.invoices}
+        for invoice_key, dialog_type in plan.origin_dialogs_needed:
+            invoice = invoice_by_key.get(invoice_key)
+            if invoice is None:
+                continue
+            response = self._collect_manual_origin_response(invoice, dialog_type)
+            decisions.invoice_decisions[invoice_key].origin_response = response
+
+        return decisions
+
+    def _confirm_import_partner_conflicts(self, conflicts) -> bool:
+        lines = []
+        labels = {"exporter": "Pošiljalac (izvoznik)", "importer": "Uvoznik (primalac)"}
+        for conflict in conflicts:
+            label = labels.get(conflict.field_name, conflict.field_name)
+            lines.append(
+                f"<b>{label}:</b><br>"
+                f"&nbsp;&nbsp;Očekivano: <b>{conflict.expected}</b><br>"
+                f"&nbsp;&nbsp;Uvezeno:&nbsp;&nbsp; <b>{conflict.actual}</b>"
+            )
+
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Upozorenje — Pogrešan partner?")
+        msg.setIcon(QMessageBox.Icon.Warning)
+        msg.setTextFormat(Qt.TextFormat.RichText)
+        msg.setText(
+            "<b>⚠️ Podaci o partnerima se razlikuju od prethodnog uvoza!</b><br><br>"
+            + "<br><br>".join(lines)
+            + "<br><br>Da li želite nastaviti sa ovim uvozom?"
+        )
+        msg.setStandardButtons(
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        msg.setDefaultButton(QMessageBox.StandardButton.No)
+        msg.button(QMessageBox.StandardButton.Yes).setText("Nastavi svejedno")
+        msg.button(QMessageBox.StandardButton.No).setText("Odustani od uvoza")
+        return msg.exec() == QMessageBox.StandardButton.Yes
+
+    def _confirm_import_currency_conflicts(self, conflicts) -> bool:
+        details = "\n".join(
+            f"- Očekivano: {c.expected}, uvezeno: {c.actual}" for c in conflicts
+        )
+        reply = QMessageBox.question(
+            self,
+            "Upozorenje — različita valuta",
+            "Valuta uvezene fakture razlikuje se od valute u draftu.\n\n"
+            f"{details}\n\n"
+            "Da li želite nastaviti sa ovim uvozom?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        return reply == QMessageBox.Yes
+
+    def _collect_manual_origin_response(self, invoice, dialog_type):
+        from services.import_workflow.decision_models import (
+            OriginDialogResolution,
+            OriginDialogResponse,
+        )
+        from services.import_workflow.plan_models import OriginDialogType
+
+        dialog_data = {}
+        result = QDialog.Rejected
+        if dialog_type == OriginDialogType.PE2:
+            dialog = PE2QuickDialog(
+                invoice.invoice_lines, self,
+                invoice_number=invoice.invoice_number,
+                doc_code="PE2",
+            )
+            result = exec_dialog_preserving_geometry(dialog, self)
+            if result == QDialog.Accepted:
+                dialog_data = dialog.get_data()
+        elif dialog_type == OriginDialogType.PE3:
+            dialog = PE2QuickDialog(
+                invoice.invoice_lines, self,
+                invoice_number=invoice.invoice_number,
+                doc_code="PE3",
+            )
+            result = exec_dialog_preserving_geometry(dialog, self)
+            if result == QDialog.Accepted:
+                dialog_data = dialog.get_data()
+        elif dialog_type == OriginDialogType.EUR1:
+            dialog = Eur1QuickDialog(
+                invoice.invoice_lines, self,
+                invoice_number=invoice.invoice_number,
+            )
+            result = exec_dialog_preserving_geometry(dialog, self)
+            if result == QDialog.Accepted:
+                dialog_data = dialog.get_data()
+
+        resolution = (
+            OriginDialogResolution.APPLIED
+            if result == QDialog.Accepted and dialog_data
+            else OriginDialogResolution.SKIPPED
+        )
+        return OriginDialogResponse(
+            invoice_key=invoice.internal_key,
+            dialog_type=dialog_type,
+            resolution=resolution,
+            dialog_data=dialog_data,
+        )
+
+    def _sync_import_workflow_state_after_apply(self, plan, apply_result) -> None:
+        self.weight_manager.accumulated_bruto_kg = 0.0
+        self.weight_manager.accumulated_neto_kg = 0.0
+        for bruto, neto in (getattr(self.draft, "invoice_weights", {}) or {}).values():
+            self.weight_manager.accumulated_bruto_kg += bruto or 0.0
+            self.weight_manager.accumulated_neto_kg += neto or 0.0
+        self.input_bruto.setText(self._format_weight(self.weight_manager.accumulated_bruto_kg))
+        self.input_neto.setText(self._format_weight(self.weight_manager.accumulated_neto_kg))
+
+        applied_keys = set(apply_result.applied_invoice_keys)
+        applied = [invoice for invoice in plan.invoices if invoice.internal_key in applied_keys]
+        if applied:
+            self.last_invoice_name = applied[-1].invoice_number or applied[-1].display_name
+            self.last_import_count = len(applied[-1].invoice_lines)
+            exporter = applied[-1].exporter.name if applied[-1].exporter else ""
+            importer = applied[-1].importer.name if applied[-1].importer else ""
+            if exporter:
+                self._expected_exporter = exporter
+            if importer:
+                self._expected_importer = importer
+
+    def _show_manual_import_workflow_result(self, plan, apply_result) -> None:
+        title = "Uvoz uspješan"
+        if not apply_result.success:
+            QMessageBox.warning(self, "Uvoz nije primijenjen", apply_result.message)
+            return
+
+        names = apply_result.applied_invoice_numbers or [
+            invoice.display_name
+            for invoice in plan.invoices
+            if invoice.internal_key in set(apply_result.applied_invoice_keys)
+        ]
+        invoice_name = names[-1] if names else "faktura"
+        message = (
+            f"Uspješno uvezeno {apply_result.total_items} stavki iz '{invoice_name}'.\n\n"
+        )
+        if apply_result.added_invoices:
+            message += f"Faktura dodano: {apply_result.added_invoices}\n"
+        if apply_result.replaced_invoices:
+            message += f"Faktura zamijenjeno: {apply_result.replaced_invoices}\n"
+        if apply_result.skipped_invoices:
+            message += f"Faktura preskočeno: {apply_result.skipped_invoices}\n"
+        if apply_result.total_bruto_kg or apply_result.total_neto_kg:
+            message += "\n"
+            message += f"Bruto: {self._format_weight(apply_result.total_bruto_kg)} kg\n"
+            message += f"Neto: {self._format_weight(apply_result.total_neto_kg)} kg\n"
+            message += "\nAkumulirano ukupno:\n"
+            message += f"- Bruto: {self._format_weight(self.weight_manager.accumulated_bruto_kg)} kg\n"
+            message += f"- Neto: {self._format_weight(self.weight_manager.accumulated_neto_kg)} kg\n"
+        if apply_result.warnings:
+            message += "\n⚠️ Upozorenja:\n"
+            for warning in apply_result.warnings[:5]:
+                message += f"- {warning}\n"
+            if len(apply_result.warnings) > 5:
+                message += f"... i još {len(apply_result.warnings) - 5}\n"
+
+        message = self._append_imported_files_message(message, min_files=2)
+        QMessageBox.information(self, title, message)
+
     def _on_import_finished(self, result):
+        if not FakturaView._can_use_unified_manual_import(self, result):
+            return FakturaView._on_import_finished_legacy(self, result)
+
+        try:
+            self.progress_bar.setVisible(False)
+            self.progress_bar.setValue(0)
+            self._push_undo_snapshot()
+
+            plan = FakturaView._prepare_manual_import_plan(self, result)
+            if plan.is_empty:
+                QMessageBox.warning(
+                    self,
+                    "Uvoz nije primijenjen",
+                    "Parser nije vratio nijednu stavku za primjenu.",
+                )
+                return
+
+            decisions = FakturaView._collect_manual_import_decisions(self, plan)
+            if decisions.aborted:
+                self.progress_bar.setVisible(False)
+                return
+
+            from services.import_workflow.apply_service import apply_import_plan
+
+            apply_result = apply_import_plan(self.draft, plan, decisions)
+            if not apply_result.success:
+                QMessageBox.warning(self, "Uvoz nije primijenjen", apply_result.message)
+                return
+
+            self._track_file_type()
+            FakturaView._sync_import_workflow_state_after_apply(self, plan, apply_result)
+            self._load_data_from_draft()
+            self._update_weight_totals()
+            self._set_buttons_enabled(True)
+            FakturaView._show_manual_import_workflow_result(self, plan, apply_result)
+            self._update_status_bar()
+            self._run_historical_tariff_validation(auto=False)
+
+            if self.on_dirty:
+                self.on_dirty()
+            self.data_changed.emit()
+        finally:
+            self._cleanup_import_worker()
+
+    def _on_import_finished_legacy(self, result):
         """Handle successful import.
 
         Args:

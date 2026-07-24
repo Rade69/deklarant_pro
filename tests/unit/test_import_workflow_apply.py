@@ -162,6 +162,7 @@ def test_apply_origin_response_only_when_applied():
     )
     plan = prepare_import([candidate])
     key = plan.invoices[0].internal_key
+    prepared_de = plan.invoices[0].invoice_lines[0]
     decisions = make_empty_decisions()
     decisions.invoice_decisions[key] = InvoiceDecision(
         invoice_key=key,
@@ -179,6 +180,44 @@ def test_apply_origin_response_only_when_applied():
     assert draft.invoice_lines[0].povlastica == "EUPR"
     assert draft.invoice_lines[0].eur1_number == "INV-001"
     assert draft.invoice_lines[0].has_origin_statement is True
+
+
+def test_apply_origin_response_supports_grouped_dialog_data():
+    draft = DeclarationDraft()
+    line_de = _line(invoice_number="INV-001", country="DE")
+    line_it = _line(invoice_number="INV-001", country="IT")
+    candidate = _candidate(
+        lines=[line_de, line_it],
+        has_origin_statement=True,
+    )
+    plan = prepare_import([candidate])
+    key = plan.invoices[0].internal_key
+    prepared_de = plan.invoices[0].invoice_lines[0]
+    decisions = make_empty_decisions()
+    decisions.invoice_decisions[key] = InvoiceDecision(
+        invoice_key=key,
+        origin_response=OriginDialogResponse(
+            invoice_key=key,
+            dialog_type=OriginDialogType.PE2,
+            resolution=OriginDialogResolution.APPLIED,
+            dialog_data={
+                "DE": {
+                    "code": "PE2",
+                    "preference": "EUPR",
+                    "invoice_number": "INV-001",
+                    "items": [prepared_de],
+                }
+            },
+        ),
+    )
+
+    result = apply_import_plan(draft, plan, decisions)
+
+    assert result.success is True
+    assert draft.invoice_lines[0].povlastica == "EUPR"
+    assert draft.invoice_lines[0].eur1_number == "INV-001"
+    assert draft.invoice_lines[0].has_origin_statement is True
+    assert draft.invoice_lines[1].povlastica == ""
 
 
 def test_apply_keeps_existing_header_values():
