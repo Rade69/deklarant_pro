@@ -1272,3 +1272,21 @@ izlaska iz `with psycopg2.connect(...)` bloka, pa se transakcija može rollbacko
 ne ostane kreiran. Migracija zato mora imati ASCII-safe završni ispis. Tabela trenutno ima
 samo 28 redova, pa PostgreSQL normalno bira Seq Scan i nakon indeksa; forsirani plan
 (`SET LOCAL enable_seqscan = off`) potvrđuje da je GIN indeks upotrebljiv.
+
+## 49. Jedinstveni import workflow — korekcije Faza 2-4 (2026-07-24)
+
+Neutralni import workflow prije UI integracije mora tretirati `consumed_paths` i
+parserov `is_combined=True` kao jedini autoritativni dokaz da su dva fizička fajla
+jedna logička faktura. Isti `invoice_number` sam po sebi nije dovoljan za sabiranje
+stavki i težina; drugi isti broj u batchu ide kao `DraftOperation.SKIP` dok korisnik
+ili budući servis primjene ne odluči drugačije.
+
+`services.import_workflow.prepare_service` koristi isključivo
+`services.faktura.weight_guards.normalize_invoice_key` za poređenje faktura, jer crtice
+u broju fakture moraju ostati semantički značajne kao u postojećem Faktura toku.
+Prepare faza radi na kopijama `InvoiceLine` objekata i ne smije mutirati parser/agent
+izvorne rezultate prije korisničke potvrde.
+
+Korisničke odluke u Fazi 4 su obavezno vezane za `invoice_key`: `ABORT` za partner ili
+valutu prekida cijeli plan, `SKIP_INVOICE` izbacuje samo tu fakturu, a
+`DraftOperation.SKIP` se nikad ne smije pojaviti u listi faktura za primjenu.

@@ -51,6 +51,7 @@ class OriginDialogResponse:
 @dataclass
 class PartnerConflictResponse:
     """Odgovor korisnika na konflikt partnera."""
+    invoice_key: str
     field_name: str  # 'exporter' ili 'importer'
     expected: str
     actual: str
@@ -60,6 +61,7 @@ class PartnerConflictResponse:
 @dataclass
 class CurrencyConflictResponse:
     """Odgovor korisnika na konflikt valute."""
+    invoice_key: str
     expected: str
     actual: str
     resolution: PartnerConflictResolution
@@ -93,6 +95,7 @@ class UserDecisions:
 
     # Odgovor na konflikt valute (ako ga je bilo).
     currency_conflict_response: Optional[CurrencyConflictResponse] = None
+    currency_conflict_responses: list[CurrencyConflictResponse] = field(default_factory=list)
 
     def get_invoice_decision(self, invoice_key: str) -> InvoiceDecision:
         """Vrati odluku za fakturu (default: apply=True, bez origin response)."""

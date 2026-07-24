@@ -172,6 +172,7 @@ class TestValidateDecisions:
         if plan.partner_conflicts:
             conflict = plan.partner_conflicts[0]
             decisions.partner_conflict_responses.append(PartnerConflictResponse(
+                invoice_key=conflict.invoice_key,
                 field_name=conflict.field_name,
                 expected=conflict.expected,
                 actual=conflict.actual,
@@ -190,10 +191,11 @@ class TestValidateDecisions:
         plan = _make_plan_with_currency_conflict()
         decisions = make_empty_decisions()
         if plan.currency_conflict:
-            expected, actual = plan.currency_conflict
+            conflict = plan.currency_conflicts[0]
             decisions.currency_conflict_response = CurrencyConflictResponse(
-                expected=expected,
-                actual=actual,
+                invoice_key=conflict.invoice_key,
+                expected=conflict.expected,
+                actual=conflict.actual,
                 resolution=PartnerConflictResolution.CONTINUE,
             )
         errors = validate_decisions(plan, decisions)
@@ -282,6 +284,67 @@ class TestInvoicesToApply:
         decisions = make_empty_decisions()
         result = invoices_to_apply(plan, decisions)
         assert len(result) == 2
+
+    def test_draft_operation_skip_se_ne_primjenjuje(self):
+        c1 = _make_candidate(source_path="/tmp/INV-001.pdf", invoice_number="INV-001")
+        c2 = _make_candidate(source_path="/tmp/INV-002.pdf", invoice_number="INV-001")
+        plan = prepare_import([c1, c2])
+        decisions = make_empty_decisions()
+        result = invoices_to_apply(plan, decisions)
+        assert len(result) == 1
+        assert result[0].draft_operation == DraftOperation.ADD
+
+    def test_partner_skip_invoice_se_ne_primjenjuje(self):
+        plan = _make_plan_with_partner_conflict()
+        conflict = plan.partner_conflicts[0]
+        decisions = make_empty_decisions()
+        decisions.partner_conflict_responses.append(PartnerConflictResponse(
+            invoice_key=conflict.invoice_key,
+            field_name=conflict.field_name,
+            expected=conflict.expected,
+            actual=conflict.actual,
+            resolution=PartnerConflictResolution.SKIP_INVOICE,
+        ))
+        result = invoices_to_apply(plan, decisions)
+        assert all(inv.internal_key != conflict.invoice_key for inv in result)
+
+    def test_partner_abort_vraca_prazno(self):
+        plan = _make_plan_with_partner_conflict()
+        conflict = plan.partner_conflicts[0]
+        decisions = make_empty_decisions()
+        decisions.partner_conflict_responses.append(PartnerConflictResponse(
+            invoice_key=conflict.invoice_key,
+            field_name=conflict.field_name,
+            expected=conflict.expected,
+            actual=conflict.actual,
+            resolution=PartnerConflictResolution.ABORT,
+        ))
+        assert invoices_to_apply(plan, decisions) == []
+
+    def test_currency_skip_invoice_se_ne_primjenjuje(self):
+        plan = _make_plan_with_currency_conflict()
+        conflict = plan.currency_conflicts[0]
+        decisions = make_empty_decisions()
+        decisions.currency_conflict_responses.append(CurrencyConflictResponse(
+            invoice_key=conflict.invoice_key,
+            expected=conflict.expected,
+            actual=conflict.actual,
+            resolution=PartnerConflictResolution.SKIP_INVOICE,
+        ))
+        result = invoices_to_apply(plan, decisions)
+        assert all(inv.internal_key != conflict.invoice_key for inv in result)
+
+    def test_currency_abort_vraca_prazno(self):
+        plan = _make_plan_with_currency_conflict()
+        conflict = plan.currency_conflicts[0]
+        decisions = make_empty_decisions()
+        decisions.currency_conflict_responses.append(CurrencyConflictResponse(
+            invoice_key=conflict.invoice_key,
+            expected=conflict.expected,
+            actual=conflict.actual,
+            resolution=PartnerConflictResolution.ABORT,
+        ))
+        assert invoices_to_apply(plan, decisions) == []
 
 
 # ── make_aborted / make_empty ──────────────────────────────────────────────

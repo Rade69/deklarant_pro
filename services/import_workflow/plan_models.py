@@ -32,7 +32,16 @@ class OriginDialogType(str, Enum):
 @dataclass
 class PartnerConflict:
     """Konflikt partnera između faktura u batchu ili sa postojećim draft-om."""
+    invoice_key: str
     field_name: str  # 'exporter' ili 'importer'
+    expected: str
+    actual: str
+
+
+@dataclass
+class CurrencyConflict:
+    """Konflikt valute za konkretnu fakturu."""
+    invoice_key: str
     expected: str
     actual: str
 
@@ -121,7 +130,7 @@ class ImportPlan:
 
     # ── Konflikti partnera/valute (zahtijevaju korisničku odluku) ──
     partner_conflicts: list[PartnerConflict] = field(default_factory=list)
-    currency_conflict: Optional[tuple[str, str]] = None  # (očekivana, stvarna)
+    currency_conflicts: list[CurrencyConflict] = field(default_factory=list)
 
     # ── Sve potrebne PE2/PE3/EUR1 odluke ──────────────────────────
     # (jedna po logičkoj fakturi, ne po fizičkom fajlu)
@@ -141,7 +150,15 @@ class ImportPlan:
     @property
     def has_conflicts(self) -> bool:
         """Da li plan ima konflikte koji zahtijevaju korisničku odluku."""
-        return bool(self.partner_conflicts) or self.currency_conflict is not None
+        return bool(self.partner_conflicts) or bool(self.currency_conflicts)
+
+    @property
+    def currency_conflict(self) -> Optional[tuple[str, str]]:
+        """Backward-compatible prvi konflikt valute kao tuple."""
+        if not self.currency_conflicts:
+            return None
+        conflict = self.currency_conflicts[0]
+        return (conflict.expected, conflict.actual)
 
     @property
     def has_origin_dialogs(self) -> bool:

@@ -106,6 +106,20 @@ class TestFromImportResult:
         assert candidate.explicit_invoice_number == "INV-001"
         assert candidate.display_name == "INV-001"
 
+    def test_ne_tretira_filename_fallback_kao_explicit_broj(self):
+        result = _make_import_result()
+        result.invoice_name = "scan_final_v2"
+        result.items[0].invoice_number = ""
+        candidate = from_import_result(result, source_path="/tmp/scan_final_v2.pdf")
+        assert candidate.explicit_invoice_number == ""
+        assert candidate.display_name == "scan_final_v2"
+
+    def test_kopira_stavke_da_prepare_ne_mutira_parser_result(self):
+        result = _make_import_result()
+        candidate = from_import_result(result, source_path="/tmp/INV-001.pdf")
+        candidate.invoice_lines[0].tarifni_broj = "changed"
+        assert result.items[0].tarifni_broj == "08052190"
+
     def test_cuva_partnere(self):
         result = _make_import_result()
         candidate = from_import_result(result, source_path="/tmp/INV-001.pdf")
@@ -209,6 +223,12 @@ class TestFromFileItem:
         item.is_combined = True
         candidate = from_file_item(item)
         assert candidate.is_combined is True
+
+    def test_kopira_stavke_da_prepare_ne_mutira_file_item(self):
+        item = _make_file_item()
+        candidate = from_file_item(item)
+        candidate.invoice_lines[0].tarifni_broj = "changed"
+        assert item.invoice_lines[0].tarifni_broj == "08052190"
 
 
 # ── Paritet: isti podaci iz oba izvora daju isti ImportCandidate ──────────

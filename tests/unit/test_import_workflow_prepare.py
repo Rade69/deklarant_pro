@@ -194,9 +194,9 @@ class TestPrepareGrouping:
         c2 = _make_candidate(source_path="/tmp/INV-001-packing.pdf",
                              invoice_number="INV-001")
         plan = prepare_import([c1, c2])
-        # Oba fajla sa istim brojem → jedna logička faktura
-        assert len(plan.invoices) == 1
-        assert plan.invoices[0].item_count == 2  # po jedna stavka iz svakog fajla
+        assert len(plan.invoices) == 2
+        assert plan.invoices[0].draft_operation == DraftOperation.ADD
+        assert plan.invoices[1].draft_operation == DraftOperation.SKIP
 
     def test_razliciti_brojevi_zasebne_fakture(self):
         c1 = _make_candidate(source_path="/tmp/INV-001.pdf", invoice_number="INV-001")
@@ -233,19 +233,22 @@ class TestPrepareDraftOperation:
 
     def test_postojeci_invoice_replace(self):
         c = _make_candidate(invoice_number="INV-001")
-        existing = {"inv001"}
+        existing = {"inv-001"}
         plan = prepare_import([c], existing_invoice_keys=existing)
         assert plan.invoices[0].draft_operation == DraftOperation.REPLACE
 
+    def test_invoice_key_cuva_crtice_kao_kanonski_weight_guards(self):
+        c = _make_candidate(invoice_number="INV-1")
+        plan = prepare_import([c], existing_invoice_keys={"inv1"})
+        assert plan.invoices[0].draft_operation == DraftOperation.ADD
+
     def test_duplikat_u_batchu_skip(self):
-        # Dva fajla sa istim brojem → prvi ADD, drugi preskočen u grupi
-        # Ali grupisanje ih spaja u jednu fakturu, pa nema SKIP ovde.
-        # SKIP bi bio ako bi ista faktura došla dvaput kao zasebne grupe.
         c1 = _make_candidate(source_path="/tmp/INV-001.pdf", invoice_number="INV-001")
         c2 = _make_candidate(source_path="/tmp/INV-002.pdf", invoice_number="INV-001")
         plan = prepare_import([c1, c2])
-        # Oba su grupisana u jednu fakturu
-        assert len(plan.invoices) == 1
+        assert len(plan.invoices) == 2
+        assert plan.invoices[0].draft_operation == DraftOperation.ADD
+        assert plan.invoices[1].draft_operation == DraftOperation.SKIP
 
 
 # ── prepare_import — konflikti ─────────────────────────────────────────────
@@ -274,6 +277,8 @@ class TestPrepareConflicts:
                              currency="USD")
         plan = prepare_import([c1, c2])
         assert plan.currency_conflict is not None
+        assert len(plan.currency_conflicts) == 1
+        assert plan.currency_conflicts[0].invoice_key == plan.invoices[1].internal_key
 
     def test_ista_valuta_bez_konflikta(self):
         c1 = _make_candidate(currency="EUR")
@@ -359,3 +364,10 @@ class TestPrepareInvoiceIdentity:
         plan = prepare_import([c])
         assert plan.invoices[0].invoice_number == ""
         assert plan.invoices[0].has_reliable_invoice_number is False
+
+    def test_prepare_ne_mutira_source_linije(self):
+        lines = [_make_line(invoice_number="", tarifni_broj="0805.21.90")]
+        c = _make_candidate(invoice_lines=lines, invoice_number="INV-001")
+        prepare_import([c])
+        assert lines[0].tarifni_broj == "0805.21.90"
+        assert lines[0].invoice_number == ""

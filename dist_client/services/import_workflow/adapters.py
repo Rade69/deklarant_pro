@@ -14,6 +14,7 @@ modul nivou.
 
 from __future__ import annotations
 
+from copy import deepcopy
 from pathlib import Path
 
 from services.import_workflow.models import (
@@ -34,14 +35,24 @@ def from_import_result(result, source_path: str = "") -> ImportCandidate:
     # ImportResult nema filepath polje — koristi source_path ili invoice_name
     path = source_path or getattr(result, "invoice_name", "") or "unknown"
     display_name = getattr(result, "invoice_name", "") or Path(path).stem
+    invoice_name = (getattr(result, "invoice_name", "") or "").strip()
+    source_stem = Path(source_path).stem if source_path else ""
+    line_numbers = {
+        (getattr(line, "invoice_number", "") or "").strip()
+        for line in getattr(result, "items", []) or []
+        if (getattr(line, "invoice_number", "") or "").strip()
+    }
+    explicit_invoice_number = ""
+    if invoice_name and (source_stem and invoice_name != source_stem or invoice_name in line_numbers):
+        explicit_invoice_number = invoice_name
 
     return ImportCandidate(
         source_path=path,
         normalized_path=_normalize_path(path),
         file_type=_detect_file_type(path),
         parser=getattr(result, "import_type", ""),
-        invoice_lines=list(result.items),
-        explicit_invoice_number=getattr(result, "invoice_name", ""),
+        invoice_lines=deepcopy(list(result.items)),
+        explicit_invoice_number=explicit_invoice_number,
         display_name=display_name,
         bruto_kg=getattr(result, "bruto_kg", 0.0) or 0.0,
         neto_kg=getattr(result, "neto_kg", 0.0) or 0.0,
@@ -76,7 +87,7 @@ def from_file_item(file_item) -> ImportCandidate:
         normalized_path=_normalize_path(path),
         file_type=getattr(file_item, "file_type", "") or _detect_file_type(path),
         parser=getattr(file_item, "detected_parser", "") or getattr(file_item, "parser", ""),
-        invoice_lines=list(getattr(file_item, "invoice_lines", []) or []),
+        invoice_lines=deepcopy(list(getattr(file_item, "invoice_lines", []) or [])),
         explicit_invoice_number=explicit_number,
         display_name=display_name,
         bruto_kg=getattr(file_item, "bruto_kg", 0.0) or 0.0,

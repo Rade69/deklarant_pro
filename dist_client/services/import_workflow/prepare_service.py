@@ -22,11 +22,13 @@ se samo PRIPREME — primjena je Faza 5.
 from __future__ import annotations
 
 import re
+from copy import deepcopy
 from typing import Optional
 
 from core.draft.draft import InvoiceLine, Party
 from services.import_workflow.models import ImportCandidate
 from services.import_workflow.plan_models import (
+    CurrencyConflict,
     DraftOperation,
     FailedFile,
     ImportPlan,
@@ -99,12 +101,15 @@ def determine_origin_dialog(
     invoice_lines: list[InvoiceLine],
     has_origin_statement: bool,
     is_authorized_exporter: bool,
+    eur1_suggested: bool = False,
 ) -> OriginDialogType:
     """Odredi tip dijaloga za porijeklo robe.
 
     Preuzeto iz import_pipeline_service._origin_dialog_type — ista logika,
     ali vraća enum umjesto stringa.
     """
+    if eur1_suggested:
+        return OriginDialogType.EUR1
     if has_origin_statement:
         if is_authorized_exporter:
             return OriginDialogType.PE3
@@ -186,10 +191,7 @@ def prepare_import(
 
     # ── Korak 3: Grupisanje u logičke fakture ──────────────────────
     # Kombinovani rezultat (is_combined=True) je već jedna logička faktura.
-    # Samostalni fajlovi se grupišu po pouzdanom invoice_numberu (ako postoji)
-    # ili ostaju zasebni.
     groups: list[list[ImportCandidate]] = []
-    grouped_by_number: dict[str, list[ImportCandidate]] = {}
     for c in deduped:
         # Neuspjeli (bez stavki) idu u failed
         if not c.has_items:
@@ -202,16 +204,7 @@ def prepare_import(
         if c.is_combined:
             groups.append([c])
             continue
-        # Grupiši po pouzdanom broju fakture
-        if c.has_explicit_invoice_number:
-            key = c.explicit_invoice_number.strip()
-            if key not in grouped_by_number:
-                grouped_by_number[key] = []
-                groups.append(grouped_by_number[key])
-            grouped_by_number[key].append(c)
-        else:
-            # Bez pouzdanog broja — zasebna grupa
-            groups.append([c])
+        groups.append([c])
 
     # ── Korak 4-9: Pripremi svaku logičku fakturu ──────────────────
     seen_invoice_numbers: set[str] = set()
@@ -219,7 +212,9 @@ def prepare_import(
         prepared = _prepare_invoice(group, idx, existing_keys, seen_invoice_numbers)
         if prepared is not None:
             plan.invoices.append(prepared)
-            seen_invoice_numbers.add(prepared.invoice_number)
+            if prepared.invoice_number:
+                seen_invoice_numbers.add(_normalize_invoice_key(prepared.invoice_number))
+            plan.warnings.extend(prepared.warnings)
 
     # ── Provjeri konflikte partnera/valute ──────────────────────────
     _detect_conflicts(plan, expected_exporter, expected_importer, expected_currency)
@@ -232,6 +227,7 @@ def prepare_import(
             plan.expected_replace_count += 1
         else:
             plan.expected_skip_count += 1
+            continue
         plan.expected_total_items += inv.item_count
         plan.expected_total_bruto += inv.bruto_kg
         plan.expected_total_neto += inv.neto_kg
@@ -252,7 +248,7 @@ def _prepare_invoice(
     # Objedini stavke iz svih fajlova grupe
     all_lines: list[InvoiceLine] = []
     for c in group:
-        all_lines.extend(c.invoice_lines)
+        all_lines.extend(deepcopy(c.invoice_lines))
 
     # Normalizuj tarifne brojeve (Korak 6)
     for line in all_lines:
@@ -270,7 +266,7 @@ def _prepare_invoice(
 
     # Interni ključ (stabilan, za grupisanje — ne poslovni broj)
     if invoice_number:
-        internal_key = f"inv:{invoice_number}"
+        internal_key = f"inv:{_normalize_invoice_key(invoice_number)}:{idx + 1}"
     else:
         internal_key = f"path:{group[0].normalized_path}"
 
@@ -287,6 +283,7 @@ def _prepare_invoice(
     is_authorized_exporter = False
     origin_statements = None
     source_paths = [c.source_path for c in group]
+    warnings: list[str] = []
 
     for c in group:
         if exporter is None and c.exporter is not None:
@@ -303,19 +300,23 @@ def _prepare_invoice(
             is_authorized_exporter = True
         if c.origin_statements:
             origin_statements = c.origin_statements
+        warnings.extend(c.warnings)
+        warnings.extend(c.errors)
 
     # PE2/PE3/EUR1 zahtjev (Korak 8)
     origin_dialog = determine_origin_dialog(
-        all_lines, has_origin_statement, is_authorized_exporter
+        all_lines, has_origin_statement, is_authorized_exporter, eur1_suggested
     )
 
     # Plan ADD/REPLACE/SKIP (Korak 9)
     # Ako invoice_number već postoji u draftu → REPLACE
     # Ako je već viđen u ovom batchu → SKIP (duplikat)
     # Inače → ADD
-    if invoice_number and _normalize_invoice_key(invoice_number) in existing_keys:
+    normalized_invoice = _normalize_invoice_key(invoice_number)
+    normalized_existing = {_normalize_invoice_key(key) for key in existing_keys}
+    if invoice_number and normalized_invoice in normalized_existing:
         draft_op = DraftOperation.REPLACE
-    elif invoice_number and invoice_number in seen_numbers:
+    elif invoice_number and normalized_invoice in seen_numbers:
         draft_op = DraftOperation.SKIP
     else:
         draft_op = DraftOperation.ADD
@@ -343,12 +344,14 @@ def _prepare_invoice(
         source_paths=source_paths,
         origin_dialog=origin_dialog,
         draft_operation=draft_op,
+        warnings=warnings,
     )
 
 
 def _normalize_invoice_key(invoice_number: str) -> str:
     """Normalizuj invoice_number za poređenje sa draft-om."""
-    return invoice_number.strip().replace(" ", "").replace("-", "").lower()
+    from services.faktura.weight_guards import normalize_invoice_key
+    return normalize_invoice_key(invoice_number or "")
 
 
 def _detect_conflicts(
@@ -384,15 +387,21 @@ def _detect_conflicts(
         imp_name = inv.importer.name if inv.importer else ""
         if check_exporter and exp_name and not partners_similar(check_exporter, exp_name):
             plan.partner_conflicts.append(PartnerConflict(
+                invoice_key=inv.internal_key,
                 field_name="exporter",
                 expected=check_exporter,
                 actual=exp_name,
             ))
         if check_importer and imp_name and not partners_similar(check_importer, imp_name):
             plan.partner_conflicts.append(PartnerConflict(
+                invoice_key=inv.internal_key,
                 field_name="importer",
                 expected=check_importer,
                 actual=imp_name,
             ))
         if check_currency and inv.currency and inv.currency.upper() != check_currency.upper():
-            plan.currency_conflict = (check_currency, inv.currency)
+            plan.currency_conflicts.append(CurrencyConflict(
+                invoice_key=inv.internal_key,
+                expected=check_currency,
+                actual=inv.currency,
+            ))
