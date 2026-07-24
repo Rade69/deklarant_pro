@@ -405,6 +405,161 @@ class AgentController:
             filtered.append(file_item)
         return filtered
 
+    def _faktura_view(self):
+        return self.faktura_tab.view if hasattr(self.faktura_tab, 'view') else self.faktura_tab
+
+    def _safe_text_attr(self, obj, name: str) -> str:
+        value = getattr(obj, name, "")
+        return value if isinstance(value, str) else ""
+
+    def _existing_invoice_keys_for_agent_import(self) -> set[str]:
+        keys = set(getattr(self.draft, "invoice_weights", {}) or {})
+        for line in getattr(self.draft, "invoice_lines", []) or []:
+            key = normalize_invoice_key(getattr(line, "invoice_number", "") or "")
+            if key:
+                keys.add(key)
+        return keys
+
+    def _prepare_agent_import_plan(self, completed: list, fw):
+        from services.import_workflow.adapters import from_file_item
+        from services.import_workflow.prepare_service import prepare_import
+
+        candidates = [
+            from_file_item(file_item)
+            for file_item in completed
+            if file_item.status == 'Completed' and file_item.invoice_lines
+        ]
+        expected_exporter = AgentController._safe_text_attr(self, fw, "_expected_exporter") or AgentController._safe_text_attr(
+            self,
+            self.draft, "izvoznik_naziv"
+        )
+        expected_importer = AgentController._safe_text_attr(self, fw, "_expected_importer") or AgentController._safe_text_attr(
+            self,
+            self.draft, "primalac_naziv"
+        )
+        return prepare_import(
+            candidates,
+            existing_invoice_keys=AgentController._existing_invoice_keys_for_agent_import(self),
+            expected_exporter=expected_exporter,
+            expected_importer=expected_importer,
+            expected_currency=AgentController._safe_text_attr(self, self.draft, "valuta"),
+        )
+
+    def _collect_agent_import_decisions(self, fw, plan, chat):
+        from gui.tabs.faktura_view import FakturaView
+        from services.import_workflow.decision_models import (
+            CurrencyConflictResponse,
+            InvoiceDecision,
+            OriginDialogResolution,
+            PartnerConflictResolution,
+            PartnerConflictResponse,
+            UserDecisions,
+        )
+
+        decisions = UserDecisions()
+        for invoice in plan.invoices:
+            decisions.invoice_decisions[invoice.internal_key] = InvoiceDecision(
+                invoice_key=invoice.internal_key
+            )
+
+        if plan.partner_conflicts:
+            chat.add_activity(f"⚠️ Konflikt partnera: {len(plan.partner_conflicts)}")
+            if not FakturaView._confirm_import_partner_conflicts(fw, plan.partner_conflicts):
+                decisions.aborted = True
+                return decisions
+            for conflict in plan.partner_conflicts:
+                decisions.partner_conflict_responses.append(
+                    PartnerConflictResponse(
+                        invoice_key=conflict.invoice_key,
+                        field_name=conflict.field_name,
+                        expected=conflict.expected,
+                        actual=conflict.actual,
+                        resolution=PartnerConflictResolution.CONTINUE,
+                    )
+                )
+
+        if plan.currency_conflicts:
+            chat.add_activity(f"⚠️ Konflikt valute: {len(plan.currency_conflicts)}")
+            if not FakturaView._confirm_import_currency_conflicts(fw, plan.currency_conflicts):
+                decisions.aborted = True
+                return decisions
+            for conflict in plan.currency_conflicts:
+                decisions.currency_conflict_responses.append(
+                    CurrencyConflictResponse(
+                        invoice_key=conflict.invoice_key,
+                        expected=conflict.expected,
+                        actual=conflict.actual,
+                        resolution=PartnerConflictResolution.CONTINUE,
+                    )
+                )
+
+        invoice_by_key = {invoice.internal_key: invoice for invoice in plan.invoices}
+        for invoice_key, dialog_type in plan.origin_dialogs_needed:
+            invoice = invoice_by_key.get(invoice_key)
+            if invoice is None:
+                continue
+            label = dialog_type.value.upper()
+            chat.add_activity(f"📄 [{invoice.display_name}] {label} dijalog...")
+            response = FakturaView._collect_manual_origin_response(fw, invoice, dialog_type)
+            decisions.invoice_decisions[invoice_key].origin_response = response
+            if response.resolution == OriginDialogResolution.APPLIED:
+                chat.add_activity(f"✅ [{invoice.display_name}] {label} primijenjen")
+            else:
+                chat.add_activity(f"ℹ️ [{invoice.display_name}] {label} preskočen")
+
+        return decisions
+
+    def _sync_faktura_after_agent_apply(self, fw, plan, apply_result) -> None:
+        if fw and hasattr(fw, 'weight_manager'):
+            fw.weight_manager.accumulated_bruto_kg = 0.0
+            fw.weight_manager.accumulated_neto_kg = 0.0
+            for bruto, neto in (getattr(self.draft, "invoice_weights", {}) or {}).values():
+                fw.weight_manager.accumulated_bruto_kg += bruto or 0.0
+                fw.weight_manager.accumulated_neto_kg += neto or 0.0
+            if hasattr(fw, 'input_bruto') and hasattr(fw, '_format_weight'):
+                fw.input_bruto.setText(fw._format_weight(fw.weight_manager.accumulated_bruto_kg))
+            if hasattr(fw, 'input_neto') and hasattr(fw, '_format_weight'):
+                fw.input_neto.setText(fw._format_weight(fw.weight_manager.accumulated_neto_kg))
+
+        applied_keys = set(apply_result.applied_invoice_keys)
+        applied = [invoice for invoice in plan.invoices if invoice.internal_key in applied_keys]
+        if applied and fw:
+            fw.last_invoice_name = applied[-1].invoice_number or applied[-1].display_name
+            fw.last_import_count = len(applied[-1].invoice_lines)
+            exporter = applied[-1].exporter.name if applied[-1].exporter else ""
+            importer = applied[-1].importer.name if applied[-1].importer else ""
+            if exporter:
+                fw._expected_exporter = exporter
+            if importer:
+                fw._expected_importer = importer
+
+    def _summarize_agent_import_plan(self, plan, apply_result, chat) -> None:
+        applied_keys = set(apply_result.applied_invoice_keys)
+        for invoice in plan.invoices:
+            if invoice.internal_key not in applied_keys:
+                continue
+            bez_tarife = sum(1 for line in invoice.invoice_lines if not getattr(line, "tarifni_broj", ""))
+            chat.add_agent_message(
+                f"📄 <b>Faktura: {invoice.display_name}</b><br>"
+                f"Stavki: {invoice.item_count} | Bez tarifnog: {bez_tarife}<br>"
+                f"Bruto: {invoice.bruto_kg:,.1f}kg | Neto: {invoice.neto_kg:,.1f}kg"
+            )
+
+    def _apply_agent_origin_followups(self, decisions, chat) -> None:
+        from services.import_workflow.decision_models import OriginDialogResolution
+        from services.import_workflow.plan_models import OriginDialogType
+
+        for decision in decisions.invoice_decisions.values():
+            response = decision.origin_response
+            if response is None:
+                continue
+            if response.dialog_type != OriginDialogType.EUR1:
+                continue
+            if response.resolution != OriginDialogResolution.APPLIED:
+                continue
+            if response.dialog_data:
+                self._apply_eur1_to_naimenovanja(response.dialog_data, chat)
+
     def _on_all_completed(self, files: list):
         """Svi fajlovi završeni - izvrši pipeline logiku prema modu."""
         # ⭐ ODMAH ukloni loading state — pre bilo čega drugog
@@ -440,138 +595,53 @@ class AgentController:
             self._analiza_pipeline(completed, chat)
             return
 
-        # ⭐ KLJUČNO: Prikupi samo stavke iz kombinovanih ILI samostalnih fajlova
-        combined_files = []
-        single_files = []
-        for file_item in completed:
-            if file_item.is_combined:
-                combined_files.append(file_item)
-            else:
-                single_files.append(file_item)
+        fw = AgentController._faktura_view(self)
+        plan = AgentController._prepare_agent_import_plan(self, completed, fw)
+        if plan.is_empty:
+            chat.add_agent_message("❌ Nema stavki za uvoz u deklaraciju.")
+            return
 
-        # ⭐ Obradi SVAKU fakturu ZASEBNO sa posebnim dijalogom
-        all_processed_lines = []
-        processed_total = 0
-        total_bruto_kg = 0.0
-        total_neto_kg = 0.0
-        for file_item in completed:
-            if file_item.status != 'Completed' or not file_item.invoice_lines:
-                continue
+        chat.add_activity(
+            f"📥 Pripremljeno faktura: {len(plan.invoices)} | "
+            f"stavki: {plan.expected_total_items}"
+        )
+        if plan.skipped:
+            chat.add_activity(f"⏭️ Preskočeno fajlova: {len(plan.skipped)}")
+        if plan.failed:
+            chat.add_activity(f"⚠️ Neuspjelo fajlova: {len(plan.failed)}")
 
-            lines = file_item.invoice_lines
-            # Stem fajla koristimo SAMO za prikaz — ne smije ići u invoice_number na stavkama
-            # jer PDF parser može failati na ćirilici i stem bi bio pogrešan broj
-            explicit_invoice_number = file_item.invoice_number  # prazno ako parser nije uspio
-            invoice_name = explicit_invoice_number or Path(file_item.filepath).stem
-            has_os = file_item.has_origin_statement
-            bruto = file_item.bruto_kg
-            neto = file_item.neto_kg
+        decisions = AgentController._collect_agent_import_decisions(self, fw, plan, chat)
+        if decisions.aborted:
+            chat.add_agent_message("ℹ️ Uvoz je otkazan prije izmjene deklaracije.")
+            return
 
-            # Postavi invoice_number SAMO ako je parser eksplicitno izvukao broj
-            # (ne koristimo stem — stem nije broj fakture, samo naziv fajla)
-            if explicit_invoice_number:
-                for line in lines:
-                    if not line.invoice_number:
-                        line.invoice_number = explicit_invoice_number
+        if fw and hasattr(fw, '_push_undo_snapshot'):
+            fw._push_undo_snapshot()
 
-            # Normalizuj tarifne brojeve na 8 cifara (agent putanja prethodno preskakala normalizaciju)
-            fw = self.faktura_tab.view if hasattr(self.faktura_tab, 'view') else self.faktura_tab
-            if fw and hasattr(fw, '_normalize_item_tariffs'):
-                fw._normalize_item_tariffs(lines)
+        from services.import_workflow.apply_service import apply_import_plan
 
-            # Uvezi u draft za dijalog
-            self.draft.invoice_lines.clear()
-            self.draft.invoice_lines.extend(lines)
-
-            # Popuni zaglavlje (izvoznik/uvoznik/valuta) iz ove fakture - samo prazna polja
-            if fw and hasattr(fw, '_apply_import_result_to_header'):
-                fw._apply_import_result_to_header(file_item)
-
-            chat.add_activity(f"📥 [{invoice_name}] Uvoz {len(lines)} stavki...")
-            QApplication.processEvents()
-
-            # Akumuliraj težine za sve fakture
-            total_bruto_kg += bruto
-            total_neto_kg += neto
-            # Zapamti per-invoice težinu — koristi se u _on_calculate_masses
-            if (bruto > 0 or neto > 0) and explicit_invoice_number:
-                self.draft.invoice_weights[
-                    normalize_invoice_key(explicit_invoice_number)
-                ] = (bruto, neto)
-
-            # Refresh tabele
-            fw = self.faktura_tab.view if hasattr(self.faktura_tab, 'view') else self.faktura_tab
-            if fw and hasattr(fw, '_load_data_from_draft'):
-                fw._load_data_from_draft()
-
-            # ⭐ PRIKAŽI REZIME FAKTURE
-            bez_tarife = sum(1 for l in lines if not l.tarifni_broj)
+        apply_result = apply_import_plan(self.draft, plan, decisions)
+        if not apply_result.success:
             chat.add_agent_message(
-                f"📄 <b>Faktura: {invoice_name}</b><br>"
-                f"Stavki: {len(lines)} | Bez tarifnog: {bez_tarife}<br>"
-                f"Bruto: {bruto:,.1f}kg | Neto: {neto:,.1f}kg"
+                "❌ <b>Uvoz nije primijenjen.</b><br>"
+                + "<br>".join(apply_result.errors[:3])
             )
+            return
 
-            # ⭐ DIJALOG ZA OVU FAKTURU (PE2 / PE3 / EUR.1)
-            is_auth = file_item.is_authorized_exporter
-            from gui.tabs.agent.services.import_pipeline_service import _origin_dialog_type
-            dialog_tip = _origin_dialog_type(lines, has_os, is_auth)
-
-            if dialog_tip in ('pe2', 'pe3'):
-                doc_code = 'PE3' if dialog_tip == 'pe3' else 'PE2'
-                chat.add_activity(f"📄 [{invoice_name}] {doc_code} dijalog...")
-                try:
-                    from gui.dialogs.pe2_quick_dialog import PE2QuickDialog
-                    dialog = PE2QuickDialog(self.draft.invoice_lines, self.view,
-                                           invoice_number=invoice_name, doc_code=doc_code)
-                    result_dlg = dialog.exec()
-                    if result_dlg == 1:
-                        pe2_data = dialog.get_data()
-                        if pe2_data:
-                            PE2QuickDialog.apply_pe2_data(self.draft.invoice_lines, pe2_data)
-                            chat.add_activity(f"✅ [{invoice_name}] {doc_code} primijenjen")
-                    else:
-                        chat.add_activity(f"ℹ️ [{invoice_name}] {doc_code} preskočen")
-                except Exception as e:
-                    chat.add_activity(f"⚠️ [{invoice_name}] {doc_code} greška: {e}")
-
-            elif dialog_tip == 'eur1':
-                chat.add_activity(f"📋 [{invoice_name}] EUR.1 dijalog...")
-                try:
-                    from gui.dialogs.eur1_quick_dialog import Eur1QuickDialog
-                    dialog = Eur1QuickDialog(self.draft.invoice_lines, self.view, invoice_number=invoice_name)
-                    result_dlg = dialog.exec()
-                    if result_dlg == 1:
-                        eur1_data = dialog.get_data()
-                        if eur1_data:
-                            Eur1QuickDialog.apply_eur1_data(self.draft.invoice_lines, eur1_data)
-                            self._apply_eur1_to_naimenovanja(eur1_data, chat)
-                            chat.add_activity(f"✅ [{invoice_name}] EUR.1 primijenjen")
-                    else:
-                        chat.add_activity(f"ℹ️ [{invoice_name}] EUR.1 preskočen")
-                except Exception as e:
-                    chat.add_activity(f"⚠️ [{invoice_name}] EUR.1 greška: {e}")
-
-            # Sačuvaj procesirane linije (sa mogućim izmjenama iz dijaloga)
-            all_processed_lines.extend(self.draft.invoice_lines)
-            processed_total += len(lines)
-
-        # ⭐ SAČUVAJ SVE LINJE U DRAFT (sve fakture zajedno)
-        self.draft.invoice_lines.clear()
-        self.draft.invoice_lines.extend(all_processed_lines)
+        all_processed_lines = list(self.draft.invoice_lines)
+        processed_total = apply_result.total_items
         logger.debug("Draft sada ima %d stavki", len(self.draft.invoice_lines))
 
-        # Osvježi Faktura tab i upiši akumulirane težine u toolbar
-        fw = self.faktura_tab.view if hasattr(self.faktura_tab, 'view') else self.faktura_tab
-        if fw:
-            if hasattr(fw, '_load_data_from_draft'):
-                fw._load_data_from_draft()
-            # Resetuj i akumuliraj ukupne težine svih faktura
-            if hasattr(fw, 'weight_manager') and hasattr(fw, '_accumulate_weights'):
-                fw.weight_manager.accumulated_bruto_kg = 0.0
-                fw.weight_manager.accumulated_neto_kg = 0.0
-                fw._accumulate_weights(total_bruto_kg, total_neto_kg)
-            QApplication.processEvents()
+        AgentController._apply_agent_origin_followups(self, decisions, chat)
+        AgentController._sync_faktura_after_agent_apply(self, fw, plan, apply_result)
+        AgentController._summarize_agent_import_plan(self, plan, apply_result, chat)
+        if fw and hasattr(fw, '_load_data_from_draft'):
+            fw._load_data_from_draft()
+        if fw and hasattr(fw, '_update_weight_totals'):
+            fw._update_weight_totals()
+        if fw and hasattr(fw, '_set_buttons_enabled'):
+            fw._set_buttons_enabled(True)
+        QApplication.processEvents()
 
         # ⭐ Prebaci na Faktura tab da korisnik vidi rezultate
         parent = self.view.parent()

@@ -1321,3 +1321,21 @@ primjenjuju direktno na `draft.invoice_lines` u novom običnom toku. View skuplj
 (`items`, `preference`, `invoice_number`, `eur1_number`, `code`) i primjenjuje ga na kopije
 stavki tokom atomske primjene. Ovo je važno za fakture sa više zemalja porijekla; ne vraćati
 na flat povlasticu za cijelu fakturu.
+
+## 52. Jedinstveni import workflow — Faza 7 Agent import (2026-07-24)
+
+Agent ruta `AgentController._on_all_completed()` više ne smije ručno čistiti
+`draft.invoice_lines` po svakom fizičkom fajlu niti zasebno imitirati logiku
+`FakturaView`. Nakon faze 7 Agent za modove "Uvezi u deklaraciju" i
+"Puna automatizacija" koristi isti neutralni tok kao ručni import:
+`from_file_item()` → `prepare_import()` → UI odluke → `apply_import_plan()`.
+
+To znači da Agent i ručni import sada dijele istu politiku za normalizaciju tarifa,
+ADD/REPLACE/SKIP odluku, provjeru partnera/valute, raspodjelu bruto/neto masa,
+dodjelu `invoice_number` i primjenu PE2/PE3/EUR1 podataka. Agent-specifično ostaje
+samo kanal prikaza rezultata (chat aktivnosti/poruke), prebacivanje na Faktura tab,
+poziv historijske provjere nakon uvoza i dodatni EUR1 follow-up prema naimenovanjima.
+
+Kod budućih izmjena ne vraćati logiku importa u per-file petlju Agent controllera.
+Nova pravila se dodaju u `services.import_workflow.*`, a Agent smije samo prikupiti
+korisničke odluke i prikazati rezultat.

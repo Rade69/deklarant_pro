@@ -23,7 +23,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from core.draft.draft import DeclarationDraft, InvoiceLine
+from core.draft.draft import DeclarationDraft, InvoiceLine, Party
 from gui.tabs.faktura_view import FakturaView
 from importers.import_result import ImportResult
 
@@ -34,21 +34,21 @@ from importers.import_result import ImportResult
 def _make_invoice_line(invoice_number="INV-001", tarifni_broj="08052190",
                        naziv_robe="Test proizvod", bruto_kg=10.0, neto_kg=9.0,
                        zemlja_porijekla="DE"):
-    line = MagicMock()
-    line.invoice_number = invoice_number
-    line.tarifni_broj = tarifni_broj
-    line.naziv_robe = naziv_robe
-    line.bruto_kg = bruto_kg
-    line.neto_kg = neto_kg
-    line.zemlja_porijekla = zemlja_porijekla
-    line.iznos = 100.0
-    line.kolicina = 5
-    line.jm = "kom"
-    line.product_code = "TEST001"
-    line.povlastica = ""
-    line.eur1_number = ""
-    line.tariff_similarity = 1.0
-    return line
+    return InvoiceLine(
+        invoice_number=invoice_number,
+        tarifni_broj=tarifni_broj,
+        naziv_robe=naziv_robe,
+        bruto_kg=bruto_kg,
+        neto_kg=neto_kg,
+        zemlja_porijekla=zemlja_porijekla,
+        iznos=100.0,
+        kolicina=5,
+        jm="kom",
+        product_code="TEST001",
+        povlastica="",
+        eur1_number="",
+        tariff_similarity=1.0,
+    )
 
 
 def _mock_self_for_manual_import(agent_mode=False, is_combined=False):
@@ -250,14 +250,15 @@ def _mock_self_for_agent_import(mode="Uvezi u deklaraciju"):
     mock_self = MagicMock()
     mock_self._current_mode = mode
     mock_self._worker = None
-    mock_self.draft.invoice_lines = []
-    mock_self.draft.invoice_weights = {}
-    mock_self.draft.dirty = False
+    mock_self.draft = DeclarationDraft()
 
     # FileItem mock
     file_item = MagicMock()
     file_item.status = "Completed"
     file_item.invoice_lines = [_make_invoice_line()]
+    file_item.invoice_lines[0].zemlja_porijekla = ""
+    file_item.invoice_lines[0].has_origin_statement = False
+    file_item.invoice_lines[0].eur1_number = ""
     file_item.invoice_number = "INV-001"
     file_item.filepath = "INV-001.pdf"
     file_item.file_type = "PDF"
@@ -265,10 +266,14 @@ def _mock_self_for_agent_import(mode="Uvezi u deklaraciju"):
     file_item.consumed_paths = []
     file_item.has_origin_statement = False
     file_item.is_authorized_exporter = False
+    file_item.eur1_suggested = False
     file_item.bruto_kg = 10.0
     file_item.neto_kg = 9.0
     file_item.detected_parser = "test"
     file_item.parser = "test"
+    file_item.exporter = None
+    file_item.importer = None
+    file_item.currency = ""
 
     # faktura_tab.view mock
     fw = MagicMock()
@@ -298,119 +303,136 @@ def _mock_self_for_agent_import(mode="Uvezi u deklaraciju"):
 
 
 class TestAgentImportCurrentBehavior:
-    """Dokumentuje šta agent uvoz TRENUTNO radi (i šta NE radi)."""
+    """Dokumentuje Agent uvoz nakon povezivanja na zajednički import workflow."""
 
-    def test_poziva_normalize_item_tariffs(self):
-        """Agent uvoz normalizuje tarifne brojeve (ima)."""
+    def test_normalizuje_tarife_kroz_zajednicki_plan(self):
+        """Agent uvoz normalizuje tarifne brojeve kroz prepare_import."""
         from gui.tabs.agent.agent_controller import AgentController
         mock_self, file_item, fw, chat = _mock_self_for_agent_import()
+        file_item.invoice_lines[0].tarifni_broj = "3824993"
         with patch("gui.tabs.faktura_view.QMessageBox"), \
              patch("gui.tabs.agent.agent_controller.QApplication"), \
              patch("gui.tabs.agent.services.import_pipeline_service._origin_dialog_type",
                    return_value=None):
             AgentController._on_all_completed(mock_self, [file_item])
-        fw._normalize_item_tariffs.assert_called_once()
+        assert mock_self.draft.invoice_lines[0].tarifni_broj == "03824993"
 
-    def test_poziva_apply_import_result_to_header(self):
-        """Agent uvoz popunjava zaglavlje (ima, direktno preko fw)."""
+    def test_popunjava_zaglavlje_kroz_zajednicku_primjenu(self):
+        """Agent uvoz popunjava header kroz apply_import_plan."""
         from gui.tabs.agent.agent_controller import AgentController
         mock_self, file_item, fw, chat = _mock_self_for_agent_import()
+        file_item.exporter = Party(
+            name="IZVOZNIK DOO",
+            address="Adresa izvoznika",
+            city="Sofia",
+            country="BG",
+        )
+        file_item.importer = Party(
+            name="UVOZNIK DOO",
+            address="Adresa primaoca",
+            city="Banja Luka",
+            country="BA",
+            vat_or_id="4000000000000",
+        )
         with patch("gui.tabs.faktura_view.QMessageBox"), \
              patch("gui.tabs.agent.agent_controller.QApplication"), \
              patch("gui.tabs.agent.services.import_pipeline_service._origin_dialog_type",
                    return_value=None):
             AgentController._on_all_completed(mock_self, [file_item])
-        fw._apply_import_result_to_header.assert_called_once()
+        assert mock_self.draft.izvoznik_naziv == "IZVOZNIK DOO"
+        assert mock_self.draft.izvoznik_grad == "Sofia"
+        assert mock_self.draft.primalac_naziv == "UVOZNIK DOO"
+        assert mock_self.draft.primalac_id == "4000000000000"
 
-    def test_NE_poziva_distribute_invoice_weights(self):
-        """Agent uvoz NE raspoređuje težine na stavke (RAZLIKA od ručnog)."""
+    def test_rasporedjuje_tezine_kroz_zajednicku_primjenu(self):
+        """Agent uvoz raspoređuje bruto/neto mase kroz MassCalculator."""
         from gui.tabs.agent.agent_controller import AgentController
         mock_self, file_item, fw, chat = _mock_self_for_agent_import()
+        file_item.invoice_lines[0].bruto_kg = 0.0
+        file_item.invoice_lines[0].neto_kg = 0.0
         with patch("gui.tabs.faktura_view.QMessageBox"), \
              patch("gui.tabs.agent.agent_controller.QApplication"), \
              patch("gui.tabs.agent.services.import_pipeline_service._origin_dialog_type",
                    return_value=None):
             AgentController._on_all_completed(mock_self, [file_item])
-        fw._distribute_invoice_weights.assert_not_called()
+        assert mock_self.draft.invoice_lines[0].bruto_kg == pytest.approx(10.0)
+        assert mock_self.draft.invoice_lines[0].neto_kg == pytest.approx(9.0)
 
-    def test_NE_poziva_check_partner_consistency(self):
-        """Agent uvoz NE provjerava konzistentnost partnera (RAZLIKA od ručnog)."""
+    def test_partner_konflikt_ide_kroz_zajednicku_potvrdu(self):
+        """Agent uvoz više ne preskače provjeru partnera."""
         from gui.tabs.agent.agent_controller import AgentController
         mock_self, file_item, fw, chat = _mock_self_for_agent_import()
+        mock_self.draft.izvoznik_naziv = "POSTOJECI IZVOZNIK"
+        file_item.exporter = Party(name="NOVI IZVOZNIK")
+        with patch("gui.tabs.faktura_view.QMessageBox"), \
+             patch("gui.tabs.agent.agent_controller.QApplication"), \
+             patch("gui.tabs.faktura_view.FakturaView._confirm_import_partner_conflicts",
+                   return_value=True) as confirm_partner, \
+             patch("gui.tabs.agent.services.import_pipeline_service._origin_dialog_type",
+                   return_value=None):
+            AgentController._on_all_completed(mock_self, [file_item])
+        confirm_partner.assert_called_once()
+
+    def test_isti_broj_fakture_radi_replace_umjesto_duplikata(self):
+        """Agent uvoz koristi istu REPLACE logiku za postojeću fakturu."""
+        from gui.tabs.agent.agent_controller import AgentController
+        mock_self, file_item, fw, chat = _mock_self_for_agent_import()
+        mock_self.draft.invoice_lines.append(
+            _make_invoice_line(invoice_number="INV-001", naziv_robe="Stara stavka")
+        )
+        mock_self.draft.invoice_weights["inv-001"] = (1.0, 1.0)
+        file_item.invoice_lines[0].naziv_robe = "Nova stavka"
         with patch("gui.tabs.faktura_view.QMessageBox"), \
              patch("gui.tabs.agent.agent_controller.QApplication"), \
              patch("gui.tabs.agent.services.import_pipeline_service._origin_dialog_type",
                    return_value=None):
             AgentController._on_all_completed(mock_self, [file_item])
-        fw._check_partner_consistency.assert_not_called()
+        assert len(mock_self.draft.invoice_lines) == 1
+        assert mock_self.draft.invoice_lines[0].naziv_robe == "Nova stavka"
 
-    def test_NE_poziva_is_same_combined_invoice(self):
-        """Agent uvoz NE provjerava REPLACE/EXTEND logiku (RAZLIKA od ručnog)."""
+    def test_dodjeljuje_invoice_number_kad_stavka_nema_broj(self):
+        """Agent uvoz koristi zajedničku politiku dodjele broja fakture."""
         from gui.tabs.agent.agent_controller import AgentController
         mock_self, file_item, fw, chat = _mock_self_for_agent_import()
+        file_item.invoice_lines[0].invoice_number = ""
         with patch("gui.tabs.faktura_view.QMessageBox"), \
              patch("gui.tabs.agent.agent_controller.QApplication"), \
              patch("gui.tabs.agent.services.import_pipeline_service._origin_dialog_type",
                    return_value=None):
             AgentController._on_all_completed(mock_self, [file_item])
-        fw._is_same_combined_invoice.assert_not_called()
+        assert mock_self.draft.invoice_lines[0].invoice_number == "INV-001"
 
-    def test_NE_poziva_assign_invoice_name(self):
-        """Agent uvoz NE koristi istu politiku dodjele invoice_number (RAZLIKA)."""
+    def test_ne_cisti_draft_po_fakturi_nego_primjenjuje_plan(self):
+        """Agent uvoz više ne radi per-file clear, nego ADD/REPLACE kroz plan."""
         from gui.tabs.agent.agent_controller import AgentController
         mock_self, file_item, fw, chat = _mock_self_for_agent_import()
+        file_item_2 = MagicMock()
+        file_item_2.status = "Completed"
+        file_item_2.invoice_lines = [
+            _make_invoice_line(invoice_number="INV-002", naziv_robe="Druga faktura")
+        ]
+        file_item_2.invoice_lines[0].zemlja_porijekla = ""
+        file_item_2.invoice_number = "INV-002"
+        file_item_2.filepath = "INV-002.pdf"
+        file_item_2.file_type = "PDF"
+        file_item_2.is_combined = False
+        file_item_2.consumed_paths = []
+        file_item_2.has_origin_statement = False
+        file_item_2.is_authorized_exporter = False
+        file_item_2.eur1_suggested = False
+        file_item_2.bruto_kg = 2.0
+        file_item_2.neto_kg = 1.0
+        file_item_2.detected_parser = "test"
+        file_item_2.parser = "test"
+        file_item_2.exporter = None
+        file_item_2.importer = None
+        file_item_2.currency = ""
         with patch("gui.tabs.faktura_view.QMessageBox"), \
              patch("gui.tabs.agent.agent_controller.QApplication"), \
              patch("gui.tabs.agent.services.import_pipeline_service._origin_dialog_type",
                    return_value=None):
-            AgentController._on_all_completed(mock_self, [file_item])
-        fw._assign_invoice_name.assert_not_called()
-
-    def test_cisti_draft_po_fakturi(self):
-        """Agent uvoz čisti draft za svaku fakturu (RAZLIKA — ručni ima EXTEND)."""
-        from gui.tabs.agent.agent_controller import AgentController
-        mock_self, file_item, fw, chat = _mock_self_for_agent_import()
-        # mock invoice_lines kao pravu listu da clear() radi
-        mock_self.draft.invoice_lines = MagicMock()
-        mock_self.draft.invoice_lines.clear = MagicMock()
-        with patch("gui.tabs.faktura_view.QMessageBox"), \
-             patch("gui.tabs.agent.agent_controller.QApplication"), \
-             patch("gui.tabs.agent.services.import_pipeline_service._origin_dialog_type",
-                   return_value=None):
-            AgentController._on_all_completed(mock_self, [file_item])
-        # draft.invoice_lines.clear() se poziva prije i poslije obrade fakture
-        assert mock_self.draft.invoice_lines.clear.called
-
-
-# ── Željeno stanje (xfail — paritet još nije implementiran) ────────────────
-
-
-class TestImportParityDesiredState:
-    """
-    ŽELJENO stanje: ručni i agent uvoz moraju pozivati iste metode.
-    Ovi testovi su xfail dok se ne implementira zajednički tok (Faze 6-8).
-    """
-
-    @pytest.mark.xfail(reason="Paritet nije implementiran — Faza 6-8", strict=True)
-    def test_agent_poziva_distribute_invoice_weights(self):
-        """ŽELJENO: agent uvoz raspoređuje težine na stavke (kao ručni)."""
-        from gui.tabs.agent.agent_controller import AgentController
-        mock_self, file_item, fw, chat = _mock_self_for_agent_import()
-        with patch("gui.tabs.faktura_view.QMessageBox"), \
-             patch("gui.tabs.agent.agent_controller.QApplication"), \
-             patch("gui.tabs.agent.services.import_pipeline_service._origin_dialog_type",
-                   return_value=None):
-            AgentController._on_all_completed(mock_self, [file_item])
-        fw._distribute_invoice_weights.assert_called_once()
-
-    @pytest.mark.xfail(reason="Paritet nije implementiran — Faza 6-8", strict=True)
-    def test_agent_poziva_check_partner_consistency(self):
-        """ŽELJENO: agent uvoz provjerava partnere (kao ručni)."""
-        from gui.tabs.agent.agent_controller import AgentController
-        mock_self, file_item, fw, chat = _mock_self_for_agent_import()
-        with patch("gui.tabs.faktura_view.QMessageBox"), \
-             patch("gui.tabs.agent.agent_controller.QApplication"), \
-             patch("gui.tabs.agent.services.import_pipeline_service._origin_dialog_type",
-                   return_value=None):
-            AgentController._on_all_completed(mock_self, [file_item])
-        fw._check_partner_consistency.assert_called_once()
+            AgentController._on_all_completed(mock_self, [file_item, file_item_2])
+        assert [line.invoice_number for line in mock_self.draft.invoice_lines] == [
+            "INV-001",
+            "INV-002",
+        ]

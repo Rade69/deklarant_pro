@@ -22,29 +22,37 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+from core.draft.draft import DeclarationDraft
 from gui.tabs.agent.agent_controller import AgentController
 
 
 def _file_item(invoice_number: str = "1476/26") -> MagicMock:
     item = MagicMock()
     item.status = "Completed"
-    item.invoice_lines = [MagicMock(naziv_robe="SUSSINA 650 tbl.", tarifni_broj="38249993")]
+    line = MagicMock(naziv_robe="SUSSINA 650 tbl.", tarifni_broj="38249993")
+    line.zemlja_porijekla = ""
+    line.has_origin_statement = False
+    line.eur1_number = ""
+    item.invoice_lines = [line]
     item.is_combined = False
     item.consumed_paths = []
     item.invoice_number = invoice_number
     item.filepath = f"{invoice_number}.pdf"
     item.has_origin_statement = False
     item.is_authorized_exporter = False
+    item.eur1_suggested = False
     item.bruto_kg = 0.0
     item.neto_kg = 0.0
+    item.exporter = None
+    item.importer = None
+    item.currency = ""
     return item
 
 
 def _mock_controller(current_mode: str) -> tuple[MagicMock, MagicMock]:
     ctrl = MagicMock()
     ctrl._current_mode = current_mode
-    ctrl.draft.invoice_lines = []
-    ctrl.draft.invoice_weights = {}
+    ctrl.draft = DeclarationDraft()
     ctrl._dedupe_completed_import_files.side_effect = lambda completed: completed
     ctrl._proactive_analysis.return_value = "test analiza"
     ctrl.view.parent.return_value = None
