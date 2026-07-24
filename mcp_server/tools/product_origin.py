@@ -19,7 +19,7 @@ import logging
 from typing import Any
 
 from ..db import get_connection
-from .search_helpers import searchable_words
+from .search_helpers import searchable_patterns
 
 logger = logging.getLogger("mcp_server.product_origin")
 
@@ -56,9 +56,9 @@ def find_product_origin(product_name: str, limit: int = 10) -> dict[str, Any]:
         }
 
     query_text = product_name.strip()
-    words = searchable_words(query_text, _MIN_WORD_LENGTH)
+    patterns = searchable_patterns(query_text, _MIN_WORD_LENGTH)
 
-    if not words:
+    if not patterns:
         return {
             "query": query_text,
             "found": False,
@@ -76,8 +76,8 @@ def find_product_origin(product_name: str, limit: int = 10) -> dict[str, Any]:
         FROM catalogs.declaration_items
         WHERE EXISTS (
             SELECT 1
-            FROM unnest(%s::text[]) AS search_words(word)
-            WHERE naziv_robe ILIKE '%%' || search_words.word || '%%'
+            FROM unnest(%s::text[]) AS search_patterns(pattern)
+            WHERE naziv_robe ~* search_patterns.pattern
         )
           AND zemlja_porijekla IS NOT NULL
           AND zemlja_porijekla != ''
@@ -89,7 +89,7 @@ def find_product_origin(product_name: str, limit: int = 10) -> dict[str, Any]:
     try:
         with get_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute(sql, (words, limit))
+                cur.execute(sql, (patterns, limit))
                 rows = cur.fetchall()
     except Exception as e:
         logger.exception("Product origin query failed")

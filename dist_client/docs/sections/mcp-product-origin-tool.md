@@ -4,7 +4,8 @@
 
 Alat `find_product_origin` utvrđuje vjerovatnu zemlju porijekla proizvoda na osnovu
 historijskih deklaracija u PostgreSQL bazi. Pretražuje `catalogs.declaration_items`
-po opisu robe (ILIKE) i grupiše rezultate po zemlji porijekla.
+po opisu robe dijakritik-neosjetljivim regex obrascima i grupiše rezultate po
+zemlji porijekla.
 
 Rezultat nije apsolutna istina — to je statistički prijedlog sa confidence skorom.
 Ako nema pouzdanih nalaza, alat vraća `found=false` bez izmišljanja podataka.
@@ -12,7 +13,9 @@ Ako nema pouzdanih nalaza, alat vraća `found=false` bez izmišljanja podataka.
 ## Zavisnosti i pretpostavke
 
 - **Tabela:** `catalogs.declaration_items` (kolone: `naziv_robe`, `zemlja_porijekla`, `tarifni_broj`)
-- **PostgreSQL ILIKE** za pretragu — nije full-text search (dovoljno za carinske nazive)
+- **PostgreSQL `~*` regex** za pretragu opisa — obrasci su parametrizovani i
+  generisani kroz `mcp_server.tools.search_helpers`, bez server-side `unaccent`
+  extension-a.
 - **Pretpostavka:** Riječi kraće od 3 karaktera se ignorišu (prekratke za smislenu pretragu)
 - **Pretpostavka:** Ako ukupan broj pogodaka nije nula, confidence se računa kao `broj_za_zemlju / ukupno`
 
@@ -27,9 +30,9 @@ Ako nema pouzdanih nalaza, alat vraća `found=false` bez izmišljanja podataka.
 
 ## Zašto ovako
 
-**Trade-off:** ILIKE pretraga umjesto pg_trgm ili full-text searcha. Razlog:
-carinski nazivi su kratki, često sa brojevima i tehničkim oznakama. ILIKE je
-dovoljan za ovu namjenu, a izbjegava dodatne PostgreSQL ekstenzije.
+**Trade-off:** Regex pretraga umjesto server-side `unaccent` ili full-text searcha.
+Razlog: carinski nazivi su kratki, često sa brojevima i tehničkim oznakama, a regex
+obrasci omogućavaju pretragu bez dodatne PostgreSQL ekstenzije.
 
 **Alternativa odbačena:** Koristiti `pg_trgm` za fuzzy matching — odbijeno jer
 zahtijeva dodatnu ekstenziju i nije potrebno za uzorak "KONDENZATOR GCVC RD 045".

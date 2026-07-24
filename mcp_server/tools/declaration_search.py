@@ -13,7 +13,7 @@ import logging
 from typing import Any
 
 from ..db import get_connection
-from .search_helpers import searchable_words
+from .search_helpers import searchable_patterns
 
 logger = logging.getLogger("mcp_server.declaration_search")
 
@@ -40,9 +40,9 @@ def search_historical_declarations(
 
     filters = filters or {}
     query_text = query.strip()
-    words = searchable_words(query_text)
+    patterns = searchable_patterns(query_text)
 
-    if not words:
+    if not patterns:
         return {"results": []}
 
     country_code = (filters.get("country_code") or "").strip()
@@ -64,8 +64,8 @@ def search_historical_declarations(
         LEFT JOIN catalogs.declarations d ON di.declaration_id = d.id
         WHERE EXISTS (
             SELECT 1
-            FROM unnest(%s::text[]) AS search_words(word)
-            WHERE di.naziv_robe ILIKE '%%' || search_words.word || '%%'
+            FROM unnest(%s::text[]) AS search_patterns(pattern)
+            WHERE di.naziv_robe ~* search_patterns.pattern
         )
           AND (%s = '' OR di.zemlja_porijekla = %s)
           AND (%s = '' OR di.tarifni_broj LIKE %s)
@@ -74,7 +74,7 @@ def search_historical_declarations(
         LIMIT %s
     """
     params = (
-        words,
+        patterns,
         country_code,
         country_code.upper(),
         clean_hs,

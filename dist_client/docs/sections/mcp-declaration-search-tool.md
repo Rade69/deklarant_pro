@@ -14,6 +14,9 @@ prethodnih deklaracija za sličnu robu.
 - **Tabela:** `catalogs.declaration_items` (kolone: `tarifni_broj`, `naziv_robe`, `zemlja_porijekla`, `povlastica`, `declaration_id`)
 - **Tabela:** `catalogs.declarations` (kolona: `vendor`) — samo ako se koristi `exporter_name` filter
 - **Pretpostavka:** Riječi kraće od 3 karaktera se ignorišu
+- **Pretraga opisa robe:** koristi parametrizovane PostgreSQL regex obrasce (`~*`)
+  iz `mcp_server.tools.search_helpers`, tako da `cvarci` može pronaći `Čvarci`
+  bez server-side `unaccent` extension-a.
 - **Pretpostavka:** JOIN sa `declarations` se radi samo kada je eksplicitno zatražen exporter filter
 
 ## Pravila i granice

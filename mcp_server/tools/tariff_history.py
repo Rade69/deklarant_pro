@@ -18,7 +18,7 @@ import logging
 from typing import Any
 
 from ..db import get_connection
-from .search_helpers import searchable_words
+from .search_helpers import searchable_patterns
 
 logger = logging.getLogger("mcp_server.tariff_history")
 
@@ -46,9 +46,9 @@ def suggest_tariff_from_history(
                 "notes": ["Empty product name"]}
 
     query_text = product_name.strip()
-    words = searchable_words(query_text)
+    patterns = searchable_patterns(query_text)
 
-    if not words:
+    if not patterns:
         return {"suggestions": [], "needs_review": True,
                 "notes": ["No searchable words"]}
 
@@ -63,8 +63,8 @@ def suggest_tariff_from_history(
         LEFT JOIN catalogs.declarations d ON di.declaration_id = d.id
         WHERE EXISTS (
             SELECT 1
-            FROM unnest(%s::text[]) AS search_words(word)
-            WHERE di.naziv_robe ILIKE '%%' || search_words.word || '%%'
+            FROM unnest(%s::text[]) AS search_patterns(pattern)
+            WHERE di.naziv_robe ~* search_patterns.pattern
         )
           AND (%s = '' OR d.vendor ILIKE %s)
           AND (%s = '' OR di.zemlja_porijekla = %s)
@@ -75,7 +75,7 @@ def suggest_tariff_from_history(
         LIMIT %s
     """
     params = (
-        words,
+        patterns,
         exporter_name,
         exporter_pattern,
         country_code,
