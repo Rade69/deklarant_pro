@@ -1257,3 +1257,18 @@ tek nakon migracije internih pozivalaca na stvarne pakete (`services.agent.learn
 `dist_client` postoji namjerni `.pyd` most za `services.tariff_mapping_service`; fajl
 `dist_client/services/tariff/tariff_mapping_service.py` ne treba mehanički prepisivati
 na self-import niti brisati bez rebuilda runtime paketa.
+
+## 48. Performansni DB audit — carinski_dokumenti FTS indeks (2026-07-24)
+
+Nakon Pi agent nalaza o ILIKE/FTS performansama provjeren je live PostgreSQL. Trigram
+indeksi iz §45 su već prisutni i koriste se na velikim tabelama
+(`product_tariff_mapping`, `product_similarity_memory`, `zvanicna_tarifa`,
+`declaration_items`). Preostali nedostatak bio je `ix_carinski_dokumenti_fts` na
+`catalogs.carinski_dokumenti`, iako migracioni fajl već sadrži `CREATE INDEX`.
+
+Uzrok: `database/migrate_carinski_dokumenti.py` je poslije SQL-a radio `print()` sa emoji
+znakom. Na Windows konzoli sa cp1252 kodnom stranicom to baca `UnicodeEncodeError` prije
+izlaska iz `with psycopg2.connect(...)` bloka, pa se transakcija može rollbackovati i indeks
+ne ostane kreiran. Migracija zato mora imati ASCII-safe završni ispis. Tabela trenutno ima
+samo 28 redova, pa PostgreSQL normalno bira Seq Scan i nakon indeksa; forsirani plan
+(`SET LOCAL enable_seqscan = off`) potvrđuje da je GIN indeks upotrebljiv.

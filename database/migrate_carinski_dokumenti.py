@@ -32,7 +32,7 @@ def migrate():
                 CREATE INDEX IF NOT EXISTS ix_carinski_dokumenti_fts
                     ON catalogs.carinski_dokumenti USING GIN (fts_vektor);
             """)
-        print("✅ Tabela catalogs.carinski_dokumenti kreirana (ili već postoji).")
+        print("OK: Tabela catalogs.carinski_dokumenti kreirana (ili vec postoji).")
 
 
 if __name__ == "__main__":
