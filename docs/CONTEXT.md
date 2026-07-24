@@ -1290,3 +1290,19 @@ izvorne rezultate prije korisničke potvrde.
 Korisničke odluke u Fazi 4 su obavezno vezane za `invoice_key`: `ABORT` za partner ili
 valutu prekida cijeli plan, `SKIP_INVOICE` izbacuje samo tu fakturu, a
 `DraftOperation.SKIP` se nikad ne smije pojaviti u listi faktura za primjenu.
+
+## 50. Jedinstveni import workflow — Faza 5 atomska primjena (2026-07-24)
+
+`services.import_workflow.apply_service.apply_import_plan()` je jedini servisni ulaz za
+konačnu primjenu pripremljenog plana na `DeclarationDraft`. Servis ne otvara Qt dijaloge,
+ne osvježava tabelu i ne poziva Agent chat; prima već prikupljene `UserDecisions` i koristi
+`invoices_to_apply()` kao jedini filter korisničkih odluka.
+
+Rollback je servisni: prije izmjene se uzima snapshot svih draft polja osim callback liste,
+a neočekivana greška vraća `invoice_lines`, `invoice_weights`, `source_files`, `warnings`,
+header i `dirty` stanje. GUI Undo tačka nije dio Faze 5 jer nema neutralnog Undo managera;
+controller je dodaje u Fazama 6-8 prije poziva servisa.
+
+Faza 5 primjenjuje povlastice samo iz eksplicitnog `OriginDialogResponse.dialog_data`
+(`povlastica`/`preference_code`, `eur1_number`, `zemlja_porijekla` i flags). Ako je origin
+dijalog preskočen, Rub.36 se ne mijenja i servis ne izmišlja povlasticu.
