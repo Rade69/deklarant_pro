@@ -1339,3 +1339,25 @@ poziv historijske provjere nakon uvoza i dodatni EUR1 follow-up prema naimenovan
 Kod budućih izmjena ne vraćati logiku importa u per-file petlju Agent controllera.
 Nova pravila se dodaju u `services.import_workflow.*`, a Agent smije samo prikupiti
 korisničke odluke i prikazati rezultat.
+
+## 53. Jedinstveni import workflow — završne faze batch/runtime (2026-07-24)
+
+Ručni grupni import `FakturaView._process_batch_records()` sada koristi isti neutralni
+workflow kao pojedinačni ručni import i Agent import: batch record → `ImportCandidate`
+→ `prepare_import()` → UI odluke → `apply_import_plan()`. Time su normalizacija tarifa,
+ADD/REPLACE/SKIP, partner/valuta konflikt, raspodjela masa, header i PE2/PE3/EUR1 odluke
+zajedničke za sva tri aktivna ulaza.
+
+Legacy batch tok ostaje namjerno kao `_process_batch_records_legacy()` samo kada je
+`assembly.master_list_loaded=True`, jer Assembly/Master-list režim i dalje ima posebnu
+logiku koja nije dio neutralnog draft apply servisa. Isto važi za `_on_import_finished_legacy()`
+kod pojedinačnog importa. Ne brisati ove fallback-e dok poseban Assembly tok ne bude
+eksplicitno pokriven servisom i testovima.
+
+`_expected_import_partners()` mora ignorisati ne-string vrijednosti (npr. test/mock objekte)
+prije poređenja partnera. U suprotnom `prepare_import()` može dobiti objekat umjesto teksta
+i pasti u `normalize_partner_name()`.
+
+`dist_client` je usklađen ručno samo za runtime import workflow promjene. Ne poravnavati
+cijeli `dist_client/gui/tabs/faktura_view.py` sa root fajlom jer postoje starije namjerne
+UI razlike iz redizajna.

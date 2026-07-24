@@ -29,7 +29,9 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+from core.draft.draft import DeclarationDraft, InvoiceLine
 from gui.tabs.faktura_view import FakturaView
+from importers.import_result import ImportResult
 
 
 def _mock_self_for_import_finished(agent_mode: bool) -> MagicMock:
@@ -82,8 +84,7 @@ def _mock_self_for_batch_records(agent_mode: bool) -> MagicMock:
     mock_self._agent_mode = agent_mode
     mock_self._batch_failed = []
     mock_self.assembly.master_list_loaded = False
-    mock_self.draft.invoice_lines = []
-    mock_self.draft.invoice_weights = {}
+    mock_self.draft = DeclarationDraft()
     mock_self.imported_excel_count = 0
     mock_self.imported_pdf_count = 0
     mock_self._postprocess_master_frigo_pairs_records.return_value = None
@@ -91,19 +92,30 @@ def _mock_self_for_batch_records(agent_mode: bool) -> MagicMock:
     mock_self._distribute_invoice_weights.return_value = None
     mock_self._should_show_eur1_dialog.return_value = False
     mock_self._offer_split_by_country.return_value = None
+    mock_self.on_dirty = None
     return mock_self
 
 
 def _batch_records():
+    result = ImportResult(
+        items=[
+            InvoiceLine(
+                invoice_number="faktura1.pdf",
+                naziv_robe="SUSSINA 650 tbl.",
+                tarifni_broj="",
+            )
+        ],
+        invoice_name="faktura1.pdf",
+    )
     return [{
         "skipped": False,
-        "items": [MagicMock(naziv_robe="SUSSINA 650 tbl.", tarifni_broj="")],
+        "items": result.items,
         "bruto_kg": 0.0,
         "neto_kg": 0.0,
         "invoice_name": "faktura1.pdf",
         "filepath": "faktura1.pdf",
         "parser_warnings": [],
-        "_import_result": None,
+        "_import_result": result,
     }]
 
 

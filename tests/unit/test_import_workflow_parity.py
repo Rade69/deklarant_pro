@@ -83,8 +83,7 @@ def _mock_self_for_batch_import(agent_mode=False):
     mock_self._agent_mode = agent_mode
     mock_self._batch_failed = []
     mock_self.assembly.master_list_loaded = False
-    mock_self.draft.invoice_lines = []
-    mock_self.draft.invoice_weights = {}
+    mock_self.draft = DeclarationDraft()
     mock_self.imported_excel_count = 0
     mock_self.imported_pdf_count = 0
     mock_self._postprocess_master_frigo_pairs_records.return_value = None
@@ -92,19 +91,26 @@ def _mock_self_for_batch_import(agent_mode=False):
     mock_self._distribute_invoice_weights.return_value = None
     mock_self._should_show_eur1_dialog.return_value = False
     mock_self._offer_split_by_country.return_value = None
+    mock_self.on_dirty = None
     return mock_self
 
 
 def _batch_records():
+    result = ImportResult(
+        items=[_make_invoice_line(tarifni_broj="3824993", bruto_kg=0.0, neto_kg=0.0, zemlja_porijekla="")],
+        bruto_kg=10.0,
+        neto_kg=9.0,
+        invoice_name="INV-001",
+    )
     return [{
         "skipped": False,
-        "items": [_make_invoice_line()],
+        "items": result.items,
         "bruto_kg": 10.0,
         "neto_kg": 9.0,
         "invoice_name": "INV-001",
         "filepath": "INV-001.pdf",
         "parser_warnings": [],
-        "_import_result": None,
+        "_import_result": result,
     }]
 
 
@@ -216,21 +222,22 @@ class TestManualSingleImportUnifiedWorkflow:
 
 
 class TestManualBatchImportCurrentBehavior:
-    """Dokumentuje šta ručni grupni uvoz TRENUTNO radi."""
+    """Dokumentuje ručni grupni uvoz nakon povezivanja na zajednički workflow."""
 
-    def test_poziva_distribute_invoice_weights(self):
+    def test_rasporedjuje_tezine_kroz_zajednicku_primjenu(self):
         """Grupni uvoz raspoređuje ukupne težine na pojedinačne stavke."""
         mock_self = _mock_self_for_batch_import()
         with patch("gui.tabs.faktura_view.QMessageBox"):
             FakturaView._process_batch_records(mock_self, _batch_records())
-        mock_self._distribute_invoice_weights.assert_called_once()
+        assert mock_self.draft.invoice_lines[0].bruto_kg == pytest.approx(10.0)
+        assert mock_self.draft.invoice_lines[0].neto_kg == pytest.approx(9.0)
 
-    def test_poziva_normalize_item_tariffs(self):
+    def test_normalizuje_tarife_kroz_zajednicki_plan(self):
         """Grupni uvoz normalizuje tarifne brojeve."""
         mock_self = _mock_self_for_batch_import()
         with patch("gui.tabs.faktura_view.QMessageBox"):
             FakturaView._process_batch_records(mock_self, _batch_records())
-        mock_self._normalize_item_tariffs.assert_called_once()
+        assert mock_self.draft.invoice_lines[0].tarifni_broj == "03824993"
 
     def test_poziva_historical_tariff_validation(self):
         """Grupni uvoz pokreće završnu historijsku validaciju."""
@@ -238,6 +245,42 @@ class TestManualBatchImportCurrentBehavior:
         with patch("gui.tabs.faktura_view.QMessageBox"):
             FakturaView._process_batch_records(mock_self, _batch_records())
         mock_self._run_historical_tariff_validation.assert_called_once_with(auto=False)
+
+    def test_partner_konflikt_ide_kroz_zajednicku_potvrdu(self):
+        mock_self = _mock_self_for_batch_import()
+        mock_self.draft.izvoznik_naziv = "POSTOJECI IZVOZNIK"
+        records = _batch_records()
+        records[0]["_import_result"].exporter = Party(name="NOVI IZVOZNIK")
+
+        with patch("gui.tabs.faktura_view.QMessageBox"):
+            FakturaView._process_batch_records(mock_self, records)
+
+        mock_self._confirm_import_partner_conflicts.assert_called_once()
+
+    def test_isti_broj_fakture_radi_replace_umjesto_duplikata(self):
+        mock_self = _mock_self_for_batch_import()
+        mock_self.draft.invoice_lines.append(
+            _make_invoice_line(invoice_number="INV-001", naziv_robe="Stara stavka")
+        )
+        mock_self.draft.invoice_weights["inv-001"] = (1.0, 1.0)
+        records = _batch_records()
+        records[0]["items"][0].naziv_robe = "Nova stavka"
+
+        with patch("gui.tabs.faktura_view.QMessageBox"):
+            FakturaView._process_batch_records(mock_self, records)
+
+        assert len(mock_self.draft.invoice_lines) == 1
+        assert mock_self.draft.invoice_lines[0].naziv_robe == "Nova stavka"
+
+    def test_master_list_rezim_ostaje_na_legacy_batch_toku(self):
+        mock_self = _mock_self_for_batch_import()
+        mock_self.assembly.master_list_loaded = True
+
+        with patch("gui.tabs.faktura_view.QMessageBox"):
+            FakturaView._process_batch_records(mock_self, _batch_records())
+
+        mock_self._normalize_item_tariffs.assert_called_once()
+        mock_self._distribute_invoice_weights.assert_called_once()
 
 
 # ── Trenutno stanje: agent uvoz ────────────────────────────────────────────

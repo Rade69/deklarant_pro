@@ -2488,6 +2488,78 @@ class FakturaView(BaseTabView):
             )
 
     def _process_batch_records(self, records: list) -> None:
+        """Post-processing batch uvoza kroz zajednički import workflow."""
+        if not FakturaView._can_use_unified_batch_import(self):
+            return FakturaView._process_batch_records_legacy(self, records)
+
+        self._postprocess_master_frigo_pairs_records(records)
+
+        final_records = [r for r in records if not r.get("skipped") and r.get("items")]
+        final_records = sorted(final_records, key=_manual_invoice_record_sort_key)
+        failed_imports = list(self._batch_failed)
+
+        if not final_records:
+            QMessageBox.warning(
+                self, "Grupni uvoz",
+                "Nije uvezena nijedna stavka.\n\nProvjerite da li su fajlovi ispravni.",
+            )
+            return
+
+        plan = FakturaView._prepare_manual_batch_import_plan(self, final_records)
+        if plan.is_empty:
+            QMessageBox.warning(
+                self,
+                "Grupni uvoz",
+                "Parser nije vratio nijednu stavku za primjenu.",
+            )
+            return
+
+        if failed_imports and not FakturaView._confirm_partial_batch_import(
+            self, failed_imports, len(plan.invoices)
+        ):
+            return
+
+        decisions = FakturaView._collect_manual_import_decisions(self, plan)
+        if decisions.aborted:
+            return
+
+        self._push_undo_snapshot()
+
+        from services.import_workflow.apply_service import apply_import_plan
+
+        apply_result = apply_import_plan(self.draft, plan, decisions)
+        if not apply_result.success:
+            QMessageBox.warning(self, "Grupni uvoz nije primijenjen", apply_result.message)
+            return
+
+        FakturaView._sync_import_workflow_state_after_apply(self, plan, apply_result)
+        self._load_data_from_draft()
+        self._update_weight_totals()
+        self._set_buttons_enabled(True)
+        self._offer_split_by_country(list(self.draft.invoice_lines))
+
+        excel_count, pdf_count = FakturaView._count_applied_batch_file_types(
+            self, plan, apply_result
+        )
+        self.imported_excel_count += excel_count
+        self.imported_pdf_count   += pdf_count
+
+        self._update_status_bar()
+        FakturaView._show_manual_batch_import_workflow_result(
+            self, records, plan, apply_result, failed_imports
+        )
+
+        # Istorijska provjera tarifa ODMAH nakon uvoza — vidi napomenu u
+        # _on_import_finished (isti obrazac, ista svrha; agent_mode uslov
+        # uklonjen istog dana — bio je pogrešan, vidi napomenu tamo).
+        self._run_historical_tariff_validation(auto=False)
+
+        on_dirty = getattr(self, "on_dirty", None)
+        if callable(on_dirty):
+            on_dirty()
+        self.data_changed.emit()
+
+    def _process_batch_records_legacy(self, records: list) -> None:
         """Post-processing batch uvoza na main threadu: header, dijalozi, draft, display."""
         from importers.import_result import ImportResult
 
@@ -3279,12 +3351,16 @@ class FakturaView(BaseTabView):
         return keys
 
     def _expected_import_partners(self) -> tuple[str, str]:
-        exporter = getattr(self, "_expected_exporter", "") or getattr(
-            self.draft, "izvoznik_naziv", ""
-        )
-        importer = getattr(self, "_expected_importer", "") or getattr(
-            self.draft, "primalac_naziv", ""
-        )
+        exporter = getattr(self, "_expected_exporter", "")
+        importer = getattr(self, "_expected_importer", "")
+        exporter = exporter if isinstance(exporter, str) else ""
+        importer = importer if isinstance(importer, str) else ""
+        draft_exporter = getattr(self.draft, "izvoznik_naziv", "")
+        draft_importer = getattr(self.draft, "primalac_naziv", "")
+        if not exporter and isinstance(draft_exporter, str):
+            exporter = draft_exporter
+        if not importer and isinstance(draft_importer, str):
+            importer = draft_importer
         return exporter or "", importer or ""
 
     def _prepare_manual_import_plan(self, result: ImportResult):
@@ -3300,6 +3376,145 @@ class FakturaView(BaseTabView):
             expected_importer=expected_importer,
             expected_currency=getattr(self.draft, "valuta", "") or "",
         )
+
+    def _can_use_unified_batch_import(self) -> bool:
+        if getattr(self.assembly, "master_list_loaded", False):
+            return False
+        return isinstance(getattr(self.draft, "invoice_weights", None), dict)
+
+    def _batch_record_to_import_candidate(self, record: dict):
+        from copy import deepcopy
+
+        from services.import_workflow.adapters import from_import_result
+        from services.import_workflow.models import (
+            ImportCandidate,
+            _detect_file_type,
+            _normalize_path,
+        )
+
+        path = record.get("filepath", "") or "unknown"
+        result = record.get("_import_result")
+        if result is not None:
+            candidate = from_import_result(result, path)
+            candidate.invoice_lines = deepcopy(list(record.get("items", []) or []))
+            candidate.bruto_kg = record.get("bruto_kg", candidate.bruto_kg) or 0.0
+            candidate.neto_kg = record.get("neto_kg", candidate.neto_kg) or 0.0
+            candidate.warnings = list(record.get("parser_warnings", []) or candidate.warnings)
+            return candidate
+
+        invoice_name = (record.get("invoice_name", "") or "").strip()
+        source_stem = Path(path).stem if path else ""
+        lines = deepcopy(list(record.get("items", []) or []))
+        line_numbers = {
+            (getattr(line, "invoice_number", "") or "").strip()
+            for line in lines
+            if (getattr(line, "invoice_number", "") or "").strip()
+        }
+        explicit_invoice_number = ""
+        if invoice_name and (invoice_name != source_stem or invoice_name in line_numbers):
+            explicit_invoice_number = invoice_name
+
+        return ImportCandidate(
+            source_path=path,
+            normalized_path=_normalize_path(path),
+            file_type=_detect_file_type(path),
+            parser="",
+            invoice_lines=lines,
+            explicit_invoice_number=explicit_invoice_number,
+            display_name=invoice_name or source_stem or "faktura",
+            bruto_kg=record.get("bruto_kg", 0.0) or 0.0,
+            neto_kg=record.get("neto_kg", 0.0) or 0.0,
+            has_origin_statement=record.get("has_origin_statement", False),
+            is_authorized_exporter=record.get("is_authorized_exporter", False),
+            warnings=list(record.get("parser_warnings", []) or []),
+        )
+
+    def _prepare_manual_batch_import_plan(self, records: list):
+        from services.import_workflow.prepare_service import prepare_import
+
+        candidates = [
+            FakturaView._batch_record_to_import_candidate(self, record)
+            for record in records
+            if not record.get("skipped") and record.get("items")
+        ]
+        expected_exporter, expected_importer = FakturaView._expected_import_partners(self)
+        return prepare_import(
+            candidates,
+            existing_invoice_keys=FakturaView._existing_invoice_keys_for_import_workflow(self),
+            expected_exporter=expected_exporter,
+            expected_importer=expected_importer,
+            expected_currency=getattr(self.draft, "valuta", "") or "",
+        )
+
+    def _confirm_partial_batch_import(self, failed_imports: list, valid_count: int) -> bool:
+        details = "\n".join(
+            f"- {fname}: {str(err)[:100]}" for fname, err in failed_imports[:5]
+        )
+        if len(failed_imports) > 5:
+            details += f"\n... i još {len(failed_imports) - 5}"
+        reply = QMessageBox.question(
+            self,
+            "Grupni uvoz — djelimičan uspjeh",
+            f"Uspješno je pripremljeno {valid_count} faktura, "
+            f"ali {len(failed_imports)} fajlova nije uvezeno.\n\n"
+            f"{details}\n\n"
+            "Da li želite nastaviti sa ispravnim fakturama?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.Yes,
+        )
+        return reply == QMessageBox.Yes
+
+    def _count_applied_batch_file_types(self, plan, apply_result) -> tuple[int, int]:
+        applied_keys = set(apply_result.applied_invoice_keys)
+        excel_count = 0
+        pdf_count = 0
+        for invoice in plan.invoices:
+            if invoice.internal_key not in applied_keys:
+                continue
+            for path in invoice.source_paths:
+                suffix = Path(path).suffix.lower()
+                if suffix in (".xlsx", ".xls", ".xlsm"):
+                    excel_count += 1
+                elif suffix == ".pdf":
+                    pdf_count += 1
+        return excel_count, pdf_count
+
+    def _show_manual_batch_import_workflow_result(
+        self,
+        records: list,
+        plan,
+        apply_result,
+        failed_imports: list,
+    ) -> None:
+        final_records = [r for r in records if not r.get("skipped") and r.get("items")]
+        skipped_count = len(records) - len(final_records)
+        message = "📦 Grupni uvoz završen!\n\n"
+        message += f"✅ Faktura dodano: {apply_result.added_invoices}\n"
+        if apply_result.replaced_invoices:
+            message += f"🔁 Faktura zamijenjeno: {apply_result.replaced_invoices}\n"
+        if apply_result.skipped_invoices:
+            message += f"⏭️ Faktura preskočeno: {apply_result.skipped_invoices}\n"
+        if skipped_count:
+            message += f"🔗 Spojeno/preskočeno parova: {skipped_count}\n"
+        message += f"📋 Ukupno stavki: {apply_result.total_items}\n"
+        message += f"⚖️  Bruto: {self._format_weight(apply_result.total_bruto_kg)} kg\n"
+        message += f"⚖️  Neto: {self._format_weight(apply_result.total_neto_kg)} kg\n"
+
+        if failed_imports:
+            message += f"\n❌ Neuspješno: {len(failed_imports)}\n"
+            for fname, err in failed_imports[:3]:
+                message += f"   • {fname}: {str(err)[:80]}\n"
+            if len(failed_imports) > 3:
+                message += f"   ... i još {len(failed_imports) - 3}\n"
+
+        if apply_result.warnings:
+            message += f"\n⚠️ Upozorenja ({len(apply_result.warnings)}):\n"
+            for warning in apply_result.warnings[:5]:
+                message += f"   • {warning}\n"
+            if len(apply_result.warnings) > 5:
+                message += f"   ... i još {len(apply_result.warnings) - 5}\n"
+
+        QMessageBox.information(self, "Grupni uvoz", message)
 
     def _collect_manual_import_decisions(self, plan):
         from services.import_workflow.decision_models import (
