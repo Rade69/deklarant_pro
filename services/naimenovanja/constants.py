@@ -2,9 +2,6 @@
 Naimenovanja Constants - Sve hardkodovane vrijednosti
 """
 
-from typing import Dict
-
-
 class NaimenovanjaConstants:
     """Sve konstante za Naimenovanja Tab"""
 

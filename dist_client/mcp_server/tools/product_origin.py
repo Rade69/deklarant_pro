@@ -19,6 +19,7 @@ import logging
 from typing import Any
 
 from ..db import get_connection
+from .search_helpers import searchable_words
 
 logger = logging.getLogger("mcp_server.product_origin")
 
@@ -55,7 +56,7 @@ def find_product_origin(product_name: str, limit: int = 10) -> dict[str, Any]:
         }
 
     query_text = product_name.strip()
-    words = [w for w in query_text.split() if len(w) >= _MIN_WORD_LENGTH]
+    words = searchable_words(query_text, _MIN_WORD_LENGTH)
 
     if not words:
         return {

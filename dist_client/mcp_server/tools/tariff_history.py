@@ -18,6 +18,7 @@ import logging
 from typing import Any
 
 from ..db import get_connection
+from .search_helpers import searchable_words
 
 logger = logging.getLogger("mcp_server.tariff_history")
 
@@ -45,7 +46,7 @@ def suggest_tariff_from_history(
                 "notes": ["Empty product name"]}
 
     query_text = product_name.strip()
-    words = [w for w in query_text.split() if len(w) >= 3]
+    words = searchable_words(query_text)
 
     if not words:
         return {"suggestions": [], "needs_review": True,

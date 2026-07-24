@@ -13,6 +13,7 @@ import logging
 from typing import Any
 
 from ..db import get_connection
+from .search_helpers import searchable_words
 
 logger = logging.getLogger("mcp_server.declaration_search")
 
@@ -39,7 +40,7 @@ def search_historical_declarations(
 
     filters = filters or {}
     query_text = query.strip()
-    words = [w for w in query_text.split() if len(w) >= 3]
+    words = searchable_words(query_text)
 
     if not words:
         return {"results": []}
