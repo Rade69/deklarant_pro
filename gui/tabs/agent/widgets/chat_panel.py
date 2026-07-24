@@ -26,7 +26,7 @@ import qtawesome as qta
 from ..constants import *
 
 # ENHANCED: Import memory service
-from services.agent.chat_memory_service import ChatMemoryService
+from services.agent.chat.chat_memory_service import ChatMemoryService
 
 
 class ChatPanel(QWidget):

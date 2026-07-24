@@ -56,7 +56,7 @@ def test_fresh_manual_correction_is_offered_as_candidate():
     line = _make_line()
     ctx = PolicyContext(normalized_exporter="NEKI DRUGI IZVOZNIK D.O.O.")
 
-    with patch("services.tariff_mapping_service.TariffMappingService.find_mapping",
+    with patch("services.tariff.tariff_mapping_service.TariffMappingService.find_mapping",
                return_value=_fake_mapping(usage_count=1, similarity=1.0)):
         candidates = adapt_tariff_evidence(line, ctx)
 
@@ -74,7 +74,7 @@ def test_weak_fuzzy_single_use_is_not_offered():
     line = _make_line()
     ctx = PolicyContext(normalized_exporter="")
 
-    with patch("services.tariff_mapping_service.TariffMappingService.find_mapping",
+    with patch("services.tariff.tariff_mapping_service.TariffMappingService.find_mapping",
                return_value=_fake_mapping(usage_count=1, similarity=0.93)):
         candidates = adapt_tariff_evidence(line, ctx)
 
@@ -88,7 +88,7 @@ def test_fuzzy_match_offered_after_three_uses():
     line = _make_line()
     ctx = PolicyContext(normalized_exporter="")
 
-    with patch("services.tariff_mapping_service.TariffMappingService.find_mapping",
+    with patch("services.tariff.tariff_mapping_service.TariffMappingService.find_mapping",
                return_value=_fake_mapping(usage_count=3, similarity=0.93)):
         candidates = adapt_tariff_evidence(line, ctx)
 

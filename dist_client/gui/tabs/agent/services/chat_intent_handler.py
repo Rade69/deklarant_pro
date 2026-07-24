@@ -853,7 +853,7 @@ def _prikazi_statistiku_tarife(ctrl, tariff_code: str) -> None:
 
     try:
         stats = _tariff_usage_stats(code)
-        from services.tarifa_service import validiraj_tarifni_broj
+        from services.tariff.tarifa_service import validiraj_tarifni_broj
 
         valid = validiraj_tarifni_broj(code[:8])
         opis = valid.get("naziv", "") if valid.get("valid") else ""
@@ -1890,7 +1890,7 @@ def _klasificiraj_i_usmjeri(ctrl, message: str) -> None:
             self_._dft = dft
 
         def run(self_):
-            from services.agent.intent_classifier import IntentClassifier
+            from services.agent.chat.intent_classifier import IntentClassifier
             clf = IntentClassifier()
             summary = IntentClassifier.build_draft_summary(self_._dft)
             result = clf.classify(self_._msg, summary)
@@ -1946,7 +1946,7 @@ def _provjeri_naimenovanja(ctrl) -> None:
     Provjera popunjenosti naimenovanja — prikazuje SAMO obavezne probleme.
     Opciona polja su opciona — ne prikazuju se pojedinačno.
     """
-    from services.agent.naimenovanja_review_service import NaimenovanjaReviewService
+    from services.agent.validation.naimenovanja_review_service import NaimenovanjaReviewService
 
     chat = ctrl.view.get_chat_panel()
 
@@ -2125,7 +2125,7 @@ def _pregled_stanja_aplikacije(ctrl, scope: str = "all") -> None:
 
 
 def _provjeri_jedno_naimenovanje(ctrl, ordinal: int) -> None:
-    from services.agent.naimenovanja_review_service import NaimenovanjaReviewService
+    from services.agent.validation.naimenovanja_review_service import NaimenovanjaReviewService
 
     chat = ctrl.view.get_chat_panel()
     item = _find_naimenovanje_by_ordinal(ctrl, ordinal)
@@ -2249,7 +2249,7 @@ def _upisi_tarifu_u_trenutnu_faktura_stavku(ctrl, tariff_code: str, save_mapping
 
 
 def _pregledaj_naimenovanja(ctrl, indeksi=None) -> None:
-    from services.agent.naimenovanja_review_service import NaimenovanjaReviewService
+    from services.agent.validation.naimenovanja_review_service import NaimenovanjaReviewService
 
     chat = ctrl.view.get_chat_panel()
 
@@ -2352,7 +2352,7 @@ def _pretrazi_tarifu(ctrl, upit: str) -> None:
     chat = ctrl.view.get_chat_panel()
     chat.add_activity(f"🔍 Pretražujem tarifu za: {upit}")
     try:
-        from services.tarifa_service import pretrazi, formatiraj_rezultate
+        from services.tariff.tarifa_service import pretrazi, formatiraj_rezultate
         rezultati = pretrazi(upit, limit=10)
         html = formatiraj_rezultate(rezultati)
         chat.add_agent_message(
@@ -2416,7 +2416,7 @@ def _pretrazi_porijeklo(ctrl, upit: str) -> None:
     # ── Lokalni SQLite indeks (fallback) ──────────────────────────────────
     try:
         from collections import Counter
-        from services.agent.declaration_search_service import DeclarationSearchService
+        from services.agent.chat.declaration_search_service import DeclarationSearchService
 
         svc = DeclarationSearchService()
         rezultati = svc.search_by_goods(upit, limit=20)
@@ -2471,7 +2471,7 @@ def _pretrazi_arhiv_za_proizvod(ctrl, upit: str) -> None:
     chat = ctrl.view.get_chat_panel()
     chat.add_activity(f"🔍 Pretražujem lokalni arhiv za: {upit}")
     try:
-        from services.agent.declaration_search_service import DeclarationSearchService
+        from services.agent.chat.declaration_search_service import DeclarationSearchService
 
         svc = DeclarationSearchService()
         rezultati = svc.search_by_goods(upit, limit=12)
@@ -2518,7 +2518,7 @@ def _pretrazi_tarifu_po_kodu(ctrl, kod: str) -> None:
     _remember_tariff_context(ctrl, kod)
     chat.add_activity(f"🔍 Provjeravam tarifni kod: {kod}")
     try:
-        from services.tarifa_service import validiraj_tarifni_broj, naziv_poglavlja
+        from services.tariff.tarifa_service import validiraj_tarifni_broj, naziv_poglavlja
         r = validiraj_tarifni_broj(kod)
         if not r['valid']:
             chat.add_agent_message(
@@ -2548,7 +2548,7 @@ def _pretrazi_tarifu_poglavlje(ctrl, poglavlje: str) -> None:
     chat = ctrl.view.get_chat_panel()
     chat.add_activity(f"📂 Učitavam poglavlje {poglavlje} tarife...")
     try:
-        from services.tarifa_service import trazi_poglavlje, naziv_poglavlja, formatiraj_rezultate
+        from services.tariff.tarifa_service import trazi_poglavlje, naziv_poglavlja, formatiraj_rezultate
         naziv = naziv_poglavlja(poglavlje)
         stavke = trazi_poglavlje(poglavlje, limit=30)
         podbroji = [s for s in stavke if s['nivo'] == 'podbroj']
@@ -2563,7 +2563,7 @@ def _pretrazi_tarifu_poglavlje(ctrl, poglavlje: str) -> None:
 
 
 def _pretrazi_tarifu_hijerarhijski(ctrl, kod: str) -> None:
-    from services.tariff_tree_service import get_tree, get_full_path, format_tree_html
+    from services.tariff.tariff_tree_service import get_tree, get_full_path, format_tree_html
     chat = ctrl.view.get_chat_panel()
     kod_clean = kod.replace(' ', '').replace('.', '')
     chat.add_activity(f"🌳 Hijerarhijski prikaz za: {kod_clean}")

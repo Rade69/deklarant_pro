@@ -98,7 +98,7 @@ def test_evaluate_line_with_existing_tariff_in_db(svc, sample_line, sample_conte
     Koristi monkeypatch da izoluje test od baze — provjerava da servis
     korektno adaptira mapping kandidat, a ne da baza sadrzi odredjeni zapis.
     """
-    from services.tariff_mapping_service import TariffMapping, TariffMappingService
+    from services.tariff.tariff_mapping_service import TariffMapping, TariffMappingService
 
     dummy_mapping = TariffMapping(
         product_code="6002-2Z",

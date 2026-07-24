@@ -81,7 +81,7 @@ def test_followup_usage_question_uses_last_tariff_context(monkeypatch):
         },
     )
 
-    import services.tarifa_service as tarifa_service
+    import services.tariff.tarifa_service as tarifa_service
 
     monkeypatch.setattr(
         tarifa_service,
@@ -116,7 +116,7 @@ def test_pending_usage_question_uses_next_numeric_message(monkeypatch):
         lambda code: {"total_usage": 3, "rows": 1, "suppliers": 1, "examples": []},
     )
 
-    import services.tarifa_service as tarifa_service
+    import services.tariff.tarifa_service as tarifa_service
 
     monkeypatch.setattr(
         tarifa_service,

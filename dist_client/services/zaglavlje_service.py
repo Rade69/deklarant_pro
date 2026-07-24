@@ -15,7 +15,7 @@ import xml.etree.ElementTree as ET
 import math
 
 from database.db import get_db_connection
-from services.exceptions import ValidationError
+from services.core.exceptions import ValidationError
 from core.draft.draft import DeclarationDraft, AttachedDocument, NaimenovanjeDraft
 
 

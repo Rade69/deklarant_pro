@@ -45,13 +45,13 @@ def combine_sumaprom_excel_and_pdf(
     logger.info(f"ŠUMAPROM kombinovanje: Excel={excel_path}, PDF={pdf_path}")
     
     # STEP 1: Parsuj Excel
-    from importers.sumaprom_excel_parser import parse_sumaprom_excel
+    from importers.vendors.sumaprom.sumaprom_excel_parser import parse_sumaprom_excel
     excel_result = parse_sumaprom_excel(excel_path)
     
     logger.info(f"  Excel: {len(excel_result.items)} stavki, bruto={excel_result.bruto_kg} kg")
     
     # STEP 2: Parsuj PDF
-    from importers.sumaprom_pdf_parser import parse_sumaprom_pdf
+    from importers.vendors.sumaprom.sumaprom_pdf_parser import parse_sumaprom_pdf
     result = parse_sumaprom_pdf(pdf_path)
     
     logger.info(f"  PDF: {len(result.items)} stavki, bruto={result.bruto_kg} kg, neto={result.neto_kg} kg")

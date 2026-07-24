@@ -74,7 +74,7 @@ class TariffIntentService:
 
         self._activity(f"🔍 Tražim tarifne brojeve za {len(bez_tarife)} stavki...")
 
-        from services.tariff_mapping_service import TariffMappingService
+        from services.tariff.tariff_mapping_service import TariffMappingService
         from services.agent.tariff.tariff_suggestion_service import HybridMatchingService
         svc = TariffMappingService()
         hybrid = HybridMatchingService() if exporter_name else None
@@ -168,7 +168,7 @@ class TariffIntentService:
 
         self._activity(f"🔍 Nađeno {len(filtrirane)} stavki s '{keyword}', tražim tarifne...")
 
-        from services.tariff_mapping_service import TariffMappingService
+        from services.tariff.tariff_mapping_service import TariffMappingService
         from services.agent.tariff.tariff_suggestion_service import HybridMatchingService
         svc = TariffMappingService()
         hybrid = HybridMatchingService() if exporter_name else None
@@ -562,7 +562,7 @@ class TariffIntentService:
                     break
 
         try:
-            from services.tariff_mapping_service import TariffMappingService
+            from services.tariff.tariff_mapping_service import TariffMappingService
             svc = TariffMappingService()
 
             # Obriši sve stare zapise za ovaj naziv/product_code — korisnik potvrđuje tačan tarif.

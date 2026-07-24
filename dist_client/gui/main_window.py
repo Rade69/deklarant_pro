@@ -202,7 +202,7 @@ class MainWindow(QMainWindow):
         self._replace_draft_contents(pending)
 
         try:
-            from services.create_naimenovanja_service import CreateNaimenovanjaService
+            from services.naimenovanja.create_naimenovanja_service import CreateNaimenovanjaService
             service = CreateNaimenovanjaService(self.draft)
             service.create_smart_group()
         except Exception as e:

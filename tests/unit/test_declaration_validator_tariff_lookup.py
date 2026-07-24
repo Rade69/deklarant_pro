@@ -8,7 +8,7 @@ def test_tariff_lookup_accepts_10_digit_code_when_8_digit_level_exists(monkeypat
         calls.append(code)
         return code == "63079099"
 
-    monkeypatch.setattr("services.tarifa_service.trazi_po_kodu", fake_trazi_po_kodu)
+    monkeypatch.setattr("services.tariff.tarifa_service.trazi_po_kodu", fake_trazi_po_kodu)
 
     service = DeclarationValidatorService()
 
@@ -23,7 +23,7 @@ def test_tariff_lookup_keeps_8_digit_to_6_digit_fallback(monkeypatch):
         calls.append(code)
         return code == "630790"
 
-    monkeypatch.setattr("services.tarifa_service.trazi_po_kodu", fake_trazi_po_kodu)
+    monkeypatch.setattr("services.tariff.tarifa_service.trazi_po_kodu", fake_trazi_po_kodu)
 
     service = DeclarationValidatorService()
 

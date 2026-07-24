@@ -135,7 +135,7 @@ def _primjeni_xml_template(ctrl, all_lines: list, chat, silent: bool = False) ->
     # 1a. Par (exporter + importer) — najtačnije
     if not match and exporter_hint and hint_from_invoice:
         try:
-            from services.agent.exporter_xml_indexer import find_xml_for_pair
+            from services.agent.learning.exporter_xml_indexer import find_xml_for_pair
             db_result = find_xml_for_pair(
                 exporter_hint,
                 consignee_jib=consignee_jib,
@@ -156,7 +156,7 @@ def _primjeni_xml_template(ctrl, all_lines: list, chat, silent: bool = False) ->
     # vratio bi XML od pogrešnog dobavljača za istog uvoznika.
     if not match and is_import and not hint_from_invoice and (consignee_jib or consignee_name):
         try:
-            from services.agent.exporter_xml_indexer import find_xml_by_consignee
+            from services.agent.learning.exporter_xml_indexer import find_xml_by_consignee
             db_result = find_xml_by_consignee(
                 consignee_jib=consignee_jib,
                 consignee_hint=consignee_name,
@@ -172,10 +172,10 @@ def _primjeni_xml_template(ctrl, all_lines: list, chat, silent: bool = False) ->
     if not match and filename_hint and not hint_from_invoice:
         try:
             if is_import:
-                from services.agent.exporter_xml_indexer import find_xml_by_consignee
+                from services.agent.learning.exporter_xml_indexer import find_xml_by_consignee
                 db_result = find_xml_by_consignee(consignee_jib="", consignee_hint=filename_hint)
             else:
-                from services.agent.exporter_xml_indexer import find_xml_for_pair
+                from services.agent.learning.exporter_xml_indexer import find_xml_for_pair
                 db_result = find_xml_for_pair(
                     filename_hint,
                     consignee_jib=consignee_jib,

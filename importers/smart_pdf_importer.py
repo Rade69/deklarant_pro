@@ -243,7 +243,7 @@ def _detect_pdf_format(pdf_path: str) -> str:
             # Skenirani PDF (bez teksta) — probaj OCR za Šumaprom detekciju
             if len(text.strip()) < 50:
                 try:
-                    from importers.sumaprom_pdf_parser import detect_sumaprom_pdf
+                    from importers.vendors.sumaprom.sumaprom_pdf_parser import detect_sumaprom_pdf
                     if detect_sumaprom_pdf(pdf_path):
                         return "sumaprom"
                 except Exception:
@@ -283,25 +283,25 @@ def _parse_invoice_improved(pdf_path: str) -> ImportResult:
 
 def _parse_blagic_loren(pdf_path: str) -> ImportResult:
     """Parsira Blagić-Loren format."""
-    from importers.blagic_loren_pdf_parser import parse_blagic_loren_pdf
+    from importers.vendors.blagic.blagic_loren_pdf_parser import parse_blagic_loren_pdf
     return parse_blagic_loren_pdf(pdf_path)
 
 
 def _parse_blagic_attos(pdf_path: str) -> ImportResult:
     """Parsira Blagić-Attos format."""
-    from importers.blagic_attos_importer import parse_blagic_attos_with_auto_combine
+    from importers.vendors.blagic.blagic_attos_importer import parse_blagic_attos_with_auto_combine
     return parse_blagic_attos_with_auto_combine(pdf_path)
 
 
 def _parse_sumaprom(pdf_path: str) -> ImportResult:
     """Parsira ŠUMAPROM format (PDF) — tekstualni ili skenirani (OCR)."""
-    from importers.sumaprom_pdf_parser import parse_sumaprom_pdf
+    from importers.vendors.sumaprom.sumaprom_pdf_parser import parse_sumaprom_pdf
     return parse_sumaprom_pdf(pdf_path)
 
 
 def _parse_imamoglu(pdf_path: str) -> ImportResult:
     """Parsira IMAMOGLU format."""
-    from importers.imamoglu_pdf_parser import parse_imamoglu_pdf
+    from importers.vendors.imamoglu.imamoglu_pdf_parser import parse_imamoglu_pdf
     return parse_imamoglu_pdf(pdf_path)
 
 
@@ -337,7 +337,7 @@ def _find_master_frigo_mapping_xlsx(pdf_path: str) -> str | None:
 # DOC: docs/sections/master_frigo_mapping.md
 def _parse_master_frigo(pdf_path: str) -> ImportResult:
     """Parsira Master Frigo format koristeći specijalizovani parser."""
-    from importers.master_frigo_importer import (
+    from importers.vendors.master_frigo.master_frigo_importer import (
         parse_master_frigo_pdf, convert_to_invoice_lines, _read_mapping_xlsx
     )
     from core.draft.draft import Party
@@ -385,7 +385,7 @@ def _parse_master_frigo(pdf_path: str) -> ImportResult:
 
 def _parse_medicopharm(pdf_path: str) -> ImportResult:
     """Parsira Medico Pharm Servis format."""
-    from importers.medicopharm_importer import parse_medicopharm_pdf
+    from importers.vendors.medicopharm.medicopharm_importer import parse_medicopharm_pdf
     return parse_medicopharm_pdf(pdf_path)
 
 
@@ -397,7 +397,7 @@ def _parse_proton_system(pdf_path: str) -> ImportResult:
 
 def _parse_leburic_pekabesko(pdf_path: str) -> ImportResult:
     """Parsira Leburic/Pekabesko PDF format (skenirani OCR dokumenti)."""
-    from importers.leburic_pekabesko_importer import parse_leburic_pekabesko_pdf
+    from importers.vendors.leburic.leburic_pekabesko_importer import parse_leburic_pekabesko_pdf
     return parse_leburic_pekabesko_pdf(pdf_path)
 
 

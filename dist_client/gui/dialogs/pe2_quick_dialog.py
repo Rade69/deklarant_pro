@@ -426,7 +426,7 @@ class PE2QuickDialog(QDialog):
             
             if exporter_name:
                 # Koristi sigurnu verziju istorijskog učenja
-                from services.agent.historical_learning_service_safe import enhance_preference_logic
+                from services.agent.learning.historical_learning_service_safe import enhance_preference_logic
                 historical_pref = enhance_preference_logic(country_upper, exporter_name)
                 
                 if historical_pref:

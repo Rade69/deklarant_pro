@@ -660,7 +660,7 @@ class ChatWorker(QThread):
         # XML lookup — lokalna operacija, koristi puna imena i JIB
         if exporter_name:
             try:
-                from services.agent.exporter_xml_indexer import find_xml_for_pair
+                from services.agent.learning.exporter_xml_indexer import find_xml_for_pair
                 match = find_xml_for_pair(
                     exporter_name,
                     consignee_jib=consignee_jib,
@@ -901,7 +901,7 @@ class ChatWorker(QThread):
         msg = query.lower()
 
         try:
-            from services.agent.declaration_search_service import DeclarationSearchService
+            from services.agent.chat.declaration_search_service import DeclarationSearchService
             svc = DeclarationSearchService()
 
             # Statistika indeksa (uvijek korisna)

@@ -13,7 +13,7 @@ from core.draft.draft import InvoiceLine
 from .base import PDFParseStrategy
 
 # Import existing Blagić parser funkcija
-from importers.blagic_importer import (
+from importers.vendors.blagic.blagic_importer import (
     parse_blagic_invoice_pdf,
     parse_blagic_packing_xlsx,
     merge_invoice_with_packing,

@@ -161,7 +161,7 @@ class ZaglavljeController:
             True ako je enhanced validacija korištena
         """
         try:
-            from services.agent.declaration_validator_service import (
+            from services.agent.validation.declaration_validator_service import (
                 validate_declaration_full
             )
             from gui.dialogs.enhanced_validation_dialog import (

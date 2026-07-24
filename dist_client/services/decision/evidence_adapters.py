@@ -52,7 +52,7 @@ def adapt_tariff_evidence(line: "InvoiceLine", context: "PolicyContext") -> list
     # Ako ima product_code — trazi mapping
     if line.product_code:
         try:
-            from services.tariff_mapping_service import TariffMappingService
+            from services.tariff.tariff_mapping_service import TariffMappingService
             svc = TariffMappingService()
             mapping = svc.find_mapping(
                 product_code=line.product_code,

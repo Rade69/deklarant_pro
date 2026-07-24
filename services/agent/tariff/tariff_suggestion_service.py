@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from difflib import SequenceMatcher
 
 from database.db import get_db_connection
-from services.tariff_mapping_service import TariffMapping
+from services.tariff.tariff_mapping_service import TariffMapping
 from services.agent.learning.historical_learning_service_safe import HistoricalLearningServiceSafe
 from services.agent.learning.supplier_profiling_service import SupplierProfilingService
 from services.agent.tariff.hybrid_tariff_agent import HybridTariffAgent
@@ -272,7 +272,7 @@ class HybridMatchingService:
     def _get_keyword_candidates(self, product_code, naziv_robe):
         candidates = []
         try:
-            from services.tariff_mapping_service import TariffMappingService
+            from services.tariff.tariff_mapping_service import TariffMappingService
             mapping = TariffMappingService().find_mapping(
                 product_code=product_code, naziv_robe=naziv_robe, min_similarity=0.70
             )

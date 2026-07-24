@@ -63,7 +63,7 @@ from PySide6.QtGui import QColor, QIcon, QPainter, QPolygon, QTextOption
 
 from services.naimenovanja.tariff_service import TariffService
 from services.naimenovanja.constants import NaimenovanjaConstants
-from services.tariff_mapping_service import TariffMapping, validate_preference
+from services.tariff.tariff_mapping_service import TariffMapping, validate_preference
 from services.tariff_controls_service import check_tariff_controls, get_required_docs
 from gui.tabs.base_view import BaseTabView
 from gui.dialogs.inspection_dialog import InspectionDialog

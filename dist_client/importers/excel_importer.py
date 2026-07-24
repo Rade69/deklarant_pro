@@ -18,7 +18,7 @@ from openpyxl.utils import get_column_letter
 # Project imports
 from core.draft.draft import InvoiceLine
 from importers.import_result import ImportResult
-from services.error_handler import error_handler
+from services.core.error_handler import error_handler
 # from config.settings import settings  # uklonjeno - settings objekat ne postoji
 from utils.country_normalizer import normalize_country_name
 
@@ -115,7 +115,7 @@ class ExcelImporter:
             # ================================================
 
             # Try IMAMOGLU Packing List format (.xlsx)
-            from importers.imamoglu_excel_importer import (
+            from importers.vendors.imamoglu.imamoglu_excel_importer import (
                 detect_imamoglu_packing_list, parse_imamoglu_packing_list,
                 detect_imamoglu_mal_tanimlari, parse_imamoglu_mal_tanimlari
             )
@@ -139,7 +139,7 @@ class ExcelImporter:
                 return result
 
             # Try Blagic-Loren format detection
-            from importers.blagic_loren_importer import detect_blagic_loren_excel, parse_blagic_loren_excel
+            from importers.vendors.blagic.blagic_loren_importer import detect_blagic_loren_excel, parse_blagic_loren_excel
 
             if detect_blagic_loren_excel(filepath):
                 self.logger.info("Detected Blagic-Loren format - using specialized parser")
@@ -154,7 +154,7 @@ class ExcelImporter:
                 return result
 
             # Try Leburic/Pekabesko format detection
-            from importers.leburic_pekabesko_importer import (
+            from importers.vendors.leburic.leburic_pekabesko_importer import (
                 detect_leburic_pekabesko_excel, parse_leburic_pekabesko_excel
             )
 
@@ -168,7 +168,7 @@ class ExcelImporter:
                 return result
 
             # Try ŠUMAPROM format detection
-            from importers.sumaprom_excel_parser import detect_sumaprom_excel, parse_sumaprom_excel
+            from importers.vendors.sumaprom.sumaprom_excel_parser import detect_sumaprom_excel, parse_sumaprom_excel
 
             if detect_sumaprom_excel(filepath):
                 self.logger.info("Detected ŠUMAPROM format - using specialized parser")

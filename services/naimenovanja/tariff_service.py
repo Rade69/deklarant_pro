@@ -5,7 +5,7 @@ Tariff Service - Upravljanje tarifnim brojevima
 """
 
 from typing import List, Optional, Dict
-from services.tariff_mapping_service import TariffMappingService, TariffMapping
+from services.tariff.tariff_mapping_service import TariffMappingService, TariffMapping
 from services.naimenovanja.constants import NaimenovanjaConstants
 
 

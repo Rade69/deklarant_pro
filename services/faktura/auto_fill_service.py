@@ -63,7 +63,7 @@ class AutoFillService:
         Returns:
             Dict sa rezultatima
         """
-        from services.tariff_mapping_service import TariffMappingService
+        from services.tariff.tariff_mapping_service import TariffMappingService
         from services.country_origin_validator import merge_country_origin
 
         service = TariffMappingService()

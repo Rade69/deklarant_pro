@@ -12,9 +12,9 @@ Workflow:
 5. Sačuva u bazu catalogs.exporter_xml_index
 
 Usage:
-    python -m services.agent.exporter_xml_indexer
-    python -m services.agent.exporter_xml_indexer --reindex  # Force reindex
-    python -m services.agent.exporter_xml_indexer --lookup "ENMON|IPEK"  # Test lookup
+    python -m services.agent.learning.exporter_xml_indexer
+    python -m services.agent.learning.exporter_xml_indexer --reindex  # Force reindex
+    python -m services.agent.learning.exporter_xml_indexer --lookup "ENMON|IPEK"  # Test lookup
 """
 
 import logging

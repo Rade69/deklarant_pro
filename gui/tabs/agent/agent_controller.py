@@ -81,10 +81,10 @@ class AgentController:
         self.import_pipeline_svc = ImportPipelineService(self)
         self.chat_intent_svc = ChatIntentHandler(self)
 
-        from services.agent.tariff_intent_service import TariffIntentService
-        from services.agent.merge_intent_service import MergeIntentService
-        from services.agent.naimenovanja_intent_service import NaimenovanjaIntentService
-        from services.agent.historical_learning_service_safe import HistoricalLearningServiceSafe
+        from services.agent.chat.tariff_intent_service import TariffIntentService
+        from services.agent.chat.merge_intent_service import MergeIntentService
+        from services.agent.chat.naimenovanja_intent_service import NaimenovanjaIntentService
+        from services.agent.learning.historical_learning_service_safe import HistoricalLearningServiceSafe
 
         chat = self.view.get_chat_panel()
         

@@ -22,7 +22,7 @@ import re
 import logging
 from typing import Dict, Any, Optional, List
 
-from services.tariff_mapping_service import TariffMappingService
+from services.tariff.tariff_mapping_service import TariffMappingService
 from services.agent.tariff.tariff_rag_service import TariffRAGService
 
 logger = logging.getLogger(__name__)

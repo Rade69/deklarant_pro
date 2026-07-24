@@ -135,7 +135,7 @@ class PreferenceValidator:
                 return result
             
             # Koristi HistoricalLearningServiceSafe
-            from services.agent.historical_learning_service_safe import enhance_preference_logic
+            from services.agent.learning.historical_learning_service_safe import enhance_preference_logic
             
             historical_pref = enhance_preference_logic(item.zemlja_porijekla, exporter_name)
             

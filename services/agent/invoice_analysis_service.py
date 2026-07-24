@@ -48,7 +48,7 @@ class InvoiceAnalysisService:
     """
 
     def __init__(self):
-        from services.tariff_mapping_service import TariffMappingService
+        from services.tariff.tariff_mapping_service import TariffMappingService
         self._mapping_svc = TariffMappingService()
 
     def analyse(

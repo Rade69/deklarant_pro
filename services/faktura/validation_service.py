@@ -4,7 +4,7 @@ Validation Service - Validacija stavki
 
 from typing import List, Tuple, Dict, Any, Optional
 from core.draft import InvoiceLine
-from services.validation_service import FakturaItemValidator, ValidationResult
+from services.validation.validation_service import FakturaItemValidator, ValidationResult
 
 
 class ValidationService:

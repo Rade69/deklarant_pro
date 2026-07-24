@@ -247,13 +247,13 @@ class ImportService:
 
         if ext in (".xlsx", ".xls", ".xlsm"):
             try:
-                from importers.blagic_loren_importer import detect_blagic_loren_excel
+                from importers.vendors.blagic.blagic_loren_importer import detect_blagic_loren_excel
                 if detect_blagic_loren_excel(str(filepath)):
                     self.last_import_type = "loren_excel"
                     self.logger.info("💡 Loren Excel sačuvan - čeka Loren PDF sa istim brojem")
                     return
                     
-                from importers.sumaprom_excel_parser import detect_sumaprom_excel
+                from importers.vendors.sumaprom.sumaprom_excel_parser import detect_sumaprom_excel
                 if detect_sumaprom_excel(str(filepath)):
                     self.last_import_type = "sumaprom_excel"
                     self.logger.info("💡 ŠUMAPROM Excel sačuvan - čeka ŠUMAPROM PDF sa istim brojem")
@@ -309,9 +309,9 @@ class ImportService:
         logger.debug(f"   Prethodni: {Path(self.last_import_path).name} (type={self.last_import_type})")
 
         try:
-            from importers.blagic_loren_importer import detect_blagic_loren_excel
-            from importers.blagic_loren_pdf_parser import detect_blagic_loren_pdf
-            from importers.blagic_combined_importer import combine_blagic_excel_and_pdf
+            from importers.vendors.blagic.blagic_loren_importer import detect_blagic_loren_excel
+            from importers.vendors.blagic.blagic_loren_pdf_parser import detect_blagic_loren_pdf
+            from importers.vendors.blagic.blagic_combined_importer import combine_blagic_excel_and_pdf
 
             current_is_loren_excel = ext in (".xlsx", ".xls") and detect_blagic_loren_excel(str(filepath))
             current_is_loren_pdf = ext == ".pdf" and detect_blagic_loren_pdf(str(filepath))
@@ -370,9 +370,9 @@ class ImportService:
 
         # CASE 1B & 2B: ŠUMAPROM Excel + PDF kombinovanje
         try:
-            from importers.sumaprom_excel_parser import detect_sumaprom_excel
-            from importers.sumaprom_pdf_parser import detect_sumaprom_pdf  # Will be created when needed
-            from importers.sumaprom_combined_importer import combine_sumaprom_excel_and_pdf  # Will be created
+            from importers.vendors.sumaprom.sumaprom_excel_parser import detect_sumaprom_excel
+            from importers.vendors.sumaprom.sumaprom_pdf_parser import detect_sumaprom_pdf  # Will be created when needed
+            from importers.vendors.sumaprom.sumaprom_combined_importer import combine_sumaprom_excel_and_pdf  # Will be created
 
             current_is_sumaprom_excel = ext in (".xlsx", ".xls") and detect_sumaprom_excel(str(filepath))
             current_is_sumaprom_pdf = ext == ".pdf" and detect_sumaprom_pdf(str(filepath))

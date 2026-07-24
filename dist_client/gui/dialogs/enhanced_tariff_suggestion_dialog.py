@@ -582,8 +582,8 @@ def create_context_from_invoice(
     invoice_lines: List[Dict] = None
 ) -> DialogContext:
     """Kreiraj kontekst na osnovu fakture."""
-    from services.agent.historical_learning_service_safe import HistoricalLearningServiceSafe
-    from services.agent.supplier_profiling_service import SupplierProfilingService
+    from services.agent.learning.historical_learning_service_safe import HistoricalLearningServiceSafe
+    from services.agent.learning.supplier_profiling_service import SupplierProfilingService
     
     context = DialogContext(
         supplier_name=supplier_name,
@@ -640,7 +640,7 @@ def _add_warnings_from_context(
     warnings = []
     
     # Provjeri da li je proizvod nov za ovog dobavljača
-    from services.agent.supplier_profiling_service import SupplierProfilingService
+    from services.agent.learning.supplier_profiling_service import SupplierProfilingService
     
     profiling_service = SupplierProfilingService()
     profile = profiling_service.get_complete_profile(supplier_name)

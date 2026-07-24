@@ -8,7 +8,7 @@ from importers.vendors.blagic.blagic_combined_importer import (
 )
 from importers.vendors.blagic.blagic_loren_pdf_parser import parse_blagic_loren_pdf
 from services.import_service import ImportService, get_import_service
-from importers.blagic_loren_importer import parse_blagic_loren_excel
+from importers.vendors.blagic.blagic_loren_importer import parse_blagic_loren_excel
 
 
 EXCEL_46 = "najavauvoza/loren-fakture/46VP-2026 BLAGIC.xlsx"

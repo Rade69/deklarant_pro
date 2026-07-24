@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont, QMouseEvent
 
-from services.tariff_mapping_service import TariffMapping
+from services.tariff.tariff_mapping_service import TariffMapping
 from core.draft import NaimenovanjeDraft
 
 

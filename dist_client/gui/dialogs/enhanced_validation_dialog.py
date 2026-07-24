@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont, QColor, QIcon, QBrush
 
-from services.agent.declaration_validator_service import (
+from services.agent.validation.declaration_validator_service import (
     ValidationReport,
     ValidationItem,
     ValidationSeverity,
@@ -748,7 +748,7 @@ def test_enhanced_dialog():
     """Testiraj enhanced validation dijalog."""
     from PySide6.QtWidgets import QApplication
     import sys
-    from services.agent.declaration_validator_service import (
+    from services.agent.validation.declaration_validator_service import (
         ValidationReport,
         ValidationItem,
         ValidationSeverity,

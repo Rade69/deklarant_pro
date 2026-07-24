@@ -11,7 +11,7 @@ from PySide6.QtWidgets import QPushButton, QTabWidget
 from core.draft.draft import DeclarationDraft, NaimenovanjeDraft
 from gui.tabs.zaglavlje_controller import ZaglavljeController
 from gui.dialogs.enhanced_validation_dialog import EnhancedValidationDialog, DialogConfig
-from services.agent.declaration_validator_service import validate_declaration_full
+from services.agent.validation.declaration_validator_service import validate_declaration_full
 
 
 def _build_draft_bez_atb():

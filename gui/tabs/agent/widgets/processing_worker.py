@@ -45,7 +45,7 @@ class ProcessingWorker(QThread):
 
         from services.import_service import ImportService
         from importers.import_result import ImportResult
-        from importers.blagic_attos_importer import find_matching_packing_list, is_blagic_attos_packing_list
+        from importers.vendors.blagic.blagic_attos_importer import find_matching_packing_list, is_blagic_attos_packing_list
 
         # ⭐ PRIVATNA instanca ImportService-a za worker thread.
         # NIKAD ne koristiti singleton (get_import_service) ovdje — singleton dijeli

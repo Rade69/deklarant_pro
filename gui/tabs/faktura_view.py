@@ -63,8 +63,8 @@ from gui.dialogs.pe2_quick_dialog import PE2QuickDialog
 from core.draft import DeclarationDraft, InvoiceLine, NaimenovanjeDraft
 import uuid
 from services.import_worker import ImportWorker
-from services.validation_service import FakturaItemValidator, ValidationLevel
-from services.declaration_assembly import DeclarationAssembly
+from services.validation.validation_service import FakturaItemValidator, ValidationLevel
+from services.naimenovanja.declaration_assembly import DeclarationAssembly
 from services.export_service import ExportService
 from exporters.pdf_invoice_exporter import export_invoice_to_pdf
 from exporters.pdf_faktura_pregled import export_faktura_pregled
@@ -3005,7 +3005,7 @@ class FakturaView(BaseTabView):
         if exporter_name and exporter_name.strip():
             try:
                 # Koristi HistoricalLearningServiceSafe
-                from services.agent.historical_learning_service_safe import enhance_preference_logic
+                from services.agent.learning.historical_learning_service_safe import enhance_preference_logic
                 historical_pref = enhance_preference_logic(country_code, exporter_name)
                 if historical_pref:
                     return historical_pref
@@ -3144,7 +3144,7 @@ class FakturaView(BaseTabView):
                 )
                 
                 # Validacija
-                from services.preference_validator import PreferenceValidator
+                from services.validation.preference_validator import PreferenceValidator
                 validator = PreferenceValidator()
                 
                 # Pronađi stavke sa povlasticom a bez EUR.1
@@ -3728,7 +3728,7 @@ class FakturaView(BaseTabView):
             self.btn_create_naimenovanja.setEnabled(False)
             self.btn_create_naimenovanja.setText("Kreiram...")
             QCoreApplication.processEvents()
-        from services.create_naimenovanja_service import CreateNaimenovanjaService
+        from services.naimenovanja.create_naimenovanja_service import CreateNaimenovanjaService
         from services.faktura.declaration_split_service import group_label as _group_label
 
         try:

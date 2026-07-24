@@ -16,8 +16,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from core.draft.draft import InvoiceLine, DeclarationDraft
-from services.product_master_list import ProductMasterList
-from services.tariff_mapping_service import validate_preference
+from services.tariff.product_master_list import ProductMasterList
+from services.tariff.tariff_mapping_service import validate_preference
 
 logger = logging.getLogger("deklarant_pro.services.assembly")
 

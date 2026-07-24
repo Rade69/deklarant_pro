@@ -3,7 +3,7 @@ Validation Cache - Caching rezultata validacije
 """
 
 from typing import Dict, Optional, List
-from services.validation_service import ValidationResult
+from services.validation.validation_service import ValidationResult
 
 
 class ValidationCache:

@@ -591,7 +591,7 @@ class DeclarationValidatorService:
         8-cifreni ASYCUDA kod ili 10-cifreni kod ciji 8-cifreni nivo postoji.
         """
         try:
-            from services.tarifa_service import trazi_po_kodu
+            from services.tariff.tarifa_service import trazi_po_kodu
             norm = tariff_code.strip().replace(" ", "").replace(".", "")
             if not norm:
                 return True
@@ -836,7 +836,7 @@ class ComplianceCheckService:
             msg = f"Stavke bez tarifnog broja: {indices}" if len(bez_tarife) <= 5 else f"{len(bez_tarife)} stavki nema tarifni broj."
             result.issues.append(Issue('error', 'no_tariff', msg))
         try:
-            from services.tarifa_service import trazi_po_kodu
+            from services.tariff.tarifa_service import trazi_po_kodu
             seen = set()
             for i, l in enumerate(lines, 1):
                 kod = (getattr(l, 'tarifni_broj', '') or '').strip()

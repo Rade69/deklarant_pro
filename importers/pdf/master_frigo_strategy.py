@@ -13,7 +13,7 @@ from .base import PDFParseStrategy
 from importers.import_result import ImportResult
 
 # Import existing Master Frigo parser funkcija
-from importers.master_frigo_importer import (
+from importers.vendors.master_frigo.master_frigo_importer import (
     parse_master_frigo_pdf,
     convert_to_invoice_lines,
     _read_mapping_xlsx,

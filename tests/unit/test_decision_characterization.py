@@ -639,7 +639,7 @@ def test_characterization_validator_eup_with_eur1_is_valid():
 @pytest.fixture
 def _safe_tariff_service(monkeypatch):
     """TariffMappingService sa neutralisanim _increment_usage."""
-    from services.tariff_mapping_service import TariffMappingService
+    from services.tariff.tariff_mapping_service import TariffMappingService
 
     svc = TariffMappingService()
 
@@ -747,7 +747,7 @@ def test_db_auto_fill_service_writes_tariff(monkeypatch):
     POZIVA: AutoFillService.fill_tariff_numbers() — stvarni servis + baza.
     """
     from services.faktura.auto_fill_service import AutoFillService
-    from services.tariff_mapping_service import TariffMappingService
+    from services.tariff.tariff_mapping_service import TariffMappingService
 
     def noop(self, a, b, c):
         pass
@@ -883,7 +883,7 @@ def test_db_auto_fill_vs_agent_same_input_same_candidate(monkeypatch):
             TariffMappingService.find_mapping() — stvarni servisi + baza.
     """
     from services.faktura.auto_fill_service import AutoFillService
-    from services.tariff_mapping_service import TariffMappingService
+    from services.tariff.tariff_mapping_service import TariffMappingService
 
     def noop(self, a, b, c):
         pass
@@ -935,7 +935,7 @@ def test_db_mapping_service_read_only_operations_dont_modify_db():
     POZIVA: TariffMappingService.find_mapping(),
             TariffMappingService.find_batch_by_product_codes()
     """
-    from services.tariff_mapping_service import TariffMappingService
+    from services.tariff.tariff_mapping_service import TariffMappingService
     from database.db import get_db_connection
 
     svc = TariffMappingService()

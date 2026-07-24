@@ -40,7 +40,7 @@ class TabFactory:
         try:
             from services.zaglavlje_service import ZaglavljeService
             from services.faktura_service import FakturaService
-            from services.naimenovanja_service import NaimenovanjaService
+            from services.naimenovanja.naimenovanja_service import NaimenovanjaService
             from services.sifarnici_service import SifarniciService
 
             if not self._container.has_service(ZaglavljeService):

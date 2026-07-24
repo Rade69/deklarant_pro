@@ -1241,3 +1241,19 @@ Pri bulk popunjavanju Qt tabela nije dovoljno pozvati `blockSignals(True)` i na 
 ručno vratiti `False`. Sačuvati prethodna stanja `signalsBlocked`, `updatesEnabled` i,
 gdje postoji, `isSortingEnabled`, pa ih vratiti u `finally` bloku. Tako se ne narušava
 stanje koje je pozivalac već postavio i tabela ne ostaje zamrznuta nakon izuzetka.
+
+## 47. MCP dijakritička pretraga i uklanjanje re-export shimova (2026-07-24)
+
+MCP historical search ne zavisi od PostgreSQL `unaccent` ekstenzije. Umjesto toga,
+`mcp_server/tools/search_helpers.py::searchable_patterns()` gradi parametrizovane regex
+pattern-e za domaća slova (`c/č/ć`, `s/š`, `z/ž`, `d/đ`, `dj/đ`) i koristi PostgreSQL
+`~*` operator. Ovo zadržava deploy bez dodatnih DB privilegija, ali mijenja query plan
+u odnosu na `ILIKE`; kod velikih tabela ponovo provjeriti performanse prije širenja
+pattern-a.
+
+Top-level re-export shimovi u `services/`, `services/agent/` i `importers/` su uklonjeni
+tek nakon migracije internih pozivalaca na stvarne pakete (`services.agent.learning.*`,
+`services.agent.chat.*`, `services.tariff.*`, `importers.vendors.*`). Izuzetak: u
+`dist_client` postoji namjerni `.pyd` most za `services.tariff_mapping_service`; fajl
+`dist_client/services/tariff/tariff_mapping_service.py` ne treba mehanički prepisivati
+na self-import niti brisati bez rebuilda runtime paketa.
