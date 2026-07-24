@@ -277,37 +277,44 @@ class QuotaPanel(QWidget):
         )
 
     def _populate_table(self, rows: list[dict]):
-        self.table.setRowCount(0)
-        self.table.setRowCount(len(rows))
-        self.table.verticalHeader().setDefaultSectionSize(28)
+        updates_enabled = self.table.updatesEnabled()
+        signals_blocked = self.table.blockSignals(True)
+        self.table.setUpdatesEnabled(False)
+        try:
+            self.table.setRowCount(0)
+            self.table.setRowCount(len(rows))
+            self.table.verticalHeader().setDefaultSectionSize(28)
 
-        for r, item in enumerate(rows):
-            app = item.get("approved_qty")
-            used = item.get("used_qty")
-            rem = item.get("remaining_qty")
-            color = _risk_color(rem, app)
+            for r, item in enumerate(rows):
+                app = item.get("approved_qty")
+                used = item.get("used_qty")
+                rem = item.get("remaining_qty")
+                color = _risk_color(rem, app)
 
-            values = [
-                item.get("tariff_code", ""),
-                item.get("description", ""),
-                item.get("unit", ""),
-                _fmt_qty(app),
-                _fmt_qty(used),
-                _fmt_qty(rem),
-                _fmt_pct(rem, app),
-                _risk_label(rem, app),
-            ]
+                values = [
+                    item.get("tariff_code", ""),
+                    item.get("description", ""),
+                    item.get("unit", ""),
+                    _fmt_qty(app),
+                    _fmt_qty(used),
+                    _fmt_qty(rem),
+                    _fmt_pct(rem, app),
+                    _risk_label(rem, app),
+                ]
 
-            for c, val in enumerate(values):
-                cell = QTableWidgetItem(str(val))
-                cell.setTextAlignment(Qt.AlignVCenter | (Qt.AlignRight if c >= 3 else Qt.AlignLeft))
-                if c == 7:  # Status kolona
-                    icon = _risk_icon(rem, app)
-                    if icon:
-                        cell.setIcon(icon)
-                if color:
-                    cell.setBackground(color)
-                self.table.setItem(r, c, cell)
+                for c, val in enumerate(values):
+                    cell = QTableWidgetItem(str(val))
+                    cell.setTextAlignment(Qt.AlignVCenter | (Qt.AlignRight if c >= 3 else Qt.AlignLeft))
+                    if c == 7:  # Status kolona
+                        icon = _risk_icon(rem, app)
+                        if icon:
+                            cell.setIcon(icon)
+                    if color:
+                        cell.setBackground(color)
+                    self.table.setItem(r, c, cell)
+        finally:
+            self.table.blockSignals(signals_blocked)
+            self.table.setUpdatesEnabled(updates_enabled)
 
     # ── Pretraga ──────────────────────────────────────────────
 
@@ -373,4 +380,3 @@ class QuotaPanel(QWidget):
             user_msg = f"UINO PDF trenutno nije dostupan.\n\n{msg}"
 
         QMessageBox.warning(self, "Greška pri preuzimanju kvota", user_msg)
-

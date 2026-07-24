@@ -1295,23 +1295,27 @@ class SifarniciView(BaseTabView):
             logger.warning("_populate_table_from_service: self.table je QTreeWidget — restauriram QTableWidget")
             self._restore_table_widget()
 
+        sorting_enabled = self.table.isSortingEnabled()
+        updates_enabled = self.table.updatesEnabled()
+        signals_blocked = self.table.blockSignals(True)
         self.table.setSortingEnabled(False)
         self.table.setUpdatesEnabled(False)
+        try:
+            actual_rows = min(len(results), max_rows)
+            self.table.setRowCount(actual_rows)
 
-        actual_rows = min(len(results), max_rows)
-        self.table.setRowCount(actual_rows)
-
-        for row in range(actual_rows):
-            row_data = results[row]
-            for col, col_name in enumerate(columns):
-                value = row_data.get(col_name, "")
-                formatted_value = format_fn(value) if format_fn else value
-                self.table.setItem(
-                    row, col, QTableWidgetItem(str(formatted_value or ""))
-                )
-
-        self.table.setUpdatesEnabled(True)
-        self.table.setSortingEnabled(True)
+            for row in range(actual_rows):
+                row_data = results[row]
+                for col, col_name in enumerate(columns):
+                    value = row_data.get(col_name, "")
+                    formatted_value = format_fn(value) if format_fn else value
+                    self.table.setItem(
+                        row, col, QTableWidgetItem(str(formatted_value or ""))
+                    )
+        finally:
+            self.table.blockSignals(signals_blocked)
+            self.table.setUpdatesEnabled(updates_enabled)
+            self.table.setSortingEnabled(sorting_enabled)
         self.table.viewport().update()
         QApplication.processEvents()
 

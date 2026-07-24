@@ -7,6 +7,7 @@ i vraca listu DecisionCandidate objekata za zadato polje i stavku.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 from core.decision.decision_model import DecisionCandidate, DecisionField
@@ -21,6 +22,8 @@ from core.decision.evidence import (
 if TYPE_CHECKING:
     from core.draft.draft import InvoiceLine
     from services.decision.decision_policy import PolicyContext
+
+logger = logging.getLogger("deklarant_pro.decision.evidence")
 
 
 def adapt_tariff_evidence(line: "InvoiceLine", context: "PolicyContext") -> list[DecisionCandidate]:
@@ -88,8 +91,8 @@ def adapt_tariff_evidence(line: "InvoiceLine", context: "PolicyContext") -> list
                     candidates.append(
                         DecisionCandidate.make(DecisionField.TARIFF, mapping.tarifni_broj, ev)
                     )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Pretraga tarifnog mapiranja nije uspjela: %s", e)
 
     return candidates
 

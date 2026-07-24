@@ -15,6 +15,7 @@ Kodovi koji se NIKAD ne predlažu (prisutni u svakoj deklaraciji):
 
 import logging
 import os
+import sys
 import sqlite3
 import xml.etree.ElementTree as ET
 from datetime import date
@@ -53,10 +54,29 @@ _CODE_NORMALIZE = {
     "PE3":  "PE3",
 }
 
-_DB_PATH = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "database", "deklarant_sistem.db"
-)
+def _resolve_db_path() -> str:
+    if getattr(sys, "frozen", False):
+        return os.path.join(
+            os.path.dirname(sys.executable),
+            "database",
+            "deklarant_sistem.db",
+        )
+
+    candidates = [
+        os.path.normpath(os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "database", "deklarant_sistem.db"
+        )),
+        os.path.join("database", "deklarant_sistem.db"),
+    ]
+
+    for path in candidates:
+        if os.path.exists(path):
+            return path
+    return candidates[0]
+
+
+_DB_PATH = _resolve_db_path()
 
 
 def _get_conn() -> sqlite3.Connection:

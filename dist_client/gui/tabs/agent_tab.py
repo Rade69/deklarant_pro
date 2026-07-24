@@ -2,9 +2,13 @@
 Agent Tab - wrapper.
 """
 
+import logging
+
 from PySide6.QtWidgets import QWidget, QVBoxLayout
 from gui.tabs.agent.agent_view import AgentView
 from gui.tabs.agent.agent_controller import AgentController
+
+logger = logging.getLogger("deklarant_pro.gui.agent_tab")
 
 
 class AgentTab(QWidget):
@@ -54,13 +58,16 @@ class AgentTab(QWidget):
                         faktura_view = self._faktura_tab.view
                     if hasattr(faktura_view, '_load_data_from_draft'):
                         faktura_view._load_data_from_draft()
-                    print(f"[AgentTab] ✅ Otvoren Faktura tab sa uvezenim podacima")
+                    logger.info("Otvoren Faktura tab sa uvezenim podacima")
                 except Exception as e:
-                    print(f"[AgentTab] ⚠️ Greška pri učitavanju: {e}")
+                    logger.warning(
+                        "Greška pri učitavanju Faktura taba: %s",
+                        e,
+                    )
 
     def send_message_to_agent(self, message: str):
         """Programski pošalji poruku agentu — koristi se iz других tabova."""
         try:
             self.view.chat_panel.trigger_message(message)
         except Exception as e:
-            print(f"[AgentTab] ⚠️ Greška pri slanju poruke: {e}")
+            logger.warning("Greška pri slanju poruke agentu: %s", e)

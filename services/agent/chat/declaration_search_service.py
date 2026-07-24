@@ -68,8 +68,8 @@ def _txt(element, path: str, default: str = "") -> str:
         el = element.find(path)
         if el is not None and el.text:
             return el.text.strip()
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("XML parse greška za xpath '%s': %s", path, e)
     return default
 
 

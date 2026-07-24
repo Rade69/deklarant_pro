@@ -14,6 +14,7 @@ Tabela llm_audit:
 """
 
 import os
+import sys
 import sqlite3
 import logging
 from datetime import datetime
@@ -21,7 +22,23 @@ from pathlib import Path
 
 logger = logging.getLogger("deklarant_pro.agent.llm_audit_log")
 
-_SQLITE_PATH = Path(__file__).parent.parent.parent / "database" / "llm_audit.db"
+
+def _resolve_sqlite_path() -> Path:
+    if getattr(sys, 'frozen', False):
+        return Path(sys.executable).parent / "database" / "llm_audit.db"
+
+    candidates = [
+        Path(__file__).parent.parent.parent / "database" / "llm_audit.db",
+        Path("database") / "llm_audit.db",
+    ]
+
+    for path in candidates:
+        if path.parent.exists():
+            return path
+    return candidates[0]
+
+
+_SQLITE_PATH = _resolve_sqlite_path()
 
 _session_tokens: int = 0
 

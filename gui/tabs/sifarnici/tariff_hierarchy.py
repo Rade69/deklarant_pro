@@ -128,41 +128,47 @@ def populate_tariff_hierarchy(
         kod, naziv, stopa, nivo, _ = rows_to_show[0]
         rows_to_show[0] = (kod, naziv, stopa, nivo, True)
 
-    table.setRowCount(len(rows_to_show))
-    for i, (kod, naziv, stopa, nivo, is_root) in enumerate(rows_to_show):
-        emoji = _NIVO_EMOJI.get(nivo, '•')
-        indent = '' if is_root else _indent(kod)
-        stopa_str = ''
-        if stopa:
-            stopa_str = stopa if str(stopa).endswith('%') else str(stopa) + '%'
+    updates_enabled = table.updatesEnabled()
+    signals_blocked = table.blockSignals(True)
+    table.setUpdatesEnabled(False)
+    try:
+        table.setRowCount(len(rows_to_show))
+        for i, (kod, naziv, stopa, nivo, is_root) in enumerate(rows_to_show):
+            emoji = _NIVO_EMOJI.get(nivo, '•')
+            indent = '' if is_root else _indent(kod)
+            stopa_str = ''
+            if stopa:
+                stopa_str = stopa if str(stopa).endswith('%') else str(stopa) + '%'
 
-        # QtAwesome ikonica ili emoji fallback
-        if QTAWESOME_AVAILABLE and nivo in _NIVO_QTA:
-            try:
-                qta_icon = qta.icon(_NIVO_QTA[nivo], scale_factor=0.9)
-                item_kod = QTableWidgetItem()
-                item_kod.setIcon(qta_icon)
-                item_kod.setText(indent + ' ' + kod)
-            except Exception:
+            # QtAwesome ikonica ili emoji fallback
+            if QTAWESOME_AVAILABLE and nivo in _NIVO_QTA:
+                try:
+                    qta_icon = qta.icon(_NIVO_QTA[nivo], scale_factor=0.9)
+                    item_kod = QTableWidgetItem()
+                    item_kod.setIcon(qta_icon)
+                    item_kod.setText(indent + ' ' + kod)
+                except Exception:
+                    item_kod = QTableWidgetItem(indent + emoji + ' ' + kod)
+            else:
                 item_kod = QTableWidgetItem(indent + emoji + ' ' + kod)
-        else:
-            item_kod = QTableWidgetItem(indent + emoji + ' ' + kod)
 
-        opis_val = clean_opis_fn(naziv) if clean_opis_fn else (naziv or '')
-        item_naziv = QTableWidgetItem(opis_val or '')
-        if stopa_str:
-            item_naziv.setToolTip(f"Stopa uvozna: {stopa_str}")
+            opis_val = clean_opis_fn(naziv) if clean_opis_fn else (naziv or '')
+            item_naziv = QTableWidgetItem(opis_val or '')
+            if stopa_str:
+                item_naziv.setToolTip(f"Stopa uvozna: {stopa_str}")
 
-        if is_root:
-            # Uzmi font TABELE (ne itema) da naslijedimo tačnu veličinu (14pt)
-            font = table.font()
-            font.setBold(True)
-            item_kod.setFont(font)
-            item_naziv.setFont(font)
+            if is_root:
+                # Uzmi font TABELE (ne itema) da naslijedimo tačnu veličinu (14pt)
+                font = table.font()
+                font.setBold(True)
+                item_kod.setFont(font)
+                item_naziv.setFont(font)
 
-        table.setItem(i, 0, item_kod)
-        table.setItem(i, 1, item_naziv)
-
+            table.setItem(i, 0, item_kod)
+            table.setItem(i, 1, item_naziv)
+    finally:
+        table.blockSignals(signals_blocked)
+        table.setUpdatesEnabled(updates_enabled)
     table.setColumnWidth(0, 200)
 
     # Selektuj i skroluj na prvi red (root / najspecifičniji pogodak)
