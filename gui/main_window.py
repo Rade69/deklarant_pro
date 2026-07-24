@@ -255,8 +255,14 @@ class MainWindow(QMainWindow):
             return
         bar_rect = self.tabs_widget.tabBar().geometry()
         btn = self.btn_exit_app
+        vertical_margin = 4
+        button_height = max(26, min(32, bar_rect.height() - vertical_margin * 2))
+        btn.setFixedHeight(button_height)
         x = bar_rect.right() + 12
-        y = bar_rect.y() + max(0, (bar_rect.height() - btn.height()) // 2)
+        y = bar_rect.y() + max(
+            vertical_margin,
+            (bar_rect.height() - button_height) // 2,
+        )
         btn.move(x, y)
 
     def _on_exit_clicked(self) -> None:
