@@ -54,7 +54,7 @@ class ProcessingWorker(QThread):
         svc = ImportService()
         svc.clear_memory()
 
-        # DOC: scripts/master_frigo_agent_import_2026-04-26.md
+        # DOC: docs/archive/2026-04-26/master_frigo_agent_import_2026-04-26.md
         # ⭐ Sortiranje po normalizovanom broju fakture:
         #   - povećava šansu da Excel+PDF parovi budu susjedni (import_service kombinuje samo "previous + current")
         #   - mapping xlsx (tarife/porekla/podela) ide POSLIJE PDF-a da ne pravi lažne standalone uvoze

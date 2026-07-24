@@ -38,13 +38,13 @@ BROKEN:  1
 
 | Python fajl | Linija | Linked doc |
 |---|---|---|
-| `gui/tabs/agent/widgets/processing_worker.py` | 52 | `scripts/master_frigo_agent_import_2026-04-26.md` |
+| `gui/tabs/agent/widgets/processing_worker.py` | 52 | `docs/archive/2026-04-26/master_frigo_agent_import_2026-04-26.md` |
 | `gui/tabs/sifarnici/partner_form_strip.py` | 21 | `docs/sections/partner-form-strip.md` |
 | `gui/tabs/sifarnici/tariff_hierarchy.py` | 30 | `docs/sections/tariff-hierarchy-display.md` |
-| `importers/vendors/master_frigo/master_frigo_importer.py` | 44 | `scripts/master_frigo_agent_import_2026-04-26.md` |
+| `importers/vendors/master_frigo/master_frigo_importer.py` | 44 | `docs/archive/2026-04-26/master_frigo_agent_import_2026-04-26.md` |
 | `importers/smart_pdf_importer.py` | 23 | `docs/sections/pdf_parse_pipeline.md` |
 | `importers/smart_pdf_importer.py` | 143 | `docs/sections/pdf_format_detection.md` |
-| `importers/smart_pdf_importer.py` | 269 | `scripts/master_frigo_agent_import_2026-04-26.md` |
+| `importers/smart_pdf_importer.py` | 269 | `docs/archive/2026-04-26/master_frigo_agent_import_2026-04-26.md` |
 | `services/import_service.py` | 25 | `docs/sections/known_vendor_formats.md` |
 | `services/import_service.py` | 35 | `docs/sections/invoice_number_similarity.md` |
 | `services/import_service.py` | 96 | `docs/sections/import_pipeline.md` |

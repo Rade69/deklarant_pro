@@ -11,7 +11,7 @@ Omogućava:
 - Fuzzy matching za slične proizvode
 
 📄 Detalji: memory/project_tariff_history_prediction.md
-   scripts/CHANGES_2026-04-26.md
+   docs/archive/2026-04-26/CHANGES_2026-04-26.md
 """
 
 import logging

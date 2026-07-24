@@ -42,7 +42,7 @@ class ImportedLine:
 _TABLE_HEADER_RE = re.compile(
     r"\bRbr\b.*\bSifra\b.*\bNaziv\b.*\bIznos\b", re.IGNORECASE
 )
-# DOC: scripts/master_frigo_agent_import_2026-04-26.md
+# DOC: docs/archive/2026-04-26/master_frigo_agent_import_2026-04-26.md
 _INVOICE_PATTERNS = [
     re.compile(
         r"\b(?:faktura|invoice)\s*(?:br\.?|broj|no\.?|number)?\s*[:#]?\s*([A-Z0-9][A-Z0-9\-\/\.]{2,})\b",
@@ -660,4 +660,3 @@ def _detect_all_origin_statements(text: str) -> list:
     except Exception as e:
         logger.warning(f"  ⚠️  Greška tokom detekcije izjava: {e}")
         return []
-

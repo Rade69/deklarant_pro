@@ -3,7 +3,7 @@ QuotaService — preuzimanje i čuvanje tarifnih kvota sa UINO sajta.
 
 Tok: download PDF → hash check → parse → insert PostgreSQL
 
-Dokumentacija: scripts/quota_module_2026-04-26.md
+Dokumentacija: docs/archive/2026-04-26/quota_module_2026-04-26.md
 """
 
 import hashlib

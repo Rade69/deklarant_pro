@@ -1,5 +1,8 @@
 # Master Frigo agent import fix — 2026-04-26
 
+Arhivirano u `docs/archive/2026-04-26/` pri cišćenju `scripts/` foldera; aktivni
+`# DOC:` linkovi u kodu i dalje pokazuju na ovaj zapis.
+
 ## Svrha
 
 Popravlja agentski uvoz Master Frigo faktura kada uz PDF fakture postoji jedan

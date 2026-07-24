@@ -308,7 +308,7 @@ def _parse_imamoglu(pdf_path: str) -> ImportResult:
 # SECTION: master_frigo_mapping
 # PURPOSE: Pronalazi Excel fajl sa tarifama/zemljama koji vrijedi za sve Master Frigo fakture
 # DOC: docs/sections/master_frigo_mapping.md
-# DOC: scripts/master_frigo_agent_import_2026-04-26.md
+# DOC: docs/archive/2026-04-26/master_frigo_agent_import_2026-04-26.md
 def _find_master_frigo_mapping_xlsx(pdf_path: str) -> str | None:
     """
     Traži Excel fajl sa tarifama/zemljama u istom folderu kao PDF.

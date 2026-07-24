@@ -3,7 +3,7 @@ Document panel — lijevi panel sa upload area, mode karticama i tabelom.
 Botanički Sage Green dizajn.
 
 📄 Popravka dugmeta: memory/project_agent_button_fix.md
-   scripts/CHANGES_2026-04-26.md
+   docs/archive/2026-04-26/CHANGES_2026-04-26.md
 """
 
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton

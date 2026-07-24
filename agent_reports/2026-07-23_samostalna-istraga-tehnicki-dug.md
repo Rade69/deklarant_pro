@@ -184,9 +184,12 @@ AGENTS.md navodi: "PostgreSQL 16 (server `dmserver`, IP je DHCP — citati iz
 
 `scripts/` sadrzi **6 markdown fajlova** koji su po sadržaju agent reporti ili
 dizajn dokumenti, a ne skripte:
-- `CHANGES_2026-04-26.md`, `dead_code_cleanup_2026-04-26.md`,
-  `master_frigo_agent_import_2026-04-26.md`, `perf_and_stability_2026-04-26.md`,
-  `quota_module_2026-04-26.md`, `rename_asycuda_to_deklarant_2026-04-26.md`
+- `docs/archive/2026-04-26/CHANGES_2026-04-26.md`,
+  `docs/archive/2026-04-26/dead_code_cleanup_2026-04-26.md`,
+  `docs/archive/2026-04-26/master_frigo_agent_import_2026-04-26.md`,
+  `docs/archive/2026-04-26/perf_and_stability_2026-04-26.md`,
+  `docs/archive/2026-04-26/quota_module_2026-04-26.md`,
+  `docs/archive/2026-04-26/rename_asycuda_to_deklarant_2026-04-26.md`
 - **Posljedica**: Nekoherentna organizacija — agent reporti su na tri mjesta:
   `agent_reports/`, `docs/`, `scripts/`.
 - **Prijedlog**: Premjestiti u `agent_reports/` (ili `docs/`) radi konzistentnosti.

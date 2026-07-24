@@ -3,7 +3,7 @@ QuotaPanel — panel za pregled tarifnih kvota (UINO).
 
 Lokacija: Šifrarnici → Tarifne kvote
 
-Dokumentacija: scripts/quota_module_2026-04-26.md
+Dokumentacija: docs/archive/2026-04-26/quota_module_2026-04-26.md
 """
 
 import logging

@@ -9,7 +9,7 @@ ali nisu vidljive pri pokretanju aplikacije.
 Nepostojeći atributi se proslijeđuju na unutrašnji widget kad je kreiran,
 ili vraćaju _noop dok nije kreiran — štiti pozivaoce od grešaka.
 
-Dokumentacija: scripts/perf_and_stability_2026-04-26.md#1-lazy-tab-loading
+Dokumentacija: docs/archive/2026-04-26/perf_and_stability_2026-04-26.md#1-lazy-tab-loading
 """
 
 from PySide6.QtCore import QSize
