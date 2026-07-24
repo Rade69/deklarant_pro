@@ -46,7 +46,7 @@ Napiši kratko (2-4 rečenice) šta si razumio iz zadatka i šta planiraš uradi
 | Sloj | Tehnologija |
 | --- | --- |
 | GUI | PySide6 (Qt6) |
-| Baza | PostgreSQL 16 (server `dmserver`, IP je DHCP — čitati iz `config.ini`, ne hardkodovati) + SQLite lokalno |
+| Baza | PostgreSQL 16 (server `dmserver`, IP je DHCP — čitati iz `.env` preko `config/settings.py`, ne hardkodovati) + SQLite lokalno |
 | Python | 3.11+, uv za pakete |
 | Testovi | pytest, `tests/` folder |
 | Parseri | pdfplumber, openpyxl, pytesseract (OCR) |
@@ -197,7 +197,7 @@ Izuzetak: **NaimenovanjeDraft koristi engleski** (`tariff_code`, `goods_descript
 | --- | --- |
 | Direktni `import` iz `gui/tabs/agent/agent_controller.py` u servis | Kružni import |
 | Mijenjati `TEMPLATE_FIELDS` van `xml_template_service.py` | Single source of truth |
-| Hardkodovati IP adresu servera u kodu | Mora biti u `config.ini` |
+| Hardkodovati IP adresu servera u kodu | Mora biti u aktivnom `.env` fajlu (`root` ili `dist_client`, zavisno od pokretača) |
 | Dodavati UI logiku u servisne klase | Narušava razdvajanje slojeva |
 | Brisati stub fajlove u `services/agent/` bez provjere importa | Backward compat |
 | f-string za QSS blokove | CSS `{}` puca u f-stringu — koristiti `.replace("PLACEHOLDER", ...)` |
@@ -369,7 +369,7 @@ Kada hook injektuje `[DOC-GUARD]` poruku:
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **deklarant_pro** (44001 symbols, 68024 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **deklarant_pro** (45396 symbols, 69712 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

@@ -44,24 +44,33 @@ uv run python -c "import PySide6; print('PySide6 OK')"
 
 ## Korak 3 — Konfiguracija baze podataka
 
-Kopirajte `config.ini.example` u `config.ini`:
+Kopirajte `.env.example` u `.env`:
 
 ```bash
-cp config.ini.example config.ini
+cp .env.example .env
 ```
 
-Otvorite `config.ini` u text editoru i popunite podatke za PostgreSQL server:
+Na Windows PowerShellu:
 
-```ini
-[database]
-host = 192.168.1.100      # IP adresa servera
-port = 5432
-dbname = deklarant_sistem
-user = deklarant_user
-password = VAŠA_LOZINKA
+```powershell
+Copy-Item .env.example .env
+```
+
+Otvorite `.env` u tekst editoru i popunite podatke za PostgreSQL server:
+
+```dotenv
+DB_HOST=192.168.1.100
+DB_PORT=5432
+DB_NAME=deklarant_pro
+DB_USER=deklarant_app
+DB_PASSWORD=VAŠA_LOZINKA
+DB_SSLMODE=prefer
 ```
 
 **Važno:** Ne koristite istu lozinku kao u git historiji — rotirana je. Tražite aktuelnu lozinku od administratora.
+
+Ako pokrećete aplikaciju iz `dist_client`, njegova konfiguracija je zaseban fajl
+`dist_client/.env`. Promjena korijenskog `.env` tada nema uticaja na aplikaciju.
 
 ---
 
@@ -81,7 +90,7 @@ Ako vidite `DB OK` — konekcija radi. Ako vidite grešku, provjerite:
 ## Korak 5 — Pokretanje aplikacije
 
 ```bash
-uv run python main.py
+uv run python run.py
 ```
 
 Ili kreirajte shell skriptu za lakše pokretanje:
@@ -90,14 +99,14 @@ Ili kreirajte shell skriptu za lakše pokretanje:
 # start.sh
 #!/bin/bash
 cd /putanja/do/deklarant_pro
-uv run python main.py
+uv run python run.py
 ```
 
 Na Windowsu kreirajte `start.bat`:
 
 ```batch
 cd C:\putanja\do\deklarant_pro
-uv run python main.py
+uv run python run.py
 ```
 
 ---
@@ -145,7 +154,7 @@ uv clean
 uv sync
 ```
 
-`config.ini` se ne briše automatski — sačuvajte ga ako reinstalirate.
+`.env` se ne briše automatski — sačuvajte ga ako reinstalirate.
 
 ---
 
