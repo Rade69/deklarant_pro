@@ -11,6 +11,7 @@ Invalidira se automatski nakon ingesta novog dokumenta.
 """
 
 import hashlib
+import logging
 import os
 from pathlib import Path
 from typing import List, Optional
@@ -18,6 +19,9 @@ from dataclasses import dataclass
 
 from database.db import get_db_connection
 from services.knowledge_base.pdf_chunker import chunk_pdf
+
+
+logger = logging.getLogger("deklarant_pro.knowledge_base")
 
 
 @dataclass
@@ -112,7 +116,7 @@ class KnowledgeBaseService:
         self._bm25 = None
         self._index_data = []
 
-        print(f"📚 KB {action}: {filename} ({len(chunks)} chunkova)")
+        logger.info("KB %s: %s (%d chunkova)", action, filename, len(chunks))
         return {"status": action, "chunk_count": len(chunks)}
 
     def ingest_folder(self, folder_path: str) -> List[dict]:
@@ -123,14 +127,14 @@ class KnowledgeBaseService:
         folder = Path(folder_path)
         results = []
         pdfs = sorted(folder.glob("*.pdf"))
-        print(f"📂 Ingest foldera: {folder} ({len(pdfs)} PDF fajlova)")
+        logger.info("Ingest foldera: %s (%d PDF fajlova)", folder, len(pdfs))
         for pdf in pdfs:
             try:
                 result = self.ingest_document(str(pdf))
                 result["filename"] = pdf.name
                 results.append(result)
             except Exception as e:
-                print(f"  ⚠️ Greška pri ingestu {pdf.name}: {e}")
+                logger.warning("Greška pri ingestu %s: %s", pdf.name, e)
                 results.append({"filename": pdf.name, "status": "error", "error": str(e)})
         return results
 
@@ -164,7 +168,11 @@ class KnowledgeBaseService:
                 reranked = self._groq_rerank(query, bm25_results, top_k)
                 return reranked
             except Exception as e:
-                print(f"  ⚠️ Groq re-ranking neuspješan, vraćam BM25 top {top_k}: {e}")
+                logger.warning(
+                    "Groq re-ranking nije uspio; vraćam BM25 top %d: %s",
+                    top_k,
+                    e,
+                )
 
         return bm25_results[:top_k]
 
@@ -193,7 +201,7 @@ class KnowledgeBaseService:
         if deleted:
             self._bm25 = None
             self._index_data = []
-            print(f"🗑️ KB: obrisan {filename}")
+            logger.info("KB dokument je obrisan: %s", filename)
             return True
         return False
 
@@ -305,7 +313,10 @@ class KnowledgeBaseService:
 
         corpus_tokens = [self._tokenize(item["chunk_text"]) for item in self._index_data]
         self._bm25 = BM25Okapi(corpus_tokens)
-        print(f"📑 BM25 indeks izgrađen: {len(self._index_data)} chunkova")
+        logger.info(
+            "BM25 indeks je izgrađen: %d chunkova",
+            len(self._index_data),
+        )
 
     def _bm25_search(self, query: str, top_n: int) -> List[KBResult]:
         query_tokens = self._tokenize(query)

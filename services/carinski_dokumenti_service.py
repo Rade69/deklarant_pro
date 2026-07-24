@@ -3,7 +3,11 @@ Servis za pretragu carinskih dokumenata iz PostgreSQL baze.
 Koristi tsvector full-text search sa ts_headline za snippete.
 """
 
+import logging
 from typing import List, Dict
+
+
+logger = logging.getLogger("deklarant_pro.carinski_dokumenti")
 
 
 _MAX_RESULTS = 3
@@ -73,7 +77,7 @@ def pretrazi_dokumente(query: str, max_results: int = _MAX_RESULTS) -> List[Dict
         ]
 
     except Exception as e:
-        print(f"⚠️ Greška pri pretrazi carinskih dokumenata: {e}")
+        logger.warning("Greška pri pretrazi carinskih dokumenata: %s", e)
         return []
 
 
