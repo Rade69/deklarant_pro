@@ -1228,3 +1228,16 @@ da li postoji ista klasa na drugim mjestima" produktivnija strategija od opšteg
 — (a) i (c) su odmah dale dodatne, stvarne pogotke, dok je (b) dala koristan NEGATIVAN
 rezultat (potvrda da nešto NIJE sistemski problem, ne samo "nije nađeno jer se nije tražilo
 dovoljno dobro").
+
+## 46. Dodatne frozen DB putanje i exception-safe Qt bulk popunjavanje (2026-07-24)
+
+Read-write SQLite baze u frozen buildu moraju imati prioritetnu putanju
+`Path(sys.executable).parent / "database"`, prije bilo koje `__file__` lokacije iz
+`_internal` direktorija. Samo postojanje `_internal/database` direktorija nije dokaz da
+je u njemu prava upisiva baza. Ovo je primijenjeno na `llm_audit_log.py` i
+`tariff_doc_history_service.py`, uz ciljane frozen-path testove.
+
+Pri bulk popunjavanju Qt tabela nije dovoljno pozvati `blockSignals(True)` i na kraju
+ručno vratiti `False`. Sačuvati prethodna stanja `signalsBlocked`, `updatesEnabled` i,
+gdje postoji, `isSortingEnabled`, pa ih vratiti u `finally` bloku. Tako se ne narušava
+stanje koje je pozivalac već postavio i tabela ne ostaje zamrznuta nakon izuzetka.
