@@ -475,7 +475,7 @@ class FakturaView(BaseTabView):
             QWidget#controlsContainer QPushButton#btnValidacija {
                 background-color: #2F7D5A;
                 color: #FFFFFF;
-                border: none;
+                border: 1px solid #245F45;
             }
             QWidget#controlsContainer QPushButton#btnValidacija:hover {
                 background-color: #3B906B;
@@ -531,13 +531,13 @@ class FakturaView(BaseTabView):
         """Populate grid with header and toolbar sections sharing same columns for PERFECT alignment."""
         from PySide6.QtWidgets import QGridLayout
 
-        # Sekcije: (naziv, pozadina, boja teksta) — neutralna toolbar paleta
+        # Sekcije: (naziv, pozadina, boja teksta) — umjereno naglašena toolbar paleta
         sections = [
-            ("Glavna lista", "#E9EEF3", "#2C5570"),
-            ("Uvezi", "#E9EEF3", "#34414C"),
-            ("Uredi", "#E9EEF3", "#34414C"),
-            ("Izvezi", "#E9EEF3", "#34414C"),
-            ("Pametna pomoć", "#E9EEF3", "#5A4788"),
+            ("Glavna lista", "#D8E7F0", "#214F6B"),
+            ("Uvezi", "#E0E6EC", "#2D3F4D"),
+            ("Uredi", "#ECE6D7", "#59481F"),
+            ("Izvezi", "#D9E9E4", "#245E50"),
+            ("Pametna pomoć", "#E5DDF0", "#563A82"),
         ]
 
         col = 0
@@ -564,7 +564,7 @@ class FakturaView(BaseTabView):
                     font-size: 17px;
                     padding: 10px 6px;
                     border: none;
-                    border-bottom: 2px solid #8FA6B7;
+                    border-bottom: 2px solid #7893A6;
                     {border_radius}
                 }}
                 QPushButton:disabled {{
@@ -583,9 +583,11 @@ class FakturaView(BaseTabView):
 
             # Create TOOLBAR section for this column
             toolbar_container = QWidget()
+            toolbar_container.setObjectName("toolbarSection")
             toolbar_layout = QHBoxLayout(toolbar_container)
             toolbar_layout.setContentsMargins(8, 8, 8, 8)
             toolbar_layout.setSpacing(6)
+            toolbar_layout.setAlignment(Qt.AlignVCenter)
             self._toolbar_layouts.append(toolbar_layout)
 
             # Border radius for toolbar
@@ -598,7 +600,7 @@ class FakturaView(BaseTabView):
 
             toolbar_container.setStyleSheet(
                 f"""
-                QWidget {{
+                QWidget#toolbarSection {{
                     background-color: #F8FAFC;
                     {t_border_radius}
                 }}
@@ -704,22 +706,23 @@ class FakturaView(BaseTabView):
 
             self.btn_export_pdf = self._create_button(
                 "PDF",
-                "Export u PDF — grupisanje po naimenovanjima",
+                "Izaberi vrstu PDF izvještaja",
                 object_name="btnPDF",
                 compact=True,
                 icon_name="fa5s.file-pdf",
             )
-            self.btn_export_pdf.clicked.connect(self._on_export_pdf)
-
-            # docs/sections/export-pdf-excel.md — dugme Pregled faktura
-            self.btn_pregled_faktura = self._create_button(
-                "Pregled",
-                "Pregled faktura — grupisanje po fakturi za carinika",
-                object_name="btnPregledFaktura",
-                compact=True,
-                icon_name="fa5s.eye",
+            self.pdf_export_menu = QMenu(self.btn_export_pdf)
+            self.action_export_naimenovanja_pdf = self.pdf_export_menu.addAction(
+                "Spisak naimenovanja"
             )
-            self.btn_pregled_faktura.clicked.connect(self._on_export_pregled_faktura)
+            self.action_export_naimenovanja_pdf.triggered.connect(self._on_export_pdf)
+            self.action_export_pregled_faktura = self.pdf_export_menu.addAction(
+                "Pregled po fakturama"
+            )
+            self.action_export_pregled_faktura.triggered.connect(
+                self._on_export_pregled_faktura
+            )
+            self.btn_export_pdf.setMenu(self.pdf_export_menu)
             layout.addWidget(self.btn_export_pdf)
 
             self.btn_create_naimenovanja = self._create_button(
@@ -847,6 +850,7 @@ class FakturaView(BaseTabView):
             prefix = "" if compact or button.icon().isNull() else " "
             button.setText(prefix + standard_text)
             button.setIconSize(QSize(12, 12) if compact else QSize(16, 16))
+            button.setFixedHeight(32 if compact else 36)
 
         weight_font_size = 15 if compact else 14
         input_width = 62 if compact else 90
@@ -856,8 +860,8 @@ class FakturaView(BaseTabView):
             font.setPixelSize(weight_font_size)
             font.setWeight(QFont.Weight.Bold)
             label.setFont(font)
-            label.setStyleSheet("color: #111;")
-            label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            label.setStyleSheet("")
+            label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         if weight_labels:
             label_width = max(
                 QFontMetrics(label.font()).horizontalAdvance(label.text())
@@ -892,7 +896,7 @@ class FakturaView(BaseTabView):
                     font-size: {header_font_size}px;
                     padding: 8px 4px;
                     border: none;
-                    border-bottom: 2px solid #8FA6B7;
+                    border-bottom: 2px solid #7893A6;
                     {border_radius}
                 }}
                 QPushButton:disabled {{
@@ -1138,7 +1142,7 @@ class FakturaView(BaseTabView):
             self.lbl_total_amount,
             self.lbl_total_quantity, _sep(),
             self.lbl_bruto,
-            self.lbl_neto,           _sep(),
+            self.lbl_neto, _sep(),
             self.lbl_validation,
             self.lbl_assembly,
         ]:
@@ -1428,7 +1432,7 @@ class FakturaView(BaseTabView):
         cell_overrides = {}
         if item.tarifni_broj and 0.70 <= tariff_sim < 0.92:
             # ŽUTA boja - fuzzy match, preporučuje se provjera
-            color_hex = "#fff9c4"  # Svijetlo žuta
+            color_hex = "#FFF4D6"  # Svijetlo žuta
             tooltip = f"⚠️ Tarifni broj: {item.tarifni_broj}\n" \
                       f"Pouzdanje: {tariff_sim:.0%}\n" \
                       f"Preporučuje se ručna provjera tarifnog broja"
@@ -1437,7 +1441,7 @@ class FakturaView(BaseTabView):
             tooltip = ""
         elif is_unmatched:
             # PLAVA boja za nepodudarajuće stavke (nisu pronađene u master listi)
-            color_hex = "#cce5ff"  # Light blue for unmatched
+            color_hex = "#E6F0F8"  # Light blue for unmatched
             tooltip = "🔵 Nepodudarajuća stavka - nije pronađena u master listi. Popunite tarifni broj i zemlju porijekla."
             cell_overrides[4] = (color_hex, "❌ Nedostaje tarifni broj")
             cell_overrides[9] = (color_hex, "❌ Nedostaje zemlja porijekla")
@@ -1445,25 +1449,25 @@ class FakturaView(BaseTabView):
             tooltip = ""
         elif not item.tarifni_broj or len(item.tarifni_broj.strip()) == 0:
             # CRVENA boja samo ako NEMA tarifnog broja
-            color_hex = "#ffcccc"  # Red for missing tariff
+            color_hex = "#F9E4E3"  # Red for missing tariff
             tooltip = "❌ Greška: Nedostaje tarifni broj"
             cell_overrides[4] = (color_hex, tooltip)
             color_hex = "#ffffff"
             tooltip = ""
         elif not item.zemlja_porijekla or len(item.zemlja_porijekla.strip()) == 0:
             # CRVENA boja ako NEMA zemlje porijekla
-            color_hex = "#ffcccc"
+            color_hex = "#F9E4E3"
             tooltip = "❌ Greška: Nedostaje zemlja porijekla"
             cell_overrides[9] = (color_hex, tooltip)
             color_hex = "#ffffff"
             tooltip = ""
         elif result.has_blocking_errors():
             # CRVENA boja za druge kritične greške
-            color_hex = "#ffcccc"  # Red for errors
+            color_hex = "#F9E4E3"  # Red for errors
             tooltip = "❌ Greška: " + "; ".join([e.message for e in result.errors])
         elif len(result.warnings) > 0:
             # ŽUTA boja za upozorenja
-            color_hex = "#ffffcc"  # Yellow for warnings
+            color_hex = "#FFF4D6"  # Yellow for warnings
             tooltip = "⚠️ Upozorenje: " + "; ".join([e.message for e in result.warnings])
         elif result.valid:
             # ZELENA boja za validne stavke
@@ -1953,11 +1957,6 @@ class FakturaView(BaseTabView):
             country = country or "(nepoznato)"
             countries[country] = countries.get(country, 0) + 1
 
-        zemlja_str = " | ".join(
-            f"{country}:{count}"
-            for country, count in sorted(countries.items(), key=lambda item: -item[1])
-        )
-
         problemi = []
         if bez_tarife:
             problemi.append(f"⚠️ {len(bez_tarife)} bez tarife")
@@ -1966,6 +1965,10 @@ class FakturaView(BaseTabView):
         if bez_eur1:
             problemi.append(f"⚠️ {len(bez_eur1)} bez EUR1")
 
+        zemlja_str = " | ".join(
+            f"{country}:{count}"
+            for country, count in sorted(countries.items(), key=lambda item: -item[1])
+        )
         text = f"🌍 {zemlja_str}"
         if problemi:
             text += "  " + " | ".join(problemi)
@@ -4170,13 +4173,18 @@ class FakturaView(BaseTabView):
             new_item = dialog.get_item()
 
             if new_item:
+                # Undo snapshot PRIJE mutacije — omogući Ctrl+Z za "Dodaj"
+                self._push_undo_snapshot()
+
                 # Add to draft
                 self.draft.invoice_lines.append(new_item)
 
-                # Add to table
-                row = self.table.rowCount()
-                self.table.insertRow(row)
-                self._add_item_to_table(row, new_item)
+                # Add to table — _add_item_to_table SAMA radi insertRow (na
+                # osnovu trenutnog rowCount()), pa se ovdje NE smije unaprijed
+                # umetnuti prazan red — inače tabela dobije jedan prazan i
+                # jedan popunjen red za samo jednu novu stavku u draftu.
+                row_number = self.table.rowCount()
+                self._add_item_to_table(row_number, new_item)
 
                 # Update status bar
                 self._update_status_bar()
@@ -5374,31 +5382,21 @@ class FakturaView(BaseTabView):
         self._show_scrollable_info_dialog("Auto-popuni - Rezultati", message)
 
     def _get_tariff_description(self, tariff_code: str) -> str:
-        """Dohvati kratki opis tarifnog broja iz tarifa_2026 (hijerarhijski)."""
+        """Dohvati kratki opis tarifnog broja iz tarifa_2026 (hijerarhijski).
+
+        Delegira na TariffService.load_hierarchical_label — frozen-svjestan
+        putanja (vidi fix §44) i sa cache-om (sprječava N+1 u _show_tariff_preview_dialog).
+        """
         if not tariff_code or not tariff_code.isdigit():
             return ""
         try:
-            import sqlite3, re
-            from gui.tabs.sifarnici.tariff_hierarchy import _DB_PATH as db_path
-            if not db_path or not os.path.exists(db_path):
-                return ""
-            conn = sqlite3.connect(str(db_path))
-            cur = conn.cursor()
-            code10 = tariff_code.ljust(10, '0')
-            pog4 = tariff_code[:4]
-            pod6 = tariff_code[:6]
-            cur.execute(
-                "SELECT naziv FROM tarifa_2026 WHERE kod IN (?, ?, ?) ORDER BY length(kod)",
-                (pog4, pod6, code10)
-            )
-            parts = [r[0] for r in cur.fetchall()]
-            conn.close()
-            labels = []
-            for naziv in parts:
-                clean = re.sub(r'^[\s�▪•→»\xa0]+', '', naziv or '').strip().rstrip(':')
-                if clean:
-                    labels.append(clean)
-            return " / ".join(labels) if labels else tariff_code
+            from services.naimenovanja.tariff_service import TariffService
+            svc = getattr(self, "_tariff_desc_service", None) or TariffService()
+            self._tariff_desc_service = svc
+            return svc.load_hierarchical_label(tariff_code)
+        except Exception:
+            return tariff_code
+
         except Exception:
             return tariff_code
 

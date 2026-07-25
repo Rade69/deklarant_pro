@@ -12,9 +12,13 @@ from services.naimenovanja.constants import NaimenovanjaConstants
 class TariffService:
     """Upravlja tarifnim brojevima, cache-om i sugestijama"""
 
-    def __init__(self, tab):
+    def __init__(self, tab=None):
+        # tab je opcionalan — servis je upotrebljiv i bez View-a (testabilnost)
         self.tab = tab
+        # Cache za opise tarife: tariff_code → (full, short)
+        # Sprijecava N+1 upite pri punjenju tabele / navigaciji.
         self.tariff_cache: Dict[str, str] = {}
+        self.tariff_description_cache: Dict[str, tuple] = {}
 
     def load_tariff_description(self, tariff_code: str) -> str:
         """
@@ -90,31 +94,206 @@ class TariffService:
             return ""
 
     def _clean_tariff_description(self, description: str) -> str:
-        """Clean tariff description by removing technical data"""
+        """Uklanja tehničke tarifne stope s kraja opisa.
+
+        Premješteno iz NaimenovanjaView._clean_tariff_description (naprednija
+        verzija od stare TariffService implementacije).
+
+        Primjeri:
+          '– ostalo – 15 0 0 10,' → '– ostalo'
+          '– – – – punjeni – 10+1KM/kg 0 0 6+1KM/kg 0 0 0 0' → '– – – – punjeni'
+          '– – od domaće svinje – 10+3,5KM/kg 10+3,5KM/kg 0 ...' → '– – od domaće svinje'
+        """
         if not description:
             return ""
 
         import re
 
-        # Remove sequences of numbers that appear to be technical codes
-        cleaned = re.sub(r"\b\d+\s+\d+\s+\d+\s+\d+(\s+\d+)*\s*$", "", description)
-
-        # Remove trailing sequences of numbers separated by spaces
+        # Ukloni "ex NNNN NN NN NN" i sve iza toga (podtarifni izuzetak)
+        cleaned = re.sub(r"\s*\bex\s+\d[\d\s]*.*$", "", description, flags=re.IGNORECASE)
+        # Ukloni KM/kg stope: npr. "10+3,5KM/kg", "0+1,5KM/kg", "10+3KM/kg"
         cleaned = re.sub(
-            r"\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s*$", "", cleaned
+            r"\s+\d+(?:[+/]\d+(?:[,.]\d+)?)*[A-Z/%][A-Za-z/kg%]*.*$",
+            "",
+            cleaned,
         )
+        # Ukloni sufiks sa 4+ prostorima odvojena broja (npr. "kd 0 0 0 0 5 5 5")
+        cleaned = re.sub(r"(?:\s+\w{1,3})?(?:\s+\d+){4,}[\s,]*$", "", cleaned)
+        # Ukloni trailing crtice i razmake (en-dash, em-dash, hyphen)
+        cleaned = cleaned.rstrip(" \u2012\u2013\u2014-").strip()
 
-        # Remove any remaining trailing numeric sequences
-        cleaned = re.sub(r"\s+\d+\s+\d+\s+\d+\s+\d+\s*$", "", cleaned)
+        return cleaned if cleaned else description
 
-        # Clean up any trailing whitespace
-        cleaned = cleaned.rstrip()
+    def load_tariff_descriptions(self, tariff_code: str) -> tuple:
+        """Učitaj (full, short) opise tarife iz SQLite (frozen-svjestan).
 
-        # If cleaning resulted in empty string, return original
-        if not cleaned.strip():
-            return description
+        Koristi services.tariff.tarifa_service.trazi_po_kodu koji već ima
+        pravilan _resolve_db_path (frozen .exe fallback) i dijeljenu
+        read-only konekciju — bez N+1 otvaranja konekcija.
 
-        return cleaned
+        Premješteno iz NaimenovanjaView._load_tariff_descriptions_sqlite i
+        FakturaView._get_tariff_description (objedinjuje obje implementacije).
+
+        Args:
+            tariff_code: 4-10 cifreni tarifni broj
+
+        Returns:
+            (full_description, short_description)
+            full_description  → opis podbroja (8 cifara)
+            short_description → opis glave (4 cifre)
+        """
+        if not tariff_code:
+            return "", ""
+
+        digits = "".join(filter(str.isdigit, str(tariff_code)))
+        if not digits:
+            return "", ""
+
+        # Cache lookup — sprjecava N+1 upite pri punjenju tabele
+        cache_key = digits[:8]
+        if cache_key in self.tariff_description_cache:
+            return self.tariff_description_cache[cache_key]
+
+        try:
+            from services.tariff.tarifa_service import trazi_po_kodu
+
+            code8 = digits[:8]
+            # Opis podbroja (8 cifara → lookup koji interno probava 10 cifara)
+            result8 = trazi_po_kodu(code8)
+            full = self._clean_tariff_description(result8["naziv"]) if result8 else ""
+
+            # Opis glave (4 cifre) — samo ako se razlikuje od code8
+            code4 = digits[:4]
+            short = ""
+            if code4 and code4 != code8:
+                result4 = trazi_po_kodu(code4)
+                short = self._clean_tariff_description(result4["naziv"]) if result4 else ""
+
+            result = (full, short)
+            self.tariff_description_cache[cache_key] = result
+            return result
+        except Exception as e:
+            logger.debug(f"SQLite tariff lookup greška: {e}")
+            return "", ""
+
+    def load_hierarchical_label(self, tariff_code: str) -> str:
+        """Vrati hijerarhijski label (poglavlje / podglava / podbroj).
+
+        Zamjenjuje FakturaView._get_tariff_description — vraća formatiran
+        string "poglavlje / podglava / podbroj" za prikaz u preview tabeli.
+        """
+        if not tariff_code:
+            return ""
+        digits = "".join(filter(str.isdigit, str(tariff_code)))
+        if not digits or not digits.isdigit():
+            return ""
+
+        full, short = self.load_tariff_descriptions(tariff_code)
+        labels = [l for l in (short, full) if l]
+        return " / ".join(labels) if labels else tariff_code
+
+    def load_tariff_description_from_postgres(self, tariff_code: str, nivo: str = "podbroj") -> str:
+        """Učitaj opis tarife iz PostgreSQL catalogs.zvanicna_tarifa.
+
+        Fallback kada SQLite (tarifa_2026) ne vrati ništa. Premješteno iz
+        NaimenovanjaView._load_tariff_description_from_db — sa cache-om.
+
+        nivo='podbroj' → opis podbroja (8-10 cifara)
+        nivo='glava'   → opis glave (4 cifre)
+        """
+        if not tariff_code or not tariff_code.strip():
+            return ""
+
+        cache_key = f"pg:{nivo}:{tariff_code}"
+        if cache_key in self.tariff_description_cache:
+            return self.tariff_description_cache[cache_key]
+
+        digits = "".join(filter(str.isdigit, str(tariff_code)))
+        if not digits:
+            return ""
+
+        if nivo == "glava":
+            lookup_code = digits[:4]
+        else:
+            lookup_code = digits
+
+        try:
+            from database.db import get_db_connection
+            with get_db_connection() as conn:
+                with conn.cursor() as cursor:
+                    if nivo == "podbroj":
+                        candidates = [lookup_code]
+                        if len(lookup_code) == 8:
+                            candidates.append(lookup_code + "00")
+                        elif len(lookup_code) < 10:
+                            candidates.append(lookup_code.ljust(10, "0"))
+
+                        result = None
+                        for candidate in candidates:
+                            cursor.execute(
+                                """
+                                SELECT tarifni_kod, opis
+                                FROM catalogs.zvanicna_tarifa
+                                WHERE tarifni_kod = %s AND nivo = 'podbroj'
+                                LIMIT 1
+                                """,
+                                (candidate,),
+                            )
+                            result = cursor.fetchone()
+                            if result:
+                                break
+
+                        # Progressivni prefix fallback: 8→7→6 cifara
+                        if not result:
+                            for prefix_len in range(min(8, len(lookup_code)), 5, -1):
+                                cursor.execute(
+                                    """
+                                    SELECT tarifni_kod, opis
+                                    FROM catalogs.zvanicna_tarifa
+                                    WHERE tarifni_kod LIKE %s || '%%'
+                                      AND nivo = 'podbroj'
+                                    ORDER BY tarifni_kod ASC
+                                    LIMIT 1
+                                    """,
+                                    (lookup_code[:prefix_len],),
+                                )
+                                result = cursor.fetchone()
+                                if result:
+                                    break
+                    else:
+                        cursor.execute(
+                            """
+                            SELECT tarifni_kod, opis
+                            FROM catalogs.zvanicna_tarifa
+                            WHERE tarifni_kod = %s AND nivo = 'glava'
+                            LIMIT 1
+                            """,
+                            (lookup_code,),
+                        )
+                        result = cursor.fetchone()
+
+                        if not result:
+                            subheading_code = digits[:6] if len(digits) >= 6 else digits
+                            cursor.execute(
+                                """
+                                SELECT tarifni_kod, opis
+                                FROM catalogs.zvanicna_tarifa
+                                WHERE tarifni_kod = %s AND nivo = 'podglava'
+                                LIMIT 1
+                                """,
+                                (subheading_code,),
+                            )
+                            result = cursor.fetchone()
+
+                    if result:
+                        raw = result["opis"] or ""
+                        cleaned = self._clean_tariff_description(raw)
+                        self.tariff_description_cache[cache_key] = cleaned
+                        return cleaned
+                    return ""
+        except Exception as e:
+            logger.warning(f"⚠️ PostgreSQL greška pri lookup-u tarife: {e}")
+            return ""
 
     def extract_short_code(self, tariff_code: str) -> str:
         """Extract 4-6 digit code from tariff code for higher level classification"""

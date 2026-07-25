@@ -1207,151 +1207,48 @@ class NaimenovanjaView(BaseTabView):
             le3.show()
 
     def _load_tariff_descriptions_sqlite(self, tariff_code: str) -> tuple[str, str]:
-        """
-        Učitaj opise tarife iz SQLite (uvijek dostupan, bez PostgreSQL).
+        """Učitaj opise tarife iz SQLite (uvijek dostupan, bez PostgreSQL).
 
-        Returns:
-            (full_description, short_description)
-            full_description  → opis podbroja (8 cifara) → ide u te_r31_opis
-            short_description → opis glave (4 cifre)    → ide u te_r31_opis_2
+        Delegira na TariffService.load_tariff_descriptions — frozen-svjestan
+        putanja i sa cache-om (sprječava N+1 pri navigaciji između naimenovanja).
         """
         if not tariff_code:
             return "", ""
         try:
-            from services.tariff.tarifa_service import trazi_po_kodu
-            digits = "".join(filter(str.isdigit, str(tariff_code)))
-            code8 = digits[:8]
-
-            # Opis podbroja (8 cifara → lookup koji interno probava 10 cifara)
-            result8 = trazi_po_kodu(code8)
-            full = self._clean_tariff_description(result8['naziv']) if result8 else ""
-
-            # Opis glave (4 cifre)
-            code4 = digits[:4]
-            result4 = trazi_po_kodu(code4) if code4 != code8 else None
-            short = self._clean_tariff_description(result4['naziv']) if result4 else ""
-
-            return full, short
+            from services.naimenovanja.tariff_service import TariffService
+            svc = getattr(self, "_tariff_svc", None) or TariffService()
+            self._tariff_svc = svc
+            return svc.load_tariff_descriptions(tariff_code)
         except Exception as e:
             logger.debug(f"SQLite tariff lookup greška: {e}")
             return "", ""
+            return "", ""
 
     def _load_tariff_description_from_db(self, tariff_code: str, nivo: str = "podbroj") -> str:
+        """Učitaj opis tarife iz PostgreSQL (fallback na SQLite).
+
+        Delegira na TariffService.load_tariff_description_from_postgres.
         """
-        Učitaj opis tarife iz PostgreSQL catalogs.zvanicna_tarifa.
-
-        nivo='podbroj' → te_r31_opis  (tačan opis podbroja, 8-10 cifara)
-        nivo='glava'   → te_r31_opis_2 (heading opis, 4-6 cifara)
-
-        Strategija:
-          1. Tačan match po tarifni_kod + nivo
-          2. Prefix fallback (kraći kod, isti nivo) ako tačan match ne postoji
-        """
-        if not tariff_code or not tariff_code.strip():
-            return ""
-
-        if not HAS_POSTGRESQL:
-            logger.warning("⚠️ PostgreSQL nije dostupan za lookup tarife")
-            return ""
-
-        digits = "".join(filter(str.isdigit, str(tariff_code)))
-        if not digits:
-            return ""
-
-        # Za glava lookup uvijek koristimo prvih 4 cifre
-        if nivo == "glava":
-            lookup_code = digits[:4]
-        else:
-            lookup_code = digits
-
         try:
-            with get_db_connection() as conn:
-                with conn.cursor() as cursor:
-
-                    if nivo == "podbroj":
-                        # Tačan match: 8-cifreni BiH kod + '00' = 10-cifreni PG zapis
-                        candidates = [lookup_code]
-                        if len(lookup_code) == 8:
-                            candidates.append(lookup_code + "00")
-                        elif len(lookup_code) < 10:
-                            candidates.append(lookup_code.ljust(10, "0"))
-
-                        result = None
-                        for candidate in candidates:
-                            cursor.execute(
-                                """
-                                SELECT tarifni_kod, opis
-                                FROM catalogs.zvanicna_tarifa
-                                WHERE tarifni_kod = %s AND nivo = 'podbroj'
-                                LIMIT 1
-                                """,
-                                (candidate,),
-                            )
-                            result = cursor.fetchone()
-                            if result:
-                                break
-
-                        # Progressivni prefix fallback: 8→7→6 cifara
-                        # npr. 56074900 → LIKE '56074900%' (nema) → LIKE '5607490%' (nema)
-                        #                → LIKE '560749%' (nađe 5607491100 ✓)
-                        if not result:
-                            for prefix_len in range(min(8, len(lookup_code)), 5, -1):
-                                cursor.execute(
-                                    """
-                                    SELECT tarifni_kod, opis
-                                    FROM catalogs.zvanicna_tarifa
-                                    WHERE tarifni_kod LIKE %s || '%%'
-                                      AND nivo = 'podbroj'
-                                    ORDER BY tarifni_kod ASC
-                                    LIMIT 1
-                                    """,
-                                    (lookup_code[:prefix_len],),
-                                )
-                                result = cursor.fetchone()
-                                if result:
-                                    break
-
-                    else:
-                        # Tražimo heading opis: prvo 4-cifreni 'glava', pa 6-cifreni 'podglava'
-                        # Neke glave (npr. 1601) ne postoje na glava nivou nego samo kao podglava
-                        cursor.execute(
-                            """
-                            SELECT tarifni_kod, opis
-                            FROM catalogs.zvanicna_tarifa
-                            WHERE tarifni_kod = %s AND nivo = 'glava'
-                            LIMIT 1
-                            """,
-                            (lookup_code,),
-                        )
-                        result = cursor.fetchone()
-
-                        if not result:
-                            # Fallback: 6-cifreni podglava (npr. '160100' za '16010091')
-                            digits_for_sub = "".join(filter(str.isdigit, str(tariff_code)))
-                            subheading_code = digits_for_sub[:6] if len(digits_for_sub) >= 6 else digits_for_sub
-                            cursor.execute(
-                                """
-                                SELECT tarifni_kod, opis
-                                FROM catalogs.zvanicna_tarifa
-                                WHERE tarifni_kod = %s AND nivo = 'podglava'
-                                LIMIT 1
-                                """,
-                                (subheading_code,),
-                            )
-                            result = cursor.fetchone()
-
-                    if result:
-                        raw = result["opis"] or ""
-                        cleaned = self._clean_tariff_description(raw)
-                        logger.info(f"✅ Tariff [{nivo}] {result['tarifni_kod']} → {cleaned[:50]}")
-                        return cleaned
-                    else:
-                        logger.warning(f"⚠️ Nema opisa tarife [{nivo}] za: {tariff_code}")
-                        return ""
-
+            from services.naimenovanja.tariff_service import TariffService
+            svc = getattr(self, "_tariff_svc", None) or TariffService()
+            self._tariff_svc = svc
+            return svc.load_tariff_description_from_postgres(tariff_code, nivo=nivo)
         except Exception as e:
             logger.warning(f"⚠️ PostgreSQL greška pri lookup-u tarife: {e}")
             return ""
+
+    def _extract_short_code(self, tariff_code: str) -> str:
+        """
+        Vrati 4-cifreni prefiks za traženje heading opisa (viši nivo klasifikacije).
+        Primjer: "1601009100" → "1601", "1602421000" → "1602"
+        """
+        if not tariff_code:
+            return ""
+        digits = "".join(filter(str.isdigit, tariff_code))
+        if len(digits) >= 4:
+            return digits[:4]
+        return digits
 
     def _extract_short_code(self, tariff_code: str) -> str:
         """

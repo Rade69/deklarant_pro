@@ -4173,13 +4173,18 @@ class FakturaView(BaseTabView):
             new_item = dialog.get_item()
 
             if new_item:
+                # Undo snapshot PRIJE mutacije — omogući Ctrl+Z za "Dodaj"
+                self._push_undo_snapshot()
+
                 # Add to draft
                 self.draft.invoice_lines.append(new_item)
 
-                # Add to table
-                row = self.table.rowCount()
-                self.table.insertRow(row)
-                self._add_item_to_table(row, new_item)
+                # Add to table — _add_item_to_table SAMA radi insertRow (na
+                # osnovu trenutnog rowCount()), pa se ovdje NE smije unaprijed
+                # umetnuti prazan red — inače tabela dobije jedan prazan i
+                # jedan popunjen red za samo jednu novu stavku u draftu.
+                row_number = self.table.rowCount()
+                self._add_item_to_table(row_number, new_item)
 
                 # Update status bar
                 self._update_status_bar()
@@ -5377,31 +5382,21 @@ class FakturaView(BaseTabView):
         self._show_scrollable_info_dialog("Auto-popuni - Rezultati", message)
 
     def _get_tariff_description(self, tariff_code: str) -> str:
-        """Dohvati kratki opis tarifnog broja iz tarifa_2026 (hijerarhijski)."""
+        """Dohvati kratki opis tarifnog broja iz tarifa_2026 (hijerarhijski).
+
+        Delegira na TariffService.load_hierarchical_label — frozen-svjestan
+        putanja (vidi fix §44) i sa cache-om (sprječava N+1 u _show_tariff_preview_dialog).
+        """
         if not tariff_code or not tariff_code.isdigit():
             return ""
         try:
-            import sqlite3, re
-            from gui.tabs.sifarnici.tariff_hierarchy import _DB_PATH as db_path
-            if not db_path or not os.path.exists(db_path):
-                return ""
-            conn = sqlite3.connect(str(db_path))
-            cur = conn.cursor()
-            code10 = tariff_code.ljust(10, '0')
-            pog4 = tariff_code[:4]
-            pod6 = tariff_code[:6]
-            cur.execute(
-                "SELECT naziv FROM tarifa_2026 WHERE kod IN (?, ?, ?) ORDER BY length(kod)",
-                (pog4, pod6, code10)
-            )
-            parts = [r[0] for r in cur.fetchall()]
-            conn.close()
-            labels = []
-            for naziv in parts:
-                clean = re.sub(r'^[\s�▪•→»\xa0]+', '', naziv or '').strip().rstrip(':')
-                if clean:
-                    labels.append(clean)
-            return " / ".join(labels) if labels else tariff_code
+            from services.naimenovanja.tariff_service import TariffService
+            svc = getattr(self, "_tariff_desc_service", None) or TariffService()
+            self._tariff_desc_service = svc
+            return svc.load_hierarchical_label(tariff_code)
+        except Exception:
+            return tariff_code
+
         except Exception:
             return tariff_code
 
