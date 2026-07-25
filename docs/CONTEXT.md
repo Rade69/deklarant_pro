@@ -1390,3 +1390,86 @@ Aktivna `QPushButton` i `QToolButton` dugmad koriste akcentni obrub `#F2C14E`
 uz promjenu semantičke nijanse. Normalno stanje ima transparentan obrub iste
 debljine, pa hover ne smije mijenjati geometriju, padding niti položaj teksta.
 Onemogućena dugmad ne dobijaju hover akcenat.
+
+## 57. E2E provjera jedinstvenog import workflow-a sa stvarnim fakturama (2026-07-25)
+
+Nakon §49-53 (jedinstveni import workflow, Codex/Pi), izvještaji su eksplicitno
+ostavili "potrebna ručna GUI provjera sa stvarnim fajlovima iz `najavauvoza/`"
+kao otvoren rizik. Umjesto GUI-ja (headless nemoguć), napravljen je direktan
+servisni e2e test: `ImportService.import_file()` → `from_import_result()` →
+`prepare_import()` → `apply_import_plan()`, sa PE/EUR1 dijalog odgovorima
+simuliranim kao `SKIPPED`. Novi trajni test:
+`tests/integration/test_real_invoice_import_e2e.py` (graciozno se preskače
+ako arhiva faktura nije dostupna — `DEKLARANT_INVOICE_DIR` / `H:\New folder\
+najavauvoza` / korisnički `Downloads`).
+
+**Potvrđeno na 4 stvarna vendor formata** (Master Frigo, PIP Food, SRECKO,
+Medicopharm) — svi scenariji koje su izvještaji označili kao nepotvrđene:
+- Jedan uvoz: ispravne stavke/težine/iznos (Master Frigo 51 stavka = 22.813,00
+  EUR, poklapa se sa imenom fajla)
+- **REPLACE na ponovni uvoz iste fakture** (ne duplikat) — VAŽNO: `existing_
+  invoice_keys` MORA se graditi identično kao `FakturaView.
+  _existing_invoice_keys_for_import_workflow()` (iz `invoice_number` polja
+  stavki + `draft.invoice_weights` ključeva, NE iz `invoice_name`) — prvi
+  pokušaj testa je pogrešno koristio `invoice_name` i lažno pokazao duplikat
+- Konflikt partnera se detektuje kad se uveze faktura različitog izvoznika
+  u draft koji već ima drugog (ne miješa se tiho)
+- Kombinovani uvoz (faktura+packing) postavlja `consumed_paths`, bez duplih
+  stavki
+
+**Medicopharm 1476/26** (94 stavke, 22.662,72 EUR, bruto 310/neto 284.94 —
+sve iz zbirnog sažetka na samoj fakturi, zlatni standard) je otkrio DVA
+stvarna buga u toku dubljeg testiranja (oba popravljena, oba imaju testove):
+
+1. **`ImportService._normalize_tariffs_in_result()`** je `zfill(8)`-om lijevo
+   dopunjavao SVAKI 4-7-cifreni tarifni broj — ispravno samo za slučaj
+   "izostavljena vodeća nula poglavlja 01-09", pogrešno za sve ostalo. Rb.78:
+   `"3304990"` (7 cifara, poglavlje 33 kozmetika, izostavljena ZADNJA cifra)
+   → tiho postajalo `"03304990"` (nepostojeće poglavlje 03 riba). Odluka
+   (potvrđena od korisnika): auto-dopuna je UKLONJENA za cijeli 4-7 opseg —
+   `declaration_validator_service.py` već baca ERROR za tarifu koja ne
+   postoji u zvaničnoj tarifi, pa nepotpun kod dobija vidljivo upozorenje
+   umjesto tihe fabrikacije. HIGH GitNexus impact (univerzalna funkcija, svi
+   import putevi) — plan u `project_rooms/2026-07-25_ukloni-lijevu-dopunu-
+   kratkih-tarifa.md`.
+2. **Medicopharm razdvaja istu 8-cifrenu tarifu po zemlji porijekla** dodatnim
+   brojčanim sufiksom (npr. `"330499000080"` = tarifa `33049900` + sufiks
+   `0080` za Veliku Britaniju) — korisnikovo objašnjenje, potvrđeno testom da
+   aplikacija ionako postiže isti razdvoj kroz 4-ključno grupisanje
+   naimenovanja (tarifa+zemlja+povlastica+eur1), sufiks je za njih interno
+   knjigovodstvo. Taj sufiks je obično slijepljen uz tarifu, ali je na ovoj
+   fakturi (Rb.93) razdvojen razmakom (`"33051000 0000"`) — `_try_parse_
+   item_line()` ga je ubacivao kao prvu riječ naziva robe. Fix: čisto
+   brojčani token odmah iza tarife se preskače (potvrđeno da nijedan
+   legitiman naziv na fakturi ne počinje brojem).
+
+**Pouka**: i "gotov, testovima pokriven" refaktoring može sakrivati domenske
+edge-case bugove koji se pojave samo na stvarnim, "ružnim" podacima (razmak
+umjesto slijepljenog sufiksa, faktura sa sopstvenim tipfelerom u tarifi) —
+sintetički testni podaci ih ne bi otkrili. Vrijedi periodično ponoviti e2e
+provjeru sa novim stvarnim fakturama, ne samo jednom.
+
+Commitovi: `ed8f219` (e2e test), `db7f05d` (fix zfill), `dd136aa` (fix
+Medicopharm sufiks). Pun test suite: 1103 passed nakon svih izmjena (isti
+pre-postojeći 1 fail/1 error nepovezani sa ovim radom).
+
+**Dodatak — pregled paralelnog Pi izvještaja** (`agent_reports/2026-07-25_
+istraga-naimenovanja-faktura-tok.md`, nezavisna istraga Naimenovanja/Faktura
+tabova): dva nalaza označena "KRITIČNO", oba provjerena PRIJE bilo kakvog
+djelovanja (ne uzeti tuđi izvještaj zdravo za gotovo, isti standard kao za
+sopstvene nalaze):
+- **§1a ("dist_client i dalje ima zfill(8) bug")** — **zastario nalaz**,
+  generisan prije commita `db7f05d` koji je već mirrovao fix u oba fajla.
+  Provjereno uživo (diff root/dist_client identičan). Nije popravljano jer
+  nije ni bilo pokvareno.
+- **§1b (`FakturaView._get_tariff_description` — `__file__` bez
+  `sys.frozen`)** — **potvrđen stvaran, četvrti primjer iste klase buga**
+  (§44/45), i gori od ranijih: eksplicitno provjerava `db_path.exists()` i
+  ODMAH odustaje (prazan opis) bez pokušaja alternativne putanje. Popravljeno
+  ponovnom upotrebom već frozen-svjesnog `_DB_PATH` iz `tariff_hierarchy.py`
+  umjesto dupliranja `_resolve_db_path()` po peti put. Commit `89f54bb`.
+
+Ostatak Pi izvještaja (arhitekturni dug — Naimenovanja bez Controller sloja,
+N+1 upiti u petljama, QThread `cancel()` nedostaje za ChatWorker/
+TariffLLMWorker, itd.) nije provjeravan niti primjenjivan u ovoj sesiji —
+ostaje kao katalog za buduć rad, ne provjereno sam ako je svaki navod tačan.
