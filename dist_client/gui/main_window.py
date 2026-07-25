@@ -278,20 +278,28 @@ class MainWindow(QMainWindow):
         self.close()
 
     def _shutdown_agent_workers(self) -> None:
-        """Graceful shutdown agent workera — cancel + quit + wait."""
-        worker = getattr(self.agent_tab.controller, "_worker", None)
-        if worker is None:
+        """Graceful shutdown agent i faktura workera — cancel + quit + wait."""
+        MainWindow._shutdown_worker(getattr(self.agent_tab.controller, "_worker", None))
+        faktura_view = getattr(self.faktura_tab, "view", None)
+        MainWindow._shutdown_worker(
+            getattr(faktura_view, "historical_validation_worker", None)
+        )
+
+    @staticmethod
+    def _shutdown_worker(worker) -> None:
+        """Cancel + quit + wait (max 3s, pa terminate) za jedan QThread worker."""
+        if worker is None or not worker.isRunning():
             return
         try:
             if hasattr(worker, "cancel"):
                 worker.cancel()
             worker.quit()
             if not worker.wait(3000):  # čekaj max 3s
-                logger.warning("Agent worker nije završio u 3s — nasilno prekidan")
+                logger.warning("Worker nije završio u 3s — nasilno prekidan")
                 worker.terminate()
                 worker.wait(1000)
         except Exception as e:
-            logger.warning(f"Agent worker shutdown greška: {e}")
+            logger.warning(f"Worker shutdown greška: {e}")
 
     def _confirm_safe_to_exit(self) -> bool:
         """Upozori korisnika ako Agent još procesira fajlove u pozadini."""

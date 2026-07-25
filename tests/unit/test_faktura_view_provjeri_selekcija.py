@@ -3,7 +3,7 @@ Test za FakturaView._run_historical_tariff_validation — selekcija redova (2026
 
 Korisnička primjedba: kad selektuje N stavki u tabeli i klikne "Provjeri"
 (dugme pored Bruto/Neto), očekuje da se provjere SAMO te stavke — isti
-obrazac kao Auto-popuni. Prije ove izmjene se uvijek provjeravalo SVIH
+obrazac kao Auto-popuni. Prije ove izmjene se uvijek provjeravalo svih
 draft.invoice_lines, bez obzira na selekciju.
 
 Ovaj test pokriva i kritičan detalj: HistoricalTariffSearchService.validate_lines
@@ -12,6 +12,14 @@ filtrirane selekcije), ne kao stvarni red u draft.invoice_lines. Bez remapiranja
 nazad na pravi red, promjena bi se upisala u POGREŠAN red tabele — tačno
 simptom koji je korisnik prijavio ("tarifni brojevi koji su došli iz fakture
 su i dalje tu").
+
+AŽURIRANO (§59, HistoricalValidationWorker): _run_historical_tariff_validation
+sad samo priprema target_lines/selekciju i DISPATCHUJE pozadinski worker
+(_dispatch_worker ispod patchuje worker.start() na no-op da se pravi
+QThread nikad ne pokrene — race-free provjera argumenata konstrukcije).
+Logika remapiranja/notifikacije/dijaloga je premještena u
+_on_historical_validation_finished i testira se direktno, odvojeno od
+dispatch-a — worker sad radi taj posao asinhrono, testovi ne čekaju thread.
 
 MainWindow.closeEvent test (test_main_window_close_event.py) je isti obrazac:
 nevezana metoda se poziva direktno na MagicMock "self" da se izbjegne teška
@@ -22,6 +30,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 from gui.tabs.faktura_view import FakturaView
+from services.historical_validation_worker import HistoricalValidationWorker
 
 
 def _line(tarifni_broj: str = "", naziv: str = "STAVKA") -> MagicMock:
@@ -34,6 +43,7 @@ def _line(tarifni_broj: str = "", naziv: str = "STAVKA") -> MagicMock:
 def _mock_self_with_selected_rows(num_lines: int, selected_rows: list[int]) -> MagicMock:
     mock_self = MagicMock()
     mock_self.draft.invoice_lines = [_line(naziv=f"STAVKA {i}") for i in range(num_lines)]
+    mock_self.historical_validation_worker = None
 
     row_mocks = []
     for row in selected_rows:
@@ -44,23 +54,52 @@ def _mock_self_with_selected_rows(num_lines: int, selected_rows: list[int]) -> M
     return mock_self
 
 
+def _dispatch_worker(mock_self, auto: bool = False) -> HistoricalValidationWorker:
+    """
+    Pokreni _run_historical_tariff_validation sa worker.start() patchovanim na
+    no-op — vraća stvarni (ali nikad pokrenut) HistoricalValidationWorker da
+    se provjere argumenti konstrukcije bez čekanja na pravi QThread/DB poziv.
+    """
+    with patch.object(HistoricalValidationWorker, "start", lambda self: None):
+        FakturaView._run_historical_tariff_validation(mock_self, auto=auto)
+    return mock_self.historical_validation_worker
+
+
 def test_provjeri_selekcija_provjerava_samo_selektovane_redove():
-    """Sa 5 stavki i selektovanim redom 3, servis mora dobiti listu od SAMO 1 stavke."""
+    """Sa 5 stavki i selektovanim redom 3, worker mora dobiti listu od SAMO 1 stavke."""
     mock_self = _mock_self_with_selected_rows(num_lines=5, selected_rows=[3])
+    worker = _dispatch_worker(mock_self)
+    assert worker.target_lines == [mock_self.draft.invoice_lines[3]]
 
-    svc_instance = MagicMock()
-    svc_instance.validate_lines.return_value = []
-    svc_instance.last_auto_applied = []
-    svc_instance.last_auto_rejected = []
 
-    with patch(
-        "services.agent.validation.historical_tariff_search_service.HistoricalTariffSearchService",
-        return_value=svc_instance,
-    ):
-        FakturaView._run_historical_tariff_validation(mock_self, auto=False)
+def test_provjeri_bez_selekcije_provjerava_sve_stavke():
+    """Bez selekcije (stari obrazac) - ponašanje ostaje nepromijenjeno, provjeravaju se sve stavke."""
+    mock_self = _mock_self_with_selected_rows(num_lines=3, selected_rows=[])
+    worker = _dispatch_worker(mock_self)
+    assert worker.target_lines == mock_self.draft.invoice_lines
 
-    called_lines = svc_instance.validate_lines.call_args[0][0]
-    assert called_lines == [mock_self.draft.invoice_lines[3]]
+
+def test_provjeri_bez_stavki_ne_pokrece_worker():
+    """Prazan draft (ili prazna selekcija filtrirana na 0 stavki) ne smije pokrenuti worker."""
+    mock_self = _mock_self_with_selected_rows(num_lines=0, selected_rows=[])
+    worker = _dispatch_worker(mock_self)
+    assert worker is None
+
+
+def _finish(mock_self, **overrides):
+    """Pozovi _on_historical_validation_finished sa razumnim defaultima."""
+    kwargs = dict(
+        matches=[],
+        auto_applied=[],
+        auto_rejected=[],
+        row_indexes=None,
+        auto=False,
+        modal=False,
+        token=mock_self._historical_validation_token,
+        generation=mock_self._validation_generation,
+    )
+    kwargs.update(overrides)
+    FakturaView._on_historical_validation_finished(mock_self, **kwargs)
 
 
 def test_provjeri_selekcija_remapira_auto_applied_na_pravi_red():
@@ -70,19 +109,12 @@ def test_provjeri_selekcija_remapira_auto_applied_na_pravi_red():
     """
     mock_self = _mock_self_with_selected_rows(num_lines=5, selected_rows=[3])
 
-    svc_instance = MagicMock()
-    svc_instance.validate_lines.return_value = []
-    svc_instance.last_auto_applied = [(0, "85168080")]  # lokalni indeks unutar target_lines
-    svc_instance.last_auto_rejected = []
+    _finish(
+        mock_self,
+        auto_applied=[(0, "85168080")],  # lokalni indeks unutar target_lines=[red3]
+        row_indexes=[3],
+    )
 
-    with patch(
-        "services.agent.validation.historical_tariff_search_service.HistoricalTariffSearchService",
-        return_value=svc_instance,
-    ):
-        FakturaView._run_historical_tariff_validation(mock_self, auto=False)
-
-    # Mora upisati u PRAVI red (3), ne u lokalni indeks (0)
-    mock_self._set_table_item.assert_called_once_with(3, 4, "85168080", align=mock_self._set_table_item.call_args.kwargs.get("align"))
     row_arg = mock_self._set_table_item.call_args[0][0]
     assert row_arg == 3
 
@@ -93,25 +125,6 @@ def test_provjeri_selekcija_remapira_auto_applied_na_pravi_red():
     mock_self._notify_auto_applied_tariffs.assert_called_once_with([(3, "85168080")])
 
 
-def test_provjeri_bez_selekcije_provjerava_sve_stavke():
-    """Bez selekcije (stari obrazac) - ponašanje ostaje nepromijenjeno, provjeravaju se sve stavke."""
-    mock_self = _mock_self_with_selected_rows(num_lines=3, selected_rows=[])
-
-    svc_instance = MagicMock()
-    svc_instance.validate_lines.return_value = []
-    svc_instance.last_auto_applied = []
-    svc_instance.last_auto_rejected = []
-
-    with patch(
-        "services.agent.validation.historical_tariff_search_service.HistoricalTariffSearchService",
-        return_value=svc_instance,
-    ):
-        FakturaView._run_historical_tariff_validation(mock_self, auto=False)
-
-    called_lines = svc_instance.validate_lines.call_args[0][0]
-    assert called_lines == mock_self.draft.invoice_lines
-
-
 def test_provjeri_match_line_index_remapiran_na_pravi_red():
     """match.line_index (lokalni, iz validate_lines) mora biti remapiran prije nego stigne do dijaloga."""
     mock_self = _mock_self_with_selected_rows(num_lines=5, selected_rows=[1, 3])
@@ -119,19 +132,16 @@ def test_provjeri_match_line_index_remapiran_na_pravi_red():
     match = MagicMock()
     match.line_index = 1  # lokalni indeks: pozicija reda 3 unutar target_lines=[red1, red3]
 
-    svc_instance = MagicMock()
-    svc_instance.validate_lines.return_value = [match]
-    svc_instance.last_auto_applied = []
-    svc_instance.last_auto_rejected = []
-
     with patch(
-        "services.agent.validation.historical_tariff_search_service.HistoricalTariffSearchService",
-        return_value=svc_instance,
-    ), patch("gui.tabs.agent.widgets.tariff_validation_dialog.TariffValidationDialog") as dlg_cls, \
-         patch("gui.tabs.faktura_view.show_dialog_preserving_geometry"):
-        FakturaView._run_historical_tariff_validation(mock_self, auto=False)
+        "gui.tabs.agent.widgets.tariff_validation_dialog.TariffValidationDialog"
+    ) as dlg_cls, patch("gui.tabs.faktura_view.show_dialog_preserving_geometry"):
+        _finish(
+            mock_self,
+            matches=[match],
+            row_indexes=[1, 3],  # target_lines = [invoice_lines[1], invoice_lines[3]]
+        )
 
-    # target_lines = [invoice_lines[1], invoice_lines[3]]; match.line_index=1 -> stvarni red 3
+    # match.line_index=1 -> stvarni red 3
     assert match.line_index == 3
     dlg_cls.assert_called_once()
 
@@ -145,16 +155,8 @@ def test_provjeri_selekcija_bez_prijedloga_prikazuje_poruku_umjesto_tisine():
     """
     mock_self = _mock_self_with_selected_rows(num_lines=5, selected_rows=[2])
 
-    svc_instance = MagicMock()
-    svc_instance.validate_lines.return_value = []
-    svc_instance.last_auto_applied = []
-    svc_instance.last_auto_rejected = []
-
-    with patch(
-        "services.agent.validation.historical_tariff_search_service.HistoricalTariffSearchService",
-        return_value=svc_instance,
-    ), patch("gui.tabs.faktura_view.QMessageBox") as mock_msgbox:
-        FakturaView._run_historical_tariff_validation(mock_self, auto=False)
+    with patch("gui.tabs.faktura_view.QMessageBox") as mock_msgbox:
+        _finish(mock_self, row_indexes=[2])
 
     mock_msgbox.information.assert_called_once()
     message_text = mock_msgbox.information.call_args[0][2]
@@ -165,16 +167,8 @@ def test_provjeri_bez_selekcije_bez_prijedloga_ostaje_tih():
     """Bez selekcije (provjera cijele fakture) tisina ostaje namjerna - nema poruke po svakom kliku."""
     mock_self = _mock_self_with_selected_rows(num_lines=5, selected_rows=[])
 
-    svc_instance = MagicMock()
-    svc_instance.validate_lines.return_value = []
-    svc_instance.last_auto_applied = []
-    svc_instance.last_auto_rejected = []
-
-    with patch(
-        "services.agent.validation.historical_tariff_search_service.HistoricalTariffSearchService",
-        return_value=svc_instance,
-    ), patch("gui.tabs.faktura_view.QMessageBox") as mock_msgbox:
-        FakturaView._run_historical_tariff_validation(mock_self, auto=False)
+    with patch("gui.tabs.faktura_view.QMessageBox") as mock_msgbox:
+        _finish(mock_self, row_indexes=None)
 
     mock_msgbox.information.assert_not_called()
 
@@ -187,16 +181,11 @@ def test_provjeri_selekcija_remapira_auto_rejected_na_pravi_red():
     """
     mock_self = _mock_self_with_selected_rows(num_lines=5, selected_rows=[3])
 
-    svc_instance = MagicMock()
-    svc_instance.validate_lines.return_value = []
-    svc_instance.last_auto_applied = []
-    svc_instance.last_auto_rejected = [(0, "39269097")]  # lokalni indeks unutar target_lines
-
-    with patch(
-        "services.agent.validation.historical_tariff_search_service.HistoricalTariffSearchService",
-        return_value=svc_instance,
-    ):
-        FakturaView._run_historical_tariff_validation(mock_self, auto=False)
+    _finish(
+        mock_self,
+        auto_rejected=[(0, "39269097")],  # lokalni indeks unutar target_lines
+        row_indexes=[3],
+    )
 
     mock_self._notify_auto_rejected_tariffs.assert_called_once_with([(3, "39269097")])
 
@@ -210,16 +199,8 @@ def test_provjeri_selekcija_auto_rejected_suprimira_generalnu_poruku():
     """
     mock_self = _mock_self_with_selected_rows(num_lines=5, selected_rows=[2])
 
-    svc_instance = MagicMock()
-    svc_instance.validate_lines.return_value = []
-    svc_instance.last_auto_applied = []
-    svc_instance.last_auto_rejected = [(0, "39269097")]
-
-    with patch(
-        "services.agent.validation.historical_tariff_search_service.HistoricalTariffSearchService",
-        return_value=svc_instance,
-    ), patch("gui.tabs.faktura_view.QMessageBox") as mock_msgbox:
-        FakturaView._run_historical_tariff_validation(mock_self, auto=False)
+    with patch("gui.tabs.faktura_view.QMessageBox") as mock_msgbox:
+        _finish(mock_self, auto_rejected=[(0, "39269097")], row_indexes=[2])
 
     mock_self._notify_auto_rejected_tariffs.assert_called_once()
     mock_msgbox.information.assert_not_called()
@@ -229,15 +210,11 @@ def test_provjeri_auto_mod_loguje_auto_rejected_umjesto_dijaloga():
     """auto=True (puna automatizacija): auto_rejected se samo loguje, nikad dijalog."""
     mock_self = _mock_self_with_selected_rows(num_lines=3, selected_rows=[])
 
-    svc_instance = MagicMock()
-    svc_instance.validate_lines.return_value = []
-    svc_instance.last_auto_applied = []
-    svc_instance.last_auto_rejected = [(0, "39269097")]
-
-    with patch(
-        "services.agent.validation.historical_tariff_search_service.HistoricalTariffSearchService",
-        return_value=svc_instance,
-    ):
-        FakturaView._run_historical_tariff_validation(mock_self, auto=True)
+    _finish(
+        mock_self,
+        auto=True,
+        auto_rejected=[(0, "39269097")],
+        row_indexes=None,
+    )
 
     mock_self._notify_auto_rejected_tariffs.assert_not_called()

@@ -63,6 +63,7 @@ from gui.dialogs.pe2_quick_dialog import PE2QuickDialog
 from core.draft import DeclarationDraft, InvoiceLine, NaimenovanjeDraft
 import uuid
 from services.import_worker import ImportWorker
+from services.historical_validation_worker import HistoricalValidationWorker
 from services.validation.validation_service import FakturaItemValidator, ValidationLevel
 from services.naimenovanja.declaration_assembly import DeclarationAssembly
 from services.export_service import ExportService
@@ -250,6 +251,8 @@ class FakturaView(BaseTabView):
         self.draft = draft
         self.on_dirty = on_dirty
         self.import_worker: Optional[ImportWorker] = None
+        self.historical_validation_worker: Optional[HistoricalValidationWorker] = None
+        self._historical_validation_token = 0
         self.validator = FakturaItemValidator()
         self.assembly = DeclarationAssembly()  # Assembly system
         self._agent_mode = False  # Agent mod: bez GUI dijaloga za povlastice
@@ -4635,7 +4638,10 @@ class FakturaView(BaseTabView):
 
     def _run_historical_tariff_validation(self, modal=False, auto=False):
         """
-        Pokreni istorijsku validaciju tarifa i prikaži dialog ako ima prijedloga.
+        Pokreni istorijsku validaciju tarifa u pozadinskom threadu i prikaži
+        dialog ako ima prijedloga (vidi HistoricalValidationWorker — DB upiti
+        po stavci su prespori za UI thread, ranije je ovo blokiralo UI poslije
+        svakog importa, docs/CONTEXT.md §59).
 
         auto=True (puna automatizacija): dijalog se NIKAD ne prikazuje, čak ni
         modalno — inače bi pipeline visio čekajući korisnika za nešto što nije
@@ -4650,11 +4656,6 @@ class FakturaView(BaseTabView):
         konkretnu(e) stavku(e) i pokušava prihvatiti baš njen prijedlog.
         """
         try:
-            from services.agent.validation.historical_tariff_search_service import (
-                HistoricalTariffSearchService,
-            )
-            from gui.tabs.agent.widgets.tariff_validation_dialog import TariffValidationDialog
-
             izvoznik = getattr(self.draft, 'izvoznik_naziv', '') or ''
             primalac = getattr(self.draft, 'primalac_naziv', '') or ''
 
@@ -4677,15 +4678,80 @@ class FakturaView(BaseTabView):
                             self.draft.invoice_lines[row] for row in row_indexes
                         ]
 
-            svc = HistoricalTariffSearchService()
-            matches = svc.validate_lines(
-                target_lines,
-                izvoznik_naziv=izvoznik,
-                uvoznik_naziv=primalac,
-            )
-            auto_applied = getattr(svc, 'last_auto_applied', [])
-            auto_rejected = getattr(svc, 'last_auto_rejected', [])
+            if not target_lines:
+                return
 
+            # Prethodni worker (ako još radi) se otkazuje — best-effort, DB
+            # upit koji je već u toku se ne prekida, ali token guard u
+            # _on_historical_validation_finished odbacuje njegov (kasniji,
+            # zastarjeli) rezultat.
+            if (
+                self.historical_validation_worker is not None
+                and self.historical_validation_worker.isRunning()
+            ):
+                self.historical_validation_worker.cancel()
+
+            self._historical_validation_token += 1
+            my_token = self._historical_validation_token
+            my_generation = self._validation_generation
+
+            worker = HistoricalValidationWorker(target_lines, izvoznik, primalac)
+            self.historical_validation_worker = worker
+            worker.finished_validation.connect(
+                lambda matches, auto_applied, auto_rejected: self._on_historical_validation_finished(
+                    matches,
+                    auto_applied,
+                    auto_rejected,
+                    row_indexes=row_indexes,
+                    auto=auto,
+                    modal=modal,
+                    token=my_token,
+                    generation=my_generation,
+                )
+            )
+            worker.error_occurred.connect(self._on_historical_validation_error)
+            worker.finished.connect(
+                lambda: self._cleanup_historical_validation_worker(worker)
+            )
+            worker.start()
+
+        except Exception as e:
+            logger.warning("Istorijska validacija greška: %s", e)
+
+    def _cleanup_historical_validation_worker(self, worker) -> None:
+        if self.historical_validation_worker is worker:
+            self.historical_validation_worker = None
+        worker.deleteLater()
+
+    def _on_historical_validation_error(self, message: str) -> None:
+        logger.warning("Istorijska validacija greška: %s", message)
+
+    def _on_historical_validation_finished(
+        self,
+        matches: list,
+        auto_applied: list,
+        auto_rejected: list,
+        row_indexes,
+        auto: bool,
+        modal: bool,
+        token: int,
+        generation: int,
+    ) -> None:
+        """
+        Slot pozvan na glavnom threadu kad HistoricalValidationWorker završi.
+        Sadržaj je neizmijenjen iz ranije sinhrone verzije — samo mjesto
+        izvršavanja logike za primjenu/dijalog je premješteno ovdje.
+        """
+        if token != self._historical_validation_token:
+            logger.debug("Istorijska validacija (worker) odbačena — zamijenjena novijim pozivom")
+            return
+        if generation != self._validation_generation:
+            logger.debug("Istorijska validacija (worker) odbačena — draft promijenjen u međuvremenu")
+            return
+
+        from gui.tabs.agent.widgets.tariff_validation_dialog import TariffValidationDialog
+
+        try:
             # KRITIČNO: match.line_index i auto_applied/auto_rejected indeksi
             # su pozicije UNUTAR target_lines (0..len(target_lines)-1), ne
             # stvarni red u self.draft.invoice_lines — kad je target_lines
