@@ -1620,3 +1620,36 @@ Pun test suite: 1135 passed (isti pre-postojeći 1 fail/1 error,
 nepovezani). GitNexus `detect_changes`: risk LOW, 0 affected_processes.
 
 Commit: `b9594fb`.
+
+## 60. Podjela po zemljama u status baru — nedostajala kod ručnog uvoza (2026-07-25)
+
+Korisnička prijava (screenshot statusne trake): ručni uvoz fakture nema
+"🌍 DE:54 | FR:24 | ..." podjelu po zemljama kao agentski uvoz (ne treba
+mješati sa "Assembly: N/A" — TO je odvojen, nepovezan indikator za
+master-list feature, `self.assembly.master_list_loaded`).
+
+**Uzrok**: `lbl_analysis` segment se prikazuje samo ako je `self.
+_analysis_summary_auto == True` (`_refresh_analysis_summary_from_draft`
+inače rano izlazi). Taj flag je postavljala ISKLJUČIVO `AgentController.
+_proactive_analysis()` preko `fw.set_analysis_summary(...)`
+(`gui/tabs/agent/agent_controller.py:743`) — poziva se SAMO nakon Agent
+uvoza. Ručni uvoz (`_on_import_finished` i varijante) nikad nije postavljao
+ovaj flag, pa segment nikad nije prikazan za ručni tok.
+
+**Fix**: `_update_status_bar()` sad jednosmjerno uključuje
+`_analysis_summary_auto` čim ima bar jedna stavka u draftu (bilo kojim
+putem — ne samo Agent uvozom). Prikazani tekst i dalje računa POSTOJEĆA,
+ispravnija `_build_analysis_summary_from_draft()` (čita trenutno stanje
+tabele/drafta, normalizuje zemlju na 2-slovni kod) — `AgentController`
+poziv ostaje netaknut, samo postaje redundantan (flag je već True do tada).
+
+GitNexus impact na `_update_status_bar` je HIGH (30 pogođenih, 21 direktan
+pozivalac) — funkcija je centralni hub, ne zato što je izmjena rizična.
+Plan zapisan u `project_rooms/2026-07-25_analiza-summary-rucni-uvoz.md`
+prije izmjene (AGENTS.md HIGH-risk protokol); `detect_changes()` poslije
+potvrdio LOW (izmjena aditivna, 2 linije, ne dira postojeću logiku).
+
+Pun test suite: 1138 passed (+3 nova regresiona testa u `tests/unit/
+test_faktura_view_status_bar.py`).
+
+Commit: `bf99ef2`.
