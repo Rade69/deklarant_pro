@@ -1473,3 +1473,92 @@ Ostatak Pi izvještaja (arhitekturni dug — Naimenovanja bez Controller sloja,
 N+1 upiti u petljama, QThread `cancel()` nedostaje za ChatWorker/
 TariffLLMWorker, itd.) nije provjeravan niti primjenjivan u ovoj sesiji —
 ostaje kao katalog za buduć rad, ne provjereno sam ako je svaki navod tačan.
+
+## 58. Codex analiza Faktura taba — 4 popravljena buga (2026-07-25)
+
+`Downloads/Codex-analiza-faktura-taba.docx` (Codex audit + ChatGPT dodatak)
+je prvo verifikovan navod-po-navod protiv stvarnog koda (12+ tvrdnji,
+SVE potvrđene tačne, neke gore nego opisano) prije bilo kakve izmjene.
+Popravljeno je 6 nalaza niskog rizika, namjerno OSTAVLJENO netaknuto sve
+arhitekturno (QUndoStack redesign, FakturaController ekstrakcija,
+revision-tracking, puni ExportPreflightService, PDF document-context
+cache, DB connection pooling) — korisnikov zahtjev je bio "popravi sve što
+možeš ali budi oprezan", ne redizajn.
+
+**Popravljeno** (svi imaju testove ili su verifikovani py_compile + pun
+test suite):
+
+1. **Dupli red pri "Dodaj" + nedostajući undo** (`_on_add_item`,
+   `faktura_view.py`) — `_add_item_to_table()` sama radi `insertRow()` na
+   osnovu trenutnog `rowCount()`; pozivalac je PRIJE toga i sam radio
+   `insertRow()` → jedan prazan + jedan popunjen red za jednu novu stavku.
+   Fix: pozivalac više ne radi vlastiti `insertRow()`, plus dodan
+   `_push_undo_snapshot()` koji je potpuno nedostajao (Ctrl+Z nije
+   poništavao ručno dodatu stavku).
+2. **Toolbar trajno onemogućen nakon uvoza** (`_on_import_finished`) — tri
+   rane `return` grane (prazan plan, korisnik odustao, apply neuspio)
+   izlazile su PRIJE `self._set_buttons_enabled(True)`, ostavljajući
+   dugmad zaključana do restarta taba. Fix: premješteno u `finally` blok
+   uz `_cleanup_import_worker()`.
+3. **"Očisti sve" ne čisti `invoice_weights`/`source_files`**
+   (`_on_clear_all`) — `draft.invoice_lines.clear()` je čistio stavke, ali
+   `invoice_weights` je zadržavao stare ključeve po broju fakture → sljedeći
+   uvoz "nove" fakture sa istim brojem se pogrešno tretirao kao REPLACE
+   postojeće umjesto novog uvoza u prazan draft. `draft.items`
+   (naimenovanja) namjerno NIJE očišćen — to je vidljiv korisnički sadržaj,
+   rizičnije za tiho brisanje; staleness tu rješava nalaz #6 ispod.
+4. **Naivni `_parse_number()`** — bezuslovno je brisao SVE tačke kao
+   hiljadarke prije provjere zareza: `"1234.56"` (čist decimalni zapis, bez
+   zareza) → `"123456"` → `123456.0` umjesto `1234.56`. Fix: delegira na
+   susjednu, već ispravnu `_parse_weight_input()` koja auto-detektuje EU/US
+   format po poziciji ZADNJEG separatora — striktno poboljšanje, isti
+   rezultat za sve ispravne unose, ispravan rezultat za bug-slučaj.
+5. **`TariffProposal` identitet kolidira po `line_no` kroz više faktura**
+   (`services/tariff/tariff_mapping_service.py`) — svaki importer numeriše
+   `line_no` od 1 PO FAKTURI. "Auto-popuni" bez selekcije (default tok) radi
+   nad CIJELIM `draft.invoice_lines` odjednom — `commit_proposals()` je
+   uparivao prijedlog isključivo po `line_no`, pa su dvije stavke iz
+   različitih faktura sa istim rednim brojem kolizijom dobijale POGREŠAN
+   tarifni prijedlog jedna umjesto druge. Fix: dodano `TariffProposal.
+   line_index` (pozicija u listi, iz `enumerate()`), `commit_proposals()`
+   uparuje prioritetno po njemu; ručno sastavljeni proposali bez
+   `line_index` (postojeći test) i dalje rade preko `line_no` fallback-a.
+   **NIJE mirrorano u `dist_client`** — taj modul je tamo Nuitka `.pyd`
+   (`tariff_mapping_service.cp314-win_amd64.pyd`, kompajliran 2026-07-18),
+   fix je samo u ROOT izvoru (koji `.exe` build koristi direktno preko
+   `deklarant_pro.spec`); dist_client runtime treba rebuild pri sljedećem
+   Windows deploy-u da pokupi ovaj fix.
+6. **`fill_basic_fields()` mutira prije undo snapshot-a** (`_on_auto_fill`)
+   — mutacija se dešavala ODMAH, prije preview dijaloga i prije eventualnog
+   otkazivanja; "Otkaži" u dijalogu je ostavljao neundo-vateljivu mutaciju.
+   Fix: `_push_undo_snapshot()` premješten prije `fill_basic_fields()` poziva
+   (uklonjen duplikat sa stare pozicije).
+7. **Excel export tiho izostavlja stavke bez naimenovanja** (`_on_export_
+   excel`) — `ExportService.export_to_excel()` grupiše isključivo po
+   `assigned_naimenovanje_ordinal > 0`, stavke bez dodijeljenog naimenovanja
+   nestaju iz fajla bez ikakve poruke. Fix: preflight provjera u GUI sloju
+   (ne u `ExportService` — namjerno mala izmjena, ne puni
+   `ExportPreflightService`) koja broji i upozorava korisnika PRIJE izvoza,
+   uz mogućnost nastavka.
+
+**Usput otkriven i popravljen NEPOVEZAN test regres**: `tests/unit/
+test_faktura_view_tariff_description_db_path.py` je pisan za raniju
+implementaciju `_get_tariff_description` (direktan sqlite3 + `_DB_PATH`,
+§57/commit `89f54bb`). Međuvremeni refaktor (commit `703a68e`, "ujednači
+opise tarife u TariffService sa cache-om, N+1 fix") je delegirao logiku na
+`TariffService.load_hierarchical_label` i keširao instancu na `self.
+_tariff_desc_service` — test je od tog commita tiho pucao jer `object()`
+kao lažni `self` ne dozvoljava postavljanje atributa (AttributeError se
+hvata u `except Exception`, vraća se sam tarifni kod kao "opis", test
+tvrdi suprotno). Nije bug u produkcionom kodu (pravi `FakturaView` je
+`QWidget`, podržava atribute normalno) — samo test-fixture nekompatibilnost
+sa novijom implementacijom. Fix: lagani `_FakeSelf` stub umjesto `object()`.
+Usput uklonjen i mrtav/nedostižan drugi `except Exception:` blok u
+`_get_tariff_description` (ostatak istog refaktora, oba root i dist_client).
+
+Pun test suite nakon svih izmjena: 1128 passed (isti pre-postojeći 1
+fail/1 error, oba nepovezana — hardkodovana lična putanja u `test_xml_
+parser_fix.py`, nedostajuća fixture u `test_model_benchmark.py`).
+
+Commitovi: `3ce36de` (faktura_view.py 4 fixa), `6b6aa3c` (TariffProposal
+line_index), `5538265` (test fix).
