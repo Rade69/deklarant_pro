@@ -1562,3 +1562,61 @@ parser_fix.py`, nedostajuća fixture u `test_model_benchmark.py`).
 
 Commitovi: `3ce36de` (faktura_view.py 4 fixa), `6b6aa3c` (TariffProposal
 line_index), `5538265` (test fix).
+
+## 59. HistoricalValidationWorker — istorijska validacija tarifa u pozadini (2026-07-25)
+
+Nastavak §58 — Codex nalaz "performanse" (`_run_historical_tariff_validation`
+blokira UI) i Pi-jeva istraga (`agent_reports/2026-07-25_istraga-
+naimenovanja-faktura-tok.md`, nalaz 2b) nezavisno prijavili isti bug:
+`HistoricalTariffSearchService.validate_lines()` (DB upit po stavci) se
+pozivao sinhrono na UI threadu, poslije SVAKOG importa (5 poziva u
+`faktura_view.py`) — UI se zamrzavao za vrijeme trajanja upita. Pi je taj
+nalaz eksplicitno ostavio neriješenim ("Srednji rizik — zahtijeva novi
+QThread worker + testiranje sa stvarnim DB", `agent_reports/2026-07-25_
+popravke-naimenovanja-faktura.md`), preporučio ga kao sljedeći korak.
+
+**Implementacija**: novi `HistoricalValidationWorker(QThread)` u `services/
+historical_validation_worker.py` — isti `cancel()`/`_cancelled` obrazac kao
+`ProcessingWorker`/`TariffLLMWorker`, konstruiše PRIVATNU
+`HistoricalTariffSearchService()` instancu u `run()` (ne singleton — isti
+razlog kao `ProcessingWorker`: izbjegavanje race condition-a između thread-
+ova), emituje `finished_validation(matches, auto_applied, auto_rejected)`
+kad DB upit završi.
+
+`_run_historical_tariff_validation` je podijeljen na dva dijela:
+- Dispatch (glavni thread, nepromijenjena logika selekcije redova) —
+  konstruiše i pokreće worker
+- `_on_historical_validation_finished` (novi slot, glavni thread) —
+  SADRŽAJNO NEIZMIJENJENA logika remapiranja indeksa/upisa u tabelu/
+  dijaloga, samo premještena iz stare sinhrone funkcije
+
+**Staleness guard** (dva nezavisna tokena, oba moraju odgovarati da bi se
+rezultat primijenio):
+- `_historical_validation_token` — inkrementiše se pri SVAKOM dispatchu;
+  odbacuje rezultat starijeg workera ako je u međuvremenu pokrenut noviji
+  poziv (npr. dva brza klika na "Provjeri")
+- `_validation_generation` (već postojeći brojač iz `_load_data_from_draft`,
+  vidi §nepoznat/postojeći kod) — odbacuje rezultat ako je draft reload-ovan
+  (delete/clear/import-replace) dok je worker radio, sprječavajući upis u
+  red koji se u međuvremenu pomjerio na drugu poziciju
+
+Namjerno KONZERVATIVNO: kod mismatch-a bilo kojeg tokena, rezultat se
+POTPUNO odbacuje (nema pokušaja remapiranja indeksa) — sigurnije nego
+pokušati pogoditi novu poziciju stavke.
+
+**MainWindow._shutdown_agent_workers** (eac0b3d obrazac) proširen da gasi
+i ovaj worker — `_shutdown_worker()` izdvojen kao static helper, poziva se
+za Agent tab worker I za `faktura_tab.view.historical_validation_worker`.
+
+**Testovi**: `tests/unit/test_historical_validation_worker.py` (novi, 6
+testova — worker emisija/greška/cancel preko `qtbot.waitSignal`, staleness
+guard, shutdown oba workera). `tests/unit/test_faktura_view_provjeri_
+selekcija.py` (postojećih 11 testova ažurirano na dvoslojnu arhitekturu —
+`worker.start()` patchovan na no-op za dispatch-testove, `_on_historical_
+validation_finished` testiran direktno za remapiranje/notifikacije — ista
+pokrivenost, bez čekanja na pravi QThread).
+
+Pun test suite: 1135 passed (isti pre-postojeći 1 fail/1 error,
+nepovezani). GitNexus `detect_changes`: risk LOW, 0 affected_processes.
+
+Commit: `b9594fb`.
