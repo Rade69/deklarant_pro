@@ -21,7 +21,7 @@ import warnings
 from typing import Optional, Callable, List, Dict, Any
 from pathlib import Path
 
-from database.db import get_connection_pool, get_db_connection
+# DB pristup premjesten u servise (NaimenovanjaService, TariffService, TariffFacade)
 
 HAS_POSTGRESQL = True
 
@@ -200,7 +200,6 @@ class NaimenovanjaView(BaseTabView):
         self.tariff_cache = {}
 
         # Initialize connection pool (lazy initialization)
-        self.connection_pool = None
 
         # Widget cache - brzi pristup widgetima bez findChild
         self.widget_cache = {}
@@ -308,15 +307,6 @@ class NaimenovanjaView(BaseTabView):
         except Exception:
             # Ako ne može da prikaže UI, samo loguj
             pass
-
-    def _get_connection_pool(self) -> None:
-        """Dohvati PostgreSQL connection pool koristeći get_connection_pool()"""
-        try:
-            self.connection_pool = get_connection_pool()
-            logger.warning("✅ PostgreSQL connection pool dohvaćen (get_connection_pool)")
-        except Exception as e:
-            logger.warning("⚠️  PostgreSQL connection pool nije uspešan: %s", e)
-            self.connection_pool = None
 
     def _init_field_mapping(self) -> None:
         """
@@ -835,16 +825,11 @@ class NaimenovanjaView(BaseTabView):
         self.package_names[""] = ""
 
         try:
-            with get_db_connection() as conn:
-                with conn.cursor() as cur:
-                    cur.execute("SELECT sifra, opis FROM catalogs.pakovanja ORDER BY sifra")
-                    rows = cur.fetchall()
-
-            for r in rows:
-                self.combo_vrsta_pakovanja.addItem(r["sifra"], r["sifra"])
-                self.package_names[r["sifra"]] = r["opis"]
-
-            logger.info(f"  ✅ Loaded {len(rows)} package codes from database")
+            from services.naimenovanja.naimenovanja_service import NaimenovanjaService
+            self.package_names = NaimenovanjaService().load_package_codes()
+            for sifra in self.package_names:
+                if sifra:  # preskoci prazni entry
+                    self.combo_vrsta_pakovanja.addItem(sifra, sifra)
 
         except Exception as e:
             logger.error(f"  ❌ Error loading package codes from database: {e}")
@@ -1073,16 +1058,8 @@ class NaimenovanjaView(BaseTabView):
             logger.warning("  ⚠️  le_rubrika40_1 nije pronađen")
 
         # ── Učitaj šifre iz baze ─────────────────────────────────────────────
-        skracenice_display = []
-        try:
-            with get_db_connection() as conn:
-                with conn.cursor() as cur:
-                    cur.execute("SELECT skracenica, vrsta_dokumenta FROM catalogs.prethodni_dokumenti ORDER BY skracenica")
-                    rows = cur.fetchall()
-            skracenice_display = [f"{r['skracenica']} – {r['vrsta_dokumenta']}" for r in rows]
-            logger.info(f" ✅ Učitano {len(skracenice_display)} vrsta dok. iz baze (prethodni_dokumenti)")
-        except Exception as e:
-            logger.warning(f"  ⚠️  Greška pri učitavanju Rb.40 iz baze: {e}")
+        from services.naimenovanja.naimenovanja_service import NaimenovanjaService
+        skracenice_display = NaimenovanjaService().load_previous_documents()
 
         # ── Polje 40.2: šifra dokumenta — zamijeni QLineEdit sa QComboBox ──────
         # Isti pattern kao IspravaDelegate u zaglavlje_tab:

@@ -374,3 +374,66 @@ class NaimenovanjaService:
         logger = logging.getLogger("deklarant_pro.services.naimenovanja")
         status = "✅" if success else "❌"
         logger.info(f"{status} {operation}: {count} items")
+
+    # ============================================================
+    # Šifrarnici (paketovi, dokumenti) — učitavanje iz PostgreSQL
+    # Premješteno iz NaimenovanjaView (nalaz 3b — DB u View sloju)
+    # ============================================================
+
+    def load_package_codes(self) -> dict:
+        """Učitaj šifre pakovanja iz catalogs.pakovanja.
+
+        Returns:
+            dict: {sifra: opis} — prazan dict ako PG nije dostupan.
+        """
+        result = {"": ""}
+        try:
+            from database.db import get_db_connection
+            with get_db_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "SELECT sifra, opis FROM catalogs.pakovanja ORDER BY sifra"
+                    )
+                    rows = cur.fetchall()
+            for r in rows:
+                result[r["sifra"]] = r["opis"]
+            import logging
+            logging.getLogger("deklarant_pro.services.naimenovanja").info(
+                f"✅ Loaded {len(rows)} package codes from database"
+            )
+        except Exception as e:
+            import logging
+            logging.getLogger("deklarant_pro.services.naimenovanja").error(
+                f"❌ Error loading package codes from database: {e}"
+            )
+        return result
+
+    def load_previous_documents(self) -> list:
+        """Učitaj šifre prethodnih dokumenata iz catalogs.prethodni_dokumenti.
+
+        Returns:
+            list: formatirani stringovi "skraćenica – vrsta_dokumenta".
+        """
+        result = []
+        try:
+            from database.db import get_db_connection
+            with get_db_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "SELECT skracenica, vrsta_dokumenta "
+                        "FROM catalogs.prethodni_dokumenti ORDER BY skracenica"
+                    )
+                    rows = cur.fetchall()
+            result = [
+                f"{r['skracenica']} – {r['vrsta_dokumenta']}" for r in rows
+            ]
+            import logging
+            logging.getLogger("deklarant_pro.services.naimenovanja").info(
+                f"✅ Učitano {len(result)} vrsta dok. iz baze (prethodni_dokumenti)"
+            )
+        except Exception as e:
+            import logging
+            logging.getLogger("deklarant_pro.services.naimenovanja").warning(
+                f"⚠️ Greška pri učitavanju Rb.40 iz baze: {e}"
+            )
+        return result
