@@ -228,3 +228,23 @@ class TestMedicopharm1476:
         assert round(sum((l.iznos or 0) for l in draft.invoice_lines), 2) == 22662.72
         assert round(sum((l.bruto_kg or 0) for l in draft.invoice_lines), 2) == 310.0
         assert round(sum((l.neto_kg or 0) for l in draft.invoice_lines), 2) == 284.94
+
+    def test_country_suffix_ne_iscuri_u_naziv_robe(self, result):
+        # Rb.93 na fakturi: "33051000 0000 NP SAMPON ENERGETSKI 75ML" — zemljin
+        # razdvojni sufiks ("0000") je odvojen razmakom umjesto slijepljen uz
+        # tarifu kao kod ostalih redova. Ne smije zavrsiti u nazivu robe.
+        rb93 = result.items[92]
+        assert rb93.tarifni_broj == "33051000"
+        assert rb93.naziv_robe == "NP SAMPON ENERGETSKI 75ML"
+        assert not rb93.naziv_robe.startswith("0000")
+
+    def test_incomplete_7digit_tariff_not_fabricated(self, result):
+        # Rb.78 na fakturi: "3304990" (7 cifara, izostavljena zadnja cifra —
+        # poglavlje 33, kozmetika). Aplikacija NE smije nagađati smjer dopune
+        # (ranije je zfill(8) tiho pravio "03304990" — nepostojeće poglavlje
+        # 03 = riba). Kod ostaje nepotpun; declaration_validator_service.py
+        # ga hvata kao ERROR ("nije pronađen u zvaničnoj tarifi").
+        rb78 = result.items[77]
+        assert rb78.tarifni_broj == "3304990"
+        assert rb78.tarifni_broj != "03304990"
+        assert rb78.tarifni_broj != "33049900"

@@ -496,7 +496,15 @@ def _try_parse_item_line(line: str) -> Optional[Dict]:
                 continue
             code = prefix[1]
             tariff = prefix[2]
-            name = " ".join(prefix[3:])
+            name_parts = prefix[3:]
+            # Zemljina oznaka koja razdvaja istu tarifu po zemlji porijekla je
+            # obično slijepljena uz tarifu (npr. "330499000080"), ali je
+            # ponekad razdvojena razmakom (npr. "33051000 0000") — u tom
+            # slučaju ostaje kao zaseban čisto brojčani token odmah iza
+            # tarife i ne smije iscuriti u naziv robe.
+            if name_parts and name_parts[0].isdigit():
+                name_parts = name_parts[1:]
+            name = " ".join(name_parts)
             iznos = parse_eu_number(tail[5])
             if iznos == 0.0:
                 iznos = parse_eu_number(tail[2])
