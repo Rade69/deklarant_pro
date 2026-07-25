@@ -2028,16 +2028,14 @@ class FakturaView(BaseTabView):
         return " | ".join(parts)
 
     def _parse_number(self, value_str: str) -> float:
-        """Parse European format number (10.258,23) to float."""
-        if not value_str:
-            return 0.0
-        # Convert European format to Python float
-        # Remove thousands separator (.) and replace decimal comma with dot
-        value_str = value_str.replace(".", "").replace(",", ".")
-        try:
-            return float(value_str)
-        except ValueError:
-            return 0.0
+        """Parse broj (EU 1.234,56 ili US 1,234.56 format) u float.
+
+        Delegira na _parse_weight_input() koji auto-detektuje format po
+        poziciji zadnjeg separatora — stara implementacija je bezuslovno
+        brisala tačke kao hiljadarke, pa je "1234.56" (bez zareza, čist
+        decimalni zapis) davala 123456.0 umjesto 1234.56.
+        """
+        return self._parse_weight_input(value_str)
 
     def _parse_weight_input(self, text: str) -> float:
         """Parsira težinu iz input polja - podržava US (1,234.56) i EU (1.234,56) format."""
@@ -3819,7 +3817,6 @@ class FakturaView(BaseTabView):
             FakturaView._sync_import_workflow_state_after_apply(self, plan, apply_result)
             self._load_data_from_draft()
             self._update_weight_totals()
-            self._set_buttons_enabled(True)
             FakturaView._show_manual_import_workflow_result(self, plan, apply_result)
             self._update_status_bar()
             self._run_historical_tariff_validation(auto=False)
@@ -3828,6 +3825,11 @@ class FakturaView(BaseTabView):
                 self.on_dirty()
             self.data_changed.emit()
         finally:
+            # Dugmad se MORAJU ponovo omogućiti bez obzira na ishod (prazan
+            # plan, korisnik odustao, apply neuspio, ili uspjeh) — ranije su
+            # tri rane "return" grane izlazile prije ove linije, ostavljajući
+            # toolbar trajno onemogućen.
+            self._set_buttons_enabled(True)
             self._cleanup_import_worker()
 
     def _on_import_finished_legacy(self, result):
@@ -4252,6 +4254,13 @@ class FakturaView(BaseTabView):
             self._push_undo_snapshot()
             # Clear all items
             self.draft.invoice_lines.clear()
+
+            # Očisti i knjigovodstvene strukture vezane za fakture — bez ovoga
+            # invoice_weights zadržava stare ključeve, pa naredni uvoz "nove"
+            # fakture sa istim brojem faktura može biti pogrešno tretiran kao
+            # REPLACE postojeće (umjesto novog uvoza u prazan draft).
+            self.draft.invoice_weights.clear()
+            self.draft.source_files.clear()
 
             # Reset accumulated weights
             self.weight_manager.accumulated_bruto_kg = 0.0
@@ -5160,6 +5169,12 @@ class FakturaView(BaseTabView):
                 # Nema selekcije — ograniči samo na stavke bez tarifnog broja
                 target_lines = [l for l in self.draft.invoice_lines if not getattr(l, 'tarifni_broj', None)]
 
+        # Undo snapshot PRIJE fill_basic_fields() — ta metoda MUTIRA stavke
+        # odmah, i prije preview dijaloga i prije eventualnog otkazivanja;
+        # bez snapshot-a ovdje "Otkaži" u dijalogu ostavlja neundo-vateljivu
+        # mutaciju (Codex nalaz #5).
+        self._push_undo_snapshot()
+
         # Prvo popuni osnovna polja (valuta, jm, iznos)
         basic_filled_count = self.auto_fill_service.fill_basic_fields(
             target_lines
@@ -5226,8 +5241,8 @@ class FakturaView(BaseTabView):
                 progress = None
                 preview_result = None
 
-            # Primijeni (ili auto mod bez potvrde)
-            self._push_undo_snapshot()
+            # Primijeni (ili auto mod bez potvrde) — undo snapshot je već
+            # napravljen prije fill_basic_fields() iznad.
             if preview_result is not None:
                 # Interaktivni tok: upiši TAČNO ono što je odobreno u dijalogu,
                 # bez ponovnog računanja (preview ≡ upis — vidi
@@ -5394,9 +5409,6 @@ class FakturaView(BaseTabView):
             svc = getattr(self, "_tariff_desc_service", None) or TariffService()
             self._tariff_desc_service = svc
             return svc.load_hierarchical_label(tariff_code)
-        except Exception:
-            return tariff_code
-
         except Exception:
             return tariff_code
 
@@ -5624,6 +5636,28 @@ class FakturaView(BaseTabView):
         if not self.draft.invoice_lines:
             self._show_no_export_items("Export u Excel")
             return
+
+        # ExportService.export_to_excel grupiše isključivo po
+        # assigned_naimenovanje_ordinal > 0 — stavke bez dodijeljenog
+        # naimenovanja se TIHO izostavljaju iz fajla (Codex nalaz #3).
+        # Upozori korisnika PRIJE izvoza umjesto da otkrije nedostatak
+        # tek pri pregledu gotovog fajla.
+        missing_ordinal = [
+            line for line in self.draft.invoice_lines
+            if getattr(line, "assigned_naimenovanje_ordinal", 0) <= 0
+        ]
+        if missing_ordinal:
+            reply = QMessageBox.question(
+                self,
+                "Nedodijeljene stavke",
+                f"{len(missing_ordinal)} od {len(self.draft.invoice_lines)} stavki "
+                "nije dodijeljeno nijednom naimenovanju i NEĆE biti u Excel izvozu.\n\n"
+                "Da li želite nastaviti izvoz bez tih stavki?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No,
+            )
+            if reply != QMessageBox.Yes:
+                return
 
         # File dialog
         filepath, _ = QFileDialog.getSaveFileName(
