@@ -188,7 +188,18 @@ class ImportService:
             )
 
     def _normalize_tariffs_in_result(self, result) -> None:
-        """In-place normalizacija tarifnih brojeva svih stavki u ImportResult na 8/10 cifara."""
+        """In-place normalizacija tarifnih brojeva svih stavki u ImportResult na 8/10 cifara.
+
+        NAPOMENA: 4-7-cifreni kod se NE dopunjava nulama — takav unos je uvijek
+        nepotpun (izostavljena cifra), a smjer dopune (lijevo/desno) nije
+        odrediv bez pogađanja. Lijeva dopuna (zfill) je ranije tiho fabrikovala
+        pogrešno poglavlje (npr. "3304990" [poglavlje 33, izostavljena zadnja
+        cifra] → "03304990" [nepostojeće poglavlje 03] — vidi project_rooms/
+        2026-07-25_ukloni-lijevu-dopunu-kratkih-tarifa.md). Nepotpun kod se
+        ostavlja kakav jeste — declaration_validator_service.py već baca ERROR
+        za tarifu koja ne postoji u zvaničnoj tarifi, pa deklarant dobija
+        vidljivo upozorenje umjesto tiho pogrešne 8-cifrene vrijednosti.
+        """
         if not isinstance(result, ImportResult):
             return
         from importers.invoice_line_utils import normalize_tariff_number
@@ -197,8 +208,6 @@ class ImportService:
             if not code:
                 continue
             normalized = normalize_tariff_number(code)
-            if normalized and normalized.isdigit() and 4 <= len(normalized) < 8:
-                normalized = normalized.zfill(8)
             if normalized != code:
                 item.tarifni_broj = normalized
 
