@@ -1782,24 +1782,13 @@ class NaimenovanjaView(BaseTabView):
                 zemlja = invoice_line.zemlja_porijekla if invoice_line else (item.origin_country_code or "")
                 new_suffix = item.tariff_suffix or "000"
 
-                # Obriši sve stare zapise za ovaj naziv/product_code sa drugom tarifom
-                if naziv_robe:
-                    from database.db import get_db_connection
-                    with get_db_connection() as conn:
-                        with conn.cursor() as cursor:
-                            cursor.execute("""
-                                DELETE FROM catalogs.product_tariff_mapping
-                                WHERE (naziv_robe ILIKE %s OR product_code = %s)
-                                  AND commodity_code != %s
-                            """, (f"%{naziv_robe}%", product_code or "__NONE__", new_tariff))
-
+                # sync_mapping: obriši stare zapise + sačuvaj novi (objedinjeno u TariffFacade)
                 if naziv_robe and new_tariff:
-                    TariffFacade.get_instance().learn(
-                        product_code=product_code or "",
+                    TariffFacade.get_instance().sync_mapping(
                         naziv_robe=naziv_robe,
-                        tarifni_broj=new_tariff,
+                        product_code=product_code or "",
+                        new_tariff=new_tariff,
                         zemlja_porijekla=zemlja or "",
-                        povlastica="",
                         precision_1=new_suffix,
                     )
                 import logging
@@ -2449,26 +2438,16 @@ class NaimenovanjaView(BaseTabView):
             # Učenje — docs/architecture/TARIFF_FACADE_REFACTORING.md
             from services.tariff_facade import TariffFacade
 
-            # Prvo izbriši STARE zapise sa pogrešnom tarifom (isti naziv ili product_code)
-            from database.db import get_db_connection
-            with get_db_connection() as conn:
-                with conn.cursor() as cursor:
-                    cursor.execute("""
-                        DELETE FROM catalogs.product_tariff_mapping
-                        WHERE (naziv_robe ILIKE %s OR product_code = %s)
-                          AND commodity_code = %s
-                    """, (f"%{naziv_robe}%", product_code or "__NONE__", old_tariff))
-                    deleted = cursor.rowcount
-
-            # Zatim sačuvaj novi tarif
+            # sync_mapping: obriši stare zapise (samo old_tariff) + sačuvaj novi
+            deleted = 0
             if naziv_robe and new_tariff:
-                TariffFacade.get_instance().learn(
-                    product_code=product_code or "",
+                deleted = TariffFacade.get_instance().sync_mapping(
                     naziv_robe=naziv_robe,
-                    tarifni_broj=new_tariff,
+                    product_code=product_code or "",
+                    new_tariff=new_tariff,
                     zemlja_porijekla=zemlja or "",
-                    povlastica="",
                     precision_1=new_suffix,
+                    old_tariff=old_tariff,
                 )
                 log.info(
                     f"✅ KB sync: '{naziv_robe[:40]}' → {new_tariff}/{new_suffix} "
