@@ -5382,9 +5382,8 @@ class FakturaView(BaseTabView):
             return ""
         try:
             import sqlite3, re
-            from pathlib import Path
-            db_path = Path(__file__).parent.parent.parent / "database" / "deklarant_sistem.db"
-            if not db_path.exists():
+            from gui.tabs.sifarnici.tariff_hierarchy import _DB_PATH as db_path
+            if not db_path or not os.path.exists(db_path):
                 return ""
             conn = sqlite3.connect(str(db_path))
             cur = conn.cursor()
