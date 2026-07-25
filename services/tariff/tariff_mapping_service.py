@@ -94,6 +94,14 @@ class TariffProposal:
     source: str          # "istorija" | "baza_znanja"
     confidence: float
     mapping: "TariffMapping" = None
+    # Pozicija stavke unutar liste invoice_lines proslijeđene u
+    # auto_populate_tariffs() — koristi se kao identitet u commit_proposals()
+    # umjesto line_no, koji NIJE jedinstven kad target_lines sadrži stavke iz
+    # više faktura odjednom (svaki importer numeriše line_no od 1 po fakturi,
+    # pa bi dvije stavke s istim rednim brojem iz različitih faktura kolizijom
+    # po line_no dobile POGREŠAN tarifni prijedlog — vidi
+    # docs/Codex-analiza-faktura-taba, nalaz #2).
+    line_index: int = -1
 
 
 @dataclass
@@ -225,7 +233,7 @@ class TariffMappingService:
 
         effective_supplier = supplier or ""
 
-        for line in invoice_lines:
+        for line_index, line in enumerate(invoice_lines):
             # Skip ako već ima tarifni broj i ne želimo overwrite
             if line.tarifni_broj and not overwrite_existing:
                 continue
@@ -246,6 +254,7 @@ class TariffMappingService:
                         source=source,
                         confidence=round(confidence, 2),
                         mapping=mapping,
+                        line_index=line_index,
                     ))
                 else:
                     self._apply_mapping_to_line(line, mapping, detector)
@@ -382,12 +391,20 @@ class TariffMappingService:
         project_rooms/2026-07-21_preciznost-tarifnih-prijedloga.md, Fix Set A).
         """
         detector = OriginStatementDetector()
-        by_line_no = {p.line_no: p for p in proposals}
+        # Prioritetni ključ je pozicija u invoice_lines (line_index), NE
+        # line_no — line_no je jedinstven samo unutar jedne fakture, pa bi
+        # kolizija po line_no kroz više faktura upisala prijedlog na
+        # pogrešnu stavku (vidi TariffProposal.line_index). Proposals bez
+        # postavljenog line_index (npr. ručno sastavljeni van
+        # auto_populate_tariffs) i dalje se uparuju po line_no radi
+        # kompatibilnosti unazad.
+        by_line_index = {p.line_index: p for p in proposals if p.line_index >= 0}
+        by_line_no = {p.line_no: p for p in proposals if p.line_index < 0}
         matched_count = 0
         matched_details = []
 
-        for line in invoice_lines:
-            proposal = by_line_no.get(line.line_no)
+        for line_index, line in enumerate(invoice_lines):
+            proposal = by_line_index.get(line_index) or by_line_no.get(line.line_no)
             if proposal is None or proposal.mapping is None:
                 continue
             self._apply_mapping_to_line(line, proposal.mapping, detector)

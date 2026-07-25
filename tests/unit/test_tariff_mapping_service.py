@@ -133,6 +133,40 @@ def test_commit_proposals_preskace_stavke_bez_proposala(service):
     assert result.matched_items == 1
 
 
+def test_commit_proposals_ne_kolidira_po_line_no_kroz_vise_faktura(service):
+    """
+    Regresioni test za Codex nalaz #2: svaki importer numeriše line_no od 1
+    PO FAKTURI, pa dvije stavke iz različitih faktura mogu imati isti
+    line_no. Kad se auto-popuni pokrene nad cijelim draft.invoice_lines
+    (npr. "Auto-popuni" bez selekcije), by_line_no bi kolizijom prepisao
+    prijedlog za prvu stavku prijedlogom za drugu — commit_proposals MORA
+    upisati tačno onu tarifu koja je izračunata ZA TU stavku (po poziciji),
+    ne po (neispravno pretpostavljenom jedinstvenom) line_no.
+    """
+    # Dvije "fakture" u istom draftu, obje počinju numeraciju od 1.
+    faktura1_l1 = _line(1, "PINCETA RAVNA 8CM")
+    faktura2_l1 = _line(1, "GREJAC KVARCNI 1000W")
+    target_lines = [faktura1_l1, faktura2_l1]
+
+    mapping1 = _mapping(tarifni_broj="82032000", similarity=0.95)
+    mapping2 = _mapping(tarifni_broj="85167990", similarity=0.95)
+
+    with patch.object(service, "find_mapping", side_effect=[mapping1, mapping2]):
+        preview = service.auto_populate_tariffs(target_lines, dry_run=True)
+
+    assert len(preview.proposals) == 2
+    assert faktura1_l1.tarifni_broj == ""  # dry_run ne upisuje
+    assert faktura2_l1.tarifni_broj == ""
+
+    with patch.object(service, "find_mapping") as mock_find:
+        result = service.commit_proposals(target_lines, preview.proposals)
+
+    mock_find.assert_not_called()
+    assert faktura1_l1.tarifni_broj == "82032000"  # ispravan prijedlog za PRVU stavku
+    assert faktura2_l1.tarifni_broj == "85167990"  # ispravan prijedlog za DRUGU stavku
+    assert result.matched_items == 2
+
+
 def test_dry_run_ne_povecava_usage_count(service):
     """usage_count se ne smije inkrementirati na preview — samo na stvaran upis."""
     line = _line(1, "GREJAC KVARCNI 1000W")
