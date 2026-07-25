@@ -2136,6 +2136,14 @@ class FakturaView(BaseTabView):
             self._refresh_analysis_summary_from_draft()
             return
 
+        # Jednosmjerni latch: čim ima stavki (bilo kojim putem — ručni ili
+        # Agent uvoz, čak i ručni unos reda po reda), uključi sažetak analize
+        # (🌍 podjela po zemljama) u status baru. Ranije se uključivao SAMO
+        # iz AgentController-a nakon Agent uvoza (set_analysis_summary),
+        # pa ručni uvoz nikad nije prikazivao ovu liniju — korisnička prijava.
+        if not self._analysis_summary_auto:
+            self._analysis_summary_auto = True
+
         # Calculate totals in single pass (OPTIMIZED)
         total_amount = 0.0
         total_quantity = 0

@@ -82,6 +82,43 @@ def test_komada_zaokruzuje_necio_zbir_a_ne_odsjeca():
     assert text == "📦 Komada: 10"
 
 
+def test_update_status_bar_ukljucuje_analysis_summary_latch_kad_ima_stavki():
+    """
+    Regresija (korisnička prijava, screenshot statusne trake): ručni uvoz
+    nikad nije prikazivao 🌍 podjelu po zemljama jer se _analysis_summary_auto
+    postavljao SAMO iz AgentController-a nakon Agent uvoza. _update_status_bar
+    sad jednosmjerno uključuje taj flag čim ima bar jedna stavka u draftu —
+    bez obzira na to kako je stavka stigla (ručni uvoz, Agent uvoz, ručni unos).
+    """
+    mock_self = _mock_self_for_status_bar([_stub_invoice_line(zemlja_porijekla="DE")])
+    mock_self._analysis_summary_auto = False
+
+    FakturaView._update_status_bar(mock_self)
+
+    assert mock_self._analysis_summary_auto is True
+    mock_self._refresh_analysis_summary_from_draft.assert_called_once()
+
+
+def test_update_status_bar_prazan_draft_ne_ukljucuje_latch():
+    """Prazan draft ne smije uključiti latch — nema šta prikazati."""
+    mock_self = _mock_self_for_status_bar([])
+    mock_self._analysis_summary_auto = False
+
+    FakturaView._update_status_bar(mock_self)
+
+    assert mock_self._analysis_summary_auto is False
+
+
+def test_update_status_bar_ne_iskljucuje_vec_ukljucen_latch():
+    """Latch je jednosmjeran — ako je već True (npr. iz ranijeg Agent uvoza), ostaje True."""
+    mock_self = _mock_self_for_status_bar([_stub_invoice_line()])
+    mock_self._analysis_summary_auto = True
+
+    FakturaView._update_status_bar(mock_self)
+
+    assert mock_self._analysis_summary_auto is True
+
+
 def test_analysis_summary_prikazuje_breakdown_po_zemlji_ne_samo_broj():
     """
     Regresija iz komita 735400a ("sažmi statusnu traku") je zamijenila
