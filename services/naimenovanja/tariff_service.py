@@ -338,6 +338,57 @@ class TariffService:
             logger.warning(f"  ⚠️  Greška pri traženju prijedloga: {e}")
             return []
 
+    # Nazivi previše opšti za automatsku sugestiju tarife.
+    # Premješteno iz NaimenovanjaView._suggest_tariff_impl (poslovna logika u servisu).
+    _STOP_WORDS = frozenset({
+        "goods", "material", "materials", "item", "items",
+        "parts", "product", "products", "roba", "materijal",
+        "proizvod", "proizvodi", "artikal", "artikli",
+        "stuff", "thing", "things", "misc", "miscellaneous",
+        "other", "various",
+    })
+
+    def validate_suggestion_input(self, goods_trade_name: str) -> tuple:
+        """Provjeri da li je naziv robe pogodan za automatsku sugestiju.
+
+        Premješteno iz NaimenovanjaView._suggest_tariff_impl — poslovna
+        logika (STOP_WORDS, dužina) u servisu, View samo prikazuje poruku.
+
+        Returns:
+            (is_valid: bool, reason: str)
+            reason je prazan ako je validno, inače kratak opis problema.
+        """
+        naziv = (goods_trade_name or "").strip()
+        naziv_lower = naziv.lower()
+
+        if not naziv_lower:
+            return (False, "empty")
+        if naziv_lower in self._STOP_WORDS:
+            return (False, "stop_word")
+        if len(naziv_lower) < 5:
+            return (False, "too_short")
+        return (True, "")
+
+    def validate_mappings(self, mappings: list) -> list:
+        """Validira tarifne brojeve iz prijedloga protiv zvanične tarife.
+
+        Premješteno iz NaimenovanjaView._validate_mappings — DB poziv
+        (get_tarifa_opis) sada u servisu, ne u View-u.
+        """
+        from database.db import get_tarifa_opis
+        valid = []
+        for mapping in mappings:
+            try:
+                opis = get_tarifa_opis(mapping.tarifni_broj)
+                if opis:
+                    valid.append(mapping)
+                    logger.info(f"      ✅ {mapping.tarifni_broj} je validan")
+                else:
+                    logger.warning(f" ⚠️ {mapping.tarifni_broj} ne postoji u zvaničnoj tarifi")
+            except Exception as e:
+                logger.error(f"      ❌ Greška pri validaciji {mapping.tarifni_broj}: {e}")
+        return valid
+
     def validate_tariff(self, tariff_code: str) -> bool:
         """Provjeri da li tarifni broj postoji u zvaničnoj tarifi"""
         try:

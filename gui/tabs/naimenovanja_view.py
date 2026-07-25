@@ -3320,51 +3320,25 @@ class NaimenovanjaView(BaseTabView):
             )
             return
 
-        naziv_lower = current_item.goods_trade_name.strip().lower()
-
-        # Edge Case 2: Naziv previše generički (stop words)
-        STOP_WORDS = {
-            "goods",
-            "material",
-            "item",
-            "items",
-            "parts",
-            "product",
-            "products",
-            "roba",
-            "materijal",
-            "proizvod",
-            "proizvodi",
-            "artikal",
-            "artikli",
-            "stuff",
-            "thing",
-            "things",
-            "misc",
-            "miscellaneous",
-            "other",
-            "various",
-        }
-
-        if naziv_lower in STOP_WORDS:
-            QMessageBox.warning(
-                self,
-                "Sugeriši tarifu",
-                f"❌ Naziv robe je previše opšti za automatsku sugestiju.\n\n"
-                f'Naziv: "{current_item.goods_trade_name}"\n\n'
-                "💡 Unesite precizniji opis proizvoda.",
-            )
-            return
-
-        # Edge Case 2: Naziv previše kratak
-        if len(naziv_lower) < 5:
-            QMessageBox.warning(
-                self,
-                "Sugeriši tarifu",
-                f"❌ Naziv robe je previše kratak za automatsku sugestiju.\n\n"
-                f'Naziv: "{current_item.goods_trade_name}" ({len(naziv_lower)} karaktera)\n\n'
-                "💡 Unesite detaljniji opis proizvoda (minimum 5 karaktera).",
-            )
+        # Poslovna logika (STOP_WORDS, dužina) u TariffService — View samo prikazuje
+        service = TariffService(self)
+        is_valid, reason = service.validate_suggestion_input(current_item.goods_trade_name)
+        if not is_valid:
+            naziv = current_item.goods_trade_name or ""
+            if reason == "stop_word":
+                QMessageBox.warning(
+                    self, "Sugeriši tarifu",
+                    "Naziv robe je previše opšti za automatsku sugestiju.\n\n"
+                    f'Naziv: "{naziv}"\n\n'
+                    "Unesite precizniji opis proizvoda.",
+                )
+            elif reason == "too_short":
+                QMessageBox.warning(
+                    self, "Sugeriši tarifu",
+                    "Naziv robe je previše kratak za automatsku sugestiju.\n\n"
+                    f'Naziv: "{naziv}" ({len(naziv.strip())} karaktera)\n\n'
+                    "Unesite detaljniji opis proizvoda (minimum 5 karaktera).",
+                )
             return
 
         # Pokušaj pronaći top 3 prijedloga koristeći TariffService
@@ -3410,7 +3384,7 @@ class NaimenovanjaView(BaseTabView):
                 logger.debug(f" {i}. {m.tarifni_broj} (match: {m.similarity:.0%}, korišćeno: {m.usage_count}×)")
 
             # Edge Case 8: Validacija tarifnih brojeva
-            valid_mappings = self._validate_mappings(mappings)
+            valid_mappings = service.validate_mappings(mappings)
 
             if not valid_mappings:
                 QMessageBox.warning(
@@ -3432,40 +3406,6 @@ class NaimenovanjaView(BaseTabView):
                 "Greška",
                 f"❌ Greška pri traženju prijedloga:\n\n{str(e)}",
             )
-
-    def _validate_mappings(
-        self, mappings: List["TariffMapping"]
-    ) -> List["TariffMapping"]:
-        """
-        Validira tarifne brojeve iz prijedloga.
-
-        Edge Case 8: Konflikt sa validacijom tarife
-
-        Args:
-            mappings: Lista TariffMapping objekata
-
-        Returns:
-            Lista validnih TariffMapping objekata
-        """
-        from database.db import get_tarifa_opis
-
-        valid_mappings = []
-
-        for mapping in mappings:
-            # Provjeri da li postoji u zvaničnoj tarifi
-            try:
-                opis = get_tarifa_opis(mapping.tarifni_broj)
-
-                if opis:  # Postoji u tarifi
-                    valid_mappings.append(mapping)
-                    logger.info(f"      ✅ {mapping.tarifni_broj} je validan")
-                else:
-                    logger.warning(f" ⚠️ {mapping.tarifni_broj} ne postoji u zvaničnoj tarifi")
-
-            except Exception as e:
-                logger.error(f"      ❌ Greška pri validaciji {mapping.tarifni_broj}: {e}")
-
-        return valid_mappings
 
     def _show_tariff_suggestion_dialog(
         self, mappings: List["TariffMapping"], current_item: "NaimenovanjeDraft"
