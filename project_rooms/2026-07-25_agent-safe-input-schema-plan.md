@@ -203,9 +203,11 @@ changes()`.
 
 ## 7. Otvorena pitanja za korisnika (prije Faze 1)
 
-- Da li `header_attached_documents` (Rb.44, brojevi priloženih isprava —
-  npr. EUR.1 broj) treba tretirati kao osjetljivo (isti masking) ili je
-  broj dokumenta prihvatljiv (nije lično ime/JIB)?
+- ~~Da li `header_attached_documents` (Rb.44, brojevi priloženih isprava —
+  npr. EUR.1 broj) treba tretirati kao osjetljivo?~~ **ODGOVORENO
+  (2026-07-25): NE — brojevi priloženih isprava nisu relevantni i ne
+  trebaju se maskirati.** `DeclarationHeaderSummary` u §3.1 ostaje bez tog
+  polja (već izostavljeno), potvrđeno kao namjerno, ne privremeno.
 - Da li migracija ide do Faze 5 (sve zone) ili staje na Fazi 4 (partner +
   header polja, gdje je i nađen stvaran propust)?
 - Da li `TariffLLMWorker` treba migrirati na istu shemu radi
