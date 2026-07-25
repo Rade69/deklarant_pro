@@ -472,7 +472,13 @@ class ChatWorker(QThread):
     # ─────────────────────────────────────────────────────────────────────
 
     def _build_zaglavlje_zone(self) -> list:
-        """Zaglavlje deklaracije — Rb.1-49 polja koja agent nije vidio."""
+        """Zaglavlje deklaracije — Rb.1-49 polja koja agent nije vidio.
+
+        Imena partnera (izvoznik/primalac/deklarant) se maskiraju isto kao
+        u _build_session_zone (Zone B) — ova zona je ranije bez ikakve
+        provjere slala ista polja cloud LLM-u, zaobilazeći zaštitu iz Zone B
+        čak i kad je SEND_SENSITIVE_DATA=false (default).
+        """
         d = self.draft
         if not d:
             return []
@@ -483,12 +489,23 @@ class ChatWorker(QThread):
             lines.append(f"  Vrsta deklaracije (Rb.1): {tip}")
         if getattr(d, 'ured_odredista', ''):
             lines.append(f"  Carinska ispostava:        {d.ured_odredista}")
+
+        send_sensitive = self._allow_sensitive_data()
         if getattr(d, 'izvoznik_naziv', ''):
-            lines.append(f"  Izvoznik (Rb.2):           {d.izvoznik_naziv}, {getattr(d,'izvoznik_drzava','')}")
+            if send_sensitive:
+                lines.append(f"  Izvoznik (Rb.2):           {d.izvoznik_naziv}, {getattr(d,'izvoznik_drzava','')}")
+            else:
+                lines.append("  Izvoznik (Rb.2):           [ime skriveno — SEND_SENSITIVE_DATA=false]")
         if getattr(d, 'primalac_naziv', ''):
-            lines.append(f"  Primalac (Rb.8):           {d.primalac_naziv}")
+            if send_sensitive:
+                lines.append(f"  Primalac (Rb.8):           {d.primalac_naziv}")
+            else:
+                lines.append("  Primalac (Rb.8):           [ime skriveno — SEND_SENSITIVE_DATA=false]")
         if getattr(d, 'deklarant_naziv', ''):
-            lines.append(f"  Deklarant (Rb.14):         {d.deklarant_naziv}")
+            if send_sensitive:
+                lines.append(f"  Deklarant (Rb.14):         {d.deklarant_naziv}")
+            else:
+                lines.append("  Deklarant (Rb.14):         [ime skriveno — SEND_SENSITIVE_DATA=false]")
 
         valuta = getattr(d, 'valuta', '')
         iznos  = getattr(d, 'iznos', 0.0) or 0.0
