@@ -269,12 +269,29 @@ class MainWindow(QMainWindow):
         """Provjeri da je bezbjedno zatvoriti aplikaciju, snimi Zaglavlje draft i zatvori prozor."""
         if not self._confirm_safe_to_exit():
             return
+        self._shutdown_agent_workers()
         try:
             self.zaglavlje_tab.save_to_draft()
         except Exception as e:
             logger.error(f"Snimanje Zaglavlje drafta pri izlasku nije uspjelo: {e}", exc_info=True)
         # Autosave se briše u closeEvent() — pokriva i ovaj put i OS X dugme
         self.close()
+
+    def _shutdown_agent_workers(self) -> None:
+        """Graceful shutdown agent workera — cancel + quit + wait."""
+        worker = getattr(self.agent_tab.controller, "_worker", None)
+        if worker is None:
+            return
+        try:
+            if hasattr(worker, "cancel"):
+                worker.cancel()
+            worker.quit()
+            if not worker.wait(3000):  # čekaj max 3s
+                logger.warning("Agent worker nije završio u 3s — nasilno prekidan")
+                worker.terminate()
+                worker.wait(1000)
+        except Exception as e:
+            logger.warning(f"Agent worker shutdown greška: {e}")
 
     def _confirm_safe_to_exit(self) -> bool:
         """Upozori korisnika ako Agent još procesira fajlove u pozadini."""
@@ -587,6 +604,7 @@ class MainWindow(QMainWindow):
         if not self._confirm_safe_to_exit():
             event.ignore()
             return
+        self._shutdown_agent_workers()
         screen = self.windowHandle().screen() if self.windowHandle() else self._active_screen
         if screen is not None:
             self._save_window_state(screen)

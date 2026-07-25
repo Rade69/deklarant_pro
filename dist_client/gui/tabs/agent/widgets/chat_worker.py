@@ -96,6 +96,11 @@ class ChatWorker(QThread):
         self.message = message
         self.draft = draft
         self.memory_service = memory_service
+        self._cancelled = False
+
+    def cancel(self):
+        """Zatraži prekid streaminga (radi na sljedećem tokenu)."""
+        self._cancelled = True
 
     def run(self):
         try:
@@ -139,6 +144,8 @@ class ChatWorker(QThread):
             self.stream_started.emit()
             full_text = ""
             for token in provider.stream_chat(messages, max_tokens=1500):
+                if self._cancelled:
+                    break
                 full_text += token
                 self.token_received.emit(token)
 

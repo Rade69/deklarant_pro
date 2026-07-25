@@ -36,6 +36,11 @@ class TariffLLMWorker(QThread):
     def __init__(self, items: list, parent=None):
         super().__init__(parent)
         self.items = items  # [(idx, InvoiceLine), ...]
+        self._cancelled = False
+
+    def cancel(self):
+        """Zatraži prekid obrade (radi na sljedećem batchu)."""
+        self._cancelled = True
 
     def run(self):
         try:
@@ -50,6 +55,8 @@ class TariffLLMWorker(QThread):
 
             all_proposals = []
             for batch_start in range(0, len(self.items), self._BATCH_SIZE):
+                if self._cancelled:
+                    break
                 batch = self.items[batch_start: batch_start + self._BATCH_SIZE]
                 all_proposals.extend(self._process_batch(provider, batch))
 
@@ -222,3 +229,4 @@ class TariffLLMWorker(QThread):
         """Samo cifre, min 6, max 10."""
         digits = re.sub(r"\D", "", raw)
         return digits[:10] if len(digits) >= 6 else ""
+
