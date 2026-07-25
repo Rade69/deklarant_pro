@@ -1653,3 +1653,49 @@ Pun test suite: 1138 passed (+3 nova regresiona testa u `tests/unit/
 test_faktura_view_status_bar.py`).
 
 Commit: `bf99ef2`.
+
+## 61. Data Boundary propust u ChatWorker Zone B2 (2026-07-25)
+
+Korisnik je donio prijedlog "Kontrolisana podatkovna granica za AI agente"
+(allowlist umjesto blocklist, AgentSafeInput schema, cloud vs lokalni model
+razlika) i tražio poređenje sa stvarnim stanjem aplikacije. Nalaz: `services/
+agent/chat/audit_log.py`, `tool_policy.py` i `ChatWorker._allow_sensitive_
+data()` VEĆ implementiraju sličnu filozofiju (audit log eksplicitno ne čuva
+sadržaj faktura/API ključeve, `TOOL_EFFECTS` je fail-closed whitelist,
+`_allow_sensitive_data()` FORSIRA maskiranje čak i kad je `SEND_SENSITIVE_
+DATA=true` ako je aktivni provider cloud — jače od onoga što dokument
+predlaže). `product_similarity_embedding_service.py` koristi isti env flag
+za embedding — potvrđuje da je ovo ustaljena, cross-cutting politika.
+
+**Stvaran propust otkriven poređenjem**: `ChatWorker._build_session_zone()`
+(Zone B) maskira `izvoznik_naziv`/`primalac_naziv` kad `_allow_sensitive_
+data()` vrati False. `_build_zaglavlje_zone()` (Zone B2, dodaje se u ISTI
+`_build_context()` payload odmah nakon Zone B) je slala ista polja PLUS
+`deklarant_naziv` bez ikakve provjere — maskiranje iz Zone B je bilo
+efektivno zaobiđeno (partner imena su stizala do cloud LLM-a i sa default,
+"bezbjednim" podešavanjem). Uzrok: Zone B2 je vjerovatno dodata kasnije
+("polja koja agent nije vidio") bez revizije postojeće maskirajuće politike
+iz Zone B — tačan obrazac koji dokument opisuje u §5 (blocklist/allowlist
+per-zona lako zaboravi novu vrstu osjetljivog polja kad se zona doda).
+
+Fix: `_build_zaglavlje_zone()` sad koristi isti `_allow_sensitive_data()`
+gate za sva tri partner-imena polja. GitNexus impact LOW na funkciju (1
+direktan pozivalac), `detect_changes()` poslije MEDIUM (2 affected_processes,
+oba tačno "Run → _build_zaglavlje_zone" — očekivano, bez iznenađenja).
+
+**Šta iz dokumenta NIJE prisutno** (razlika u pristupu, ne nužno propust):
+formalna Pydantic schema (kontekst se gradi kao slobodan tekst, ne
+validirana struktura — uzrok gornjeg propusta: svaka zona ima svoju ad-hoc
+logiku umjesto jedne centralne provjere), forbidden-marker testovi (§12,
+ne postoji test koji ubaci lažni marker i provjeri da ne procuri u
+kontekst/log/agent_report), "Data Boundary" sekcija u agent_report
+template-u.
+
+Pun test suite: 1134 passed (novi 3 testa u `tests/unit/test_chat_worker_
+zaglavlje_zone_masking.py`), + 10 DB-backed testova (`test_decision_
+characterization.py`) privremeno failed zbog nedostupnosti PostgreSQL
+servera (192.168.100.154 timeout) — nepovezano sa ovom izmjenom,
+infrastrukturni problem, ne regres.
+
+Commit: `223d543`. Plan za Pydantic AgentSafeInput schemu (sljedeći korak,
+zaseban zadatak): `project_rooms/2026-07-25_agent-safe-input-schema-plan.md`.
