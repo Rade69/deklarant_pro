@@ -1699,3 +1699,41 @@ infrastrukturni problem, ne regres.
 
 Commit: `223d543`. Plan za Pydantic AgentSafeInput schemu (sljedeći korak,
 zaseban zadatak): `project_rooms/2026-07-25_agent-safe-input-schema-plan.md`.
+
+## 62. Faza 1 AgentSafeContext schema + AgentContextAdapter (2026-07-25)
+
+Prva faza plana iz §61 (`project_rooms/2026-07-25_agent-safe-input-schema-
+plan.md`). Korisnik potvrdio: Rb.44 (brojevi priloženih isprava) NISU
+osjetljivi, ne treba ih maskirati — schema ih uključuje bez ograničenja.
+
+Novi, izolovani fajlovi (ChatWorker NIJE mijenjan — to je Faza 2, zaseban
+zadatak):
+
+- `services/agent/chat/safe_context_schema.py` — Pydantic modeli:
+  `DraftSummary`, `PartnerInfo` (name=None kad je maskirano), `AttachedDocument`,
+  `DeclarationHeaderSummary`, `AgentSafeContext`.
+- `services/agent/chat/context_adapter.py` — `AgentContextAdapter`:
+  `build_partner_info()` (jedina tačka maskiranja partner imena),
+  `build_draft_summary()`, `build_header()` — preslikavaju TAČNU postojeću
+  logiku iz `ChatWorker` Zone A/B/B2 (ista formula za bez_tarife/bez_zemlje/
+  sa_povlasticom/ceka_eur1, ista formula za zemlja_distribucija), spremni
+  za direktnu zamjenu u Fazi 2 bez promjene ponašanja.
+
+GitNexus `detect_changes(scope=staged)` prije commita: risk LOW, 0
+affected — nove datoteke bez ijednog postojećeg pozivaoca, tačno kako Faza
+1 plan predviđa (izolovano, nula rizika za postojeći kod).
+
+8 novih testova (`tests/unit/test_agent_context_adapter.py`) — maskiranje
+partnera (uključeno/isključeno/prazna imena), tačnost agregata, `None`
+draft edge case, priložene isprave bez maskiranja, Pydantic validacija
+(negativan broj stavki odbijen).
+
+Pun test suite: 1139 passed (+8). Isti poznati DB nedostupnost (server
+192.168.100.154, korisnik potvrdio: dostupan sutra ujutru — 10 DB-backed
+testova u `test_decision_characterization.py` ostaju failed do tada, nije
+regres) + 1 pre-postojeći nepovezan fail.
+
+Commit: `4eb88d0`. **Faza 2 (migracija ChatWorker Zone B/B2 da koriste
+adapter) NIJE urađena** — čeka zaseban zadatak/odluku o obimu (Faza 4 vs
+5, `TariffLLMWorker` migracija, prioritet — vidi otvorena pitanja u
+project_room planu).
