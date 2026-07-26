@@ -2122,3 +2122,107 @@ aliasom, inače dobije pogrešnu klasu bez greške pri importu.
 **Imena alata moraju biti ASCII** (`^[a-z0-9_]{1,64}$`) — Groq/OpenAI
 function-name shema odbija dijakritiku, pa npr. `provjeri_usklađenost_tabova`
 ne bi radilo.
+
+---
+
+### §70 — Auto-detekcija pariteta isporuke (Incoterms) iz faktura (2026-07-26)
+
+Korisnički zahtjev: Rb.20 "Uslovi isporuke" u Zaglavlju se nikad nije
+popunjavao automatski — korisnik je paritet (EXW/FCA/FAS/FOB/CFR/CIF/CPT/
+CIP/DAP/DPU/DDP) uvijek unosio ručno, iako se pojavljuje kao prepoznatljiv
+tekst na fakturama. Otkriveno usput: KG Fashion i Master Frigo importeri
+su VEĆ imali regex za paritet ("paritetu: XXX", "Paritet isporuke: XXX"),
+ali vrijednost se gubila prije nego stigne do `ImportResult`/drafta —
+parsirano pa odbačeno.
+
+Korisnička odluka (eksplicitno obrazložena — paritet je pravno obavezan
+podatak u carinjenju, mora se tražiti i "u parserima koje imamo i koje
+ćemo eventualno graditi"): samo šifra pariteta (ne i mjesto isporuke —
+previše rizično parsirati iz slobodnog teksta), kroz SVE importere,
+uključujući buduće. Ako se ne pronađe pouzdano, polje ostaje prazno za
+ručni unos — nikad pogrešan pogodak (isti princip kao §65
+izvor-nepoznat-nikad-prikazan).
+
+**Arhitektura — plan revidiran tokom rada.** Prvobitna ideja (analogna
+`_normalize_tariffs_in_result()` u `ImportService` — centralna post-
+processing funkcija) odbačena nakon istrage: sirovi tekst fakture postoji
+samo kao efemerna lokalna varijabla UNUTAR svakog parsera (`full_text`),
+nikad ne izlazi u `ImportResult`. Centralna varijanta bi zahtijevala DVA
+nova polja (`raw_text` + `incoterm_code`) na `ImportResult` (već CRITICAL-
+impact klasa) i izmjenu u `ImportService`. Umjesto toga — isti stil kao
+već postojeće `consumed_paths` pravilo: svaki importer sam poziva
+zajedničku `detect_incoterm()` funkciju i prosljeđuje REZULTAT (ne sirovi
+tekst) kao `incoterm_code=...`. Jedno novo polje, bez izmjene
+`ImportService`.
+
+**Šta je urađeno:**
+1. `importers/incoterm_utils.py` (nov) — `detect_incoterm(text) -> str`.
+   Samo label+kod obrasci (regex: "Incoterms[2020]?", "Paritet\w*[
+   isporuke]?", "Uslovi isporuke", "Delivery terms?", "Termin isporuke" +
+   jedan od 11 važećih kodova), NAMJERNO bez blind standalone pretrage
+   koda bez konteksta (izbjegava lažne pozitive — carinski rizik).
+2. `importers/import_result.py` — dodato `incoterm_code: str = ""`.
+3. Povezano kroz **12 importer fajlova**: `generic_pdf_importer.py`
+   (default/fallback parser), `kg_fashion_importer.py` i
+   `master_frigo_importer.py` (zamijenjen lokalni regex zajedničkom
+   funkcijom — single source of truth), `medicopharm_importer.py`,
+   `sumaprom_pdf_parser.py` + `sumaprom_combined_importer.py` (excel-only
+   dio nema tekst, preskočen), `leburic_pekabesko_pdf_parser.py` +
+   `leburic_pekabesko_importer.py` (`_extract_from_pdf` tuple proširen
+   4→5 elemenata), `pip_food_parser.py`, `cmana_pdf_parser.py`
+   (docstring firme već pominjao "način isporuke" u footeru — potvrda da
+   se paritet stvarno pojavljuje na ovim fakturama), `imamoglu_pdf_parser.py`,
+   `blagic_loren_pdf_parser.py` + `blagic_loren_importer.py`
+   (`_find_and_extract_weights_from_pdf` tuple proširen 2→3) +
+   `blagic_combined_importer.py` + `blagic_attos_importer.py`.
+   `services/import_service.py::_try_combine_with_previous` (CASE 1B/2B
+   Šumaprom) prosljeđuje `stats["incoterm_code"]`.
+4. **Excel-only importeri bez PDF-a preskočeni** (nema slobodnog teksta za
+   skeniranje): `sumaprom_excel_parser.py`, `imamoglu_excel_importer.py`,
+   Medicopharm Excel grana.
+5. **`importers/vendors/blagic/blagic_importer.py` NAMJERNO preskočen** —
+   potvrđeno (grep + gitnexus) da je mrtav kod: jedini "živi" poziv je
+   kroz `BlagicStrategy` (`importers/pdf/blagic_strategy.py`), koja NIJE
+   registrovana u `strategy_registry.py`. Taj sloj (`PDFParseStrategy.
+   extract() -> List[InvoiceLine]`) uz to nema ni mjesto za header-level
+   metapodatak poput incoterm-a.
+6. `gui/tabs/faktura_view.py::_apply_import_result_to_header()` — upisuje
+   `draft.uslovi_kod = result.incoterm_code` samo ako je polje prazno
+   (isti "ne prepisuj ručni unos" obrazac kao izvoznik/uvoznik/valuta).
+7. `AGENTS.md` — nova MORA-konvencija (odmah poslije `consumed_paths`
+   pravila): svaki importer koji ekstraktuje tekst fakture MORA pozvati
+   `detect_incoterm()` — pokriva "buduće parsere" iz korisničkog zahtjeva
+   dokumentacijom, ne centralnim kodom (isti stil kao postojeće
+   konvencije u ovom fajlu).
+
+GitNexus impact: `ImportResult` upstream **CRITICAL** (115 impacted, 73
+direktno) — prijavljeno korisniku PRIJE izmjene po AGENTS.md protokolu
+(project_rooms/2026-07-26_paritet-isporuke-auto-detekcija.md). Izmjena je
+additive (1 novo opciono polje), ne dira postojeće pozive. Svi pojedinačni
+importer entry-point-ovi provjereni kao LOW (spot-check: `import_kg_fashion`
+4 impacted/LOW). Finalni `detect_changes(all)` nakon svih izmjena vratio
+**"critical"** risk_level zbog OBIMA (21 affected_processes — svaki
+dodirnut parser je step 1-3 u više execution flow-ova), NE zbog
+neočekivanog uticaja: svi touched simboli su tačno oni koje sam namjerno
+mijenjao (nijedan iznenađujući pogodak). Isti obrazac kao §66 "GitNexus
+impact HIGH ≠ stvaran rizik" — topološka centralnost ne znači stvaran
+rizik kad je diff additive i testovi prolaze.
+
+Testovi: `tests/unit/test_incoterm_utils.py` (16 testova — sve formulacije
++ no-match + neispravan kod + case-insensitive), `tests/unit/
+test_faktura_view_incoterm_header.py` (3 testa — popuni/ne-prepiši/prazno).
+Svaki vendor testiran pojedinačno nakon izmjene (`pytest -k <vendor>`) —
+0 regresija. Pun test suite: 1250 passed (+19 novih), 85 skipped, 5
+xfailed, ista 2 pre-postojeća nepovezana problema
+(`test_xml_parser_fix.py`, `test_model_benchmark.py`).
+
+**Nema stvarnih PDF/tekstualnih fixtura faktura u repou** (`najavauvoza/`
+folder ne postoji lokalno) — detekcija nije provjerena protiv stvarnog
+teksta stvarne fakture, samo protiv sintetičkih string primjera u
+testovima. Preporuka: korisnik potvrdi na sljedećem uvozu fakture koja
+sadrži paritet u tekstu.
+
+Svi importer fajlovi + `faktura_view.py` + `import_result.py` + `services/
+import_service.py` sinhronizovani u `dist_client` mirror (4 fajla su imala
+trivijalan pre-postojeći BOM/trailing-newline drift, nesemantički — potvrđeno
+`diff --strip-trailing-cr` prije i poslije).
