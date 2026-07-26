@@ -974,14 +974,24 @@ class ChatWorker(QThread):
             partner_keywords = ['dobavljač', 'izvoznik', 'primalac', 'partner',
                                  'firma', 'kompanij', 'ko nam', 'ko šalje']
             if any(k in msg for k in partner_keywords):
+                # NAPOMENA (Faza 5, otvoreno pitanje, nedirano): jib_display
+                # ovdje pokazuje STVARAN JIB kad je send_sensitive True —
+                # za razliku od Zone B gdje se JIB NIKAD ne šalje LLM-u bez
+                # obzira na SEND_SENSITIVE_DATA (samo za lokalni XML lookup).
+                # Ostavljeno kako jeste dok korisnik ne potvrdi da li je ovo
+                # namjeravana razlika ili treba uskladiti sa Zone B pravilom.
                 send_sensitive = self._allow_sensitive_data()
                 results = svc.search_by_partner(query, limit=6)
                 if results:
+                    from services.agent.chat.context_adapter import AgentContextAdapter
+                    adapter = AgentContextAdapter(self.draft, allow_sensitive=send_sensitive)
                     ctx.append(f"\nPartneri pronađeni u istorijskim deklaracijama:")
                     for r in results:
                         jib_display = r.get('consignee_jib', '?') if send_sensitive else "[JIB skriven]"
-                        exporter_display = r.get('exporter_name', '?')[:50] if send_sensitive else "[ime skriveno]"
-                        consignee_display = r.get('consignee_name', '?')[:40] if send_sensitive else "[ime skriveno]"
+                        exporter_info = adapter.mask_partner("izvoznik", (r.get('exporter_name', '?') or '?')[:50])
+                        consignee_info = adapter.mask_partner("primalac", (r.get('consignee_name', '?') or '?')[:40])
+                        exporter_display = exporter_info.name if not exporter_info.masked else "[ime skriveno]"
+                        consignee_display = consignee_info.name if not consignee_info.masked else "[ime skriveno]"
                         ctx.append(
                             f"  Izvoznik: {exporter_display} | "
                             f"Primalac: {consignee_display} | "
