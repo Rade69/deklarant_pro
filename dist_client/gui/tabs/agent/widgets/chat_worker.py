@@ -510,41 +510,33 @@ class ChatWorker(QThread):
             else:
                 lines.append(f"  Deklarant (Rb.14):         {deklarant.name}")
 
-        valuta = getattr(d, 'valuta', '')
-        iznos  = getattr(d, 'iznos', 0.0) or 0.0
-        kurs   = getattr(d, 'kurs', 1.0) or 1.0
-        if valuta or iznos:
-            lines.append(f"  Valuta/iznos (Rb.22/23):   {iznos:,.2f} {valuta}  |  kurs: {kurs}")
+        # Ostatak zaglavlja (ne-partner polja) — sadržaj računa
+        # AgentContextAdapter.build_header(); uslovi ZA PRIKAZ ostaju
+        # provjere na sirovim d.* poljima (isti obrazac kao original —
+        # npr. "Uslovi isporuke" se ne prikazuje ako je uslovi_kod prazan
+        # čak i kad uslovi_mjesto ima vrijednost, i to se ne smije
+        # izgubiti pri migraciji).
+        header = adapter.build_header()
 
-        uslovi_kod   = getattr(d, 'uslovi_kod', '')
-        uslovi_mjesto = getattr(d, 'uslovi_mjesto', '')
-        if uslovi_kod:
-            lines.append(f"  Uslovi isporuke (Rb.20):   {uslovi_kod} {uslovi_mjesto}".strip())
+        if getattr(d, 'valuta', '') or (getattr(d, 'iznos', 0.0) or 0.0):
+            lines.append(f"  Valuta/iznos (Rb.22/23):   {header.iznos:,.2f} {header.valuta}  |  kurs: {header.kurs}")
 
-        vid_g = getattr(d, 'vid_granica', '')
-        vid_u = getattr(d, 'vid_unutra', '')
-        if vid_g or vid_u:
-            lines.append(f"  Vid transporta (Rb.25/26): unutra={vid_u or '?'}  granica={vid_g or '?'}")
+        if getattr(d, 'uslovi_kod', ''):
+            lines.append(f"  Uslovi isporuke (Rb.20):   {header.uslovi_isporuke}")
 
-        drzava_iz = getattr(d, 'drzava_izvoza_naziv', '') or getattr(d, 'drzava_izvoza_sifra', '')
-        if drzava_iz:
-            lines.append(f"  Država izvoza (Rb.15):     {drzava_iz}")
+        if getattr(d, 'vid_granica', '') or getattr(d, 'vid_unutra', ''):
+            lines.append(f"  Vid transporta (Rb.25/26): {header.vid_transporta}")
 
-        troskovi = []
-        for i, attr in enumerate(['trosak_1','trosak_2','trosak_3','trosak_4','trosak_5'], 1):
-            v = getattr(d, attr, '0,00') or '0,00'
-            if v not in ('0,00', '0', '', '0.00'):
-                troskovi.append(f"T{i}={v}")
-        if troskovi:
-            lines.append(f"  Troškovi:                  {', '.join(troskovi)}")
+        if getattr(d, 'drzava_izvoza_naziv', '') or getattr(d, 'drzava_izvoza_sifra', ''):
+            lines.append(f"  Država izvoza (Rb.15):     {header.drzava_izvoza}")
 
-        header_docs = getattr(d, 'header_attached_documents', []) or []
-        if header_docs:
+        if header.troskovi:
+            lines.append(f"  Troškovi:                  {', '.join(header.troskovi)}")
+
+        if header.prilozene_isprave:
             lines.append(f"  Priložene isprave (Rb.44):")
-            for doc in header_docs:
-                name   = getattr(doc, 'name', '') or ''
-                number = getattr(doc, 'number', '') or ''
-                lines.append(f"    - {name}  {number}".rstrip())
+            for doc in header.prilozene_isprave:
+                lines.append(f"    - {doc.name}  {doc.number}".rstrip())
 
         return lines if len(lines) > 1 else []
 

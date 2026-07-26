@@ -99,7 +99,7 @@ class AgentContextAdapter:
             iznos=getattr(d, "iznos", 0.0) or 0.0,
             kurs=getattr(d, "kurs", 1.0) or 1.0,
             uslovi_isporuke=f"{getattr(d,'uslovi_kod','')} {getattr(d,'uslovi_mjesto','')}".strip(),
-            vid_transporta=f"unutra={getattr(d,'vid_unutra','') or '?'} granica={getattr(d,'vid_granica','') or '?'}",
+            vid_transporta=f"unutra={getattr(d,'vid_unutra','') or '?'}  granica={getattr(d,'vid_granica','') or '?'}",
             drzava_izvoza=getattr(d, "drzava_izvoza_naziv", "") or getattr(d, "drzava_izvoza_sifra", "") or "",
             troskovi=troskovi,
             prilozene_isprave=prilozene_isprave,
