@@ -1011,6 +1011,98 @@ def _check_agent_v2_enabled(ctrl) -> bool:
         return False
 
 
+def _handle_message_v2(ctrl, message: str) -> None:
+    """Agent V2 routing — koristi Intent Resolver umjesto keyword prečica.
+
+    Plan §12: _application_context_scope() više ne smije presresti VALIDATE.
+    Redoslijed faktura prije naimenov iz §3.3 je ispravljen.
+    """
+    from services.agent.chat.intent_model import IntentAction, IntentTarget
+    from services.agent.chat.intent_resolver import resolve
+
+    chat = ctrl.view.get_chat_panel()
+    intent = resolve(message)
+    _audit_routing(
+        "v2_resolver",
+        action=intent.action.value,
+        target=intent.target.value,
+        confidence=intent.confidence,
+        source=intent.source.value,
+    )
+
+    # ── CONFIRM / CANCEL ────────────────────────────────────────
+    if intent.action == IntentAction.CONFIRM:
+        if ctrl._pending_action:
+            ctrl._execute_pending_action()
+            _audit_routing("v2", tool="pending_action", confirmation="confirmed")
+        else:
+            chat.add_agent_message("Nema aktivne akcije za potvrdu.")
+        return
+
+    if intent.action == IntentAction.CANCEL:
+        if ctrl._pending_action:
+            ctrl._pending_action = None
+            chat.add_agent_message("❌ Akcija otkazana.")
+            _audit_routing("v2", tool="pending_action", confirmation="rejected")
+        else:
+            # Nema pending — delegiraj na standardni chat
+            _start_chat_worker(ctrl, message, fallback_reason="cancel_no_pending")
+        return
+
+    # ── SHOW — prikaz stanja ─────────────────────────────────────
+    if intent.action == IntentAction.SHOW:
+        if intent.target == IntentTarget.INVOICE:
+            _pregled_stanja_aplikacije(ctrl, "faktura")
+        elif intent.target == IntentTarget.ITEMS:
+            _pregledaj_naimenovanja(ctrl)
+        elif intent.target == IntentTarget.HEADER:
+            _pregled_stanja_aplikacije(ctrl, "zaglavlje")
+        elif intent.target == IntentTarget.TARIFFS:
+            _pregled_stanja_aplikacije(ctrl, "tarife")
+        elif intent.target == IntentTarget.SPECIFIC_ROW and intent.ordinals:
+            _pregledaj_naimenovanja(ctrl, indeksi=list(intent.ordinals))
+        else:
+            _pregled_stanja_aplikacije(ctrl, "all")
+        return
+
+    # ── VALIDATE — stručna provjera ──────────────────────────────
+    if intent.action == IntentAction.VALIDATE:
+        if intent.target == IntentTarget.INVOICE:
+            # Delegiraj na Tool Use (provjeri_fakturu) — još ne postoji
+            _start_chat_worker(ctrl, message, fallback_reason="validate_invoice_pending_phase3")
+        elif intent.target == IntentTarget.ITEMS:
+            _provjeri_naimenovanja(ctrl)
+        elif intent.target == IntentTarget.HEADER:
+            _start_chat_worker(ctrl, message, fallback_reason="validate_header_pending_phase5")
+        elif intent.target == IntentTarget.TARIFFS:
+            ctrl._provjeri_tarifne_za_naziv()
+        elif intent.target == IntentTarget.SPECIFIC_ROW:
+            _provjeri_naimenovanja(ctrl)
+        else:
+            # Validiramo cijelu deklaraciju — delegiraj na Tool Use
+            _start_chat_worker(ctrl, message, fallback_reason="validate_full")
+        return
+
+    # ── Ostale akcije — delegiraj na Tool Use / ChatWorker ───────
+    # (REQUEST_CHANGE, ANALYZE, PROPOSE, RUN_WORKFLOW, EXPORT, OTHER)
+    _start_chat_worker(ctrl, message, fallback_reason=f"v2_{intent.action.value}")
+
+
+def _start_chat_worker(ctrl, message: str, fallback_reason: str = "", provider: str = ""):
+    """Pokreni standardni ChatWorker za plain LLM chat."""
+    from gui.tabs.agent.widgets.chat_worker import ChatWorker
+
+    chat = ctrl.view.get_chat_panel()
+    worker = ChatWorker(message, draft=ctrl.draft, parent=ctrl.view,
+                        memory_service=ctrl._memory_service if hasattr(ctrl, '_memory_service') else None)
+    worker.response_ready.connect(lambda text: chat.add_agent_message(text))
+    worker.error_occurred.connect(lambda err: chat.add_agent_message(f"❌ {err}"))
+    worker.finished.connect(worker.deleteLater)
+    worker.start()
+    if fallback_reason:
+        _audit_routing("v2", tool="chat_worker", fallback_reason=fallback_reason)
+
+
 def _handle_message(ctrl, message: str) -> None:
     """
     Primarni entry point za chat poruke.
@@ -1032,8 +1124,11 @@ def _handle_message(ctrl, message: str) -> None:
     agent_v2 = _check_agent_v2_enabled(ctrl)
     # Auditiraj vrijednost zastavice uz svaki routing
     _audit_routing("switch", agent_v2=agent_v2, status="ok")
-    # NOTE: V2 routing blok se dodaje u Fazi 1 unutar `if agent_v2: ...`.
-    # Za sada (Faza −1) uvijek ide starim putem — bajt-identično.
+    # ── Agent V2 routing (Faza 1+) ──────────────────────────────
+    if agent_v2:
+        _handle_message_v2(ctrl, message)
+        return
+    # ── Stari routing (bajt-identičan) ──────────────────────────
 
     msg_lower = message.lower().strip()
 

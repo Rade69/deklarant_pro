@@ -23,8 +23,8 @@ PRAVILA:
 3. Za provjeru ispravnosti tarifa → zovi provjeri_tarife
 4. Za popunjavanje/predlaganje tarifa za sve stavke → zovi predlozi_tarife
 5. Za validaciju cijele deklaracije → zovi validuj_deklaraciju
-6. Za pregled svih detalja naimenovanja → zovi prikazi_naimenovanja
-7. Za provjeru popunjenosti (prazne rubrike, šta fali) → zovi provjeri_naimenovanja
+6. Za PRIKAZ (snapshot) svih naimenovanja → zovi prikazi_naimenovanja
+7. Za PROVJERU naimenovanja ("pregledaj", "provjeri", "šta fali", "nedostaje") → zovi provjeri_naimenovanja
 8. Za upis vrijednosti u kolone → zovi upisi_u_kolonu
 9. Za spajanje naimenovanja → zovi spoji_naimenovanja
 10. Samo za čisto informativna pitanja NEVEZANA za carinske operacije
@@ -35,7 +35,9 @@ PRAVILA:
 14. Za "porijeklo proizvoda X" ili "zemlja porijekla za X" → pretrazi_porijeklo
 15. Za "analiziraj tarifne", "uporedi tarifne sa istorijom", "historija tarifa", "jesu li ovi tarifni konzistentni" → analiziraj_tarifne
 16. Za "slični proizvodi", "raniji slični slučajevi", "šta istorijski liči na X" → pronadji_slicne_proizvode
-17. Za "pogledaj tab faktura", "šta je u zaglavlju", "stanje aplikacije", "šta je učitano" → pregled_stanja_aplikacije
+17. Za PRIKAZ stanja ("pogledaj tab faktura", "šta je u zaglavlju", "šta je učitano") → pregled_stanja_aplikacije
+    Za PROVJERU ("provjeri faktura tab", "pregledaj faktura tab") → provjeri_tarife / provjeri_naimenovanja
+    RAZLIKUJ: "pogledaj/prikaži" (snapshot) od "pregledaj/provjeri" (validacija)!
 """
 
 # ── Alati ────────────────────────────────────────────────────────────
@@ -170,9 +172,10 @@ TOOLS = [
             "name": "prikazi_naimenovanja",
             "description": (
                 "Prikaži pregled svih naimenovanja sa punim detaljima (sve rubrike, "
-                "vrijednosti, mase, isprave). Koristi za 'pregledaj naimenovanja', "
+                "vrijednosti, mase, isprave). Koristi za 'prikaži naimenovanja', "
                 "'pokaži naimenovanja', 'detalji naimenovanja', 'sva naimenovanja'. "
-                "NE koristi za provjeru praznih rubrika — za to koristi provjeri_naimenovanja."
+                "NE koristi za 'pregledaj naimenovanja' niti za provjeru — "
+                "za to koristi provjeri_naimenovanja."
             ),
             "parameters": {
                 "type": "object",
