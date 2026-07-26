@@ -5,9 +5,9 @@ plan.md). Imena izvoznika/primaoca iz istorijskih XML deklaracija sad idu
 kroz AgentContextAdapter.mask_partner() umjesto ručnog ternary po polju —
 isti obrazac kao Zone B/B2.
 
-JIB prikaz je NAMJERNO nedirano ostavljen (otvoreno pitanje u planu) — ovaj
-fajl provjerava SAMO da postojeće JIB ponašanje nije slučajno promijenjeno,
-ne da je "ispravno" po Zone B standardu.
+JIB prikaz je usklađen sa Zone B pravilom (_build_session_zone) — JIB se
+nikad ne šalje LLM-u u ovoj grani, bez obzira na send_sensitive/allow_
+sensitive (vidi agent_reports/2026-07-26_jib-partner-search-usklajivanje.md).
 """
 from __future__ import annotations
 
@@ -73,3 +73,23 @@ def test_partner_search_prikazuje_imena_kad_je_ukljuceno():
 
     assert "IZVOZNIK DOO" in text
     assert "PRIMALAC DOO" in text
+
+
+def test_partner_search_jib_nikad_ne_ide_u_kontekst():
+    partner_results = [{
+        "exporter_name": "IZVOZNIK DOO",
+        "consignee_name": "PRIMALAC DOO",
+        "consignee_jib": "4200000000001",
+    }]
+
+    for send_sensitive in (False, True):
+        fake = _fake_worker(send_sensitive=send_sensitive)
+        with patch(
+            "services.agent.chat.declaration_search_service.DeclarationSearchService",
+            return_value=_mock_service(partner_results),
+        ):
+            ctx = ChatWorker._search_declarations_context(fake, "koji je nas izvoznik")
+        text = "\n".join(ctx)
+
+        assert "4200000000001" not in text
+        assert "[JIB skriven]" in text
