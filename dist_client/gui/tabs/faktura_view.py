@@ -1766,6 +1766,11 @@ class FakturaView(BaseTabView):
             return
 
         menu = QMenu(self)
+        menu.setStyleSheet("""
+            QMenu { font-size: 15px; }
+            QMenu::item { padding: 8px 24px; }
+            QMenu::separator { height: 1px; margin: 4px 0; }
+        """)
         n = len(rows)
         label = f"Promijeni tarifni broj za {n} odabran{'u stavku' if n == 1 else 'e stavke' if n < 5 else 'ih stavki'}"
         act_tariff = menu.addAction(label)
@@ -1784,12 +1789,19 @@ class FakturaView(BaseTabView):
         current_display = ", ".join(t for t in current_tariffs if t) or "(prazno)"
         n = len(rows)
 
-        new_tariff, ok = QInputDialog.getText(
-            self,
-            "Promijeni tarifni broj",
-            f"Odabrano stavki: {n}\nTrenutni tarif: {current_display}\n\nNovi tarifni broj (8 cifara):",
-            text=current_tariffs[0] if len(current_tariffs) == 1 else "",
+        dlg = QInputDialog(self)
+        dlg.setWindowTitle("Promijeni tarifni broj")
+        dlg.setLabelText(
+            f"Odabrano stavki: {n}\nTrenutni tarif: {current_display}\n\nNovi tarifni broj (8 cifara):"
         )
+        dlg.setTextValue(current_tariffs[0] if len(current_tariffs) == 1 else "")
+        dlg.setStyleSheet("""
+            QLabel { font-size: 15px; }
+            QLineEdit { font-size: 15px; padding: 6px; }
+            QPushButton { font-size: 14px; padding: 6px 16px; }
+        """)
+        ok = dlg.exec() == QInputDialog.Accepted
+        new_tariff = dlg.textValue()
         if not ok:
             return
         new_tariff = new_tariff.strip()
@@ -5565,12 +5577,12 @@ class FakturaView(BaseTabView):
                 background-color: #ffffff;
                 color: #1a1a1a;
                 gridline-color: #d0d0d0;
-                font-size: 13px;
+                font-size: 16px;
             }
             QTableWidget::item {
                 background-color: #ffffff;
                 color: #1a1a1a;
-                padding: 4px 6px;
+                padding: 6px 8px;
             }
             QTableWidget::item:alternate {
                 background-color: #f5f7fa;
@@ -5583,7 +5595,8 @@ class FakturaView(BaseTabView):
                 background-color: #e8ecf0;
                 color: #1a1a1a;
                 font-weight: bold;
-                padding: 5px;
+                font-size: 15px;
+                padding: 7px;
                 border: 1px solid #c0c8d0;
             }
         """)
@@ -5648,6 +5661,7 @@ class FakturaView(BaseTabView):
             "Provjerite opise tarifa — ako je opis netačan za dati proizvod, kliknite <b>Odustani</b>."
         )
         label.setWordWrap(True)
+        label.setStyleSheet("font-size: 15px;")
         layout.addWidget(label)
 
         naziv_by_line = {
@@ -5673,9 +5687,12 @@ class FakturaView(BaseTabView):
         layout.addWidget(table)
 
         btn_layout = QHBoxLayout()
+        btn_style = "QPushButton { font-size: 14px; padding: 8px 18px; }"
         btn_ok = QPushButton("Potvrdi i popuni")
         btn_ok.setDefault(True)
+        btn_ok.setStyleSheet(btn_style)
         btn_cancel = QPushButton("Odustani")
+        btn_cancel.setStyleSheet(btn_style)
         btn_layout.addStretch()
         btn_layout.addWidget(btn_cancel)
         btn_layout.addWidget(btn_ok)
@@ -5711,12 +5728,14 @@ class FakturaView(BaseTabView):
 
         label = QLabel(intro_html)
         label.setWordWrap(True)
+        label.setStyleSheet("font-size: 15px;")
         layout.addWidget(label)
 
         table = self._build_tariff_table_widget(rows)
         layout.addWidget(table)
 
         button_box = QDialogButtonBox(QDialogButtonBox.Ok)
+        button_box.setStyleSheet("QPushButton { font-size: 14px; padding: 8px 18px; }")
         button_box.accepted.connect(dialog.accept)
         layout.addWidget(button_box)
 
