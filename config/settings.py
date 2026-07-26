@@ -128,6 +128,7 @@ class AppSettings(BaseSettings):
     debug: bool = Field(default=False, alias="DEBUG")
     max_import_workers: int = Field(default=4, alias="MAX_IMPORT_WORKERS")
     strict_validation: bool = Field(default=True, alias="STRICT_VALIDATION")
+    agent_v2_enabled: bool = Field(default=False, alias="DEKLARANT_AGENT_V2")
     
     model_config = SettingsConfigDict(
         case_sensitive=False,

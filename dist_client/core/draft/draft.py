@@ -470,9 +470,23 @@ class DeclarationDraft:
     allow_country_split: bool = False
 
     dirty: bool = False
+    # Monotoni brojač — inkrementira se u mark_dirty().
+    # Služi za detekciju promjene drafta (readiness fingerprint).
+    # NIJE dio ASYCUDA XML izlaza. Nije serijalizovan.
+    # Vidi project_rooms/2026-07-26_faza-1a-draft-revision.md
+    revision: int = field(default=0, init=False, repr=False)
     created_at: str = field(
         default_factory=lambda: datetime.now().isoformat(timespec="seconds")
     )
+
+    @property
+    def fingerprint(self) -> int:
+        """Stabilan identifikator trenutnog stanja drafta.
+
+        Mijenja se sa svakom izmjenom poslovnih podataka.
+        Koristi se za invalidaciju readiness rezultata (Faza 6).
+        """
+        return hash(self.revision)
 
     def register_data_change_callback(self, callback: Callable) -> None:
         """Registruj callback koji će biti pozvan kada se podaci promene."""
@@ -495,7 +509,16 @@ class DeclarationDraft:
     def mark_dirty(self) -> None:
         """Označi draft kao promijenjen i obavesti sve callback-ove."""
         self.dirty = True
+        self.bump_revision()
         self._notify_data_change()
+
+    def bump_revision(self) -> None:
+        """Inkrementiraj monotoni brojač revizije.
+
+        Poziva se automatski iz mark_dirty().
+        Ne pozivati direktno osim u testovima.
+        """
+        self.revision += 1
 
     def clear_dirty(self) -> None:
         self.dirty = False

@@ -12,15 +12,25 @@ from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
 import os
+import sys
 
 
 # ============================================================
 # PROJECT ROOT
 # ============================================================
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+# U PyInstaller frozen buildu postoje dva različita root-a:
+#   PROJECT_ROOT  — folder pored DeklarantPro.exe (za .env, imports, exports, logs)
+#   BUNDLE_ROOT   — sys._MEIPASS gdje PyInstaller ekstraktuje bundlovane fajlove
+#                   (styles, ui, assets, database) u _internal/ podfolder
+if getattr(sys, 'frozen', False):
+    PROJECT_ROOT = Path(sys.executable).resolve().parent
+    BUNDLE_ROOT = Path(sys._MEIPASS)
+else:
+    PROJECT_ROOT = Path(__file__).resolve().parent.parent
+    BUNDLE_ROOT = PROJECT_ROOT
 
-# Eksplicitno učitaj .env iz root-a
+# Eksplicitno učitaj .env iz root-a (pored .exe)
 _env_file = PROJECT_ROOT / ".env"
 if _env_file.exists():
     from dotenv import load_dotenv
@@ -82,9 +92,10 @@ class PathSettings(BaseSettings):
     exports_dir: Path = PROJECT_ROOT / "exports"
     temp_dir: Path = PROJECT_ROOT / "temp"
     logs_dir: Path = PROJECT_ROOT / "logs"
-    styles_dir: Path = PROJECT_ROOT / "styles"
-    ui_dir: Path = PROJECT_ROOT / "ui"
-    sifrarnici_dir: Path = PROJECT_ROOT / "sifrarnici"
+    # Bundlovani resursi — u frozen buildu su u sys._MEIPASS (_internal/)
+    styles_dir: Path = BUNDLE_ROOT / "styles"
+    ui_dir: Path = BUNDLE_ROOT / "ui"
+    sifrarnici_dir: Path = BUNDLE_ROOT / "sifrarnici"
     
     model_config = SettingsConfigDict(
         extra="ignore",
@@ -117,6 +128,7 @@ class AppSettings(BaseSettings):
     debug: bool = Field(default=False, alias="DEBUG")
     max_import_workers: int = Field(default=4, alias="MAX_IMPORT_WORKERS")
     strict_validation: bool = Field(default=True, alias="STRICT_VALIDATION")
+    agent_v2_enabled: bool = Field(default=False, alias="DEKLARANT_AGENT_V2")
     
     model_config = SettingsConfigDict(
         case_sensitive=False,

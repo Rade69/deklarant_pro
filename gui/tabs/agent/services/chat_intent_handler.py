@@ -994,6 +994,23 @@ def _audit_routing(routing_layer: str, **kwargs) -> None:
     record_audit(AuditEvent(routing_layer=routing_layer, **kwargs))
 
 
+def _check_agent_v2_enabled(ctrl) -> bool:
+    """Kill-switch za Agent V2 routing.
+
+    Čita DEKLARANT_AGENT_V2 iz .env preko AppSettings.
+    Default: False (0) — stari put, bajt-identično ponašanje.
+    True (1) — V2 Intent Resolver aktivan (Faza 1+).
+
+    Plan §10 Faza −1.C — vrijednost se auditira uz svaki routing.
+    """
+    try:
+        from config.settings import get_app_settings
+        settings = get_app_settings()
+        return getattr(settings, "agent_v2_enabled", False)
+    except Exception:
+        return False
+
+
 def _handle_message(ctrl, message: str) -> None:
     """
     Primarni entry point za chat poruke.
@@ -1010,6 +1027,13 @@ def _handle_message(ctrl, message: str) -> None:
     if blocked:
         chat.add_agent_message(blocked)
         return
+
+    # ── Agent V2 kill-switch (Faza −1.C) ──────────────────────────
+    agent_v2 = _check_agent_v2_enabled(ctrl)
+    # Auditiraj vrijednost zastavice uz svaki routing
+    _audit_routing("switch", agent_v2=agent_v2, status="ok")
+    # NOTE: V2 routing blok se dodaje u Fazi 1 unutar `if agent_v2: ...`.
+    # Za sada (Faza −1) uvijek ide starim putem — bajt-identično.
 
     msg_lower = message.lower().strip()
 
