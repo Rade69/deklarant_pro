@@ -27,6 +27,7 @@ class ImportResult:
         origin_statements: Lista detektovanih izjava o poreklu (za fakture sa više izjava)
         exporter: Party objekat sa podacima o izvozniku/pošiljaocu
         importer: Party objekat sa podacima o uvozniku/primaocu
+        incoterm_code: Šifra pariteta isporuke (CPT, FCA, ...) ako je prepoznata na fakturi
     """
     items: List[InvoiceLine] = field(default_factory=list)
     bruto_kg: float = 0.0
@@ -42,6 +43,7 @@ class ImportResult:
     exporter: Optional[Party] = None  # Izvoznik/pošiljalac iz fakture
     importer: Optional[Party] = None  # Uvoznik/primalac iz fakture
     consumed_paths: List[str] = field(default_factory=list)  # Putanje fajlova koje je ovaj import interno koristio (ne obrađivati ponovo)
+    incoterm_code: str = ""  # Rb.20 paritet isporuke (CPT, FCA, ...) — vidi importers/incoterm_utils.py
 
     def __post_init__(self):
         # Ako nije eksplicitno postavljeno, izračunaj iz origin_statements
