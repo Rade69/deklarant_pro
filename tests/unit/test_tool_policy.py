@@ -41,3 +41,17 @@ def test_registry_ne_sadrzi_prazna_imena():
 def test_svaki_efekat_je_toolEffect_instanca():
     for naziv, effect in TOOL_EFFECTS.items():
         assert isinstance(effect, ToolEffect), f"{naziv}: efekat mora biti ToolEffect enum"
+
+
+def test_imena_alata_su_ascii():
+    """Plan §8.3 pravilo 1: imena alata moraju biti ^[a-z0-9_]{1,64}$.
+    Groq/OpenAI function-name schema odbacuje non-ASCII karaktere."""
+    import re
+    pattern = re.compile(r'^[a-z0-9_]{1,64}$')
+    from services.agent.chat.tool_definitions import TOOLS
+    for t in TOOLS:
+        name = t["function"]["name"]
+        assert pattern.match(name), (
+            f"Ime alata '{name}' nije ASCII. "
+            f"Dozvoljeno: ^[a-z0-9_]{{1,64}}$"
+        )
