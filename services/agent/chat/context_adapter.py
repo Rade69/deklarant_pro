@@ -22,6 +22,21 @@ class AgentContextAdapter:
         self.draft = draft
         self.allow_sensitive = allow_sensitive
 
+    def mask_partner(self, role: str, name: str) -> PartnerInfo | None:
+        """Jedina tačka odluke da li se partner ime pokazuje ili maskira.
+
+        Koriste je i Zone B (_build_session_zone, ime iz invoice_lines
+        exporter Party) i Zone B2 (_build_zaglavlje_zone, ime iz draft
+        Zaglavlje polja) — različiti izvori imena, ista maskirajuća odluka.
+        """
+        if not name:
+            return None
+        return PartnerInfo(
+            role=role,
+            name=name if self.allow_sensitive else None,
+            masked=not self.allow_sensitive,
+        )
+
     def build_partner_info(self) -> list[PartnerInfo]:
         pairs = [
             ("izvoznik", getattr(self.draft, "izvoznik_naziv", "") or ""),
@@ -30,13 +45,9 @@ class AgentContextAdapter:
         ]
         result = []
         for role, name in pairs:
-            if not name:
-                continue
-            result.append(PartnerInfo(
-                role=role,
-                name=name if self.allow_sensitive else None,
-                masked=not self.allow_sensitive,
-            ))
+            info = self.mask_partner(role, name)
+            if info is not None:
+                result.append(info)
         return result
 
     @staticmethod

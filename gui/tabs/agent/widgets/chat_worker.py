@@ -490,22 +490,29 @@ class ChatWorker(QThread):
         if getattr(d, 'ured_odredista', ''):
             lines.append(f"  Carinska ispostava:        {d.ured_odredista}")
 
-        send_sensitive = self._allow_sensitive_data()
-        if getattr(d, 'izvoznik_naziv', ''):
-            if send_sensitive:
-                lines.append(f"  Izvoznik (Rb.2):           {d.izvoznik_naziv}, {getattr(d,'izvoznik_drzava','')}")
-            else:
+        from services.agent.chat.context_adapter import AgentContextAdapter
+        adapter = AgentContextAdapter(d, allow_sensitive=self._allow_sensitive_data())
+
+        izvoznik = adapter.mask_partner("izvoznik", getattr(d, 'izvoznik_naziv', '') or '')
+        if izvoznik:
+            if izvoznik.masked:
                 lines.append("  Izvoznik (Rb.2):           [ime skriveno — SEND_SENSITIVE_DATA=false]")
-        if getattr(d, 'primalac_naziv', ''):
-            if send_sensitive:
-                lines.append(f"  Primalac (Rb.8):           {d.primalac_naziv}")
             else:
+                lines.append(f"  Izvoznik (Rb.2):           {izvoznik.name}, {getattr(d,'izvoznik_drzava','')}")
+
+        primalac = adapter.mask_partner("primalac", getattr(d, 'primalac_naziv', '') or '')
+        if primalac:
+            if primalac.masked:
                 lines.append("  Primalac (Rb.8):           [ime skriveno — SEND_SENSITIVE_DATA=false]")
-        if getattr(d, 'deklarant_naziv', ''):
-            if send_sensitive:
-                lines.append(f"  Deklarant (Rb.14):         {d.deklarant_naziv}")
             else:
+                lines.append(f"  Primalac (Rb.8):           {primalac.name}")
+
+        deklarant = adapter.mask_partner("deklarant", getattr(d, 'deklarant_naziv', '') or '')
+        if deklarant:
+            if deklarant.masked:
                 lines.append("  Deklarant (Rb.14):         [ime skriveno — SEND_SENSITIVE_DATA=false]")
+            else:
+                lines.append(f"  Deklarant (Rb.14):         {deklarant.name}")
 
         valuta = getattr(d, 'valuta', '')
         iznos  = getattr(d, 'iznos', 0.0) or 0.0
@@ -704,24 +711,31 @@ class ChatWorker(QThread):
         if not (exporter_name or consignee_name or consignee_jib):
             return result
 
-        # Provjeri da li je dozvoljeno slanje osjetljivih podataka eksternom LLM-u
-        send_sensitive = self._allow_sensitive_data()
+        # JIB se nikad ne šalje — nije potreban LLM-u (nedirano). Odluka o
+        # maskiranju IMENA ide kroz AgentContextAdapter.mask_partner() —
+        # ista tačka odluke koju koristi i Zone B2 (_build_zaglavlje_zone).
+        from services.agent.chat.context_adapter import AgentContextAdapter
+        adapter = AgentContextAdapter(self.draft, allow_sensitive=self._allow_sensitive_data())
 
         result.append("=== POŠILJALAC / UVOZNIK ===")
 
-        if send_sensitive:
-            if exporter_name:
-                result.append(f"Pošiljalac (iz fakture): {exporter_name}")
-            if consignee_name:
-                # JIB se nikad ne šalje — nije potreban LLM-u
-                result.append(f"Uvoznik (rubrika 8): {consignee_name}")
-            elif consignee_jib:
-                result.append("Uvoznik (rubrika 8): [postoji, ime nije dostupno]")
-        else:
-            # Maskiranje — LLM zna da partneri postoje, ali ne zna ko su
-            if exporter_name:
+        posiljalac = adapter.mask_partner("posiljalac", exporter_name)
+        if posiljalac:
+            if posiljalac.masked:
                 result.append("Pošiljalac (iz fakture): [ime skriveno — SEND_SENSITIVE_DATA=false]")
-            if consignee_name or consignee_jib:
+            else:
+                result.append(f"Pošiljalac (iz fakture): {posiljalac.name}")
+
+        uvoznik = adapter.mask_partner("uvoznik", consignee_name)
+        if uvoznik:
+            if uvoznik.masked:
+                result.append("Uvoznik (rubrika 8): [ime skriveno — SEND_SENSITIVE_DATA=false]")
+            else:
+                result.append(f"Uvoznik (rubrika 8): {uvoznik.name}")
+        elif consignee_jib:
+            if adapter.allow_sensitive:
+                result.append("Uvoznik (rubrika 8): [postoji, ime nije dostupno]")
+            else:
                 result.append("Uvoznik (rubrika 8): [ime skriveno — SEND_SENSITIVE_DATA=false]")
 
         if xml_lookup_info:
