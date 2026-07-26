@@ -166,22 +166,30 @@ class DbSetupDialog(QDialog):
         self._status.setMinimumHeight(24)
         layout.addWidget(self._status)
 
-        # Dugmad
+        # Dugmad — eksplicitan stil na oba (ne osloniti se na globalni app
+        # QSS): u praksi je "Testiraj konekciju" bez lokalnog stylesheet-a
+        # renderovan sa bijelim slovima na svijetloj pozadini (nevidljivo) u
+        # ovom modalnom dijalogu, dok je "Snimi i nastavi" (već je imalo
+        # lokalni stylesheet) ispravno vidljivo — korisnička primjedba
+        # uz screenshot 2026-07-26.
+        _btn_style = (
+            "QPushButton { background: #2980b9; color: white; border-radius: 4px; font-weight: bold; }"
+            "QPushButton:disabled { background: #bdc3c7; color: #7f8c8d; }"
+            "QPushButton:hover:enabled { background: #3498db; }"
+        )
+
         btn_row = QHBoxLayout()
         btn_row.setSpacing(10)
 
         self._btn_test = QPushButton("Testiraj konekciju")
         self._btn_test.setMinimumHeight(34)
+        self._btn_test.setStyleSheet(_btn_style)
         self._btn_test.clicked.connect(self._test_connection)
 
         self._btn_save = QPushButton("Snimi i nastavi")
         self._btn_save.setMinimumHeight(34)
         self._btn_save.setEnabled(False)
-        self._btn_save.setStyleSheet(
-            "QPushButton { background: #2980b9; color: white; border-radius: 4px; font-weight: bold; }"
-            "QPushButton:disabled { background: #bdc3c7; color: #7f8c8d; }"
-            "QPushButton:hover { background: #3498db; }"
-        )
+        self._btn_save.setStyleSheet(_btn_style)
         self._btn_save.clicked.connect(self._save_and_accept)
 
         btn_row.addWidget(self._btn_test)
