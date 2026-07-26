@@ -75,12 +75,21 @@ def decide_tariff_match(
         )
 
     has_source = has_meaningful_source(match.source)
-    if has_source:
-        score += 20
-        positive_reasons.append("Istorijski zapis ima smislen izvor.")
-    else:
-        score -= 10
-        negative_reasons.append("Istorijski zapis nema smislen izvor.")
+    if not has_source:
+        # Korisnička odluka (2026-07-26): prijedlog bez potvrđenog izvora
+        # (izvoznik/XML) se NIKAD ne prikazuje, bez obzira na tarifnu glavu
+        # ili broj korištenja — pogrešna carinska tarifa nosi stvaran rizik
+        # sankcija/kazni, pa nepotvrđen izvor nije dovoljan dokaz ni za
+        # informativan prijedlog. Ranije su neke grane (npr. "ista tarifna
+        # glava") prikazivale prijedlog i bez izvora ako je koristen ≥1x.
+        return _decision(
+            TariffDecisionOutcome.SUPPRESS,
+            score - 10,
+            positive_reasons,
+            negative_reasons + ["Istorijski zapis nema poznat izvor (izvoznik/XML) — ne prikazuje se."],
+        )
+    score += 20
+    positive_reasons.append("Istorijski zapis ima smislen izvor.")
 
     if match.usage_count >= thresholds.min_usage_for_weak_source:
         score += min(match.usage_count, 10) * 3

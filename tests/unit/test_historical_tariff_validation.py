@@ -77,12 +77,56 @@ def test_historical_validation_evaluation_metrics():
 
     assert metrics == {
         "true_positive": 10,
-        "true_negative": 7,
+        "true_negative": 9,
         "false_positive": 0,
         "false_negative": 0,
         "wrong_tariff": 0,
         "explanation_missing": 0,
     }
+
+
+def test_unknown_source_never_shown_regardless_of_usage_or_heading():
+    """
+    Korisnička odluka (2026-07-26): prijedlog bez potvrđenog izvora
+    (izvoznik/XML) se NIKAD ne prikazuje — carinski rizik pogrešne tarife
+    (sankcije/kazne) je preozbiljan da se osloni samo na "ista tarifna
+    glava" ili visok usage_count bez ijednog dokaza porijekla mapiranja.
+    """
+    # Visok usage_count, ista tarifna glava, ALI bez izvora — mora suprimirati.
+    match = _match(
+        "kozmeticka krema",
+        "33049910",
+        usage=50,
+        source="",
+        confidence=0.6,
+    )
+    decision = decide_tariff_match(match, "33049900", {}, _thresholds())
+    assert decision.outcome is TariffDecisionOutcome.SUPPRESS
+
+    # Placeholder vrijednosti u source koloni (stariji, nedovršeni zapisi)
+    # tretiraju se isto kao prazan izvor.
+    for placeholder in ("-", "—", "+", "A", "HISTORIJA"):
+        match = _match(
+            "kozmeticka krema",
+            "33049910",
+            usage=50,
+            source=placeholder,
+            confidence=0.6,
+        )
+        decision = decide_tariff_match(match, "33049900", {}, _thresholds())
+        assert decision.outcome is TariffDecisionOutcome.SUPPRESS, f"placeholder={placeholder!r}"
+
+    # Isti slučaj SA stvarnim izvorom se i dalje prikazuje (politika cilja
+    # samo na nepoznat izvor, ne na "ista tarifna glava" generalno).
+    match = _match(
+        "kozmeticka krema",
+        "33049910",
+        usage=1,
+        source="MEDIKO",
+        confidence=0.6,
+    )
+    decision = decide_tariff_match(match, "33049900", {}, _thresholds())
+    assert decision.outcome is TariffDecisionOutcome.SHOW_WEAK
 
 
 def test_tariff_decision_model_returns_explicit_show_strong():
@@ -208,35 +252,30 @@ def test_historical_validation_allows_strong_cross_chapter_match(monkeypatch):
     assert "Promjena poglavlja" in matches[0].decision_reason
 
 
-def test_historical_validation_marks_placeholder_source_as_unknown(monkeypatch):
+def test_historical_validation_marks_placeholder_source_as_unknown():
+    """
+    Placeholder izvor (npr. "HISTORIJA", ostatak starijeg učenja) se i dalje
+    klasifikuje kao UNKNOWN evidence preko evidence_from_tariff_decision.
+    Otkad izvor bez potvrde NIKAD ne stiže do korisnika (2026-07-26 politika
+    — carinski rizik pogrešne tarife), sam match se sad i suprimira prije
+    nego što bi ušao u validate_lines() rezultat — provjeravamo direktno
+    preko _is_actionable_match da evidence klasifikacija i dalje radi.
+    """
     svc = HistoricalTariffSearchService()
-    line = InvoiceLine(
-        line_no=52,
-        naziv_robe="DIXI dekstroza 7vit bomb a40",
-        tarifni_broj="21069092",
+    match = _match(
+        "DIXI dekstroza 7vit bomb a40",
+        "17049081",
+        usage=10,
+        source="HISTORIJA",
+        confidence=0.68,
     )
 
-    monkeypatch.setattr(
-        svc,
-        "_search_one",
-        lambda *_: [
-            _match(
-                "DIXI dekstroza 7vit bomb a40",
-                "17049081",
-                usage=10,
-                source="HISTORIJA",
-                confidence=0.68,
-            )
-        ],
-    )
-    monkeypatch.setattr(svc, "_feedback_action", lambda m: "")
+    is_actionable = svc._is_actionable_match(match, "21069092", {})
 
-    matches = svc.validate_lines([line])
-
-    assert len(matches) == 1
-    assert matches[0].evidence is not None
-    assert matches[0].evidence.confidence is DecisionConfidence.UNKNOWN
-    assert matches[0].evidence.source is DecisionSource.TARIFF_DATABASE
+    assert is_actionable is False  # suprimirano - nema potvrđenog izvora
+    assert match.evidence is not None
+    assert match.evidence.confidence is DecisionConfidence.UNKNOWN
+    assert match.evidence.source is DecisionSource.TARIFF_DATABASE
 
 
 def test_historical_validation_uses_invoice_profile_for_cross_chapter_noise(monkeypatch):
@@ -348,7 +387,11 @@ def test_historical_validation_suppresses_previously_rejected_feedback(monkeypat
                 "OHP SILICON CEPOVI ZA USI a6",
                 "39269097",
                 usage=16,
-                source="",
+                # Stvaran izvor (ne prazan) - ovaj test cilja feedback-based
+                # auto-rejection logiku, ne source-suppression politiku
+                # (2026-07-26) koja bi inače suprimirala match PRIJE nego
+                # što feedback provjera uopšte dođe na red.
+                source="MEDIKO",
                 confidence=0.65,
             )
         ],
@@ -456,9 +499,15 @@ def test_to_matches_racuna_supplier_match_po_redu_ne_pausalno():
 
 def test_search_one_ne_gubi_najjaci_zapis_bez_dobavljaca(monkeypatch):
     """
-    End-to-end regresija za SUSSINA slucaj preko validate_lines: kad je
-    izvoznik poznat, najjaci zapis (usage=40, bez dobavljaca) mora se
-    prikazati kao SHOW_STRONG prijedlog umjesto da bude tiho izbacen.
+    POLITIKA PROMIJENJENA 2026-07-26 (obrće 2026-07-22 SUSSINA fix): najjači
+    zapis (usage=40) i dalje NIJE izgubljen iz _search_one() rezultata (ta
+    dio fixa ostaje — vidi test_to_matches_racuna_supplier_match_po_redu_
+    ne_pausalno iznad), ALI se sad SUPRIMIRA na decision nivou jer nema potvrđen izvor —
+    korisnička odluka: carinski rizik pogrešne tarife je preozbiljan da se
+    prijedlog prikaže samo na osnovu visokog usage_count-a bez ijednog
+    dokaza porijekla. Drugi kandidat (usage=3, ima izvor) i dalje ne prolazi
+    jer 3 < MIN_USAGE_FOR_CROSS_CHAPTER — obje stavke se suprimiraju,
+    validate_lines() vraća prazan rezultat.
     """
     svc = HistoricalTariffSearchService()
     line = InvoiceLine(
@@ -479,6 +528,4 @@ def test_search_one_ne_gubi_najjaci_zapis_bez_dobavljaca(monkeypatch):
 
     matches = svc.validate_lines([line], izvoznik_naziv="MEDICO PHARM SERVIS")
 
-    assert len(matches) == 1
-    assert matches[0].tarifni_broj_historijski == "21069098"
-    assert matches[0].decision_outcome == "show_strong"
+    assert matches == []

@@ -132,7 +132,7 @@
     }
   },
   {
-    "name": "same_heading_precision_is_shown",
+    "name": "same_heading_precision_without_source_is_suppressed",
     "invoice_lines": [
       {
         "line_no": 1,
@@ -150,13 +150,35 @@
       }
     ],
     "expected": {
+      "action": "suppress"
+    }
+  },
+  {
+    "name": "same_heading_precision_with_source_is_shown",
+    "invoice_lines": [
+      {
+        "line_no": 1,
+        "naziv_robe": "kozmeticka krema",
+        "tarifni_broj": "33049900"
+      }
+    ],
+    "history_matches": [
+      {
+        "naziv_robe": "kozmeticka krema",
+        "tarifni_broj": "33049910",
+        "usage_count": 1,
+        "source": "MEDIKO",
+        "confidence": 0.6
+      }
+    ],
+    "expected": {
       "action": "show",
       "tarifni_broj": "33049910",
       "reason_contains": "Ista tarifna glava"
     }
   },
   {
-    "name": "same_chapter_different_heading_with_repetition_is_shown",
+    "name": "same_chapter_different_heading_without_source_is_suppressed",
     "invoice_lines": [
       {
         "line_no": 1,
@@ -170,6 +192,28 @@
         "tarifni_broj": "33051000",
         "usage_count": 2,
         "source": "",
+        "confidence": 0.6
+      }
+    ],
+    "expected": {
+      "action": "suppress"
+    }
+  },
+  {
+    "name": "same_chapter_different_heading_with_source_is_shown",
+    "invoice_lines": [
+      {
+        "line_no": 1,
+        "naziv_robe": "sampon za kosu",
+        "tarifni_broj": "33049900"
+      }
+    ],
+    "history_matches": [
+      {
+        "naziv_robe": "sampon za kosu",
+        "tarifni_broj": "33051000",
+        "usage_count": 2,
+        "source": "MEDIKO",
         "confidence": 0.6
       }
     ],
