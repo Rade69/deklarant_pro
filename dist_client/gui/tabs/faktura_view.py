@@ -4885,24 +4885,35 @@ class FakturaView(BaseTabView):
         dalje samo JEDNA ljudska odluka koja se od tad tiho ponavlja bez
         ikad ponovnog pregleda — korisnik mora imati priliku da je uhvati
         ako je bila pogrešna (vidi project_rooms/2026-07-21_preciznost-tarifnih-prijedloga.md).
+
+        Tabela sa opisom tarife (isti format kao _show_tariff_preview_dialog,
+        vidi _build_tariff_table_widget) — korisnička primjedba 2026-07-26:
+        goli tekst "naziv → tarifa" tjera deklaranta da opis nove tarife sam
+        traži u tarifniku/šifarniku, što remeti radni tok.
         """
         naziv_by_idx = {
             idx: (self.draft.invoice_lines[idx].naziv_robe or "")
             for idx, _ in auto_applied
             if 0 <= idx < len(self.draft.invoice_lines)
         }
-        lines_txt = "\n".join(
-            f"  Rb.{idx + 1}: {naziv_by_idx.get(idx, '')[:45]} → {tarif}"
+        rows = [
+            {
+                "rb": idx + 1,
+                "naziv": naziv_by_idx.get(idx, ""),
+                "tarif": tarif,
+                "izvor": "Ranija ručna potvrda (100%)",
+                "opis": self._get_tariff_description(tarif),
+            }
             for idx, tarif in auto_applied
-        )
-        self._show_scrollable_info_dialog(
+        ]
+        self._show_tariff_table_info_dialog(
             "Automatski ažurirane tarife (ranija potvrda)",
-            f"Automatski je ažurirano {len(auto_applied)} tarifnih brojeva jer ste ih "
-            f"RANIJE RUČNO potvrdili kroz 'Provjeri' — to je jača evidencija od pukog "
-            f"korištenja u prethodnim deklaracijama, ali je i dalje samo jedna ranija "
-            f"odluka koja se ponavlja bez novog pregleda.\n\n"
-            f"{lines_txt}\n\n"
-            f"Provjerite da li su i dalje ispravne."
+            f"Automatski je ažurirano <b>{len(auto_applied)}</b> tarifnih brojeva jer ste ih "
+            "RANIJE RUČNO potvrdili kroz 'Provjeri' — to je jača evidencija od pukog "
+            "korištenja u prethodnim deklaracijama, ali je i dalje samo jedna ranija "
+            "odluka koja se ponavlja bez novog pregleda.<br>"
+            "Provjerite da li su opisi i dalje tačni za date proizvode.",
+            rows,
         )
 
     def _notify_auto_rejected_tariffs(self, auto_rejected: list) -> None:
@@ -5526,42 +5537,25 @@ class FakturaView(BaseTabView):
         "baza_znanja": "Baza znanja",
     }
 
-    def _show_tariff_preview_dialog(self, target_lines: list, proposals: list) -> bool:
+    def _build_tariff_table_widget(self, rows: list):
         """
-        Prikaži dijalog potvrde PRIJE auto-popunjavanja.
-        Tabela: Rb | Naziv proizvoda | Tarifa | Izvor / Pouzdanost | Opis tarife
-        proposals: lista TariffProposal (iz auto_populate_tariffs(dry_run=True)) —
-        isti proračun koji će _on_auto_fill kasnije stvarno upisati preko
-        facade.commit_proposals(), pa je i confidence/source ovdje istinit,
-        ne odbačen kao ranije (vidi
-        project_rooms/2026-07-21_preciznost-tarifnih-prijedloga.md).
-        Vraća True ako korisnik potvrdi, False ako odustane.
+        Zajednička tabela Rb | Naziv proizvoda | Tarifa | Izvor / Pouzdanost |
+        Opis tarife — dijeli je dijalog potvrde auto-popune
+        (_show_tariff_preview_dialog) i info-dijalog za automatski primijenjene
+        tarife (_notify_auto_applied_tariffs), da izgledaju identično i da se
+        ne duplira ~50 linija stilizacije.
+        rows: lista dict-ova sa ključevima rb, naziv, tarif, izvor, opis.
         """
-        from PySide6.QtWidgets import (
-            QDialog, QVBoxLayout, QHBoxLayout, QLabel,
-            QPushButton, QTableWidget, QTableWidgetItem, QHeaderView,
-        )
+        from PySide6.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView
         from PySide6.QtCore import Qt
-        from PySide6.QtGui import QFont
-
-        dialog = QDialog(self)
-        dialog.setWindowTitle("Potvrda auto-popunjavanja tarifnih brojeva")
-        layout = QVBoxLayout(dialog)
-        layout.setSpacing(10)
-
-        label = QLabel(
-            f"Pronađeno <b>{len(proposals)}</b> prijedloga tarifnih brojeva.<br>"
-            "Provjerite opise tarifa — ako je opis netačan za dati proizvod, kliknite <b>Odustani</b>."
-        )
-        label.setWordWrap(True)
-        layout.addWidget(label)
+        from PySide6.QtGui import QFont, QColor
 
         table = QTableWidget()
         table.setColumnCount(5)
         table.setHorizontalHeaderLabels(
-            ["Rb.", "Naziv proizvoda", "Tarifa", "Izvor / Pouzdanost", "Opis tarife (provjeri!)"]
+            ["Rb.", "Naziv proizvoda", "Tarifa", "Izvor / Pouzdanost", "Opis tarife"]
         )
-        table.setRowCount(len(proposals))
+        table.setRowCount(len(rows))
         table.setEditTriggers(QTableWidget.NoEditTriggers)
         table.setAlternatingRowColors(False)
         table.verticalHeader().setVisible(False)
@@ -5596,32 +5590,20 @@ class FakturaView(BaseTabView):
 
         bold_font = QFont()
         bold_font.setBold(True)
-
-        from PySide6.QtGui import QColor
         clr_even = QColor("#ffffff")
-        clr_odd  = QColor("#f5f7fa")
+        clr_odd = QColor("#f5f7fa")
 
-        naziv_by_line = {
-            line.line_no: (getattr(line, 'naziv_robe', '') or '')
-            for line in target_lines
-        }
-
-        for i, proposal in enumerate(proposals):
-            naziv = naziv_by_line.get(proposal.line_no) or proposal.naziv_ili_kod
-            tarif = proposal.tarifni_broj
-            opis = self._get_tariff_description(tarif)
-            izvor_label = self._TARIFF_SOURCE_LABELS.get(proposal.source, proposal.source or "?")
-            izvor_text = f"{izvor_label} ({int(proposal.confidence * 100)}%)"
+        for i, row in enumerate(rows):
             bg = clr_even if i % 2 == 0 else clr_odd
 
-            item_rb = QTableWidgetItem(str(proposal.line_no))
+            item_rb = QTableWidgetItem(str(row.get("rb", "")))
             item_rb.setTextAlignment(Qt.AlignCenter)
-            item_naziv = QTableWidgetItem(naziv[:60])
-            item_tarif = QTableWidgetItem(tarif)
+            item_naziv = QTableWidgetItem(str(row.get("naziv", ""))[:60])
+            item_tarif = QTableWidgetItem(str(row.get("tarif", "")))
             item_tarif.setFont(bold_font)
             item_tarif.setTextAlignment(Qt.AlignCenter)
-            item_izvor = QTableWidgetItem(izvor_text)
-            item_opis = QTableWidgetItem(opis)
+            item_izvor = QTableWidgetItem(str(row.get("izvor", "")))
+            item_opis = QTableWidgetItem(str(row.get("opis", "")))
 
             for item in (item_rb, item_naziv, item_tarif, item_izvor, item_opis):
                 item.setBackground(bg)
@@ -5639,6 +5621,55 @@ class FakturaView(BaseTabView):
         table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         table.horizontalHeader().setSectionResizeMode(4, QHeaderView.Stretch)
         table.resizeRowsToContents()
+        return table
+
+    def _show_tariff_preview_dialog(self, target_lines: list, proposals: list) -> bool:
+        """
+        Prikaži dijalog potvrde PRIJE auto-popunjavanja.
+        Tabela: Rb | Naziv proizvoda | Tarifa | Izvor / Pouzdanost | Opis tarife
+        proposals: lista TariffProposal (iz auto_populate_tariffs(dry_run=True)) —
+        isti proračun koji će _on_auto_fill kasnije stvarno upisati preko
+        facade.commit_proposals(), pa je i confidence/source ovdje istinit,
+        ne odbačen kao ranije (vidi
+        project_rooms/2026-07-21_preciznost-tarifnih-prijedloga.md).
+        Vraća True ako korisnik potvrdi, False ako odustane.
+        """
+        from PySide6.QtWidgets import (
+            QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
+        )
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Potvrda auto-popunjavanja tarifnih brojeva")
+        layout = QVBoxLayout(dialog)
+        layout.setSpacing(10)
+
+        label = QLabel(
+            f"Pronađeno <b>{len(proposals)}</b> prijedloga tarifnih brojeva.<br>"
+            "Provjerite opise tarifa — ako je opis netačan za dati proizvod, kliknite <b>Odustani</b>."
+        )
+        label.setWordWrap(True)
+        layout.addWidget(label)
+
+        naziv_by_line = {
+            line.line_no: (getattr(line, 'naziv_robe', '') or '')
+            for line in target_lines
+        }
+
+        rows = []
+        for proposal in proposals:
+            naziv = naziv_by_line.get(proposal.line_no) or proposal.naziv_ili_kod
+            tarif = proposal.tarifni_broj
+            izvor_label = self._TARIFF_SOURCE_LABELS.get(proposal.source, proposal.source or "?")
+            rows.append({
+                "rb": proposal.line_no,
+                "naziv": naziv,
+                "tarif": tarif,
+                "izvor": f"{izvor_label} ({int(proposal.confidence * 100)}%)",
+                "opis": self._get_tariff_description(tarif),
+            })
+
+        table = self._build_tariff_table_widget(rows)
+        table.horizontalHeaderItem(4).setText("Opis tarife (provjeri!)")
         layout.addWidget(table)
 
         btn_layout = QHBoxLayout()
@@ -5662,6 +5693,41 @@ class FakturaView(BaseTabView):
         )
 
         return dialog.exec() == QDialog.Accepted
+
+    def _show_tariff_table_info_dialog(self, title: str, intro_html: str, rows: list) -> None:
+        """
+        Info-only varijanta _show_tariff_preview_dialog-a (bez Potvrdi/Odustani,
+        samo OK) — koristi se za notifikacije o tarifama koje su VEĆ primijenjene
+        (auto_applied), gdje korisnik ništa ne bira, samo vidi šta se desilo i
+        zašto — sa istom Rb/Naziv/Tarifa/Izvor/Opis tabelom kao dijalog potvrde,
+        umjesto običnog teksta bez opisa tarife.
+        """
+        from PySide6.QtWidgets import QDialog, QVBoxLayout, QLabel, QDialogButtonBox, QApplication
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle(title)
+        layout = QVBoxLayout(dialog)
+        layout.setSpacing(10)
+
+        label = QLabel(intro_html)
+        label.setWordWrap(True)
+        layout.addWidget(label)
+
+        table = self._build_tariff_table_widget(rows)
+        layout.addWidget(table)
+
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok)
+        button_box.accepted.connect(dialog.accept)
+        layout.addWidget(button_box)
+
+        screen = self.screen() or QApplication.primaryScreen()
+        available = screen.availableGeometry()
+        dialog.resize(
+            min(1100, available.width() - 80),
+            min(600, available.height() - 80),
+        )
+
+        dialog.exec()
 
     def _show_scrollable_info_dialog(self, title: str, text: str):
         """

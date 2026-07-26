@@ -37,12 +37,18 @@ def test_notify_navodi_da_je_ranija_rucna_potvrda_razlog():
 
     FakturaView._notify_auto_applied_tariffs(mock_self, [(0, "85168080")])
 
-    mock_self._show_scrollable_info_dialog.assert_called_once()
-    title, text = mock_self._show_scrollable_info_dialog.call_args[0]
-    assert "RANIJE RUČNO potvrdili" in text
-    assert "Rb.1" in text
-    assert "GREJAC KVARCNI 1000W" in text
-    assert "85168080" in text
+    mock_self._show_tariff_table_info_dialog.assert_called_once()
+    title, intro_html, rows = mock_self._show_tariff_table_info_dialog.call_args[0]
+    assert title == "Automatski ažurirane tarife (ranija potvrda)"
+    assert "RANIJE RUČNO potvrdili" in intro_html
+    assert len(rows) == 1
+    assert rows[0]["rb"] == 1
+    assert rows[0]["naziv"] == "GREJAC KVARCNI 1000W"
+    assert rows[0]["tarif"] == "85168080"
+    # Opis tarife (korisnička primjedba 2026-07-21/26): dijalog mora nositi
+    # opis nove tarife, ne samo goli kod — deklarant ga inače mora sam tražiti.
+    assert "opis" in rows[0]
+    mock_self._get_tariff_description.assert_called_once_with("85168080")
 
 
 def test_notify_nabraja_sve_auto_primijenjene_stavke():
@@ -50,7 +56,21 @@ def test_notify_nabraja_sve_auto_primijenjene_stavke():
 
     FakturaView._notify_auto_applied_tariffs(mock_self, [(0, "11112222"), (2, "33334444")])
 
-    _, text = mock_self._show_scrollable_info_dialog.call_args[0]
-    assert "Rb.1: STAVKA A → 11112222" in text
-    assert "Rb.3: STAVKA C → 33334444" in text
-    assert "2" in text  # broj auto-primijenjenih stavki spomenut u poruci
+    _, intro_html, rows = mock_self._show_tariff_table_info_dialog.call_args[0]
+    assert rows == [
+        {
+            "rb": 1,
+            "naziv": "STAVKA A",
+            "tarif": "11112222",
+            "izvor": "Ranija ručna potvrda (100%)",
+            "opis": mock_self._get_tariff_description.return_value,
+        },
+        {
+            "rb": 3,
+            "naziv": "STAVKA C",
+            "tarif": "33334444",
+            "izvor": "Ranija ručna potvrda (100%)",
+            "opis": mock_self._get_tariff_description.return_value,
+        },
+    ]
+    assert "2" in intro_html  # broj auto-primijenjenih stavki spomenut u poruci
