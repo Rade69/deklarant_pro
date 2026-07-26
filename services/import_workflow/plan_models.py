@@ -70,6 +70,7 @@ class PreparedInvoice:
     exporter: Optional[Party] = None
     importer: Optional[Party] = None
     currency: str = ""
+    incoterm_code: str = ""  # Rb.20 "Uslovi isporuke"
 
     # ── Porijeklo ──────────────────────────────────────────────────
     has_origin_statement: bool = False

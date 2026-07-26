@@ -45,6 +45,7 @@ class FileItem:
     exporter: Optional[object] = None  # Party - izvoznik/pošiljalac
     importer: Optional[object] = None  # Party - uvoznik/primalac
     currency: str = ""  # Valuta sa fakture
+    incoterm_code: str = ""  # Rb.20 "Uslovi isporuke" (paritet)
 
     @property
     def size_str(self) -> str:

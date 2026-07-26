@@ -125,6 +125,7 @@ class ProcessingWorker(QThread):
                     file_item.exporter = getattr(result, "exporter", None)
                     file_item.importer = getattr(result, "importer", None)
                     file_item.currency = getattr(result, "currency", "") or ""
+                    file_item.incoterm_code = getattr(result, "incoterm_code", "") or ""
                     file_item.invoice_lines = invoice_lines
                     file_item.status = 'Completed'
                     file_item.detected_parser = getattr(result, '_detected_format', 'auto') or 'auto'

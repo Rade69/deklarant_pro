@@ -253,6 +253,9 @@ def _apply_header_if_empty(draft: DeclarationDraft, invoice: PreparedInvoice) ->
     currency = (invoice.currency or "").strip()
     if currency and currency.upper() != "EUR" and not draft.valuta:
         draft.valuta = currency
+    incoterm_code = (invoice.incoterm_code or "").strip()
+    if incoterm_code and not draft.uslovi_kod:
+        draft.uslovi_kod = incoterm_code
 
 
 def _apply_party_to_exporter(draft: DeclarationDraft, party: Party | None) -> None:
