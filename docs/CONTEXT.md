@@ -1737,3 +1737,68 @@ Commit: `4eb88d0`. **Faza 2 (migracija ChatWorker Zone B/B2 da koriste
 adapter) NIJE urađena** — čeka zaseban zadatak/odluku o obimu (Faza 4 vs
 5, `TariffLLMWorker` migracija, prioritet — vidi otvorena pitanja u
 project_room planu).
+
+## 63. Faze 2-5 dovršene — AgentSafeContext migracija (2026-07-26)
+
+Nastavak §62 — korisnik potvrdio nastavak do Faze 5 (implicitno odgovara
+na plan §7 pitanje "Faza 4 vs 5").
+
+**Faza 2** (`d737a90`) — `_build_session_zone` (Zone B) i `_build_zaglavlje_
+zone` (Zone B2) migrirani na novi `AgentContextAdapter.mask_partner(role,
+name)` — jedina tačka odluke o maskiranju, umjesto ručnog `if send_
+sensitive:` po polju u svakoj zoni (tačan obrazac koji je uzrokovao §61
+propust). Ponašanje provjereno IDENTIČNO original logici za sve slučajeve
+(uključujući "JIB postoji, ime ne" ivicu u Zone B). Zone B ranije NIJE
+imala test koji provjerava stvaran sadržaj — dodano 5 novih testova; JIB
+DB upit (`find_xml_for_pair`, PostgreSQL) mockovan u testovima da ne čekaju
+DB timeout (87s → 0.9s).
+
+**Faza 3** (`0aa54d4`) — Zone A (`=== STANJE DRAFTA ===`) agregati
+(ukupno/bez_tarife/bez_zemlje/sa_povlasticom/ceka_eur1/zemlja_distribucija)
+migrirani na `AgentContextAdapter.build_draft_summary()`. `bez_tarife_
+list`/`bez_zemlje_list` (liste REDOVA, ne brojevi) ostaju lokalni jer ih
+koriste kasnije sekcije. **GitNexus impact HIGH** (6 affected_processes,
+`_build_context` je centralna orkestracija) — prijavljeno korisniku prije
+commita po AGENTS.md protokolu; verifikovano ponašanje-identično (2 nova
+testa + 31/31 postojećih `test_tool_use_offline.py` testova nepromijenjeno).
+
+**Faza 4** (`5b8bd16`) — ostatak Zone B2 (valuta/iznos/kurs, uslovi
+isporuke, vid transporta, država izvoza, troškovi, priložene isprave)
+migriran na `AgentContextAdapter.build_header()`. Usput otkriven i
+ispravljen razmak-propust u vlastitom Faza 1 kodu (`vid_transporta` imao
+jedan razmak umjesto dva prije "granica=") — uhvaćen testom prije nego što
+je Faza 4 stvarno oživjela taj kod u produkciji. 6 novih testova.
+
+**Faza 5** (`c12d451`) — analizirane preostale zone (`_build_knowledge_
+zone`, `_build_tariff_validation_context`, `_search_declarations_context`):
+- `_build_knowledge_zone`/`_build_tariff_validation_context` NE diraju
+  partner podatke (samo tarifni kodovi/nazivi robe/zemlje) — **namjerno
+  NISU migrirane** (migracija bi bila čist code churn bez sigurnosne
+  koristi).
+- `_search_pg_partners` je već ispravno maskiran. `docs/deklarant_pro_
+  code_review.md` §2.2 i `docs/deklarant_pro_analiza_i_prijedlozi.md` §1.2
+  tvrde suprotno ("ignoriše SEND_SENSITIVE_DATA") — **verifikovano
+  ZASTARJELO** (opisuju stariju verziju koda), docs NISU ažurirani (van
+  scope-a). Nema akcije jer nije pokvareno.
+- `_search_declarations_context` "Pretraga po partneru" grana **JE
+  migrirana** — isti ranjivi obrazac (ručni ternary po polju) kao Zone B2.
+  2 nova testa.
+- **Otvoreno pitanje, namjerno NEDIRANO**: ista grana pokazuje STVARAN JIB
+  kad je `send_sensitive=True` (za razliku od Zone B gdje se JIB NIKAD ne
+  šalje LLM-u bez obzira na flag) — dokumentovano komentarom u kodu, čeka
+  korisničku potvrdu da li je namjeravana razlika.
+
+**Forbidden-marker test** (`6a93455`, plan §8) — `tests/unit/test_chat_
+worker_forbidden_markers.py`: ubaci prepoznatljive markere u SVA partner
+polja (oba izvora — Zone B invoice_lines[].exporter.name I Zone B2 draft
+Zaglavlje polja), provjeri da se nijedan ne pojavi u cjelokupnom
+`_build_context()` outputu kad je maskiranje uključeno; kontrolni test
+(sensitive=True) potvrđuje test nije lažno pozitivan.
+
+Pun test suite: 1156 passed (bilo 1139 prije Faze 2, +17 novih testova
+kroz sve faze). Isti pre-postojeći DB nedostupnost (server dostupan od
+2026-07-26 ujutru po ranijoj korisničkoj potvrdi) + 1 nepovezan fail.
+
+Faze 1-5 kompletne. `TariffLLMWorker` migracija i `header_attached_
+documents` (već uključeno, potvrđeno neosjetljivo u §60) van scope-a —
+nema više otvorenih faza iz plana.
