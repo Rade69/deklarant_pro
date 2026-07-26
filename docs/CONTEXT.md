@@ -1802,3 +1802,48 @@ kroz sve faze). Isti pre-postojeći DB nedostupnost (server dostupan od
 Faze 1-5 kompletne. `TariffLLMWorker` migracija i `header_attached_
 documents` (već uključeno, potvrđeno neosjetljivo u §60) van scope-a —
 nema više otvorenih faza iz plana.
+
+## 64. DB grešku ne miješati sa "nema istorijskog prijedloga" (2026-07-26)
+
+**Live debug sesija**: korisnik pokrenuo aplikaciju, uvezao fakturu 1476/26
+(Medikopharm), selektovao stavku "SUSSINA 650 tbl." (tarifa 38249993 iz
+fakture) i kliknuo "Provjeri" — dobio "nema boljeg istorijskog prijedloga"
+iako je (po korisnikovom znanju) postojao bolji prijedlog.
+
+**Uzrok**: PostgreSQL server je bio na DHCP-u premješten (treći put u ovoj
+sesiji — sada na `192.168.0.25`, `.env`/`dist_client/.env` ažurirani,
+van gita po `.gitignore`). `HistoricalTariffSearchService._search_one()`
+je hvatao SVAKI izuzetak (uključujući DB konekcijsku grešku) i tiho vraćao
+`[]` — identično ponašanju "provjereno, stvarno nema prijedloga". Nakon
+popravke IP-a, direktna provjera je potvrdila: 15 istorijskih zapisa za
+"SUSSINA" postoji (`catalogs.product_tariff_mapping`, mapiraju na
+`21069098`), a `validate_lines()` sad ispravno vraća jak prijedlog
+(usage_count=43) sa ranijom "accept" povratnom informacijom (auto-primjena).
+
+**Fix**: `HistoricalTariffSearchService.last_db_error` — postavlja se u
+`_search_one()` SAMO za `psycopg2.Error` (DB konekcija/timeout/circuit
+breaker), resetuje na početku svakog `validate_lines()` poziva. Ne-DB
+izuzeci i dalje se tiho gutaju (nepromijenjeno ponašanje).
+`HistoricalValidationWorker` provjerava `last_db_error` nakon
+`validate_lines()` — ako postavljen, emituje `error_occurred` umjesto
+`finished_validation` (sprječava lažno-uspješan prikaz praznog rezultata).
+`FakturaView._on_historical_validation_error` sad prima `auto` flag i
+prikazuje `QMessageBox.warning` kad NIJE auto mod — ranije je greška
+SAMO logovana, korisnik nije vidio ništa čak ni kod stvarne DB greške.
+
+GitNexus impact na `validate_lines` je HIGH (22 impactedCount, 6 direktnih
+pozivalaca uključujući Agent chat tool i `scripts/agent_tariff_eval_
+report.py`) — namjerno **aditivan** dizajn (novi atribut, ne mijenja
+postojeći povratni tip/ugovor) drži stvaran rizik nizak uprkos GitNexus
+ocjeni; nijedan postojeći pozivalac nije morao biti mijenjan.
+
+Usput instaliran OCR (`pytesseract`, `pdf2image`, `opencv-python` preko
+pip; sistemski Tesseract 5.4.0 preko `winget install UB-Mannheim.
+TesseractOCR` — aplikacija ga već auto-detektuje preko `importers/pdf/
+ocr_utils.py::_find_tesseract()`, bez potrebe za PATH izmjenom).
+
+9 novih/proširenih testova. Pun test suite: 1174 passed (DB-backed testovi
+iz `test_decision_characterization.py` sad prolaze — server dostupan),
+isti 1 nepovezan pre-postojeći fail.
+
+Commit: `db3ca95`.
