@@ -2343,3 +2343,52 @@ nepovezano, nedirano.
 `feature/agent-v2` (neočekivan `git checkout` od strane drugog agenta u
 istom working tree-u, usred moje sesije) — cherry-pick-ovan nazad na
 `windows` bez diranja `feature/agent-v2`.
+
+---
+
+### §72 — Uvećan font: kontekstni meni, dijalog izmjene tarife, tabela auto-primijenjenih tarifa (2026-07-26)
+
+Korisnička primjedba (uz screenshot): font u dijalogu "Promijeni tarifni
+broj" (otvara se desnim klikom na tabelu → izmjena tarife za više
+odabranih stavki) i u tabeli dijaloga "Automatski ažurirane tarife" (§67)
+je previše sitan i nečitljiv; isto i kontekstni meni (desni klik) za izbor
+akcije.
+
+**Uzrok**: `QMenu` (kontekstni meni, `_on_table_context_menu`) i
+`QInputDialog.getText()` (`_on_bulk_change_tariff`) nisu imali nikakav
+eksplicitan stylesheet — nasljeđivali su globalni app font (Segoe UI 9pt
+na Windows-u, `run.py`), što je za ove specifične dijaloge (rijetko
+korišćeni, gusti tekst) ispalo premalo. Tabela u `_build_tariff_table_widget`
+(dijeli je `_show_tariff_preview_dialog` i `_show_tariff_table_info_dialog`,
+§67/§70) je imala `font-size: 13px` — deklarisano, ali i dalje ocijenjeno
+premalim od strane korisnika.
+
+**Fix**:
+- `QMenu` u `_on_table_context_menu` — `font-size: 15px`, veći padding po
+  stavci menija (8px 24px) za lakše ciljanje mišem.
+- `_on_bulk_change_tariff` — zamijenjen `QInputDialog.getText()` (statička
+  metoda, ne dozvoljava stylesheet) ručnom `QInputDialog` instancom
+  (`.setLabelText()`/`.setTextValue()`/`.exec()`) sa `font-size: 15px`
+  (label/lineedit) i `14px` (dugmad) — identično ponašanje, samo čitljivije.
+- `_build_tariff_table_widget` — `font-size` stavki 13px→16px, header
+  13px→15px (eksplicitno, jer `QHeaderView::section` ne nasljeđuje
+  font-size od `QTableWidget` u Qt QSS kaskadi), padding povećan.
+- Intro `QLabel` tekst i OK/Potvrdi/Odustani dugmad u
+  `_show_tariff_preview_dialog` i `_show_tariff_table_info_dialog` —
+  eksplicitan `font-size: 15px`/`14px` (prije nedeklarisano, nasljeđivalo
+  globalni 9pt).
+
+GitNexus impact: `_on_table_context_menu` LOW (0 impacted, izolovan
+signal handler), `_build_tariff_table_widget` LOW (5 impacted, dijele je
+samo 2 poznata dijaloga). `detect_changes` poslije: LOW, 0
+affected_processes, svi touched simboli namjerni (uklj. lažno pripisanu
+`_show_scrollable_info_dialog` — samo pomjerena linija, tijelo netaknuto).
+
+Testovi: postojeći `test_faktura_view_auto_applied_notice.py` i dalje
+prolazi (ne testira render/pixel, samo strukturu podataka — vizuelna
+promjena bez novog testa, po istom principu kao §69 boja dugmadi). Pun
+test suite: 1262 passed, ista 2 pre-postojeća nepovezana problema.
+
+Nije dodat automatski test za font-size (isto obrazloženje kao ranije
+vizuelne izmjene — Qt offscreen test ne provjerava stvaran render).
+Potrebna korisnička vizuelna potvrda uživo.
