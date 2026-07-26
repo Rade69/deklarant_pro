@@ -1897,3 +1897,35 @@ slučaja sa praznim izvorom → "without_source_is_suppressed", + 2 nova
 Pun test suite: 1177 passed, isti 1 nepovezan pre-postojeći fail.
 
 Commit: `5a53d08`.
+
+### §66 — JIB u partner-search grani usklađen sa Zone B pravilom (2026-07-26)
+
+Follow-up na §62-63 (AgentSafeContext migracija) — otvoreno pitanje iz
+Faze 5 sad zatvoreno korisničkom odlukom.
+
+**Prije**: `_search_declarations_context` (partner-search grana,
+`chat_worker.py`) je pokazivala STVARAN `consignee_jib` LLM-u kad
+`_allow_sensitive_data()` vrati `True` (tj. `SEND_SENSITIVE_DATA=true` I
+lokalni provider — cloud provideri se već forsirano maskiraju). Zone B
+(`_build_session_zone`) nikad ne šalje JIB LLM-u, bez ikakvog uslova.
+
+**Korisnička odluka**: uskladiti sa Zone B — JIB se NIKAD ne šalje LLM-u
+ni u jednoj grani, čak ni uz eksplicitni `SEND_SENSITIVE_DATA=true` opt-in
+na lokalnom modelu. Jedno apsolutno pravilo umjesto uslovnog izuzetka.
+
+**Fix**: `jib_display` u partner-search grani je sad uvijek
+`"[JIB skriven]"`, bez obzira na `send_sensitive`. Ime izvoznika/primaoca
+i dalje idu kroz `AgentContextAdapter.mask_partner()` (nepromijenjeno) —
+samo JIB polje je zaključano.
+
+GitNexus impact na `_search_declarations_context` (upstream) je LOW (2
+pogođena simbola, `_build_context`→`run`, 1 proces). `detect_changes(all)`
+poslije potvrdio LOW/0 affected processes.
+
+Testovi: docstring u
+`test_chat_worker_declarations_partner_search_masking.py` ažuriran (više
+nije "namjerno nedirano"), dodan nov test
+`test_partner_search_jib_nikad_ne_ide_u_kontekst` koji provjerava da pravi
+JIB nikad ne uđe u kontekst, za oba stanja `send_sensitive`.
+
+Commit: vidi `agent_reports/2026-07-26_jib-partner-search-usklajivanje.md`.
