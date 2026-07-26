@@ -63,6 +63,15 @@ class HistoricalValidationWorker(QThread):
             )
             if self._cancelled:
                 return
+            db_error = getattr(svc, "last_db_error", None)
+            if db_error:
+                # Provjera NIJE izvršena (DB nedostupna) — ne emitovati
+                # finished_validation sa praznim matches, jer bi to izgledalo
+                # kao "provjereno, nema prijedloga" umjesto "nije provjereno".
+                self.error_occurred.emit(
+                    f"Baza podataka nedostupna — istorijska provjera nije izvršena ({db_error})"
+                )
+                return
             auto_applied = list(getattr(svc, "last_auto_applied", []) or [])
             auto_rejected = list(getattr(svc, "last_auto_rejected", []) or [])
             self.finished_validation.emit(matches, auto_applied, auto_rejected)

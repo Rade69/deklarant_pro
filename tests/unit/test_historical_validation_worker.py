@@ -64,6 +64,27 @@ def test_worker_emits_error_occurred_on_exception(qtbot):
     worker.wait(1000)
 
 
+def test_worker_emits_error_when_last_db_error_set_even_with_empty_matches(qtbot):
+    """
+    validate_lines() vraca [] BEZ izuzetka (DB greska po liniji se hvata
+    unutar servisa) - worker mora provjeriti last_db_error i emitovati
+    error_occurred umjesto finished_validation, inace izgleda kao
+    "provjereno, nema prijedloga" (2026-07-26, SUSSINA slucaj).
+    """
+    _app()
+
+    def _fake_validate_lines(self, *args, **kwargs):
+        self.last_db_error = "connection to server failed: timeout expired"
+        return []
+
+    with patch.object(HistoricalTariffSearchService, "validate_lines", _fake_validate_lines):
+        worker = HistoricalValidationWorker([])
+        with qtbot.waitSignal(worker.error_occurred, timeout=3000) as blocker:
+            worker.start()
+        assert "nedostupna" in blocker.args[0] or "timeout" in blocker.args[0]
+    worker.wait(1000)
+
+
 def test_worker_cancel_before_start_skips_validate_lines(qtbot):
     _app()
     with patch.object(HistoricalTariffSearchService, "validate_lines") as mock_validate:
@@ -128,6 +149,20 @@ def test_on_historical_validation_finished_discards_stale_generation():
     fake_self.table.blockSignals.assert_not_called()
     fake_self._notify_auto_applied_tariffs.assert_not_called()
     mock_info.assert_not_called()
+
+
+def test_on_historical_validation_error_prikazuje_dijalog_kad_nije_auto():
+    fake_self = type("FakeFakturaSelf", (), {})()
+    with patch("gui.tabs.faktura_view.QMessageBox") as mock_msgbox:
+        FakturaView._on_historical_validation_error(fake_self, "Baza nedostupna", auto=False)
+    mock_msgbox.warning.assert_called_once()
+
+
+def test_on_historical_validation_error_tih_kad_je_auto():
+    fake_self = type("FakeFakturaSelf", (), {})()
+    with patch("gui.tabs.faktura_view.QMessageBox") as mock_msgbox:
+        FakturaView._on_historical_validation_error(fake_self, "Baza nedostupna", auto=True)
+    mock_msgbox.warning.assert_not_called()
 
 
 def test_shutdown_agent_workers_stops_both_agent_and_faktura_worker():

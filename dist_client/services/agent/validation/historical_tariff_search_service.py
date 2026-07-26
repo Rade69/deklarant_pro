@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import re
 import logging
+import psycopg2
 from collections import Counter
 from dataclasses import dataclass
 from typing import Dict, List
@@ -70,6 +71,12 @@ class HistoricalTariffSearchService:
     def __init__(self):
         self.last_auto_applied: list[tuple[int, str]] = []
         self.last_auto_rejected: list[tuple[int, str]] = []
+        # Postavlja se u _search_one() ako DB upit ne uspije (konekcija/timeout/
+        # circuit breaker) — bez ovoga "baza nedostupna" i "stvarno nema
+        # istorijskog prijedloga" izgledaju identično pozivaocu (prazna lista),
+        # pa korisnik vidi zavaravajuću poruku "nema boljeg prijedloga" umjesto
+        # da zna da provjera uopšte nije izvršena.
+        self.last_db_error: str | None = None
 
     def validate_lines(
         self,
@@ -89,6 +96,7 @@ class HistoricalTariffSearchService:
         results = []
         self.last_auto_applied = []
         self.last_auto_rejected = []
+        self.last_db_error = None
         invoice_profile = self._build_invoice_profile(invoice_lines)
         for idx, line in enumerate(invoice_lines):
             naziv = (getattr(line, 'naziv_robe', '') or '').strip()
@@ -168,6 +176,15 @@ class HistoricalTariffSearchService:
                         if not rows:
                             rows = self._query_broad(cur, words, izvoznik, uvoznik)
                         return self._to_matches(rows, naziv_robe, supplier_key="")
+        except psycopg2.Error as e:
+            # Konekcija/timeout/circuit breaker — provjera NIJE izvršena, ne
+            # smije se tretirati isto kao "provjereno, nema prijedloga".
+            # last_db_error omogućava pozivaocu (npr. HistoricalValidationWorker)
+            # da to razlikuje i prikaže tačnu poruku umjesto zavaravajuće
+            # "nema boljeg prijedloga".
+            logger.warning("HistoricalTariffSearch DB greška za '%s': %s", naziv_robe[:40], e)
+            self.last_db_error = str(e)
+            return []
         except Exception as e:
             logger.warning("HistoricalTariffSearch greška za '%s': %s", naziv_robe[:40], e)
             return []

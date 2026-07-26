@@ -4717,7 +4717,9 @@ class FakturaView(BaseTabView):
                     generation=my_generation,
                 )
             )
-            worker.error_occurred.connect(self._on_historical_validation_error)
+            worker.error_occurred.connect(
+                lambda message: self._on_historical_validation_error(message, auto=auto)
+            )
             worker.finished.connect(
                 lambda: self._cleanup_historical_validation_worker(worker)
             )
@@ -4731,8 +4733,12 @@ class FakturaView(BaseTabView):
             self.historical_validation_worker = None
         worker.deleteLater()
 
-    def _on_historical_validation_error(self, message: str) -> None:
+    def _on_historical_validation_error(self, message: str, auto: bool = False) -> None:
         logger.warning("Istorijska validacija greška: %s", message)
+        # auto=True (puna automatizacija): dijalog se NIKAD ne prikazuje, isti
+        # razlog kao u _on_historical_validation_finished — samo se loguje.
+        if not auto:
+            QMessageBox.warning(self, "Istorijska provjera nije uspjela", message)
 
     def _on_historical_validation_finished(
         self,
