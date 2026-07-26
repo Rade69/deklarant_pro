@@ -2024,3 +2024,54 @@ ista 2 pre-postojeća nepovezana problema.
 bajt-identičan prije izmjene — primijenjen identičan diff.
 `gui/dialogs/db_setup_dialog.py` NIJE mijenjan (već identičan u oba
 stabla) — samo povezan, ne izmijenjen.
+
+### §69 — Boja dugmadi u DbSetupDialog (2026-07-26)
+
+Korisnik je uživo isprobao dugme "Podešavanja" iz §68 i poslao screenshot:
+"Testiraj konekciju" dugme nevidljivo (bijela slova na svijetloj
+pozadini), dok je "Snimi i nastavi" ispravno vidljivo (sivi tekst na
+sivoj pozadini, disabled stanje).
+
+**Uzrok**: `_btn_test` u `DbSetupDialog._build_ui()` nije imao lokalni
+`setStyleSheet()` — oslanjao se na globalni app QSS
+(`styles/unified_color_system.qss`, `QPushButton { background-color:
+#3D6A8A; color: #FFFFFF; }`, učitava se u `MainWindow.load_stylesheet()`).
+`_btn_save` JE imao eksplicitan lokalni stylesheet i renderovao se
+ispravno. U praksi se globalni QSS za ovaj dugme u ovom modalnom dijalogu
+NIJE primjenjivao vidljivo (razlog nije do kraja utvrđen — kaskada preko
+9 QSS fajlova je teška za potpunu ručnu analizu — ali dokaz da isti obrazac
+"eksplicitan lokalni stylesheet" već radi za susjedno dugme u ISTOM
+dijalogu je bio dovoljan za pragmatičan fix, bez potrebe da se do kraja
+razriješi zašto globalna kaskada ovdje ne radi).
+
+**Fix**: oba dugmeta (`_btn_test`, `_btn_save`) sad dijele identičan
+eksplicitan stylesheet (plava `#2980b9`/bijeli tekst kad je enabled, sivo
+`#bdc3c7`/`#7f8c8d` kad je disabled, hover `#3498db`) — garantovano
+vidljivo bez obzira na globalnu kaskadu, i vizuelno konzistentno unutar
+istog dijaloga (korisnički zahtjev: "u skladu sa drugim dugmadima, mislim
+na boju").
+
+**Usputni nalaz (nije popravljen, samo zabilježen)**: `app/run.py::main()`
+POSTOJI kao alternativni entry point koji VEĆ poziva
+`check_and_setup_db()` (startup DB provjera + setup dialog) — ali
+PyInstaller spec (`deklarant_pro.spec:137`) gradi `dist_client`/produkciju
+iz `run.py` (root), NE iz `app/run.py`. `app/run.py::main()` je dostupan
+samo preko `__main__.py`→`app/__init__.py` (npr. `python -m` poziv), što
+NIJE isti kod-put kao stvarni `.exe`. Ovo znači da je startup auto-provjera
+tehnički već napisana negdje u repou, ali je mrtav kod za produkcioni
+build — potvrđuje raniju procjenu (§67/razgovor 2026-07-26 prije §68) da
+stvarna aplikacija nema startup DB provjeru. Follow-up ako se ikad odluči
+implementirati startup provjeru: razmotriti da li samo pozvati
+`check_and_setup_db()` iz `run.py::main()`, umjesto duplicirati logiku.
+
+GitNexus impact: `DbSetupDialog` upstream LOW (20 impacted, samo import
+lanci, 0 affected_processes). `detect_changes(all)` poslije potvrdio
+LOW/0 affected_processes.
+
+Testovi: nov `test_db_setup_dialog_button_visibility.py` — potvrđuje oba
+dugmeta imaju POSTAVLJEN i MEĐUSOBNO IDENTIČAN stylesheet (regresiona
+zaštita, ne testira stvaran render/pixel). Pun test suite: 1181 passed,
+ista 2 pre-postojeća nepovezana problema.
+
+`dist_client/gui/dialogs/db_setup_dialog.py` mirror bio bajt-identičan
+prije izmjene — primijenjen identičan diff.
