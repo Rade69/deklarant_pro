@@ -1,0 +1,435 @@
+[
+  {
+    "id": "prikazi_faktura_tab",
+    "message": "Prikaži Faktura tab",
+    "expected_sloj": "_application_context_scope",
+    "expected_tool": "pregled_stanja_aplikacije",
+    "expected_action": "SHOW",
+    "must_not_call": [
+      "provjeri_fakturu",
+      "_provjeri_naimenovanja"
+    ],
+    "note": "Ispravno — 'prikaži' = SHOW"
+  },
+  {
+    "id": "pregledaj_faktura_tab",
+    "message": "Pregledaj Faktura tab",
+    "expected_sloj": "_application_context_scope",
+    "expected_tool": "pregled_stanja_aplikacije",
+    "expected_action": "SHOW",
+    "must_not_call": [
+      "provjeri_fakturu"
+    ],
+    "note": "BUG — 'pregledaj' + poslovni objekat treba da bude VALIDATE (plan §7), ali ide u SHOW"
+  },
+  {
+    "id": "provjeri_tabelu_faktura",
+    "message": "Provjeri tabelu u tabu Faktura",
+    "expected_sloj": "tool_use",
+    "expected_tool": "provjeri_fakturu",
+    "expected_action": "VALIDATE",
+    "must_not_call": [
+      "pregled_stanja_aplikacije"
+    ],
+    "note": "Ispravno — 'provjeri' nije u wants_view, ide kroz Tool Use"
+  },
+  {
+    "id": "sta_je_ucitano",
+    "message": "Šta je učitano?",
+    "expected_sloj": "_application_context_scope",
+    "expected_tool": "pregled_stanja_aplikacije",
+    "expected_action": "SHOW",
+    "must_not_call": [
+      "provjeri_fakturu"
+    ],
+    "note": "Ispravno"
+  },
+  {
+    "id": "pregledaj_naimenovanja",
+    "message": "Pregledaj naimenovanja",
+    "expected_sloj": "_is_naimenovanja_review_request",
+    "expected_tool": "pregledaj_naimenovanja",
+    "expected_action": "SHOW",
+    "must_not_call": [
+      "pregled_stanja_aplikacije",
+      "provjeri_naimenovanja"
+    ],
+    "note": "BUG — 'pregledaj' treba VALIDATE, ali regex šalje u SHOW"
+  },
+  {
+    "id": "provjeri_naimenovanje_5",
+    "message": "Provjeri naimenovanje 5",
+    "expected_sloj": "_is_naimenovanja_review_request",
+    "expected_tool": "provjeri_naimenovanja",
+    "expected_action": "VALIDATE",
+    "must_not_call": [
+      "pregledaj_naimenovanja"
+    ],
+    "note": "Ispravno"
+  },
+  {
+    "id": "prikazi_naimenovanja",
+    "message": "Prikaži naimenovanja",
+    "expected_sloj": "_is_naimenovanja_review_request",
+    "expected_tool": "pregledaj_naimenovanja",
+    "expected_action": "SHOW",
+    "must_not_call": [
+      "provjeri_naimenovanja",
+      "_pregled_stanja_aplikacije"
+    ],
+    "note": "Ispravno — 'prikaži' = SHOW"
+  },
+  {
+    "id": "provjeri_tarife",
+    "message": "Provjeri tarife",
+    "expected_sloj": "tool_use",
+    "expected_tool": "provjeri_tarife",
+    "expected_action": "VALIDATE",
+    "must_not_call": [
+      "pregled_stanja_aplikacije"
+    ],
+    "note": "Ispravno"
+  },
+  {
+    "id": "provjeri_zaglavlje",
+    "message": "Provjeri zaglavlje",
+    "expected_sloj": "tool_use",
+    "expected_tool": "provjeri_zaglavlje",
+    "expected_action": "VALIDATE",
+    "note": "Ispravno"
+  },
+  {
+    "id": "provjeri_deklaraciju",
+    "message": "Provjeri deklaraciju",
+    "expected_sloj": "tool_use",
+    "expected_tool": "validuj_deklaraciju",
+    "expected_action": "VALIDATE",
+    "note": "Ispravno"
+  },
+  {
+    "id": "da_li_je_spremno_za_xml",
+    "message": "Da li je spremno za XML?",
+    "expected_sloj": "tool_use",
+    "expected_tool": "provjeri_spremnost_za_xml",
+    "expected_action": "VALIDATE",
+    "note": "Ispravno"
+  },
+  {
+    "id": "pogledaj_stavku_17",
+    "message": "Pogledaj stavku 17 u Faktura tabu",
+    "expected_sloj": "_application_context_scope",
+    "expected_tool": "pregled_stanja_aplikacije",
+    "expected_action": "SHOW",
+    "note": "Ispravno — specifičan red + tab keyword je SHOW"
+  },
+  {
+    "id": "analiziraj_tarife",
+    "message": "Analiziraj tarife",
+    "expected_sloj": "tool_use",
+    "expected_tool": "analiziraj_tarife",
+    "expected_action": "ANALYZE",
+    "note": "Ispravno"
+  },
+  {
+    "id": "predlozi_tarife_za_stavku_3",
+    "message": "Predloži tarife za stavku 3",
+    "expected_sloj": "tool_use",
+    "expected_tool": "predlozi_tarife",
+    "expected_action": "PROPOSE",
+    "note": "Ispravno"
+  },
+  {
+    "id": "spoji_naimenovanja",
+    "message": "Spoji naimenovanja",
+    "expected_sloj": "tool_use",
+    "expected_tool": "spoji_naimenovanja",
+    "expected_action": "MUTATE",
+    "note": "Ispravno — ide kroz ToolPolicy"
+  },
+  {
+    "id": "pokazi_sve_u_fakturi",
+    "message": "Pokaži sve u fakturi",
+    "expected_sloj": "tool_use",
+    "expected_tool": null,
+    "expected_action": "SHOW",
+    "note": "has_app_area ima \"faktura\" ali ne \"fakturi\" — ne presreće sloj 4"
+  },
+  {
+    "id": "prikazi_trenutno_stanje",
+    "message": "Prikaži trenutno stanje aplikacije",
+    "expected_sloj": "_application_context_scope",
+    "expected_tool": "pregled_stanja_aplikacije",
+    "expected_action": "SHOW",
+    "note": "Ispravno"
+  },
+  {
+    "id": "provjeri_nedostajuce_tarife",
+    "message": "Provjeri nedostajuće tarife",
+    "expected_sloj": "tool_use",
+    "expected_tool": "provjeri_tarife",
+    "expected_action": "VALIDATE",
+    "note": "Ispravno"
+  },
+  {
+    "id": "sta_fali_u_fakturi",
+    "message": "Šta fali u fakturi?",
+    "expected_sloj": "tool_use",
+    "expected_tool": "provjeri_fakturu",
+    "expected_action": "VALIDATE",
+    "note": "Ispravno"
+  },
+  {
+    "id": "da_li_je_faktura_ispravna",
+    "message": "Da li je faktura ispravna?",
+    "expected_sloj": "tool_use",
+    "expected_tool": "provjeri_fakturu",
+    "expected_action": "VALIDATE",
+    "note": "Ispravno"
+  },
+  {
+    "id": "pregledaj_stanje_tarifa",
+    "message": "Pregledaj stanje tarifa",
+    "expected_sloj": "tool_use",
+    "expected_tool": null,
+    "expected_action": "VALIDATE",
+    "note": "BUG — nema 'faktura/naimenovanja' keyworda pa ne presreta sloj 4, ali 'pregledaj' treba VALIDATE"
+  },
+  {
+    "id": "pogledaj_zaglavlje",
+    "message": "Pogledaj zaglavlje",
+    "expected_sloj": "_application_context_scope",
+    "expected_tool": "pregled_stanja_aplikacije",
+    "expected_action": "SHOW",
+    "note": "Ispravno — 'pogledaj' = SHOW"
+  },
+  {
+    "id": "pokazi_naimenovanje_3",
+    "message": "Pokaži naimenovanje 3",
+    "expected_sloj": "_is_naimenovanja_review_request",
+    "expected_tool": "pregledaj_naimenovanja",
+    "expected_action": "SHOW",
+    "note": "Ispravno"
+  },
+  {
+    "id": "validiraj_tarifne_brojeve",
+    "message": "Validiraj tarifne brojeve",
+    "expected_sloj": "tool_use",
+    "expected_tool": "provjeri_tarife",
+    "expected_action": "VALIDATE",
+    "note": "Ispravno"
+  },
+  {
+    "id": "provjeri_sve",
+    "message": "Provjeri sve",
+    "expected_sloj": "tool_use",
+    "expected_tool": "validuj_deklaraciju",
+    "expected_action": "VALIDATE",
+    "note": "Ispravno"
+  },
+  {
+    "id": "pripremi_deklaraciju",
+    "message": "Pripremi deklaraciju",
+    "expected_sloj": "tool_use",
+    "expected_tool": "pokreni_workflow",
+    "expected_action": "RUN_WORKFLOW",
+    "note": "Ispravno — workflow cilj"
+  },
+  {
+    "id": "izvezi_xml",
+    "message": "Izvezi XML",
+    "expected_sloj": "tool_use",
+    "expected_tool": "izvezi_xml",
+    "expected_action": "EXPORT",
+    "note": "Ispravno — potrebna readiness provjera"
+  },
+  {
+    "id": "pregledaj_tabelu_naimenovanja",
+    "message": "Pregledaj tabelu naimenovanja",
+    "expected_sloj": "_is_naimenovanja_review_request",
+    "expected_tool": "pregledaj_naimenovanja",
+    "expected_action": "SHOW",
+    "must_not_call": [
+      "pregled_stanja_aplikacije"
+    ],
+    "note": "BUG — 'pregledaj' treba VALIDATE"
+  },
+  {
+    "id": "da_li_ima_gresaka_u_fakturi",
+    "message": "Da li ima grešaka u fakturi?",
+    "expected_sloj": "tool_use",
+    "expected_tool": "provjeri_fakturu",
+    "expected_action": "VALIDATE",
+    "note": "Ispravno — eksplicitno pita za greške"
+  },
+  {
+    "id": "pokazi_stanje_drafta",
+    "message": "Pokaži stanje drafta",
+    "expected_sloj": "_application_context_scope",
+    "expected_tool": "pregled_stanja_aplikacije",
+    "expected_action": "SHOW",
+    "note": "Ispravno"
+  },
+  {
+    "id": "provjeri_da_li_su_sva_polja_popunjena",
+    "message": "Provjeri da li su sva polja popunjena",
+    "expected_sloj": "tool_use",
+    "expected_tool": "validuj_deklaraciju",
+    "expected_action": "VALIDATE",
+    "note": "Ispravno"
+  },
+  {
+    "id": "pregledaj_fakturu_kroz_tab",
+    "message": "Pregledaj fakturu kroz tab",
+    "expected_sloj": "_application_context_scope",
+    "expected_tool": "pregled_stanja_aplikacije",
+    "expected_action": "SHOW",
+    "must_not_call": [
+      "provjeri_fakturu"
+    ],
+    "note": "BUG — 'pregledaj' + 'faktura' + 'tab' → SHOW, treba VALIDATE"
+  },
+  {
+    "id": "pogledaj_uvozne_tarife",
+    "message": "Pogledaj uvozne tarife",
+    "expected_sloj": "tool_use",
+    "expected_tool": null,
+    "expected_action": "SHOW",
+    "note": "Ispravno — 'pogledaj' bez 'tab/faktura/naimen' ide u Tool Use"
+  },
+  {
+    "id": "jesu_li_tarife_ok",
+    "message": "Jesu li tarife OK?",
+    "expected_sloj": "tool_use",
+    "expected_tool": "provjeri_tarife",
+    "expected_action": "VALIDATE",
+    "note": "Ispravno — prirodni jezik, ide kroz Tool Use"
+  },
+  {
+    "id": "nastavi_tamo_gdje_smo_stali",
+    "message": "Nastavi tamo gdje smo stali",
+    "expected_sloj": "_resolve_followup",
+    "expected_tool": "followup",
+    "expected_action": "RUN_WORKFLOW",
+    "note": "Ispravno — followup kontekst"
+  },
+  {
+    "id": "prikazi_stavku_22_iz_fakture",
+    "message": "Prikaži stavku 22 iz fakture",
+    "expected_sloj": "tool_use",
+    "expected_tool": null,
+    "expected_action": "SHOW",
+    "note": "has_app_area nema \"fakture\" ni \"stavku\" — ne presreće sloj 4"
+  },
+  {
+    "id": "ispravi_tarifni_broj_na_08052190",
+    "message": "Ispravi tarifni broj na 08052190",
+    "expected_sloj": "tool_use",
+    "expected_tool": "upisi_u_kolonu",
+    "expected_action": "MUTATE",
+    "note": "Ispravno — mutacija kroz ToolPolicy"
+  },
+  {
+    "id": "pregledaj_deklaraciju",
+    "message": "Pregledaj deklaraciju",
+    "expected_sloj": "tool_use",
+    "expected_tool": "pregled_stanja_aplikacije",
+    "expected_action": "VALIDATE",
+    "note": "BUG — 'pregledaj' + 'deklaracija' — nema keyword prečice, ali treba VALIDATE"
+  },
+  {
+    "id": "provjeri_naimenovanja_jezik",
+    "message": "Provjeri naimenovanja",
+    "expected_sloj": "_is_naimenovanja_review_request",
+    "expected_tool": "provjeri_naimenovanja",
+    "expected_action": "VALIDATE",
+    "note": "Ispravno"
+  },
+  {
+    "id": "validiraj_faktura_tab",
+    "message": "Validiraj Faktura tab",
+    "expected_sloj": "tool_use",
+    "expected_tool": "provjeri_fakturu",
+    "expected_action": "VALIDATE",
+    "note": "Ispravno — 'validiraj' nije u wants_view, ide kroz Tool Use"
+  },
+  {
+    "id": "prikazi_naimenovanja_kratko",
+    "message": "Prikaži Naimenovanja",
+    "expected_sloj": "_is_naimenovanja_review_request",
+    "expected_tool": "pregledaj_naimenovanja",
+    "expected_action": "SHOW",
+    "note": "Ispravno"
+  },
+  {
+    "id": "odustani_od_izmjene",
+    "message": "Odustani",
+    "expected_sloj": "pending_action",
+    "expected_tool": "pending_action",
+    "expected_action": "CANCEL",
+    "note": "Ispravno — otkazuje pending akciju, ako postoji"
+  },
+  {
+    "id": "da_potvrdi",
+    "message": "Da",
+    "expected_sloj": "pending_action",
+    "expected_tool": "pending_action",
+    "expected_action": "CONFIRM",
+    "note": "Ispravno — potvrđuje pending akciju"
+  },
+  {
+    "id": "nedostaje_tarifni_za_naimenovanje_5",
+    "message": "Nedostaje tarifni za naimenovanje 5",
+    "expected_sloj": "_is_naimenovanja_review_request",
+    "expected_tool": "provjeri_naimenovanja",
+    "expected_action": "VALIDATE",
+    "note": "Ispravno — 'nedostaje' je u validation_request keywordima"
+  },
+  {
+    "id": "provjeri_prazne_tarife",
+    "message": "Provjeri prazne tarife",
+    "expected_sloj": "tool_use",
+    "expected_tool": "provjeri_tarife",
+    "expected_action": "VALIDATE",
+    "note": "Ispravno"
+  },
+  {
+    "id": "samo_pogledaj_fakturu",
+    "message": "Samo pogledaj Faktura tab",
+    "expected_sloj": "_application_context_scope",
+    "expected_tool": "pregled_stanja_aplikacije",
+    "expected_action": "SHOW",
+    "note": "Ispravno — eksplicitno 'samo pogledaj' = SHOW"
+  },
+  {
+    "id": "pokazi_mi_naimenovanje_10",
+    "message": "Pokaži mi naimenovanje 10",
+    "expected_sloj": "_is_naimenovanja_review_request",
+    "expected_tool": "pregledaj_naimenovanja",
+    "expected_action": "SHOW",
+    "note": "Ispravno"
+  },
+  {
+    "id": "sta_ima_novo_u_fakturi",
+    "message": "Šta ima u fakturi?",
+    "expected_sloj": "tool_use",
+    "expected_tool": null,
+    "expected_action": "SHOW",
+    "note": "has_app_area ima \"faktura\" ali ne \"fakturi\" — ne presreće sloj 4"
+  },
+  {
+    "id": "pregledaj_fakturu_samo_prikazi",
+    "message": "Pregledaj fakturu — samo prikaži",
+    "expected_sloj": "tool_use",
+    "expected_tool": null,
+    "expected_action": "SHOW",
+    "note": "has_app_area nema \"fakturu\" — ne presreće sloj 4"
+  },
+  {
+    "id": "sta_fali_naimenovanja",
+    "message": "Šta fali naimenovanja?",
+    "expected_sloj": "_is_naimenovanja_review_request",
+    "expected_tool": "provjeri_naimenovanja",
+    "expected_action": "VALIDATE",
+    "note": "Ispravno — \"šta fali\" + naimenovanja = VALIDATE"
+  }
+]
