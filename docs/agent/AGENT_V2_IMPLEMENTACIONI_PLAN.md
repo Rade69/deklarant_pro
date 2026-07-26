@@ -1,6 +1,7 @@
 # Agent V2 — implementacioni plan inteligentnog agenta i kontrolisane automatizacije
 
 **Datum:** 2026-07-26
+**Verzija:** 2.0 (redizajn — v1.0 je commit `5557949`, dostupna kroz `git show 5557949:docs/agent/AGENT_V2_IMPLEMENTACIONI_PLAN.md`)
 **Status:** Spremno za faznu realizaciju
 **Namjena:** Kanonski handoff plan za implementaciju unapređenja Carinskog Agenta
 **Ciljni ishod:** Pouzdano razumijevanje korisničke namjere i kontrolisana priprema deklaracije do trenutka izvoza ASYCUDA XML-a
@@ -11,180 +12,281 @@
 
 Ovaj dokument je dovoljan da drugi agent preuzme realizaciju bez oslanjanja na
 konverzaciju u kojoj je plan nastao. Plan ne predlaže prepisivanje postojećeg
-agenta. Cilj je konsolidovati postojeće servise, ukloniti preklapanje namjera,
-uvesti strukturisani planer i proširiti sadašnji parcijalni automatski pipeline
-do pouzdane provjere spremnosti za XML.
+agenta.
 
-Plan mora biti realizovan fazno. Svaka faza ima:
+Svaka tvrdnja o postojećem ponašanju u §3 je **provjerena u kodu i navedena sa
+`fajl:linija`**. Izvršilac ne treba ponovo dokazivati dijagnozu — treba je
+iskoristiti.
 
-- precizan scope;
-- očekivane fajlove i simbole;
-- ulazne i izlazne ugovore;
-- testove;
-- kriterijume prihvata;
-- sigurnosne granice;
-- uslove za prelazak na sljedeću fazu.
+Plan mora biti realizovan fazno. Svaka faza ima precizan scope, očekivane
+fajlove i simbole, ulazne i izlazne ugovore, testove, kriterijume prihvata,
+sigurnosne granice i uslove za prelazak na sljedeću fazu.
 
 Nijedna faza ne smije samostalno proširiti dozvole agenta izvan pravila u
 `AGENTS.md` i `docs/CONTEXT.md`.
 
 ---
 
-## 2. Poslovni problem
+## 2. Šta je promijenjeno u odnosu na v1.0
 
-Trenutni agent često miješa tri različita korisnička zahtjeva:
+Ovaj odjeljak postoji zato da izvršilac koji je čitao v1.0 ne radi po zastarjelim
+pretpostavkama. Trinaest suštinskih izmjena:
 
-1. **prikaz** — korisnik želi vidjeti šta se nalazi u tabu;
-2. **provjera** — korisnik želi stručnu validaciju ispravnosti;
-3. **akcija** — korisnik želi da agent predloži ili izvrši izmjenu.
-
-Potvrđeni primjeri:
-
-- `Pregledaj naimenovanja` odlazi u generički
-  `ApplicationContextService.format_html("naimenovanja")`;
-- `Provjeri tabelu u tabu Faktura` može biti presretnuto izrazima
-  `tab faktura`, `faktura tab` ili `u fakturi` i završiti kao običan prikaz;
-- prikaz Naimenovanja ispisuje samo prvih 20 redova bez stručnog zaključka;
-- postojeća provjera naimenovanja dominantno provjerava prazna polja, ne
-  semantičku i međutabnu ispravnost;
-- `_puna_auto_pipeline()` završava poslije kreiranja naimenovanja i eksplicitno
-  ostavlja zaglavlje, završnu provjeru i XML izvoz korisniku.
-
-To nije samo prompt problem. Uzrok je kombinacija:
-
-- širokih lokalnih keyword prečica;
-- preklopljenih opisa alata;
-- pogrešnog prioriteta routing slojeva;
-- tool dispatchera koji uglavnom vidi samo jednu poruku, bez strukturisanog
-  stanja deklaracionog procesa;
-- validatora različitih formata i neujednačenog obima;
-- odsustva planera koji može izvršiti više alata u kontrolisanom redoslijedu.
+| # | Izmjena | Razlog |
+| --- | --- | --- |
+| 1 | Uvedena **Faza −1 (blokirajući preduslovi)** prije Faze 0 | Četiri preduslova su bila skrivena unutar kasnijih faza i tiho bi im udvostručila obim |
+| 2 | `tool_definitions.py` prebačen iz „vjerovatno izmijenjen“ u **primarni obavezni scope Faze 1** | SYSTEM_PROMPT i opisi alata *sami uče LLM pogrešno mapiranje* (§3.2) — resolver bez toga popravlja samo lokalnu granu |
+| 3 | Broj alata se **smanjuje sa 12 na 8** (parametrizovani `prikazi`/`provjeri`) umjesto rasta na 19 | v1.0 je implicitno tražila 7 novih alata; veći skup alata obara tačnost LLM izbora, a v1.0 istovremeno traži ≥95% |
+| 4 | Imena alata **ograničena na ASCII** | v1.0 je predlagala `provjeri_usklađenost_tabova` — Groq/OpenAI odbijaju ime van `^[a-zA-Z0-9_-]{1,64}$` |
+| 5 | Poslovno stanje modelovano kao **kapije (gates)**, ne kao enum od 16 stanja | Linearni enum poziva na upis polja u draft i drugi izvor istine |
+| 6 | Dodata obaveza **`revision`/`fingerprint` na draftu** kao zaseban rani zadatak | `core/draft/` ga nema; readiness iz Faze 6 bez njega ne može postojati |
+| 7 | Dodat zahtjev **izvršavanja validacije van UI threada** + progress | Faza 3 nad stotinama stavki radi PG lookup; danas se sličan kod izvršava na UI threadu (§3.5) |
+| 8 | Dodat zahtjev **single-flight brave i injektabilne potvrde** | `_puna_auto_pipeline` je re-entrantan i vezan za `QMessageBox` (§3.4) |
+| 9 | Dodata **dist_client strategija kao odluka Faze −1**, ne kao release provjera | Svaki router fajl postoji dvaput; drift je ranije proizveo crash bug |
+| 10 | Dodat **kill-switch** za cijeli V2 routing | Windows klijent (.55) je radna mašina; regresija mora biti opoziva bez builda |
+| 11 | Inventar konkurentnih validacionih tipova proširen sa 4 na **8 + 5 kolizija imena** | v1.0 je nabrajala samo dio; adapteri bi importovali pogrešnu klasu |
+| 12 | Faze 7 i 8 (planer, režimi automatizacije) označene **uslovnim** | Ništa u dijagnozi ne dokazuje potrebu za višekoračnim planerom |
+| 13 | Kriterijumi prihvata **oslobođeni hardkodovanih brojeva** (184/98) | To su brojevi jedne konkretne deklaracije, ne ugovor |
 
 ---
 
-## 3. Važeći izvori i njihov status
+## 3. Verifikovana dijagnoza
 
-| Izvor | Status za ovaj plan | Napomena |
+Trenutni agent miješa tri različita korisnička zahtjeva: **prikaz**, **provjera**,
+**akcija**. Uzrok nije prompt, nego pet konkretnih mjesta u kodu.
+
+### 3.1 Dvostruka keyword tabela na dva nivoa
+
+Ista odluka „koja poruka je snapshot“ postoji na **dva nezavisna mjesta**:
+
+- `gui/tabs/agent/services/chat_intent_handler.py:760` — `_application_context_scope()`
+- `services/agent/chat/tool_dispatcher.py:63` — `route_local_tool()`
+
+Popravka jednog ne popravlja drugi. Konkretno:
+
+```python
+# chat_intent_handler.py:765-771 — "pregledaj" je tretiran kao ZELJA ZA PRIKAZOM
+wants_view = any(kw in msg for kw in ("pogledaj", "pregledaj", "pokaži", ...))
+```
+
+```python
+# tool_dispatcher.py:71-72 — bezuslovno, bez ijedne provjere glagola
+if any(k in msg for k in ("tab faktura", "faktura tab", "u fakturi")):
+    return ToolCall("pregled_stanja_aplikacije", {"scope": "faktura"})
+```
+
+### 3.2 Definicije alata same uče LLM pogrešno mapiranje
+
+Ovo je nalaz koji v1.0 nije imala i koji mijenja prioritet Faze 1.
+
+- `services/agent/chat/tool_definitions.py:172-175` — opis alata
+  `prikazi_naimenovanja` doslovno kaže: *„Koristi za 'pregledaj naimenovanja'“*.
+- `services/agent/chat/tool_definitions.py:38` — SYSTEM_PROMPT pravilo 17:
+  *„Za 'pogledaj tab faktura' … → pregled_stanja_aplikacije“*.
+
+Posljedica: čak i savršen lokalni Intent Resolver ne popravlja LLM granu.
+**`tool_definitions.py` mora biti izmijenjen u istom paketu kao resolver, ne kasnije.**
+
+### 3.3 Mrtva grana — kod koji rješava problem se ne izvršava
+
+U `_handle_message`:
+
+- linija 1024 — `_application_context_scope()` presreće i vraća `return`;
+- linija 1030 — `_is_naimenovanja_review_request()` / `_is_naimenovanja_validation_request()`.
+
+Za poruku `Pregledaj naimenovanja` prva grana uvijek pobjeđuje. Funkcija
+`_is_naimenovanja_validation_request` — napisana upravo da razlikuje prikaz od
+provjere — **nedostižna je za taj izraz**.
+
+Dodatno, u `_application_context_scope:781-786` provjera `faktura` ide **prije**
+`naimenov`, pa `pregledaj naimenovanja iz fakture` vraća `faktura`.
+
+> **Obaveza za Fazu 0:** mapa routinga mora mjeriti *dostižnost* svake grane, ne
+> samo je nabrojati. Grana koja se ne izvršava se ne popravlja — briše se ili joj
+> se mijenja redoslijed.
+
+### 3.4 Automatski pipeline je vezan za UI thread i re-entrantan
+
+`gui/tabs/agent/services/import_pipeline_service.py:203` `_puna_auto_pipeline`:
+
+- poziva `QApplication.processEvents()` između faza (linije 216, 236, 267, 310…);
+- poziva `QMessageBox.question(...)` inline (linija 314);
+- poziva GUI metode widgeta: `fw._on_calculate_masses()`, `fw._on_auto_fill()`,
+  `fw._on_validate_all()`.
+
+Dvije posljedice koje v1.0 nije adresirala:
+
+1. `processEvents()` znači da korisnik **može kliknuti drugu radnju usred
+   pipeline-a** (npr. Izvezi XML). Nema nikakve brave.
+2. „Postepeno pretvoriti faze u pozive `DeclarationWorkflowService`“ nije
+   premještanje koda nego **inverzija zavisnosti** — servis ne smije zvati
+   `fw._on_*` ni `QMessageBox`. To je znatno veći posao nego što v1.0 sugeriše.
+
+### 3.5 Validacija se izvršava na UI threadu
+
+`chat_intent_handler.py:800` `_tariff_usage_stats()` otvara PostgreSQL konekciju
+i izvršava dva upita direktno iz `_prikazi_statistiku_tarife()` (linija 844) —
+sinhrono, na UI threadu. Isti obrazac primijenjen na Fazu 3 (tarifni lookup +
+decision status za svaku stavku fakture) daje sekunde zamrznutog prozora.
+
+### 3.6 XML izvoz nema nijednu kapiju
+
+`gui/tabs/agent/services/xml_workflow_service.py:264` `_izvezi_xml` — 23 linije:
+
+- nikakva validacija prije `export_to_xml()`;
+- otkazan `QFileDialog` (prazan `filepath`) i uspjeh se **ne razlikuju** — nema poruke;
+- izuzetak ide samo u `chat.add_activity`, ne u `add_agent_message`;
+- poruka je hardkodovana kao „Puna automatizacija završena!“ bez obzira na kontekst.
+
+### 3.7 Osam konkurentnih „je li u redu“ reprezentacija
+
+| Tip | Lokacija | Polje ishoda |
+| --- | --- | --- |
+| `ValidationResult` | `services/validation/validation_service.py:31` | `valid`, `has_blocking_errors()` |
+| `ValidationResult` **(druga klasa, isto ime)** | `services/validation/preference_validator.py:19` | — |
+| `ValidationItem` + `ValidationReport` | `services/agent/validation/declaration_validator_service.py:54,72` | `valid` |
+| `Issue` + `ComplianceResult` | `services/agent/validation/declaration_validator_service.py:751,759` | — |
+| `NaimenovanjeValidation` | `services/agent/validation/naimenovanja_review_service.py:25` | — |
+| `PipelineStageResult` | `gui/tabs/agent/services/pipeline_stage_result.py` | `status`, `can_continue` |
+| `ToolResult` | `services/agent/chat/tool_result.py` | `status`, `can_llm_infer` |
+| `overall_outcome()` → `str` | `pipeline_stage_result.py` | `COMPLETED/PARTIAL/FAILED/CANCELLED` |
+
+Uz to, ime `ValidationError` postoji na **pet mjesta** — jednom kao dataclass
+(`validation_service.py:21`) i četiri puta kao izuzetak (`utils/exceptions.py:28`,
+`importers/exceptions.py:116`, `services/core/exceptions.py:11`,
+`services/core/base_service.py:32`).
+
+> **Obaveza:** svaki adapter iz Faze 2 uvozi ove tipove **isključivo sa aliasom**
+> (`from ... import ValidationResult as FakturaValidationResult`). Faza 0 pravi
+> inventar kolizija.
+
+---
+
+## 4. Važeći izvori i njihov status
+
+| Izvor | Status | Napomena |
 | --- | --- | --- |
 | `AGENTS.md` | kanonski | Jezik, arhitektura, GitNexus, testiranje i predaja |
-| `docs/CONTEXT.md` | kanonski | Poslovna pravila i poznati bugovi |
+| `docs/CONTEXT.md` | kanonski | Poslovna pravila i poznati bugovi — vidi mapiranje u §4.2 |
 | `docs/decisions/001-tool-use-refactoring.md` | aktivan | Tool-first princip |
-| `docs/decisions/002-tool-dispatcher-integration.md` | aktivan, nepotpun za Agent V2 | Postojeća dispatcher integracija |
-| `docs/agent/AGENT_MODE_IMPROVEMENT_IMPLEMENTATION_PLAN.md` | djelimično realizovan | Faze A–D uglavnom završene; ovaj plan nastavlja rad |
+| `docs/decisions/002-tool-dispatcher-integration.md` | aktivan, nepotpun za V2 | Postojeća dispatcher integracija |
+| `docs/agent/AGENT_MODE_IMPROVEMENT_IMPLEMENTATION_PLAN.md` | djelimično realizovan | Faze A–D uglavnom završene |
 | `docs/agent/AGENT_INTELLIGENCE_PLAN.md` | aktivan samo za tarifni scoring | Nije opšti plan chat inteligencije |
-| `agent_reports/2026-07-19_plan-unapredjenja-agentskog-moda.md` | istorijski handoff | Provjeriti status realizovanih faza kroz kod |
-| `agent_reports/2026-07-20_faza-d-standardizovani-rezultati-observability.md` | aktivan | ToolResult, audit i idempotencija su uvedeni |
-| aktivni izvorni kod | autoritativan | U slučaju konflikta kod + novija pravila imaju prioritet |
+| `agent_reports/2026-07-19_plan-unapredjenja-agentskog-moda.md` | istorijski handoff | Status provjeriti kroz kod |
+| `agent_reports/2026-07-20_faza-d-standardizovani-rezultati-observability.md` | aktivan | ToolResult, audit, idempotencija uvedeni |
+| aktivni izvorni kod | **autoritativan** | U konfliktu kod + novija pravila imaju prioritet |
 
-### 3.1 Već implementirani temelji koje ne treba duplirati
+### 4.1 Već implementirani temelji — ne duplirati
 
-- `services/agent/chat/tool_policy.py`
-  - `READ_ONLY`, `PROPOSE`, `MUTATE`;
-  - fail-closed whitelist poznatih alata.
-- `services/agent/chat/tool_result.py`
-  - `OK`, `NEEDS_REVIEW`, `UNKNOWN`, `ERROR`;
-  - izvor, sljedeća akcija, effect i confirmation metadata.
-- `services/agent/chat/audit_log.py`
-  - routing, provider, tool i pipeline audit.
-- `services/decision/*`
-  - jedini dozvoljeni izvor odluka za tarifu, porijeklo i povlasticu.
-- `services/agent/validation/declaration_validator_service.py`
-  - postojeća završna validacija i spajanje sa `ComplianceCheckService`.
-- `services/validation/validation_service.py`
-  - postojeći Faktura i Naimenovanje validatori.
-- `services/agent/validation/naimenovanja_review_service.py`
-  - trenutni pregled i provjera popunjenosti.
-- `gui/tabs/agent/workflow_state.py`
-  - UI/session state machine; ne predstavlja poslovnu spremnost deklaracije.
-- `gui/tabs/agent/services/pipeline_stage_result.py`
-  - strukturisan ishod faza automatskog pipeline-a.
-- `gui/tabs/agent/services/import_pipeline_service.py::_puna_auto_pipeline`
-  - mase, auto-popuna tarifa, validacija, potvrda porijekla/PE i kreiranje
-    naimenovanja.
-- `gui/tabs/agent/services/xml_workflow_service.py::_izvezi_xml`
-  - postojeći XML izvoz; trenutno nije zaštićen punim readiness ugovorom.
+- `services/agent/chat/tool_policy.py` — `ToolEffect.READ_ONLY|PROPOSE|MUTATE`,
+  fail-closed whitelist (`TOOL_EFFECTS`, 12 alata).
+- `services/agent/chat/tool_result.py` — `ToolResultStatus`, `ToolResult`,
+  `render_tool_result_html`, `TOOL_RESULT_PROMPT_RULE`.
+  **`ToolResult.can_llm_infer` već kodira pravilo iz §5.3** — ne pisati ga ponovo.
+- `services/agent/chat/audit_log.py` — routing/provider/tool/pipeline audit.
+- `services/decision/*` — `decision_policy.py`, `declaration_decision_service.py`,
+  `evidence_adapters.py`, `integration.py`. **Jedini dozvoljeni izvor odluka**
+  za tarifu, porijeklo i povlasticu.
+- `services/agent/validation/declaration_validator_service.py` — završna
+  validacija + spajanje sa `ComplianceCheckService`.
+- `services/validation/validation_service.py` — Faktura/Naimenovanje validatori.
+- `services/agent/validation/naimenovanja_review_service.py` — provjera popunjenosti.
+- `gui/tabs/agent/workflow_state.py` — `WorkflowState` (8 UI stanja).
+  **Nije poslovna spremnost deklaracije.**
+- `gui/tabs/agent/services/pipeline_stage_result.py` — `PipelineStageResult`,
+  `overall_outcome()`.
+- `tests/unit/test_tool_policy.py` — **već postoji i tvrdi sinhronizaciju
+  `TOOLS` ↔ `TOOL_EFFECTS`**. Svaka izmjena skupa alata mora proći kroz njega.
+- `tests/unit/test_tool_result.py`, `tests/unit/test_audit_log.py`.
+
+### 4.2 Poslovna pravila koja izvršilac NE smije re-derivirati
+
+Umjesto ponovnog otkrivanja, koristiti direktno:
+
+| Tema | `docs/CONTEXT.md` |
+| --- | --- |
+| `consumed_paths` i duplikati stavki | §1 |
+| Historijski tarifni prijedlozi — samo isti izvoznik | §2 |
+| Auto-popuni ne dira povlastice | §2 |
+| Rb.31 strogo 3 linije + overflow marker | §3 |
+| Rb.48 se ne kopira iz historijskog XML-a | §3 |
+| Povlastica zahtijeva eksplicitnu potvrdu deklaranta | §4 |
+| `itemChanged` + `blockSignals` | §5 |
+| `MassCalculator`, per-invoice raspodjela | §6 |
+| SQL — zabrana f-stringa | §7 |
+| **Decision servis: `TariffMapping` nema `supplier` polje (poznat gap)** | §16 |
+| GitNexus indeks degradiran za ovaj repo | §16 (2026-07-19) |
+
+`docs/CONTEXT.md §16` direktno ograničava provjeru br. 11 u Fazi 3 — istorijska
+razlika po dobavljaču se **ne može** dokazati iz `TariffMapping` dok gap postoji.
 
 ---
 
-## 4. Scope lock i sigurnosne granice
+## 5. Scope lock i sigurnosne granice
 
-### 4.1 Agent smije automatski
+### 5.1 Agent smije automatski
 
 - čitati aktivni draft;
 - prikazivati stanje;
 - pokretati read-only validatore;
 - računati mase kroz postojeći servis;
 - normalizovati bezbjedne tehničke formate kada poslovna vrijednost ostaje ista;
-- primijeniti tačno, ranije potvrđeno mapiranje samo kada postojeća decision
+- primijeniti tačno, ranije potvrđeno mapiranje samo kada `services/decision/`
   politika to eksplicitno dozvoli;
 - kreirati strukturisan prijedlog;
 - nastaviti workflow kada su sve prethodne kapije zadovoljene.
 
-### 4.2 Agent ne smije automatski
+### 5.2 Agent ne smije automatski
 
 - izmišljati tarifni broj, porijeklo, povlasticu ili dokument;
 - tumačiti `UNKNOWN`/`NEEDS_REVIEW` kao potvrđen rezultat;
-- upisati povlasticu bez eksplicitne potvrde deklaranta;
+- upisati povlasticu bez eksplicitne potvrde deklaranta (`CONTEXT.md §4`);
 - zaobići `DeclarationDecisionService`;
 - grupisati naimenovanja van `CreateNaimenovanjaService.create_smart_group()`;
 - nastaviti poslije blokirajuće validacione greške;
 - izvesti XML bez završnog readiness rezultata i korisničke potvrde;
 - tretirati warning kao uspjeh bez prikaza korisniku;
-- koristiti LLM kao autoritet za poslovnu odluku.
+- koristiti LLM kao autoritet za poslovnu odluku;
+- **pokrenuti drugu radnju dok je workflow aktivan** (single-flight, §7.6).
 
-### 4.3 LLM u ciljnoj arhitekturi
+### 5.3 LLM u ciljnoj arhitekturi
 
-LLM je dozvoljen za:
+Dozvoljeno: klasifikacija složenije namjere, sastavljanje plana iz whitelistanih
+alata, jezičko formatiranje strukturisanih rezultata, objašnjavanje potvrđenih nalaza.
 
-- klasifikaciju složenije korisničke namjere;
-- sastavljanje plana iz whitelistanih alata;
-- jezičko formatiranje strukturisanih rezultata;
-- objašnjavanje potvrđenih nalaza.
+Zabranjeno: generisanje carinskih vrijednosti bez lokalnog dokaza, direktna
+mutacija drafta, promjena severity/statusa koji je vratio servis, preskakanje kapija.
 
-LLM nije dozvoljen za:
-
-- generisanje carinskih vrijednosti bez lokalnog dokaza;
-- direktnu mutaciju drafta;
-- promjenu severity/statusa koji je vratio servis;
-- preskakanje workflow kapija.
+Mašinski izraz ovog pravila već postoji — `ToolResult.can_llm_infer` i
+`TOOL_RESULT_PROMPT_RULE` u `tool_result.py`. Koristiti ih, ne pisati paralelno.
 
 ---
 
-## 5. Ciljna arhitektura
+## 6. Ciljna arhitektura
 
 ```text
 Korisnička poruka
     |
     v
-Input Guard
+Input Guard (check_injection)
     |
     v
-Context Resolver
-    |-- konkretan red / prethodni subjekt / pending potvrda
-    v
-Intent Resolver
-    |-- action
-    |-- target
-    |-- scope
-    |-- depth
-    |-- effect
-    |-- goal
-    v
-Plan Builder
-    |-- jedan alat za prostu namjeru
-    |-- više koraka za workflow cilj
-    v
-Plan Validator
-    |-- poznati alati
-    |-- argumenti
-    |-- ToolPolicy
-    |-- preconditions
-    |-- confirmation gates
-    v
-Tool Executor / Workflow Orchestrator
+Context Resolver          -- konkretan red / prethodni subjekt / pending potvrda
     |
     v
-Strukturisani ToolResult / ValidationReport / WorkflowRun
+Intent Resolver           -- action | target | scope | depth | effect | goal
+    |
+    v
+Plan Builder              -- 1 korak za prostu namjeru; N koraka za workflow cilj
+    |
+    v
+Plan Validator            -- poznati alati | argumenti | ToolPolicy | preconditions | kapije
+    |
+    v
+Tool Executor (worker thread) / Workflow Orchestrator (single-flight)
+    |
+    v
+ToolResult / ValidationSummary / WorkflowRun
     |
     v
 Deterministički renderer
@@ -193,7 +295,7 @@ Deterministički renderer
 Chat + audit + sljedeća dozvoljena akcija
 ```
 
-### 5.1 Strogo razdvojene odgovornosti
+### 6.1 Strogo razdvojene odgovornosti
 
 | Komponenta | Odgovornost | Ne smije |
 | --- | --- | --- |
@@ -201,32 +303,26 @@ Chat + audit + sljedeća dozvoljena akcija
 | Intent Resolver | Razumije korisničku namjeru | Izvršavati alat |
 | Plan Builder | Sastavlja listu koraka | Zaobići whitelist |
 | Plan Validator | Provjerava dozvole i preconditions | Mutirati draft |
-| Tool Executor | Poziva postojeće servise | Izmišljati rezultat |
+| Tool Executor | Poziva postojeće servise, u worker threadu | Izmišljati rezultat |
 | Workflow Orchestrator | Vodi faze i pauze | Nastaviti kroz blokadu |
 | Renderer | Prikazuje nalaze | Mijenjati status/severity |
 | Audit | Bilježi tok | Rušiti korisničku operaciju |
 
 ---
 
-## 6. Novi zajednički ugovori
+## 7. Zajednički ugovori
 
-### 6.1 `AgentIntent`
+### 7.1 `AgentIntent`
 
-Preporučena lokacija:
-
-```text
-services/agent/chat/intent_model.py
-```
-
-Minimalni ugovor:
+Lokacija: `services/agent/chat/intent_model.py`
 
 ```python
 class IntentAction(str, Enum):
     SHOW = "show"
     VALIDATE = "validate"
     ANALYZE = "analyze"
-    PROPOSE = "propose"
-    MUTATE = "mutate"
+    REQUEST_PROPOSAL = "request_proposal"   # namjera, NE ToolEffect.PROPOSE
+    REQUEST_CHANGE = "request_change"       # namjera, NE ToolEffect.MUTATE
     RUN_WORKFLOW = "run_workflow"
     EXPORT = "export"
 
@@ -246,56 +342,94 @@ class IntentTarget(str, Enum):
 class AgentIntent:
     action: IntentAction
     target: IntentTarget
-    scope: str = "all"
+    scope: str = "all"                  # all | selection | row
     ordinals: tuple[int, ...] = ()
-    depth: str = "summary"
+    depth: str = "summary"              # summary | full
     goal: str = ""
     confidence: float = 1.0
+    source: str = "local"               # local | llm | context
     requires_clarification: bool = False
     clarification_reason: str = ""
 ```
+
+> **Namjerno različita imena od `ToolEffect`.** v1.0 je koristila `MUTATE`/`PROPOSE`
+> u oba enuma sa različitim značenjem (šta korisnik hoće vs. šta alat radi) — to
+> je izvor tihih grešaka u `PlanValidator`-u. Mapiranje namjera → dozvoljeni efekat
+> je eksplicitno:
+
+| `IntentAction` | Dozvoljeni `ToolEffect` |
+| --- | --- |
+| `SHOW`, `VALIDATE`, `ANALYZE` | `READ_ONLY` |
+| `REQUEST_PROPOSAL` | `READ_ONLY`, `PROPOSE` |
+| `REQUEST_CHANGE` | `PROPOSE`, `MUTATE` (uz potvrdu) |
+| `RUN_WORKFLOW`, `EXPORT` | prema koraku plana |
 
 Pravila:
 
 - `SHOW` nikada ne pokreće validator;
 - `VALIDATE` nikada ne vraća samo snapshot;
-- `MUTATE` uvijek prolazi `ToolPolicy`;
+- `REQUEST_CHANGE` uvijek prolazi `ToolPolicy`;
 - `RUN_WORKFLOW` mora proizvesti validiran plan;
-- `requires_clarification=True` koristi se samo kada dvije različite akcije
-  imaju stvarno različite posljedice i kontekst ne razrješava namjeru.
+- `requires_clarification=True` samo kada dvije akcije imaju stvarno različite
+  posljedice i kontekst ne razrješava namjeru.
 
-### 6.2 `ValidationFinding`
+### 7.2 `ValidationFinding` i katalog kodova
 
-Postojeći `ValidationItem` treba ili proširiti kompatibilno ili adaptirati u
-jedan zajednički model. Ne praviti paralelne neprevodive modele.
-
-Obavezna polja:
+Lokacija: `services/agent/validation/finding_model.py`
 
 ```python
 @dataclass(frozen=True)
 class ValidationFinding:
-    severity: str
     code: str
     target: str
     location: str
     message: str
-    evidence: dict
-    source: str
+    evidence: tuple[tuple[str, str], ...] = ()   # NE dict — vidi napomenu
+    source: str = ""
     auto_fixable: bool = False
     suggested_action: str = ""
-    blocking: bool = False
 ```
 
-Svaki nalaz mora imati:
+> **Zašto ne `evidence: dict`:** v1.0 je imala `frozen=True` sa `dict` poljem.
+> Zamrznutost je tada iluzorna (dict se mijenja kroz referencu), a klasa je
+> nehashable — pa se nalazi ne mogu deduplicirati kroz `set()`, što §20 traži.
+> Tuple parova rješava oboje.
 
-- stabilan `code` za testiranje i metrike;
-- tačnu lokaciju;
-- dokaz bez osjetljivih podataka;
-- izvor provjere;
-- eksplicitnu blokirajuću prirodu;
-- prijedlog sljedeće akcije.
+`severity` i `blocking` **nisu polja nalaza** — izvode se iz kataloga:
 
-### 6.3 `ValidationSummary`
+```text
+services/agent/validation/finding_catalog.py
+```
+
+```python
+FINDING_CATALOG: dict[str, FindingSpec] = {
+    "MISSING_TARIFF": FindingSpec(severity="error", blocking=True, ...),
+    "UNCONFIRMED_ORIGIN": FindingSpec(severity="warning", blocking=False, ...),
+    ...
+}
+```
+
+Jedan registar znači: adapteri ne odlučuju samostalno je li nešto blokada,
+renderer ne parsira tekst, a testovi i metrike dijele isti izvor.
+
+Minimalni skup kodova:
+
+```text
+MISSING_TARIFF              INVALID_TARIFF_FORMAT      TARIFF_NOT_FOUND
+UNCONFIRMED_TARIFF          MISSING_ORIGIN             UNCONFIRMED_ORIGIN
+UNCONFIRMED_PREFERENCE      PREFERENCE_WITHOUT_EVIDENCE
+MISSING_AMOUNT              INVALID_QUANTITY           INVALID_WEIGHT
+GROSS_LESS_THAN_NET         INVOICE_TOTAL_MISMATCH     WEIGHT_TOTAL_MISMATCH
+DUPLICATE_INVOICE_LINE      MISSING_PACKAGE            INVALID_PROCEDURE
+MISSING_STATISTICAL_VALUE   INVALID_RUB31              ITEM_GROUPING_MISMATCH
+ASYCUDA_ITEM_LIMIT          HEADER_REQUIRED_FIELD      DOCUMENT_INCONSISTENCY
+CROSS_TAB_MISMATCH          XML_PREFLIGHT_BLOCKED      CHECK_SKIPPED_SERVICE_DOWN
+```
+
+Posljednji kod je nov u odnosu na v1.0 i obavezan: bez njega „nije provjereno“
+i „nema problema“ ostaju nerazlučivi, što je zahtjev iz §20.
+
+### 7.3 `ValidationSummary`
 
 ```python
 @dataclass
@@ -303,23 +437,107 @@ class ValidationSummary:
     target: str
     checked_count: int
     findings: list[ValidationFinding]
-    blocking_count: int
-    warning_count: int
-    ready: bool
     checks_run: tuple[str, ...]
     checks_skipped: tuple[str, ...] = ()
+    draft_revision: str = ""
+
+    @property
+    def blocking_count(self) -> int: ...
+    @property
+    def warning_count(self) -> int: ...
+    @property
+    def ready(self) -> bool:
+        """Sve obavezne provjere izvrsene I nema blokada. NIJE 'nema praznih polja'."""
 ```
 
-`ready=True` znači samo da su sve obavezne provjere izvršene i da nema blokada.
-Nije sinonim za „nema praznih polja“.
+`blocking_count`/`warning_count`/`ready` su **izvedeni iz kataloga**, ne upisana
+polja — upisano polje se može razići sa listom nalaza.
 
-### 6.4 `AgentPlan`
+### 7.4 Plan gašenja starih reprezentacija ishoda
 
-Preporučena lokacija:
+Uvođenje `ValidationSummary` je konsolidacija samo ako stari tipovi nestanu. Bez
+ovog plana §3.7 postaje devet tipova umjesto osam.
+
+| Tip | Sudbina | Kada |
+| --- | --- | --- |
+| `ValidationResult` (validation_service) | ostaje interno, izlaz samo kroz adapter | Faza 2 |
+| `ValidationResult` (preference_validator) | **preimenovati** u `PreferenceValidationResult` | Faza 2 |
+| `ValidationItem` / `ValidationReport` | ostaje interno, izlaz kroz adapter | Faza 2 |
+| `Issue` / `ComplianceResult` | ostaje interno, izlaz kroz adapter | Faza 2 |
+| `NaimenovanjeValidation` | ostaje interno, izlaz kroz adapter | Faza 2 |
+| `PipelineStageResult` | ostaje — različit koncept (faza, ne nalaz) | — |
+| `ToolResult` | ostaje — omotač alata; `data` nosi `ValidationSummary` | — |
+| `overall_outcome()` → `"COMPLETED"` | mijenja se u `"READY_FOR_EXPORT"` | Faza 6 |
+
+### 7.5 Poslovno stanje deklaracije — kapije, ne enum
+
+Lokacija: `services/agent/workflow/declaration_gates.py`
+
+v1.0 je predlagala enum od 16 stanja. Odbačeno: linearni enum poziva na to da se
+stanje **upiše** negdje i postane drugi izvor istine koji se razilazi sa draftom.
+
+Umjesto toga — nezavisne kapije, sve **izvedene iz drafta pri svakom pozivu**:
+
+```python
+@dataclass(frozen=True)
+class Gate:
+    id: str                      # "INVOICE_VALIDATED", "ORIGIN_CONFIRMED", ...
+    satisfied: bool
+    reason: str                  # zasto nije zadovoljena
+    blocking_findings: tuple[str, ...]   # kodovi iz kataloga
+
+
+def evaluate_gates(draft, *, services) -> tuple[Gate, ...]: ...
+def current_stage(gates) -> str:
+    """Prva nezadovoljena kapija. Izvedena vrijednost, nigdje se ne cuva."""
+```
+
+Kapije (redoslijed = redoslijed provjere):
 
 ```text
-services/agent/planning/agent_plan.py
+FILES_IMPORTED        INVOICE_PARSED        INVOICE_VALIDATED
+TARIFFS_RESOLVED      ORIGIN_CONFIRMED      MASSES_CALCULATED
+ITEMS_CREATED         ITEMS_VALIDATED       HEADER_READY
+CROSS_CHECK_PASSED    XML_PREFLIGHT_PASSED
 ```
+
+`READY_FOR_EXPORT` nije kapija nego zaključak: sve kapije zadovoljene.
+`BLOCKED` nije stanje nego opis prve nezadovoljene kapije.
+
+Time `Nastavi` (§18) postaje trivijalan: ponovo izračunaj kapije i nastavi od
+prve nezadovoljene. Nema stale stanja jer se stanje ne čuva.
+
+### 7.6 Izvršni ugovori — thread, brava, potvrda
+
+Tri zahtjeva koje v1.0 nema, a bez kojih Faze 3–7 nisu isporučive:
+
+**a) Van UI threada.** Svaki validacioni alat koji dodiruje bazu ili decision
+servis izvršava se u `QThread` workeru i emituje progress. Referentni obrazac:
+`ToolDispatcherWorker` (`tool_dispatcher.py:120`). Zabranjeno ponoviti obrazac
+iz `_tariff_usage_stats` (§3.5).
+
+**b) Single-flight brava.** Dok je workflow ili dugotrajni alat aktivan, nova
+korisnička radnja se odbija sa jasnom porukom, ne stavlja u red. Razlog: §3.4 —
+`processEvents()` propušta klikove.
+
+```python
+class AgentBusyError(RuntimeError): ...
+# Orchestrator drzi jednu bravu; Plan Validator je provjerava kao precondition.
+```
+
+**c) Injektabilna potvrda.** `QMessageBox.question` se ne poziva iz servisa.
+
+```python
+ConfirmFn = Callable[[str, str], bool]   # (naslov, pitanje) -> bool
+```
+
+GUI prosljeđuje implementaciju sa `QMessageBox`; testovi prosljeđuju lambdu.
+Bez ovoga kriterijum „rezultat se može testirati bez GUI dijaloga“ (§17) je
+neispunjiv.
+
+### 7.7 `AgentPlan` (koristi se tek u uslovnoj Fazi 7)
+
+Lokacija: `services/agent/planning/agent_plan.py`
 
 ```python
 @dataclass(frozen=True)
@@ -328,7 +546,7 @@ class PlanStep:
     tool: str
     arguments: dict
     effect: ToolEffect
-    preconditions: tuple[str, ...]
+    preconditions: tuple[str, ...]      # ID-evi kapija iz §7.5
     success_condition: str
     failure_policy: str
     requires_confirmation: bool = False
@@ -342,146 +560,213 @@ class AgentPlan:
     status: str = "pending"
 ```
 
-Plan mora biti validiran prije prvog izvršenja. LLM rezultat nikada nije direktno
-izvršiv dok `PlanValidator` ne potvrdi alat, argumente, effect i preconditions.
-
-### 6.5 Poslovno stanje deklaracije
-
-Ne proširivati postojeći `WorkflowStateManager` tako da miješa UI stanje i
-poslovnu spremnost. Uvesti zaseban model, preporučeno:
-
-```text
-services/agent/workflow/declaration_workflow_state.py
-```
-
-Predložene faze:
-
-```text
-EMPTY
-FILES_IMPORTED
-INVOICE_PARSED
-INVOICE_VALIDATED
-TARIFFS_RESOLVED
-ORIGIN_REVIEW_REQUIRED
-ORIGIN_CONFIRMED
-MASSES_CALCULATED
-ITEMS_CREATED
-ITEMS_VALIDATED
-HEADER_READY
-CROSS_CHECK_PASSED
-XML_PREFLIGHT_PASSED
-READY_FOR_EXPORT
-EXPORTED
-BLOCKED
-```
-
-Stanje se mora izvesti iz stvarnog drafta i potvrđenih odluka. Ne smije postati
-drugi izvor istine koji se može razići sa draftom.
+LLM rezultat nikada nije direktno izvršiv dok `PlanValidator` ne potvrdi alat,
+argumente, effect i preconditions.
 
 ---
 
-## 7. Semantika korisničkih komandi
+## 8. Skup alata — konsolidacija umjesto rasta
 
-### 7.1 Kanonska matrica
+### 8.1 Problem
 
-| Primjer | AgentIntent | Očekivani alat/plan |
+`TOOL_EFFECTS` danas ima 12 alata. Semantička matrica (§9) traži i:
+`prikazi_fakturu`, `provjeri_fakturu`, `prikazi_faktura_stavku`,
+`provjeri_naimenovanje` (jednina, ordinal), `provjeri_zaglavlje`,
+`provjeri_uskladjenost_tabova`, `provjeri_spremnost_za_xml` — sedam novih, 19 ukupno.
+
+Tačnost LLM izbora **opada** sa brojem sličnih alata, a §21 istovremeno traži
+visoku tačnost. Devetnaest alata od kojih šest počinje sa `provjeri_` je loš dizajn.
+
+### 8.2 Rješenje — dva parametrizovana alata
+
+```text
+prikazi(target, scope="all", ordinals=[])
+provjeri(target, scope="all", ordinals=[], depth="summary")
+```
+
+`target` ∈ `application | invoice | tariffs | origin | items | header | declaration | cross_tab | xml`
+
+Time skup pada sa 12 na 8 uz **veću** pokrivenost:
+
+| Alat | Effect | Zamjenjuje |
 | --- | --- | --- |
-| `Prikaži Faktura tab` | SHOW / INVOICE | `prikazi_fakturu` |
-| `Šta je učitano?` | SHOW / APPLICATION | `pregled_stanja_aplikacije` |
-| `Provjeri Faktura tab` | VALIDATE / INVOICE | `provjeri_fakturu` |
-| `Pregledaj tabelu Faktura` | VALIDATE / INVOICE / full | `provjeri_fakturu` |
-| `Pokaži stavku 17 iz fakture` | SHOW / INVOICE / row | `prikazi_faktura_stavku(17)` |
-| `Provjeri tarife` | VALIDATE / TARIFFS | `provjeri_tarife` |
-| `Prikaži naimenovanja` | SHOW / ITEMS | `prikazi_naimenovanja` |
-| `Pregledaj naimenovanja` | VALIDATE / ITEMS / full | `provjeri_naimenovanja` |
-| `Provjeri naimenovanje 5` | VALIDATE / ITEMS / row | `provjeri_naimenovanje(5)` |
-| `Provjeri zaglavlje` | VALIDATE / HEADER | `provjeri_zaglavlje` |
-| `Provjeri deklaraciju` | VALIDATE / DECLARATION | `validuj_deklaraciju` |
-| `Da li je spremno za XML?` | VALIDATE / XML | `provjeri_spremnost_za_xml` |
-| `Pripremi deklaraciju` | RUN_WORKFLOW / DECLARATION | višekoračni plan |
-| `Nastavi` | RUN_WORKFLOW / current | sljedeći dozvoljeni korak |
+| `prikazi` | READ_ONLY | `pregled_stanja_aplikacije`, `prikazi_naimenovanja` |
+| `provjeri` | READ_ONLY | `provjeri_tarife`, `provjeri_naimenovanja`, `validuj_deklaraciju` + 7 novih |
+| `pretrazi_tarifu` | READ_ONLY | — |
+| `pretrazi_porijeklo` | READ_ONLY | — |
+| `pronadji_slicne_proizvode` | READ_ONLY | — |
+| `analiziraj_tarifne` | READ_ONLY | — |
+| `predlozi_tarife` | PROPOSE | — |
+| `spoji_naimenovanja` | PROPOSE | — |
+| `upisi_u_kolonu` | MUTATE | — |
+
+`AgentIntent.action` + `.target` mapiraju se 1:1 na `prikazi`/`provjeri` —
+resolver i alat govore isti jezik, što je i bila poenta Faze 1.
+
+### 8.3 Obavezna pravila za imena i kompatibilnost
+
+1. **Imena alata su ASCII**: `^[a-z0-9_]{1,64}$`. v1.0 je predlagala
+   `provjeri_usklađenost_tabova` — Groq/OpenAI function-name shema odbija `đ`.
+   Dodati test koji tvrdi ovo nad cijelim `TOOLS`.
+2. Stara imena ostaju u `TOOL_EFFECTS` kao **aliasi** dok characterization testovi
+   ne potvrde paritet; `is_known_tool()` ih i dalje prihvata.
+3. `tests/unit/test_tool_policy.py` mora ostati zelen — on već tvrdi
+   `TOOLS` ↔ `TOOL_EFFECTS` sinhronizaciju.
+4. **SYSTEM_PROMPT se prepisuje** — pravila 6, 7 i 17 direktno uče pogrešno
+   mapiranje (§3.2).
+
+---
+
+## 9. Semantika korisničkih komandi
+
+| Primjer | AgentIntent | Alat |
+| --- | --- | --- |
+| `Prikaži Faktura tab` | SHOW / INVOICE | `prikazi(invoice)` |
+| `Šta je učitano?` | SHOW / APPLICATION | `prikazi(application)` |
+| `Provjeri Faktura tab` | VALIDATE / INVOICE | `provjeri(invoice)` |
+| `Pregledaj tabelu Faktura` | VALIDATE / INVOICE / full | `provjeri(invoice, depth=full)` |
+| `Pokaži stavku 17 iz fakture` | SHOW / INVOICE / row | `prikazi(invoice, scope=row, ordinals=[17])` |
+| `Provjeri tarife` | VALIDATE / TARIFFS | `provjeri(tariffs)` |
+| `Prikaži naimenovanja` | SHOW / ITEMS | `prikazi(items)` |
+| `Pregledaj naimenovanja` | VALIDATE / ITEMS / full | `provjeri(items, depth=full)` |
+| `Provjeri naimenovanje 5` | VALIDATE / ITEMS / row | `provjeri(items, scope=row, ordinals=[5])` |
+| `Provjeri zaglavlje` | VALIDATE / HEADER | `provjeri(header)` |
+| `Provjeri deklaraciju` | VALIDATE / DECLARATION | `provjeri(declaration)` |
+| `Jesu li tabovi usklađeni?` | VALIDATE / DECLARATION | `provjeri(cross_tab)` |
+| `Da li je spremno za XML?` | VALIDATE / XML | `provjeri(xml)` |
+| `Nemoj mijenjati, samo pokaži` | SHOW / *kontekst* | `prikazi(...)` |
+| `Pripremi deklaraciju` | RUN_WORKFLOW / DECLARATION | višekoračni plan (Faza 7) |
+| `Nastavi` | RUN_WORKFLOW / current | prva nezadovoljena kapija |
 | `Izvezi XML` | EXPORT / XML | readiness → potvrda → izvoz |
 
-### 7.2 Jezičko pravilo
+### 9.1 Jezičko pravilo
 
 - `prikaži`, `pokaži`, `šta ima`, `šta je učitano` → prikaz;
 - `provjeri`, `validiraj`, `da li je ispravno`, `šta fali` → validacija;
-- `pregledaj` + poslovni objekat → puna validacija, osim kada korisnik eksplicitno
-  kaže `samo prikaži`;
+- `pregledaj` + poslovni objekat → **puna validacija**;
 - `analiziraj` → dublje poređenje sa istorijom ili pravilima;
 - `predloži` → nema automatskog upisa;
 - `upiši`, `ispravi`, `primijeni` → mutacija sa ToolPolicy kapijom;
-- `pripremi`, `završi`, `nastavi` → workflow namjera.
+- `pripremi`, `završi`, `nastavi` → workflow namjera;
+- **negacija** (`nemoj`, `bez izmjene`, `samo prikaži`) → obara akciju na `SHOW`
+  bez obzira na ostatak rečenice. *Pravilo je nedostajalo u v1.0 iako §21 traži
+  negacije u eval setu.*
 
 ---
 
-## 8. Faza 0 — baseline, inventar i zaključavanje ponašanja
+## 10. Faza −1 — blokirajući preduslovi
 
-### Cilj
+**Ovo je najvažnija izmjena u odnosu na v1.0.** Četiri stavke su bile skrivene
+unutar kasnijih faza. Nijedna kasnija faza ne počinje dok ove nisu zatvorene.
+Sve četiri su međusobno nezavisne i mogu ići paralelno.
 
-Prije refaktora napraviti dokaz trenutnog ponašanja i zaštititi postojeće
-ispravne tokove.
+### −1.A Revizija drafta (`draft.revision`)
+
+`core/draft/` **nema** `revision`, `fingerprint` ni `__hash__` — provjereno.
+Faza 6 (readiness sa fingerprintom) i §7.3 (`draft_revision` u summary) su bez
+toga neisporučive.
+
+- monotoni brojač ili stabilan hash sadržajnih polja;
+- inkrementira se na svakoj izmjeni `invoice_lines`, `items`, zaglavlja;
+- **nije** dio ASYCUDA XML izlaza;
+- test: izmjena bilo kojeg polja mijenja reviziju; čitanje je ne mijenja.
+
+Rizik: `DeclarationDraft` koriste svi tabovi i svi importeri.
+**Obavezan `gitnexus_impact` prije izmjene; očekivano HIGH/CRITICAL → project room.**
+
+### −1.B dist_client strategija
+
+Svaki router fajl postoji dvaput (`services/agent/chat/tool_dispatcher.py` i
+`dist_client/services/agent/chat/tool_dispatcher.py`, identični). V2 dodaje oko
+osam novih modula i mijenja šest postojećih kroz sve faze.
+
+Odluka mora pasti **sada**, ne u release fazi:
+
+| Opcija | Trošak | Rizik |
+| --- | --- | --- |
+| Ručna sinhronizacija po fazi | nizak po fazi, visok ukupno | drift (već proizveo crash bug) |
+| `scripts/sync_dist_client.py` + provjera u testovima | oko 1 dan | nizak |
+| dist_client importuje iz root paketa | 2–3 dana | dira build (PyInstaller/Nuitka) |
+
+Preporuka: **sync skripta + test koji pada na drift** za obuhvaćene putanje.
+Pažnja: postoje `skip-worktree` fajlovi koji namjerno drže različit sadržaj —
+sync skripta ih mora preskočiti.
+
+### −1.C Kill-switch
+
+Windows klijent (.55) je radna mašina. Cijeli V2 routing mora biti opoziv bez
+novog builda:
+
+```text
+DEKLARANT_AGENT_V2=0|1   (.env, cita se kroz config/settings.py)
+```
+
+- `0` → `_handle_message` ide starim putem, bajt-identično;
+- default u prvoj fazi je `0`, prebacuje se tek kad metrike iz §21 prođu;
+- audit bilježi vrijednost zastavice uz svaki routing događaj.
+
+### −1.D Inventar kolizija imena
+
+Popisati sve klase iz §3.7 i njihove uvozne putanje; upisati u `agent_reports/`
+i u zaglavlje `finding_model.py`. Bez ovoga adapteri iz Faze 2 uvoze pogrešan
+`ValidationResult`/`ValidationError`.
+
+**Procjena Faze −1:** 3–5 radnih dana.
+
+---
+
+## 11. Faza 0 — baseline i zaključavanje ponašanja
 
 ### Zadaci
 
-1. Pročitati obavezne izvore iz §3.
-2. Provjeriti `git status --short`; ne uključivati tuđe izmjene.
-3. Provjeriti GitNexus svježinu.
-4. Napraviti mapu svih routing ulaza:
-   - `_handle_message`;
-   - `_resolve_followup`;
-   - `_resolve_contextual_request`;
-   - `_application_context_scope`;
-   - lokalni naimenovanja/faktura regex;
-   - `route_local_tool`;
-   - LLM Tool Use;
-   - regex fallback;
-   - plain `ChatWorker`.
-5. Evidentirati duplikate i redoslijed prioriteta.
-6. Dodati characterization testove za potvrđene pogrešne i ispravne upite.
+1. Pročitati obavezne izvore iz §4 i §4.2.
+2. `git status --short`; ne uključivati tuđe izmjene.
+3. Provjeriti GitNexus svježinu (indeks je poznato degradiran — `CONTEXT.md §16`;
+   dopuniti ručnim `rg` pregledom).
+4. Mapa routing ulaza **sa dostižnošću** (ne samo popis):
+   `_handle_message` → `_resolve_followup` → `_resolve_contextual_request` →
+   `_application_context_scope` → naimenovanja regex → `route_local_tool` →
+   LLM Tool Use → regex fallback → plain `ChatWorker`.
+   Za svaku granu: koje poruke je stvarno dosežu, koje su zasjenjene.
+5. Evidentirati mrtve grane (§3.3) — prijedlog: brisanje ili promjena redoslijeda.
+6. Characterization testovi za potvrđene pogrešne i ispravne upite.
 7. Sačuvati audit izlaz za najmanje 20 reprezentativnih komandi.
 
 ### Test fixture
 
-Preporučena lokacija:
-
 ```text
 tests/fixtures/agent/intent_routing_cases.json
 ```
-
-Svaki slučaj:
 
 ```json
 {
   "message": "Provjeri tabelu u tabu Faktura",
   "expected_action": "validate",
   "expected_target": "invoice",
-  "expected_tool": "provjeri_fakturu",
-  "must_not_call": ["pregled_stanja_aplikacije"],
-  "confirmation_required": false
+  "expected_tool": "provjeri",
+  "expected_arguments": {"target": "invoice"},
+  "must_not_call": ["prikazi"],
+  "confirmation_required": false,
+  "reachable_branch": "route_local_tool:71"
 }
 ```
 
+Polje `reachable_branch` je novo u odnosu na v1.0 i služi za dokazivanje §3.3.
+
 ### Kriterijumi prihvata
 
-- svi postojeći routing slojevi dokumentovani;
-- minimalno 50 početnih jezičkih slučajeva;
+- svi routing slojevi dokumentovani **i označeni kao dostižni/mrtvi**;
+- najmanje 50 početnih jezičkih slučajeva;
 - poznate greške reproducibilne testom;
-- nema izmjene produkcionog ponašanja.
+- **nema izmjene produkcionog ponašanja.**
 
-### Procjena
-
-2–3 radna dana.
+**Procjena:** 2–3 radna dana.
 
 ---
 
-## 9. Faza 1 — jedinstveni Intent Resolver
+## 12. Faza 1 — jedinstveni Intent Resolver
 
-### Cilj
-
-Ukloniti semantičko preklapanje bez trenutnog razlaganja svih izvršnih servisa.
-
-### Novi/preporučeni moduli
+### Novi moduli
 
 ```text
 services/agent/chat/intent_model.py
@@ -489,421 +774,300 @@ services/agent/chat/intent_resolver.py
 services/agent/chat/intent_rules.py
 ```
 
-### Fajlovi koji će vjerovatno biti izmijenjeni
+### Obavezno izmijenjeni fajlovi
 
-- `gui/tabs/agent/services/chat_intent_handler.py`
-- `services/agent/chat/tool_dispatcher.py`
-- `services/agent/chat/tool_definitions.py`
-- `services/agent/chat/audit_log.py`
-- `tests/unit/test_tool_dispatcher.py`
-- `tests/unit/test_application_context_service.py`
-- novi `tests/unit/test_agent_intent_resolver.py`
+- `services/agent/chat/tool_definitions.py` — **primarni scope**, ne uzgredni
+  (§3.2): SYSTEM_PROMPT pravila 6/7/17 i opisi `prikazi_naimenovanja`,
+  `provjeri_naimenovanja`, `pregled_stanja_aplikacije`;
+- `services/agent/chat/tool_policy.py` — novi `prikazi`/`provjeri` + aliasi;
+- `services/agent/chat/tool_dispatcher.py` — `route_local_tool` se povlači u resolver;
+- `gui/tabs/agent/services/chat_intent_handler.py` — `_handle_message`,
+  `_application_context_scope`;
+- `services/agent/chat/audit_log.py`;
+- `tests/unit/test_tool_dispatcher.py`, `test_tool_policy.py`,
+  `test_application_context_service.py`, `tests/test_origin_intent_routing.py`,
+  `tests/unit/test_chat_context_followups.py`;
+- novi `tests/unit/test_agent_intent_resolver.py`.
 
 ### Implementaciona pravila
 
 1. Jedan resolver određuje action/target/scope prije dispatchera.
-2. Lokalna pravila koriste se samo za visoko pouzdane, nedvosmislene obrasce.
-3. LLM Tool Use koristi se tek za slučajeve koje pravila ne razriješe.
-4. LLM mora vratiti strukturisan intent ili tool call, ne slobodan poslovni
-   zaključak.
-5. Resolver rezultat se auditira:
-   - action;
-   - target;
-   - confidence;
-   - izvor odluke `local|llm|context`;
-   - razlog fallbacka.
-6. `_application_context_scope()` više ne smije presresti `VALIDATE`.
-7. `route_local_tool()` ne smije rutirati svaku poruku koja sadrži
-   `tab faktura` u snapshot.
-8. Ne uklanjati stare grane dok characterization testovi ne potvrde paritet.
-9. Uvesti privremeni compatibility adapter stari intent → novi `AgentIntent`.
+2. Lokalna pravila samo za visoko pouzdane, nedvosmislene obrasce.
+3. LLM Tool Use tek za slučajeve koje pravila ne razriješe.
+4. LLM vraća strukturisan intent ili tool call, ne slobodan poslovni zaključak.
+5. Audit: action, target, confidence, `source` (`local|llm|context`), razlog
+   fallbacka, **vrijednost kill-switcha**.
+6. `_application_context_scope()` više ne smije presresti `VALIDATE`;
+   redoslijed `faktura` prije `naimenov` (§3.3) se ispravlja.
+7. `route_local_tool()` ne rutira svaku poruku sa `tab faktura` u snapshot.
+8. Mrtve grane iz Faze 0 se brišu **u zasebnom commitu**, sa dokazom nedostižnosti.
+9. Ne uklanjati stare grane dok characterization testovi ne potvrde paritet.
+10. Compatibility adapter stari intent → `AgentIntent`.
 
 ### Kriterijumi prihvata
 
-- `Prikaži Faktura tab` daje snapshot;
-- `Provjeri/Pregledaj Faktura tab` pokreće validaciju;
-- `Prikaži naimenovanja` daje pregled;
-- `Provjeri/Pregledaj naimenovanja` pokreće validaciju;
+- `Prikaži Faktura tab` → snapshot;
+- `Provjeri`/`Pregledaj Faktura tab` → validacija;
+- `Prikaži naimenovanja` → pregled;
+- `Provjeri`/`Pregledaj naimenovanja` → validacija;
+- negacija (`samo prikaži`) obara na `SHOW`;
 - konkretan red zadržava ispravnu ordinal logiku;
-- bez AI providera pouzdani lokalni slučajevi i dalje rade;
+- **bez AI providera pouzdani lokalni slučajevi i dalje rade**;
 - svaki intent fixture daje očekivani rezultat;
-- nijedan `MUTATE` intent ne izvršava izmjenu.
+- nijedan `REQUEST_CHANGE` intent ne izvršava izmjenu;
+- `DEKLARANT_AGENT_V2=0` vraća bajt-identično staro ponašanje.
 
 ### GitNexus prije izmjene
 
-Obavezno provjeriti najmanje:
+Obavezno: `_handle_message`, `_application_context_scope`, `route_local_tool`,
+`ToolDispatcherWorker`, `_resolve_contextual_request`, `effect_for`.
+HIGH/CRITICAL → project room + handoff upozorenje iz `AGENTS.md`.
 
-- `_handle_message`;
-- `_application_context_scope`;
-- `route_local_tool`;
-- `ToolDispatcherWorker`;
-- `_resolve_contextual_request`.
-
-HIGH/CRITICAL rezultat zahtijeva project room i handoff upozorenje iz `AGENTS.md`.
-
-### Procjena
-
-3–5 radnih dana.
+**Procjena:** 4–6 radnih dana (v1.0: 3–5; povećano zbog `tool_definitions.py`
+i konsolidacije alata).
 
 ---
 
-## 10. Faza 2 — jedinstveni validacioni ugovor
-
-### Cilj
-
-Svi validatori vraćaju nalaze koji se mogu agregirati, testirati i prikazati bez
-gubitka značenja.
+## 13. Faza 2 — jedinstveni validacioni ugovor
 
 ### Pristup
 
-Ne prepisivati postojeće validatore. Uvesti adaptere:
+Ne prepisivati postojeće validatore. Adapteri:
 
 ```text
 services/agent/validation/finding_model.py
+services/agent/validation/finding_catalog.py
 services/agent/validation/invoice_validation_adapter.py
 services/agent/validation/items_validation_adapter.py
 services/agent/validation/header_validation_adapter.py
 services/agent/validation/declaration_validation_adapter.py
 ```
 
-Adapteri prevode postojeće:
-
-- `ValidationResult`;
-- `ValidationItem`;
-- `Issue`;
-- `NaimenovanjeValidation`;
-- decision preflight upozorenja;
-
-u zajednički `ValidationFinding`.
-
-### Obavezni kodovi nalaza
-
-Minimalno:
-
-```text
-MISSING_TARIFF
-INVALID_TARIFF_FORMAT
-TARIFF_NOT_FOUND
-UNCONFIRMED_TARIFF
-MISSING_ORIGIN
-UNCONFIRMED_ORIGIN
-UNCONFIRMED_PREFERENCE
-PREFERENCE_WITHOUT_EVIDENCE
-MISSING_AMOUNT
-INVALID_QUANTITY
-INVALID_WEIGHT
-GROSS_LESS_THAN_NET
-INVOICE_TOTAL_MISMATCH
-WEIGHT_TOTAL_MISMATCH
-DUPLICATE_INVOICE_LINE
-MISSING_PACKAGE
-INVALID_PROCEDURE
-MISSING_STATISTICAL_VALUE
-INVALID_RUB31
-ITEM_GROUPING_MISMATCH
-ASYCUDA_ITEM_LIMIT
-HEADER_REQUIRED_FIELD
-DOCUMENT_INCONSISTENCY
-CROSS_TAB_MISMATCH
-XML_PREFLIGHT_BLOCKED
-```
+Adapteri prevode osam tipova iz §3.7 u `ValidationFinding`. **Svaki uvoz sa
+aliasom** prema inventaru iz Faze −1.D.
 
 ### Kriterijumi prihvata
 
 - svaka validacija vraća stabilne kodove i lokacije;
 - renderer ne parsira tekst poruke da bi odredio severity;
+- severity/blocking dolaze **isključivo** iz `finding_catalog.py`;
 - nema promjene poslovnih pravila samo zbog adaptacije;
 - stari UI može koristiti compatibility renderer;
-- testovi pokrivaju konverziju svakog starog tipa rezultata.
+- testovi pokrivaju konverziju svakog starog tipa;
+- `preference_validator.ValidationResult` preimenovan (§7.4);
+- `ValidationFinding` je hashable (dedupe test).
 
-### Procjena
-
-3–5 radnih dana.
+**Procjena:** 3–5 radnih dana.
 
 ---
 
-## 11. Faza 3 — stručna provjera Faktura taba
-
-### Cilj
-
-Uvesti `provjeri_fakturu` kao stvarni read-only alat.
+## 14. Faza 3 — stručna provjera Faktura taba
 
 ### Provjere
 
 1. Popunjenost obaveznih polja.
-2. Format tarifnog broja i sufiksa.
+2. Format tarifnog broja i sufiksa (8 interno / 10 u PG — `AGENTS.md`).
 3. Postojanje tarife u zvaničnoj tarifi.
 4. Status decision evidence za tarifu.
 5. Zemlja porijekla i decision status.
-6. Povlastica samo uz potvrđen dokaz.
+6. Povlastica samo uz potvrđen dokaz (`CONTEXT.md §4`).
 7. Iznos, količina i jedinica mjere.
-8. Bruto/neto:
-   - nenegativne vrijednosti;
-   - bruto nije manje od neto;
-   - zbir po fakturi;
-   - kontrolna masa.
-9. Duplikati i `consumed_paths` posljedice.
+8. Bruto/neto: nenegativno, bruto nije manje od neto, zbir po fakturi, kontrolna
+   masa (bez zaokruživanja — `AGENTS.md`).
+9. Duplikati i `consumed_paths` posljedice (`CONTEXT.md §1`).
 10. Faktura/packing-list usklađenost kada oba izvora postoje.
-11. Istorijske tarifne razlike samo kroz postojeću decision politiku.
+11. Istorijske tarifne razlike — **ograničeno gapom iz `CONTEXT.md §16`**
+    (`TariffMapping` nema `supplier`); ako se razlika ne može dokazati po
+    dobavljaču, emitovati `CHECK_SKIPPED_SERVICE_DOWN`, ne prešutjeti.
 12. Razdvajanje blokada, upozorenja i informacija.
 
 ### Tool ugovor
 
 ```text
-provjeri_fakturu(scope="all" | "selection" | "row", ordinals=[])
+provjeri(target="invoice", scope="all"|"selection"|"row", ordinals=[], depth="summary"|"full")
 ```
 
-`ToolEffect.READ_ONLY`.
+`ToolEffect.READ_ONLY`. Izvršava se u worker threadu sa progress signalom (§7.6.a).
 
 ### Očekivani odgovor
 
-1. zaključak;
-2. broj provjerenih stavki;
-3. kritične greške;
-4. upozorenja;
-5. šta nije bilo moguće provjeriti;
-6. sljedeća akcija;
-7. bez ispisa svih urednih redova.
+Zaključak → broj provjerenih stavki → kritične greške → upozorenja → šta nije
+bilo moguće provjeriti → sljedeća akcija. Bez ispisa urednih redova.
 
 ### Kriterijumi prihvata
 
-- provjerava svih 184 stavki, ne samo prvih N;
+- provjerava **sve stavke drafta, bez ograničenja na prvih N**;
 - prikazuje samo problematične redove i agregate urednih;
-- selection scope poštuje selekciju;
-- DB greška nije predstavljena kao „nema problema“;
-- rezultat je isti kada se pokrene iz dugmeta i kroz agenta.
+- `selection` scope poštuje selekciju;
+- DB greška daje `CHECK_SKIPPED_SERVICE_DOWN`, nikad „nema problema“;
+- rezultat identičan iz dugmeta i kroz agenta;
+- **UI ostaje odzivan tokom provjere** (offscreen test mjeri da UI thread nije
+  blokiran).
 
 ### Testovi
 
-- `tests/unit/test_agent_invoice_validation_tool.py`;
-- proširiti postojeće Faktura validacione testove;
-- realne fakture iz `najavauvoza/`;
-- DB nedostupnost;
-- 8/10-cifreni tarifni formati;
-- bruto/neto edge cases;
-- duplikovani kombinovani import.
+`tests/unit/test_agent_invoice_validation_tool.py`; proširiti postojeće Faktura
+validacione testove; realne fakture iz `najavauvoza/` (**anonimizovane prije
+commita** — presedan: 9 anonimizovanih slučajeva iz ranije Faze 7); DB
+nedostupnost; 8/10-cifreni formati; bruto/neto edge cases; duplikovani
+kombinovani import.
 
-### Procjena
-
-4–7 radnih dana.
+**Procjena:** 4–7 radnih dana.
 
 ---
 
-## 12. Faza 4 — stručna provjera Naimenovanja taba
-
-### Cilj
-
-Zamijeniti „nema praznih polja“ stvarnom provjerom spremnosti naimenovanja.
+## 15. Faza 4 — stručna provjera Naimenovanja taba
 
 ### Provjere
 
 1. Sva obavezna polja Rb.31–46.
-2. Interni osmocifreni tarifni format i odvojen sufiks.
+2. Interni osmocifreni format i odvojen sufiks.
 3. Postojanje tarife.
 4. Zemlja i povlastica uz potvrđen evidence.
 5. Postupak i prethodni postupak.
-6. Pakovanje, broj paketa i oznake.
+6. Pakovanje, broj paketa i oznake (šifrarnik: PP je „Komad“, ne „Komadi“).
 7. Bruto/neto po naimenovanju.
 8. Vrijednost i statistička vrijednost.
 9. Dopunska jedinica kada tarifa to zahtijeva.
-10. Rub.31:
-    - izvor tarifnog opisa;
-    - trgovački nazivi;
-    - XML limit 280 znakova / 3 linije kroz stvarni builder;
-    - overflow marker pravilo.
+10. Rub.31: izvor tarifnog opisa, trgovački nazivi, **280 znakova / 3 linije kroz
+    stvarni builder** (`CONTEXT.md §3`), overflow marker.
 11. Rub.40 i Rub.44 dokumenti.
-12. Grupisanje po:
-    - tarifni broj;
-    - zemlja porijekla;
-    - povlastica;
-    - EUR.1 broj.
-13. Limit 99 naimenovanja i upozorenje za 98/99 kao operativnu blizinu limita.
+12. Grupisanje po četiri ključa: tarifni broj, zemlja porijekla, povlastica, EUR.1 broj.
+13. Limit 99 naimenovanja; upozorenje na 98/99.
 14. Zbir masa i vrijednosti prema Faktura tabu.
 
 ### Važna granica
 
-Validator ne smije implementirati vlastito grupisanje. Za provjeru koristi isti
-`GroupKey`/pravila kao `CreateNaimenovanjaService`.
-
-### Tool ugovor
-
-```text
-provjeri_naimenovanja(scope="all" | "row", ordinals=[])
-```
-
-Postojeći alat zadržati radi kompatibilnosti, ali promijeniti njegov servisni
-rezultat tek nakon characterization testova.
+Validator **ne smije** implementirati vlastito grupisanje. Koristi isti
+`GroupKey`/pravila kao `CreateNaimenovanjaService.create_smart_group()`
+(`AGENTS.md` zabrana).
 
 ### Kriterijumi prihvata
 
-- svih 98 naimenovanja stvarno je provjereno;
+- **sva naimenovanja iz drafta stvarno provjerena**;
 - desetocifreni interni kod se prijavljuje;
-- 98/99 daje upozorenje;
-- zbir i međutabne razlike su vidljivi;
-- uredni redovi se agregiraju;
-- detalj jednog reda ostaje dostupan;
-- nema lažne poruke „sve uredno“ ako je neka provjera preskočena.
+- 98/99 daje upozorenje, 100 blokadu (`ASYCUDA_ITEM_LIMIT`);
+- zbir i međutabne razlike vidljivi;
+- uredni redovi agregirani, detalj jednog reda dostupan;
+- **nema poruke „sve uredno“ ako je bilo koja provjera preskočena** —
+  `checks_skipped` mora biti prikazan.
 
 ### Testovi
 
-- `tests/unit/test_agent_items_validation_tool.py`;
-- Rub.31 real-builder test;
-- grupisanje po četiri ključa;
-- 98, 99 i 100 naimenovanja;
-- zbir mase/vrijednosti;
-- nepotvrđena povlastica;
-- desetocifreni kod.
+`tests/unit/test_agent_items_validation_tool.py`; Rub.31 real-builder test;
+grupisanje po četiri ključa; 98/99/100 naimenovanja; zbir mase/vrijednosti;
+nepotvrđena povlastica; desetocifreni kod.
 
-### Procjena
-
-4–7 radnih dana.
+**Procjena:** 4–7 radnih dana.
 
 ---
 
-## 13. Faza 5 — provjera Zaglavlja i međutabna usklađenost
-
-### Cilj
-
-Agent mora razlikovati:
-
-- da li je Zaglavlje popunjeno;
-- da li je semantički ispravno;
-- da li je usklađeno sa Fakturama i Naimenovanjima.
+## 16. Faza 5 — Zaglavlje i međutabna usklađenost
 
 ### Provjere Zaglavlja
 
-- tip deklaracije;
-- izvoznik, primalac i deklarant;
-- valuta, kurs i ukupan iznos;
-- uslovi isporuke;
-- transport i granična ispostava;
-- ukupna bruto/neto masa;
-- broj paketa;
-- Rb.40;
-- priloženi dokumenti;
-- Rb.48 se ne prepisuje iz istorijskog XML-a;
-- template polja samo kroz `TEMPLATE_FIELDS`.
+Tip deklaracije; izvoznik/primalac/deklarant; valuta, kurs i ukupan iznos
+(CBBH kurs iz baze, ne hardkodovan); uslovi isporuke; transport i granična
+ispostava; ukupna bruto/neto masa; broj paketa; Rb.40; priloženi dokumenti;
+**Rb.48 se ne prepisuje iz istorijskog XML-a** (`CONTEXT.md §3`); template polja
+samo kroz `TEMPLATE_FIELDS`.
 
 ### Međutabne provjere
 
-- zbir Faktura iznosa = zbir naimenovanja;
-- zbir kontrolnih masa = zbir naimenovanja = zaglavlje;
-- broj paketa;
-- fakture navedene u Rub.31/Rub.44;
-- zemlje i povlastice;
-- dokumenti header/item;
-- aktivni draft je isti u sva tri taba;
-- nema miješanja `draft.items` i `draft.invoice_lines`.
+Zbir Faktura iznosa = zbir naimenovanja; zbir kontrolnih masa = zbir
+naimenovanja = zaglavlje; broj paketa; fakture u Rub.31/Rub.44; zemlje i
+povlastice; dokumenti header/item; aktivni draft isti u sva tri taba; **nema
+miješanja `draft.items` i `draft.invoice_lines`** (`AGENTS.md` zabrana).
 
-### Novi alati
+### Alati
 
 ```text
-provjeri_zaglavlje
-provjeri_usklađenost_tabova
+provjeri(target="header")      # READ_ONLY
+provjeri(target="cross_tab")   # READ_ONLY
 ```
 
-Oba `READ_ONLY`.
+ASCII imena (§8.3) — nema `usklađenost` u imenu alata.
 
 ### Kriterijumi prihvata
 
-- razlikuje missing od mismatch;
-- svaki mismatch navodi obje vrijednosti i izvore;
-- automatski popunjena polja ne tretira kao korisnički potvrđena ako politika
-  zahtijeva potvrdu;
-- ne mijenja Zaglavlje tokom provjere.
+- razlikuje `missing` od `mismatch` (različiti kodovi);
+- svaki mismatch navodi **obje vrijednosti i oba izvora**;
+- automatski popunjena polja nisu tretirana kao korisnički potvrđena kada
+  politika traži potvrdu;
+- provjera **ne mijenja** Zaglavlje (test: revizija drafta nepromijenjena).
 
-### Procjena
-
-4–6 radnih dana.
+**Procjena:** 4–6 radnih dana.
 
 ---
 
-## 14. Faza 6 — XML readiness i bezbjedan izvoz
-
-### Cilj
-
-Uvesti jedan autoritativni odgovor na pitanje:
-
-> Da li je deklaracija spremna za ASYCUDA XML izvoz?
+## 17. Faza 6 — XML readiness i bezbjedan izvoz
 
 ### Novi servis
-
-Preporučena lokacija:
 
 ```text
 services/agent/validation/xml_readiness_service.py
 ```
 
-Servis orkestrira postojeće validatore i stvarni XML builder preflight. Ne
-duplira pravila.
+Orkestrira postojeće validatore i stvarni XML builder preflight. Ne duplira pravila.
 
-### Obavezne kapije
+### Kapije
 
-1. Faktura validacija izvršena.
-2. Sve odluke o tarifama u dozvoljenom stanju.
-3. Porijeklo potvrđeno gdje je potrebno.
-4. Povlastice imaju eksplicitnu potvrdu i dokaz.
-5. Mase izračunate i usklađene.
-6. Naimenovanja postoje i validna su.
-7. Zaglavlje validno.
-8. Međutabna provjera prolazi.
-9. Limit naimenovanja prolazi.
-10. XML builder može izgraditi dokument bez mutiranja produkcionog drafta.
-11. Rub.31 finalni format prolazi.
-12. Rb.40/Rb.44 dokumenti prolaze.
+Sve kapije iz §7.5, plus:
+
+- XML builder gradi dokument **bez mutiranja produkcionog drafta**
+  (preflight nad kopijom; test poredi reviziju prije/poslije);
+- Rub.31 finalni format prolazi kroz stvarni builder;
+- Rb.40/Rb.44 dokumenti prolaze.
 
 ### Tool ugovor
 
 ```text
-provjeri_spremnost_za_xml
+provjeri(target="xml")
 ```
 
-Vraća:
+Vraća `READY` | `READY_WITH_WARNINGS` | `BLOCKED`, listu izvršenih i preskočenih
+provjera, nalaze i **`draft_revision`** na kojem je provjera rađena.
 
-- `READY`;
-- `READY_WITH_WARNINGS`;
-- `BLOCKED`;
-- listu izvršenih provjera;
-- listu preskočenih provjera;
-- nalaze;
-- fingerprint/revision drafta na kojem je provjera rađena.
+### Zaštita od zastarjelog readiness rezultata
 
-### Zaštita od stale readiness rezultata
-
-Ako se draft promijeni poslije preflighta, readiness više nije važeći.
-Prije izvoza ponovo provjeriti revision/fingerprint.
+Readiness je vezan za `draft.revision` iz Faze −1.A. Ako se revizija promijeni
+poslije preflighta, rezultat više ne važi — izvoz ga mora ponovo tražiti.
 
 ### XML izvoz
 
-`_izvezi_xml` mora:
+`_izvezi_xml` (`xml_workflow_service.py:264`) se prepisuje da:
 
-1. pozvati readiness;
-2. odbiti izvoz na `BLOCKED`;
-3. prikazati warninge;
-4. tražiti eksplicitnu završnu potvrdu;
-5. izvesti XML;
-6. auditirati rezultat i putanju bez osjetljivog sadržaja.
+1. pozove readiness;
+2. odbije izvoz na `BLOCKED`;
+3. prikaže upozorenja;
+4. traži eksplicitnu završnu potvrdu kroz `ConfirmFn` (§7.6.c);
+5. izveze XML;
+6. **razlikuje otkazivanje od greške** (danas su nerazlučivi — §3.6);
+7. auditira rezultat i putanju bez osjetljivog sadržaja.
+
+Uz to: `overall_outcome()` se mijenja da vraća `READY_FOR_EXPORT` umjesto
+`COMPLETED`, a `_finish_puna_auto_pipeline` da ne tvrdi završetak prije izvoza.
 
 ### Kriterijumi prihvata
 
 - nije moguće izvesti blokiran draft kroz Agent tok;
-- promjena drafta invalidira stari readiness;
-- cancel ne kreira fajl;
+- promjena revizije invalidira readiness;
+- otkazivanje ne kreira fajl **i daje poruku**;
 - greška buildera nije prikazana kao uspjeh;
 - izvoz ne mijenja draft;
-- rezultat se može testirati bez GUI dijaloga.
+- rezultat testabilan bez GUI dijaloga.
 
-### Procjena
-
-5–8 radnih dana.
+**Procjena:** 5–8 radnih dana.
 
 ---
 
-## 15. Faza 7 — Plan Builder i kontrolisani workflow
+## 18. Faza 7 — Plan Builder i workflow **(USLOVNA)**
 
-### Cilj
-
-Podržati ciljeve koji zahtijevaju više uzastopnih alata.
+> **Uslov za pokretanje:** Faze 1–6 su u produkcijskoj upotrebi najmanje dvije
+> sedmice i korisnik je zatražio višekoračnu automatizaciju. Ništa u dijagnozi
+> (§3) ne dokazuje da je planer potreban — dokazani problem je zamjena prikaza i
+> provjere, i plitke provjere. Ako se ispostavi da je dovoljno proširiti
+> `_puna_auto_pipeline` readiness kapijom, ova faza otpada.
 
 ### Novi moduli
 
@@ -911,30 +1075,18 @@ Podržati ciljeve koji zahtijevaju više uzastopnih alata.
 services/agent/planning/agent_plan.py
 services/agent/planning/plan_builder.py
 services/agent/planning/plan_validator.py
-services/agent/workflow/declaration_workflow_state.py
+services/agent/workflow/declaration_gates.py        (iz Faze −1/§7.5)
 services/agent/workflow/declaration_workflow_service.py
 ```
 
-### Kanonski workflow do XML-a
+### Kanonski workflow
 
 ```text
-1. PREPARE_INPUT
-2. PARSE_AND_APPLY_IMPORT
-3. VALIDATE_INVOICE
-4. RESOLVE_TARIFFS
-5. REVALIDATE_INVOICE
-6. REVIEW_ORIGIN_AND_PREFERENCE
-7. WAIT_FOR_DECLARANT_CONFIRMATION
-8. CALCULATE_MASSES
-9. CREATE_ITEMS
-10. VALIDATE_ITEMS
-11. PREPARE_HEADER
-12. VALIDATE_HEADER
-13. CROSS_CHECK
-14. XML_PREFLIGHT
-15. READY_FOR_EXPORT
-16. WAIT_FOR_EXPORT_CONFIRMATION
-17. EXPORT
+PREPARE_INPUT -> PARSE_AND_APPLY_IMPORT -> VALIDATE_INVOICE -> RESOLVE_TARIFFS
+-> REVALIDATE_INVOICE -> REVIEW_ORIGIN_AND_PREFERENCE
+-> WAIT_FOR_DECLARANT_CONFIRMATION -> CALCULATE_MASSES -> CREATE_ITEMS
+-> VALIDATE_ITEMS -> PREPARE_HEADER -> VALIDATE_HEADER -> CROSS_CHECK
+-> XML_PREFLIGHT -> READY_FOR_EXPORT -> WAIT_FOR_EXPORT_CONFIRMATION -> EXPORT
 ```
 
 ### Failure politika
@@ -950,92 +1102,72 @@ services/agent/workflow/declaration_workflow_service.py
 
 ### Resume
 
-Komanda `Nastavi`:
+`Nastavi` = ponovo izračunaj kapije (§7.5) i nastavi od prve nezadovoljene.
+Ne čuvati indeks koraka.
 
-1. učita trenutno izvedeno poslovno stanje iz drafta;
-2. provjeri da li se draft promijenio;
-3. ponovi stale faze;
-4. nastavi od prve nepotvrđene kapije.
+### Integracija sa postojećim pipeline-om — realan obim
 
-Ne čuvati samo broj indeksa koraka bez provjere stvarnog drafta.
+v1.0 je ovo opisala kao „postepeno pretvoriti faze u pozive servisa“. To je
+netačno: `_puna_auto_pipeline` zove `fw._on_calculate_masses()`,
+`fw._on_auto_fill()`, `fw._on_validate_all()` i `QMessageBox` (§3.4). Potrebna je
+**inverzija zavisnosti**:
 
-### Integracija sa postojećim pipeline-om
+1. izdvojiti poslovni dio iz `fw._on_*` metoda u servise (ostaje tanak GUI wrapper);
+2. zamijeniti `QMessageBox` sa `ConfirmFn`;
+3. ukloniti `QApplication.processEvents()` — pipeline ide u worker;
+4. tek onda `DeclarationWorkflowService` može voditi faze.
 
-`_puna_auto_pipeline()` prvo obaviti compatibility omotačem, zatim postepeno
-pretvoriti faze u pozive `DeclarationWorkflowService`. Ne praviti drugi aktivni
+Koraci 1–3 su realno **polovina obima ove faze**. Ne praviti drugi aktivni
 pipeline paralelno.
 
 ### Kriterijumi prihvata
 
 - jednostavan upit i dalje koristi jedan alat;
 - složen cilj vraća vidljiv plan;
-- korisnik vidi trenutnu fazu i razlog pauze;
+- korisnik vidi trenutnu kapiju i razlog pauze;
 - workflow se može nastaviti;
-- blokada se ne može preskočiti porukom `nastavi`;
+- blokada se ne preskače porukom `nastavi`;
 - svaki korak vraća strukturisan rezultat;
-- pipeline završava na `READY_FOR_EXPORT`, ne na lažnom `COMPLETED`.
+- **druga radnja tokom workflow-a je odbijena** (`AgentBusyError`, §7.6.b);
+- pipeline završava na `READY_FOR_EXPORT`, ne na `COMPLETED`.
 
-### Procjena
-
-7–12 radnih dana.
+**Procjena:** 10–16 radnih dana (v1.0: 7–12; povećano zbog inverzije zavisnosti).
 
 ---
 
-## 16. Faza 8 — nivoi automatizacije i korisničke kapije
+## 19. Faza 8 — nivoi automatizacije **(USLOVNA)**
 
-### Cilj
-
-Jasno definisati koliko agent smije uraditi bez potvrde.
+> **Uslov:** Faza 7 realizovana i korisnik traži razlikovanje režima. Inače
+> podrazumijevani režim je „Asistirani“ i nema prekidača.
 
 ### Režimi
 
-#### A. Asistirani
+- **A. Asistirani** — sve analize automatske, svaka mutacija traži potvrdu. Default.
+- **B. Kontrolisana automatizacija** — bezbjedne tehničke operacije automatske;
+  decision politika odlučuje šta je dovoljno potvrđeno; carinski rizične
+  vrijednosti i dalje traže potvrdu.
+- **C. Priprema do XML-a** — workflow vodi proces; obavezne ljudske kapije ostaju;
+  XML se ne izvozi bez završne potvrde.
 
-- sve analize automatske;
-- svaka mutacija traži potvrdu;
-- preporučeni početni/default režim.
+### Obavezne ljudske kapije (u sva tri režima)
 
-#### B. Kontrolisana automatizacija
-
-- bezbjedne tehničke operacije automatske;
-- decision politika odlučuje šta je dovoljno potvrđeno;
-- carinski rizične vrijednosti i dalje traže potvrdu.
-
-#### C. Priprema do XML-a
-
-- workflow vodi cijeli proces;
-- obavezne ljudske kapije ostaju;
-- XML se ne izvozi bez završne potvrde.
-
-### Obavezne ljudske kapije
-
-- nepouzdana ili konfliktna tarifa;
-- porijeklo bez potvrđenog dokaza;
-- PE1/PE2/PE3 i EUR.1;
-- povlastica;
-- ozbiljan mismatch vrijednosti/mase;
-- readiness warning koji politika označi za obavezni review;
-- finalni XML izvoz.
+Nepouzdana ili konfliktna tarifa; porijeklo bez potvrđenog dokaza; PE1/PE2/PE3 i
+EUR.1; povlastica; ozbiljan mismatch vrijednosti/mase; readiness upozorenje
+označeno za obavezni review; finalni XML izvoz.
 
 ### Kriterijumi prihvata
 
 - režim ne mijenja poslovnu validaciju;
-- viši režim ne smije smanjiti sigurnosne kapije;
+- viši režim ne smanjuje sigurnosne kapije;
 - audit bilježi režim;
 - promjena režima je eksplicitna i vidljiva;
-- testovi dokazuju identičan blokirajući ishod u sva tri režima.
+- testovi dokazuju **identičan blokirajući ishod u sva tri režima**.
 
-### Procjena
-
-3–5 radnih dana.
+**Procjena:** 3–5 radnih dana.
 
 ---
 
-## 17. Faza 9 — UX, objašnjivost i observability
-
-### Cilj
-
-Agent treba da bude kratak kada je sve uredno i precizan kada postoji problem.
+## 20. Faza 9 — UX, objašnjivost i observability
 
 ### Standard odgovora validacije
 
@@ -1050,282 +1182,208 @@ Sljedeći korak
 
 ### Pravila prikaza
 
-- ne ispisivati svih 184/98 urednih redova;
-- prikazati problematične redove;
-- grupisati iste nalaze;
-- prikazati `... i još N` samo kada postoji način da korisnik otvori ostatak;
-- jasno razlikovati:
-  - nije pronađeno;
-  - nije provjereno;
-  - servis nije dostupan;
-  - nema problema;
+- ne ispisivati uredne redove;
+- prikazati problematične, grupisati iste nalaze (dedupe po `code`+`location` —
+  zahtijeva hashable `ValidationFinding`, §7.2);
+- `... i još N` samo kada korisnik ima način da otvori ostatak;
+- jasno razlikovati: **nije pronađeno** / **nije provjereno** / **servis
+  nedostupan** / **nema problema**;
 - uz svaki nalaz prikazati izvor;
-- dati dugme/akciju za odlazak na konkretan red.
+- akcija za odlazak na konkretan red.
 
 ### Observability
 
-Audit događaj treba sadržati:
+Audit događaj: session/workflow id, intent action/target, resolver source,
+**vrijednost kill-switcha**, izabrani alat/plan, effect, provider, trajanje,
+rezultat, broj nalaza po severity, razlog zaustavljanja, ishod potvrde,
+`draft.revision` prije i poslije.
 
-- session/workflow id;
-- intent action/target;
-- resolver source;
-- selected tool/plan;
-- effect;
-- provider;
-- trajanje;
-- rezultat;
-- broj nalaza po severity;
-- stop reason;
-- confirmation outcome;
-- draft revision prije/poslije.
+**Ne logovati** JIB, pune partner podatke, sadržaj dokumenata ni tajne.
+Postojeći test privatnosti audita (`tests/unit/test_audit_log.py`) mora ostati zelen.
 
-Ne logovati JIB, pune partner podatke, sadržaj dokumenata ili tajne.
-
-### Metrike
-
-- intent accuracy;
-- tool selection accuracy;
-- clarification rate;
-- fallback rate;
-- unknown-tool rate;
-- false-ready rate;
-- broj blokiranih opasnih mutacija;
-- vrijeme do `READY_FOR_EXPORT`;
-- broj ručnih intervencija;
-- workflow completion rate;
-- broj ponovljenih faza poslije izmjene drafta.
-
-### Procjena
-
-3–5 radnih dana.
+**Procjena:** 3–5 radnih dana. Može djelimično paralelno poslije Faze 2.
 
 ---
 
-## 18. Faza 10 — evaluacija, realni dokumenti i release hardening
+## 21. Faza 10 — evaluacija i release hardening
 
-### 18.1 Intent evaluacija
+### 21.1 Intent evaluacija
 
-Minimalno 150 rečenica:
+Najmanje 150 rečenica: dijakritika i bez nje, tipfeleri, kratke komande,
+konkretni redovi, follow-up poruke, **negacije**, prikaz vs provjera, provjera vs
+mutacija, workflow ciljevi.
 
-- dijakritika i bez dijakritike;
-- tipfeleri;
-- kratke komande;
-- konkretni redovi;
-- follow-up poruke;
-- negacije;
-- prikaz vs provjera;
-- provjera vs mutacija;
-- workflow ciljevi.
+Metrike se mjere **odvojeno za dva puta** — v1.0 ih je miješala, pa je rezultat
+zavisio od dnevnog ponašanja Groq/Gemini modela:
 
-Metrike:
+| Metrika | Rules-only (deterministički) | LLM fallback |
+| --- | --- | --- |
+| Action accuracy | **100%** na fixture setu | najmanje 90% |
+| Target accuracy | **100%** | najmanje 93% |
+| Opasna `REQUEST_CHANGE` klasifikacija | **100%** | **100%** |
+| `SHOW`/`VALIDATE` konfuzija | **0%** | ispod 3% |
 
-- action accuracy ≥ 95%;
-- target accuracy ≥ 97%;
-- opasna mutate klasifikacija: 100%;
-- `SHOW`/`VALIDATE` konfuzija < 2%;
-- nijedan poznati `VALIDATE` slučaj ne završava snapshotom.
+Nijedan poznati `VALIDATE` slučaj ne smije završiti snapshotom, ni u jednom putu.
 
-### 18.2 Validaciona evaluacija
+### 21.2 Validaciona evaluacija
 
-Koristiti:
+Realne fakture iz `najavauvoza/` (anonimizovane), poznati bug slučajevi iz
+`agent_reports/`, 8/10-cifrene tarife, 98/99/100 naimenovanja, više faktura,
+više zemalja, PE/EUR.1, kombinovani importeri, nedostupna baza, konfliktni
+istorijski podaci.
 
-- realne fakture iz `najavauvoza/`;
-- poznate bug slučajeve iz `agent_reports/`;
-- 8/10-cifrene tarife;
-- 98/99/100 naimenovanja;
-- više faktura;
-- više zemalja;
-- PE/EUR.1 slučajeve;
-- kombinovane importere;
-- nedostupnu bazu;
-- konfliktne istorijske podatke.
+### 21.3 Workflow E2E
 
-### 18.3 Workflow E2E
+Uredna deklaracija; nedostajuće tarife; konfliktna tarifa; nepotvrđeno porijeklo;
+povlastica bez dokaza; neuspješan izračun masa; 100 naimenovanja; zaglavlje
+mismatch; greška buildera; korisnik odbija potvrdu; resume poslije ručne
+ispravke; **draft promijenjen poslije preflighta**; **paralelna radnja tokom
+workflow-a**.
 
-Scenariji:
-
-1. potpuno uredna deklaracija;
-2. nedostajuće tarife;
-3. konfliktna tarifa;
-4. nepotvrđeno porijeklo;
-5. povlastica bez dokaza;
-6. neuspješno računanje masa;
-7. 100 naimenovanja;
-8. zaglavlje mismatch;
-9. builder greška;
-10. korisnik odbija potvrdu;
-11. resume poslije ručne ispravke;
-12. draft promijenjen poslije preflighta.
-
-### 18.4 Test profili
+### 21.4 Test profili
 
 ```text
-unit/offline
-integration/local SQLite
-integration/PostgreSQL
-Qt offscreen
-real-document regression
-Windows build smoke
-dist_client parity
+unit/offline           integration/local SQLite    integration/PostgreSQL
+Qt offscreen           real-document regression    Windows build smoke
+dist_client parity     UI-responsiveness (thread)  kill-switch OFF parity
 ```
 
-Mock ne koristiti za SQLite/PostgreSQL poslovne testove gdje projektna pravila
-zahtijevaju stvarnu bazu. LLM provider se smije mockovati u routing testovima.
+Mock se ne koristi za SQLite/PostgreSQL poslovne testove (`AGENTS.md` zabrana).
+LLM provider se smije mockovati u routing testovima.
 
-### 18.5 Release kriterijumi
+### 21.5 Release kriterijumi
 
-- ciljani testovi zeleni;
-- puni test suite bez novih regresija;
+- ciljani testovi zeleni; puni suite bez novih regresija;
+- **`DEKLARANT_AGENT_V2=0` daje ponašanje identično pre-V2 stanju**;
 - DOC Guard prolazi;
-- GitNexus detect_changes pregledan;
-- root/dist_client strategija potvrđena;
+- GitNexus `detect_changes` pregledan;
+- dist_client sync test zelen;
 - PyInstaller/Nuitka build smoke prolazi;
-- manual smoke na pravoj deklaraciji;
+- ručni smoke na pravoj deklaraciji;
 - XML diff provjeren prema očekivanom izlazu;
-- nema automatske povlastice;
-- nema izvoza blokiranog drafta.
+- nema automatske povlastice; nema izvoza blokiranog drafta.
 
-### Procjena
-
-7–10 radnih dana, zavisno od dostupnosti realnih test scenarija i Windows builda.
+**Procjena:** 7–10 radnih dana.
 
 ---
 
-## 19. Predložena podjela rada na implementacione pakete
+## 22. Paketi, redoslijed i test gate
 
-Svaki paket treba imati zaseban commit set i agent report.
+| Paket | Faze | Uslov za predaju drugom agentu | Test gate |
+| --- | --- | --- | --- |
+| **P−1 Preduslovi** | −1 | nezavisan; 4 podzadatka paralelno | draft revision + dist sync + kill-switch |
+| P0 Baseline | 0 | nema produkcionih izmjena | postojeći routing/tool testovi |
+| P1 Intent | 1 | characterization fixture zaključan | intent fixture + dispatcher + follow-up + ASCII-name test |
+| P2 Validation contract | 2 | P1 stabilan | adapter unit + stari validator testovi + dedupe |
+| P3 Invoice review | 3 | P2 adapteri stabilni | faktura validation + realne fakture + UI responsiveness |
+| P4 Items review | 4 | P2 stabilan | naimenovanja + Rub.31 + grupisanje + limit 99 |
+| P5 Header/cross-check | 5 | P3 i P4 završeni | zaglavlje + zbirovi/cross-tab |
+| P6 XML readiness | 6 | P5 završen | readiness + decision preflight + builder + invalidacija revizijom |
+| P7 Planer/workflow *(uslovno)* | 7 | alati i readiness stabilni 2+ sedmice | pipeline stage + resume + failure/cancel + busy-lock |
+| P8 Nivoi automatizacije *(uslovno)* | 8 | P7 stabilan | mutation gate + matrica potvrda |
+| P9 UX/audit | 9 | djelimično paralelno poslije P2 | renderer + audit privacy |
+| P10 E2E/release | 10 | sve prethodne | puni suite + Windows/dist smoke + kill-switch paritet |
 
-| Paket | Faze | Može se predati drugom agentu kada |
-| --- | --- | --- |
-| P0 Baseline | 0 | nema produkcionih izmjena |
-| P1 Intent | 1 | characterization fixture zaključan |
-| P2 Validation contract | 2 | P1 stabilan |
-| P3 Invoice review | 3 | P2 adapteri stabilni |
-| P4 Items review | 4 | P2 stabilan |
-| P5 Header/cross-check | 5 | P3 i P4 završeni |
-| P6 XML readiness | 6 | P5 završen |
-| P7 Planner/workflow | 7 | alati i readiness stabilni |
-| P8 Automation levels | 8 | P7 stabilan |
-| P9 UX/audit | 9 | može djelimično paralelno poslije P2 |
-| P10 E2E/release | 10 | sve prethodne faze |
-
-P3 i P4 mogu se realizovati paralelno samo ako oba agenta koriste isti zaključani
-`ValidationFinding` ugovor i ne mijenjaju zajedničke router fajlove.
-
----
-
-## 20. Obavezni testovi po paketu
-
-| Paket | Minimalni test gate |
-| --- | --- |
-| P0 | postojeći agent routing/tool testovi |
-| P1 | intent fixture + dispatcher + context follow-up |
-| P2 | adapter unit testovi + stari validator testovi |
-| P3 | faktura validation + real invoice regression |
-| P4 | naimenovanja + Rub.31 + grouping + 99 limit |
-| P5 | zaglavlje + totals/cross-tab |
-| P6 | readiness + decision preflight + XML builder |
-| P7 | pipeline stage + resume + failure/cancel |
-| P8 | mutation gate + confirmation matrix |
-| P9 | renderer + audit privacy |
-| P10 | puni suite + Windows/dist smoke |
+P3 i P4 mogu paralelno **samo ako** oba izvršioca koriste zaključan
+`ValidationFinding` + `finding_catalog` i ne diraju zajedničke router fajlove.
 
 ---
 
-## 21. Obavezni GitNexus i git postupak za svakog izvršioca
+## 23. Obavezni GitNexus i git postupak
 
 Prije svake izmjene:
 
-1. pročitati `AGENTS.md` i `docs/CONTEXT.md`;
-2. provjeriti `git status --short`;
+1. pročitati `AGENTS.md` i `docs/CONTEXT.md` (posebno sekcije iz §4.2);
+2. `git status --short`;
 3. provjeriti indeks;
-4. pokrenuti `gitnexus_impact(direction="upstream")` za svaki mijenjani simbol;
-5. za HIGH/CRITICAL:
-   - napraviti `project_rooms/YYYY-MM-DD_kratak-naziv.md`;
-   - prijaviti korisniku rizik prije izmjene;
-   - navesti scope lock, tip promjene i test gate;
-6. dopuniti GitNexus ručnim `rg` pregledom pozivalaca zbog ranije degradacije
-   indeksa;
-7. ne dirati nepovezane korisničke izmjene.
+4. `gitnexus_impact(direction="upstream")` za svaki mijenjani simbol;
+5. za HIGH/CRITICAL: `project_rooms/YYYY-MM-DD_kratak-naziv.md`, prijava rizika
+   korisniku **prije** izmjene, scope lock, tip promjene i test gate;
+6. dopuniti GitNexus ručnim `rg` pregledom pozivalaca — **indeks je poznato
+   degradiran za ovaj repo** (`CONTEXT.md §16`; potvrđeno u ovoj analizi: indeks
+   prijavljuje `services/agent/intent_classifier.py` koji ne postoji);
+7. ne dirati nepovezane korisničke izmjene (`.worktrees/`, skip-worktree fajlovi).
 
-Prije commita:
-
-1. ciljani testovi;
-2. `py_compile` za izmijenjene Python fajlove;
-3. `gitnexus_detect_changes(scope="all")`;
-4. pregled očekivanih procesa;
-5. DOC Guard;
-6. stage samo logičke cjeline;
-7. commit bez `--no-verify`;
-8. agent report;
-9. ažuriranje `docs/CONTEXT.md` samo za ne-očigledne trajne odluke;
-10. provjera GitNexus stale statusa i reindex ako je potrebno.
+Prije commita: ciljani testovi → `py_compile` → `gitnexus_detect_changes(scope="all")`
+→ pregled procesa → DOC Guard → stage po logičkim cjelinama → commit bez
+`--no-verify` → agent report → `docs/CONTEXT.md` samo za ne-očigledne trajne
+odluke → provjera GitNexus stale statusa.
 
 ---
 
-## 22. Definition of Done za Agent V2
+## 24. Definition of Done za Agent V2
 
-Agent V2 nije završen samo zato što bolje odgovara na nekoliko chat poruka.
-Završen je kada su svi uslovi ispunjeni:
-
-- prikaz, validacija, analiza, prijedlog, mutacija i workflow su jasno razdvojeni;
-- potvrđeni routing skup prolazi zadate metrike;
+- prikaz, validacija, analiza, prijedlog, mutacija i workflow jasno razdvojeni;
+- potvrđeni routing skup prolazi metrike iz §21.1, **odvojeno po putu**;
 - Faktura, Naimenovanja i Zaglavlje imaju autoritativne read-only provjere;
 - postoji međutabna provjera;
-- postoji jedan readiness rezultat za XML;
+- postoji jedan readiness rezultat za XML, vezan za `draft.revision`;
 - readiness se invalidira poslije izmjene drafta;
-- složen zahtjev proizvodi validiran višekoračni plan;
-- workflow se pauzira na `NEEDS_REVIEW`, `UNKNOWN`, `FAILED` i korisničkoj
-  potvrdi prema pravilima;
-- `Nastavi` ne preskače blokadu;
+- validacija ne blokira UI thread;
+- agent odbija paralelnu radnju umjesto da je tiho izvrši;
 - agent ne izmišlja carinske vrijednosti;
-- mutacije prolaze ToolPolicy i decision service;
-- povlastica uvijek ostaje pod eksplicitnom potvrdom;
+- mutacije prolaze `ToolPolicy` i `services/decision/`;
+- povlastica uvijek pod eksplicitnom potvrdom;
 - XML se ne izvozi bez readiness provjere i završne potvrde;
+- otkazivanje i greška su razlučivi;
 - audit omogućava rekonstrukciju odluke bez curenja osjetljivih podataka;
-- real-document i Windows smoke testovi prolaze;
+- `DEKLARANT_AGENT_V2=0` vraća staro ponašanje bez novog builda;
+- dist_client nije u driftu;
+- realni dokumenti i Windows smoke testovi prolaze;
 - nijedan postojeći ispravan ručni workflow nije pokvaren.
 
+Ako je Faza 7 preskočena, stavke o planeru i `Nastavi` se ne primjenjuju —
+umjesto njih važi: `_puna_auto_pipeline` završava na `READY_FOR_EXPORT` i ne
+izvozi bez readiness kapije.
+
 ---
 
-## 23. Procjena ukupnog obima
+## 25. Procjena obima
 
-| Oblast | Procjena |
-| --- | ---: |
-| Baseline i intent resolver | 5–8 dana |
-| Validacioni ugovor i tri taba | 15–25 dana |
-| Međutabna kontrola i XML readiness | 9–14 dana |
-| Planer, workflow i režimi automatizacije | 10–17 dana |
-| Evaluacija, UX i release hardening | 10–15 dana |
-| **Ukupno** | **49–79 radnih dana** |
+| Oblast | Faze | Procjena |
+| --- | --- | ---: |
+| Blokirajući preduslovi | −1 | 3–5 dana |
+| Baseline i intent resolver | 0–1 | 6–9 dana |
+| Validacioni ugovor i tri taba | 2–5 | 16–25 dana |
+| XML readiness | 6 | 5–8 dana |
+| UX i observability | 9 | 3–5 dana |
+| Evaluacija i release | 10 | 7–10 dana |
+| **Obavezni dio** | **−1…6, 9, 10** | **40–62 dana** |
+| Planer i workflow *(uslovno)* | 7 | 10–16 dana |
+| Nivoi automatizacije *(uslovno)* | 8 | 3–5 dana |
+| **Sa uslovnim fazama** | | **53–83 dana** |
 
 Procjena uključuje testove, dokumentaciju, realne fakture i release provjere.
-Može se smanjiti paralelnim radom na P3/P4/P9, ali centralni router, zajednički
-ugovori i workflow orkestrator moraju imati jednog vlasnika po fazi.
+
+**Napomena o kalendaru:** ovo su radni dani jednog vlasnika po fazi, ne
+kalendarski dani. Centralni router, zajednički ugovori i workflow orkestrator
+moraju imati jednog vlasnika po fazi — paralelizacija je moguća samo na P3/P4/P9.
 
 ---
 
-## 24. Prvi konkretan implementacioni zadatak
+## 26. Prvi konkretan implementacioni zadatak
 
-Prvi zadatak poslije odobrenja ovog plana treba biti isključivo:
-
-> Implementirati Fazu 0 i Fazu 1: characterization routing dataset, `AgentIntent`
-> model i jedinstveni Intent Resolver, tako da se `SHOW` i `VALIDATE` pouzdano
-> razlikuju za Faktura i Naimenovanja tab, bez promjene poslovnih validatora.
+> Implementirati **Fazu −1** (sva četiri preduslova) i **Fazu 0**
+> (characterization routing dataset sa dokazom dostižnosti grana).
+> Ne dirati produkciono ponašanje.
 
 Scope lock:
 
-- ne proširivati `_puna_auto_pipeline`;
-- ne mijenjati carinsku logiku;
-- ne mijenjati decision policy;
+- ne mijenjati nijednu poslovnu validaciju;
+- ne mijenjati carinsku logiku ni decision policy;
 - ne dodavati automatske mutacije;
-- ne refaktorisati cijeli `chat_intent_handler.py`;
-- zadržati kompatibilnost postojećih alata.
+- ne refaktorisati `chat_intent_handler.py`;
+- `draft.revision` je jedina izmjena modela — i samo aditivna.
 
 Obavezni izlaz:
 
-- novi intent ugovor;
-- najmanje 50 routing slučajeva;
-- testovi za potvrđene pogrešne upite;
-- audit izabranog intenta;
-- jasna migraciona tačka za Fazu 2.
+- `draft.revision` sa testom;
+- odluka i mehanizam dist_client sinhronizacije;
+- kill-switch `DEKLARANT_AGENT_V2` (default `0`) proveden kroz `_handle_message`;
+- inventar kolizija imena validacionih tipova;
+- najmanje 50 routing slučajeva sa poljem `reachable_branch`;
+- popis mrtvih grana sa dokazom;
+- jasna migraciona tačka za Fazu 1.
+
+Tek nakon toga slijedi Faza 1 (`AgentIntent`, resolver, `tool_definitions.py`,
+konsolidacija alata 12 → 8).

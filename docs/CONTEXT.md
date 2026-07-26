@@ -2075,3 +2075,50 @@ ista 2 pre-postojeća nepovezana problema.
 
 `dist_client/gui/dialogs/db_setup_dialog.py` mirror bio bajt-identičan
 prije izmjene — primijenjen identičan diff.
+
+---
+
+## 69. Agent routing — dokazani uzroci zamjene prikaza i provjere (2026-07-26)
+
+Analiza za redizajn `docs/agent/AGENT_V2_IMPLEMENTACIONI_PLAN.md` (v2.0).
+Pet nalaza koji se NE vide iz čitanja pojedinačnog fajla:
+
+**1. Ista keyword tabela postoji na dva nivoa.** `_application_context_scope()`
+(`gui/tabs/agent/services/chat_intent_handler.py:760`) i `route_local_tool()`
+(`services/agent/chat/tool_dispatcher.py:63`) donose istu odluku "koja poruka je
+snapshot". Popravka jednog NE popravlja drugi.
+
+**2. `tool_definitions.py` sam uči LLM pogrešno mapiranje.** Opis alata
+`prikazi_naimenovanja` (linija 172-175) doslovno kaže "Koristi za 'pregledaj
+naimenovanja'", a SYSTEM_PROMPT pravilo 17 (linija 38) mapira "pogledaj tab
+faktura" na `pregled_stanja_aplikacije`. Bilo kakav popravak intent routinga
+mora obuhvatiti i ovaj fajl, inače LLM grana ostaje pokvarena.
+
+**3. Mrtva grana.** U `_handle_message`, `_application_context_scope()` (linija
+1024) presreće PRIJE `_is_naimenovanja_review_request()` (linija 1030) i vraća
+`return`. Zato je `_is_naimenovanja_validation_request` — funkcija napisana
+tačno da razlikuje prikaz od provjere — nedostižna za "pregledaj naimenovanja".
+Dodatno, u `_application_context_scope:781` provjera `faktura` ide prije
+`naimenov`, pa "pregledaj naimenovanja iz fakture" vraća `faktura`.
+Pouka: prije popravke routing grane provjeriti da li je uopšte dostižna.
+
+**4. `_puna_auto_pipeline` je vezan za UI thread i re-entrantan.**
+`QApplication.processEvents()` između faza + `QMessageBox.question()` inline +
+pozivi `fw._on_*` GUI metoda. Posljedica: korisnik može kliknuti drugu radnju
+usred pipeline-a (nema brave). Premještanje u servisni sloj NIJE premještanje
+koda nego inverzija zavisnosti.
+
+**5. `core/draft/` nema `revision`/`fingerprint`/`__hash__`.** Svaki mehanizam
+tipa "provjera više ne važi jer se draft promijenio" mora ga prvo uvesti.
+
+**Konkurentne reprezentacije ishoda validacije: osam.** `ValidationResult`
+(validation_service **i** preference_validator — različite klase, isto ime),
+`ValidationItem`/`ValidationReport`, `Issue`/`ComplianceResult`,
+`NaimenovanjeValidation`, `PipelineStageResult`, `ToolResult`,
+`overall_outcome()`. Ime `ValidationError` postoji na pet mjesta (jednom kao
+dataclass, četiri puta kao izuzetak). Svaki novi adapter MORA uvoziti sa
+aliasom, inače dobije pogrešnu klasu bez greške pri importu.
+
+**Imena alata moraju biti ASCII** (`^[a-z0-9_]{1,64}$`) — Groq/OpenAI
+function-name shema odbija dijakritiku, pa npr. `provjeri_usklađenost_tabova`
+ne bi radilo.
