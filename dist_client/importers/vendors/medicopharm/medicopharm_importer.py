@@ -33,6 +33,7 @@ import pdfplumber
 
 from core.draft.draft import InvoiceLine, Party
 from importers.import_result import ImportResult
+from importers.incoterm_utils import detect_incoterm
 from importers.invoice_line_utils import KNOWN_JM, parse_eu_number, normalize_tariff_number
 from utils.country_normalizer import normalize_country_name
 
@@ -211,6 +212,7 @@ def parse_medicopharm_pdf(pdf_path: str) -> ImportResult:
     
     # Ekstraktuj full tekst za detekciju izjave
     full_text = "\n".join(lines)
+    incoterm_code = detect_incoterm(full_text)  # Rb.20 "Uslovi isporuke"
 
     # --- Zaglavlje ---
     invoice_name = ""
@@ -251,6 +253,7 @@ def parse_medicopharm_pdf(pdf_path: str) -> ImportResult:
             invoice_name=invoice_name, currency="EUR",
             exporter=Party(name="MEDICO PHARM SERVIS"),
             importer=Party(name="MEDICOPHARM D.O.O."),
+            incoterm_code=incoterm_code,
         )
 
     # --- Stavke ---
@@ -306,6 +309,7 @@ def parse_medicopharm_pdf(pdf_path: str) -> ImportResult:
         origin_statements=origin_statements,
         exporter=Party(name="MEDICO PHARM SERVIS"),
         importer=Party(name="MEDICOPHARM D.O.O."),  # domaća BiH firma
+        incoterm_code=incoterm_code,
     )
 
 

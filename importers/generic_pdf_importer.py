@@ -13,6 +13,7 @@ import pdfplumber
 
 from core.draft.draft import InvoiceLine
 from importers.import_result import ImportResult
+from importers.incoterm_utils import detect_incoterm
 
 logger = logging.getLogger("deklarant_pro.import.generic_pdf")
 
@@ -88,6 +89,7 @@ def parse_generic_pdf(pdf_path: str) -> ImportResult:
         bruto_kg, neto_kg = _extract_weights(full_text)
         currency = _extract_currency(full_text)
         exporter_name = _detect_exporter(full_text)
+        incoterm_code = detect_incoterm(full_text)  # Rb.20 "Uslovi isporuke"
 
         origin_statements = _detect_all_origin_statements(full_text)
         has_origin_statement = len(origin_statements) > 0
@@ -126,6 +128,7 @@ def parse_generic_pdf(pdf_path: str) -> ImportResult:
                 currency=currency,
                 has_origin_statement=has_origin_statement,
                 origin_statements=origin_statements,
+                incoterm_code=incoterm_code,
             )
 
         # 3. Za svaku tabelu, pokušaj detektovati kolone i parsirati stavke
@@ -153,6 +156,7 @@ def parse_generic_pdf(pdf_path: str) -> ImportResult:
         currency=currency,
         has_origin_statement=has_origin_statement,
         origin_statements=origin_statements,
+        incoterm_code=incoterm_code,
     )
 
 

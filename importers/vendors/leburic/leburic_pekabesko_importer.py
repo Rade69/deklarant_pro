@@ -24,6 +24,7 @@ import openpyxl
 
 from core.draft.draft import InvoiceLine, Party
 from importers.import_result import ImportResult
+from importers.incoterm_utils import detect_incoterm
 from utils.country_normalizer import normalize_country_name
 
 logger = logging.getLogger("deklarant_pro.import.leburic_pekabesko")
@@ -174,12 +175,13 @@ def _find_pdf_for_excel(excel_path: str) -> Optional[str]:
     return None
 
 
-def _extract_from_pdf(pdf_path: str) -> tuple[float, float, str, str]:
+def _extract_from_pdf(pdf_path: str) -> tuple[float, float, str, str, str]:
     """
-    Izvuci bruto, neto, zemlju porijekla i broj fakture iz PDF headera.
+    Izvuci bruto, neto, zemlju porijekla, broj fakture i paritet isporuke
+    (Rb.20) iz PDF headera.
 
     Returns:
-        (bruto_kg, neto_kg, zemlja_iso, invoice_number)
+        (bruto_kg, neto_kg, zemlja_iso, invoice_number, incoterm_code)
         invoice_number je Pekabesko komercijalni broj (ne Leburić nalog iz Excela)
     """
     try:
@@ -223,15 +225,17 @@ def _extract_from_pdf(pdf_path: str) -> tuple[float, float, str, str]:
             if m:
                 invoice_number = m.group(1).strip().rstrip(".").strip()
 
+        incoterm_code = detect_incoterm(text)  # Rb.20 "Uslovi isporuke"
+
         logger.info(
             f"  📄 PDF ekstrakcija: bruto={bruto_kg:.2f}kg, "
             f"neto={neto_kg:.2f}kg, zemlja={zemlja}, faktura={invoice_number!r}"
         )
-        return bruto_kg, neto_kg, zemlja, invoice_number
+        return bruto_kg, neto_kg, zemlja, invoice_number, incoterm_code
 
     except Exception as e:
         logger.warning(f"  ⚠️ Greška pri PDF ekstrakciji: {e}")
-        return 0.0, 0.0, "", ""
+        return 0.0, 0.0, "", "", ""
 
 
 def parse_leburic_pekabesko_excel(filepath: str) -> ImportResult:
@@ -281,16 +285,18 @@ def parse_leburic_pekabesko_excel(filepath: str) -> ImportResult:
     consumed_pdf: list[str] = []
     # Pekabesko komercijalni invoice broj (iz PDF headera) — koristi se umjesto Excel nalog broja
     invoice_name_from_pdf = ""
+    incoterm_code = ""
 
     pdf_path = _find_pdf_for_excel(filepath)
     if pdf_path:
-        bruto_pdf, neto_pdf, zemlja_pdf, inv_pdf = _extract_from_pdf(pdf_path)
+        bruto_pdf, neto_pdf, zemlja_pdf, inv_pdf, incoterm_pdf = _extract_from_pdf(pdf_path)
         if bruto_pdf > 0:
             bruto_kg = bruto_pdf
         if zemlja_pdf:
             zemlja_default = zemlja_pdf
         if inv_pdf:
             invoice_name_from_pdf = inv_pdf
+        incoterm_code = incoterm_pdf
         consumed_pdf = [pdf_path]  # PDF je iskorišten — agent ne treba da ga obrađuje ponovo
 
     # --- Čitaj stavke ---
@@ -369,4 +375,5 @@ def parse_leburic_pekabesko_excel(filepath: str) -> ImportResult:
         exporter=_exporter,
         importer=_importer,
         consumed_paths=consumed_pdf,
+        incoterm_code=incoterm_code,
     )

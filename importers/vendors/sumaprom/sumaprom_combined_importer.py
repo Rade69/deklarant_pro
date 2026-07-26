@@ -96,6 +96,7 @@ def combine_sumaprom_excel_and_pdf(
         "pdf_items": len(result.items),
         "combined": True,
         "warnings": warnings,
+        "incoterm_code": result.incoterm_code,  # PDF ima tekst, Excel nema — Rb.20 "Uslovi isporuke"
     }
 
     logger.info(f"  ✅ Kombinovano: {len(combined_items)} stavki, bruto={bruto_kg} kg, neto={neto_kg} kg")

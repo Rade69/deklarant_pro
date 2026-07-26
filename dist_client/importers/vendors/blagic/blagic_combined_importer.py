@@ -394,6 +394,7 @@ def combine_blagic_excel_and_pdf(
         "has_origin_statement": pdf_result.has_origin_statement,
         "origin_statements": pdf_result.origin_statements,
         "exporter_name": pdf_result.exporter.name if pdf_result.exporter else "LOREN",
+        "incoterm_code": pdf_result.incoterm_code,  # Rb.20 "Uslovi isporuke"
     }
 
     logger.info(f"\n📊 MATCHING REZULTAT:")
@@ -437,6 +438,7 @@ def import_blagic_combined(
         has_origin_statement=stats.get("has_origin_statement", False),
         exporter=Party(name=stats.get("exporter_name", "LOREN")),
         consumed_paths=[excel_path],
+        incoterm_code=stats.get("incoterm_code", ""),
     )
 
 

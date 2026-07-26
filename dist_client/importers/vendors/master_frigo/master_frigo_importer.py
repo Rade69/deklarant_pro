@@ -17,6 +17,7 @@ import openpyxl
 import pdfplumber
 
 from core.draft.draft import InvoiceLine, Party
+from importers.incoterm_utils import detect_incoterm
 from importers.invoice_line_utils import parse_eu_number
 from utils.country_normalizer import normalize_country_name
 
@@ -56,7 +57,6 @@ _TOTAL_VALUE_RE = re.compile(
 )
 _GROSS_RE = re.compile(r"\bBruto težina:\s*(?P<val>[\d\.,]+)\s*KG\b", re.IGNORECASE)
 _NET_RE = re.compile(r"\bNeto težina:\s*(?P<val>[\d\.,]+)\s*KG\b", re.IGNORECASE)
-_INCOTERM_RE = re.compile(r"\bParitet isporuke:\s*(?P<term>[A-Z]{3})\b", re.IGNORECASE)
 
 # unit + qty + price + amount
 # Podržava: "kom", "k om", "k o m", "kg", "k g"
@@ -309,12 +309,8 @@ def parse_master_frigo_pdf(
             header["net_kg"] = parse_eu_number(m.group("val"))
             break
 
-    # Extract incoterm
-    for ln in lines:
-        m = _INCOTERM_RE.search(ln)
-        if m:
-            header["incoterm"] = (m.group("term") or "").upper()
-            break
+    # Extract incoterm — Rb.20 "Uslovi isporuke"
+    header["incoterm"] = detect_incoterm("\n".join(lines))
 
     # Parse items
     start_idx: Optional[int] = None
@@ -534,6 +530,7 @@ def import_master_frigo(
         import_type="master_frigo",
         exporter=_exp,
         importer=_imp,
+        incoterm_code=header.get("incoterm", ""),
     )
 
 

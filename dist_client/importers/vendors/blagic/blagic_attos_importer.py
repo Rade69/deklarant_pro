@@ -23,6 +23,7 @@ import pdfplumber
 
 from core.draft.draft import InvoiceLine, Party
 from importers.import_result import ImportResult
+from importers.incoterm_utils import detect_incoterm
 from importers.invoice_line_utils import KNOWN_JM, parse_eu_number, parse_invoice_tail, parse_packing_tail
 from utils.country_normalizer import normalize_country_name
 
@@ -182,6 +183,7 @@ def parse_blagic_attos_invoice(filepath: str) -> Tuple[Dict, List[Dict]]:
         # Sačuvaj informaciju o izjavi u header
         header["has_origin_statement"] = has_origin_statement
         header["origin_statements"] = origin_statements
+        header["incoterm"] = detect_incoterm(all_text)  # Rb.20 "Uslovi isporuke"
 
         # Parse items
         items = _parse_attos_invoice_items(lines)
@@ -656,6 +658,7 @@ def parse_blagic_attos_with_auto_combine(invoice_pdf_path: str) -> ImportResult:
         importer=_imp,
         is_combined=bool(packing_list_path),
         consumed_paths=[packing_list_path] if packing_list_path else [],
+        incoterm_code=header.get("incoterm", ""),
     )
 
 

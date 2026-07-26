@@ -14,6 +14,7 @@ import pdfplumber
 
 from core.draft.draft import InvoiceLine, Party
 from importers.import_result import ImportResult
+from importers.incoterm_utils import detect_incoterm
 
 logger = logging.getLogger("deklarant_pro.import.blagic_loren_pdf")
 
@@ -291,6 +292,7 @@ def parse_blagic_loren_pdf(pdf_path: str) -> ImportResult:
         origin_statements=origin_statements,
         exporter=_exp,
         importer=_imp,
+        incoterm_code=detect_incoterm(full_text),  # Rb.20 "Uslovi isporuke"
     )
 
 

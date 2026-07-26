@@ -22,6 +22,7 @@ import pdfplumber
 
 from core.draft.draft import InvoiceLine
 from importers.import_result import ImportResult
+from importers.incoterm_utils import detect_incoterm
 from utils.country_normalizer import normalize_country_name
 
 logger = logging.getLogger("deklarant_pro.import.sumaprom_pdf")
@@ -90,6 +91,7 @@ def parse_sumaprom_pdf(pdf_path: str) -> ImportResult:
 
     header = _extract_header(text)
     items  = _parse_items(text)
+    incoterm_code = detect_incoterm(text)  # Rb.20 "Uslovi isporuke"
 
     logger.info(f"  Parsed {len(items)} stavki | bruto={header['bruto_kg']} kg | faktura={header['invoice_name']}")
     logger.info(f"  Izvoznik: {header['exporter_name']} | Uvoznik: {header['importer_name']}")
@@ -121,6 +123,7 @@ def parse_sumaprom_pdf(pdf_path: str) -> ImportResult:
         currency="EUR",
         exporter=exporter,
         importer=importer,
+        incoterm_code=incoterm_code,
     )
 
 

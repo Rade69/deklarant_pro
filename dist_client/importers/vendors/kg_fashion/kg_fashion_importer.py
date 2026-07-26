@@ -22,6 +22,7 @@ import xlrd
 
 from core.draft.draft import InvoiceLine, Party
 from importers.import_result import ImportResult
+from importers.incoterm_utils import detect_incoterm
 from importers.invoice_line_utils import parse_eu_number, normalize_tariff_number
 
 logger = logging.getLogger("deklarant_pro.import.kg_fashion")
@@ -48,7 +49,6 @@ _TOTAL_RE = re.compile(r'TOTAL\s*\(([A-Z]{3})\)\s*[:\s]+\s*([\d\.,]+)', re.IGNOR
 # "sB:ruto" je PDF artefakt za "Bruto" — trazimo "ruto" kao pouzdaniji anchor
 _BRUTO_RE = re.compile(r'ruto[:\s]+([\d\.,]+)\s*Kg', re.IGNORECASE)
 _NETO_RE = re.compile(r'[Nn]eto[:\s]+([\d\.,]+)\s*Kg', re.IGNORECASE)
-_INCOTERM_RE = re.compile(r'paritetu:\s*([A-Z]{2,5})', re.IGNORECASE)
 
 # Tail pattern: <middle> qty price CUR amount CUR
 # Greedy match za middle osigurava da qty/price/CUR/amount/CUR budu POSLJEDNJI u liniji.
@@ -277,10 +277,8 @@ def parse_kg_fashion_pdf(pdf_path: str) -> Tuple[Dict[str, Any], List[KGLine]]:
             header["net_kg"] = parse_eu_number(nm.group(1))
             break
 
-    # Incoterm (paritet)
-    im = _INCOTERM_RE.search(full_text)
-    if im:
-        header["incoterm"] = im.group(1).upper()
+    # Incoterm (paritet) — Rb.20 "Uslovi isporuke"
+    header["incoterm"] = detect_incoterm(full_text)
 
     # --- Parsiranje stavki ---
     items: List[KGLine] = []
@@ -423,6 +421,7 @@ def import_kg_fashion(pdf_path: str) -> ImportResult:
         exporter=_EXPORTER,
         importer=_IMPORTER,
         consumed_paths=consumed_paths,
+        incoterm_code=header.get("incoterm", ""),
     )
 
 

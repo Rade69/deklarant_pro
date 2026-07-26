@@ -12,6 +12,7 @@ import pdfplumber
 
 from core.draft.draft import InvoiceLine, Party
 from importers.import_result import ImportResult
+from importers.incoterm_utils import detect_incoterm
 
 logger = logging.getLogger("deklarant_pro.import.pip_food")
 
@@ -268,6 +269,8 @@ def parse_pip_food_pdf(pdf_path: str) -> ImportResult:
         
         logger.debug(f"Weights: Bruto={bruto_kg} kg, Neto={neto_kg} kg, Palettes={palettes_count}")
         
+        incoterm_code = detect_incoterm(full_text)  # Rb.20 "Uslovi isporuke"
+
         # DETEKTUJ SVE izjave o poreklu
         origin_statements = _detect_all_origin_statements(full_text)
         has_origin_statement = len(origin_statements) > 0
@@ -325,6 +328,7 @@ def parse_pip_food_pdf(pdf_path: str) -> ImportResult:
         origin_statements=origin_statements,
         exporter=_exp,
         importer=_imp,
+        incoterm_code=incoterm_code,
     )
 
 

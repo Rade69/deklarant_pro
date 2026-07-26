@@ -33,6 +33,7 @@ from types import SimpleNamespace
 
 from core.draft.draft import InvoiceLine, Party
 from importers.import_result import ImportResult
+from importers.incoterm_utils import detect_incoterm
 
 logger = logging.getLogger("deklarant_pro.import.leburic_pekabesko_pdf")
 
@@ -409,6 +410,7 @@ def parse_leburic_pekabesko_pdf(pdf_path: str) -> ImportResult:
     # ── 1b. PARTIES: izvoznik (exporter) i uvoznik (importer) ───────
     # Koristimo cijeli tekst (sve stranice, sve stranice)
     full_text = " ".join(w["text"] for w in all_words) if all_words else ocr_full_text
+    incoterm_code = detect_incoterm(full_text)  # Rb.20 "Uslovi isporuke"
     exporter, importer = _extract_parties(full_text)
     logger.info(f"  Izvoznik: {exporter.name if exporter else '—'} | "
                 f"Uvoznik: {importer.name if importer else '—'}")
@@ -656,6 +658,7 @@ def parse_leburic_pekabesko_pdf(pdf_path: str) -> ImportResult:
         origin_statements=origin_statements,
         exporter=exporter,
         importer=importer,
+        incoterm_code=incoterm_code,
     )
 
 

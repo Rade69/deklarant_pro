@@ -21,6 +21,7 @@ import pdfplumber
 
 from core.draft.draft import InvoiceLine, Party
 from importers.import_result import ImportResult
+from importers.incoterm_utils import detect_incoterm
 
 logger = logging.getLogger("deklarant_pro.import.cmana_pdf")
 
@@ -166,6 +167,8 @@ def parse_cmana_pdf(pdf_path: str) -> ImportResult:
     if m:
         total_amount = _parse_number(m.group(1).replace(" ", ""))
 
+    incoterm_code = detect_incoterm(all_text)  # Rb.20 "Uslovi isporuke"
+
     # Parsiraj stavke iz teksta (table extraction je prelomljena)
     # Tražimo redove koji počinju brojem stavke (1-99)
     lines = all_text.split("\n")
@@ -296,6 +299,7 @@ def parse_cmana_pdf(pdf_path: str) -> ImportResult:
         currency="EUR",
         import_type="cmana",
         exporter=exporter,
+        incoterm_code=incoterm_code,
     )
 
 

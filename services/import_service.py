@@ -411,6 +411,7 @@ class ImportService:
                     import_type="sumaprom_excel",
                     warnings=stats.get("warnings", []),
                     consumed_paths=[_excel_path],
+                    incoterm_code=stats.get("incoterm_code", ""),
                 )
 
             # CASE 2B: ŠUMAPROM PDF → Excel
@@ -431,6 +432,7 @@ class ImportService:
                     import_type="sumaprom_excel",
                     warnings=stats.get("warnings", []),
                     consumed_paths=[_pdf_path],
+                    incoterm_code=stats.get("incoterm_code", ""),
                 )
 
         except ImportError:

@@ -23,6 +23,7 @@ from openpyxl.worksheet.worksheet import Worksheet
 
 from core.draft.draft import InvoiceLine, Party
 from importers.import_result import ImportResult
+from importers.incoterm_utils import detect_incoterm
 from utils.country_normalizer import normalize_country_name
 
 logger = logging.getLogger("deklarant_pro.import.blagic_loren")
@@ -85,15 +86,15 @@ def detect_blagic_loren_excel(filepath: str) -> bool:
         return False
 
 
-def _find_and_extract_weights_from_pdf(excel_path: str) -> tuple[float, float]:
+def _find_and_extract_weights_from_pdf(excel_path: str) -> tuple[float, float, str]:
     """
-    Pronađi matching PDF fajl i izvuci ukupne težine.
+    Pronađi matching PDF fajl i izvuci ukupne težine i paritet isporuke (Rb.20).
 
     Args:
         excel_path: Putanja do Excel fajla
 
     Returns:
-        (bruto_kg, neto_kg) tuple, ili (0.0, 0.0) ako PDF nije pronađen
+        (bruto_kg, neto_kg, incoterm_code) tuple, ili (0.0, 0.0, "") ako PDF nije pronađen
     """
     import pdfplumber
     import re
@@ -103,7 +104,7 @@ def _find_and_extract_weights_from_pdf(excel_path: str) -> tuple[float, float]:
 
     if not pdf_path.exists():
         logger.debug(f"Matching PDF not found: {pdf_path}")
-        return (0.0, 0.0)
+        return (0.0, 0.0, "")
 
     logger.info(f"Found matching PDF: {pdf_path}")
 
@@ -132,11 +133,12 @@ def _find_and_extract_weights_from_pdf(excel_path: str) -> tuple[float, float]:
         if neto_kg > 0 and bruto_kg > 0 and neto_kg > bruto_kg:
             logger.warning(f"⚠️ VALIDACIJA: Neto ({neto_kg} kg) > Bruto ({bruto_kg} kg)! Provjerite PDF.")
 
-        return (bruto_kg, neto_kg)
+        incoterm_code = detect_incoterm(full_text)  # Rb.20 "Uslovi isporuke"
+        return (bruto_kg, neto_kg, incoterm_code)
 
     except Exception as e:
         logger.error(f"Error extracting weights from PDF: {e}")
-        return (0.0, 0.0)
+        return (0.0, 0.0, "")
 
 
 def parse_blagic_loren_excel(filepath: str, _skip_pdf_lookup: bool = False) -> ImportResult:
@@ -184,8 +186,9 @@ def parse_blagic_loren_excel(filepath: str, _skip_pdf_lookup: bool = False) -> I
             excel_neto = total_weight_kg
 
         # PDF lookup samo kad Excel stoji samostalno (nije par u combine-u)
+        incoterm_code = ""
         if not _skip_pdf_lookup:
-            bruto_kg, neto_kg = _find_and_extract_weights_from_pdf(filepath)
+            bruto_kg, neto_kg, incoterm_code = _find_and_extract_weights_from_pdf(filepath)
             # PDF ima samo zaokružene vrijednosti — koristi Excel sum ako je precizniji
             if bruto_kg > 0 and excel_bruto > 0:
                 bruto_kg = excel_bruto
@@ -212,6 +215,7 @@ def parse_blagic_loren_excel(filepath: str, _skip_pdf_lookup: bool = False) -> I
             import_type="loren_excel",
             exporter=_exp,
             importer=_imp,
+            incoterm_code=incoterm_code,
         )
 
     except Exception as e:
