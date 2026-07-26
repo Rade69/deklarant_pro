@@ -1969,3 +1969,58 @@ suite: 1178 passed, isti 1 nepovezan pre-postojeći fail
 (`test_xml_parser_fix.py`, hardkodovan Linux path) + 1 nepovezan error
 (`test_model_benchmark.py`, fixture `model_name` ne postoji) — oba
 pre-postojeća, nevezana za ovu izmjenu.
+
+### §68 — Dugme "Podešavanja" u Admin → Baza podataka (2026-07-26)
+
+Korisnička primjedba (screenshot Admin panela): "u admin panelu imamo
+mogućnost da se ručno klikne na spoji ali nema podešavanja?" — status
+konekcije i "Testiraj konekciju" postoje u `DatabasePanel`
+(`gui/tabs/admin/panels/database_panel.py`), ali host/port/baza/korisnik/
+lozinka se čitaju JEDNOM iz `.env` pri konstrukciji panela
+(`config.settings.get_db_settings()`) i nigdje se ne mogu editovati iz
+aplikacije — jedini put je ručno uređivanje `.env` fajla.
+
+**Otkriveno usput**: `gui/dialogs/db_setup_dialog.py` (`DbSetupDialog`) je
+POTPUNO gotov ekran za baš ovu namjenu — host/port/ime baze/korisnik/
+lozinka, test konekcije u pozadinskom threadu, snimanje u `.env` — sa
+docstringom koji kaže "Prikazuje se kad... konekcija na bazu ne uspije" i
+čak gotovom `check_and_setup_db(app)` helper funkcijom namijenjenom pozivu
+iz `run.py` pri startu. Nijedno od toga nije nigdje pozvano u aplikaciji
+(potvrđeno grep-om) — isti obrazac "sagrađeno pa nikad povezano".
+
+**Fix**: dodato dugme "Podešavanja" pored "Testiraj konekciju" u
+`DatabasePanel` (`_on_settings()`), koje otvara postojeći `DbSetupDialog`
+(već ima `_load_existing_env()` — predpopuni iz `.env` automatski). Nakon
+potvrde (`Accepted`): poziva se `_reload_settings()` iz istog modula (isti
+mehanizam koji `check_and_setup_db()` koristi pri startu — resetuje
+`config.settings._db_settings` singleton i zatvara stari
+`database.db._connection_pool`, bez toga bi promjena ostala nevidljiva do
+restarta aplikacije), zatim se osvježi `lbl_server` prikaz i automatski
+ponovo pokrene test konekcije.
+
+**Napomena korisnika**: DHCP promjena IP-a servera (viđeno 3x u sesiji
+2026-07-25/26 — `.55`→`.25`→`.154`→`.25`) će biti trajno riješena kad se
+serveru dodijeli statična adresa na mreži — ovo dugme je i dalje korisno
+nezavisno od toga (promjena baze/korisnika/porta bez ručnog `.env`
+uređivanja), ali ne zamjenjuje taj follow-up. Startup auto-provjera
+konekcije (razgovarano u istoj sesiji, ista `DbSetupDialog`/
+`check_and_setup_db()` infrastruktura) NIJE urađena u ovom koraku —
+korisnik je eksplicitno odgodio do static IP-a.
+
+GitNexus impact na `DatabasePanel` (upstream): LOW (8 impacted, samo
+import lanac kroz `admin_view.py`→`admin_controller.py`/`admin_tab.py`
+→`main_window.py`, 0 affected_processes). `detect_changes(all)` poslije
+potvrdio LOW/0 affected_processes.
+
+Testovi: nov `test_database_panel_settings_button.py` (2 testa — potvrda
+otvara dialog/reload/re-test, otkazivanje ne radi ništa), isti MagicMock
+"self" obrazac kao `test_faktura_view_auto_applied_notice.py`. Dodatno
+offscreen konstrukcija stvarnog `DatabasePanel` widgeta (Qt
+`QT_QPA_PLATFORM=offscreen`) da se potvrdi da grid layout raspored (2
+dugmeta umjesto 1 koje je spanning) ne puca. Pun test suite: 1180 passed,
+ista 2 pre-postojeća nepovezana problema.
+
+`dist_client/gui/tabs/admin/panels/database_panel.py` mirror bio
+bajt-identičan prije izmjene — primijenjen identičan diff.
+`gui/dialogs/db_setup_dialog.py` NIJE mijenjan (već identičan u oba
+stabla) — samo povezan, ne izmijenjen.
