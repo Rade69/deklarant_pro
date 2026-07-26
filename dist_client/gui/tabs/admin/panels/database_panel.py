@@ -4,7 +4,7 @@ Database Panel — status PostgreSQL konekcije i pregled ključnih tabela.
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QPushButton, QGroupBox, QGridLayout, QScrollArea, QFrame
+    QPushButton, QGroupBox, QGridLayout, QScrollArea, QFrame, QDialog
 )
 from PySide6.QtCore import Signal, Qt, QThread
 from PySide6.QtGui import QFont
@@ -140,7 +140,18 @@ class DatabasePanel(QWidget):
         """)
         self.btn_test.setMinimumHeight(36)
         self.btn_test.clicked.connect(self._on_test_conn)
-        conn_lay.addWidget(self.btn_test, 3, 0, 1, 2)
+        conn_lay.addWidget(self.btn_test, 3, 0)
+
+        self.btn_settings = QPushButton(qta.icon('fa5s.cog', color='white'), " Podešavanja")
+        self.btn_settings.setStyleSheet("""
+            QPushButton { background:#5a6b7a; color:white; border:none;
+                          border-radius:4px; padding:7px 16px; font-size:13px; }
+            QPushButton:hover { background:#485762; }
+            QPushButton:disabled { background:#aaa; }
+        """)
+        self.btn_settings.setMinimumHeight(36)
+        self.btn_settings.clicked.connect(self._on_settings)
+        conn_lay.addWidget(self.btn_settings, 3, 1)
 
         layout.addWidget(conn_group)
 
@@ -240,6 +251,31 @@ class DatabasePanel(QWidget):
     def _on_conn_done(self, ok: bool, info: str):
         self.btn_test.setEnabled(True)
         self.set_connection_status(ok, info)
+
+    def _on_settings(self):
+        """
+        Otvori DbSetupDialog (host/port/baza/korisnik/lozinka, test konekcije,
+        snimanje u .env) — dosad postojao gotov, ali nigdje pozvan u aplikaciji
+        (korisnička primjedba 2026-07-26: "ima testiraj konekciju ali nema
+        podešavanja"). _reload_settings() je isti mehanizam koji
+        check_and_setup_db() koristi pri startu — bez njega bi promjena u .env
+        ostala nevidljiva dok se aplikacija ne restartuje (stari connection
+        pool i keširan config.settings singleton).
+        """
+        from gui.dialogs.db_setup_dialog import DbSetupDialog, _reload_settings
+
+        dialog = DbSetupDialog(parent=self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        _reload_settings()
+        try:
+            from config.settings import get_db_settings
+            s = get_db_settings()
+            self.lbl_server.setText(f"{s.host}:{s.port}/{s.database}")
+        except Exception:
+            pass
+        self._on_test_conn()
 
     def _on_refresh(self):
         self.btn_refresh.setEnabled(False)
