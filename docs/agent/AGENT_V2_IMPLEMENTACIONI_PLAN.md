@@ -1,7 +1,7 @@
 # Agent V2 — implementacioni plan inteligentnog agenta i kontrolisane automatizacije
 
 **Datum:** 2026-07-26
-**Verzija:** 2.0 (redizajn — v1.0 je commit `5557949`, dostupna kroz `git show 5557949:docs/agent/AGENT_V2_IMPLEMENTACIONI_PLAN.md`)
+**Verzija:** 2.1 (v2.0 je commit `e62eae8`; v1.0 je commit `5557949` — oba dostupna kroz `git show <hash>:docs/agent/AGENT_V2_IMPLEMENTACIONI_PLAN.md`)
 **Status:** Spremno za faznu realizaciju
 **Namjena:** Kanonski handoff plan za implementaciju unapređenja Carinskog Agenta
 **Ciljni ishod:** Pouzdano razumijevanje korisničke namjere i kontrolisana priprema deklaracije do trenutka izvoza ASYCUDA XML-a
@@ -30,7 +30,8 @@ Nijedna faza ne smije samostalno proširiti dozvole agenta izvan pravila u
 ## 2. Šta je promijenjeno u odnosu na v1.0
 
 Ovaj odjeljak postoji zato da izvršilac koji je čitao v1.0 ne radi po zastarjelim
-pretpostavkama. Trinaest suštinskih izmjena:
+pretpostavkama. Četrnaest suštinskih izmjena (stavke 12 i 14 su dodane u v2.1,
+poslije eksplicitne korisničke odluke od 2026-07-26 — vidi §18/§19/§25):
 
 | # | Izmjena | Razlog |
 | --- | --- | --- |
@@ -45,8 +46,9 @@ pretpostavkama. Trinaest suštinskih izmjena:
 | 9 | Dodata **dist_client strategija kao odluka Faze −1**, ne kao release provjera | Svaki router fajl postoji dvaput; drift je ranije proizveo crash bug |
 | 10 | Dodat **kill-switch** za cijeli V2 routing | Windows klijent (.55) je radna mašina; regresija mora biti opoziva bez builda |
 | 11 | Inventar konkurentnih validacionih tipova proširen sa 4 na **8 + 5 kolizija imena** | v1.0 je nabrajala samo dio; adapteri bi importovali pogrešnu klasu |
-| 12 | Faze 7 i 8 (planer, režimi automatizacije) označene **uslovnim** | Ništa u dijagnozi ne dokazuje potrebu za višekoračnim planerom |
+| 12 | Faze 7 i 8 (planer, režimi automatizacije) su **obavezan scope**, ne uslovan | Eksplicitna korisnička odluka (2026-07-26): jedna komanda pokreće cijeli proces do XML-a, agent vodi tok uz pauze na kapijama |
 | 13 | Kriterijumi prihvata **oslobođeni hardkodovanih brojeva** (184/98) | To su brojevi jedne konkretne deklaracije, ne ugovor |
+| 14 | Procjene po fazi preformulisane kao **relativna složenost za paralelan agent-rad**, ne serijski ljudski radni dani | Realizacija ide kroz više paralelnih AI agenata; stvarno ograničenje je redoslijed kapija i token/poruka budžet, ne brzina pisanja koda (§25) |
 
 ---
 
@@ -535,7 +537,7 @@ GUI prosljeđuje implementaciju sa `QMessageBox`; testovi prosljeđuju lambdu.
 Bez ovoga kriterijum „rezultat se može testirati bez GUI dijaloga“ (§17) je
 neispunjiv.
 
-### 7.7 `AgentPlan` (koristi se tek u uslovnoj Fazi 7)
+### 7.7 `AgentPlan` (koristi se u Fazi 7)
 
 Lokacija: `services/agent/planning/agent_plan.py`
 
@@ -656,6 +658,16 @@ resolver i alat govore isti jezik, što je i bila poenta Faze 1.
 
 ## 10. Faza −1 — blokirajući preduslovi
 
+> **STATUS: ZAVRŠENO (2026-07-26, commit `2b4e815`).** Sva četiri preduslova
+> zatvorena — `draft.revision`/`fingerprint` (`core/draft/draft.py:474-489`,
+> ALT pristup preko `bump_revision()` u `mark_dirty()`, ne `__setattr__`),
+> `scripts/sync_dist_client.py`, `DEKLARANT_AGENT_V2` u `config/settings.py`
+> (default `False`), inventar u
+> `agent_reports/2026-07-26_faza-1d-inventar-kolizija-imena.md`. Detalji i
+> obrazloženje ALT pristupa: `project_rooms/2026-07-26_faza-1a-draft-revision.md`.
+> Testovi: `tests/unit/test_draft_revision.py` (8 testova). Sljedeći korak je
+> **Faza 0** (dolje) — takođe već završena.
+
 **Ovo je najvažnija izmjena u odnosu na v1.0.** Četiri stavke su bile skrivene
 unutar kasnijih faza. Nijedna kasnija faza ne počinje dok ove nisu zatvorene.
 Sve četiri su međusobno nezavisne i mogu ići paralelno.
@@ -716,6 +728,18 @@ i u zaglavlje `finding_model.py`. Bez ovoga adapteri iz Faze 2 uvoze pogrešan
 ---
 
 ## 11. Faza 0 — baseline i zaključavanje ponašanja
+
+> **STATUS: ZAVRŠENO (2026-07-26, commiti `76c5a89`, `96a2911`).** Mapa svih 10
+> routing slojeva sa dokazanim bugovima:
+> `project_rooms/2026-07-26_faza0-agent-v2-baseline.md`. Fixture sa 50
+> slučajeva (uklj. `reachable_branch` polje, dopunjeno u `96a2911`):
+> `tests/fixtures/agent/intent_routing_cases.json`. Testovi:
+> `tests/unit/test_agent_intent_routing_baseline.py` (50 passed, 28 skipped —
+> Tool Use sloj mockovan). Napomena: fixture koristi polje `expected_sloj`
+> umjesto `reachable_branch` iz originalnog primjera u ovom dokumentu — isto
+> značenje, zadržati `expected_sloj` kao stvarni naziv polja u kodu, ne
+> mijenjati radi usklađivanja sa ovim tekstom. Sljedeći korak je **Faza 1**
+> (§12).
 
 ### Zadaci
 
@@ -1061,13 +1085,15 @@ Uz to: `overall_outcome()` se mijenja da vraća `READY_FOR_EXPORT` umjesto
 
 ---
 
-## 18. Faza 7 — Plan Builder i workflow **(USLOVNA)**
+## 18. Faza 7 — Plan Builder i workflow
 
-> **Uslov za pokretanje:** Faze 1–6 su u produkcijskoj upotrebi najmanje dvije
-> sedmice i korisnik je zatražio višekoračnu automatizaciju. Ništa u dijagnozi
-> (§3) ne dokazuje da je planer potreban — dokazani problem je zamjena prikaza i
-> provjere, i plitke provjere. Ako se ispostavi da je dovoljno proširiti
-> `_puna_auto_pipeline` readiness kapijom, ova faza otpada.
+> **Obavezan scope — eksplicitna korisnička odluka (2026-07-26).** Cilj je jedna
+> korisnička komanda („Pripremi deklaraciju“) koja pokreće cijeli proces do
+> XML-a, uz obavezne pauze na kapijama za potvrdu deklaranta. Ova faza je zato
+> core, ne uslovna kako je predloženo u v2.0. Odluka ne mijenja tehnički obim —
+> inverzija zavisnosti iz `_puna_auto_pipeline` (§18 ispod) je i dalje najveći
+> pojedinačni komad posla u cijelom planu i ne postaje lakša samo zato što je
+> sada obavezna.
 
 ### Novi moduli
 
@@ -1131,23 +1157,31 @@ pipeline paralelno.
 - **druga radnja tokom workflow-a je odbijena** (`AgentBusyError`, §7.6.b);
 - pipeline završava na `READY_FOR_EXPORT`, ne na `COMPLETED`.
 
-**Procjena:** 10–16 radnih dana (v1.0: 7–12; povećano zbog inverzije zavisnosti).
+**Relativna složenost:** najveća u planu — vidi §25.3. Razlog je isključivo
+inverzija zavisnosti (`fw._on_*` → servis, `QMessageBox` → `ConfirmFn`,
+uklanjanje `processEvents()`), ne obim novog koda.
 
 ---
 
-## 19. Faza 8 — nivoi automatizacije **(USLOVNA)**
+## 19. Faza 8 — nivoi automatizacije
 
-> **Uslov:** Faza 7 realizovana i korisnik traži razlikovanje režima. Inače
-> podrazumijevani režim je „Asistirani“ i nema prekidača.
+> **Obavezan scope.** Definiše koje kapije ostaju ljudske bez obzira na režim —
+> ovo je politika koja čini „jedna komanda do XML-a“ (Faza 7) bezbjednom, ne
+> nezavisna funkcija. **Praktični cilj je Režim C** (§19 ispod) kao jedini
+> aktivno korišćen tok: korisnik ukuca jednu komandu, agent vodi proces uz
+> obavezne pauze na kapijama. Režimi A i B ostaju dizajnirani i pokriveni
+> testovima (već su dio ugovora ispod), ali se ne grade kao korisnički vidljiv
+> prekidač dok se izričito ne zatraži — to bi bio dodatni, nezatraženi obim.
 
 ### Režimi
 
-- **A. Asistirani** — sve analize automatske, svaka mutacija traži potvrdu. Default.
+- **A. Asistirani** — sve analize automatske, svaka mutacija traži potvrdu.
+  Dizajniran i testiran; nije korisnički izložen u prvoj isporuci.
 - **B. Kontrolisana automatizacija** — bezbjedne tehničke operacije automatske;
   decision politika odlučuje šta je dovoljno potvrđeno; carinski rizične
-  vrijednosti i dalje traže potvrdu.
+  vrijednosti i dalje traže potvrdu. Isto — dizajniran, nije prvi prioritet.
 - **C. Priprema do XML-a** — workflow vodi proces; obavezne ljudske kapije ostaju;
-  XML se ne izvozi bez završne potvrde.
+  XML se ne izvozi bez završne potvrde. **Ovo je aktivni, isporučeni režim.**
 
 ### Obavezne ljudske kapije (u sva tri režima)
 
@@ -1163,7 +1197,8 @@ označeno za obavezni review; finalni XML izvoz.
 - promjena režima je eksplicitna i vidljiva;
 - testovi dokazuju **identičan blokirajući ishod u sva tri režima**.
 
-**Procjena:** 3–5 radnih dana.
+**Relativna složenost:** mala — politika se nadovezuje na kapije koje Faza 7
+već računa (§7.5); ovdje se samo definiše koje kapije ostaju ljudske po režimu.
 
 ---
 
@@ -1279,8 +1314,8 @@ LLM provider se smije mockovati u routing testovima.
 | P4 Items review | 4 | P2 stabilan | naimenovanja + Rub.31 + grupisanje + limit 99 |
 | P5 Header/cross-check | 5 | P3 i P4 završeni | zaglavlje + zbirovi/cross-tab |
 | P6 XML readiness | 6 | P5 završen | readiness + decision preflight + builder + invalidacija revizijom |
-| P7 Planer/workflow *(uslovno)* | 7 | alati i readiness stabilni 2+ sedmice | pipeline stage + resume + failure/cancel + busy-lock |
-| P8 Nivoi automatizacije *(uslovno)* | 8 | P7 stabilan | mutation gate + matrica potvrda |
+| P7 Planer/workflow | 7 | P6 (readiness) završen | pipeline stage + resume + failure/cancel + busy-lock |
+| P8 Nivoi automatizacije | 8 | P7 završen | mutation gate + matrica potvrda |
 | P9 UX/audit | 9 | djelimično paralelno poslije P2 | renderer + audit privacy |
 | P10 E2E/release | 10 | sve prethodne | puni suite + Windows/dist smoke + kill-switch paritet |
 
@@ -1330,60 +1365,124 @@ odluke → provjera GitNexus stale statusa.
 - `DEKLARANT_AGENT_V2=0` vraća staro ponašanje bez novog builda;
 - dist_client nije u driftu;
 - realni dokumenti i Windows smoke testovi prolaze;
-- nijedan postojeći ispravan ručni workflow nije pokvaren.
-
-Ako je Faza 7 preskočena, stavke o planeru i `Nastavi` se ne primjenjuju —
-umjesto njih važi: `_puna_auto_pipeline` završava na `READY_FOR_EXPORT` i ne
-izvozi bez readiness kapije.
+- nijedan postojeći ispravan ručni workflow nije pokvaren;
+- **jedna korisnička komanda pokreće cijeli proces do XML-a** (Režim C, §19) i
+  zaustavlja se tačno na kapijama iz §7.5, ne prije i ne poslije;
+- `Nastavi` nastavlja od prve nezadovoljene kapije bez preskakanja blokade.
 
 ---
 
 ## 25. Procjena obima
 
-| Oblast | Faze | Procjena |
-| --- | --- | ---: |
-| Blokirajući preduslovi | −1 | 3–5 dana |
-| Baseline i intent resolver | 0–1 | 6–9 dana |
-| Validacioni ugovor i tri taba | 2–5 | 16–25 dana |
-| XML readiness | 6 | 5–8 dana |
-| UX i observability | 9 | 3–5 dana |
-| Evaluacija i release | 10 | 7–10 dana |
-| **Obavezni dio** | **−1…6, 9, 10** | **40–62 dana** |
-| Planer i workflow *(uslovno)* | 7 | 10–16 dana |
-| Nivoi automatizacije *(uslovno)* | 8 | 3–5 dana |
-| **Sa uslovnim fazama** | | **53–83 dana** |
+### 25.1 Šta ove brojke jesu i šta nisu
 
-Procjena uključuje testove, dokumentaciju, realne fakture i release provjere.
+v2.0 je izražavala obim u „radnim danima“ po fazi, računato kao da jedan
+developer piše kod ručno. To je pogrešan model. Ovaj plan realizuju AI agenti —
+najmanje dva, paralelno gdje god zavisnosti to dozvoljavaju (§22, kolona „Uslov
+za predaju“) — a pisanje koda, testova i pokretanje `pytest`/`py_compile` traje
+minute, ne dane. Zato su brojke ispod preformulisane kao **relativna
+implementaciona složenost** (§25.3), ne kalendarski raspored.
 
-**Napomena o kalendaru:** ovo su radni dani jednog vlasnika po fazi, ne
-kalendarski dani. Centralni router, zajednički ugovori i workflow orkestrator
-moraju imati jednog vlasnika po fazi — paralelizacija je moguća samo na P3/P4/P9.
+Stvarno ograničenje wall-clock vremena nije brzina pisanja koda, nego:
+
+1. **Kritični put** — sekvencijalni lanac faza koje moraju ići jedna za drugom
+   bez obzira koliko agenata radi (§25.2);
+2. **Test gate po paketu** — svaki paket iz §22 mora proći svoj test gate prije
+   nego što sljedeći počne; ovo je sekvencijalno, ali brzo (minute);
+3. **Obavezan pregled na HIGH/CRITICAL nalazima** — `draft.revision` (Faza −1.A),
+   prepravka `tool_definitions.py` (Faza 1) i inverzija zavisnosti u
+   `_puna_auto_pipeline` (Faza 7) će vjerovatno vratiti HIGH/CRITICAL
+   `gitnexus_impact` i po `AGENTS.md` traže tvoju potvrdu prije nastavka — to je
+   stvarna pauza koju ni broj agenata ni njihova brzina ne skraćuju;
+4. **Tvoj dnevni token/poruka budžet** — po tvojoj vlastitoj procjeni ovo je
+   realno najveće ograničenje, potpuno nezavisno od složenosti koda.
+
+### 25.2 Kritični put
+
+Minimalan broj sekvencijalnih koraka, bez obzira koliko agenata radi paralelno
+— svaki sljedeći zavisi od test gate-a prethodnog:
+
+```text
+Faza −1 (4 podzadatka paralelno)
+   -> Faza 0
+   -> Faza 1
+   -> Faza 2
+   -> max(Faza 3, Faza 4)      -- paralelno, vidi napomenu ispod tabele §22
+   -> Faza 5
+   -> Faza 6
+   -> Faza 7
+   -> Faza 8
+   -> Faza 10                  -- Faza 9 djelimično paralelno poslije Faze 2
+```
+
+Deset sekvencijalnih koraka. Sa dva ili više agenata koji rade kontinuirano i
+brzim test/review ciklusom, ovo je realno **posao od 2–3 dana rada**, pod
+uslovom da:
+
+- pregled na HIGH/CRITICAL kapijama (stavka 3 iznad) ne čeka dugo;
+- dnevni token/poruka budžet dozvoljava da se u istoj sesiji zatvori barem
+  nekoliko faza.
+
+Ako se dnevni limit potroši usred faze, kritični put se jednostavno nastavlja
+sljedećeg dana od tačke gdje je stao — plan ne zavisi od proteklog vremena,
+nego od toga da je test gate prethodne faze zelen prije početka sljedeće.
+Realan raspon je zato **2–3 dana rada u optimalnom slučaju, do nekoliko dana
+duže ako dnevni budžet često prekida sesiju usred faze** — to drugo nije rizik
+plana, nego posljedica tvog dostupnog budžeta, van kontrole ovog dokumenta.
+
+### 25.3 Relativna složenost po fazi
+
+Ne raspored, nego vodič gdje je više posla — koristan za raspodjelu između
+paralelnih agenata:
+
+| Faza | Složenost | Zašto |
+| --- | --- | --- |
+| −1 | S (4 nezavisna komada) | Svaki podzadatak mali; paralelizacija trivijalna |
+| 0 | S | Uglavnom čitanje i mapiranje, bez izmjene koda |
+| 1 | M | `tool_definitions.py` + resolver + konsolidacija alata 12→8 |
+| 2 | M | Adapteri za 8 postojećih tipova, bez nove poslovne logike |
+| 3 | M | Provjera fakture — najviše poslovnih pravila po stavci |
+| 4 | M | Provjera naimenovanja — grupisanje + Rub.31 real-builder test |
+| 5 | S–M | Zaglavlje + cross-tab, nadovezuje se na 3/4 |
+| 6 | M | Readiness servis + revision-invalidacija |
+| 7 | **L** | Inverzija zavisnosti u `_puna_auto_pipeline` — najveći pojedinačni komad u planu |
+| 8 | S | Politika kapija preko servisa koji Faza 7 već računa |
+| 9 | S | Renderer + audit, djelimično paralelno sa 2+ |
+| 10 | M | E2E scenariji + Windows/dist smoke — traje zbog stvarnog build/test vremena, ne pisanja koda |
+
+**Napomena o Fazi 7 (L):** jedina faza gdje je realna složenost suštinska
+(inverzija zavisnosti — `fw._on_*` u servis, `QMessageBox` u `ConfirmFn`,
+uklanjanje `processEvents()`), ne obim novog koda. Čak i sa 2+ agenta paralelno,
+unutar same Faze 7 koraci 1→2→3→4 (§18) ostaju sekvencijalni jedan na drugom.
 
 ---
 
 ## 26. Prvi konkretan implementacioni zadatak
 
-> Implementirati **Fazu −1** (sva četiri preduslova) i **Fazu 0**
-> (characterization routing dataset sa dokazom dostižnosti grana).
-> Ne dirati produkciono ponašanje.
+> **Faza −1 i Faza 0 su ZAVRŠENE** (2026-07-26, commiti `2b4e815`, `76c5a89`,
+> `96a2911` — vidi status-blokove u §10 i §11). Sljedeći zadatak je **Faza 1**.
+
+> Implementirati **Fazu 1** — `AgentIntent` model, `intent_resolver.py`,
+> obavezna prepravka `tool_definitions.py` (SYSTEM_PROMPT pravila 6/7/17 i opisi
+> `prikazi_naimenovanja`/`provjeri_naimenovanja`/`pregled_stanja_aplikacije` —
+> §3.2), konsolidacija alata 12 → 8 (§8). Koristiti postojeći
+> `tests/fixtures/agent/intent_routing_cases.json` (50 slučajeva, polje
+> `expected_sloj`) kao characterization baseline — ne praviti novi fixture.
 
 Scope lock:
 
 - ne mijenjati nijednu poslovnu validaciju;
 - ne mijenjati carinsku logiku ni decision policy;
 - ne dodavati automatske mutacije;
-- ne refaktorisati `chat_intent_handler.py`;
-- `draft.revision` je jedina izmjena modela — i samo aditivna.
+- mrtve grane iz `project_rooms/2026-07-26_faza0-agent-v2-baseline.md` (§2.1,
+  §2.3) se brišu tek pošto characterization testovi potvrde paritet, u
+  zasebnom commitu (§12 implementaciono pravilo 8).
 
 Obavezni izlaz:
 
-- `draft.revision` sa testom;
-- odluka i mehanizam dist_client sinhronizacije;
-- kill-switch `DEKLARANT_AGENT_V2` (default `0`) proveden kroz `_handle_message`;
-- inventar kolizija imena validacionih tipova;
-- najmanje 50 routing slučajeva sa poljem `reachable_branch`;
-- popis mrtvih grana sa dokazom;
-- jasna migraciona tačka za Fazu 1.
-
-Tek nakon toga slijedi Faza 1 (`AgentIntent`, resolver, `tool_definitions.py`,
-konsolidacija alata 12 → 8).
+- `services/agent/chat/intent_model.py`, `intent_resolver.py`, `intent_rules.py`;
+- prepisan `tool_definitions.py` (SYSTEM_PROMPT + opisi alata);
+- `prikazi`/`provjeri` u `tool_policy.py`, stara imena kao aliasi;
+- `DEKLARANT_AGENT_V2=0` daje bajt-identično staro ponašanje (test);
+- svi postojeći 50 fixture slučajeva prolaze sa novim resolverom;
+- jasna migraciona tačka za Fazu 2.

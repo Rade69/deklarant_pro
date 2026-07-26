@@ -2226,3 +2226,43 @@ Svi importer fajlovi + `faktura_view.py` + `import_result.py` + `services/
 import_service.py` sinhronizovani u `dist_client` mirror (4 fajla su imala
 trivijalan pre-postojeći BOM/trailing-newline drift, nesemantički — potvrđeno
 `diff --strip-trailing-cr` prije i poslije).
+
+---
+
+## 70. Agent V2 plan v2.1 — planer/workflow postaje obavezan scope, plan usklađen sa paralelnim radom (2026-07-26)
+
+Korisnička odluka poslije v2.0: procjena vremena u danima je pogrešan model
+jer plan realizuje **više paralelnih AI agenata**, ne jedan developer koji
+kuca kod ručno — potvrđeno u praksi istog dana (Faza −1 i Faza 0 su završene
+u paralelnoj sesiji dok je ovaj dokument još bio u izradi, commiti `2b4e815`,
+`76c5a89`, `96a2911`). Tri eksplicitne odluke korisnika:
+
+1. **Planer (Faza 7) i nivoi automatizacije (Faza 8) nisu uslovni, nego
+   obavezan scope.** Korisnik želi tačno taj tok: jedna komanda pokreće cijeli
+   proces do XML-a, agent vodi tok uz obavezne pauze na kapijama (Režim C iz
+   Faze 8). Režimi A/B ostaju dizajnirani ali se ne izlažu kao prekidač dok se
+   izričito ne zatraži.
+2. **Konsolidacija alata 12 → 8** — potvrđena bez izmjene.
+3. **Kill-switch `DEKLARANT_AGENT_V2` default `False`** — potvrđen bez izmjene,
+   već implementiran u `config/settings.py` (Faza −1.C).
+
+Procjena obima u `docs/agent/AGENT_V2_IMPLEMENTACIONI_PLAN.md` §25 je
+preformulisana: brojke po fazi su **relativna implementaciona složenost**
+(S/M/L), ne radni dani. Stvarno ograničenje wall-clock vremena nije brzina
+pisanja koda (agenti pišu kod i pokreću testove u minutama), nego: (a)
+kritični put — redoslijed faza koje moraju biti sekvencijalne (§25.2, deset
+koraka), (b) obavezan korisnički pregled na HIGH/CRITICAL `gitnexus_impact`
+nalazima (npr. `draft.revision` je dirao 278 pogođenih simbola), (c) korisnikov
+dnevni token/poruka budžet — po njegovoj vlastitoj procjeni ovo je realno
+najveće ograničenje.
+
+**Faza 7 (planer) je jedina faza sa realno visokom implementacionom
+složenošću** (§25.3) — ne zbog obima novog koda, nego zbog inverzije
+zavisnosti u `_puna_auto_pipeline` (GUI pozivi `fw._on_*` i `QMessageBox` moraju
+izaći iz servisnog sloja prije nego workflow orkestrator može voditi faze).
+
+**Status Faze −1 i Faze 0** (za buduće agente koji čitaju plan): obje su
+ZAVRŠENE prije nego što je v2.1 plan dovršen — vidi status-blokove direktno u
+§10 i §11 plana. Fixture iz Faze 0 koristi polje `expected_sloj`, ne
+`reachable_branch` kako je originalni primjer u planu predložio — isto
+značenje, plan je ažuriran da to ne tretira kao neusklađenost.
