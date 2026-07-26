@@ -278,6 +278,7 @@ def _prepare_invoice(
     exporter = None
     importer = None
     currency = ""
+    incoterm_code = ""
     has_origin_statement = False
     eur1_suggested = False
     is_authorized_exporter = False
@@ -292,6 +293,8 @@ def _prepare_invoice(
             importer = c.importer
         if not currency and c.currency:
             currency = c.currency
+        if not incoterm_code and c.incoterm_code:
+            incoterm_code = c.incoterm_code
         if c.has_origin_statement:
             has_origin_statement = True
         if c.eur1_suggested:
@@ -337,6 +340,7 @@ def _prepare_invoice(
         exporter=exporter,
         importer=importer,
         currency=currency,
+        incoterm_code=incoterm_code,
         has_origin_statement=has_origin_statement,
         eur1_suggested=eur1_suggested,
         is_authorized_exporter=is_authorized_exporter,

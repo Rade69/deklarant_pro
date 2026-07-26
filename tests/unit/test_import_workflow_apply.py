@@ -38,6 +38,7 @@ def _candidate(
     exporter=None,
     importer=None,
     currency="EUR",
+    incoterm_code="",
     has_origin_statement=False,
 ):
     import os
@@ -56,13 +57,17 @@ def _candidate(
         exporter=exporter or Party(name="Exporter d.o.o.", address="Export 1", city="Berlin", country="DE"),
         importer=importer or Party(name="Importer d.o.o.", address="Import 1", city="Bijeljina", country="BA", vat_or_id="JIB1"),
         currency=currency,
+        incoterm_code=incoterm_code,
         has_origin_statement=has_origin_statement,
     )
 
 
 def test_apply_adds_invoice_lines_weights_header_and_source_files():
     draft = DeclarationDraft()
-    candidate = _candidate(lines=[_line(invoice_number="", bruto=0.0, neto=0.0)])
+    candidate = _candidate(
+        lines=[_line(invoice_number="", bruto=0.0, neto=0.0)],
+        incoterm_code="CIP",
+    )
     plan = prepare_import([candidate])
 
     result = apply_import_plan(draft, plan, make_empty_decisions())
@@ -77,6 +82,11 @@ def test_apply_adds_invoice_lines_weights_header_and_source_files():
     assert draft.invoice_weights["inv-001"] == (10.0, 9.0)
     assert draft.izvoznik_naziv == "Exporter d.o.o."
     assert draft.primalac_id == "JIB1"
+    # Rb.20 "Uslovi isporuke" - regresioni test za bug otkriven uzivo
+    # (medicopharm faktura sa "PARITET: CIP BIJELJINA" u tekstu, unified
+    # workflow uopste nije prenosio incoterm_code do ImportCandidate/
+    # PreparedInvoice, pa je Rb.20 ostajao prazan iako je legacy put radio)
+    assert draft.uslovi_kod == "CIP"
     assert draft.source_files == ["/tmp/INV-001.pdf"]
     assert draft.dirty is True
 

@@ -43,6 +43,7 @@ def _make_candidate(source_path="/tmp/INV-001.pdf", invoice_number="INV-001",
                     invoice_lines=None, bruto_kg=100.0, neto_kg=90.0,
                     is_combined=False, consumed_paths=None,
                     exporter=None, importer=None, currency="EUR",
+                    incoterm_code="",
                     has_origin_statement=False, is_authorized_exporter=False):
     if invoice_lines is None:
         invoice_lines = [_make_line(invoice_number=invoice_number)]
@@ -65,6 +66,7 @@ def _make_candidate(source_path="/tmp/INV-001.pdf", invoice_number="INV-001",
         exporter=exporter,
         importer=importer,
         currency=currency,
+        incoterm_code=incoterm_code,
         has_origin_statement=has_origin_statement,
         is_authorized_exporter=is_authorized_exporter,
         is_combined=is_combined,
@@ -286,6 +288,18 @@ class TestPrepareConflicts:
                              currency="EUR")
         plan = prepare_import([c1, c2])
         assert plan.currency_conflict is None
+
+
+class TestPrepareIncoterm:
+    def test_prenosi_incoterm_code_u_prepared_invoice(self):
+        c1 = _make_candidate(incoterm_code="CIP")
+        plan = prepare_import([c1])
+        assert plan.invoices[0].incoterm_code == "CIP"
+
+    def test_prazan_incoterm_ostaje_prazan(self):
+        c1 = _make_candidate(incoterm_code="")
+        plan = prepare_import([c1])
+        assert plan.invoices[0].incoterm_code == ""
 
 
 # ── prepare_import — PE2/PE3/EUR1 ──────────────────────────────────────────

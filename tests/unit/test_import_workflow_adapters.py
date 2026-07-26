@@ -48,6 +48,7 @@ def _make_import_result(source_path="/tmp/INV-001.pdf"):
         importer=Party(name="Importer d.o.o.", address="Import str 1", country="BA"),
         consumed_paths=[],
         warnings=["Test upozorenje"],
+        incoterm_code="CIP",
     )
 
 
@@ -76,6 +77,7 @@ def _make_file_item(source_path="/tmp/INV-001.pdf"):
         exporter=Party(name="Exporter d.o.o.", address="Export str 1", country="DE"),
         importer=Party(name="Importer d.o.o.", address="Import str 1", country="BA"),
         currency="EUR",
+        incoterm_code="CIP",
     )
 
 
@@ -132,6 +134,11 @@ class TestFromImportResult:
         result = _make_import_result()
         candidate = from_import_result(result, source_path="/tmp/INV-001.pdf")
         assert candidate.currency == "EUR"
+
+    def test_cuva_incoterm_code(self):
+        result = _make_import_result()
+        candidate = from_import_result(result, source_path="/tmp/INV-001.pdf")
+        assert candidate.incoterm_code == "CIP"
 
     def test_cuva_consumed_paths(self):
         result = _make_import_result()
@@ -191,6 +198,11 @@ class TestFromFileItem:
         assert candidate.exporter.name == "Exporter d.o.o."
         assert candidate.importer is not None
         assert candidate.importer.name == "Importer d.o.o."
+
+    def test_cuva_incoterm_code(self):
+        item = _make_file_item()
+        candidate = from_file_item(item)
+        assert candidate.incoterm_code == "CIP"
 
     def test_cuva_valutu(self):
         item = _make_file_item()
