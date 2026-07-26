@@ -1847,3 +1847,53 @@ iz `test_decision_characterization.py` sad prolaze — server dostupan),
 isti 1 nepovezan pre-postojeći fail.
 
 Commit: `db3ca95`.
+
+## 65. Politika: istorijski prijedlog bez potvrđenog izvora se NIKAD ne prikazuje (2026-07-26)
+
+Nastavak live debug sesije (§64) — korisnik je u `TariffValidationDialog`
+vidio prijedloge sa oznakom "izvor nepoznat" (prazna ili placeholder
+`supplier`/`source` kolona: `"-"`, `"+"`, `"A"`, `"HISTORIJA"`). Sistem je
+VEĆ sprečavao bulk auto-prihvatanje takvih prijedloga (`_can_accept_all`),
+ali ih je i dalje prikazivao za pojedinačnu potvrdu — konkretno, "ista
+tarifna glava" grana u `decide_tariff_match()` je UVIJEK vraćala
+`SHOW_WEAK` bez ikakve provjere izvora ili učestalosti korištenja.
+
+**Korisnička odluka** (eksplicitno obrazloženje): pogrešna carinska tarifa
+nosi stvaran rizik sankcija/kazni — nepotvrđen izvor mapiranja nije
+dovoljan dokaz čak ni za informativan prijedlog koji traži ručnu potvrdu.
+
+**Fix**: `decide_tariff_match()` sad vraća `SUPPRESS` ODMAH čim izvor nije
+poznat (`has_meaningful_source() == False`), prije bilo koje druge provjere
+(tarifna glava, poglavlje, usage_count).
+
+**POLITIKA-OBRTAJ vrijedan pažnje**: ovo direktno poništava odluku iz
+2026-07-22 (SUSSINA fix, docstring u `_search_one()`) koja je NAMJERNO
+propuštala zapise sa visokim usage_count ali bez dobavljača — obrazloženje
+tada je bilo "ne gubi jak istorijski signal". Današnja odluka eksplicitno
+prioritizuje "nikad pogrešna preporuka" nad tim. **Posljedica**: zapisi sa
+VISOKIM usage_count ali BEZ ikad zabilježenog izvora (česti kod starijih,
+"zlatnih" naučenih mapiranja iz perioda prije striktnog praćenja izvora)
+se sada NIKAD ne prikazuju, čak ni kao slab prijedlog. Jedini način da se
+takav zapis ponovo pojavi je popuniti `supplier`/`source` kolonu u
+`catalogs.product_tariff_mapping` za taj zapis (ručna ili skriptovana
+podatkovna korekcija, van scope-a ovog fixa).
+
+GitNexus impact na `decide_tariff_match` (upstream) je HIGH (11 pogođenih,
+3 direktna pozivaoca — Faktura tab "Provjeri", Agent chat tarifni alat,
+offline eval skripta) — prijavljeno korisniku prije nastavka po AGENTS.md
+protokolu. `detect_changes` (staged) poslije potvrdio LOW/0 affected —
+ostali pozivaoci ispravno propagiraju SUPPRESS preko postojećeg
+`should_show` ugovora bez potrebe za izmjenom.
+
+Testovi: 1 nov eksplicitan test (`test_unknown_source_never_shown_
+regardless_of_usage_or_heading`) + 3 postojeća ažurirana (jedan testira
+evidence klasifikaciju direktno jer suprimiran match više ne stiže do
+`validate_lines()` izlaza; jedan dobio stvaran izvor da ne bude zbunjen
+novom politikom; SUSSINA-bez-dobavljača test preimenovan i dokumentuje
+politiku-obrtaj) + `tariff_validation_cases.json` fixture (2 "is_shown"
+slučaja sa praznim izvorom → "without_source_is_suppressed", + 2 nova
+"with_source_is_shown" para da se očuva pokrivenost "show" putanje).
+
+Pun test suite: 1177 passed, isti 1 nepovezan pre-postojeći fail.
+
+Commit: `5a53d08`.
