@@ -2266,3 +2266,80 @@ ZAVRŠENE prije nego što je v2.1 plan dovršen — vidi status-blokove direktno
 §10 i §11 plana. Fixture iz Faze 0 koristi polje `expected_sloj`, ne
 `reachable_branch` kako je originalni primjer u planu predložio — isto
 značenje, plan je ažuriran da to ne tretira kao neusklađenost.
+
+---
+
+### §71 — Bugfix: paritet isporuke (§70) se nije upisivao — unified import workflow ga nikad nije nosio (2026-07-26)
+
+Korisnik uživo testirao §70 (auto-detekcija pariteta) — uvezao fakturu
+`1476 BIH.pdf` (Medicopharm, tekst sadrži "PARITET: CIP BIJELJINA") i Rb.20
+je ostao prazan. Provjereno direktno: `parse_medicopharm_pdf()` VRAĆA
+ispravno `incoterm_code='CIP'` — parser i `detect_incoterm()` rade
+besprijekorno. Bug je bio DALJE niz tok.
+
+**Pravi uzrok**: `FakturaView` ima DVA paralelna toka za primjenu uvoza:
+- **Legacy** (`_on_import_finished_legacy`) — poziva
+  `_apply_import_result_to_header(result)` direktno na `ImportResult`
+  (ovdje sam u §70 dodao `incoterm_code` i RADI).
+- **Unified** (`_on_import_finished`, default put kad
+  `_can_use_unified_manual_import()` vrati True — što je normalan slučaj)
+  — ide kroz potpuno drugi lanac modela koji NIKAD nije nosio
+  `incoterm_code`: `ImportResult` → (`adapters.from_import_result`)
+  → `ImportCandidate` → (`prepare_service.prepare_import`) →
+  `PreparedInvoice` → (`apply_service._apply_header_if_empty`) → `draft`.
+  Ni jedan od ta 3 modela (`ImportCandidate`, `PreparedInvoice`) nije imao
+  `incoterm_code` polje — §70 je popravio SAMO legacy put, koji se u
+  praksi rijetko koristi.
+
+Isti gap postoji i za Agent (chat) uvoz: `gui/tabs/agent/models/file_item.py`
+`FileItem` model (ima eksplicitan komentar "⭐ Zaglavlje (iz ImportResult) -
+za _apply_import_result_to_header" uz exporter/importer/currency) takođe
+nije imao `incoterm_code`, niti ga je `ProcessingWorker.run()` prenosio sa
+`ImportResult` na `FileItem`.
+
+**Fix — dodano `incoterm_code` na SVA 4 mjesta u lancu**:
+1. `services/import_workflow/models.py::ImportCandidate`
+2. `services/import_workflow/adapters.py` — `from_import_result()` I
+   `from_file_item()` (oba, isti gap na oba ulaza)
+3. `services/import_workflow/plan_models.py::PreparedInvoice`
+4. `services/import_workflow/prepare_service.py` — merge petlja (prvi
+   neprazan pobjeđuje, isti obrazac kao currency/exporter)
+5. `services/import_workflow/apply_service.py::_apply_header_if_empty` —
+   upisuje `draft.uslovi_kod` samo ako prazan (isti obrazac)
+6. `gui/tabs/agent/models/file_item.py::FileItem` — novo polje
+7. `gui/tabs/agent/widgets/processing_worker.py::ProcessingWorker.run()` —
+   prenosi `result.incoterm_code` na `file_item.incoterm_code`
+
+GitNexus impact: `ImportCandidate` upstream MEDIUM (24 impacted, 8
+direktno — potvrđuje da je ovo zajednički put i za ručni i za agent uvoz).
+`detect_changes` poslije: "critical" po obimu (`ProcessingWorker.run()` je
+step 1 u više execution flow-ova), ali svi touched simboli potvrđeni kao
+namjerni (uklj. lažno pripisan `_apply_party_to_exporter` — samo pomjeren
+3 linije, tijelo netaknuto).
+
+**Verifikacija uživo**: ponovljen tačan scenario korisnika —
+`parse_medicopharm_pdf()` → `from_import_result()` → `prepare_import()` →
+`_apply_header_if_empty()` na stvarnom fajlu `1476 BIH.pdf` — `draft.
+uslovi_kod` sad ispravno postaje `'CIP'` na svakom koraku lanca.
+
+**Pouka za buduće auto-popune zaglavlja**: ako se doda novo polje koje
+treba teći iz parsera do drafta, MORA se provjeriti OBA toka
+(`_apply_import_result_to_header` ZA legacy, ali i cijeli
+`ImportCandidate`→`PreparedInvoice`→`_apply_header_if_empty` lanac za
+unified/agent put) — jednog nije dovoljno, jer je unified put danas
+DEFAULT za ručni uvoz.
+
+Testovi: `test_import_workflow_adapters.py` (+2 — `test_cuva_incoterm_code`
+na oba adaptera), `test_import_workflow_prepare.py` (+2 — nova
+`TestPrepareIncoterm` klasa), `test_import_workflow_apply.py` (regresioni
+assert na postojećem end-to-end testu, sa komentarom da referiše ovaj bug).
+Pun test suite: 1287 passed (+37 od početka §70 rada), 85 skipped, 5
+xfailed. 2 NOVA nepovezana fail-a (`test_ima_tacno_12_alata`,
+`test_svi_ocekivani_alati_postoje`) — potiču iz TUĐEG commit-a `d8de0a3`
+("Faza 1 — konsolidacija alata 12→9") koji je sletio usred ove sesije,
+nepovezano, nedirano.
+
+**Napomena o grani**: ovaj commit je prvo greškom sletio na
+`feature/agent-v2` (neočekivan `git checkout` od strane drugog agenta u
+istom working tree-u, usred moje sesije) — cherry-pick-ovan nazad na
+`windows` bez diranja `feature/agent-v2`.
