@@ -1929,3 +1929,43 @@ nije "namjerno nedirano"), dodan nov test
 JIB nikad ne uđe u kontekst, za oba stanja `send_sensitive`.
 
 Commit: vidi `agent_reports/2026-07-26_jib-partner-search-usklajivanje.md`.
+
+### §67 — Opis tarife u dijalogu "Automatski ažurirane tarife" (2026-07-26)
+
+Korisnička primjedba (uz screenshot poređenje dva dijaloga): dijalog
+"Potvrda auto-popunjavanja tarifnih brojeva" (`_show_tariff_preview_dialog`,
+prikazuje PRIJEDLOGE prije upisa) ima tabelu sa kolonom "Opis tarife" —
+korisnik odmah vidi šta novi tarifni broj znači. Dijalog "Automatski
+ažurirane tarife (ranija potvrda)" (`_notify_auto_applied_tariffs`,
+prikazuje tarife koje su VEĆ upisane zbog ranije ručne potvrde) je bio goli
+tekst `Rb.X: naziv → tarifa`, bez opisa — deklarant je opis morao sam
+tražiti u tarifniku/PDF-u/šifarniku, što remeti radni tok.
+
+**Fix**: izdvojena zajednička tabela `_build_tariff_table_widget()`
+(Rb/Naziv/Tarifa/Izvor/Opis, ista stilizacija) — koristi je i
+`_show_tariff_preview_dialog` (refaktorisan, bez promjene ponašanja) i nov
+`_show_tariff_table_info_dialog()` (OK-only varijanta, bez Potvrdi/Odustani
+jer je tarifa već primijenjena). `_notify_auto_applied_tariffs` sad gradi
+`rows` sa `opis=self._get_tariff_description(tarif)` i zove novi dijalog.
+Izvor je labelovan "Ranija ručna potvrda (100%)".
+
+`_notify_auto_rejected_tariffs` (simetrični dijalog za ODBIJENE prijedloge)
+je NAMJERNO ostavljen kako jeste — van scope-a ove primjedbe, nema
+promjene tarife pa opis nove tarife nije od direktne koristi tamo
+(follow-up ako korisnik zatraži isto).
+
+GitNexus impact: `_notify_auto_applied_tariffs` upstream LOW (7 impacted, 1
+direktan pozivalac), `_show_tariff_preview_dialog` upstream LOW (1 direktan
+pozivalac `_on_auto_fill`). `detect_changes(all)` poslije potvrdio LOW/0
+affected_processes — samo "touched" na `FakturaView` metodama u istom
+fajlu (+ mirror u `dist_client/gui/tabs/faktura_view.py`, koji je bio
+bajt-identičan prije izmjene pa je primijenjen identičan diff).
+
+Testovi: `test_faktura_view_auto_applied_notice.py` ažuriran da provjerava
+poziv `_show_tariff_table_info_dialog` sa `rows` (dict lista) umjesto
+starog `_show_scrollable_info_dialog` teksta, uklj. eksplicitnu provjeru da
+`_get_tariff_description` biva pozvan sa tačnim tarifnim kodom. Pun test
+suite: 1178 passed, isti 1 nepovezan pre-postojeći fail
+(`test_xml_parser_fix.py`, hardkodovan Linux path) + 1 nepovezan error
+(`test_model_benchmark.py`, fixture `model_name` ne postoji) — oba
+pre-postojeća, nevezana za ovu izmjenu.
