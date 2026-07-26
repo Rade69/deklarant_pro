@@ -205,20 +205,16 @@ class ChatWorker(QThread):
         total = len(lines)
         bez_tarife_list = [l for l in lines if not getattr(l, 'tarifni_broj', None)]
         bez_zemlje_list = [l for l in lines if not getattr(l, 'zemlja_porijekla', None)]
-        sa_povlasticom = sum(1 for l in lines if getattr(l, 'povlastica', None))
-        bez_eur1 = sum(
-            1 for l in lines
-            if getattr(l, 'povlastica', None)
-            and not getattr(l, 'has_origin_statement', False)
-            and not getattr(l, 'eur1_number', None)
-        )
 
-        # Zemlja distribucija
-        countries: dict = {}
-        for l in lines:
-            c = getattr(l, 'zemlja_porijekla', None) or '(nepoznato)'
-            countries[c] = countries.get(c, 0) + 1
-        country_str = ", ".join(f"{k}:{v}" for k, v in sorted(countries.items()))
+        # Agregati za Zone A (=== STANJE DRAFTA ===) — vidi AgentContextAdapter
+        # .build_draft_summary(); bez_tarife_list/bez_zemlje_list se i dalje
+        # čuvaju kao liste redova jer ih koriste kasnije sekcije (Zone C,
+        # "STAVKE BEZ ZEMLJE PORIJEKLA"), ne samo Zone A.
+        from services.agent.chat.context_adapter import AgentContextAdapter
+        draft_summary = AgentContextAdapter.build_draft_summary(lines)
+        country_str = ", ".join(
+            f"{k}:{v}" for k, v in sorted(draft_summary.zemlja_distribucija.items())
+        )
 
         # === STAVKE — pametno skraćivanje za velike fakture ===
         _MAX_FULL = 15  # Smanjeno sa 30 na 15 da se uštede tokeni
@@ -289,11 +285,11 @@ class ChatWorker(QThread):
         # Zone A: db_context — uvijek uključen
         ctx = [
             f"=== STANJE DRAFTA ===",
-            f"Ukupno stavki: {total}",
-            f"Bez tarifnog broja: {len(bez_tarife_list)}",
-            f"Bez zemlje porijekla: {len(bez_zemlje_list)}",
-            f"Sa povlasticom: {sa_povlasticom}",
-            f"Čeka EUR1 broj: {bez_eur1}",
+            f"Ukupno stavki: {draft_summary.total_items}",
+            f"Bez tarifnog broja: {draft_summary.bez_tarife}",
+            f"Bez zemlje porijekla: {draft_summary.bez_zemlje}",
+            f"Sa povlasticom: {draft_summary.sa_povlasticom}",
+            f"Čeka EUR1 broj: {draft_summary.ceka_eur1}",
             f"Zemlja distribucija: {country_str}",
         ]
 
