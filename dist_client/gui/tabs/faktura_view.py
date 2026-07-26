@@ -6028,6 +6028,10 @@ class FakturaView(BaseTabView):
         if currency and currency != 'EUR' and not self.draft.valuta:
             self.draft.valuta = currency
 
+        incoterm_code = (getattr(result, 'incoterm_code', '') or '').strip()
+        if incoterm_code and not self.draft.uslovi_kod:
+            self.draft.uslovi_kod = incoterm_code
+
     def _on_load_previous_declaration(self):
         """Učitaj zaglavlje iz prethodne deklaracije istog izvoznika."""
         # Prioritet: draft zaglavlje (popunjeno iz _apply_import_result_to_header)

@@ -143,6 +143,15 @@ Izuzetak: **NaimenovanjeDraft koristi engleski** (`tariff_code`, `goods_descript
   `consumed_paths=[putanja_potrošenog_fajla]` u `ImportResult`. Bez toga agent procesira
   oba fajla zasebno → duplikati stavki u deklaraciji.
   Primjer: CASE 1/2 (Blagić), CASE 1B/2B (Šumaprom), CASE 3/4 (Invoice+PackingList), Leburic.
+- **OBAVEZNO — `incoterm_code`**: svaki importer koji ekstraktuje puni tekst fakture
+  (PDF, ili Excel+PDF kombinacija) MORA pozvati `detect_incoterm(full_text)` iz
+  `importers/incoterm_utils.py` i proslijediti rezultat kao `incoterm_code=...` u
+  `ImportResult` — popunjava Rb.20 "Uslovi isporuke" u Zaglavlju. Paritet je pravno
+  obavezan podatak u carinjenju, pa je detekcija namjerno konzervativna (samo uz
+  poznatu oznaku: "Incoterms", "Paritet isporuke", "Uslovi isporuke", "Delivery terms");
+  ako izostane poziv ili paritet nije prepoznat, Rb.20 jednostavno ostaje prazan za
+  ručni unos (nije greška, samo propuštena auto-popuna). Excel-only importeri bez
+  slobodnog teksta (nema PDF-a) mogu ovo preskočiti.
 
 ### GUI konvencije
 
