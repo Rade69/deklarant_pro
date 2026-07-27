@@ -50,6 +50,49 @@ def _confirm_declarant(monkeypatch):
     monkeypatch.setattr(ips.QMessageBox, "question", lambda *a, **kw: ips.QMessageBox.Yes)
 
 
+class TestCekanjeNaIstorijskuValidaciju:
+    """
+    Popravka (2026-07-27): _on_validate_all(auto=True) iznutra pokreće
+    HistoricalValidationWorker kao fire-and-forget QThread i vraća se ODMAH
+    — bez čekanja, "Puna automatizacija" je nastavljala na EUR.1/PE potvrdu
+    i kreiranje naimenovanja dok je taj worker još radio (korisnička
+    primjedba: "Nije završen proces u tabu faktura").
+    """
+
+    def test_ceka_pravi_qthread_da_zavrsi(self, qtbot):
+        """isRunning() na MagicMock-u je uvijek truthy (lažan pozitivan async
+        gap) — _wait_for_historical_validation mora raditi sa STVARNIM
+        QThread-om, ne samo formalno "pozvati isRunning()"."""
+        import time
+        from PySide6.QtCore import QThread
+
+        class _SlowWorker(QThread):
+            def run(self):
+                time.sleep(0.3)
+
+        fw = MagicMock()
+        worker = _SlowWorker()
+        fw.historical_validation_worker = worker
+        worker.start()
+        assert worker.isRunning()
+
+        waited = ips._wait_for_historical_validation(fw, timeout_ms=5000)
+
+        assert waited is True
+        assert not worker.isRunning()
+
+    def test_ne_ceka_kad_nema_workera(self):
+        fw = MagicMock()
+        fw.historical_validation_worker = None
+        assert ips._wait_for_historical_validation(fw) is False
+
+    def test_ne_ceka_na_magicmock_worker(self):
+        """MagicMock() nije QThread instanca — mora se preskočiti bez čekanja
+        (regresija bi ovdje visila do timeout-a u svakom testu ove svite)."""
+        fw = MagicMock()
+        assert ips._wait_for_historical_validation(fw, timeout_ms=100) is False
+
+
 class TestUspjesanTok:
     def test_sve_faze_uspjesne_daje_zavrsnu_poruku(self, mock_ctrl, mock_fw, mock_chat):
         mock_ctrl.draft.items = [MagicMock()]

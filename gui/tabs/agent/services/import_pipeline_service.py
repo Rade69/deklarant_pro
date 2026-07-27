@@ -200,6 +200,31 @@ def _analiza_auto_action(ctrl) -> None:
     ctrl._pending_import_files = []
 
 
+def _wait_for_historical_validation(fw, timeout_ms: int = 30000) -> bool:
+    """Sačekaj da FakturaView.historical_validation_worker (ako radi) završi.
+
+    _run_historical_tariff_validation pokreće HistoricalValidationWorker kao
+    fire-and-forget QThread i vraća se odmah — rezultati (auto-primijenjeni
+    tarifni brojevi) stižu tek kasnije preko finished_validation signala.
+    Ovo pumpa Qt event loop dok worker stvarno ne završi (ili istekne
+    timeout kao sigurnosna kočnica protiv beskonačnog čekanja).
+
+    Returns:
+        True ako je worker postojao i čekanje izvršeno, False ako nije bilo
+        aktivnog worker-a (ništa za čekati).
+    """
+    from PySide6.QtCore import QEventLoop, QThread, QTimer
+
+    worker = getattr(fw, "historical_validation_worker", None)
+    if not isinstance(worker, QThread) or not worker.isRunning():
+        return False
+    loop = QEventLoop()
+    worker.finished.connect(loop.quit)
+    QTimer.singleShot(timeout_ms, loop.quit)
+    loop.exec()
+    return True
+
+
 def _puna_auto_pipeline(ctrl, fw, chat, all_lines: list) -> None:
     """
     Puna automatizacija — svaka faza vraća PipelineStageResult; kritična
@@ -307,6 +332,17 @@ def _puna_auto_pipeline(ctrl, fw, chat, all_lines: list) -> None:
     else:
         chat.add_activity("✅ Validacija završena")
         results.append(PipelineStageResult("validacija", PipelineStageStatus.SUCCESS))
+    QApplication.processEvents()
+
+    # 3b. _on_validate_all (auto=True) iznutra pokreće HistoricalValidationWorker
+    # kao fire-and-forget QThread (docs/CONTEXT.md §59 — DB upiti po stavci su
+    # prespori za UI thread) i vraća se ODMAH, prije nego worker stvarno završi.
+    # Bez ovog čekanja, "Puna automatizacija" je nastavljala na EUR.1/PE potvrdu
+    # i kreiranje naimenovanja dok je taj worker još radio — korisnička
+    # primjedba 2026-07-27: "Nije završen proces u tabu faktura, tek kad se tu
+    # sve završi proces može ići dalje."
+    if _wait_for_historical_validation(fw):
+        chat.add_activity("✅ Istorijska tarifna provjera završena")
     QApplication.processEvents()
 
     # 4. Deklarant mora potvrditi porijeklo i preferencijalne dokumente prije naimenovanja.
