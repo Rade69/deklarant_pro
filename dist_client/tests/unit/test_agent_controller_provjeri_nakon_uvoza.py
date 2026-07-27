@@ -111,3 +111,37 @@ def test_agent_puna_automatizacija_poziva_orkestrator_do_kraja():
     args, kwargs = mock_run.call_args
     assert args[0] is ctrl
     assert kwargs.get("fw") is fw
+
+
+def test_agent_puna_automatizacija_vraca_fokus_na_agent_tab_nakon_workflowa():
+    """
+    Popravka (2026-07-27, drugi krug): korisnik je uživo testirao i prijavio
+    da "Puna automatizacija" i dalje izgleda identično kao prije — jer
+    puna_auto_pipeline (pozvana IZNUTRA run_declaration_workflow) sama na
+    svom kraju prebacuje fokus na Faktura tab
+    (_otvori_faktura_tab_nakon_uvoza), a workflow zatim NASTAVLJA (zaglavlje/
+    cross-tab/xml preflight/izvoz) NAKON tog prebacivanja — sve te poruke su
+    ostajale nevidljive jer je korisnik gledao Faktura tab, ne Agent chat.
+    Fix: nakon run_declaration_workflow, fokus se vraća na Agent tab
+    (self.view.parent()) da se vidi stvaran ishod cijelog workflowa.
+    """
+    ctrl, fw = _mock_controller(current_mode="Puna automatizacija")
+    ctrl._declaration_workflow_running = False
+
+    class FakeMainWindow:
+        pass
+
+    main_window = FakeMainWindow()
+    tabs_widget = MagicMock()
+    main_window.findChildren = MagicMock(return_value=[tabs_widget])
+    ctrl.view.parent.return_value = main_window
+
+    with patch(
+        "services.agent.workflow.declaration_workflow_service.run_declaration_workflow"
+    ):
+        AgentController._on_all_completed(ctrl, [_file_item()])
+
+    calls = tabs_widget.setCurrentWidget.call_args_list
+    assert len(calls) >= 2, "ocekivan i prebacaj na Faktura tab i povratak na Agent tab"
+    assert calls[0].args[0] is ctrl.faktura_tab
+    assert calls[-1].args[0] is main_window

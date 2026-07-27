@@ -688,6 +688,21 @@ class AgentController:
                 run_declaration_workflow(self, chat, fw=fw)
             except AgentBusyError:
                 pass  # poruka je već prikazana unutar run_declaration_workflow
+
+            # run_declaration_workflow iznutra zove puna_auto_pipeline, koja se
+            # NA SVOM KRAJU (_otvori_faktura_tab_nakon_uvoza) sama prebacuje na
+            # Faktura tab — ali workflow NASTAVLJA dalje (zaglavlje/cross-tab/
+            # xml preflight/izvoz) NAKON tog prebacivanja. Bez ovoga korisnik
+            # ostaje gledati Faktura tab i nikad ne vidi poruke o tom nastavku
+            # (izgleda identično kao stari, plitki _puna_auto_pipeline — upravo
+            # ovo je korisnik prijavio 2026-07-27 nakon prve verzije popravke).
+            # Vrati fokus na Agent tab da se vidi stvaran ishod cijelog workflowa.
+            agent_tab_widget = self.view.parent()
+            if parent and agent_tab_widget:
+                from PySide6.QtWidgets import QTabWidget
+                tabs_widgets = parent.findChildren(QTabWidget)
+                if tabs_widgets:
+                    tabs_widgets[0].setCurrentWidget(agent_tab_widget)
         else:
             analiza = self._proactive_analysis(all_processed_lines, fw)
             chat.add_agent_message(
