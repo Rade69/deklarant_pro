@@ -2370,3 +2370,83 @@ Operativno još otvoreno: aplikacija više ne koristi istorijski nalog
 `radovan`, ali PostgreSQL administrator mora invalidirati njegov stari login/
 lozinku; produkcijski server zatim treba vlastiti CA za `verify-full`, a
 finalni EXE i installer Authenticode potpis i smoke test.
+
+---
+
+## 74. AdminView sidebar nevidljiv tekst u frozen buildu — Path(__file__) vs BUNDLE_ROOT (2026-07-27)
+
+Prvo stvarno korisničko testiranje izgrađenog EXE-a (build_windows.bat) je
+otkrilo da je tekst u Admin sidebar-u (Upravljanje Parserima, Baza Podataka,
+Analitika, Logovi, Sistemske Informacije, Licenca, Učenje iz XML-ova) skoro
+nevidljiv — svijetlo siva boja na bijeloj pozadini, dok je ostatak Admin
+panela (npr. Plugin Management sadržaj) izgledao normalno.
+
+**Uzrok**: `gui/tabs/admin/admin_view.py::_apply_styles()` je računao
+putanju do `admin_tab.qss` preko `Path(__file__).parent.parent.parent /
+"styles"`. U dev modu `__file__` je stvaran fajl na disku i traversal
+radi. U **frozen (PyInstaller) buildu** `__file__` za bundlovan modul ne
+vodi do stvarnog `styles/` foldera (koji fizički živi u
+`dist/DeklarantPro/_internal/styles/`, ne pored .exe-a) — `stylesheet_path.exists()`
+je tiho vraćao `False`, `setStyleSheet()` se nikad nije pozvao, i sidebar
+tekst je pao na naslijeđenu (netačnu) boju iz globalnog stylesheet-a.
+
+**Ispravan obrazac (već postoji u projektu, samo nije korišten ovdje)**:
+`config/settings.py::PathSettings.styles_dir` = `BUNDLE_ROOT / "styles"`,
+gdje je `BUNDLE_ROOT = Path(sys._MEIPASS)` kad je frozen, inače project
+root. `gui/main_window.py` ovo već ispravno koristi
+(`get_path_settings().styles_dir`) za glavni stylesheet — `admin_view.py`
+je jedini QSS-fajl-loader u projektu koji je to zaobišao i ručno računao
+`__file__`-relativnu putanju.
+
+**Provjereno**: nijedan drugi Admin panel (`plugin_panel.py`,
+`system_panel.py`, `database_panel.py`, `settings_panel.py`,
+`analytics_panel.py`) ne koristi `__file__`-relativno računanje — svi
+imaju inline `setStyleSheet("""...""")`, pa nisu pogođeni istim bugom.
+
+**Pouka za buduće GUI fajlove koji učitavaju vlastiti `.qss` fajl**:
+uvijek koristiti `from config.settings import get_path_settings; ... =
+get_path_settings().styles_dir / "ime.qss"` — nikad `Path(__file__).parent...`
+za resurse koji moraju raditi i u frozen buildu. Ovaj bug se NE vidi u
+dev modu (`python run.py`) — vidi se samo u stvarnom PyInstaller EXE-u,
+što je razlog zašto je prošao nezapaženo do prve stvarne probe builda.
+
+Fix: `gui/tabs/admin/admin_view.py::_apply_styles()`.
+
+---
+
+## 75. "Puna automatizacija" povezana na declaration_workflow_service orkestrator do XML izvoza (2026-07-27)
+
+Korisnička primjedba nakon stvarnog testiranja izgrađenog EXE-a: "Puna
+automatizacija" (Režim obrade kartica u Agent tabu) je izgledala praktično
+identično kao "Uvezi u deklaraciju" jer stane odmah nakon kreiranja
+naimenovanja — zaglavlje, cross-tab provjera, XML readiness i sam izvoz su
+ostajali identično ručni u oba moda.
+
+**Uzrok**: `AgentController._on_all_completed()` je za "Puna automatizacija"
+pozivala `self._puna_auto_pipeline(fw, chat, all_processed_lines)` direktno
+([agent_controller.py:665-673](gui/tabs/agent/agent_controller.py)) — ta
+funkcija radi samo mase → tarife → validacija → naimenovanja, pa se
+zaustavlja. Ovo je isti `_puna_auto_pipeline` koji je bio predmet ranije
+popravke wiring gapova (§71) — sad je i sam njegov POZIVALAC promijenjen.
+
+**Popravka**: ta grana sad poziva
+`services.agent.workflow.declaration_workflow_service.run_declaration_workflow(self, chat, fw=fw)`
+umjesto direktnog `_puna_auto_pipeline`. Orkestrator iznutra PONOVO KORISTI
+`_puna_auto_pipeline` za prvu polovinu (mase/tarife/validacija/naimenovanja
+— ništa se ne duplira), a zatim NASTAVLJA kroz preostale kapije (zaglavlje →
+cross-tab → XML preflight → potvrda → izvoz). "Uvezi u deklaraciju" grana
+nije dirana — i dalje radi samo uvoz, bez ikakve automatizacije, kako je i
+namijenjeno.
+
+Testovi ažurirani u `tests/unit/test_agent_controller_provjeri_nakon_uvoza.py`
+— stari test je asertovao `ctrl._puna_auto_pipeline.assert_called_once()`
+(sad netačno), zamijenjen provjerom da se `run_declaration_workflow` poziva
+sa ispravnim `fw` argumentom. Patch cilja izvorni modul
+(`services.agent.workflow.declaration_workflow_service.run_declaration_workflow`),
+ne `agent_controller` modul — import unutar metode je odgođen (deferred),
+pa patch na pogrešnom mjestu tiho ne bi ništa presreo.
+
+Napomena: naimenovanja i dalje zahtijevaju eksplicitnu potvrdu deklaranta
+(QMessageBox sa default "Ne") prije nego pipeline nastavi — ovo NIJE
+promijenjeno, i ne treba biti (compliance kapija za porijeklo/EUR.1/PE,
+vidi §4 ovog dokumenta). Korisnik mora obratiti pažnju na taj dijalog.
