@@ -1,151 +1,236 @@
-/* ─── Admin Tab — Botanički Sage Green stil ───────────────────────────────── */
-
-/* Osnovna pozadina */
 AdminView {
-    background-color: #f0f7f0;
+    background-color: #f3f6f8;
+    color: #17324a;
 }
 
-/* Sidebar */
-QFrame#adminSidebar {
-    background-color: #e8f2e8;
-    border-right: 1px solid #c8dcc8;
+AdminView QFrame#AdminSidebar {
+    background-color: #e7eef3;
+    border: none;
+    border-right: 1px solid #b8cbd8;
 }
 
-/* Nav lista */
-QListWidget#adminNavList {
-    background-color: #e8f2e8;
+AdminView QLabel#AdminSidebarTitle {
+    background-color: #d9e5ed;
+    border: none;
+    border-bottom: 2px solid #7897ad;
+    color: #17324a;
+    font-size: 20px;
+    font-weight: 700;
+    padding: 0 26px;
+}
+
+AdminView QListWidget#AdminNavigation {
+    background-color: #e7eef3;
     border: none;
     outline: none;
+    padding: 12px 10px;
+    font-size: 15px;
+}
+
+AdminView QListWidget#AdminNavigation::item {
+    color: #244866;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    margin: 3px 0;
+    padding: 13px 10px;
+}
+
+AdminView QListWidget#AdminNavigation::item:hover {
+    background-color: #d8e5ed;
+    border-color: #b4cad8;
+}
+
+AdminView QListWidget#AdminNavigation::item:selected {
+    background-color: #3477a5;
+    border-color: #2b648c;
+    color: #ffffff;
+    font-weight: 700;
+}
+
+AdminView QWidget#AdminContent {
+    background-color: #f3f6f8;
+}
+
+AdminView QStackedWidget#AdminContentStack {
+    background-color: #f3f6f8;
+    border: none;
+}
+
+AdminView QLabel {
+    color: #17324a;
     font-size: 13px;
-    padding: 8px;
-}
-QListWidget#adminNavList::item {
-    padding: 10px 8px;
-    border-radius: 4px;
-    margin: 2px 0;
-    color: #1e3820;
-}
-QListWidget#adminNavList::item:hover {
-    background-color: #c8dcc8;
-}
-QListWidget#adminNavList::item:selected {
-    background-color: #5a8060;
-    color: white;
-    font-weight: bold;
 }
 
-/* Content area */
-QStackedWidget {
-    background-color: #f0f7f0;
+AdminView QLabel#SectionTitle {
+    color: #17324a;
+    font-size: 20px;
+    font-weight: 700;
+    padding: 4px 2px 8px 2px;
 }
 
-/* GroupBox unutar panela */
-QGroupBox {
-    border: 1px solid #c8dcc8;
-    border-radius: 4px;
+AdminView QGroupBox,
+AdminView QFrame#LicenseCard {
+    background-color: #ffffff;
+    border: 1px solid #bfd0dc;
+    border-radius: 7px;
+    color: #17324a;
+    font-size: 14px;
+    font-weight: 700;
     margin-top: 12px;
     padding-top: 10px;
-    font-weight: bold;
-    font-size: 14px;
-    background-color: white;
 }
-QGroupBox::title {
+
+AdminView QGroupBox::title {
     subcontrol-origin: margin;
     subcontrol-position: top left;
-    padding: 0 8px;
-    color: #1e3820;
+    left: 10px;
+    padding: 0 7px;
+    color: #244866;
 }
 
-/* Input polja */
-QLineEdit, QComboBox, QDateEdit, QSpinBox {
-    border: 1px solid #c8dcc8;
-    border-radius: 3px;
-    padding: 6px 10px;
-    background-color: white;
+AdminView QPushButton {
+    background-color: #4f6779;
+    border: 1px solid #425868;
+    border-radius: 5px;
+    color: #ffffff;
     font-size: 13px;
-    color: #1e3820;
+    font-weight: 600;
+    min-height: 30px;
+    min-width: 105px;
+    padding: 5px 13px;
 }
-QLineEdit:hover, QComboBox:hover, QDateEdit:hover, QSpinBox:hover {
-    border-color: #7aa080;
+
+AdminView QPushButton:hover {
+    background-color: #425868;
 }
-QLineEdit:focus, QComboBox:focus, QDateEdit:focus, QSpinBox:focus {
-    border-color: #5a8060;
-    background-color: #f7faf7;
+
+AdminView QPushButton:pressed {
+    background-color: #354a59;
 }
-QComboBox::drop-down {
+
+AdminView QPushButton:disabled {
+    background-color: #d7e0e5;
+    border-color: #c4d0d7;
+    color: #8798a5;
+}
+
+AdminView QPushButton#primaryButton {
+    background-color: #3477a5;
+    border-color: #2b648c;
+}
+
+AdminView QPushButton#primaryButton:hover {
+    background-color: #2b648c;
+}
+
+AdminView QPushButton#successButton {
+    background-color: #2f7d5b;
+    border-color: #286a4e;
+}
+
+AdminView QPushButton#successButton:hover {
+    background-color: #286a4e;
+}
+
+AdminView QPushButton#dangerButton {
+    background-color: #ad3e3e;
+    border-color: #943535;
+}
+
+AdminView QPushButton#dangerButton:hover {
+    background-color: #943535;
+}
+
+AdminView QLineEdit,
+AdminView QComboBox,
+AdminView QDateEdit,
+AdminView QSpinBox {
+    background-color: #ffffff;
+    border: 1px solid #b8cbd8;
+    border-radius: 4px;
+    color: #17324a;
+    font-size: 13px;
+    min-height: 28px;
+    padding: 3px 8px;
+}
+
+AdminView QLineEdit:focus,
+AdminView QComboBox:focus,
+AdminView QDateEdit:focus,
+AdminView QSpinBox:focus {
+    border: 2px solid #3477a5;
+}
+
+AdminView QTextEdit,
+AdminView QPlainTextEdit {
+    background-color: #f9fbfc;
+    border: 1px solid #bfd0dc;
+    border-radius: 5px;
+    color: #17324a;
+    font-size: 12px;
+    padding: 7px;
+}
+
+AdminView QListWidget {
+    background-color: #ffffff;
+    border: 1px solid #bfd0dc;
+    border-radius: 5px;
+    color: #17324a;
+    outline: none;
+}
+
+AdminView QListWidget::item {
+    padding: 7px 9px;
+}
+
+AdminView QListWidget::item:hover {
+    background-color: #e8f0f5;
+}
+
+AdminView QListWidget::item:selected {
+    background-color: #3477a5;
+    color: #ffffff;
+}
+
+AdminView QProgressBar {
+    background-color: #dfe8ed;
+    border: 1px solid #c3d2dc;
+    border-radius: 5px;
+    color: #17324a;
+    text-align: center;
+}
+
+AdminView QProgressBar::chunk {
+    background-color: #2f7d5b;
+    border-radius: 4px;
+}
+
+AdminView QScrollArea {
+    background-color: transparent;
     border: none;
-    width: 24px;
 }
 
-/* Tabele */
-QTableWidget {
-    background-color: white;
-    border: 1px solid #c8dcc8;
-    gridline-color: #c8dcc8;
-    font-size: 13px;
-    color: #1e3820;
-}
-QTableWidget::item {
-    padding: 6px;
-    color: #1e3820;
-}
-QTableWidget::item:selected {
-    background-color: #d4e8d4;
-    color: #1e3820;
-}
-QHeaderView::section {
-    background-color: #dce8dc;
-    border: 1px solid #c8dcc8;
-    padding: 6px;
-    font-weight: bold;
-    font-size: 13px;
-    color: #1e3820;
+AdminView QScrollBar:vertical {
+    background-color: #e6edf2;
+    border: none;
+    margin: 0;
+    width: 12px;
 }
 
-/* List widgeti u panelima */
-QListWidget {
-    background-color: #f7faf7;
-    border: 1px solid #c8dcc8;
-    border-radius: 4px;
-    padding: 5px;
-    font-size: 13px;
-    color: #1e3820;
-}
-QListWidget::item {
-    padding: 10px;
-    border-radius: 3px;
-    margin-bottom: 2px;
-}
-QListWidget::item:hover {
-    background-color: #c8dcc8;
-}
-QListWidget::item:selected {
-    background-color: #5a8060;
-    color: white;
+AdminView QScrollBar::handle:vertical {
+    background-color: #8da7b8;
+    border-radius: 5px;
+    min-height: 32px;
 }
 
-/* QLabel */
-QLabel {
-    font-size: 13px;
-    color: #1e3820;
-}
-QCheckBox {
-    font-size: 13px;
-    color: #1e3820;
+AdminView QScrollBar::add-line:vertical,
+AdminView QScrollBar::sub-line:vertical {
+    height: 0;
 }
 
-/* ScrollBar */
-QScrollBar:vertical {
-    background: #f0f7f0;
-    width: 8px;
-    border-radius: 4px;
+AdminView QToolTip {
+    background-color: #244866;
+    border: 1px solid #17324a;
+    color: #ffffff;
+    padding: 5px 8px;
 }
-QScrollBar::handle:vertical {
-    background: #a0c4a0;
-    border-radius: 4px;
-    min-height: 20px;
-}
-QScrollBar::handle:vertical:hover {
-    background: #7aa080;
-}
-QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
