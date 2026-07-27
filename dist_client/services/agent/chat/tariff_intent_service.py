@@ -1,4 +1,4 @@
-﻿"""
+"""
 Tariff Intent Service — predlog, provjera i brisanje tarifnih brojeva.
 
 Business logika za:

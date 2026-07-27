@@ -625,7 +625,6 @@ def _parse_item_row(
                 zemlja_iso = "IE"
             elif zemlja_iso == "IR":
                 # Šumaprom koristi "IR" za Irsku (IRSKA), a ne za Iran
-                # Provjera po punom nazivu iza kose crte
                 full_name = zemlja_porijekla_raw.upper()
                 if "IRSKA" in full_name or "IRELAND" in full_name:
                     zemlja_iso = "IE"
@@ -697,3 +696,4 @@ if __name__ == "__main__":
                     logger.debug(f"   Country: {item.zemlja_porijekla}")
     else:
         logger.debug(f"Test folder not found: {test_file}")
+

@@ -1,4 +1,4 @@
-﻿# services/tarifa_service.py
+# services/tarifa_service.py
 
 """
 TarifaService — pretraga carinske tarife 2026 iz SQLite baze.

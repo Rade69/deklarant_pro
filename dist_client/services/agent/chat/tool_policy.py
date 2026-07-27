@@ -45,6 +45,10 @@ TOOL_EFFECTS: dict[str, ToolEffect] = {
     "provjeri_naimenovanja": ToolEffect.READ_ONLY,
     "provjeri_tarife": ToolEffect.READ_ONLY,
     "validuj_deklaraciju": ToolEffect.READ_ONLY,
+    # ── Workflow alati (Faza 7) ──
+    "kalkulisi_mase": ToolEffect.READ_ONLY,
+    "kreiraj_naimenovanja": ToolEffect.MUTATE,
+    "izvezi_xml": ToolEffect.MUTATE,
 }
 
 

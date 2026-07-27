@@ -342,3 +342,4 @@ class BackupService:
 
         auto_backups.sort(key=lambda x: x['created'], reverse=True)
         return auto_backups
+
