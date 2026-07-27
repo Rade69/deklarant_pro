@@ -2576,3 +2576,35 @@ Napomena: naimenovanja i dalje zahtijevaju eksplicitnu potvrdu deklaranta
 (QMessageBox sa default "Ne") prije nego pipeline nastavi — ovo NIJE
 promijenjeno, i ne treba biti (compliance kapija za porijeklo/EUR.1/PE,
 vidi §4 ovog dokumenta). Korisnik mora obratiti pažnju na taj dijalog.
+
+---
+
+## 76. "Puna automatizacija" — fokus se vraćao na Faktura tab usred workflowa, skrivajući nastavak (2026-07-27)
+
+Nakon §75 (orkestrator povezan do XML izvoza), korisnik je uživo testirao
+rebuild i prijavio da izgleda "potpuno isto kao ranije" — nakon potvrde
+povlastice otvara Faktura tab i tu je kraj.
+
+**Uzrok**: `puna_auto_pipeline` (koju `run_declaration_workflow` iznutra
+poziva za prvu polovinu — mase/tarife/validacija/naimenovanja) na SVOM
+VLASTITOM kraju poziva `_otvori_faktura_tab_nakon_uvoza()`
+(`import_pipeline_service.py:700`), koja eksplicitno prebacuje glavni
+`QTabWidget` na Faktura tab. Ovo je bilo namjerno za stari, plitki tok
+(gdje je Faktura tab bio STVARNI kraj procesa). Ali `run_declaration_workflow`
+NASTAVLJA nakon toga (zaglavlje → cross-tab → xml preflight → izvoz) — te
+poruke se ispravno generišu u Agent chatu, ali korisnik ih nikad nije vidio
+jer je fokus ostao na Faktura tabu.
+
+**Fix**: `AgentController._on_all_completed()`, grana "Puna automatizacija",
+nakon `run_declaration_workflow(...)` poziva eksplicitno vraća fokus na
+Agent tab (`self.view.parent()`, isti `parent`/`QTabWidget` koji je već
+pronađen ranije u metodi za Faktura-tab-switch). Novi test
+(`test_agent_puna_automatizacija_vraca_fokus_na_agent_tab_nakon_workflowa`)
+provjerava redoslijed: `setCurrentWidget` prvo poziva Faktura tab (iz
+`puna_auto_pipeline`), pa Agent tab (fix) kao POSLJEDNJI poziv.
+
+**Pouka**: kad se servis koji sam po sebi mijenja UI fokus (tab switch,
+dijalog) PONOVO UPOTREBLJAVA kao "prva polovina" većeg orkestriranog toka,
+provjeriti da li taj servisov own-completion side-effect (npr. tab switch)
+skriva nastavak orkestracije — ne samo da li se logika izvršava, nego i
+da li je REZULTAT te logike vidljiv korisniku.
