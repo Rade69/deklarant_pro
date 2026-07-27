@@ -368,6 +368,7 @@ def _finish_puna_auto_pipeline(ctrl, chat, results: list) -> None:
         PipelineStageStatus, overall_outcome,
     )
     from services.agent.chat.audit_log import AuditEvent, record as record_audit
+    from services.completion_sound_service import CompletionSound, play_completion_sound
 
     outcome = overall_outcome(results)
     for r in results:
@@ -390,6 +391,7 @@ def _finish_puna_auto_pipeline(ctrl, chat, results: list) -> None:
             f"{failed.message if failed else ''}<br><br>"
             f"💡 Ispravi problem u Faktura tabu i pokreni ponovo, ili nastavi ručno."
         )
+        play_completion_sound(CompletionSound.ERROR)
         return
 
     bez_tarife = sum(1 for l in ctrl.draft.invoice_lines if not l.tarifni_broj)
@@ -406,6 +408,7 @@ def _finish_puna_auto_pipeline(ctrl, chat, results: list) -> None:
             f"{warn_lines}<br><br>"
             f"💡 Provjeri upozorenja i naimenovanja, ručno provjeri/popuni zaglavlje, zatim izvezi XML."
         )
+        play_completion_sound(CompletionSound.ATTENTION)
         return
 
     chat.add_agent_message(
@@ -415,6 +418,7 @@ def _finish_puna_auto_pipeline(ctrl, chat, results: list) -> None:
         f"Zaglavlje: <b>nije automatski popunjeno</b><br><br>"
         f"💡 Provjeri naimenovanja, ručno provjeri/popuni zaglavlje, zatim izvezi XML."
     )
+    play_completion_sound(CompletionSound.SUCCESS)
 
 
 def _get_preference_by_country(ctrl, country_code: str, exporter_name: str = "") -> str:

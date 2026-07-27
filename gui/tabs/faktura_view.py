@@ -3589,6 +3589,14 @@ class FakturaView(BaseTabView):
             if len(apply_result.warnings) > 5:
                 message += f"   ... i još {len(apply_result.warnings) - 5}\n"
 
+        from services.completion_sound_service import CompletionSound, play_completion_sound
+
+        sound = (
+            CompletionSound.ATTENTION
+            if failed_imports or apply_result.warnings
+            else CompletionSound.SUCCESS
+        )
+        play_completion_sound(sound)
         QMessageBox.information(self, "Grupni uvoz", message)
 
     def _collect_manual_import_decisions(self, plan):
@@ -3758,8 +3766,11 @@ class FakturaView(BaseTabView):
                 self._expected_importer = importer
 
     def _show_manual_import_workflow_result(self, plan, apply_result) -> None:
+        from services.completion_sound_service import CompletionSound, play_completion_sound
+
         title = "Uvoz uspješan"
         if not apply_result.success:
+            play_completion_sound(CompletionSound.ERROR)
             QMessageBox.warning(self, "Uvoz nije primijenjen", apply_result.message)
             return
 
@@ -3793,6 +3804,12 @@ class FakturaView(BaseTabView):
                 message += f"... i još {len(apply_result.warnings) - 5}\n"
 
         message = self._append_imported_files_message(message, min_files=2)
+        sound = (
+            CompletionSound.ATTENTION
+            if apply_result.warnings
+            else CompletionSound.SUCCESS
+        )
+        play_completion_sound(sound)
         QMessageBox.information(self, title, message)
 
     def _on_import_finished(self, result):

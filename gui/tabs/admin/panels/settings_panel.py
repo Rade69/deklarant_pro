@@ -241,6 +241,20 @@ class SettingsPanel(QWidget):
 
         main_layout.addWidget(plugins_group)
 
+        notifications_group = QGroupBox("🔔 Obavještenja")
+        notifications_layout = QFormLayout(notifications_group)
+        notifications_layout.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        notifications_layout.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        notifications_layout.setVerticalSpacing(10)
+
+        self.completion_sounds_check = QCheckBox()
+        self.completion_sounds_check.setToolTip(
+            "Pusti sistemski zvuk nakon završetka dužih procesa"
+        )
+        notifications_layout.addRow("Zvuk završetka procesa:", self.completion_sounds_check)
+
+        main_layout.addWidget(notifications_group)
+
         main_layout.addStretch()
 
         scroll.setWidget(settings_widget)
@@ -291,6 +305,9 @@ class SettingsPanel(QWidget):
         self.backup_interval_spin.setValue(settings.get('backup_interval_days', 7))
         self.log_level_combo.setCurrentText(settings.get('log_level', 'INFO'))
         self.plugins_auto_load_check.setChecked(settings.get('plugins_auto_load', True))
+        self.completion_sounds_check.setChecked(
+            settings.get('completion_sounds_enabled', True)
+        )
 
     def show_success(self, message: str):
         """Prikaži success poruku."""
@@ -315,6 +332,7 @@ class SettingsPanel(QWidget):
             'backup_interval_days': self.backup_interval_spin.value(),
             'log_level': self.log_level_combo.currentText(),
             'plugins_auto_load': self.plugins_auto_load_check.isChecked(),
+            'completion_sounds_enabled': self.completion_sounds_check.isChecked(),
         }
 
         self.save_requested.emit(settings)

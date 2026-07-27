@@ -284,6 +284,7 @@ def _izvezi_xml(ctrl, chat, confirm_fn=None) -> None:
         provjeri_spremnost_za_xml,
     )
     from services.agent.validation.renderer import render_summary_html
+    from services.completion_sound_service import CompletionSound, play_completion_sound
 
     result = provjeri_spremnost_za_xml(ctrl.draft)
 
@@ -297,6 +298,7 @@ def _izvezi_xml(ctrl, chat, confirm_fn=None) -> None:
             "Deklaracija ima kritične nalaze koji moraju biti ispravljeni prije izvoza. "
             "Pokreni <b>provjeri deklaraciju</b> za detalje."
         )
+        play_completion_sound(CompletionSound.ERROR)
         return
 
     if result.warning_count:
@@ -325,6 +327,7 @@ def _izvezi_xml(ctrl, chat, confirm_fn=None) -> None:
             "❌ Deklaracija je promijenjena nakon provjere spremnosti. "
             "Ponovi provjeru prije XML izvoza."
         )
+        play_completion_sound(CompletionSound.ERROR)
         return
 
     try:
@@ -345,6 +348,7 @@ def _izvezi_xml(ctrl, chat, confirm_fn=None) -> None:
                 "❌ Deklaracija je promijenjena tokom izvoza. "
                 "Ponovi provjeru prije kreiranja XML fajla."
             )
+            play_completion_sound(CompletionSound.ERROR)
             return
 
         export_to_xml(ctrl.draft, filepath)
@@ -352,7 +356,9 @@ def _izvezi_xml(ctrl, chat, confirm_fn=None) -> None:
         chat.add_agent_message(
             f"✅ <b>XML izvezen.</b><br>Fajl sačuvan: <b>{Path(filepath).name}</b>"
         )
+        play_completion_sound(CompletionSound.SUCCESS)
     except Exception as e:
         logger.error(f"Greška pri XML exportu: {e}", exc_info=True)
         chat.add_activity(f"❌ Greška pri XML exportu: {e}")
         chat.add_agent_message(f"❌ Greška pri izvozu XML-a: {escape(str(e))}")
+        play_completion_sound(CompletionSound.ERROR)

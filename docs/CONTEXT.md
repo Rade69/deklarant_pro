@@ -283,6 +283,13 @@ Git pre-commit hook (`scripts/git-hooks/pre-commit`) sprovodi py_compile na stag
 .py fajlovima + podsjetnike za Korak 1-5; instalacija po mašini:
 `git config core.hooksPath scripts/git-hooks`. Ne zaobilaziti sa `--no-verify`.
 
+### Zvučne obavijesti dugih procesa (2026-07-27)
+Sistemski zvuk se pušta samo nakon pune automatizacije, pojedinačnog/grupnog
+uvoza i XML izvoza: uspjeh, upozorenje i greška imaju različite Windows alias
+zvukove. Koristiti isključivo `services.completion_sound_service`, ne pozivati
+`winsound` iz tabova. Postavka `completion_sounds_enabled` je podrazumijevano
+uključena i mijenja se kroz Admin → Settings; korisničko otkazivanje je tiho.
+
 ---
 
 ## 16. Decision servis — TariffMapping nema supplier polje (poznat gap)
