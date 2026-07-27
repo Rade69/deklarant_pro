@@ -2319,3 +2319,18 @@ NE radi punu inverziju zavisnosti `_puna_auto_pipeline` (uklanjanje
 toga, `_puna_auto_pipeline` se ponovo koristi kao provjerena "prva polovina",
 a orkestrator dodaje nedostajuću "drugu polovinu" (zaglavlje → cross-tab →
 xml preflight → izvoz).
+
+---
+
+## 72. Sigurnosni audit — DB runtime nalog je superuser (2026-07-27)
+
+Read-only provjera aktivnog servera `192.168.100.154` potvrdila je PostgreSQL
+16, TLS sesiju i `scram-sha-256`, ali i da aplikacijski DB nalog ima
+`rolsuper=true`. To je kritičan rizik u kombinaciji sa parser plugin sistemom
+koji izvršava izabrani `.py` kroz `exec_module()`: kompromitovan parser ili
+`.env` može ugroziti cijeli DB server, ne samo aplikacijske tabele.
+
+Prioritet prije šire Agent V2 automatizacije: poseban least-privilege runtime
+nalog, rotacija postojeće 8-znakovne lozinke i prelazak sa `sslmode=prefer`
+na najmanje `require`, zatim `verify-full`. Detalji i kriteriji zatvaranja:
+`docs/SECURITY_AUDIT_2026-07-27.md`.
