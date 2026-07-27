@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from services.agent.validation.finding_model import (
+    FindingCode,
     FindingSeverity,
     ValidationFinding,
     ValidationSummary,
@@ -72,8 +73,9 @@ def provjeri_spremnost_za_xml(draft) -> XmlReadinessResult:
         all_findings.extend(inv_summary.findings)
         checks_run.append("invoice_validation")
     except Exception as e:
-        logger.warning(f"Invoice validation skipped: {e}")
-        checks_skipped.append("invoice_validation")
+        _record_failed_check(
+            "invoice_validation", e, all_findings, checks_skipped
+        )
 
     # 2. Naimenovanja validacija (Faza 4)
     try:
@@ -83,8 +85,9 @@ def provjeri_spremnost_za_xml(draft) -> XmlReadinessResult:
         all_findings.extend(items_summary.findings)
         checks_run.append("items_validation")
     except Exception as e:
-        logger.warning(f"Items validation skipped: {e}")
-        checks_skipped.append("items_validation")
+        _record_failed_check(
+            "items_validation", e, all_findings, checks_skipped
+        )
 
     # 3. Zaglavlje validacija (Faza 5)
     try:
@@ -94,8 +97,9 @@ def provjeri_spremnost_za_xml(draft) -> XmlReadinessResult:
         all_findings.extend(header_summary.findings)
         checks_run.append("header_validation")
     except Exception as e:
-        logger.warning(f"Header validation skipped: {e}")
-        checks_skipped.append("header_validation")
+        _record_failed_check(
+            "header_validation", e, all_findings, checks_skipped
+        )
 
     # 4. Međutabna usklađenost (Faza 5)
     try:
@@ -105,8 +109,9 @@ def provjeri_spremnost_za_xml(draft) -> XmlReadinessResult:
         all_findings.extend(cross_summary.findings)
         checks_run.append("cross_tab")
     except Exception as e:
-        logger.warning(f"Cross-tab skipped: {e}")
-        checks_skipped.append("cross_tab")
+        _record_failed_check(
+            "cross_tab", e, all_findings, checks_skipped
+        )
 
     # 5. XML builder preflight — može li se izgraditi XML?
     try:
@@ -123,8 +128,9 @@ def provjeri_spremnost_za_xml(draft) -> XmlReadinessResult:
             ))
         checks_run.append("xml_preflight")
     except Exception as e:
-        logger.warning(f"XML preflight skipped: {e}")
-        checks_skipped.append("xml_preflight")
+        _record_failed_check(
+            "xml_preflight", e, all_findings, checks_skipped
+        )
 
     # Odredi status
     blocking = sum(1 for f in all_findings if f.blocking)
@@ -145,6 +151,27 @@ def provjeri_spremnost_za_xml(draft) -> XmlReadinessResult:
         checks_run=tuple(checks_run),
         checks_skipped=tuple(checks_skipped),
     )
+
+
+def _record_failed_check(
+    check_name: str,
+    error: Exception,
+    all_findings: list[ValidationFinding],
+    checks_skipped: list[str],
+) -> None:
+    logger.error("Obavezna XML readiness provjera '%s' nije izvršena: %s", check_name, error)
+    checks_skipped.append(check_name)
+    all_findings.append(ValidationFinding(
+        severity=FindingSeverity.BLOCKING,
+        code=FindingCode.REQUIRED_CHECK_FAILED,
+        target="xml",
+        location=check_name,
+        message=f"Obavezna provjera '{check_name}' nije izvršena",
+        evidence={"error_type": type(error).__name__},
+        source="xml_readiness",
+        suggested_action="Otkloni tehničku grešku i ponovi provjeru prije izvoza",
+        blocking=True,
+    ))
 
 
 def _xml_preflight(draft) -> bool:
@@ -172,8 +199,9 @@ def _xml_preflight(draft) -> bool:
         draft_copy = deserialize_draft(serialize_draft(draft))
         AsycudaXMLBuilder(draft_copy).build()
         return True
-    except ImportError:
-        return True  # Builder nije dostupan — nije blokada
+    except ImportError as e:
+        logger.error("XML preflight — builder nije dostupan: %s", e)
+        return False
     except Exception as e:
         logger.warning(f"XML preflight — builder ne može izgraditi dokument: {e}")
         return False

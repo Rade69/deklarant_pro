@@ -20,6 +20,7 @@ import sqlite3
 import xml.etree.ElementTree as ET
 from datetime import date
 from typing import Dict, List, Optional
+from services.security.safe_xml import safe_parse
 
 logger = logging.getLogger(__name__)
 
@@ -116,7 +117,7 @@ class TariffDocHistoryService:
 
     def import_from_xml_file(self, filepath: str) -> int:
         """Parsira jedan XML fajl i upisuje tarifa→doc mapiranja. Vraća broj novih/ažuriranih unosa."""
-        tree = ET.parse(filepath)
+        tree = safe_parse(filepath)
         root = tree.getroot()
 
         # Tarifni brojevi po stavkama (Item tag — isti u starim i novim XML-ovima)

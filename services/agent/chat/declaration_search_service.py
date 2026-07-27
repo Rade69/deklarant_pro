@@ -20,6 +20,7 @@ import unicodedata
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import List, Dict, Optional
+from services.security.safe_xml import safe_parse
 
 logger = logging.getLogger("deklarant_pro.agent.declaration_search")
 
@@ -415,7 +416,7 @@ class DeclarationSearchService:
 
     def _parse_xml(self, xml_path: Path):
         """Parsira jedan XML fajl — vraća (decl_tuple, [item_tuples])."""
-        tree = ET.parse(str(xml_path))
+        tree = safe_parse(xml_path)
         root = tree.getroot()
 
         # Header
@@ -460,4 +461,3 @@ class DeclarationSearchService:
         except Exception as e:
             logger.error(f"SQL greška: {e}")
             return []
-

@@ -20,6 +20,7 @@ from typing import Sequence
 
 from core.draft.draft import InvoiceLine, Party
 from importers.import_result import ImportResult
+from services.security.safe_xml import safe_parse
 
 logger = logging.getLogger("deklarant_pro.import.faktura_xml")
 
@@ -65,7 +66,7 @@ def detect_faktura_xml(filepath: str) -> bool:
     try:
         if not str(filepath).lower().endswith(".xml"):
             return False
-        tree = ET.parse(filepath)
+        tree = safe_parse(filepath)
         root = tree.getroot()
         tag = root.tag.lower()
         # Ukloni namespace ako postoji
@@ -158,7 +159,7 @@ def parse_faktura_xml(filepath: str) -> ImportResult:
     """
     logger.info(f"Univerzalni Faktura XML parsiranje: {Path(filepath).name}")
 
-    tree = ET.parse(filepath)
+    tree = safe_parse(filepath)
     root = tree.getroot()
 
     # ── Zaglavlje ──────────────────────────────────────────────────

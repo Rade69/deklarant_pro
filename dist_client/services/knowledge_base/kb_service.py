@@ -341,14 +341,10 @@ class KnowledgeBaseService:
         """
         Šalje BM25 kandidate Groq-u da odabere najrelevantnijih top_k.
         """
-        from groq import Groq
-        from dotenv import dotenv_values
-        from pathlib import Path as _Path
+        from gui.tabs.agent.widgets.llm_provider import LLMProvider
 
-        env_path = _Path(__file__).parent.parent.parent / ".env"
-        env_vars = dotenv_values(env_path) if env_path.exists() else {}
-        api_key = env_vars.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
-        if not api_key:
+        provider = LLMProvider()
+        if provider.active_provider() == "none":
             return candidates[:top_k]
 
         # Pripremi listu za Groq
@@ -365,15 +361,11 @@ class KnowledgeBaseService:
             f"sortirano od najrelevantnijeg. Odgovori samo brojevima odvojenim zarezom."
         )
 
-        client = Groq(api_key=api_key)
-        response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.0,
+        text = provider.complete(
+            [{"role": "user", "content": prompt}],
             max_tokens=50,
-        )
-
-        text = response.choices[0].message.content.strip()
+            use_small_model=False,
+        ).strip()
         # Parsiranje odgovora (npr. "1,3,5" ili "1, 3, 5")
         import re
         indices = [int(x.strip()) - 1 for x in re.findall(r'\d+', text)]

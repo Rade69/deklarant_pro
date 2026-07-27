@@ -53,7 +53,37 @@ if errorlevel 1 (
 )
 
 echo.
-echo [4/4] Kopiram dodatne fajlove...
+echo [4/5] Digitalno potpisujem EXE...
+
+if "%WINDOWS_SIGNING_CERT_SHA1%"=="" (
+    echo GRESKA: WINDOWS_SIGNING_CERT_SHA1 nije postavljen.
+    echo Produkcijski build mora biti Authenticode potpisan.
+    exit /b 1
+)
+
+where signtool >nul 2>&1
+if errorlevel 1 (
+    echo GRESKA: signtool nije pronadjen u PATH-u.
+    echo Instaliraj Windows SDK i dodaj signtool u PATH.
+    exit /b 1
+)
+
+if "%SIGN_TIMESTAMP_URL%"=="" set SIGN_TIMESTAMP_URL=http://timestamp.digicert.com
+
+signtool sign /sha1 %WINDOWS_SIGNING_CERT_SHA1% /fd SHA256 /tr %SIGN_TIMESTAMP_URL% /td SHA256 dist\DeklarantPro\DeklarantPro.exe
+if errorlevel 1 (
+    echo GRESKA: Digitalno potpisivanje EXE-a nije uspjelo.
+    exit /b 1
+)
+
+signtool verify /pa /v dist\DeklarantPro\DeklarantPro.exe
+if errorlevel 1 (
+    echo GRESKA: Authenticode provjera potpisanog EXE-a nije prosla.
+    exit /b 1
+)
+
+echo.
+echo [5/5] Kopiram dodatne fajlove...
 
 REM .env.example u dist folder (korisnik treba napraviti .env)
 copy .env.example dist\DeklarantPro\.env.example

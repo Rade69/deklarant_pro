@@ -10,6 +10,7 @@ import shutil
 from pathlib import Path
 from typing import List, Type, Optional, Dict, Any
 from importers.base_strategy import ImportStrategy
+from services.security.parser_trust_service import assert_parser_trusted
 
 
 class PluginLoader:
@@ -81,6 +82,8 @@ class PluginLoader:
         Returns:
             ImportStrategy klasa ili None
         """
+        assert_parser_trusted(filepath)
+
         # Kreiraj module name
         module_name = f"plugins.parsers.{filepath.stem}"
 
@@ -122,6 +125,12 @@ class PluginLoader:
         try:
             destination = self.parsers_dir / source_path.name
             shutil.copy2(source_path, destination)
+            source_signature = source_path.with_suffix(source_path.suffix + ".sig")
+            if source_signature.is_file():
+                shutil.copy2(
+                    source_signature,
+                    destination.with_suffix(destination.suffix + ".sig"),
+                )
             logger.info(f"✅ Plugin instaliran: {destination}")
             return True
 

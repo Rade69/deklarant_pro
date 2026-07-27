@@ -10,6 +10,7 @@ import logging
 from pathlib import Path
 from typing import Optional, Callable, List, Dict, Any
 from datetime import datetime
+from services.security.safe_xml import safe_parse
 
 # Logger setup
 logger = logging.getLogger(__name__)
@@ -6137,9 +6138,7 @@ class FakturaView(BaseTabView):
     @staticmethod
     def _extract_header_from_xml(xml_path: str) -> dict:
         """Parsira ASYCUDA XML i vraća dict sa header poljima za DeclarationDraft."""
-        import xml.etree.ElementTree as ET
-
-        tree = ET.parse(xml_path)
+        tree = safe_parse(xml_path)
         root = tree.getroot()
 
         def _text(xpath: str) -> str:

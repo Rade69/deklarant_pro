@@ -7,6 +7,24 @@ on:
     branches: [main, windows]
 
 jobs:
+  security:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Izvezi zaključane produkcijske zavisnosti
+        run: uv export --frozen --no-dev --no-emit-project --output-file requirements-audit.txt
+
+      - name: CVE audit zavisnosti
+        run: uvx pip-audit --requirement requirements-audit.txt
+
+      - name: Sigurnosni regresioni testovi
+        run: uv run pytest tests/unit/test_safe_xml.py tests/unit/test_log_redaction.py tests/unit/test_plugin_service.py tests/unit/test_database_security_settings.py tests/unit/test_hybrid_tariff_agent_security.py tests/unit/test_agent_v2_wiring_fixes.py -q
+
   test:
     runs-on: windows-latest
     steps:

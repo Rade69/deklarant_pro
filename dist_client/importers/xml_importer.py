@@ -8,6 +8,7 @@ import xml.etree.ElementTree as ET
 import re
 
 from core.draft import InvoiceLine
+from services.security.safe_xml import safe_parse
 
 
 class XMLImporter:
@@ -40,7 +41,7 @@ class XMLImporter:
             raise FileNotFoundError(f"Fajl ne postoji: {file_path}")
 
         try:
-            tree = ET.parse(file_path)
+            tree = safe_parse(file_path)
             root = tree.getroot()
             
             # Auto detekcija formata

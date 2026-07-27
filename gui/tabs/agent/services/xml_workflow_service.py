@@ -319,6 +319,13 @@ def _izvezi_xml(ctrl, chat, confirm_fn=None) -> None:
         chat.add_activity("ℹ️ Izvoz otkazan — potvrda nije data")
         chat.add_agent_message("ℹ️ Izvoz otkazan. Fajl nije kreiran.")
         return
+    if getattr(ctrl.draft, "revision", 0) != result.draft_revision:
+        chat.add_activity("❌ Izvoz blokiran — deklaracija je promijenjena nakon provjere")
+        chat.add_agent_message(
+            "❌ Deklaracija je promijenjena nakon provjere spremnosti. "
+            "Ponovi provjeru prije XML izvoza."
+        )
+        return
 
     try:
         from exporters.asycuda_xml_builder import export_to_xml
@@ -331,6 +338,13 @@ def _izvezi_xml(ctrl, chat, confirm_fn=None) -> None:
         )
         if not filepath:
             chat.add_activity("ℹ️ Izvoz otkazan — fajl nije izabran")
+            return
+        if getattr(ctrl.draft, "revision", 0) != result.draft_revision:
+            chat.add_activity("❌ Izvoz blokiran — deklaracija je promijenjena")
+            chat.add_agent_message(
+                "❌ Deklaracija je promijenjena tokom izvoza. "
+                "Ponovi provjeru prije kreiranja XML fajla."
+            )
             return
 
         export_to_xml(ctrl.draft, filepath)

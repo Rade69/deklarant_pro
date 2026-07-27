@@ -60,6 +60,7 @@ class FindingCode:
 
     # XML
     XML_PREFLIGHT_BLOCKED = "XML_PREFLIGHT_BLOCKED"
+    REQUIRED_CHECK_FAILED = "REQUIRED_CHECK_FAILED"
 
 
 class FindingSeverity:

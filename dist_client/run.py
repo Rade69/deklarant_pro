@@ -20,6 +20,7 @@ _log_file = os.path.join(_log_dir, "deklarant_pro.log")
 
 import logging
 import warnings
+from services.security.log_redaction import install_redaction_filter
 
 warnings.filterwarnings('ignore', category=RuntimeWarning, message='Failed to disconnect')
 
@@ -31,6 +32,7 @@ try:
 except OSError:
     pass
 
+install_redaction_filter(_handlers)
 logging.basicConfig(
     level=logging.WARNING,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',

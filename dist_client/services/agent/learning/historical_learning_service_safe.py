@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger("deklarant_pro.historical_learning")
+from services.security.safe_xml import safe_lxml_parse
 
 
 # ---------------------------------------------------------------------------
@@ -187,8 +188,7 @@ class HistoricalLearningServiceSafe:
         """Ekstrahuje stavke (povlastica, zemlja, HS kod) iz ASYCUDA XML-a."""
         items = []
         try:
-            from lxml import etree
-            tree = etree.parse(str(xml_path))
+            tree = safe_lxml_parse(xml_path)
             root = tree.getroot()
 
             for item_elem in root.xpath(".//*[local-name()='Item']"):

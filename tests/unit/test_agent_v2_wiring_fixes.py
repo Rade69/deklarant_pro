@@ -219,6 +219,48 @@ class TestXmlPreflight:
         assert draft.items[0].tariff_code == original_tariff
         assert getattr(draft, "revision", 0) == original_revision
 
+    def test_nedostupan_builder_je_blokada(self):
+        from services.agent.validation.xml_readiness_service import _xml_preflight
+
+        with patch.dict("sys.modules", {"exporters.asycuda_xml_builder": None}):
+            assert _xml_preflight(_minimal_ready_draft()) is False
+
+
+class TestReadinessFailClosed:
+    def test_kvar_obavezne_provjere_blokira_izvoz(self):
+        from services.agent.validation.finding_model import FindingCode
+        from services.agent.validation.xml_readiness_service import (
+            ReadinessStatus,
+            provjeri_spremnost_za_xml,
+        )
+
+        with patch(
+            "services.agent.validation.invoice_review_service.provjeri_fakturu",
+            side_effect=RuntimeError("simuliran pad baze"),
+        ):
+            result = provjeri_spremnost_za_xml(_minimal_ready_draft())
+
+        assert result.status == ReadinessStatus.BLOCKED
+        assert "invoice_validation" in result.checks_skipped
+        assert any(f.code == FindingCode.REQUIRED_CHECK_FAILED for f in result.all_findings)
+
+    def test_kvar_preflight_orchestracije_blokira_izvoz(self):
+        from services.agent.validation.finding_model import FindingCode
+        from services.agent.validation.xml_readiness_service import (
+            ReadinessStatus,
+            provjeri_spremnost_za_xml,
+        )
+
+        with patch(
+            "services.agent.validation.xml_readiness_service._xml_preflight",
+            side_effect=RuntimeError("simulirana tehnička greška"),
+        ):
+            result = provjeri_spremnost_za_xml(_minimal_ready_draft())
+
+        assert result.status == ReadinessStatus.BLOCKED
+        assert "xml_preflight" in result.checks_skipped
+        assert any(f.code == FindingCode.REQUIRED_CHECK_FAILED for f in result.all_findings)
+
 
 # ── Nalaz 4b: _izvezi_xml poziva readiness prije izvoza ──────────────────
 
@@ -282,6 +324,26 @@ class TestIzvezhiXml:
         mock_export.assert_called_once()
         poruke = " ".join(c[0][0] for c in chat.add_agent_message.call_args_list)
         assert "izvezen" in poruke.lower()
+
+    def test_izmjena_drafta_nakon_potvrde_ponistava_readiness(self):
+        from gui.tabs.agent.services.xml_workflow_service import _izvezi_xml
+
+        draft = _minimal_ready_draft()
+        ctrl = self._make_ctrl(draft)
+        chat = MagicMock()
+
+        def confirm_and_mutate(_title, _question):
+            draft.mark_dirty()
+            return True
+
+        with patch("PySide6.QtWidgets.QFileDialog.getSaveFileName") as mock_dialog, \
+             patch("exporters.asycuda_xml_builder.export_to_xml") as mock_export:
+            _izvezi_xml(ctrl, chat, confirm_fn=confirm_and_mutate)
+
+        mock_dialog.assert_not_called()
+        mock_export.assert_not_called()
+        poruke = " ".join(c[0][0] for c in chat.add_agent_message.call_args_list)
+        assert "promijenjena" in poruke.lower()
 
 
 # ── Nalaz 3: declaration_workflow_state — stvarne kapije, ne "lista nije prazna" ──

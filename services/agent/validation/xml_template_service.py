@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Optional
+from services.security.safe_xml import safe_parse
 
 logger = logging.getLogger(__name__)
 
@@ -214,7 +215,7 @@ class XmlTemplateService:
         se pojavljuju na desetine mjesta u ASYCUDA XML-u pa se mora
         specificirati pun kontekst.
         """
-        tree = ET.parse(str(xml_path))
+        tree = safe_parse(xml_path)
         root = tree.getroot()
 
         def get(xpath: str) -> str:
