@@ -45,6 +45,9 @@ Codex
   `.worktrees/agent-v2`. Rezultat nije tretiran kao dokaz nultog uticaja;
   obim je provjeren diffom, ciljanim testovima, statičkim skenovima i punim
   regresionim paketom.
+- Nakon commitova je `npx gitnexus analyze` uspješno napravio zaseban svjež
+  indeks za `.worktrees/agent-v2`: 44.898 čvorova, 73.116 veza, 1.297 klastera
+  i 300 tokova.
 
 ## Šta je urađeno
 
@@ -145,6 +148,7 @@ potrebna jer je korisnik eksplicitno naveo da je sekcija 6.5 popravljena.
 | --- | --- |
 | `35d2004` | `fix(security): ojačaj runtime i ulazne kapije` |
 | `21dae95` | `docs(security): ažuriraj audit nakon hardeninga` |
+| `108a178` | `docs(report): evidentiraj sigurnosni hardening` |
 
 ## Rizici / ograničenja
 
