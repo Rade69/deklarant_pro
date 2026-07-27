@@ -2,10 +2,14 @@
 
 ## 1. Izvršni sažetak
 
-**Datum prvog pregleda:** 2026-07-27  
-**Datum hardening verifikacije:** 2026-07-27  
-**Grana:** `feature/agent-v2`  
-**PostgreSQL server:** `192.168.100.154`, PostgreSQL 16  
+**Datum prvog pregleda:** 2026-07-27
+
+**Datum hardening verifikacije:** 2026-07-27
+
+**Grana:** `feature/agent-v2`
+
+**PostgreSQL server:** `192.168.100.154`, PostgreSQL 16
+
 **Tip pregleda:** statička analiza, ciljani negativni testovi, puni regresioni
 testovi, SCA audit zaključanih zavisnosti i kontrolisana provjera runtime DB veze
 
