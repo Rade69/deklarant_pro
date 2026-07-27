@@ -376,6 +376,107 @@ class NaimenovanjaService:
         logger.info(f"{status} {operation}: {count} items")
 
     # ============================================================
+    # Čiste kalkulacije (Faza 2 — izdvojene iz NaimenovanjaView)
+    # ============================================================
+
+    @staticmethod
+    def parse_cost(val) -> float:
+        """Parse trošak iz stringa (podržava zarez i tačku)."""
+        try:
+            return float(str(val or 0).replace(",", ".").replace(" ", ""))
+        except (ValueError, TypeError):
+            return 0.0
+
+    @staticmethod
+    def compute_pd_codes(item) -> str:
+        """Rb.44 P.D. — objedinjene šifre from_rule priloženih dokumenata."""
+        from core.draft import AttachedDocument
+        codes = []
+        for doc in getattr(item, "attached_documents", []) or []:
+            code = getattr(doc, "code", "")
+            from_rule = getattr(doc, "from_rule", False)
+            if code and from_rule:
+                codes.append(code)
+        return ", ".join(codes)
+
+    @staticmethod
+    def compute_statistical_value(item) -> str:
+        """Izračunaj statističku vrijednost (Rb.46)."""
+        value = getattr(item, "item_value", 0.0) or 0.0
+        if value > 0:
+            return f"{value:.2f}"
+        return ""
+
+    @staticmethod
+    def resolve_supplementary_unit(tariff_code: str) -> str:
+        """Vrati ASYCUDA kod dopunske JM za tarifni broj, ili '' ako ne postoji."""
+        try:
+            from services.naimenovanja.create_naimenovanja_service import get_supplementary_unit
+            return get_supplementary_unit(tariff_code)
+        except Exception:
+            return ""
+
+    @staticmethod
+    def normalize_field_value(field_name: str, value):
+        """Normalizuj vrijednost polja."""
+        if value is None:
+            return ""
+        if isinstance(value, (int, float)):
+            return str(value) if field_name not in ("ordinal_no",) else int(value)
+        return str(value)
+
+    @staticmethod
+    def format_trading_names(draft, item_index: int, max_chars: int = 280) -> str:
+        """Formatuj sve nazive proizvoda iz fakture za jedno naimenovanje.
+
+        Premješteno iz NaimenovanjaView._format_trading_names.
+        """
+        items = getattr(draft, "items", []) or []
+        if not items or item_index >= len(items):
+            return ""
+
+        current_item = items[item_index]
+        ordinal_no = current_item.ordinal_no
+
+        assigned_lines = [
+            line for line in (getattr(draft, "invoice_lines", []) or [])
+            if getattr(line, "assigned_naimenovanje_ordinal", 0) == ordinal_no
+        ]
+
+        if not assigned_lines:
+            return ""
+
+        # Nazivi proizvoda
+        product_names = [line.naziv_robe for line in assigned_lines if getattr(line, "naziv_robe", None)]
+        nazivi_dio = ", ".join(product_names) if product_names else ""
+
+        # Faktura info
+        from collections import OrderedDict
+        fakture: dict = OrderedDict()
+        for line in assigned_lines:
+            inv = getattr(line, "invoice_number", "") or "?"
+            if inv not in fakture:
+                fakture[inv] = []
+            fakture[inv].append(str(line.line_no))
+
+        faktura_parts = []
+        for inv, rbs in fakture.items():
+            faktura_parts.append(f"{inv} (rb. {', '.join(rbs)})")
+        faktura_str = "; ".join(faktura_parts)
+
+        # Spoji
+        if nazivi_dio and faktura_str:
+            result = f"{nazivi_dio}\nFaktura: {faktura_str}"
+        elif nazivi_dio:
+            result = nazivi_dio
+        else:
+            result = f"Faktura: {faktura_str}"
+
+        if len(result) > max_chars:
+            result = result[:max_chars - 3] + "..."
+        return result
+
+    # ============================================================
     # Šifrarnici (paketovi, dokumenti) — učitavanje iz PostgreSQL
     # Premješteno iz NaimenovanjaView (nalaz 3b — DB u View sloju)
     # ============================================================
