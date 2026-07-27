@@ -53,12 +53,21 @@ if errorlevel 1 (
 )
 
 echo.
-echo [4/5] Digitalno potpisujem EXE...
+echo [4/5] Digitalno potpisivanje EXE-a (opciono)...
+
+REM Code signing sertifikat je odlozen do daljnjeg (odluka 2026-07-27 —
+REM ne isplati se u ovoj fazi). Ako WINDOWS_SIGNING_CERT_SHA1 nije postavljen,
+REM build prolazi BEZ potpisivanja umjesto da stane — takav EXE Windows
+REM SmartScreen prikazuje kao "Nepoznat izdavac" i NIJE za siru distribuciju,
+REM samo za internu/kontrolisanu upotrebu (npr. dm promet klijent).
+REM Cim se WINDOWS_SIGNING_CERT_SHA1 postavi, potpisivanje se automatski
+REM vraca bez izmjene ove skripte.
 
 if "%WINDOWS_SIGNING_CERT_SHA1%"=="" (
-    echo GRESKA: WINDOWS_SIGNING_CERT_SHA1 nije postavljen.
-    echo Produkcijski build mora biti Authenticode potpisan.
-    exit /b 1
+    echo NAPOMENA: WINDOWS_SIGNING_CERT_SHA1 nije postavljen — EXE ostaje NEPOTPISAN.
+    echo          Windows ce prikazati "Nepoznat izdavac" upozorenje pri pokretanju.
+    echo          Ovo je namjerno za internu/test upotrebu — NE distribuirati siroko.
+    goto :skip_signing
 )
 
 where signtool >nul 2>&1
@@ -81,6 +90,8 @@ if errorlevel 1 (
     echo GRESKA: Authenticode provjera potpisanog EXE-a nije prosla.
     exit /b 1
 )
+
+:skip_signing
 
 echo.
 echo [5/5] Kopiram dodatne fajlove...
