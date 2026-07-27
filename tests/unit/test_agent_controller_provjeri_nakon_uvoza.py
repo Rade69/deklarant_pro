@@ -20,7 +20,7 @@ inicijalizacija cijelog AgentController-a.
 """
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from core.draft.draft import DeclarationDraft
 from gui.tabs.agent.agent_controller import AgentController
@@ -72,14 +72,42 @@ def test_agent_uvezi_u_deklaraciju_pokrece_provjeru_nakon_uvoza():
 
 def test_agent_puna_automatizacija_ne_duplira_eager_poziv():
     """
-    Puna automatizacija grana ima SVOJ poziv preko _puna_auto_pipeline
-    (koji kasnije zove _on_validate_all(auto=True), tih/log-only) — eager
-    interaktivni poziv (auto=False) se NE dodaje u ovu granu da ne prikaže
-    modal usred inače potpuno automatizovanog toka.
+    Puna automatizacija grana NE dodaje eager interaktivni poziv
+    (_run_historical_tariff_validation(auto=False)) — validacija je dio
+    orkestratora ispod (tih/log-only), ne odvojen modal usred automatizovanog
+    toka.
     """
     ctrl, fw = _mock_controller(current_mode="Puna automatizacija")
 
-    AgentController._on_all_completed(ctrl, [_file_item()])
+    with patch(
+        "services.agent.workflow.declaration_workflow_service.run_declaration_workflow"
+    ):
+        AgentController._on_all_completed(ctrl, [_file_item()])
 
     fw._run_historical_tariff_validation.assert_not_called()
-    ctrl._puna_auto_pipeline.assert_called_once()
+
+
+def test_agent_puna_automatizacija_poziva_orkestrator_do_kraja():
+    """
+    Popravka (2026-07-27): "Puna automatizacija" prije je pozivala
+    _puna_auto_pipeline direktno i STAJALA nakon naimenovanja — zaglavlje,
+    cross-tab provjera, XML readiness i izvoz su ostajali identično ručni
+    kao u modu "Uvezi u deklaraciju" (korisnička primjedba: režim praktično
+    beskoristan). Sad poziva run_declaration_workflow, koji iznutra ponovo
+    koristi _puna_auto_pipeline za mase/tarife/validaciju/naimenovanja, a
+    zatim NASTAVLJA do XML izvoza.
+    """
+    ctrl, fw = _mock_controller(current_mode="Puna automatizacija")
+    ctrl._declaration_workflow_running = False
+
+    # Import unutar metode je odgodjen (deferred) — patch cilja na izvorni
+    # modul odakle se import radi u trenutku poziva, ne na agent_controller.
+    with patch(
+        "services.agent.workflow.declaration_workflow_service.run_declaration_workflow"
+    ) as mock_run:
+        AgentController._on_all_completed(ctrl, [_file_item()])
+
+    mock_run.assert_called_once()
+    args, kwargs = mock_run.call_args
+    assert args[0] is ctrl
+    assert kwargs.get("fw") is fw
