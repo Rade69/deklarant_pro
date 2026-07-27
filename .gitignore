@@ -113,6 +113,8 @@ logs/
 
 # Licensing — private key NIKADA ne ide u git
 tools/licensing/keys/
+tools/plugins/keys/
+*.py.sig
 licenses/
 
 # Generisani docs fajlovi (HTML, PDF, LibreOffice lock)

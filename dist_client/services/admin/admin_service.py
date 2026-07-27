@@ -4,12 +4,32 @@ Admin Service - Main admin business logic.
 Koordinira sve admin pod-servise.
 """
 
+import os
+import platform
 from typing import List, Dict, Any, Optional
 from services.admin.plugin_service import PluginService
 from services.admin.settings_service import SettingsService
 from services.admin.backup_service import BackupService
 from services.admin.log_service import LogService
 from services.admin.analytics_service import AnalyticsService
+
+
+def format_architecture(machine: str, processor: str = "") -> str:
+    normalized = machine.strip().lower()
+    processor_info = f"{processor} {os.getenv('PROCESSOR_IDENTIFIER', '')}".lower()
+
+    if normalized in {"amd64", "x86_64"}:
+        vendor = ""
+        if "intel" in processor_info or "genuineintel" in processor_info:
+            vendor = ", Intel"
+        elif "amd" in processor_info or "authenticamd" in processor_info:
+            vendor = ", AMD"
+        return f"64-bit (x86-64{vendor})"
+    if normalized in {"x86", "i386", "i686"}:
+        return "32-bit (x86)"
+    if normalized in {"arm64", "aarch64"}:
+        return "64-bit (ARM)"
+    return machine or "N/A"
 
 
 class AdminService:
@@ -201,7 +221,6 @@ class AdminService:
             Dict sa system info-m
         """
         import sys
-        import platform
         from datetime import datetime
         from PySide6.QtCore import qVersion
         from PySide6 import QtCore
@@ -219,7 +238,10 @@ class AdminService:
             'platform_system': platform.system(),
             'platform_release': platform.release(),
             'platform_version': platform.version(),
-            'architecture': platform.machine(),
+            'architecture': format_architecture(
+                platform.machine(),
+                platform.processor(),
+            ),
             'processor': platform.processor() or 'N/A',
             'python_version': sys.version.split()[0],
             'python_full_version': sys.version,

@@ -53,7 +53,48 @@ if errorlevel 1 (
 )
 
 echo.
-echo [4/4] Kopiram dodatne fajlove...
+echo [4/5] Digitalno potpisivanje EXE-a (opciono)...
+
+REM Code signing sertifikat je odlozen do daljnjeg (odluka 2026-07-27 —
+REM ne isplati se u ovoj fazi). Ako WINDOWS_SIGNING_CERT_SHA1 nije postavljen,
+REM build prolazi BEZ potpisivanja umjesto da stane — takav EXE Windows
+REM SmartScreen prikazuje kao "Nepoznat izdavac" i NIJE za siru distribuciju,
+REM samo za internu/kontrolisanu upotrebu (npr. dm promet klijent).
+REM Cim se WINDOWS_SIGNING_CERT_SHA1 postavi, potpisivanje se automatski
+REM vraca bez izmjene ove skripte.
+
+if "%WINDOWS_SIGNING_CERT_SHA1%"=="" (
+    echo NAPOMENA: WINDOWS_SIGNING_CERT_SHA1 nije postavljen — EXE ostaje NEPOTPISAN.
+    echo          Windows ce prikazati "Nepoznat izdavac" upozorenje pri pokretanju.
+    echo          Ovo je namjerno za internu/test upotrebu — NE distribuirati siroko.
+    goto :skip_signing
+)
+
+where signtool >nul 2>&1
+if errorlevel 1 (
+    echo GRESKA: signtool nije pronadjen u PATH-u.
+    echo Instaliraj Windows SDK i dodaj signtool u PATH.
+    exit /b 1
+)
+
+if "%SIGN_TIMESTAMP_URL%"=="" set SIGN_TIMESTAMP_URL=http://timestamp.digicert.com
+
+signtool sign /sha1 %WINDOWS_SIGNING_CERT_SHA1% /fd SHA256 /tr %SIGN_TIMESTAMP_URL% /td SHA256 dist\DeklarantPro\DeklarantPro.exe
+if errorlevel 1 (
+    echo GRESKA: Digitalno potpisivanje EXE-a nije uspjelo.
+    exit /b 1
+)
+
+signtool verify /pa /v dist\DeklarantPro\DeklarantPro.exe
+if errorlevel 1 (
+    echo GRESKA: Authenticode provjera potpisanog EXE-a nije prosla.
+    exit /b 1
+)
+
+:skip_signing
+
+echo.
+echo [5/5] Kopiram dodatne fajlove...
 
 REM .env.example u dist folder (korisnik treba napraviti .env)
 copy .env.example dist\DeklarantPro\.env.example

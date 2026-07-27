@@ -583,6 +583,7 @@ def combine_invoice_and_packing(
             for pack_idx, pack_norm in enumerate(packing_norm):
                 if pack_idx in used_packing:
                     continue
+
                 sim = _fuzzy_match_normalized(inv_norm, pack_norm)
                 if sim > best_sim and sim > 0.85:
                     best_sim = sim
@@ -594,6 +595,7 @@ def combine_invoice_and_packing(
                 used_packing.add(best_idx)
                 matched += 1
                 match_found = True
+
                 logger.debug(f"   ✅ Fuzzy match ({best_sim:.1%}): {inv_item.naziv_robe[:30]}...")
 
         if not match_found:
@@ -620,6 +622,22 @@ def combine_invoice_and_packing(
     return invoice_items
 
 
+def _fuzzy_match(text1: str, text2: str) -> float:
+    """
+    Fuzzy matching između dva stringa.
+
+    Returns:
+        Similarity score 0.0-1.0
+    """
+    if not text1 or not text2:
+        return 0.0
+
+    t1 = text1.lower().strip()
+    t2 = text2.lower().strip()
+
+    return _fuzzy_match_normalized(t1, t2)
+
+
 def _fuzzy_match_normalized(t1: str, t2: str) -> float:
     """Fuzzy match nad već normalizovanim (lower+strip) stringovima."""
     if not t1 or not t2:
@@ -635,19 +653,3 @@ def _fuzzy_match_normalized(t1: str, t2: str) -> float:
     intersection = tokens1.intersection(tokens2)
     union = tokens1.union(tokens2)
     return len(intersection) / len(union)
-
-
-def _fuzzy_match(text1: str, text2: str) -> float:
-    """
-    Fuzzy matching između dva stringa.
-
-    Returns:
-        Similarity score 0.0-1.0
-    """
-    if not text1 or not text2:
-        return 0.0
-
-    t1 = text1.lower().strip()
-    t2 = text2.lower().strip()
-
-    return _fuzzy_match_normalized(t1, t2)

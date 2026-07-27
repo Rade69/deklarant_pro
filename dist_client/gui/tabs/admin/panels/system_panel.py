@@ -1,4 +1,4 @@
-﻿"""
+"""
 System Panel - UI for system info.
 
 TASK 13: Styling improvements - više sekcija, bolji layout, export opcije
@@ -608,4 +608,3 @@ Generisano: {info.get('generated_at', 'N/A')}
         QApplication.restoreOverrideCursor()
         self.btn_ai_health.setEnabled(True)
         QMessageBox.information(self, "AI status", "\n".join(lines))
-

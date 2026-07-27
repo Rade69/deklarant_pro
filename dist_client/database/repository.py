@@ -332,3 +332,4 @@ class AttachmentRepository:
             if deleted:
                 logger.info(f"Deleted attachment with ID: {attachment_id}")
             return deleted
+

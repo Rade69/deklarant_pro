@@ -17,7 +17,6 @@ Performansne napomene:
   confidence, čime se izbjegava kašnjenje na sporijim mašinama.
 """
 
-import os
 import re
 import logging
 from typing import Dict, Any, Optional, List
@@ -28,7 +27,6 @@ from services.agent.tariff.tariff_rag_service import TariffRAGService
 logger = logging.getLogger(__name__)
 
 OLLAMA_MODEL = "qwen3.5:4b"
-GROQ_MODEL   = "llama-3.1-8b-instant"
 
 # Keš validnih tarifnih kodova — popunjava se jednom pri prvom pozivu.
 # set lookup je O(1) i ne pravi nikakav DB poziv po stavki.
@@ -86,81 +84,38 @@ def _validate_tariff_number(tarifni_broj: str) -> bool:
 # ---------------------------------------------------------------------------
 
 class AIDecisionService:
-    """AI odluke o tarifnim brojevima (Groq ili Ollama backend)."""
+    """AI reranking tarifnih kandidata kroz centralni LLMProvider."""
 
     def __init__(self, use_ollama: bool = True):
-        self.backend = None
-        self.groq_client = None
-        self.ollama_client = None
-        self.model = None
-        self._init_groq()
-        if not self.groq_client and use_ollama:
-            self._init_ollama()
-
-    def _init_groq(self):
         try:
-            from groq import Groq
-            from dotenv import load_dotenv
-            load_dotenv()
-            api_key = os.getenv("GROQ_API_KEY")
-            if not api_key:
-                return
-            self.groq_client = Groq(api_key=api_key)
-            self.backend = 'groq'
-            self.model = GROQ_MODEL
-            logger.info("✅ Groq: %s spreman", GROQ_MODEL)
-        except ImportError:
-            logger.warning("⚠️ groq paket nije instaliran.")
+            from gui.tabs.agent.widgets.llm_provider import LLMProvider
+            self.provider = LLMProvider()
+            self.backend = self.provider.active_provider()
         except Exception as e:
-            logger.warning("⚠️ Groq inicijalizacija neuspješna: %s", e)
-
-    def _init_ollama(self):
-        try:
-            import ollama
-            client = ollama.Client(host="http://localhost:11434")
-            models = client.list()
-            available = [m.model for m in models.models]
-            if not any(OLLAMA_MODEL in m for m in available):
-                return
-            self.ollama_client = client
-            self.backend = 'ollama'
-            self.model = OLLAMA_MODEL
-            logger.info("✅ Ollama: %s spreman", OLLAMA_MODEL)
-        except Exception as e:
-            logger.warning("⚠️ Ollama nije dostupna: %s", e)
+            self.provider = None
+            self.backend = "none"
+            logger.warning("⚠️ LLMProvider nije dostupan: %s", e)
 
     def decide_tariff(self, naziv_robe: str, rag_context: List[Dict[str, Any]],
                       zemlja_porijekla: str = "") -> Dict[str, Any]:
-        if not self.backend:
+        if not self.provider or self.backend == "none":
             return self._fallback_decision(naziv_robe, rag_context)
         try:
             if rag_context:
                 return self._decide_multiple_choice(naziv_robe, rag_context, zemlja_porijekla)
-            else:
-                return self._decide_free(naziv_robe, zemlja_porijekla)
+            return self._fallback_decision(naziv_robe, rag_context)
         except Exception as e:
             logger.warning("⚠️ Greška pri AI odluci (%s): %s", self.backend, e)
             return self._fallback_decision(naziv_robe, rag_context)
 
     def _chat(self, prompt: str, max_tokens: int = 50) -> str:
-        if self.backend == 'groq':
-            response = self.groq_client.chat.completions.create(
-                model=GROQ_MODEL,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.1,
-                max_tokens=max_tokens,
-            )
-            return response.choices[0].message.content.strip()
-        elif self.backend == 'ollama':
-            response = self.ollama_client.chat(
-                model=OLLAMA_MODEL,
-                messages=[{"role": "user", "content": prompt}],
-                options={"temperature": 0.1, "num_predict": max_tokens * 4,
-                         "num_thread": 2, "num_ctx": 512, "think": False, "keep_alive": 0}
-            )
-            raw = response.message.content
-            return re.sub(r'<think>.*?</think>', '', raw, flags=re.DOTALL).strip()
-        return ""
+        if not self.provider:
+            return ""
+        return self.provider.complete(
+            [{"role": "user", "content": prompt}],
+            max_tokens=max_tokens,
+            use_small_model=True,
+        ).strip()
 
     def _decide_multiple_choice(self, naziv_robe: str,
                                 candidates: List[Dict[str, Any]],
@@ -190,29 +145,6 @@ class AIDecisionService:
                     'source': f'ai_{self.backend}',
                 }
         return self._fallback_decision(naziv_robe, candidates)
-
-    def _decide_free(self, naziv_robe: str, zemlja_porijekla: str = "") -> Dict[str, Any]:
-        zemlja_info = f"\nZemlja porijekla: {zemlja_porijekla}" if zemlja_porijekla else ""
-        prompt = (
-            f"Ti si ekspert za carinske tarife (HS nomenklatura, BiH/EU).\n\n"
-            f"Odredi tarifni broj za: {naziv_robe}{zemlja_info}\n\n"
-            f"Odgovori u formatu:\n"
-            f"TARIFNI_BROJ: [8 cifara]\n"
-            f"RAZLOG: [jedna rečenica]"
-        )
-        answer = self._chat(prompt, max_tokens=100)
-        tarifni_broj = self._extract_tariff_number(answer)
-        if not tarifni_broj:
-            return {'tarifni_broj': '', 'confidence': 0.0,
-                    'explanation': 'AI nije uspio odrediti tarifni broj', 'source': 'ai_failed'}
-        # Niži confidence kad nema RAG konteksta
-        confidence = 0.65 if not zemlja_porijekla else 0.68
-        return {
-            'tarifni_broj': tarifni_broj,
-            'confidence': confidence,
-            'explanation': self._extract_razlog(answer),
-            'source': f'ai_{self.backend}_free',
-        }
 
     def _extract_tariff_number(self, text: str) -> Optional[str]:
         match = re.search(r'TARIFNI_BROJ:\s*(\d{4,10})', text, re.IGNORECASE)

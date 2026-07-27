@@ -10,7 +10,7 @@ postavkama aplikacije koristeći Pydantic Settings v2.
 from pathlib import Path
 from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field
+from pydantic import Field, field_validator
 import os
 import sys
 
@@ -53,13 +53,24 @@ class DatabaseSettings(BaseSettings):
     database: str = Field(default="deklarant_pro", alias="DB_NAME")
     user: str = Field(default="postgres", alias="DB_USER")
     password: str = Field(..., alias="DB_PASSWORD")  # REQUIRED iz env
-    sslmode: str = Field(default="prefer", alias="DB_SSLMODE")
+    sslmode: str = Field(default="require", alias="DB_SSLMODE")
+    sslrootcert: Optional[str] = Field(default=None, alias="DB_SSLROOTCERT")
     
     model_config = SettingsConfigDict(
         case_sensitive=False,
         extra="ignore",
         populate_by_name=True,
     )
+
+    @field_validator("sslmode")
+    @classmethod
+    def validate_sslmode(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if normalized not in {"require", "verify-ca", "verify-full"}:
+            raise ValueError(
+                "DB_SSLMODE mora biti require, verify-ca ili verify-full"
+            )
+        return normalized
     
     @property
     def connection_string(self) -> str:
@@ -73,6 +84,7 @@ class DatabaseSettings(BaseSettings):
             f"postgresql://{self.user}:{self.password}"
             f"@{self.host}:{self.port}/{self.database}"
             f"?sslmode={self.sslmode}"
+            + (f"&sslrootcert={self.sslrootcert}" if self.sslrootcert else "")
         )
 
 

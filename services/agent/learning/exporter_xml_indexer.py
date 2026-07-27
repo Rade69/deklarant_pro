@@ -27,6 +27,7 @@ from typing import Optional, List, Dict, Tuple
 from difflib import SequenceMatcher
 
 import psycopg2
+from services.security.safe_xml import safe_parse
 
 logger = logging.getLogger("deklarant_pro.exporter_indexer")
 
@@ -134,7 +135,7 @@ def normalize_exporter_name(name: str) -> str:
 def parse_declaration_date(xml_path: Path) -> Optional[datetime]:
     """Izvuče datum deklaracije iz XML-a (ASYCUDA World format)."""
     try:
-        tree = ET.parse(str(xml_path))
+        tree = safe_parse(xml_path)
         root = tree.getroot()
 
         # ASYCUDA XML: Identification/Assessment/Date ili Registration/Date
@@ -170,7 +171,7 @@ def extract_parties_from_xml(xml_path: Path) -> tuple[Optional[str], Optional[st
         (exporter_name, consignee_name, consignee_jib, declaration_date) ili (None, None, None, None)
     """
     try:
-        tree = ET.parse(str(xml_path))
+        tree = safe_parse(xml_path)
         root = tree.getroot()
         
         exporter_name = None

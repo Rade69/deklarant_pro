@@ -666,11 +666,28 @@ class AgentController:
             chat.add_agent_message(
                 f"✅ <b>Sve fakture uvezene!</b><br>"
                 f"Ukupno stavki: <b>{processed_total}</b> | Bez tarifnog: <b>{total_bez}</b><br>"
-                f"🤖 Pokrećem automatski pipeline..."
+                f"🤖 Pokrećem punu automatizaciju do XML izvoza..."
             )
             from .workflow_state import WorkflowState
             self.workflow.transition(WorkflowState.COMPLETED)
-            self._puna_auto_pipeline(fw, chat, all_processed_lines)
+
+            # Prije popravke (2026-07-27) "Puna automatizacija" je pozivala
+            # _puna_auto_pipeline direktno — mase → tarife → validacija →
+            # naimenovanja, pa STAJE. Zaglavlje, cross-tab provjera, XML
+            # readiness i sam izvoz su ostajali identično ručni kao u modu
+            # "Uvezi u deklaraciju", što je ovaj režim učinilo praktično
+            # beskorisnim (korisnička primjedba). run_declaration_workflow
+            # iznutra ponovo koristi _puna_auto_pipeline za mase/tarife/
+            # validaciju/naimenovanja (ništa se ne duplira), a zatim
+            # NASTAVLJA kroz preostale kapije do stvarnog XML izvoza.
+            # Vidi agent_reports/2026-07-27_puna-automatizacija-do-kraja.md.
+            from services.agent.workflow.declaration_workflow_service import (
+                AgentBusyError, run_declaration_workflow,
+            )
+            try:
+                run_declaration_workflow(self, chat, fw=fw)
+            except AgentBusyError:
+                pass  # poruka je već prikazana unutar run_declaration_workflow
         else:
             analiza = self._proactive_analysis(all_processed_lines, fw)
             chat.add_agent_message(

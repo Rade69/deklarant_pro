@@ -1411,3 +1411,4 @@ class SifarniciService:
         except Exception as e:
             self._log_error("load_incoterms", e)
             return []
+

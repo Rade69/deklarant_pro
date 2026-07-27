@@ -2392,3 +2392,187 @@ test suite: 1262 passed, ista 2 pre-postojeća nepovezana problema.
 Nije dodat automatski test za font-size (isto obrazloženje kao ranije
 vizuelne izmjene — Qt offscreen test ne provjerava stvaran render).
 Potrebna korisnička vizuelna potvrda uživo.
+
+---
+
+## 71. Agent V2 (feature/agent-v2) — kritični wiring gapovi popravljeni (2026-07-27)
+
+Nakon što je cio plan (Faze -1 do 10) implementiran na `feature/agent-v2`,
+detaljan pregled (čitanje diff-a, praćenje stvarnih poziva, ne samo
+postojanja fajlova) otkrio je da su servisi za svaku fazu izgrađeni i
+testirani IZOLOVANO, ali gotovo nijedan nije bio povezan na stvarni
+ulazni tok (`_handle_message`, `_execute_tool`, `_izvezi_xml`,
+`_puna_auto_pipeline`). Detaljan izvještaj:
+`agent_reports/2026-07-27_popravka-wiring-gapova-agent-v2.md`.
+
+**Najozbiljniji nalaz — nije bio dio originalnog pregleda, otkriven tek pri
+pisanju testova**: `_audit_routing("switch", agent_v2=agent_v2, ...)` i
+`_audit_routing("v2_resolver", action=..., target=..., confidence=...)`
+prosljeđuju kwargs koje `AuditEvent` dataclass ne prihvata — `TypeError` na
+SVAKI poziv `_handle_message`, bez obzira na sadržaj poruke ili kill-switch
+vrijednost. Cio agent chat je bio potpuno nefunkcionalan na ovoj grani.
+Nijedan od preko 1200 postojećih testova ovo nije uhvatio jer nijedan ne
+poziva `_handle_message` direktno (svi testiraju `_handle_message_v2` ili
+interne funkcije, zaobilazeći ovu liniju). **Pouka**: testovi koji mockuju
+sve zavisnosti mogu propustiti bug u samom ulazu funkcije — vrijedi imati
+barem jedan test koji zove pravi top-level entry point sa minimalnim
+mockovanjem.
+
+**Drugi nalaz**: `_xml_preflight()` je uvozio `export_to_xml` ali ga NIKAD
+nije pozivao — samo provjeravao da `items` nije prazan. Prava greška u
+XML builderu bi bila prijavljena kao READY. Popravljeno pozivanjem
+`AsycudaXMLBuilder(...).build()` nad JSON round-trip kopijom drafta (ne
+originalom — `_apply_known_tariff_corrections()` unutar `build()` mutira
+`draft.items` u hodu, pa se preflight ne smije raditi nad produkcionim
+draftom direktno).
+
+**Otkriven i pre-postojeći bug u `scripts/sync_dist_client.py`**:
+`normalize()` nije normalizovao CRLF/LF stil, samo BOM i trailing
+whitespace — svaki fajl gdje root koristi LF a dist_client CRLF je bio
+lažno prijavljen kao "stvarna razlika". Popravljeno.
+
+**Namjerna scope odluka pri `dist_client` sinhronizaciji**: `--apply` je
+prvi put pokrenut bez ograničenja i otkrio da dist_client kasni za root-om
+za **preko 330 fajlova** (nepovezanih sa Agent V2 — akumulirano tokom
+istorije projekta). Taj širi drift je NAMJERNO ostavljen netaknut (vraćen
+`git checkout --` na prethodno stanje) — sinhronizovano je samo 7 fajlova
+stvarno vezanih za ovu popravku. Širi resync ostaje otvorena odluka za
+korisnika, van scope-a ovog zadatka.
+
+**Arhitektonska odluka o Fazi 7**: orkestrator (`declaration_workflow_service.py`)
+NE radi punu inverziju zavisnosti `_puna_auto_pipeline` (uklanjanje
+`QMessageBox`/`processEvents()`) — to ostaje veliki, rizičan zahvat. Umjesto
+toga, `_puna_auto_pipeline` se ponovo koristi kao provjerena "prva polovina",
+a orkestrator dodaje nedostajuću "drugu polovinu" (zaglavlje → cross-tab →
+xml preflight → izvoz).
+
+---
+
+## 72. Sigurnosni audit — DB runtime nalog je superuser (2026-07-27)
+
+Read-only provjera aktivnog servera `192.168.100.154` potvrdila je PostgreSQL
+16, TLS sesiju i `scram-sha-256`, ali i da aplikacijski DB nalog ima
+`rolsuper=true`. To je kritičan rizik u kombinaciji sa parser plugin sistemom
+koji izvršava izabrani `.py` kroz `exec_module()`: kompromitovan parser ili
+`.env` može ugroziti cijeli DB server, ne samo aplikacijske tabele.
+
+Prioritet prije šire Agent V2 automatizacije: poseban least-privilege runtime
+nalog, rotacija postojeće 8-znakovne lozinke i prelazak sa `sslmode=prefer`
+na najmanje `require`, zatim `verify-full`. Detalji i kriteriji zatvaranja:
+`docs/SECURITY_AUDIT_2026-07-27.md`.
+
+---
+
+## 73. Sigurnosni hardening nakon audita (2026-07-27)
+
+Sigurnosni P0/P1 kod je realizovan na `feature/agent-v2` i preslikan u
+odgovarajuće `dist_client` module. Kanonske odluke za buduće izmjene:
+
+1. **DB runtime mora biti least-privilege i stvarno TLS.** Aplikacija koristi
+   `deklarant_app`; konekcioni pool na startupu provjerava `pg_stat_ssl` i
+   `pg_roles` i odbija netls sesiju ili ulogu sa `SUPERUSER`, `CREATEDB`,
+   `CREATEROLE`, `REPLICATION` ili `BYPASSRLS`. Podrazumijevani minimum je
+   `sslmode=require`; cilj infrastrukture ostaje `verify-full`.
+2. **Eksterni parser je default-deny.** Dozvoljen je samo uz eksplicitno
+   `ALLOW_EXTERNAL_PARSER_PLUGINS=true`, konfigurisan javni ključ i važeći
+   RSA-PSS/SHA-256 `.py.sig`. Validacija mora ostati statička AST provjera;
+   nikad ne importovati modul prije provjere potpisa.
+3. **Obavezna readiness provjera je fail-closed.** Exception ili nedostupan
+   XML builder proizvodi blokirajući `REQUIRED_CHECK_FAILED`; tehnički kvar se
+   ne smije tretirati kao preskočena neobavezna provjera.
+4. **Readiness rezultat pripada tačnoj `draft.revision`.** Revizija se ponovo
+   provjerava poslije korisničke potvrde i izbora fajla; svaka međuvremena
+   izmjena zahtijeva novu provjeru.
+5. **XML ulaz ide isključivo kroz `services/security/safe_xml.py`.** Direktni
+   `ElementTree.parse`/`lxml.parse` za poslovne fajlove nisu dozvoljeni.
+6. **LLM ne proizvodi carinski zaključak bez lokalnog kandidata/dokaza.** Svi
+   provider pozivi idu kroz `LLMProvider`; direktan `Groq(...)` iz poslovnog
+   servisa je zabranjen.
+7. **Log handleri moraju imati `SensitiveDataFilter`.** Tajne, DB URL,
+   prepoznati API ključevi, JIB i korisničke Windows putanje rediguju se prije
+   izlaza.
+
+Operativno još otvoreno: aplikacija više ne koristi istorijski nalog
+`radovan`, ali PostgreSQL administrator mora invalidirati njegov stari login/
+lozinku; produkcijski server zatim treba vlastiti CA za `verify-full`, a
+finalni EXE i installer Authenticode potpis i smoke test.
+
+---
+
+## 74. AdminView sidebar nevidljiv tekst u frozen buildu — Path(__file__) vs BUNDLE_ROOT (2026-07-27)
+
+Prvo stvarno korisničko testiranje izgrađenog EXE-a (build_windows.bat) je
+otkrilo da je tekst u Admin sidebar-u (Upravljanje Parserima, Baza Podataka,
+Analitika, Logovi, Sistemske Informacije, Licenca, Učenje iz XML-ova) skoro
+nevidljiv — svijetlo siva boja na bijeloj pozadini, dok je ostatak Admin
+panela (npr. Plugin Management sadržaj) izgledao normalno.
+
+**Uzrok**: `gui/tabs/admin/admin_view.py::_apply_styles()` je računao
+putanju do `admin_tab.qss` preko `Path(__file__).parent.parent.parent /
+"styles"`. U dev modu `__file__` je stvaran fajl na disku i traversal
+radi. U **frozen (PyInstaller) buildu** `__file__` za bundlovan modul ne
+vodi do stvarnog `styles/` foldera (koji fizički živi u
+`dist/DeklarantPro/_internal/styles/`, ne pored .exe-a) — `stylesheet_path.exists()`
+je tiho vraćao `False`, `setStyleSheet()` se nikad nije pozvao, i sidebar
+tekst je pao na naslijeđenu (netačnu) boju iz globalnog stylesheet-a.
+
+**Ispravan obrazac (već postoji u projektu, samo nije korišten ovdje)**:
+`config/settings.py::PathSettings.styles_dir` = `BUNDLE_ROOT / "styles"`,
+gdje je `BUNDLE_ROOT = Path(sys._MEIPASS)` kad je frozen, inače project
+root. `gui/main_window.py` ovo već ispravno koristi
+(`get_path_settings().styles_dir`) za glavni stylesheet — `admin_view.py`
+je jedini QSS-fajl-loader u projektu koji je to zaobišao i ručno računao
+`__file__`-relativnu putanju.
+
+**Provjereno**: nijedan drugi Admin panel (`plugin_panel.py`,
+`system_panel.py`, `database_panel.py`, `settings_panel.py`,
+`analytics_panel.py`) ne koristi `__file__`-relativno računanje — svi
+imaju inline `setStyleSheet("""...""")`, pa nisu pogođeni istim bugom.
+
+**Pouka za buduće GUI fajlove koji učitavaju vlastiti `.qss` fajl**:
+uvijek koristiti `from config.settings import get_path_settings; ... =
+get_path_settings().styles_dir / "ime.qss"` — nikad `Path(__file__).parent...`
+za resurse koji moraju raditi i u frozen buildu. Ovaj bug se NE vidi u
+dev modu (`python run.py`) — vidi se samo u stvarnom PyInstaller EXE-u,
+što je razlog zašto je prošao nezapaženo do prve stvarne probe builda.
+
+Fix: `gui/tabs/admin/admin_view.py::_apply_styles()`.
+
+---
+
+## 75. "Puna automatizacija" povezana na declaration_workflow_service orkestrator do XML izvoza (2026-07-27)
+
+Korisnička primjedba nakon stvarnog testiranja izgrađenog EXE-a: "Puna
+automatizacija" (Režim obrade kartica u Agent tabu) je izgledala praktično
+identično kao "Uvezi u deklaraciju" jer stane odmah nakon kreiranja
+naimenovanja — zaglavlje, cross-tab provjera, XML readiness i sam izvoz su
+ostajali identično ručni u oba moda.
+
+**Uzrok**: `AgentController._on_all_completed()` je za "Puna automatizacija"
+pozivala `self._puna_auto_pipeline(fw, chat, all_processed_lines)` direktno
+([agent_controller.py:665-673](gui/tabs/agent/agent_controller.py)) — ta
+funkcija radi samo mase → tarife → validacija → naimenovanja, pa se
+zaustavlja. Ovo je isti `_puna_auto_pipeline` koji je bio predmet ranije
+popravke wiring gapova (§71) — sad je i sam njegov POZIVALAC promijenjen.
+
+**Popravka**: ta grana sad poziva
+`services.agent.workflow.declaration_workflow_service.run_declaration_workflow(self, chat, fw=fw)`
+umjesto direktnog `_puna_auto_pipeline`. Orkestrator iznutra PONOVO KORISTI
+`_puna_auto_pipeline` za prvu polovinu (mase/tarife/validacija/naimenovanja
+— ništa se ne duplira), a zatim NASTAVLJA kroz preostale kapije (zaglavlje →
+cross-tab → XML preflight → potvrda → izvoz). "Uvezi u deklaraciju" grana
+nije dirana — i dalje radi samo uvoz, bez ikakve automatizacije, kako je i
+namijenjeno.
+
+Testovi ažurirani u `tests/unit/test_agent_controller_provjeri_nakon_uvoza.py`
+— stari test je asertovao `ctrl._puna_auto_pipeline.assert_called_once()`
+(sad netačno), zamijenjen provjerom da se `run_declaration_workflow` poziva
+sa ispravnim `fw` argumentom. Patch cilja izvorni modul
+(`services.agent.workflow.declaration_workflow_service.run_declaration_workflow`),
+ne `agent_controller` modul — import unutar metode je odgođen (deferred),
+pa patch na pogrešnom mjestu tiho ne bi ništa presreo.
+
+Napomena: naimenovanja i dalje zahtijevaju eksplicitnu potvrdu deklaranta
+(QMessageBox sa default "Ne") prije nego pipeline nastavi — ovo NIJE
+promijenjeno, i ne treba biti (compliance kapija za porijeklo/EUR.1/PE,
+vidi §4 ovog dokumenta). Korisnik mora obratiti pažnju na taj dijalog.

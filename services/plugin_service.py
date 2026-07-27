@@ -7,6 +7,11 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 from importers.plugin_loader import PluginLoader
 from importers.strategy_registry import get_registry
+from services.security.parser_trust_service import (
+    ParserTrustError,
+    assert_parser_trusted,
+    validate_parser_structure,
+)
 
 
 class PluginServiceError(Exception):
@@ -63,6 +68,10 @@ class PluginService:
 
             if not source.suffix == '.py':
                 return False, "Fajl mora biti Python (.py) fajl"
+
+            is_valid, message = self.validate_parser_file(str(source))
+            if not is_valid:
+                return False, message
 
             # Provjeri da li parser već postoji
             existing = self.plugin_loader.parsers_dir / source.name
@@ -157,29 +166,15 @@ class PluginService:
             if not path.suffix == '.py':
                 return False, "Fajl mora biti Python (.py) fajl"
 
-            # Probaj učitati parser
-            parser_class = self.plugin_loader._load_parser_from_file(path)
+            is_valid, message = validate_parser_structure(path)
+            if not is_valid:
+                return False, message
 
-            if parser_class is None:
-                return False, "Fajl ne sadrži validnu ImportStrategy klasu"
+            assert_parser_trusted(path)
+            return True, message
 
-            # Kreiraj instancu i provjeri required atribute
-            instance = parser_class()
-
-            if not hasattr(instance, 'strategy_name'):
-                return False, "Parser mora imati 'strategy_name' property"
-
-            if not hasattr(instance, 'priority'):
-                return False, "Parser mora imati 'priority' property"
-
-            if not hasattr(instance, 'can_handle'):
-                return False, "Parser mora imati 'can_handle' metodu"
-
-            if not hasattr(instance, 'import_file'):
-                return False, "Parser mora imati 'import_file' metodu"
-
-            return True, f"Validan parser: {instance.strategy_name}"
-
+        except ParserTrustError as e:
+            return False, str(e)
         except Exception as e:
             return False, f"Greška pri validaciji: {str(e)}"
 

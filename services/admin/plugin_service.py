@@ -216,34 +216,7 @@ class PluginService:
         Returns:
             ImportStrategy klasa ili None
         """
-        try:
-            # Kreiraj module name
-            module_name = f"temp_parser_{filepath.stem}"
-
-            # Učitaj modul
-            spec = importlib.util.spec_from_file_location(module_name, filepath)
-            if spec is None or spec.loader is None:
-                return None
-
-            module = importlib.util.module_from_spec(spec)
-            sys.modules[module_name] = module
-            spec.loader.exec_module(module)
-
-            # Pronađi ImportStrategy klasu u modulu
-            for attr_name in dir(module):
-                attr = getattr(module, attr_name)
-
-                # Da li je klasa koja nasljeđuje ImportStrategy?
-                if (isinstance(attr, type) and
-                        issubclass(attr, ImportStrategy) and
-                        attr != ImportStrategy):
-                    return attr
-
-            return None
-
-        except Exception as e:
-            logger.debug(f"Error loading parser from {filepath}: {e}")
-            return None
+        return self.plugin_loader._load_parser_from_file(filepath)
 
     def get_parser_info(self, plugin_name: str) -> Optional[Dict[str, Any]]:
         """

@@ -17,6 +17,7 @@ import math
 from database.db import get_db_connection
 from services.core.exceptions import ValidationError
 from core.draft.draft import DeclarationDraft, AttachedDocument, NaimenovanjeDraft
+from services.security.safe_xml import safe_parse
 
 
 logger = logging.getLogger("deklarant_pro.services.zaglavlje")
@@ -124,7 +125,7 @@ class ZaglavljeService:
             raise FileNotFoundError(f"XML fajl ne postoji: {filepath}")
         
         try:
-            tree = ET.parse(filepath)
+            tree = safe_parse(filepath)
             root = tree.getroot()
 
             # Auto-detekcija formata po root elementu
@@ -1226,7 +1227,7 @@ class ZaglavljeService:
             raise FileNotFoundError(f"XML fajl ne postoji: {filepath}")
 
         try:
-            tree = ET.parse(filepath)
+            tree = safe_parse(filepath)
             root = tree.getroot()
         except ET.ParseError as e:
             raise ValueError(f"Neispravan XML format: {e}")

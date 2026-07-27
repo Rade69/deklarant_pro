@@ -276,3 +276,4 @@ def ocr_pdf_to_text_no_lines(filepath: str, dpi: int = 300) -> List[str]:
     logger.info(f"✅ OCR (no-lines) završen: {len(pages_text)} stranica")
     _ocr_cache[cache_key] = pages_text
     return pages_text
+

@@ -93,7 +93,7 @@ class ModeCard(QFrame):
 
     def set_selected(self, selected: bool):
         self._selected = selected
-        self._title_lbl.setText(f"✓ {self.mode}" if selected else self.mode)
+        self._title_lbl.setText(self.mode)
         self._apply_style(selected)
 
     def mousePressEvent(self, event):

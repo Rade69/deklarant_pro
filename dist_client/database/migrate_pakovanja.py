@@ -119,3 +119,4 @@ if __name__ == "__main__":
         print(f"\n❌ FATALNA GREŠKA: {e}")
         import traceback
         traceback.print_exc()
+

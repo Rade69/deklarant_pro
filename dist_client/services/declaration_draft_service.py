@@ -13,6 +13,7 @@ from core.draft.draft import (
     NaimenovanjeDraft,
     Party,
 )
+from services.security.safe_xml import safe_parse
 
 
 DRAFT_ROOT_TAG = "DeklarantProDraft"
@@ -115,7 +116,7 @@ def default_drafts_directory() -> Path:
 
 def is_draft_file(path: str | Path) -> bool:
     try:
-        return ET.parse(path).getroot().tag == DRAFT_ROOT_TAG
+        return safe_parse(path).getroot().tag == DRAFT_ROOT_TAG
     except (ET.ParseError, OSError):
         return False
 
@@ -142,7 +143,7 @@ class DeclarationDraftService:
 
     def load(self, input_path: str | Path) -> DeclarationDraft:
         path = Path(input_path)
-        root = ET.parse(path).getroot()
+        root = safe_parse(path).getroot()
         if root.tag != DRAFT_ROOT_TAG:
             raise ValueError("Izabrani XML nije Deklarant Pro nacrt.")
         if root.get("version") != DRAFT_VERSION:

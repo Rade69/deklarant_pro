@@ -1,0 +1,162 @@
+"""
+Testovi za _puna_auto_pipeline (Faza C — pouzdan status pune automatizacije).
+
+Vidi: docs/agent/AGENT_MODE_IMPROVEMENT_IMPLEMENTATION_PLAN.md §7
+"""
+from __future__ import annotations
+
+from unittest.mock import MagicMock
+
+import pytest
+
+from gui.tabs.agent.services.import_pipeline_service import _puna_auto_pipeline
+from gui.tabs.agent.services import import_pipeline_service as ips
+
+
+def _line(tarifni_broj="12345678"):
+    return MagicMock(tarifni_broj=tarifni_broj)
+
+
+@pytest.fixture
+def mock_ctrl():
+    ctrl = MagicMock()
+    ctrl.draft.invoice_lines = [_line(), _line()]
+    ctrl.draft.items = []
+    return ctrl
+
+
+@pytest.fixture
+def mock_fw():
+    fw = MagicMock()
+    fw._on_calculate_masses.return_value = True
+    fw._on_auto_fill.return_value = MagicMock(matched_items=1)
+    fw._on_validate_all.return_value = (True, 0, 0)
+    fw._on_create_naimenovanja.return_value = True
+    return fw
+
+
+@pytest.fixture
+def mock_chat():
+    return MagicMock()
+
+
+def _agent_messages(chat) -> list[str]:
+    return [call.args[0] for call in chat.add_agent_message.call_args_list]
+
+
+@pytest.fixture(autouse=True)
+def _confirm_declarant(monkeypatch):
+    """Default: deklarant potvrđuje korak 4 (Yes). Testovi mogu override-ovati."""
+    monkeypatch.setattr(ips.QMessageBox, "question", lambda *a, **kw: ips.QMessageBox.Yes)
+
+
+class TestUspjesanTok:
+    def test_sve_faze_uspjesne_daje_zavrsnu_poruku(self, mock_ctrl, mock_fw, mock_chat):
+        mock_ctrl.draft.items = [MagicMock()]
+
+        _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
+
+        messages = _agent_messages(mock_chat)
+        assert any("Puna automatizacija završena!" in m for m in messages)
+        assert not any("zaustavljena" in m or "djelimično" in m for m in messages)
+        mock_fw._on_calculate_masses.assert_called_once_with(auto=True)
+        mock_fw._on_validate_all.assert_called_once_with(auto=True)
+        mock_fw._on_create_naimenovanja.assert_called_once_with(auto=True)
+
+    def test_preskace_auto_popuni_kad_sve_stavke_imaju_tarifu(self, mock_ctrl, mock_fw, mock_chat):
+        _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
+        mock_fw._on_auto_fill.assert_not_called()
+
+
+class TestKritickeFazePadaju:
+    """Kriticna greska (mase / validacija-fail / naimenovanja) mora zaustaviti
+    pipeline PRIJE sljedece faze — ne smije se nastaviti sa "except -> warn -> nastavi"."""
+
+    def test_pad_izracuna_masa_zaustavlja_sve_naredne_faze(self, mock_ctrl, mock_fw, mock_chat):
+        mock_fw._on_calculate_masses.return_value = False
+
+        _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
+
+        mock_fw._on_auto_fill.assert_not_called()
+        mock_fw._on_validate_all.assert_not_called()
+        mock_fw._on_create_naimenovanja.assert_not_called()
+        messages = _agent_messages(mock_chat)
+        assert any("zaustavljena" in m and "mase" in m for m in messages)
+        assert not any("završena!" in m for m in messages)
+
+    def test_izuzetak_u_izracunu_masa_ne_probija_pipeline(self, mock_ctrl, mock_fw, mock_chat):
+        """Ako View metoda baci izuzetak (a ne samo vrati False), pipeline i
+        dalje mora ispravno zaustaviti — ne propagirati izuzetak dalje."""
+        mock_fw._on_calculate_masses.side_effect = RuntimeError("neočekivano")
+
+        _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])  # ne smije baciti
+
+        mock_fw._on_create_naimenovanja.assert_not_called()
+
+    def test_validacija_sa_kritickim_greskama_zaustavlja_prije_naimenovanja(
+        self, mock_ctrl, mock_fw, mock_chat
+    ):
+        mock_fw._on_validate_all.return_value = (True, 3, 1)  # 3 kritične greške
+
+        _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
+
+        mock_fw._on_create_naimenovanja.assert_not_called()
+        messages = _agent_messages(mock_chat)
+        assert any("zaustavljena" in m and "validacija" in m for m in messages)
+
+    def test_validacija_koja_ne_moze_biti_izvrsena_zaustavlja(self, mock_ctrl, mock_fw, mock_chat):
+        mock_fw._on_validate_all.return_value = (False, -1, -1)
+
+        _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
+
+        mock_fw._on_create_naimenovanja.assert_not_called()
+
+    def test_pad_kreiranja_naimenovanja_ne_prijavljuje_lazan_uspjeh(self, mock_ctrl, mock_fw, mock_chat):
+        mock_fw._on_create_naimenovanja.return_value = False
+
+        _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
+
+        messages = _agent_messages(mock_chat)
+        assert any("zaustavljena" in m and "naimenovanja" in m for m in messages)
+        assert not any("završena!" in m for m in messages)
+
+
+class TestDeklarantskaPotvrda:
+    def test_odbijena_potvrda_ne_kreira_naimenovanja_i_ne_javlja_zavrseno(
+        self, mock_ctrl, mock_fw, mock_chat, monkeypatch
+    ):
+        monkeypatch.setattr(ips.QMessageBox, "question", lambda *a, **kw: ips.QMessageBox.No)
+
+        _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
+
+        mock_fw._on_create_naimenovanja.assert_not_called()
+        messages = _agent_messages(mock_chat)
+        assert any("pauzirana" in m for m in messages)
+        assert not any("završena!" in m or "zaustavljena" in m for m in messages)
+
+
+class TestParcijalniRezultat:
+    def test_nerijesene_tarife_daju_djelimican_zavrsetak_ali_nastavlja(
+        self, mock_ctrl, mock_fw, mock_chat
+    ):
+        mock_ctrl.draft.invoice_lines = [_line(tarifni_broj=""), _line(tarifni_broj="12345678")]
+        mock_fw._on_auto_fill.return_value = MagicMock(matched_items=0)  # ništa novo popunjeno
+
+        _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
+
+        messages = _agent_messages(mock_chat)
+        assert any("djelimično" in m for m in messages)
+        assert not any("završena!" in m for m in messages)
+        # PARTIAL i dalje nastavlja do kraja — naimenovanja se kreiraju
+        mock_fw._on_create_naimenovanja.assert_called_once_with(auto=True)
+
+    def test_validacija_sa_samo_upozorenjima_nastavlja_i_daje_partial(
+        self, mock_ctrl, mock_fw, mock_chat
+    ):
+        mock_fw._on_validate_all.return_value = (True, 0, 2)  # 0 grešaka, 2 upozorenja
+
+        _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
+
+        mock_fw._on_create_naimenovanja.assert_called_once_with(auto=True)
+        messages = _agent_messages(mock_chat)
+        assert any("djelimično" in m for m in messages)

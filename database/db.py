@@ -49,6 +49,37 @@ _connection_pool: Optional[ThreadedConnectionPool] = None
 _pool_lock = threading.Lock()
 
 
+def _assert_connection_security(conn) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT s.ssl, r.rolsuper, r.rolcreaterole, r.rolcreatedb,
+                   r.rolreplication, r.rolbypassrls
+            FROM pg_stat_ssl s
+            JOIN pg_roles r ON r.rolname = current_user
+            WHERE s.pid = pg_backend_pid()
+            """
+        )
+        state = cur.fetchone()
+    if not state or not state["ssl"]:
+        raise RuntimeError("PostgreSQL runtime konekcija mora koristiti TLS")
+    forbidden = (
+        "rolsuper", "rolcreaterole", "rolcreatedb", "rolreplication", "rolbypassrls",
+    )
+    if any(state[name] for name in forbidden):
+        raise RuntimeError(
+            "PostgreSQL runtime nalog ima zabranjene administratorske privilegije"
+        )
+
+
+def _assert_pool_security(pool: ThreadedConnectionPool) -> None:
+    conn = pool.getconn()
+    try:
+        _assert_connection_security(conn)
+    finally:
+        pool.putconn(conn)
+
+
 def get_connection_pool() -> ThreadedConnectionPool:
     """
     Dohvata ili kreira connection pool.
@@ -60,6 +91,9 @@ def get_connection_pool() -> ThreadedConnectionPool:
         with _pool_lock:
             if _connection_pool is None:
                 settings = get_db_settings()
+                tls_options = {}
+                if settings.sslrootcert:
+                    tls_options["sslrootcert"] = settings.sslrootcert
                 try:
                     _connection_pool = ThreadedConnectionPool(
                         minconn=1,
@@ -70,10 +104,17 @@ def get_connection_pool() -> ThreadedConnectionPool:
                         user=settings.user,
                         password=settings.password,
                         sslmode=settings.sslmode,
+                        **tls_options,
                         cursor_factory=RealDictCursor,
                         connect_timeout=1,
                         options="-c statement_timeout=15000",
                     )
+                    try:
+                        _assert_pool_security(_connection_pool)
+                    except Exception:
+                        _connection_pool.closeall()
+                        _connection_pool = None
+                        raise
                 except psycopg2.OperationalError:
                     _trip_circuit()
                     raise
@@ -574,4 +615,3 @@ def search_uvoznike(query: str, limit: int = 20):
         with conn.cursor() as cur:
             cur.execute(sql, params)
             return cur.fetchall()
-

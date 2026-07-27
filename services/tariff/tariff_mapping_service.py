@@ -24,6 +24,7 @@ from database.db import get_db_connection
 from core.draft.draft import InvoiceLine
 from services.country_origin_validator import merge_country_origin
 from services.origin_statement_detector import OriginStatementDetector
+from services.security.safe_xml import safe_parse
 
 logger = logging.getLogger("deklarant_pro.tariff_mapping")
 
@@ -1139,8 +1140,6 @@ class TariffMappingService:
         Returns:
             Dict sa statistikom
         """
-        import xml.etree.ElementTree as ET
-
         logger.info(f"📚 Importujem mappinge iz {len(xml_paths)} XML fajlova...")
 
         stats = {
@@ -1157,7 +1156,7 @@ class TariffMappingService:
                         import os as _os
                         source_name = _os.path.basename(xml_path)
                         logger.debug(f"\n📁 Parsiram: {xml_path}")
-                        tree = ET.parse(xml_path)
+                        tree = safe_parse(xml_path)
                         root = tree.getroot()
                         items = root.findall(".//Item")
 

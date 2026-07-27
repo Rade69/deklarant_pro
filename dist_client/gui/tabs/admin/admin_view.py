@@ -9,7 +9,6 @@ from PySide6.QtWidgets import (
     QListWidget, QListWidgetItem, QStackedWidget, QLabel, QSizePolicy, QWidget
 )
 from PySide6.QtCore import Qt, Signal
-from pathlib import Path
 from gui.tabs.base_view import BaseTabView
 from gui.tabs.admin.panels.plugin_panel import PluginPanel
 from gui.tabs.admin.panels.database_panel import DatabasePanel
@@ -36,9 +35,19 @@ class AdminView(BaseTabView):
         self._apply_styles()
 
     def _apply_styles(self):
-        """Primijeni stylesheet za Admin Tab."""
-        styles_dir = Path(__file__).parent.parent.parent / "styles"
-        stylesheet_path = styles_dir / "admin_tab.qss"
+        """Primijeni stylesheet za Admin Tab.
+
+        Koristi get_path_settings().styles_dir (BUNDLE_ROOT/styles) umjesto
+        Path(__file__)-relativne putanje — u frozen (PyInstaller) buildu
+        __file__ za bundlovan modul ne vodi do stvarnog styles/ foldera
+        (koji zivi u _internal/), pa je stylesheet_path.exists() tiho
+        vracao False i cio admin_tab.qss se nikad nije primjenjivao —
+        sidebar teksti su padali na naslijedjenu (neispravnu) boju.
+        Isti obrazac kao main_window.py::_load_stylesheets.
+        """
+        from config.settings import get_path_settings
+
+        stylesheet_path = get_path_settings().styles_dir / "admin_tab.qss"
 
         if stylesheet_path.exists():
             with open(stylesheet_path, 'r', encoding='utf-8') as f:

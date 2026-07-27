@@ -29,18 +29,26 @@ class ToolEffect(str, Enum):
 # Mora ostati usklađen sa services/agent/chat/tool_definitions.py:TOOLS —
 # vidi tests/unit/test_tool_policy.py::test_svaki_definisani_alat_ima_effect
 TOOL_EFFECTS: dict[str, ToolEffect] = {
-    "predlozi_tarife": ToolEffect.PROPOSE,
-    "pregled_stanja_aplikacije": ToolEffect.READ_ONLY,
-    "provjeri_tarife": ToolEffect.READ_ONLY,
+    # ── Nova parametrizovana imena (Faza 1 konsolidacija) ──
+    "prikazi": ToolEffect.READ_ONLY,
+    "provjeri": ToolEffect.READ_ONLY,
     "pretrazi_tarifu": ToolEffect.READ_ONLY,
     "pretrazi_porijeklo": ToolEffect.READ_ONLY,
-    "validuj_deklaraciju": ToolEffect.READ_ONLY,
+    "pronadji_slicne_proizvode": ToolEffect.READ_ONLY,
+    "analiziraj_tarifne": ToolEffect.READ_ONLY,
+    "predlozi_tarife": ToolEffect.PROPOSE,
+    "spoji_naimenovanja": ToolEffect.PROPOSE,
+    "upisi_u_kolonu": ToolEffect.MUTATE,
+    # ── Stara imena (aliasi) — zadržana radi kompatibilnosti ──
+    "pregled_stanja_aplikacije": ToolEffect.READ_ONLY,
     "prikazi_naimenovanja": ToolEffect.READ_ONLY,
     "provjeri_naimenovanja": ToolEffect.READ_ONLY,
-    "upisi_u_kolonu": ToolEffect.MUTATE,
-    "spoji_naimenovanja": ToolEffect.PROPOSE,
-    "analiziraj_tarifne": ToolEffect.READ_ONLY,
-    "pronadji_slicne_proizvode": ToolEffect.READ_ONLY,
+    "provjeri_tarife": ToolEffect.READ_ONLY,
+    "validuj_deklaraciju": ToolEffect.READ_ONLY,
+    # ── Workflow alati (Faza 7) ──
+    "kalkulisi_mase": ToolEffect.READ_ONLY,
+    "kreiraj_naimenovanja": ToolEffect.MUTATE,
+    "izvezi_xml": ToolEffect.MUTATE,
 }
 
 

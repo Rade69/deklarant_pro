@@ -1011,6 +1011,122 @@ def _check_agent_v2_enabled(ctrl) -> bool:
         return False
 
 
+def _handle_message_v2(ctrl, message: str) -> None:
+    """Agent V2 routing — koristi Intent Resolver umjesto keyword prečica.
+
+    Plan §12: _application_context_scope() više ne smije presresti VALIDATE.
+    Redoslijed faktura prije naimenov iz §3.3 je ispravljen.
+    """
+    from services.agent.chat.intent_model import IntentAction, IntentTarget
+    from services.agent.chat.intent_resolver import resolve
+
+    chat = ctrl.view.get_chat_panel()
+    intent = resolve(message)
+    # POPRAVKA (2026-07-27): action/target/confidence nisu polja AuditEvent-a —
+    # prosljeđivanje kao top-level kwargs je bacalo TypeError na SVAKI poziv
+    # _handle_message_v2 (dakle na svaku poruku kad je kill-switch uključen).
+    # Vidi agent_reports/2026-07-27_popravka-wiring-gapova-agent-v2.md.
+    _audit_routing(
+        "v2_resolver",
+        source=intent.source.value,
+        extra={
+            "action": intent.action.value,
+            "target": intent.target.value,
+            "confidence": intent.confidence,
+        },
+    )
+
+    # ── CONFIRM / CANCEL ────────────────────────────────────────
+    if intent.action == IntentAction.CONFIRM:
+        if ctrl._pending_action:
+            ctrl._execute_pending_action()
+            _audit_routing("v2", tool="pending_action", confirmation="confirmed")
+        else:
+            chat.add_agent_message("Nema aktivne akcije za potvrdu.")
+        return
+
+    if intent.action == IntentAction.CANCEL:
+        if ctrl._pending_action:
+            ctrl._pending_action = None
+            chat.add_agent_message("❌ Akcija otkazana.")
+            _audit_routing("v2", tool="pending_action", confirmation="rejected")
+        else:
+            # Nema pending — delegiraj na standardni chat
+            _start_chat_worker(ctrl, message, fallback_reason="cancel_no_pending")
+        return
+
+    # ── SHOW — prikaz stanja ─────────────────────────────────────
+    if intent.action == IntentAction.SHOW:
+        if intent.target == IntentTarget.INVOICE:
+            _pregled_stanja_aplikacije(ctrl, "faktura")
+        elif intent.target == IntentTarget.ITEMS:
+            _pregledaj_naimenovanja(ctrl)
+        elif intent.target == IntentTarget.HEADER:
+            _pregled_stanja_aplikacije(ctrl, "zaglavlje")
+        elif intent.target == IntentTarget.TARIFFS:
+            _pregled_stanja_aplikacije(ctrl, "tarife")
+        elif intent.target == IntentTarget.SPECIFIC_ROW and intent.ordinals:
+            _pregledaj_naimenovanja(ctrl, indeksi=list(intent.ordinals))
+        else:
+            _pregled_stanja_aplikacije(ctrl, "all")
+        return
+
+    # ── VALIDATE — stručna provjera ──────────────────────────────
+    # invoice/header su prije popravke (2026-07-27) padali na plain chat
+    # ("još ne postoji") iako su invoice_review_service (Faza 3) i
+    # header_review_service (Faza 5) odavno izgrađeni i testirani —
+    # samo nikad povezani na ovaj ulaz. Vidi
+    # agent_reports/2026-07-27_popravka-wiring-gapova-agent-v2.md.
+    if intent.action == IntentAction.VALIDATE:
+        if intent.target == IntentTarget.INVOICE:
+            _dispatch_provjeri(ctrl, {"target": "invoice"}, None)
+        elif intent.target == IntentTarget.ITEMS:
+            _provjeri_naimenovanja(ctrl)
+        elif intent.target == IntentTarget.HEADER:
+            _dispatch_provjeri(ctrl, {"target": "header"}, None)
+        elif intent.target == IntentTarget.TARIFFS:
+            ctrl._provjeri_tarifne_za_naziv()
+        elif intent.target == IntentTarget.SPECIFIC_ROW:
+            _provjeri_naimenovanja(ctrl)
+        else:
+            # Validiramo cijelu deklaraciju
+            _compliance_check(ctrl)
+        return
+
+    # ── RUN_WORKFLOW — "jedna komanda vodi cijeli proces" ────────
+    # ("Pripremi deklaraciju", "nastavi", "završi") — korisnički zahtjev
+    # koji je bio prioritetiziran ispred svih drugih. Prije popravke
+    # nijedan kod-put nije mogao ovo izvršiti (declaration_workflow_state.py
+    # je postojao ali se nigdje nije pozivao). Vidi
+    # agent_reports/2026-07-27_popravka-wiring-gapova-agent-v2.md.
+    if intent.action == IntentAction.RUN_WORKFLOW:
+        from services.agent.workflow.declaration_workflow_service import (
+            AgentBusyError, run_declaration_workflow,
+        )
+        try:
+            run_declaration_workflow(ctrl, chat)
+        except AgentBusyError:
+            pass  # poruka je već prikazana unutar run_declaration_workflow
+        return
+
+    # ── EXPORT — "izvezi xml" bez punog workflow-a ───────────────
+    # _izvezi_xml sam po sebi provjerava readiness i traži potvrdu (Faza 6) —
+    # nema posebnog LLM alata za ovo (export_to_xml nije u tool_definitions),
+    # pa direktan poziv umjesto Tool Use pogotka koji ne postoji.
+    if intent.action == IntentAction.EXPORT:
+        from gui.tabs.agent.services.xml_workflow_service import XmlWorkflowService
+        XmlWorkflowService(ctrl).izvezi_xml(chat)
+        return
+
+    # ── Ostale akcije — Tool Use bira konkretan alat ─────────────
+    # (ANALYZE, REQUEST_CHANGE, PROPOSE, OTHER)
+    # Prije popravke ovo je išlo direktno na plain _start_chat_worker
+    # (bez tools=) — LLM nije imao pristup nijednom alatu za ove namjere,
+    # što je otvaralo prostor za izmišljanje odgovora.
+    _audit_routing("v2", tool="tool_use_delegated", fallback_reason=f"v2_{intent.action.value}")
+    _dispatch_via_tool_use(ctrl, message)
+
+
 def _handle_message(ctrl, message: str) -> None:
     """
     Primarni entry point za chat poruke.
@@ -1018,8 +1134,7 @@ def _handle_message(ctrl, message: str) -> None:
 
     📄 docs/decisions/002-tool-dispatcher-integration.md
     """
-    from gui.tabs.agent.widgets.chat_worker import ChatWorker, check_injection
-    from services.agent.chat.tool_dispatcher import ToolDispatcherWorker
+    from gui.tabs.agent.widgets.chat_worker import check_injection
 
     chat = ctrl.view.get_chat_panel()
 
@@ -1030,10 +1145,19 @@ def _handle_message(ctrl, message: str) -> None:
 
     # ── Agent V2 kill-switch (Faza −1.C) ──────────────────────────
     agent_v2 = _check_agent_v2_enabled(ctrl)
-    # Auditiraj vrijednost zastavice uz svaki routing
-    _audit_routing("switch", agent_v2=agent_v2, status="ok")
-    # NOTE: V2 routing blok se dodaje u Fazi 1 unutar `if agent_v2: ...`.
-    # Za sada (Faza −1) uvijek ide starim putem — bajt-identično.
+    # Auditiraj vrijednost zastavice uz svaki routing.
+    # POPRAVKA (2026-07-27): AuditEvent nema polje 'agent_v2' — prosljeđivanje
+    # kao top-level kwarg je bacalo TypeError na SVAKI poziv _handle_message,
+    # bez obzira na sadržaj poruke ili vrijednost kill-switcha. Nijedan
+    # postojeći test nije ovo uhvatio jer nijedan ne poziva _handle_message
+    # direktno (svi testiraju _handle_message_v2 ili interne funkcije).
+    # Vidi agent_reports/2026-07-27_popravka-wiring-gapova-agent-v2.md.
+    _audit_routing("switch", status="ok", extra={"agent_v2": agent_v2})
+    # ── Agent V2 routing (Faza 1+) ──────────────────────────────
+    if agent_v2:
+        _handle_message_v2(ctrl, message)
+        return
+    # ── Stari routing (bajt-identičan) ──────────────────────────
 
     msg_lower = message.lower().strip()
 
@@ -1090,12 +1214,28 @@ def _handle_message(ctrl, message: str) -> None:
 
     # ═══════════════════════════════════════════════════════════════
     # Faza 2: Tool Use routing (PRIMARNI) — LLMProvider (Groq → Gemini) bira alat
-    # Ako uspije → izvrši alat i gotovo
-    # Ako fallback_to_chat → ChatWorker
-    # Ako error → regex fallback (_handle_message_regex_fallback)
     # ═══════════════════════════════════════════════════════════════
     # Vidi: docs/decisions/001-tool-use-refactoring.md
+    _dispatch_via_tool_use(ctrl, message)
+    # Kraj Tool Use bloka — ostatak _handle_message se NE izvršava
+    return
 
+
+def _dispatch_via_tool_use(ctrl, message: str) -> None:
+    """Pošalji poruku LLM Tool Use-u (Groq → Gemini) i izvrši odabrani alat.
+
+    Zajednička ruta za stari (`_handle_message`) i V2 (`_handle_message_v2`,
+    Faza 1+) put — u V2 putu prije popravke ovo se nije pozivalo za
+    ANALYZE/REQUEST_CHANGE/PROPOSE/RUN_WORKFLOW/EXPORT/OTHER, nego se išlo
+    direktno na plain chat bez alata. Vidi
+    agent_reports/2026-07-27_popravka-wiring-gapova-agent-v2.md.
+
+    Ako uspije → izvrši alat i gotovo. Ako fallback_to_chat → ChatWorker.
+    Ako error → regex fallback (_handle_message_regex_fallback).
+    """
+    from services.agent.chat.tool_dispatcher import ToolDispatcherWorker
+
+    chat = ctrl.view.get_chat_panel()
     dispatcher = ToolDispatcherWorker(message, parent=ctrl.view)
 
     def _on_tool_call(name: str, args: dict, provider: str):
@@ -1137,8 +1277,6 @@ def _handle_message(ctrl, message: str) -> None:
 
     chat.add_activity("🤔 Analiziram upit...")
     dispatcher.start()
-    # Kraj Tool Use bloka — ostatak _handle_message se NE izvršava
-    return
 
 
 def _extract_similar_product_query(message: str) -> str:
@@ -1223,9 +1361,89 @@ def _execute_tool(ctrl, name: str, args: dict, provider: str = "") -> None:
         )
 
 
+def _dispatch_prikazi(ctrl, args: dict) -> None:
+    """SHOW — snapshot iz aktivnog drafta. Plan §8.2: prikazi(target, scope, ordinals).
+
+    Vidi agent_reports/2026-07-27_popravka-wiring-gapova-agent-v2.md — prije ove
+    izmjene 'prikazi' je bio definisan za LLM ali _execute_tool nije imao granu
+    za njega (Nepoznata akcija).
+    """
+    target = (args.get("target") or "application").lower()
+    ordinals = args.get("ordinals") or []
+
+    if target == "items" and ordinals:
+        _pregledaj_naimenovanja(ctrl, indeksi=[int(o) for o in ordinals])
+        return
+    if target == "invoice" and ordinals:
+        _pregledaj_faktura_stavku(ctrl, int(ordinals[0]))
+        return
+
+    scope_map = {
+        "application": "all", "declaration": "all",
+        "invoice": "invoice", "items": "naimenovanja", "header": "header",
+    }
+    _pregled_stanja_aplikacije(ctrl, scope_map.get(target, "all"))
+
+
+def _dispatch_provjeri(ctrl, args: dict, _emit) -> None:
+    """VALIDATE — stručna provjera. Plan §8.2: provjeri(target, scope, ordinals, depth).
+
+    Vidi agent_reports/2026-07-27_popravka-wiring-gapova-agent-v2.md.
+    """
+    from services.agent.validation.renderer import render_summary_html, render_xml_readiness_html
+
+    target = (args.get("target") or "application").lower()
+    scope = args.get("scope") or "all"
+    ordinals = [int(o) for o in (args.get("ordinals") or [])]
+    depth = args.get("depth") or "summary"
+    max_n = 1000 if depth == "full" else 10
+
+    chat = ctrl.view.get_chat_panel()
+    draft = ctrl.draft
+
+    if target in ("invoice", "origin"):
+        from services.agent.validation.invoice_review_service import provjeri_fakturu
+        summary = provjeri_fakturu(draft, scope=scope, ordinals=ordinals)
+        chat.add_agent_message(render_summary_html(summary, max_blocking=max_n, max_warnings=max_n))
+    elif target == "items":
+        from services.agent.validation.items_review_service import (
+            provjeri_naimenovanja as _pregledaj_stavke_v2,
+        )
+        summary = _pregledaj_stavke_v2(draft, scope=scope, ordinals=ordinals)
+        chat.add_agent_message(render_summary_html(summary, max_blocking=max_n, max_warnings=max_n))
+    elif target == "header":
+        from services.agent.validation.header_review_service import provjeri_zaglavlje
+        summary = provjeri_zaglavlje(draft)
+        chat.add_agent_message(render_summary_html(summary, max_blocking=max_n, max_warnings=max_n))
+    elif target == "cross_tab":
+        from services.agent.validation.header_review_service import (
+            provjeri_usklađenost_tabova,
+        )
+        summary = provjeri_usklađenost_tabova(draft)
+        chat.add_agent_message(render_summary_html(summary, max_blocking=max_n, max_warnings=max_n))
+    elif target == "xml":
+        from services.agent.validation.xml_readiness_service import (
+            provjeri_spremnost_za_xml,
+        )
+        result = provjeri_spremnost_za_xml(draft)
+        chat.add_agent_message(render_xml_readiness_html(result))
+    elif target == "tariffs":
+        _prikaz_tarifnih_trenutnih(ctrl)
+    else:
+        # application / declaration — puna provjera cijele deklaracije,
+        # isti tok kao stari alat "validuj_deklaraciju"
+        _compliance_check(ctrl)
+
+
 def _dispatch_known_tool(ctrl, name: str, args: dict, _emit) -> None:
     """Elif lanac za poznate alate — izdvojeno iz _execute_tool radi audit omotača."""
-    if name == "predlozi_tarife":
+    if name == "prikazi":
+        _dispatch_prikazi(ctrl, args)
+
+    elif name == "provjeri":
+        _dispatch_provjeri(ctrl, args, _emit)
+
+    elif name == "predlozi_tarife":
         filter_kw = args.get("filter", "")
         if filter_kw:
             # Vidi: services/agent/chat/tariff_intent_service.py → propose_by_keyword()
