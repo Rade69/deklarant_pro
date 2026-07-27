@@ -615,4 +615,3 @@ def search_uvoznike(query: str, limit: int = 20):
         with conn.cursor() as cur:
             cur.execute(sql, params)
             return cur.fetchall()
-

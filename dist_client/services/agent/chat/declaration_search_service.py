@@ -461,4 +461,3 @@ class DeclarationSearchService:
         except Exception as e:
             logger.error(f"SQL greška: {e}")
             return []
-

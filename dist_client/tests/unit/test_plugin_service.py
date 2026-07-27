@@ -4,6 +4,7 @@ Testovi za Plugin Service.
 import pytest
 from pathlib import Path
 from services.plugin_service import PluginService, PluginServiceError
+from services.security.parser_trust_service import validate_parser_structure
 
 
 class TestPluginService:
@@ -74,8 +75,8 @@ class TestPluginService:
 
         if template_path.exists():
             is_valid, message = self.service.validate_parser_file(str(template_path))
-            # Template bi trebao biti validan
-            assert is_valid is True, f"Template parser nije validan: {message}"
+            assert is_valid is False
+            assert "isključeni" in message.lower()
 
     def test_reload_plugins(self):
         """Test reload-a pluginova."""
@@ -106,12 +107,11 @@ class TestPluginServiceWithTemplate:
         if not self.template_path.exists():
             pytest.skip("Template parser ne postoji")
 
-        # Validiraj template
-        is_valid, message = self.service.validate_parser_file(str(self.template_path))
-        assert is_valid is True, f"Template nije validan: {message}"
+        is_valid, message = validate_parser_structure(self.template_path)
+        assert is_valid is True, f"Template nema validnu strukturu: {message}"
 
-    def test_install_and_uninstall_template(self):
-        """Test instalacije i deinstalacije template parsera."""
+    def test_nepotpisana_kopija_templatea_se_ne_ucitava(self):
+        """Nepotpisana kopija ne smije postati aktivan parser."""
         if not self.template_path.exists():
             pytest.skip("Template parser ne postoji")
 
@@ -126,12 +126,81 @@ class TestPluginServiceWithTemplate:
             # Kopiraj template
             shutil.copy2(self.template_path, test_parser_path)
 
-            # Provjeri da li je instaliran
+            # Fajl postoji, ali nije potpisan i ne smije biti aktivan.
             plugins = self.service.get_all_plugins()
             plugin_names = [p['filename'] for p in plugins]
-            assert test_parser_name in plugin_names
+            assert test_parser_name not in plugin_names
 
         finally:
             # Cleanup
             if test_parser_path.exists():
                 test_parser_path.unlink()
+
+
+class TestParserTrust:
+    def test_nepotpisan_parser_se_ne_izvrsava(self, tmp_path, monkeypatch):
+        parser_path = tmp_path / "malicious_parser.py"
+        marker = tmp_path / "executed.txt"
+        parser_path.write_text(
+            "from importers.base_strategy import ImportStrategy\n"
+            f"open({str(marker)!r}, 'w').write('executed')\n"
+            "class MaliciousParser(ImportStrategy):\n"
+            "    @property\n"
+            "    def strategy_name(self): return 'malicious'\n"
+            "    @property\n"
+            "    def priority(self): return 1\n"
+            "    def can_handle(self, filepath): return False\n"
+            "    def import_file(self, filepath): return None\n",
+            encoding="utf-8",
+        )
+        monkeypatch.delenv("ALLOW_EXTERNAL_PARSER_PLUGINS", raising=False)
+
+        service = PluginService()
+        is_valid, message = service.validate_parser_file(str(parser_path))
+
+        assert is_valid is False
+        assert "isključeni" in message.lower()
+        assert not marker.exists()
+
+    def test_parser_sa_vazecim_potpisom_se_moze_ucitati(
+        self, tmp_path, monkeypatch,
+    ):
+        import base64
+        from cryptography.hazmat.primitives import hashes, serialization
+        from cryptography.hazmat.primitives.asymmetric import padding, rsa
+
+        parser_path = tmp_path / "signed_parser.py"
+        parser_path.write_text(
+            "from importers.base_strategy import ImportStrategy\n"
+            "class SignedParser(ImportStrategy):\n"
+            "    @property\n"
+            "    def strategy_name(self): return 'signed'\n"
+            "    @property\n"
+            "    def priority(self): return 1\n"
+            "    def can_handle(self, filepath): return False\n"
+            "    def import_file(self, filepath): return None\n",
+            encoding="utf-8",
+        )
+        private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        public_path = tmp_path / "parser_public.pem"
+        public_path.write_bytes(private_key.public_key().public_bytes(
+            serialization.Encoding.PEM,
+            serialization.PublicFormat.SubjectPublicKeyInfo,
+        ))
+        signature = private_key.sign(
+            parser_path.read_bytes(),
+            padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()),
+                salt_length=padding.PSS.MAX_LENGTH,
+            ),
+            hashes.SHA256(),
+        )
+        parser_path.with_suffix(".py.sig").write_bytes(base64.b64encode(signature))
+        monkeypatch.setenv("ALLOW_EXTERNAL_PARSER_PLUGINS", "true")
+        monkeypatch.setenv("PARSER_SIGNING_PUBLIC_KEY", str(public_path))
+
+        service = PluginService()
+        is_valid, message = service.validate_parser_file(str(parser_path))
+
+        assert is_valid is True, message
+        assert "SignedParser" in message
