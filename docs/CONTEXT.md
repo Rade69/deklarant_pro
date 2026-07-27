@@ -2334,3 +2334,39 @@ Prioritet prije šire Agent V2 automatizacije: poseban least-privilege runtime
 nalog, rotacija postojeće 8-znakovne lozinke i prelazak sa `sslmode=prefer`
 na najmanje `require`, zatim `verify-full`. Detalji i kriteriji zatvaranja:
 `docs/SECURITY_AUDIT_2026-07-27.md`.
+
+---
+
+## 73. Sigurnosni hardening nakon audita (2026-07-27)
+
+Sigurnosni P0/P1 kod je realizovan na `feature/agent-v2` i preslikan u
+odgovarajuće `dist_client` module. Kanonske odluke za buduće izmjene:
+
+1. **DB runtime mora biti least-privilege i stvarno TLS.** Aplikacija koristi
+   `deklarant_app`; konekcioni pool na startupu provjerava `pg_stat_ssl` i
+   `pg_roles` i odbija netls sesiju ili ulogu sa `SUPERUSER`, `CREATEDB`,
+   `CREATEROLE`, `REPLICATION` ili `BYPASSRLS`. Podrazumijevani minimum je
+   `sslmode=require`; cilj infrastrukture ostaje `verify-full`.
+2. **Eksterni parser je default-deny.** Dozvoljen je samo uz eksplicitno
+   `ALLOW_EXTERNAL_PARSER_PLUGINS=true`, konfigurisan javni ključ i važeći
+   RSA-PSS/SHA-256 `.py.sig`. Validacija mora ostati statička AST provjera;
+   nikad ne importovati modul prije provjere potpisa.
+3. **Obavezna readiness provjera je fail-closed.** Exception ili nedostupan
+   XML builder proizvodi blokirajući `REQUIRED_CHECK_FAILED`; tehnički kvar se
+   ne smije tretirati kao preskočena neobavezna provjera.
+4. **Readiness rezultat pripada tačnoj `draft.revision`.** Revizija se ponovo
+   provjerava poslije korisničke potvrde i izbora fajla; svaka međuvremena
+   izmjena zahtijeva novu provjeru.
+5. **XML ulaz ide isključivo kroz `services/security/safe_xml.py`.** Direktni
+   `ElementTree.parse`/`lxml.parse` za poslovne fajlove nisu dozvoljeni.
+6. **LLM ne proizvodi carinski zaključak bez lokalnog kandidata/dokaza.** Svi
+   provider pozivi idu kroz `LLMProvider`; direktan `Groq(...)` iz poslovnog
+   servisa je zabranjen.
+7. **Log handleri moraju imati `SensitiveDataFilter`.** Tajne, DB URL,
+   prepoznati API ključevi, JIB i korisničke Windows putanje rediguju se prije
+   izlaza.
+
+Operativno još otvoreno: aplikacija više ne koristi istorijski nalog
+`radovan`, ali PostgreSQL administrator mora invalidirati njegov stari login/
+lozinku; produkcijski server zatim treba vlastiti CA za `verify-full`, a
+finalni EXE i installer Authenticode potpis i smoke test.
