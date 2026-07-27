@@ -733,3 +733,4 @@ def _otvori_faktura_tab_nakon_uvoza(ctrl, chat) -> None:
             chat.add_activity(f"⚠️ Greška pri otvaranju Faktura taba: {e}")
     else:
         chat.add_activity("⚠️ Parent window nije pronađen")
+
