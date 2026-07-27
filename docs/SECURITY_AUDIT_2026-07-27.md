@@ -34,8 +34,11 @@ Procjena još nije 9/10 ili viša jer ostaju infrastrukturni i release koraci:
    ne rotira ili onemogući;
 2. TLS je obavezan (`require`), ali identitet servera još nije potvrđen kroz
    vlastiti CA i `verify-full`;
-3. produkcijski Authenticode certifikat nije instaliran i finalni EXE/installer
-   nije potpisan i smoke-testiran;
+3. produkcijski Authenticode certifikat nije instaliran; korisnička odluka
+   (2026-07-27) je nabavku odložiti do daljnjeg, pa `build_windows.bat`
+   sada namjerno dozvoljava nepotpisan EXE za internu/kontrolisanu upotrebu
+   (build ne staje, samo upozorava) — širа distribucija i dalje zahtijeva
+   pravi Authenticode potpis;
 4. lokalne baze, dokumenti i backup i dalje zavise od Windows/BitLocker zaštite;
 5. parser je potpisan i default-deny, ali nije izolovan u zasebnom OS procesu.
 
@@ -49,7 +52,7 @@ Pregled i hardening obuhvatili su:
 - sve direktne XML ulazne tačke u aplikacijskom kodu;
 - direktne Groq putanje i centralni `LLMProvider`;
 - redakciju tajni i identifikatora u runtime logovima;
-- dependency audit, CI gate, Dependabot i Windows code-signing build gate;
+- dependency audit, CI gate, Dependabot i opcioni Windows code-signing korak u buildu;
 - paritet svake sigurnosno izmijenjene root/`dist_client` implementacije;
 - puni testni paket u zaključanom `uv` okruženju.
 
@@ -75,7 +78,7 @@ Nisu rađeni:
 | SEC-07 direktni Groq | Srednji/visok | Direktni pozivi uklonjeni iz tarifnog i KB toka | Cloud data-minimization treba periodično auditovati |
 | SEC-08 podaci na disku | Srednji | Bez aplikacijske promjene | BitLocker, šifrovan backup i retention |
 | SEC-09 licencni ključ | Visok operativni | Privatni ključ ostaje gitignored | Premještanje u offline/vault okruženje |
-| SEC-10 code signing | Srednji | Build odbija produkcijski EXE bez certifikata i verifikuje potpis | Nabaviti certifikat, potpisati i installer |
+| SEC-10 code signing | Srednji | Signing je opcion (korisnička odluka 2026-07-27): ako je certifikat postavljen, build potpisuje i verifikuje Authenticode; ako nije, build prolazi nepotpisan uz upozorenje, samo za internu upotrebu | Nabaviti certifikat prije šire distribucije, potpisati i installer |
 | SEC-11 zavisnosti | Srednji | CI `pip-audit`, Dependabot i ažurani lock; trenutni audit čist | Dodati SBOM i redovan review izuzetaka |
 
 ## 4. Realizovane kontrole
@@ -162,8 +165,11 @@ Runtime handleri imaju centralni `SensitiveDataFilter`. Maskiraju:
 - Dependabot prati `uv` zavisnosti sedmično.
 - Ranjive zaključane verzije su nadograđene.
 - Ponovljeni audit vraća `No known vulnerabilities found`.
-- Produkcijski Windows build zahtijeva SHA-1 thumbprint signing certifikata,
-  potpisuje SHA-256/timestamp postavkama i zatim verifikuje Authenticode.
+- Windows build potpisivanje je opciono (`WINDOWS_SIGNING_CERT_SHA1`):
+  ako je certifikat postavljen, potpisuje SHA-256/timestamp postavkama i
+  verifikuje Authenticode; ako nije, build prolazi nepotpisan uz upozorenje
+  (korisnička odluka 2026-07-27 da se nabavka certifikata odloži — vidi
+  `build_windows.bat`). Nepotpisan EXE nije za širu distribuciju.
 
 ## 5. Verifikacija
 
@@ -227,7 +233,9 @@ i dalje treba izgraditi, potpisati i testirati stvarni artefakt.
 1. PostgreSQL administrator treba onemogućiti login ili rotirati lozinku naloga
    `radovan`, pa potvrditi da stari kredencijal više ne radi.
 2. Nabaviti produkcijski Authenticode certifikat; potpisati i verifikovati EXE
-   i installer.
+   i installer. (Odloženo korisničkom odlukom 2026-07-27 — do tada je build
+   namjerno nepotpisan i ograničen na internu/kontrolisanu upotrebu, ne na
+   širu produkciju.)
 3. Napraviti server certifikat sa odgovarajućim DNS/IP SAN zapisom, distribuirati
    CA i preći na `DB_SSLMODE=verify-full`.
 

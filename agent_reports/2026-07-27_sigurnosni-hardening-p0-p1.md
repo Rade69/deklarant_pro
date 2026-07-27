@@ -65,6 +65,11 @@ Codex
 10. Runtime logovi centralno rediguju tajne, JIB i korisničke putanje.
 11. Uvedeni su `pip-audit` CI gate, sedmični Dependabot i ažurani lock fajlovi.
 12. Windows produkcijski build zahtijeva i verifikuje Authenticode potpis.
+    **Napomena (naknadno, 2026-07-27):** korisnik je odlučio da nabavku
+    certifikata odloži do daljnjeg, pa je commit `111d9f4` ovaj korak učinio
+    opcionim — build sad prolazi i bez certifikata (nepotpisan EXE, samo za
+    internu upotrebu). Vidi `docs/SECURITY_AUDIT_2026-07-27.md` SEC-10 za
+    ažurirano stanje.
 13. Sigurnosni audit i `docs/CONTEXT.md` ažurirani su novim kanonskim stanjem.
 
 ## Zašto je urađeno
