@@ -2608,3 +2608,62 @@ dijalog) PONOVO UPOTREBLJAVA kao "prva polovina" većeg orkestriranog toka,
 provjeriti da li taj servisov own-completion side-effect (npr. tab switch)
 skriva nastavak orkestracije — ne samo da li se logika izvršava, nego i
 da li je REZULTAT te logike vidljiv korisniku.
+
+---
+
+## 77. "Puna automatizacija" — naimenovanja se kreirala prije nego istorijska tarifna provjera stvarno završi (2026-07-27)
+
+Nakon §76 (fokus vraćen na Agent tab), korisnik je uživo testirao i vidio
+stvaran ishod workflowa: `items_validated` kapija je blokirala sa "naimenovanje
+1: Naziv robe je obavezan, Tarifni broj je obavezan, Nedostaje zemlja
+porijekla" — iako je Faktura tab jasno prikazivao popunjene podatke za svih
+94 stavki. Korisnik je precizno dijagnostikovao: "Nije završen proces u tabu
+faktura, tek kad se tu sve završi proces može ići dalje."
+
+**Uzrok**: `_on_validate_all(auto=True)` (faza 3 u `_puna_auto_pipeline`)
+iznutra poziva `_run_historical_tariff_validation(auto=True)`
+(`faktura_view.py:4650`), koja pokreće `HistoricalValidationWorker` kao
+**fire-and-forget QThread** (`worker.start()`) i odmah se vraća — stvarni
+rezultati (auto-primijenjeni tarifni brojevi iz historijskog učenja) stižu
+tek KASNIJE preko `finished_validation` signala i slota
+`_on_historical_validation_finished` (dokumentovano u samom docstringu:
+"DB upiti po stavci su prespori za UI thread", §59). `_puna_auto_pipeline`
+NIJE čekala ovaj worker — nastavljala je odmah na fazu 4 (EUR.1/PE potvrda)
+i fazu 5 (kreiranje naimenovanja) dok je worker možda još radio.
+
+**Napomena za buduće debugiranje**: pregledom koda, ovaj konkretan worker
+mijenja samo `tarifni_broj` (ne `naziv_robe`/`zemlja_porijekla`), pa ne
+objašnjava nužno SVE prijavljene prazne fields — mehanizam (async gap bez
+čekanja) je potvrđen i popravljen, ali ako se prazna naimenovanja i dalje
+pojave nakon ove popravke, treba tražiti DRUGI izvor kašnjenja (npr. neki
+drugi QThread worker u `_on_calculate_masses`/`_on_auto_fill` lancu).
+
+**Fix**: nova `_wait_for_historical_validation(fw, timeout_ms=30000)` u
+`import_pipeline_service.py` pumpa Qt event loop (`QEventLoop` + `QTimer`
+sigurnosni timeout) dok `fw.historical_validation_worker` stvarno ne završi,
+pozvana odmah nakon faze 3, prije faze 4. Provjera
+`isinstance(worker, QThread)` (ne samo `is not None`) je NAMJERNA — bez nje
+bi `MagicMock()` u testovima (`isRunning()` na MagicMock-u je uvijek truthy)
+izazvao pravi hang do timeout-a u SVAKOM postojećem testu `_puna_auto_pipeline`
+(otkriveno prvim pokušajem — puna svita je "visjela" dok nije dodana ova
+provjera).
+
+**Pouka**: kad se u orkestrator (`_puna_auto_pipeline`) ponovo koriste
+postojeće GUI metode (`_on_validate_all`, `_on_create_naimenovanja`) sa
+`auto=True`, provjeriti da li te metode INTERNO pokreću bilo koji
+fire-and-forget QThread — "auto" parametar obično samo preskače DIJALOGE,
+ne garantuje sinhronost. Isti obrazac vrijedi provjeriti za bilo koji budući
+dodatak u pipeline lancu.
+
+Testovi: 3 nova u `test_puna_auto_pipeline.py` (`TestCekanjeNaIstorijskuValidaciju`)
+— stvaran QThread se čeka, `None`/`MagicMock` worker se preskače bez čekanja.
+Puna svita: 1415 passed, 0 failed (isti 3 pre-postojeća nepovezana pada).
+
+Usput ispravljen i nepovezan propust: **`deklarant_sistem.db` (sadrži
+`tarifa_2026`, 13556 redova) nikad nije bila kopirana pored .exe pri ručnom
+build+test ciklusu ove sesije** — potvrđen već dokumentovan obrazac (§44/45):
+baza je namjerno READ-WRITE/lokalna i NE bundluje se u `_internal/` preko
+`spec.datas` (samo `zvanicna_tarifa.db`/`inspection_rules.db` su read-only
+referentni podaci), nego živi POKRAJ `.exe`-a i mora se ručno kopirati
+nakon svakog builda (isto kao `.env`) — nije bila potrebna izmjena spec fajla
+niti `_resolve_db_path()`, samo propušten ručni korak u test okruženju.
