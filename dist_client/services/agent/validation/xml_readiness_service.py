@@ -148,17 +148,32 @@ def provjeri_spremnost_za_xml(draft) -> XmlReadinessResult:
 
 
 def _xml_preflight(draft) -> bool:
-    """Provjeri da li XML builder može izgraditi dokument (bez pisanja na disk)."""
+    """Provjeri da li XML builder stvarno može izgraditi dokument.
+
+    Prije popravke ova funkcija je samo provjeravala da li 'items' postoji —
+    export_to_xml je bio uvezen ali nikad pozvan, pa je prava greška u
+    builderu (npr. loš Rub.31 format) bila prijavljena kao READY. Vidi
+    agent_reports/2026-07-27_popravka-wiring-gapova-agent-v2.md.
+
+    AsycudaXMLBuilder.build() poziva _apply_known_tariff_corrections() koja
+    MUTIRA draft.items u hodu (ispravlja poznate pogrešne tarifne kodove) —
+    zato se builder ovdje nikad ne poziva nad produkcionim draftom, nego nad
+    JSON round-trip kopijom (serialize_draft/deserialize_draft). XML se ne
+    piše na disk (poziva se samo .build(), ne export_to_xml()).
+    """
     try:
-        # Pokušaj importovati builder — ako ne postoji, nije blokada
-        from exporters.asycuda_xml_builder import export_to_xml
-        # Samo provjeri da li su invoice_lines i items prisutni
-        # (ne gradimo stvarni XML da ne bismo pisali na disk)
+        from exporters.asycuda_xml_builder import AsycudaXMLBuilder
+        from services.declaration_draft_service import serialize_draft, deserialize_draft
+
         items = getattr(draft, "items", []) or []
         if not items:
             return False
+
+        draft_copy = deserialize_draft(serialize_draft(draft))
+        AsycudaXMLBuilder(draft_copy).build()
         return True
     except ImportError:
         return True  # Builder nije dostupan — nije blokada
-    except Exception:
+    except Exception as e:
+        logger.warning(f"XML preflight — builder ne može izgraditi dokument: {e}")
         return False

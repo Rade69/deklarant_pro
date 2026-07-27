@@ -9,6 +9,7 @@ Premješteno iz agent_controller.py radi smanjenja veličine controllera.
 
 import re
 import logging
+from html import escape
 from pathlib import Path
 
 from PySide6.QtWidgets import QFileDialog
@@ -27,8 +28,8 @@ class XmlWorkflowService:
     def primjeni_xml_template(self, all_lines: list, chat, silent: bool = False) -> str:
         return _primjeni_xml_template(self._ctrl, all_lines, chat, silent)
 
-    def izvezi_xml(self, chat) -> None:
-        _izvezi_xml(self._ctrl, chat)
+    def izvezi_xml(self, chat, confirm_fn=None) -> None:
+        _izvezi_xml(self._ctrl, chat, confirm_fn=confirm_fn)
 
 
 # ── Implementacija (slobodne funkcije — lakše testirati) ─────────────
@@ -261,9 +262,62 @@ def _primjeni_xml_template(ctrl, all_lines: list, chat, silent: bool = False) ->
     return f"✅ Popunjeno iz {match.filename}"
 
 
-def _izvezi_xml(ctrl, chat) -> None:
-    """Izvezi deklaraciju u ASYCUDA XML fajl."""
+def _izvezi_xml(ctrl, chat, confirm_fn=None) -> None:
+    """Izvezi deklaraciju u ASYCUDA XML fajl.
+
+    Prije popravke ova funkcija nije pozivala nijednu provjeru spremnosti —
+    izvoz je bio moguć i za blokiran draft, a otkazan file dialog i uspjeh
+    nisu bili razlučivi (oboje tiho, bez poruke). Sada: readiness → (BLOCKED
+    odbija izvoz) → eksplicitna potvrda → file dialog → export, sa jasnom
+    porukom za svaki mogući ishod. Vidi
+    agent_reports/2026-07-27_popravka-wiring-gapova-agent-v2.md.
+
+    confirm_fn: Callable[[str, str], bool] — (naslov, pitanje) -> bool.
+    Default (None) koristi QMessageBox.question (GUI). Testovi prosljeđuju
+    lambdu bez GUI zavisnosti (plan §7.6.c).
+    """
     if not ctrl.draft:
+        return
+
+    from services.agent.validation.xml_readiness_service import (
+        ReadinessStatus,
+        provjeri_spremnost_za_xml,
+    )
+    from services.agent.validation.renderer import render_summary_html
+
+    result = provjeri_spremnost_za_xml(ctrl.draft)
+
+    if result.status == ReadinessStatus.BLOCKED:
+        chat.add_activity(f"❌ Izvoz blokiran — {result.blocking_count} kritičnih nalaza")
+        for summary in result.summaries:
+            if summary.blocking_count:
+                chat.add_agent_message(render_summary_html(summary))
+        chat.add_agent_message(
+            "❌ <b>XML izvoz nije moguć.</b><br>"
+            "Deklaracija ima kritične nalaze koji moraju biti ispravljeni prije izvoza. "
+            "Pokreni <b>provjeri deklaraciju</b> za detalje."
+        )
+        return
+
+    if result.warning_count:
+        chat.add_activity(f"⚠️ {result.warning_count} upozorenja prije izvoza")
+
+    if confirm_fn is None:
+        def confirm_fn(title: str, question: str) -> bool:
+            from PySide6.QtWidgets import QMessageBox
+            return QMessageBox.question(
+                ctrl.view, title, question,
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
+            ) == QMessageBox.Yes
+
+    warn_note = f" ({result.warning_count} upozorenja — provjeri prije nastavka)" if result.warning_count else ""
+    confirmed = confirm_fn(
+        "Potvrda XML izvoza",
+        f"Deklaracija je spremna za izvoz{warn_note}. Nastaviti sa izvozom?",
+    )
+    if not confirmed:
+        chat.add_activity("ℹ️ Izvoz otkazan — potvrda nije data")
+        chat.add_agent_message("ℹ️ Izvoz otkazan. Fajl nije kreiran.")
         return
 
     try:
@@ -275,12 +329,16 @@ def _izvezi_xml(ctrl, chat) -> None:
             "",
             "XML Files (*.xml)"
         )
-        if filepath:
-            export_to_xml(ctrl.draft, filepath)
-            chat.add_activity(f"✅ XML exportovan: {Path(filepath).name}")
-            chat.add_agent_message(
-                f"✅ <b>Puna automatizacija završena!</b><br>"
-                f"XML fajl sačuvan: <b>{Path(filepath).name}</b>"
-            )
+        if not filepath:
+            chat.add_activity("ℹ️ Izvoz otkazan — fajl nije izabran")
+            return
+
+        export_to_xml(ctrl.draft, filepath)
+        chat.add_activity(f"✅ XML exportovan: {Path(filepath).name}")
+        chat.add_agent_message(
+            f"✅ <b>XML izvezen.</b><br>Fajl sačuvan: <b>{Path(filepath).name}</b>"
+        )
     except Exception as e:
-        chat.add_activity(f"⚠️ Greška pri XML exportu: {e}")
+        logger.error(f"Greška pri XML exportu: {e}", exc_info=True)
+        chat.add_activity(f"❌ Greška pri XML exportu: {e}")
+        chat.add_agent_message(f"❌ Greška pri izvozu XML-a: {escape(str(e))}")
