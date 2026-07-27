@@ -352,13 +352,38 @@ Ovo je prije svega integritetski rizik.
 ### 6.5 Agent V2 nije još jednako prisutan u svim isporukama
 
 Procijenjeni kod je na `feature/agent-v2`, dok je glavni radni branch
-`windows`. Izvještaj navodi više od 330 ranije postojećih razlika u
-`dist_client`; samo sedam fajlova iz wiring popravke je ciljano
-sinhronizovano. Sigurnosna osobina koja postoji samo u root kodu ili feature
-grani ne štiti instalirani EXE.
+`windows`. Ova grana i dalje nije spojena u `windows` — sigurnosna osobina
+koja postoji samo na feature grani ne štiti instalirani EXE dok se ne uradi
+merge i novi build.
 
-Prije produkcije mora postojati manifest pariteta root/dist_client/build
-artefakta i test baš nad isporučenim paketom.
+**Ažurirano 2026-07-27, nakon prvobitnog pregleda:** na `feature/agent-v2`
+grani (commit `ac49b51`) urađen je pun `dist_client` resync preko
+`scripts/sync_dist_client.py --apply`, bez ograničenja obima. Prije toga su
+postojale 330+ ranije akumuliranih razlika (najvećim dijelom fajlovi koji su
+u root-u postojali, ali nikad nisu bili kopirani u `dist_client`); nakon
+resync-a `.py` paritet root/`dist_client` na toj grani je potvrđen kao 0
+stvarnih razlika (dry-run `sync_dist_client.py` bez `--apply` vraća "Nema
+stvarnih razlika"). Tri fajla sa stvarnom sadržajnom razlikom su prije
+prepisivanja ručno pregledana (nijedan nije bio namjeran frozen-build patch
+kao npr. `config/settings.py`/`exporters/asycuda_xml_builder.py` u
+`SKIP_FILES` listi) — vidi
+`agent_reports/2026-07-27_popravka-wiring-gapova-agent-v2.md`. Pun test suite
+(1263 passed) potvrđen bez regresije nakon resync-a.
+
+Ovo zatvara **python paritet root/dist_client na `feature/agent-v2` grani**,
+ali NE zatvara ono što je originalni nalaz zapravo tražio:
+
+- grana i dalje nije spojena u `windows` (i dalje samo feature grana);
+- `dist_client` paritet je provjeren samo za `.py` fajlove — `sync_dist_client.py`
+  namjerno ne dira ne-Python resurse (`.ui`, resurse, ikone, config predloške);
+- nije rađen manifest pariteta prema stvarno izgrađenom/instaliranom EXE ili
+  installer paketu (PyInstaller/Nuitka artefakt), niti smoke test tog
+  finalnog paketa.
+
+Preporuka iz P1/6 ("napraviti kontrolisani puni dist_client resync i test
+produkcionog EXE-a") je time djelimično zatvorena — resync je urađen i
+verifikovan testovima, test protiv stvarnog build/EXE artefakta ostaje
+otvoren, kao i sam merge u `windows`.
 
 ## 7. Pozitivni nalazi
 
@@ -399,6 +424,10 @@ Dodatne pozitivne kontrole:
 4. Sve LLM putanje provesti kroz `LLMProvider`.
 5. Uvesti centralnu redakciju logova i politiku čuvanja.
 6. Napraviti kontrolisani puni `dist_client` resync i test produkcionog EXE-a.
+   **Djelimično zatvoreno** (2026-07-27, vidi §6.5): `.py` resync urađen i
+   testiran na `feature/agent-v2` (commit `ac49b51`). Preostaje: merge u
+   `windows`, provjera ne-Python resursa, i test protiv stvarnog build/EXE
+   artefakta.
 
 ### P2 — ojačavanje isporuke i zaštite podataka
 
