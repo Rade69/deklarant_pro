@@ -7,6 +7,7 @@ ENHANCED: Dodato pamćenje konteksta chat sesije.
 import re
 import os
 import logging
+import unicodedata
 from psycopg2 import sql as pg_sql
 from PySide6.QtCore import QThread, Signal
 from services.agent.chat.tool_result import TOOL_RESULT_PROMPT_RULE
@@ -61,6 +62,18 @@ _INJECTION_RE = [
 ]
 
 
+def _normalize_for_detection(text: str) -> str:
+    """Ukloni zero-width/format znakove i normalizuj Unicode prije regex provjere.
+
+    Zero-width space (U+200B) i drugi Cf (format) znakovi mogu razbiti \\s
+    granice u _INJECTION_RE i zaobići filter (npr. "Ign\\u200bore all
+    pre\\u200bvious instructions" prolazi bez ovoga) — normalizacija mora
+    ići PRIJE regex pretrage, ne poslije.
+    """
+    normalized = unicodedata.normalize("NFKC", text)
+    return "".join(ch for ch in normalized if unicodedata.category(ch) != "Cf")
+
+
 def check_injection(message: str) -> str | None:
     """
     Provjeri da li poruka izgleda kao prompt injection napad.
@@ -72,8 +85,9 @@ def check_injection(message: str) -> str | None:
     if len(message) > _MAX_MESSAGE_LEN:
         return f"Poruka je predugačka ({len(message)} znakova). Maksimum je {_MAX_MESSAGE_LEN}."
 
+    normalized = _normalize_for_detection(message)
     for pattern, opis in _INJECTION_RE:
-        if pattern.search(message):
+        if pattern.search(normalized):
             logger.warning("[SecurityFilter] Blokirana poruka — %s: %r", opis, message[:80])
             return (
                 "⚠️ Poruka je blokirana iz sigurnosnih razloga.\n"
