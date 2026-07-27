@@ -2266,3 +2266,56 @@ ZAVRŠENE prije nego što je v2.1 plan dovršen — vidi status-blokove direktno
 §10 i §11 plana. Fixture iz Faze 0 koristi polje `expected_sloj`, ne
 `reachable_branch` kako je originalni primjer u planu predložio — isto
 značenje, plan je ažuriran da to ne tretira kao neusklađenost.
+
+---
+
+## 71. Agent V2 (feature/agent-v2) — kritični wiring gapovi popravljeni (2026-07-27)
+
+Nakon što je cio plan (Faze -1 do 10) implementiran na `feature/agent-v2`,
+detaljan pregled (čitanje diff-a, praćenje stvarnih poziva, ne samo
+postojanja fajlova) otkrio je da su servisi za svaku fazu izgrađeni i
+testirani IZOLOVANO, ali gotovo nijedan nije bio povezan na stvarni
+ulazni tok (`_handle_message`, `_execute_tool`, `_izvezi_xml`,
+`_puna_auto_pipeline`). Detaljan izvještaj:
+`agent_reports/2026-07-27_popravka-wiring-gapova-agent-v2.md`.
+
+**Najozbiljniji nalaz — nije bio dio originalnog pregleda, otkriven tek pri
+pisanju testova**: `_audit_routing("switch", agent_v2=agent_v2, ...)` i
+`_audit_routing("v2_resolver", action=..., target=..., confidence=...)`
+prosljeđuju kwargs koje `AuditEvent` dataclass ne prihvata — `TypeError` na
+SVAKI poziv `_handle_message`, bez obzira na sadržaj poruke ili kill-switch
+vrijednost. Cio agent chat je bio potpuno nefunkcionalan na ovoj grani.
+Nijedan od preko 1200 postojećih testova ovo nije uhvatio jer nijedan ne
+poziva `_handle_message` direktno (svi testiraju `_handle_message_v2` ili
+interne funkcije, zaobilazeći ovu liniju). **Pouka**: testovi koji mockuju
+sve zavisnosti mogu propustiti bug u samom ulazu funkcije — vrijedi imati
+barem jedan test koji zove pravi top-level entry point sa minimalnim
+mockovanjem.
+
+**Drugi nalaz**: `_xml_preflight()` je uvozio `export_to_xml` ali ga NIKAD
+nije pozivao — samo provjeravao da `items` nije prazan. Prava greška u
+XML builderu bi bila prijavljena kao READY. Popravljeno pozivanjem
+`AsycudaXMLBuilder(...).build()` nad JSON round-trip kopijom drafta (ne
+originalom — `_apply_known_tariff_corrections()` unutar `build()` mutira
+`draft.items` u hodu, pa se preflight ne smije raditi nad produkcionim
+draftom direktno).
+
+**Otkriven i pre-postojeći bug u `scripts/sync_dist_client.py`**:
+`normalize()` nije normalizovao CRLF/LF stil, samo BOM i trailing
+whitespace — svaki fajl gdje root koristi LF a dist_client CRLF je bio
+lažno prijavljen kao "stvarna razlika". Popravljeno.
+
+**Namjerna scope odluka pri `dist_client` sinhronizaciji**: `--apply` je
+prvi put pokrenut bez ograničenja i otkrio da dist_client kasni za root-om
+za **preko 330 fajlova** (nepovezanih sa Agent V2 — akumulirano tokom
+istorije projekta). Taj širi drift je NAMJERNO ostavljen netaknut (vraćen
+`git checkout --` na prethodno stanje) — sinhronizovano je samo 7 fajlova
+stvarno vezanih za ovu popravku. Širi resync ostaje otvorena odluka za
+korisnika, van scope-a ovog zadatka.
+
+**Arhitektonska odluka o Fazi 7**: orkestrator (`declaration_workflow_service.py`)
+NE radi punu inverziju zavisnosti `_puna_auto_pipeline` (uklanjanje
+`QMessageBox`/`processEvents()`) — to ostaje veliki, rizičan zahvat. Umjesto
+toga, `_puna_auto_pipeline` se ponovo koristi kao provjerena "prva polovina",
+a orkestrator dodaje nedostajuću "drugu polovinu" (zaglavlje → cross-tab →
+xml preflight → izvoz).
