@@ -7,7 +7,7 @@ Pipeline logika za sve tri procesne rute agenta:
   - Puna automatizacija mode (auto-koraci uz obaveznu deklarantsku potvrdu)
 
 Premješteno iz agent_controller.py radi smanjenja veličine controllera.
-"""
+﻿"""
 
 import logging
 import re
