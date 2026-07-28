@@ -1942,7 +1942,7 @@ class NaimenovanjaView(BaseTabView):
             if trading_names:
                 self.te_trg_naziv.setPlainText(trading_names)
 
-    def _format_trading_names(self, max_chars: int | None = None) -> str:
+    def _format_trading_names(self, max_chars: int = 280) -> str:
         from services.naimenovanja.naimenovanja_service import NaimenovanjaService
         return NaimenovanjaService.format_trading_names(
             self.draft,

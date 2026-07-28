@@ -682,7 +682,7 @@ class NaimenovanjaService:
         return "" if value is None else str(value)
 
     @staticmethod
-    def format_trading_names(draft, item_index: int, max_chars: int | None = None) -> str:
+    def format_trading_names(draft, item_index: int, max_chars: int = 280) -> str:
         """Formatuj sve nazive proizvoda iz fakture za jedno naimenovanje.
 
         Premješteno iz NaimenovanjaView._format_trading_names.
@@ -718,14 +718,42 @@ class NaimenovanjaService:
         faktura_parts = []
         for inv, rbs in fakture.items():
             faktura_parts.append(f"{inv} (rb. {', '.join(rbs)})")
-        faktura_str = "; ".join(faktura_parts)
+        faktura_str = ", ".join(faktura_parts)
 
         faktura_dio = f"Faktura: {faktura_str}"
         heading = (getattr(current_item, "tariff_description2", "") or "").strip()
-        result = ", ".join(part for part in (heading, nazivi_dio, faktura_dio) if part)
+        core_parts = [part for part in (nazivi_dio, faktura_dio) if part]
+        core = ", ".join(core_parts)
 
-        if max_chars is not None and len(result) > max_chars:
-            result = result[:max_chars - 3] + "..."
+        if heading:
+            heading_budget = max_chars - len(core) - 2
+            if heading_budget >= len(heading):
+                final_heading = heading
+            elif heading_budget > 6:
+                cut = heading[:heading_budget - 3]
+                last_space = cut.rfind(" ")
+                final_heading = (
+                    cut[:last_space] if last_space > 0 else cut
+                ) + "..."
+            else:
+                final_heading = ""
+            result = ", ".join(
+                part for part in (final_heading, nazivi_dio, faktura_dio) if part
+            )
+        else:
+            result = core
+
+        if len(result) > max_chars:
+            fakture_len = len(faktura_dio) + 2
+            nazivi_max = max_chars - fakture_len - 3
+            if nazivi_max > 20 and product_names:
+                truncated_names = nazivi_dio[:nazivi_max]
+                last_comma = truncated_names.rfind(", ")
+                if last_comma > 0:
+                    truncated_names = truncated_names[:last_comma]
+                result = ", ".join([truncated_names + "...", faktura_dio])
+            else:
+                result = result[:max_chars - 3] + "..."
         return result
 
     # ============================================================

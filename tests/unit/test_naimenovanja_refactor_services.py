@@ -18,7 +18,7 @@ def test_statistical_value_keeps_existing_cost_formula():
     assert result == "210.00"
 
 
-def test_trading_names_are_not_truncated_in_gui_service():
+def test_trading_names_respect_rub31_limit_and_keep_invoice_reference():
     draft = DeclarationDraft()
     draft.items = [NaimenovanjeDraft(item_id="1", ordinal_no=1)]
     name = "A" * 300
@@ -36,8 +36,10 @@ def test_trading_names_are_not_truncated_in_gui_service():
 
     result = NaimenovanjaService.format_trading_names(draft, 0)
 
-    assert name in result
-    assert not result.endswith("...")
+    assert len(result) <= 280
+    assert name not in result
+    assert "Faktura: INV-1 (rb. 1)" in result
+    assert "..." in result
 
 
 def test_tab_factory_passes_registered_singleton_service(qtbot):
