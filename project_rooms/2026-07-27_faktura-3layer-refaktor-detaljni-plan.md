@@ -5,6 +5,7 @@
 - Datum analize: 2026-07-27
 - Autor plana: Pi
 - Revizija plana: Codex, 2026-07-28
+- Nezavisni review pokrivenosti: Claude, 2026-07-28 (vidi §1.2)
 - Polazni dokument: Codex plan za Naimenovanja (`project_rooms/2026-07-27_naimenovanja-3layer-refaktor-detaljni-plan.md`)
 - Prvobitno analizirana grana: `windows` (commit `86da0f8`)
 - Ponovo provjereno stanje: `windows` (commit `c46a6ce`)
@@ -27,6 +28,34 @@ Plan je ispravljen tako da:
 - razdvaja item-edit/undo od exporta i integracionih adaptera;
 - zahtijeva root i `dist_client` samostalni import test;
 - ne hardkoduje budući branch base dok sve odobrene grane nisu integrisane.
+
+### 1.2 Nezavisni review pokrivenosti (Claude, 2026-07-28)
+
+Prije realizacije, plan je provjeren nezavisno: brojevi u §4.1/§4.2 su
+reprodukovani (linije, broj metoda, GitNexus HIGH rizik na
+`_load_data_from_draft` — 17 direktnih pozivalaca potvrđeno tačno) i **svi su
+tačni**. Metodom "svih 148 metoda iz koda vs. svako ime pomenuto u §7"
+pronađeno je **43 metode (≈29%) koje plan nigdje ne pominje po imenu**. Većina
+su trivijalni UI helperi gdje je namjena očigledna iz konteksta (View), ali
+dio njih nosi stvaran rizik i unesen je direktno u §4.3/§5.4/§7 ispod:
+
+- Nedostajao je stvaran eksterni ugovor (`set_analysis_summary`, poziva ga
+  `AgentController`), potpuno odsutan i iz §4.3 i iz §7.
+- `_switch_to_draft` je GitNexus-om potvrđen kao direktan pozivalac HIGH-risk
+  `_load_data_from_draft`, a nije mapiran nigdje.
+- `_on_add_item` nedostaje kao par uz već mapirane `_on_delete_item`/
+  `_on_clear_all` — mutira `draft.invoice_lines` direktno.
+- `_flush_pending_validation` je sâm debounce/generation-token flush mehanizam
+  koji plan traži da preuzme Controller (§3, Faza 3) — nije naveden.
+- `_should_show_eur1_dialog`/`_should_show_pe2_dialog` su, provjereno
+  čitanjem koda, stvarna carinska poslovna logika (odluka na osnovu
+  `has_origin_statement`), ne UI odluka kako bi se moglo pretpostaviti iz
+  imena — plan bi ih bez ove dopune svrstao pogrešno ili ostavio u View-u.
+- Cijela paralelna "batch import" putanja (nasuprot već mapiranoj "manual"
+  putanji) i par worker-cleanup/error-handler metoda nisu bili mapirani.
+
+Metodologija i puna lista su u chat istoriji sesije 2026-07-28; ovaj dokument
+sada sadrži rezultat direktno ugrađen u §4.3, §5.4 i §7.1-7.3.
 
 ## 2. Cilj
 
@@ -165,6 +194,14 @@ Drugi dijelovi aplikacije koriste:
   `_load_data_from_draft()`
 - `AgentTab`, `chat_intent_handler` i `declaration_workflow_service` očekuju
   `FakturaTab.view`
+- `FakturaView.set_analysis_summary(text, level)` — poziva
+  `AgentController` (`gui/tabs/agent/agent_controller.py:775`), potvrđeno
+  grep-om, nije bio u prvobitnoj listi
+- `FakturaView.get_data()` / `set_data()` / `clear_form()` — standardni
+  `BaseView` interfejs (`gui/tabs/base_view.py`, `base_controller.py`), isti
+  obrazac koriste svi ostali tabovi; nije Faktura-specifičan ugovor, ali mora
+  ostati funkcionalan kroz refaktor jer generički `BaseController` na njega
+  računa
 - testovi i pomoćni moduli direktno uvoze `FakturaView`, `ValidationDelegate`
   i `_manual_invoice_record_sort_key`
 
@@ -306,6 +343,10 @@ Postojeći servisi se koriste prije dodavanja novih:
 - `services/faktura/error_handler.py`
 - `services/faktura/import_service.py`
 - `services/faktura/export_service.py`
+- `services/faktura/theme_manager.py` — boje/stilovi za bojenje redova i
+  statusa; nije bio naveden u prvobitnoj listi, a `_validate_and_color_row`
+  (§7.3) mora imati pristup do njega da vrati boju iz Service sloja umjesto
+  da View sam bira boju
 - `services/import_workflow/` (Faze 0-8)
 - `services/tariff_facade.py`
 - `services/tariff/tariff_mapping_service.py`
@@ -396,8 +437,20 @@ UI konstrukcija i prikaz:
 - `_show_no_export_items`
 - `_show_scrollable_info_dialog`
 - `_darken_color`
-- `_create_label` / `_create_separator`
-- `resizeEvent`, `eventFilter`, `keyPressEvent`
+- `_create_label` / `_create_separator` / `_create_thick_separator`
+- `resizeEvent`, `eventFilter`, `keyPressEvent`, `mousePressEvent`, `paintEvent`
+- `_setup_ui` (orkestrator UI konstrukcije, poziva gornje `_create_*`/`_populate_*`)
+- `_setup_keyboard_shortcuts`
+- `_show_tariff_table_info_dialog` (modal)
+- `_on_selection_changed`, `_on_table_context_menu`, `_select_row_with_modifier`,
+  `_navigate_invoice_row` (čista tabela interakcija/selekcija, bez draft mutacije)
+- `get_data()` / `set_data()` / `clear_form()` (standardni `BaseView`
+  interfejs — vidi §4.3)
+- `set_agent_mode` — setter za `_agent_mode` UI-mode flag. Flag sam je već
+  poznat kao "zamka" u §4.4 ("mijenja ponašanje EUR1/PE2 dijaloga"); u Fazi 0
+  provjeriti ima li pozivalaca metode van testova (testovi trenutno postavljaju
+  `self._agent_mode` direktno preko mock objekta, ne kroz setter) — ako je
+  metoda mrtav kod, evidentirati u Fazi 0 umjesto brisati usput
 
 ### 7.2 Prelazi u Controller
 
@@ -445,6 +498,34 @@ UI konstrukcija i prikaz:
 - `_on_load_mappings_from_xml`
 - `_restore_validation_label`
 - `_set_analysis_summary_text`
+- `set_analysis_summary` — eksterni ugovor (§4.3), Controller prima poziv od
+  `AgentController` i delegira View metodi za prikaz
+- `_switch_to_draft` — potvrđeno GitNexus-om kao direktan pozivalac
+  `_load_data_from_draft` (HIGH rizik); mora ići kroz isti "Controller bira
+  draft → Service/View" put, ne smije ostati u View-u kao skriveni ulaz u
+  multi-draft tok
+- `_on_add_item` — nedostajao CRUD par uz već mapirane `_on_delete_item`/
+  `_on_clear_all`; mutira `draft.invoice_lines`, zove `_push_undo_snapshot`
+- `_flush_pending_validation` — sâm debounce/generation-token flush mehanizam
+  (§3, §6); Controller mora biti vlasnik ovog koraka, ne samo planiranog
+  `validation_generation` countera oko njega
+- `_notify_auto_rejected_tariffs` — simetričan par uz već mapiran
+  `_notify_auto_applied_tariffs`
+- `_refresh_analysis_summary_from_draft`, `_notify_data_changed` — orkestracija
+  uz već mapiranu auto-popunu/dirty tok
+- Batch import paralelna putanja (nasuprot već mapiranoj "manual" putanji
+  `_can_use_unified_manual_import` i sl.): `_can_use_unified_batch_import`,
+  `_prepare_manual_batch_import_plan`, `_confirm_partial_batch_import`,
+  `_confirm_import_currency_conflicts`, `_confirm_import_partner_conflicts`,
+  `_count_applied_batch_file_types`, `_sync_import_workflow_state_after_apply`,
+  `_reset_partner_expectations`, `_normalize_partner`
+- Dodatne import ulazne tačke, paralelne uz već mapirane `_on_import_xml`/
+  `_start_import`: `_on_import_excel`, `_on_import_pdf`, `_on_import_files`
+- Worker/thread lifecycle: `_cleanup_historical_validation_worker`,
+  `_cleanup_import_worker`
+- Signal/error handleri za import i historijsku validaciju:
+  `_on_import_error`, `_on_import_progress`, `_on_batch_parse_error`,
+  `_on_historical_validation_error`
 
 ### 7.3 Prelazi u Service ili postojeći specijalizovani servis
 
@@ -459,6 +540,14 @@ UI konstrukcija i prikaz:
 - `_validation_pass_chunk` → Controller orkestracija + Service validacija
 - `_push_undo_snapshot` / `_undo` / `_redo` → Service (UndoManager)
 - `_set_buttons_enabled` → ostaje u View (UI)
+- `_should_show_eur1_dialog` / `_should_show_pe2_dialog` → Service. Provjereno
+  čitanjem koda: odluka se zasniva na `has_origin_statement` po stavci —
+  stvarna carinska poslovna logika (da li faktura ima izjavu o porijeklu), NE
+  UI odluka. View/Controller samo koriste bool rezultat da odluče da li
+  otvoriti modal; ne smije ostati u View-u ni biti tretirano kao "očigledno UI"
+- `_get_tariff_description` → Service (lookup, paralelno uz `_load_tariff_description*`
+  obrazac iz naimenovanja refaktora)
+- `_format_weight` → Service (formatiranje/parsing, paralelno uz `_parse_weight_input`)
 
 ### 7.4 Mora se razbiti, ne premjestiti kao cjelina
 
