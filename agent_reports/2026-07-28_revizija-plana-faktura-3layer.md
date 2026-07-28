@@ -85,7 +85,9 @@ Korisnička potvrda za korekciju plana nije potrebna.
 
 ## Commitovi
 
-Popuniti nakon commita.
+| Hash | Poruka |
+| --- | --- |
+| `ed52e9e` | `docs(faktura): azuriraj plan 3layer refaktora` |
 
 ## Rizici / ograničenja
 
