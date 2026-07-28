@@ -440,7 +440,16 @@ class NaimenovanjaService:
 
     def build_tariff_lookup(self, tariff_code: str) -> TariffLookupResult:
         code = self.normalize_field_value("tariff_code", tariff_code)
-        full, short = self._get_tariff_service().load_tariff_descriptions(code)
+        tariff_service = self._get_tariff_service()
+        full, short = tariff_service.load_tariff_descriptions(code)
+        if code and not full:
+            full = tariff_service.load_tariff_description_from_postgres(
+                code, nivo="podbroj"
+            )
+        if code and not short:
+            short = tariff_service.load_tariff_description_from_postgres(
+                code[:4], nivo="glava"
+            )
         warnings = []
         if code and not full and not short:
             warnings.append(
@@ -551,9 +560,15 @@ class NaimenovanjaService:
                 item.attached_document4 = normalized
             self.clear_secondary_pe_documents(item)
 
+        return self.rebuild_pe_documents(draft)
+
+    def rebuild_pe_documents(self, draft) -> DocumentMergeResult:
+        from core.draft.draft import AttachedDocument
+
         entries = []
         seen = set()
-        for item in items:
+        for item in (getattr(draft, "items", []) or []):
+            self.clear_secondary_pe_documents(item)
             doc = self.normalize_pe_document(
                 getattr(item, "attached_document4", "") or ""
             )
@@ -601,22 +616,28 @@ class NaimenovanjaService:
 
         global_docs = []
         seen = set()
+        master_pe = ""
         for item in items:
-            for field_name in (
-                "attached_document1",
-                "attached_document2",
-                "attached_document3",
-                "attached_document4",
-                "attached_document5",
-            ):
-                raw = (getattr(item, field_name, "") or "").strip()
-                if not raw:
+            for document in getattr(item, "attached_documents", []) or []:
+                code = (getattr(document, "code", "") or "").strip().upper()
+                number = (getattr(document, "number", "") or "").strip()
+                if not code:
                     continue
-                parts = raw.split(" ", 1)
-                key = (parts[0].upper(), parts[1] if len(parts) > 1 else "")
+                key = (code, number)
                 if key not in seen:
                     seen.add(key)
-                    global_docs.append({"code": key[0], "number": key[1]})
+                    global_docs.append({
+                        "code": code,
+                        "name": getattr(document, "name", "") or "",
+                        "number": number,
+                        "from_rule": bool(
+                            getattr(document, "from_rule", False)
+                        ),
+                    })
+                if code in {"PE1", "PE2", "PE3"} and not master_pe:
+                    master_pe = self.normalize_pe_document(
+                        f"{code} {number}".strip()
+                    )
 
         imported_header = service.load_from_xml(filepath)
         preserved_transport = {
@@ -634,18 +655,25 @@ class NaimenovanjaService:
         draft.header_attached_documents = [
             AttachedDocument(
                 code=doc["code"],
-                name=doc["code"],
+                name=doc["name"],
                 number=doc["number"] if doc["code"] == "DIS" else "",
+                from_rule=doc["from_rule"],
             )
             for doc in global_docs
             if doc["code"] not in {"PE1", "PE2", "PE3"}
         ]
         draft.items = items
-        self.apply_pe_document(
-            draft,
-            0,
-            getattr(items[0], "attached_document4", "") if items else "",
-        )
+        if master_pe:
+            for item in items:
+                has_preference = bool(
+                    (getattr(item, "preference_code", "") or "").strip()
+                )
+                current = (
+                    getattr(item, "attached_document4", "") or ""
+                ).strip()
+                if has_preference and not current:
+                    item.attached_document4 = master_pe
+        self.rebuild_pe_documents(draft)
         return XmlImportResult(
             items_count=len(items),
             global_documents=global_docs,

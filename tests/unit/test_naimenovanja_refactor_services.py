@@ -1,4 +1,9 @@
-from core.draft.draft import DeclarationDraft, InvoiceLine, NaimenovanjeDraft
+from core.draft.draft import (
+    AttachedDocument,
+    DeclarationDraft,
+    InvoiceLine,
+    NaimenovanjeDraft,
+)
 from gui.tabs.naimenovanja_controller import NaimenovanjaController
 from gui.tabs.tab_factory import TabFactory
 from services.naimenovanja.naimenovanja_service import NaimenovanjaService
@@ -165,3 +170,85 @@ def test_tariff_documents_are_deduplicated(monkeypatch):
         "Y900",
         "N380",
     ]
+
+
+def test_tariff_lookup_uses_postgres_fallback():
+    class TariffStub:
+        def load_tariff_descriptions(self, code):
+            return "", ""
+
+        def load_tariff_description_from_postgres(self, code, nivo):
+            return {
+                ("08052190", "podbroj"): "Mandarine",
+                ("0805", "glava"): "Agrumi",
+            }.get((code, nivo), "")
+
+    service = NaimenovanjaService()
+    service.tariff_service = TariffStub()
+
+    result = service.build_tariff_lookup("0805.21.90")
+
+    assert result.full_description == "Mandarine"
+    assert result.short_description == "Agrumi"
+    assert result.warnings == []
+
+
+def test_xml_import_keeps_all_documents_and_distinct_pe_values(monkeypatch):
+    items = [
+        NaimenovanjeDraft(
+            item_id="1",
+            ordinal_no=1,
+            preference_code="100",
+            attached_document4="PE1 111",
+            attached_documents=[
+                AttachedDocument(code="DIS", name="Dispozicija", number="ABC"),
+                *[
+                    AttachedDocument(
+                        code=f"D{index}", name=f"Dokument {index}", number=str(index)
+                    )
+                    for index in range(1, 7)
+                ],
+                AttachedDocument(code="PE1", name="EUR.1", number="111"),
+            ],
+        ),
+        NaimenovanjeDraft(
+            item_id="2",
+            ordinal_no=2,
+            preference_code="100",
+            attached_document4="PE2 222",
+            attached_documents=[
+                AttachedDocument(code="PE2", name="Izjava", number="222")
+            ],
+        ),
+        NaimenovanjeDraft(
+            item_id="3",
+            ordinal_no=3,
+            preference_code="100",
+        ),
+    ]
+
+    class ZaglavljeStub:
+        def parse_naimenovanja_from_xml(self, filepath):
+            return items
+
+        def load_from_xml(self, filepath):
+            return {}
+
+        def save_to_draft(self, draft, data):
+            return draft
+
+    monkeypatch.setattr(
+        "services.zaglavlje_service.ZaglavljeService", ZaglavljeStub
+    )
+    draft = DeclarationDraft()
+
+    result = NaimenovanjaService().import_xml(draft, "test.xml")
+
+    codes = [doc.code for doc in draft.header_attached_documents]
+    assert result.items_count == 3
+    assert codes[:7] == ["DIS", "D1", "D2", "D3", "D4", "D5", "D6"]
+    assert next(doc for doc in draft.header_attached_documents if doc.code == "DIS").number == "ABC"
+    assert next(doc for doc in draft.header_attached_documents if doc.code == "D1").number == ""
+    assert draft.items[0].attached_document4 == "PE1 111"
+    assert draft.items[1].attached_document4 == "PE2 222"
+    assert draft.items[2].attached_document4 == "PE1 111"
