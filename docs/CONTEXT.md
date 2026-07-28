@@ -2700,3 +2700,17 @@ ASYCUDA XML import mutira postojeći draft objekat, čuva aktuelna transportna
 polja, prazni reference svih globalnih dokumenata osim `DIS`, zatim osvježava
 Naimenovanja i Zaglavlje kroz wrapper callback. View samo bira fajl, traži
 potvrdu i emituje namjeru; ne smije nakon toga drugi put samostalno uvoziti XML.
+
+---
+
+## 80. Rub.31 trgovački naziv — GUI format ostaje ograničen na 280 znakova (2026-07-28)
+
+Windows grana je autoritativna za formatiranje trgovačkog naziva u Naimenovanja
+tabu: `_format_trading_names()` podrazumijevano vraća najviše 280 znakova.
+Pri skraćivanju prvo se izostavlja ili skraćuje tarifni heading, zatim nazivi
+proizvoda, dok se podatak `Faktura: ... (rb. ...)` čuva kad god stane u limit.
+Refaktor ne smije promijeniti podrazumijevani `max_chars` na `None`.
+
+Ovo GUI pravilo je dodatno uz strožije XML pravilo iz `rub31_builder.py`:
+`Description_of_goods` je jedna linija do 55 znakova, a
+`Commercial_Description` najviše tri linije i ukupno do 280 znakova.
