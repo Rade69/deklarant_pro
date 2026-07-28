@@ -54,6 +54,10 @@ root, tarifni/PE/XML tokovi, karakterizacioni testovi i `dist_client` kopije.
 - Naknadnom Windows smoke provjerom otkrivena je regresija Rub.31: refaktor je
   promijenio podrazumijevani GUI limit sa 280 na neograničeno. Vraćen je
   provjereni Windows algoritam koji čuva faktura referencu pri skraćivanju.
+- Završni audit svih ključnih Windows metoda pronašao je i zatvorio tri XML/
+  tariff parity gapa: svi item dokumenti se čitaju iz `attached_documents`,
+  `DIS` broj ostaje bez zagrada, različiti PE dokumenti se ne prepisuju
+  master vrijednošću i tarifni opis ima PostgreSQL fallback.
 
 ## Zašto je urađeno
 
@@ -78,7 +82,8 @@ renderuje validan indeks. Servis vraća informaciju da li je model stvarno promi
 
 - Prvi rez ciljano: `35 passed`; faze 5–8 ciljano: `52 passed`.
 - Rub.31 ciljano: `44 passed` (uključuje kompletan ASYCUDA Rub.31 paket).
-- Puna suite sa dostupnim serverom: `1361 passed, 72 skipped, 5 xfailed`.
+- XML/tariff audit ciljano: `49 passed`.
+- Puna suite sa dostupnim serverom: `1363 passed, 72 skipped, 5 xfailed`.
 - Server `192.168.0.25:5432`: TCP dostupnost potvrđena.
 - Procesna varijabla `DEBUG=release` privremeno je pregažena sa `false`;
   `.env` već sadrži validno `DEBUG=False`.
@@ -106,6 +111,7 @@ Korisnička potvrda nije potrebna za kod.
 | `24fb7af` | `docs(report): evidentiraj popravke naimenovanja refaktora` |
 | `7d9d6e2` | `refactor(naimenovanja): zavrsi tarifni dokument i xml tok` |
 | `4e391eb` | `fix(naimenovanja): vrati rub31 limit iz windows grane` |
+| `10a77ce` | `fix(naimenovanja): uskladi xml dokumente i tarifni fallback` |
 
 ## Rizici / ograničenja
 

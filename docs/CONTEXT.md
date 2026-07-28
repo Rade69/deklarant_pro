@@ -2714,3 +2714,22 @@ Refaktor ne smije promijeniti podrazumijevani `max_chars` na `None`.
 Ovo GUI pravilo je dodatno uz strožije XML pravilo iz `rub31_builder.py`:
 `Description_of_goods` je jedna linija do 55 znakova, a
 `Commercial_Description` najviše tri linije i ukupno do 280 znakova.
+
+---
+
+## 81. Naimenovanja XML import — dokumenti se čitaju iz attached_documents (2026-07-28)
+
+Pri uvozu ASYCUDA XML-a globalni dokumenti moraju se graditi iz kompletne
+`NaimenovanjeDraft.attached_documents` liste, ne iz pet pomoćnih
+`attached_document1..5` polja. Pomoćna polja su samo ograničeni GUI prikaz:
+gube šesti i naredne dokumente i formatiraju reference kao `ŠIFRA (broj)`,
+što bi pokvarilo broj `DIS` dokumenta.
+
+PE master iz XML-a služi samo za popunjavanje praznog `attached_document4` na
+stavkama sa povlasticom. Već postojeći različiti PE1/PE2/PE3 podaci po stavkama
+ne smiju se prepisati master vrijednošću. Nakon toga se zaglavlje ponovo gradi
+iz stvarnih item vrijednosti.
+
+Tarifni opis u Naimenovanja servisu koristi lokalni SQLite lookup kao primarni
+izvor, ali mora zadržati PostgreSQL fallback iz Windows toka za podbroj i
+četvorocifrenu glavu.
