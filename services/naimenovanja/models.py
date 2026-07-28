@@ -9,14 +9,6 @@ from dataclasses import dataclass, field
 
 
 @dataclass
-class NavigationState:
-    current_index: int
-    total_count: int
-    is_first: bool
-    is_last: bool
-
-
-@dataclass
 class TariffLookupResult:
     tariff_code: str
     full_description: str = ""
@@ -24,20 +16,6 @@ class TariffLookupResult:
     supplementary_unit_code: str = ""
     supplementary_unit_qty: float = 0.0
     warnings: list[str] = field(default_factory=list)
-
-
-@dataclass
-class TariffMutationResult:
-    tariff_code: str
-    affected_invoice_lines: int = 0
-    kb_updated: bool = False
-    warnings: list[str] = field(default_factory=list)
-
-
-@dataclass
-class SupplementaryUnitResult:
-    code: str = ""
-    qty: float = 0.0
 
 
 @dataclass
