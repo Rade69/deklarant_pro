@@ -34,6 +34,7 @@ class SettingsService:
         'backup_interval_days': 7,
         'log_level': 'INFO',
         'plugins_auto_load': True,
+        'completion_sound_enabled': True,
     }
 
     def __init__(self):
@@ -180,6 +181,11 @@ class SettingsService:
             if 'plugins_auto_load' in settings:
                 if not isinstance(settings['plugins_auto_load'], bool):
                     logger.error(f"❌ Invalid plugins_auto_load type")
+                    return False
+
+            if 'completion_sound_enabled' in settings:
+                if not isinstance(settings['completion_sound_enabled'], bool):
+                    logger.error("❌ Invalid completion_sound_enabled type")
                     return False
 
             return True
