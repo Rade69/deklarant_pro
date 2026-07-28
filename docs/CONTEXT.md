@@ -2966,3 +2966,18 @@ Ručni izbor tarifnog broja mora ići kroz
 `tariff_lookup_requested` → `NaimenovanjaController.on_tariff_changed()`.
 View smije prikazati izabranu šifru, ali ne smije direktno mijenjati draft,
 emitovati dirty stanje niti sam pokretati tarifnu poslovnu logiku.
+
+---
+
+## 88. Zvučna obavještenja označavaju završetak, ne početak procesa (2026-07-28)
+
+Zajednički servis `services/process_completion_sound.py` koristi asinhrone
+Windows sistemske zvukove za tri ishoda: uspjeh, upozorenje i grešku. Poziv je
+best-effort: nedostupan `winsound` ili greška reprodukcije ne smiju prekinuti
+poslovni tok niti zamijeniti postojeći modal.
+
+Zvuk se emituje tek kada je konačni ishod poznat. Otkazana Puna automatizacija
+ostaje bez zvuka, dok parcijalni rezultat koristi upozorenje. Funkcionalnost se
+može isključiti postavljanjem `PROCESS_COMPLETION_SOUND=false` u aktivnom
+`.env` fajlu. Root i `dist_client` moraju zadržati isti servis i ista mjesta
+poziva.
