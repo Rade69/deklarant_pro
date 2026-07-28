@@ -132,6 +132,44 @@ def test_unknown_evidence_blocks_accept_all_and_shows_unknown_label(qtbot):
     assert "nepoznat" in rendered
 
 
+def test_unconfirmed_source_excluded_from_bulk_accept(qtbot, monkeypatch):
+    """
+    2026-07-28 dopuna (nalaz "SUSSINA"): decision_outcome="show_unconfirmed"
+    (novi ishod za istorijski zapis bez izvora, ali sa dovoljno jakim
+    ponovljenim obrascem — vidi tariff_decision_model.py) mora biti
+    isključen iz "Prihvati sve" tačno kao i svaki drugi UNKNOWN evidence
+    slučaj, i mora ostati prihvatljiv POJEDINAČNIM klikom.
+    """
+    recorded = []
+    monkeypatch.setattr(
+        TariffValidationDialog,
+        "_record_feedback",
+        staticmethod(lambda match, action, mode: recorded.append((match.line_index, action, mode))),
+    )
+    evidence = build_evidence(
+        DecisionSource.TARIFF_DATABASE,
+        DecisionConfidence.UNKNOWN,
+        "Istorijski zapis nema poznat izvor (izvoznik/XML) — zahtijeva ručnu potvrdu.",
+    )
+    match = _match(0, "show_unconfirmed", evidence=evidence)
+    match.source = ""
+
+    dialog = TariffValidationDialog([match])
+    qtbot.addWidget(dialog)
+
+    assert dialog._can_accept_all(match) is False
+    assert dialog._accept_all_btn.isEnabled() is False
+
+    accepted = []
+    dialog.tariffs_accepted.connect(accepted.append)
+    btn = dialog._checkboxes[0][1]
+
+    dialog._accept_one(match, btn)
+
+    assert accepted == [[(0, "33049900")]]
+    assert recorded == [(0, "accept", "manual")]
+
+
 def test_confirmed_exporter_history_shows_jak_label(qtbot):
     evidence = build_evidence(
         DecisionSource.EXPORTER_HISTORY,

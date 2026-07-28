@@ -55,6 +55,7 @@ def _thresholds() -> TariffDecisionThresholds:
         min_usage_for_cross_chapter=5,
         min_usage_for_out_of_profile_chapter=10,
         min_usage_for_weak_source=2,
+        min_usage_for_unsourced_review=5,
     )
 
 
@@ -85,14 +86,24 @@ def test_historical_validation_evaluation_metrics():
     }
 
 
-def test_unknown_source_never_shown_regardless_of_usage_or_heading():
+def test_unknown_source_never_auto_applied_regardless_of_usage_or_heading():
     """
     Korisnička odluka (2026-07-26): prijedlog bez potvrđenog izvora
-    (izvoznik/XML) se NIKAD ne prikazuje — carinski rizik pogrešne tarife
-    (sankcije/kazne) je preozbiljan da se osloni samo na "ista tarifna
-    glava" ili visok usage_count bez ijednog dokaza porijekla mapiranja.
+    (izvoznik/XML) se NIKAD ne primjenjuje automatski i NIKAD ne dobija
+    SHOW_STRONG/SHOW_WEAK — carinski rizik pogrešne tarife (sankcije/kazne)
+    je preozbiljan da se osloni na golu "ista tarifna glava" logiku ili
+    usage_count bez ijednog dokaza porijekla mapiranja.
+
+    Dopuna (2026-07-28, nalaz "SUSSINA"): potpuno SUPPRESS bez ikakvog puta
+    do ljudske potvrde je stvorio trajan cor-22 — zapis se nikad ne prikaže,
+    pa se nikad ne može ni potvrditi (user_feedback se puni samo iz
+    eksplicitnog klika u dijalogu). Zato: dovoljno jak ponovljen obrazac
+    (usage_count ≥ min_usage_for_unsourced_review) sad daje SHOW_UNCONFIRMED
+    — vidljivo u dijalogu, jasno obilježeno "izvor nepoznat", ali NIKAD
+    SHOW_STRONG/SHOW_WEAK i NIKAD u "Prihvati sve" (vidi
+    test_tariff_validation_dialog.py::test_unconfirmed_source_excluded_from_bulk_accept).
     """
-    # Visok usage_count, ista tarifna glava, ALI bez izvora — mora suprimirati.
+    # Visok usage_count, ista tarifna glava, bez izvora — vidljivo, ali NEPOTVRĐENO.
     match = _match(
         "kozmeticka krema",
         "33049910",
@@ -101,7 +112,8 @@ def test_unknown_source_never_shown_regardless_of_usage_or_heading():
         confidence=0.6,
     )
     decision = decide_tariff_match(match, "33049900", {}, _thresholds())
-    assert decision.outcome is TariffDecisionOutcome.SUPPRESS
+    assert decision.outcome is TariffDecisionOutcome.SHOW_UNCONFIRMED
+    assert decision.should_show is True
 
     # Placeholder vrijednosti u source koloni (stariji, nedovršeni zapisi)
     # tretiraju se isto kao prazan izvor.
@@ -114,10 +126,22 @@ def test_unknown_source_never_shown_regardless_of_usage_or_heading():
             confidence=0.6,
         )
         decision = decide_tariff_match(match, "33049900", {}, _thresholds())
-        assert decision.outcome is TariffDecisionOutcome.SUPPRESS, f"placeholder={placeholder!r}"
+        assert decision.outcome is TariffDecisionOutcome.SHOW_UNCONFIRMED, f"placeholder={placeholder!r}"
 
-    # Isti slučaj SA stvarnim izvorom se i dalje prikazuje (politika cilja
-    # samo na nepoznat izvor, ne na "ista tarifna glava" generalno).
+    # Ispod praga za pregled (samo 1-2 slučajna zapisa) — i dalje potpuno suprimirano.
+    match = _match(
+        "kozmeticka krema",
+        "33049910",
+        usage=1,
+        source="",
+        confidence=0.6,
+    )
+    decision = decide_tariff_match(match, "33049900", {}, _thresholds())
+    assert decision.outcome is TariffDecisionOutcome.SUPPRESS
+
+    # Isti slučaj SA stvarnim izvorom se i dalje normalno prikazuje kao
+    # SHOW_WEAK (politika cilja samo na nepoznat izvor, ne na "ista
+    # tarifna glava" generalno) — nepromijenjeno ponašanje.
     match = _match(
         "kozmeticka krema",
         "33049910",
@@ -256,10 +280,15 @@ def test_historical_validation_marks_placeholder_source_as_unknown():
     """
     Placeholder izvor (npr. "HISTORIJA", ostatak starijeg učenja) se i dalje
     klasifikuje kao UNKNOWN evidence preko evidence_from_tariff_decision.
-    Otkad izvor bez potvrde NIKAD ne stiže do korisnika (2026-07-26 politika
-    — carinski rizik pogrešne tarife), sam match se sad i suprimira prije
-    nego što bi ušao u validate_lines() rezultat — provjeravamo direktno
-    preko _is_actionable_match da evidence klasifikacija i dalje radi.
+
+    2026-07-26 politika: izvor bez potvrde se NIKAD ne primjenjuje
+    automatski i nikad ne dobija SHOW_STRONG/SHOW_WEAK. Dopuna 2026-07-28
+    (nalaz "SUSSINA"): uz dovoljno jak ponovljen obrazac (usage ≥ prag),
+    match se ipak SMIJE prikazati kao SHOW_UNCONFIRMED — inače korisnik
+    nikad ne dobije priliku da ga ručno potvrdi (vidi
+    test_search_one_ne_gubi_najjaci_zapis_bez_dobavljaca niže). Evidence
+    ostaje UNKNOWN bez obzira na to — to je signal za dijalog da ga
+    obilježi "izvor nepoznat" i isključi iz "Prihvati sve".
     """
     svc = HistoricalTariffSearchService()
     match = _match(
@@ -272,7 +301,8 @@ def test_historical_validation_marks_placeholder_source_as_unknown():
 
     is_actionable = svc._is_actionable_match(match, "21069092", {})
 
-    assert is_actionable is False  # suprimirano - nema potvrđenog izvora
+    assert is_actionable is True  # vidljivo, ali kao neprovjereno (vidi evidence niže)
+    assert match.decision_outcome == "show_unconfirmed"
     assert match.evidence is not None
     assert match.evidence.confidence is DecisionConfidence.UNKNOWN
     assert match.evidence.source is DecisionSource.TARIFF_DATABASE
@@ -499,15 +529,22 @@ def test_to_matches_racuna_supplier_match_po_redu_ne_pausalno():
 
 def test_search_one_ne_gubi_najjaci_zapis_bez_dobavljaca(monkeypatch):
     """
-    POLITIKA PROMIJENJENA 2026-07-26 (obrće 2026-07-22 SUSSINA fix): najjači
-    zapis (usage=40) i dalje NIJE izgubljen iz _search_one() rezultata (ta
-    dio fixa ostaje — vidi test_to_matches_racuna_supplier_match_po_redu_
-    ne_pausalno iznad), ALI se sad SUPRIMIRA na decision nivou jer nema potvrđen izvor —
-    korisnička odluka: carinski rizik pogrešne tarife je preozbiljan da se
-    prijedlog prikaže samo na osnovu visokog usage_count-a bez ijednog
-    dokaza porijekla. Drugi kandidat (usage=3, ima izvor) i dalje ne prolazi
-    jer 3 < MIN_USAGE_FOR_CROSS_CHAPTER — obje stavke se suprimiraju,
-    validate_lines() vraća prazan rezultat.
+    Istorija ove tačke (za buduće čitaoce): 2026-07-22 SUSSINA fix je otkrio
+    da najjači zapis (usage=40, bez dobavljača) ne smije biti izgubljen iz
+    _search_one() rezultata (vidi test_to_matches_racuna_supplier_match_
+    po_redu_ne_pausalno iznad). 2026-07-26 politika je onda taj isti zapis
+    (bez POTVRĐENOG izvora) potpuno suprimirala na decision nivou — ali time
+    je stvorila cor-22: zapis se nikad nije mogao ni ručno potvrditi jer se
+    nikad nije prikazao (user_feedback se puni samo klikom u dijalogu).
+    2026-07-28 dopuna: dovoljno jak ponovljen obrazac (usage=40 ≥ prag) se
+    sad prikazuje kao SHOW_UNCONFIRMED — vidljivo za ručnu potvrdu, ali NIKAD
+    automatski primijenjeno niti u "Prihvati sve" (evidence.confidence
+    ostaje UNKNOWN, vidi test_historical_validation_marks_placeholder_
+    source_as_unknown iznad).
+
+    Drugi kandidat (usage=3, ima izvor, ali cross-chapter) i dalje ne
+    prolazi jer 3 < MIN_USAGE_FOR_CROSS_CHAPTER — validate_lines() vraća
+    TAČNO jedan match (onaj sa usage=40), ne prazan rezultat.
     """
     svc = HistoricalTariffSearchService()
     line = InvoiceLine(
@@ -528,4 +565,7 @@ def test_search_one_ne_gubi_najjaci_zapis_bez_dobavljaca(monkeypatch):
 
     matches = svc.validate_lines([line], izvoznik_naziv="MEDICO PHARM SERVIS")
 
-    assert matches == []
+    assert len(matches) == 1
+    assert matches[0].tarifni_broj_historijski == "21069098"
+    assert matches[0].decision_outcome == "show_unconfirmed"
+    assert matches[0].evidence.confidence is DecisionConfidence.UNKNOWN
