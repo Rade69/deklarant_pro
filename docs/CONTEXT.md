@@ -2780,3 +2780,61 @@ defaultu (MagicMock auto-atribut je uvijek truthy, što bi lažno "preskočilo"
 fazu i u POSTOJEĆIM testovima bez ove eksplicitne postavke).
 
 Puna svita: 1418 passed, 0 failed (isti 3 pre-postojeća nepovezana pada).
+
+---
+
+## 80. "Puna automatizacija" — auto-popuna Izvoznik/Primalac/Deklarant iz istorijskog XML-a (2026-07-28)
+
+Nakon §75-79 (Puna automatizacija konačno radi kroz sve faze i zaustavlja se
+tačno na Zaglavlju), korisnik je pokazao da dugme "Uvezi XML" u Zaglavlju
+potpuno popuni Izvoznik/Primalac/Deklarant kolonu (pune adrese, JIB-ovi,
+Tip deklaracije, kurs...), dok automatizacija ostavlja kolonu skoro praznu
+(samo `izvoznik_naziv` iz uvoza fakture, Primalac/Deklarant potpuno prazni).
+Zadatak: povezati isti mehanizam u automatizaciju.
+
+**Istraženi mehanizam** (dva postojeća, ranije nepovezana puta do istog cilja):
+- `services/agent/learning/exporter_xml_indexer.py::find_xml_for_pair()` —
+  traži PAR (exporter [+ consignee_jib/naziv]) → putanja do najnovijeg
+  istorijskog XML-a, iz `catalogs.exporter_xml_index` (prioritet: JIB > naziv
+  primaoca > bilo koji primalac za tog izvoznika > fuzzy).
+- `services/zaglavlje_service.py::ZaglavljeService.load_from_xml()` — puni
+  ASYCUDA XML parser (isti kod koji koristi dugme "Uvezi XML" preko
+  `zaglavlje_controller._on_import_xml`), vraća SVA header polja
+  (adrese, JIB, kurs, incoterm, carinarnice...), za razliku od
+  `faktura_view.py::_extract_header_from_xml()` (dugme "Prethodna
+  deklaracija" u Fakturi) koji parsira samo uzak podskup polja.
+
+**Zašto ne pozvati `_on_import_xml` direktno**: ta metoda poziva
+`view.show_success/show_warning` koji otvaraju MODALNI `QMessageBox` (vidi
+`base_view.py`) — blokirao bi headless automatizaciju čekajući klik.
+Umjesto toga novi `services/agent/workflow/header_autofill_service.py::
+auto_fill_header_from_history(ctrl, chat)` radi isti posao bez GUI dijaloga:
+nađe XML preko `find_xml_for_pair`, parsira preko `ZaglavljeService.
+load_from_xml`, i upisuje SAMO prazna polja direktno na `draft` (isti
+obrazac kao `faktura_view.py::_apply_import_result_to_header` — "popunjava
+samo prazna polja, ne prepisuje ono što je korisnik već unio"). Ako je
+Zaglavlje tab trenutno otvoren, poziva `zaglavlje_tab.load_from_draft(draft)`
+da osvježi prikaz (isti poziv kao `_on_load_previous_declaration`).
+
+**Gdje je povezano**: `declaration_workflow_service.py::_run()`, tačno
+prije `header_ready` kapije — ako kapija ne prolazi, prvo se pokuša
+auto-popuna, pa se stanje ponovo izračuna; tek ako i dalje ne prolazi
+(nema istorijskog XML-a za tog izvoznika, ili historijski XML ne pokriva
+obavezna polja), kapija se zaustavlja normalno sa porukom za ručni unos —
+to ostaje ispravno ponašanje kad automatizacija stvarno nema odakle da
+povuče podatke.
+
+**Namjerno NIJE dirano**: `_on_import_xml` (GUI dugme ostaje nepromijenjeno,
+i dalje traži fajl ručno i prikazuje dijaloge), `_on_load_previous_declaration`
+u Fakturi (odvojen, uži mehanizam — nije zamijenjen, samo mu je servisni
+"punjeniji" parser sad dostupan i automatizaciji).
+
+Testovi: novi `tests/unit/test_header_autofill_service.py` (6 testova) —
+bez izvoznika, nema pogotka u indeksu, izuzetak iz baze, popuni samo prazna
+polja (ne prepisuje postojeće), nema šta novo za popuniti → False, osvježi
+otvoren Zaglavlje tab.
+
+Puna svita: 1424 passed (1418 + 6 novih), isti 3 pre-postojeća nepovezana
+pada (tool registry drift, hardkodovana Linux putanja u test_xml_parser_fix,
+model_benchmark network error) + 1 pre-postojeći error — svi nepovezani sa
+ovom izmjenom.
