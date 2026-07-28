@@ -2747,3 +2747,30 @@ Tok „Učitaj glavnu listu“ je zaseban od standardnog ImportService toka.
 `ProductMasterList` može interno proizvesti 10-cifreni bazni zapis, pa
 `DeclarationAssembly.load_master_list()` mora normalizovati tarifu pri
 kreiranju `InvoiceLine`, prije prikaza u Faktura tabeli i prije grupisanja.
+
+---
+
+## 83. ASYCUDA parity corpus 2024–2026 (2026-07-28)
+
+Referentni ASYCUDA corpus je `H:\New folder\NOVA ASIKUDA`, ali se koriste
+isključivo 1.630 XML fajlova iz 2024–2026. Interni datum ima prednost, a kada je
+prazan koristi se potvrđeno pouzdani datum izmjene. Sirovi XML, partneri,
+fakture i reference dokumenata ne smiju se kopirati u repo niti slati LLM-u;
+dozvoljeni su samo agregirani rezultati.
+
+Potvrđene formule su:
+
+`Total_cost = external + internal + insurance + other - deduction`
+
+`Total_CIF = invoice_national + external + insurance + other - deduction`
+
+Broj obrazaca je `1 + ceil((broj_naimenovanja - 1) / 3)`, ne
+`ceil(broj_naimenovanja / 3)`.
+
+Dopunske jedinice su dovoljno stabilne za evidence-based automatizaciju, ali
+trenutni NAR/PCE i fallback za poglavlja 01–24 imaju dokazano mnogo promašaja.
+Dokumenti nisu deterministička funkcija tarife, zemlje, povlastice i postupka;
+historija smije dati prijedlog, ne automatski upis bez službenog pravila.
+
+Detaljna metodologija i plan:
+`docs/ASYCUDA_PARITY_PROFILE_2024_2026.md`.
