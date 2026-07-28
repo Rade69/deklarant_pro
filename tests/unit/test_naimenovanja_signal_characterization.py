@@ -5,7 +5,8 @@ Faza 0 prema Codex planu §8.
 """
 from __future__ import annotations
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtTest import QSignalSpy
 
 from core.draft.draft import DeclarationDraft, NaimenovanjeDraft
 from gui.tabs.naimenovanja_view import NaimenovanjaView
@@ -45,6 +46,21 @@ class TestSignalCharacterization:
         receivers_after = view.data_changed.receivers if hasattr(view.data_changed, 'receivers') else 0
 
         assert receivers_after == receivers_before
+
+    def test_next_click_emits_exactly_one_navigation_request(self, qtbot):
+        draft = DeclarationDraft()
+        draft.items = [
+            NaimenovanjeDraft(item_id="1", ordinal_no=1),
+            NaimenovanjeDraft(item_id="2", ordinal_no=2),
+        ]
+        view = NaimenovanjaView(draft=draft)
+        qtbot.addWidget(view)
+        spy = QSignalSpy(view.navigate_requested)
+
+        qtbot.mouseClick(view.btn_next, Qt.LeftButton)
+
+        assert spy.count() == 1
+        assert spy.at(0) == [1]
 
 
 class TestRub40Rub44Characterization:

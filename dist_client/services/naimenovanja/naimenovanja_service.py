@@ -11,6 +11,8 @@ Odgovoran za:
 - Business rules enforcement
 """
 
+import logging
+import re
 from typing import Dict, Any, List, Optional
 from core.draft.draft import DeclarationDraft, NaimenovanjeDraft, InvoiceLine
 from services.naimenovanja.tariff_service import TariffService
@@ -370,10 +372,143 @@ class NaimenovanjaService:
     
     def _log_operation(self, operation: str, success: bool, count: int = 0):
         """Logging helper."""
-        import logging
         logger = logging.getLogger("deklarant_pro.services.naimenovanja")
         status = "✅" if success else "❌"
         logger.info(f"{status} {operation}: {count} items")
+
+    # ============================================================
+    # Čiste kalkulacije (Faza 2 — izdvojene iz NaimenovanjaView)
+    # ============================================================
+
+    @staticmethod
+    def parse_cost(val) -> float:
+        """Parse trošak iz stringa (podržava zarez i tačku)."""
+        try:
+            return float(str(val or 0).replace(",", ".").replace(" ", ""))
+        except (ValueError, TypeError):
+            return 0.0
+
+    @staticmethod
+    def compute_pd_codes(item=None, draft=None) -> str:
+        docs = []
+        if draft is not None:
+            docs.extend(getattr(draft, "header_attached_documents", []) or [])
+        if item is not None:
+            docs.extend(getattr(item, "attached_documents", []) or [])
+        codes = []
+        seen = set()
+        for doc in docs:
+            code = (getattr(doc, "code", "") or "").strip().upper()
+            if not code or not getattr(doc, "from_rule", False):
+                continue
+            if code in {"PE1", "PE2", "PE3"} or code in seen:
+                continue
+            seen.add(code)
+            codes.append(code)
+        return " ".join(codes)
+
+    @staticmethod
+    def compute_statistical_value(item, draft=None) -> str:
+        value = float(getattr(item, "item_value", 0.0) or 0.0)
+        if value <= 0:
+            return ""
+        if draft is None:
+            return f"{value:.2f}"
+        total = sum(float(getattr(it, "item_value", 0.0) or 0.0) for it in draft.items)
+        if total <= 0:
+            return ""
+        kurs = float(getattr(draft, "kurs", 1.0) or 1.0)
+        freight = NaimenovanjaService.parse_cost(getattr(draft, "trosak_1", 0))
+        result = round(value * kurs, 2) + freight * (value / total)
+        if result > 0:
+            return f"{result:.2f}"
+        return ""
+
+    @staticmethod
+    def resolve_supplementary_unit(tariff_code: str) -> str:
+        """Vrati ASYCUDA kod dopunske JM za tarifni broj, ili '' ako ne postoji."""
+        try:
+            from services.naimenovanja.create_naimenovanja_service import get_supplementary_unit
+            return get_supplementary_unit(tariff_code)
+        except Exception:
+            return ""
+
+    @staticmethod
+    def normalize_field_value(field_name: str, value):
+        if field_name == "package_qty":
+            try:
+                return int(float(value)) if value not in (None, "") else 0
+            except (TypeError, ValueError):
+                return 0
+        if field_name in {
+            "gross_mass_kg",
+            "net_mass_kg",
+            "item_value",
+            "statistical_value",
+            "supplementary_unit_qty",
+        }:
+            try:
+                return float(value) if value not in (None, "") else 0.0
+            except (TypeError, ValueError):
+                return 0.0
+        if field_name == "ordinal_no":
+            try:
+                return int(value) if value not in (None, "") else 0
+            except (TypeError, ValueError):
+                return 0
+        if field_name == "tariff_code" and value:
+            digits = re.sub(r"\D", "", str(value))[:10]
+            if len(digits) == 10 and digits.endswith("00"):
+                digits = digits[:8]
+            return digits
+        return "" if value is None else str(value)
+
+    @staticmethod
+    def format_trading_names(draft, item_index: int, max_chars: int | None = None) -> str:
+        """Formatuj sve nazive proizvoda iz fakture za jedno naimenovanje.
+
+        Premješteno iz NaimenovanjaView._format_trading_names.
+        """
+        items = getattr(draft, "items", []) or []
+        if not items or item_index >= len(items):
+            return ""
+
+        current_item = items[item_index]
+        ordinal_no = current_item.ordinal_no
+
+        assigned_lines = [
+            line for line in (getattr(draft, "invoice_lines", []) or [])
+            if getattr(line, "assigned_naimenovanje_ordinal", 0) == ordinal_no
+        ]
+
+        if not assigned_lines:
+            return ""
+
+        # Nazivi proizvoda
+        product_names = [line.naziv_robe for line in assigned_lines if getattr(line, "naziv_robe", None)]
+        nazivi_dio = ", ".join(product_names) if product_names else ""
+
+        # Faktura info
+        from collections import OrderedDict
+        fakture: dict = OrderedDict()
+        for line in assigned_lines:
+            inv = getattr(line, "invoice_number", "") or "?"
+            if inv not in fakture:
+                fakture[inv] = []
+            fakture[inv].append(str(line.line_no))
+
+        faktura_parts = []
+        for inv, rbs in fakture.items():
+            faktura_parts.append(f"{inv} (rb. {', '.join(rbs)})")
+        faktura_str = "; ".join(faktura_parts)
+
+        faktura_dio = f"Faktura: {faktura_str}"
+        heading = (getattr(current_item, "tariff_description2", "") or "").strip()
+        result = ", ".join(part for part in (heading, nazivi_dio, faktura_dio) if part)
+
+        if max_chars is not None and len(result) > max_chars:
+            result = result[:max_chars - 3] + "..."
+        return result
 
     # ============================================================
     # Šifrarnici (paketovi, dokumenti) — učitavanje iz PostgreSQL
@@ -437,3 +572,53 @@ class NaimenovanjaService:
                 f"⚠️ Greška pri učitavanju Rb.40 iz baze: {e}"
             )
         return result
+
+    # ============================================================
+    # Save/Navigation (Faza 4)
+    # ============================================================
+
+    @staticmethod
+    def apply_form_to_item(form_data: dict, item) -> bool:
+        """Primijeni vrijednosti iz forme na NaimenovanjeDraft item.
+
+        Normalizuje vrijednosti i setuje atribute. NE dira DB.
+        Preskače virtualna polja (statistical_value, pd_codes).
+        """
+        _VIRTUAL_FIELDS = {"statistical_value", "pd_codes"}
+        changed = False
+        for field_name, raw_value in form_data.items():
+            if not field_name or field_name in _VIRTUAL_FIELDS:
+                continue
+            normalized = NaimenovanjaService.normalize_field_value(field_name, raw_value)
+            if getattr(item, field_name, None) != normalized:
+                setattr(item, field_name, normalized)
+                changed = True
+        return changed
+
+    @staticmethod
+    def sync_tariff_to_invoice_lines(
+        old_tariff: str, old_suffix: str,
+        new_tariff: str, new_suffix: str,
+        item, draft,
+    ) -> int:
+        """Sinhronizuj promjenu tarifnog broja na povezane InvoiceLine stavke.
+
+        Za grupisana naimenovanja koristi assigned_naimenovanje_ordinal,
+        ne ordinal_no - 1 (kritična korekcija iz Codex plana §7.4).
+
+        Returns:
+            Broj ažuriranih InvoiceLine stavki.
+        """
+        if not new_tariff:
+            return 0
+        if new_tariff == old_tariff and new_suffix == old_suffix:
+            return 0
+
+        ordinal = getattr(item, "ordinal_no", 0)
+        updated = 0
+        for line in (getattr(draft, "invoice_lines", []) or []):
+            if getattr(line, "assigned_naimenovanje_ordinal", 0) == ordinal:
+                line.tarifni_broj = new_tariff
+                line.tariff_suffix = new_suffix
+                updated += 1
+        return updated

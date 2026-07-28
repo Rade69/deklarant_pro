@@ -35,6 +35,19 @@ class NaimenovanjaTab(QWidget):
         self.controller = NaimenovanjaController(
             get_draft_fn=lambda: self.view.draft,
             service=self._service,
+            parent=self,
+        )
+        self.view.save_current_requested.connect(
+            lambda: self.controller.save_current_item(self.view)
+        )
+        self.view.navigate_requested.connect(
+            lambda index: self.controller.navigate_to(self.view, index)
+        )
+        self.view.add_requested.connect(
+            lambda: self.controller.add_item(self.view)
+        )
+        self.view.delete_requested.connect(
+            lambda index: self.controller.delete_item(self.view, index)
         )
 
         layout = QVBoxLayout(self)

@@ -118,7 +118,14 @@ class TabFactory:
                                  on_dirty: Optional[Callable],
                                  parent: Optional[QWidget]):
         from gui.tabs.naimenovanja_tab import NaimenovanjaTab
-        return NaimenovanjaTab(draft=draft, on_dirty=on_dirty, parent=parent)
+        from services.naimenovanja.naimenovanja_service import NaimenovanjaService
+        service = self._container.resolve(NaimenovanjaService)
+        return NaimenovanjaTab(
+            draft=draft,
+            on_dirty=on_dirty,
+            parent=parent,
+            service=service,
+        )
 
     def _create_sifarnici_tab(self,
                               draft: Optional[DeclarationDraft],

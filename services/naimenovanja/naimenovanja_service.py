@@ -11,6 +11,8 @@ Odgovoran za:
 - Business rules enforcement
 """
 
+import logging
+import re
 from typing import Dict, Any, List, Optional
 from core.draft.draft import DeclarationDraft, NaimenovanjeDraft, InvoiceLine
 from services.naimenovanja.tariff_service import TariffService
@@ -370,7 +372,6 @@ class NaimenovanjaService:
     
     def _log_operation(self, operation: str, success: bool, count: int = 0):
         """Logging helper."""
-        import logging
         logger = logging.getLogger("deklarant_pro.services.naimenovanja")
         status = "✅" if success else "❌"
         logger.info(f"{status} {operation}: {count} items")
@@ -388,23 +389,39 @@ class NaimenovanjaService:
             return 0.0
 
     @staticmethod
-    def compute_pd_codes(item) -> str:
-        """Rb.44 P.D. — objedinjene šifre from_rule priloženih dokumenata."""
-        from core.draft import AttachedDocument
+    def compute_pd_codes(item=None, draft=None) -> str:
+        docs = []
+        if draft is not None:
+            docs.extend(getattr(draft, "header_attached_documents", []) or [])
+        if item is not None:
+            docs.extend(getattr(item, "attached_documents", []) or [])
         codes = []
-        for doc in getattr(item, "attached_documents", []) or []:
-            code = getattr(doc, "code", "")
-            from_rule = getattr(doc, "from_rule", False)
-            if code and from_rule:
-                codes.append(code)
-        return ", ".join(codes)
+        seen = set()
+        for doc in docs:
+            code = (getattr(doc, "code", "") or "").strip().upper()
+            if not code or not getattr(doc, "from_rule", False):
+                continue
+            if code in {"PE1", "PE2", "PE3"} or code in seen:
+                continue
+            seen.add(code)
+            codes.append(code)
+        return " ".join(codes)
 
     @staticmethod
-    def compute_statistical_value(item) -> str:
-        """Izračunaj statističku vrijednost (Rb.46)."""
-        value = getattr(item, "item_value", 0.0) or 0.0
-        if value > 0:
+    def compute_statistical_value(item, draft=None) -> str:
+        value = float(getattr(item, "item_value", 0.0) or 0.0)
+        if value <= 0:
+            return ""
+        if draft is None:
             return f"{value:.2f}"
+        total = sum(float(getattr(it, "item_value", 0.0) or 0.0) for it in draft.items)
+        if total <= 0:
+            return ""
+        kurs = float(getattr(draft, "kurs", 1.0) or 1.0)
+        freight = NaimenovanjaService.parse_cost(getattr(draft, "trosak_1", 0))
+        result = round(value * kurs, 2) + freight * (value / total)
+        if result > 0:
+            return f"{result:.2f}"
         return ""
 
     @staticmethod
@@ -418,15 +435,36 @@ class NaimenovanjaService:
 
     @staticmethod
     def normalize_field_value(field_name: str, value):
-        """Normalizuj vrijednost polja."""
-        if value is None:
-            return ""
-        if isinstance(value, (int, float)):
-            return str(value) if field_name not in ("ordinal_no",) else int(value)
-        return str(value)
+        if field_name == "package_qty":
+            try:
+                return int(float(value)) if value not in (None, "") else 0
+            except (TypeError, ValueError):
+                return 0
+        if field_name in {
+            "gross_mass_kg",
+            "net_mass_kg",
+            "item_value",
+            "statistical_value",
+            "supplementary_unit_qty",
+        }:
+            try:
+                return float(value) if value not in (None, "") else 0.0
+            except (TypeError, ValueError):
+                return 0.0
+        if field_name == "ordinal_no":
+            try:
+                return int(value) if value not in (None, "") else 0
+            except (TypeError, ValueError):
+                return 0
+        if field_name == "tariff_code" and value:
+            digits = re.sub(r"\D", "", str(value))[:10]
+            if len(digits) == 10 and digits.endswith("00"):
+                digits = digits[:8]
+            return digits
+        return "" if value is None else str(value)
 
     @staticmethod
-    def format_trading_names(draft, item_index: int, max_chars: int = 280) -> str:
+    def format_trading_names(draft, item_index: int, max_chars: int | None = None) -> str:
         """Formatuj sve nazive proizvoda iz fakture za jedno naimenovanje.
 
         Premješteno iz NaimenovanjaView._format_trading_names.
@@ -464,15 +502,11 @@ class NaimenovanjaService:
             faktura_parts.append(f"{inv} (rb. {', '.join(rbs)})")
         faktura_str = "; ".join(faktura_parts)
 
-        # Spoji
-        if nazivi_dio and faktura_str:
-            result = f"{nazivi_dio}\nFaktura: {faktura_str}"
-        elif nazivi_dio:
-            result = nazivi_dio
-        else:
-            result = f"Faktura: {faktura_str}"
+        faktura_dio = f"Faktura: {faktura_str}"
+        heading = (getattr(current_item, "tariff_description2", "") or "").strip()
+        result = ", ".join(part for part in (heading, nazivi_dio, faktura_dio) if part)
 
-        if len(result) > max_chars:
+        if max_chars is not None and len(result) > max_chars:
             result = result[:max_chars - 3] + "..."
         return result
 
@@ -544,18 +578,22 @@ class NaimenovanjaService:
     # ============================================================
 
     @staticmethod
-    def apply_form_to_item(form_data: dict, item) -> None:
+    def apply_form_to_item(form_data: dict, item) -> bool:
         """Primijeni vrijednosti iz forme na NaimenovanjeDraft item.
 
         Normalizuje vrijednosti i setuje atribute. NE dira DB.
         Preskače virtualna polja (statistical_value, pd_codes).
         """
         _VIRTUAL_FIELDS = {"statistical_value", "pd_codes"}
+        changed = False
         for field_name, raw_value in form_data.items():
             if not field_name or field_name in _VIRTUAL_FIELDS:
                 continue
             normalized = NaimenovanjaService.normalize_field_value(field_name, raw_value)
-            setattr(item, field_name, normalized)
+            if getattr(item, field_name, None) != normalized:
+                setattr(item, field_name, normalized)
+                changed = True
+        return changed
 
     @staticmethod
     def sync_tariff_to_invoice_lines(

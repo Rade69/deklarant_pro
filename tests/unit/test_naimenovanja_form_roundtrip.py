@@ -11,6 +11,7 @@ from __future__ import annotations
 import pytest
 
 from core.draft.draft import DeclarationDraft, NaimenovanjeDraft
+from gui.tabs.naimenovanja_tab import NaimenovanjaTab
 from gui.tabs.naimenovanja_view import NaimenovanjaView
 
 
@@ -80,3 +81,24 @@ class TestFormRoundtrip:
         mandatory = ("le_rubrika33", "te_r31_opis", "le_rubrika34_zemlja")
         for field in mandatory:
             assert field in view.field_map, f"Nedostaje obavezno polje: {field}"
+
+    def test_real_widget_roundtrip_preserves_types_and_tariff_format(self, qtbot):
+        draft = DeclarationDraft()
+        draft.items = [NaimenovanjeDraft(item_id="1", ordinal_no=1)]
+        tab = NaimenovanjaTab(draft=draft)
+        qtbot.addWidget(tab)
+
+        tab.view._get_widget("le_rubrika33").setText("0805.21.90")
+        tab.view._get_widget("le_r31_broj").setText("3")
+        tab.view._get_widget("le_rubrika35").setText("12.75")
+        tab.view._get_widget("le_rubrika38").setText("11.25")
+        tab.controller.save_current_item(tab.view)
+
+        item = draft.items[0]
+        assert item.tariff_code == "08052190"
+        assert item.package_qty == 3
+        assert isinstance(item.package_qty, int)
+        assert item.gross_mass_kg == 12.75
+        assert isinstance(item.gross_mass_kg, float)
+        assert item.net_mass_kg == 11.25
+        assert isinstance(item.net_mass_kg, float)

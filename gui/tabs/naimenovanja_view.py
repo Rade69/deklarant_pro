@@ -177,6 +177,10 @@ class NaimenovanjaView(BaseTabView):
     # data_changed naslijeđen iz BaseTabView
     import_xml_requested = Signal(str)
     suggest_tariff_requested = Signal()
+    save_current_requested = Signal()
+    navigate_requested = Signal(int)
+    add_requested = Signal()
+    delete_requested = Signal(int)
 
     def __init__(
         self, draft: Optional[DeclarationDraft] = None, on_dirty: Optional[Callable] = None
@@ -1974,144 +1978,25 @@ class NaimenovanjaView(BaseTabView):
             if trading_names:
                 self.te_trg_naziv.setPlainText(trading_names)
 
-    def _format_trading_names(self, max_chars: int = 280) -> str:
-        # docs/sections/export-pdf-excel.md — dodaje footer sa Faktura: info
-        """
-        Formatuj sve nazive proizvoda iz fakture koji pripadaju trenutnom naimenovanju.
-        Na dnu dodaje spisak faktura i rednih brojeva stavki koje ulaze u naimenovanje.
-
-        Args:
-            max_chars: Maksimalan broj karaktera — ASYCUDA Rb.31 limit je 280
-
-        Returns:
-            Nazivi proizvoda + na dnu "Faktura: broj (rb. x, y)" informacija
-        """
-        if len(self.draft.items) == 0:
-            logger.warning("  ⚠️ _format_trading_names: Nema naimenovanja u draft.items")
-            return ""
-
-        # Get current naimenovanje ordinal
-        current_item = self.draft.items[self.current_item_index]
-        ordinal_no = current_item.ordinal_no
-
-        # Filter invoice lines assigned to this naimenovanje
-        assigned_lines = [
-            line
-            for line in self.draft.invoice_lines
-            if line.assigned_naimenovanje_ordinal == ordinal_no
-        ]
-
-        if not assigned_lines:
-            return ""
-
-        # --- 1. Opis 4-cifrene glave (tariff_description2) ---
-        tariff_heading = (current_item.tariff_description2 or "").strip()
-
-        # --- 2. Nazivi proizvoda ---
-        product_names = [line.naziv_robe for line in assigned_lines if line.naziv_robe]
-        nazivi_dio = ", ".join(product_names) if product_names else ""
-
-        # --- 3. Faktura info na dnu ---
-        from collections import OrderedDict
-        fakture: dict = OrderedDict()
-        for line in assigned_lines:
-            inv = line.invoice_number or "?"
-            if inv not in fakture:
-                fakture[inv] = []
-            fakture[inv].append(str(line.line_no))
-
-        fakture_dio_parts = []
-        for inv, rb_list in fakture.items():
-            fakture_dio_parts.append(f"{inv} (rb. {', '.join(rb_list)})")
-
-        fakture_dio = "Faktura: " + ", ".join(fakture_dio_parts)
-
-        # --- 4. Kombinuj: prioritet nazivi > faktura > heading ---
-        # Fiksni dio: nazivi + faktura (uvijek se prikazuju puni)
-        core_parts = [p for p in [nazivi_dio, fakture_dio] if p]
-        core = ", ".join(core_parts)
-
-        if tariff_heading:
-            # Koliko prostora ostaje za heading (+ ", " separator)
-            heading_budget = max_chars - len(core) - 2  # -2 za ", "
-            if heading_budget >= len(tariff_heading):
-                final_heading = tariff_heading
-            elif heading_budget > 6:
-                # Skrati heading, pokušaj na granici riječi
-                cut = tariff_heading[:heading_budget - 3]
-                last_space = cut.rfind(" ")
-                final_heading = (cut[:last_space] if last_space > 0 else cut) + "..."
-            else:
-                final_heading = ""  # nema mjesta ni za skraćeni heading
-            parts = [p for p in [final_heading, nazivi_dio, fakture_dio] if p]
-        else:
-            parts = core_parts
-
-        result = ", ".join(parts)
-
-        # Ako čak i bez headinga core > max_chars, skrati nazive
-        if len(result) > max_chars:
-            fakture_len = len(fakture_dio) + 2
-            nazivi_max = max_chars - fakture_len - 3
-            if nazivi_max > 20 and product_names:
-                truncated_nazivi = nazivi_dio[:nazivi_max]
-                last_comma = truncated_nazivi.rfind(", ")
-                if last_comma > 0:
-                    truncated_nazivi = truncated_nazivi[:last_comma]
-                result = ", ".join([truncated_nazivi + "...", fakture_dio])
-            else:
-                result = result[:max_chars - 3] + "..."
-
-        logger.debug(f"  📝 Ukupna dužina: {len(result)} karaktera")
-        return result
+    def _format_trading_names(self, max_chars: int | None = None) -> str:
+        from services.naimenovanja.naimenovanja_service import NaimenovanjaService
+        return NaimenovanjaService.format_trading_names(
+            self.draft,
+            self.current_item_index,
+            max_chars=max_chars,
+        )
 
     # ═══════════════════════════════════════════════════════════
     # DATA BINDING
     # ═══════════════════════════════════════════════════════════
 
-    def _parse_cost(self, val) -> float:
-        """Parse trošak iz stringa (podržava zarez i tačku kao decimalni separator)."""
-        try:
-            return float(str(val or 0).replace(",", ".").replace(" ", ""))
-        except Exception:
-            return 0.0
-
     def _compute_pd_codes(self, item=None) -> str:
-        """Rb.44 P.D. — objedinjene šifre from_rule priloženih dokumenata.
-
-        PE1/PE2/PE3 se prikazuju samo ako naimenovanje ima povlasticu (Rub.36),
-        jer Rub.44 ne smije biti popunjena ako Rub.36 nije.
-        """
-        docs = []
-        docs.extend(getattr(self.draft, "header_attached_documents", []) or [])
-        if item is not None:
-            docs.extend(getattr(item, "attached_documents", []) or [])
-
-        codes = []
-        seen = set()
-        for doc in docs:
-            code = (getattr(doc, "code", "") or "").strip().upper()
-            if not code or not getattr(doc, "from_rule", False):
-                continue
-            if code in _PE_DOC_CODES:
-                continue
-            if code not in seen:
-                seen.add(code)
-                codes.append(code)
-        return " ".join(codes)
+        from services.naimenovanja.naimenovanja_service import NaimenovanjaService
+        return NaimenovanjaService.compute_pd_codes(item, self.draft)
 
     def _compute_statistical_value(self, item) -> str:
-        """Rb.46 — statistička vrijednost: (item_value_EUR × kurs) + ext_freight_BAM."""
-        item_value = float(item.item_value or 0)
-        total_items_value = sum(float(it.item_value or 0) for it in self.draft.items)
-        if total_items_value <= 0 or item_value <= 0:
-            return ""
-        kurs = float(self.draft.kurs or 1.0) or 1.0
-        alpha = item_value / total_items_value
-        t1 = self._parse_cost(getattr(self.draft, "trosak_1", 0))
-        ext_freight = t1 * alpha
-        stat_val = round(item_value * kurs, 2) + ext_freight
-        return f"{stat_val:.2f}"
+        from services.naimenovanja.naimenovanja_service import NaimenovanjaService
+        return NaimenovanjaService.compute_statistical_value(item, self.draft)
 
     def _setup_rb44_pd_codes_field(self) -> None:
         field = self._get_widget("le_rubrika44_1")
@@ -2314,38 +2199,8 @@ class NaimenovanjaView(BaseTabView):
                 self.te_trg_naziv.setPlainText(item.goods_trade_name)
 
     def _save_current_item(self) -> None:
-        """Save form data to current item in draft"""
-        if self.is_loading or len(self.draft.items) == 0 or not hasattr(self, "ui"):
-            return
-
-        item = self.draft.items[self.current_item_index]
-
-        # Zapamtimo stari tarifni broj prije izmjene (za sinhronizaciju)
-        old_tariff = item.tariff_code or ""
-        old_suffix = item.tariff_suffix or "000"
-
-        # Virtualna polja (auto-izračun) — ne čuvaju se u draftu
-        _READONLY_VIRTUAL_FIELDS = {"statistical_value", "pd_codes"}
-
-        for widget_name, field_name in self.field_map.items():
-            if not field_name or field_name in _READONLY_VIRTUAL_FIELDS:
-                continue
-
-            widget = self._get_widget(widget_name)
-
-            if widget:
-                value = self._read_widget_value(widget)
-                normalized = self._normalize_field_value(field_name, value)
-                setattr(item, field_name, normalized)
-
-        _clear_secondary_pe_documents(item)
-        self._mark_dirty()
-
-        # ── Sinhronizacija tarifnog broja ako je promijenjen ──────────────
-        new_tariff = item.tariff_code or ""
-        new_suffix = item.tariff_suffix or "000"
-        if new_tariff and (new_tariff != old_tariff or new_suffix != old_suffix):
-            self._sync_tariff_to_source(old_tariff, old_suffix, new_tariff, new_suffix, item)
+        if not self.is_loading:
+            self.save_current_requested.emit()
 
     def _sync_tariff_to_source(
         self, old_tariff: str, old_suffix: str,
@@ -2537,27 +2392,10 @@ class NaimenovanjaView(BaseTabView):
             self._navigate_to_item(self.current_item_index + 1)
 
     def _navigate_to_item(self, index: int) -> None:
-        """Navigate to specific item"""
-        self._save_current_item()
-        self.current_item_index = index
-        self._load_current_item()
-        self._update_all_ui()
+        self.navigate_requested.emit(index)
 
     def _on_add_item(self) -> None:
-        """Add new naimenovanje"""
-        logger.debug("  ➕ Adding item...")
-        self._save_current_item()
-
-        new_item = self.draft.add_item()
-        new_item.ordinal_no = len(self.draft.items)
-
-        self._navigate_to_item(len(self.draft.items) - 1)
-
-        # Focus first field (tariff code)
-        if hasattr(self, "ui"):
-            first_field = self._get_widget("le_rubrika33")
-            if first_field:
-                first_field.setFocus()
+        self.add_requested.emit()
 
     def _on_delete_item(self) -> None:
         """Delete current naimenovanje"""
@@ -2575,21 +2413,20 @@ class NaimenovanjaView(BaseTabView):
         )
 
         if reply == QMessageBox.Yes:
-            del self.draft.items[self.current_item_index]
+            self.delete_requested.emit(self.current_item_index)
 
-            if self.current_item_index >= len(self.draft.items):
-                self.current_item_index = len(self.draft.items) - 1
+    def read_current_form(self) -> dict:
+        from gui.tabs.naimenovanja_view_phase4 import read_current_form
+        return read_current_form(self)
 
-            # Renumber
-            for i, item in enumerate(self.draft.items):
-                item.ordinal_no = i + 1
+    def render_current_item(self) -> None:
+        self._load_current_item()
+        self._update_all_ui()
 
-            self.draft.mark_dirty()
-            if self.on_dirty:
-                self.on_dirty()
-
-            self._load_current_item()
-            self._update_all_ui()
+    def focus_tariff_field(self) -> None:
+        first_field = self._get_widget("le_rubrika33")
+        if first_field:
+            first_field.setFocus()
 
     def _on_save(self) -> None:
         """Save the complete declaration as a portable XML working draft."""

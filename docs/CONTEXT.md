@@ -2667,3 +2667,15 @@ baza je namjerno READ-WRITE/lokalna i NE bundluje se u `_internal/` preko
 referentni podaci), nego živi POKRAJ `.exe`-a i mora se ručno kopirati
 nakon svakog builda (isto kao `.env`) — nije bila potrebna izmjena spec fajla
 niti `_resolve_db_path()`, samo propušten ručni korak u test okruženju.
+
+---
+
+## 78. Naimenovanja Controller — brisanje ne smije pozvati save poslije delete (2026-07-28)
+
+Kod brisanja aktivnog naimenovanja forma još prikazuje obrisanu stavku. Ako se
+nakon `del items[index]` pozove navigacija koja prvo snima formu, podaci
+obrisane stavke prepišu sljedeću stavku koja je zauzela isti indeks. Ispravan
+redoslijed je: potvrda u View-u → Controller briše i renumeriše → postavlja
+validan indeks → renderuje, bez save-before-navigation poziva. Numerička polja
+forme moraju ostati `int`/`float`, a tarifni broj se normalizuje na cifre prije
+upisa u draft; Controller dobija aktivni draft isključivo kroz getter.
