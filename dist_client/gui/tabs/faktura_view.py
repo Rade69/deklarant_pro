@@ -2586,6 +2586,9 @@ class FakturaView(BaseTabView):
         failed_imports = list(self._batch_failed)
 
         if not final_records:
+            from services.process_completion_sound import play_process_completion_sound
+
+            play_process_completion_sound("error")
             QMessageBox.warning(
                 self, "Grupni uvoz",
                 "Nije uvezena nijedna stavka.\n\nProvjerite da li su fajlovi ispravni.",
@@ -2594,6 +2597,9 @@ class FakturaView(BaseTabView):
 
         plan = FakturaView._prepare_manual_batch_import_plan(self, final_records)
         if plan.is_empty:
+            from services.process_completion_sound import play_process_completion_sound
+
+            play_process_completion_sound("error")
             QMessageBox.warning(
                 self,
                 "Grupni uvoz",
@@ -2616,6 +2622,9 @@ class FakturaView(BaseTabView):
 
         apply_result = apply_import_plan(self.draft, plan, decisions)
         if not apply_result.success:
+            from services.process_completion_sound import play_process_completion_sound
+
+            play_process_completion_sound("error")
             QMessageBox.warning(self, "Grupni uvoz nije primijenjen", apply_result.message)
             return
 
@@ -2694,6 +2703,9 @@ class FakturaView(BaseTabView):
                 QApplication.processEvents()
 
         if not all_items:
+            from services.process_completion_sound import play_process_completion_sound
+
+            play_process_completion_sound("error")
             QMessageBox.warning(
                 self, "Grupni uvoz",
                 "Nije uvezena nijedna stavka.\n\nProvjerite da li su fajlovi ispravni.",
@@ -2754,6 +2766,11 @@ class FakturaView(BaseTabView):
             if len(all_warnings) > 5:
                 message += f"   ... i još {len(all_warnings) - 5}\n"
 
+        from services.process_completion_sound import play_process_completion_sound
+
+        play_process_completion_sound(
+            "warning" if failed_imports or all_warnings else "success"
+        )
         QMessageBox.information(self, "Grupni uvoz", message)
 
         # Istorijska provjera tarifa ODMAH nakon uvoza — vidi napomenu u
@@ -3828,6 +3845,9 @@ class FakturaView(BaseTabView):
 
             plan = FakturaView._prepare_manual_import_plan(self, result)
             if plan.is_empty:
+                from services.process_completion_sound import play_process_completion_sound
+
+                play_process_completion_sound("error")
                 QMessageBox.warning(
                     self,
                     "Uvoz nije primijenjen",
@@ -3844,6 +3864,9 @@ class FakturaView(BaseTabView):
 
             apply_result = apply_import_plan(self.draft, plan, decisions)
             if not apply_result.success:
+                from services.process_completion_sound import play_process_completion_sound
+
+                play_process_completion_sound("error")
                 QMessageBox.warning(self, "Uvoz nije primijenjen", apply_result.message)
                 return
 
@@ -4005,9 +4028,13 @@ class FakturaView(BaseTabView):
                 message = self._append_imported_files_message(message)
 
                 # Show message box (warning if unmatched, info otherwise)
+                from services.process_completion_sound import play_process_completion_sound
+
                 if unmatched > 0:
+                    play_process_completion_sound("warning")
                     QMessageBox.warning(self, "Uvoz uspješan sa upozorenjima", message)
                 else:
+                    play_process_completion_sound("success")
                     QMessageBox.information(self, "Uvoz uspješan", message)
 
             else:
@@ -4159,6 +4186,9 @@ class FakturaView(BaseTabView):
                     message += f"   Svaka faktura će biti dodana u draft održavajući svoj redoslijed."
 
                 # Show success message
+                from services.process_completion_sound import play_process_completion_sound
+
+                play_process_completion_sound("success")
                 QMessageBox.information(self, "Uvoz uspješan", message)
 
             # Update status bar
@@ -4193,6 +4223,9 @@ class FakturaView(BaseTabView):
 
     def _on_import_error(self, error_message: str):
         """Handle import error."""
+        from services.process_completion_sound import play_process_completion_sound
+
+        play_process_completion_sound("error")
         self.error_handler.handle_import_error(Exception(error_message))
 
         # Cleanup worker to prevent memory leak
