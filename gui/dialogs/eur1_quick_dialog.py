@@ -18,9 +18,10 @@ from PySide6.QtWidgets import (
     QWidget, QFrame, QTableWidget, QTableWidgetItem,
     QHeaderView, QAbstractItemView
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 
 from core.draft.draft import InvoiceLine
+from services.process_completion_sound import play_process_completion_sound
 
 # Generičke oznake porijekla koje ne označavaju konkretnu državu —
 # svaka takva stavka prikazuje se zasebno u dijalogu (sa rb. brojem)
@@ -51,12 +52,22 @@ class Eur1QuickDialog(QDialog):
         self.country_inputs = {}
         self._row_by_key = {}
         self._prefill_invoice_number = invoice_number
+        self._completion_sound_played = False
         # Per-item tracking: da li neke stavke imaju izjavu o porijeklu (npr. Medicopharm)
         self._any_has_statement = any(
             getattr(item, 'has_origin_statement', False)
             for item in invoice_lines
         )
         self.setup_ui()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if self._completion_sound_played:
+            return
+        self._completion_sound_played = True
+        QTimer.singleShot(
+            0, lambda: play_process_completion_sound("success")
+        )
 
     def setup_ui(self):
         """Postavi UI elemente dialoga."""

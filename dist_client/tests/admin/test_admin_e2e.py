@@ -106,13 +106,13 @@ class TestAdminView:
         """Test da sidebar ima 7 stavki."""
         from gui.tabs.admin.admin_view import AdminView
         view = AdminView()
-        assert view.nav_list.count() == 7
+        assert view.nav_list.count() == 8
 
     def test_admin_view_content_panels(self, app):
         """Test da content stack ima 7 panela."""
         from gui.tabs.admin.admin_view import AdminView
         view = AdminView()
-        assert view.content_stack.count() == 7
+        assert view.content_stack.count() == 8
 
 
 class TestAdminController:

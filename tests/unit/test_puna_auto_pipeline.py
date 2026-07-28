@@ -54,6 +54,16 @@ def _confirm_declarant(monkeypatch):
     monkeypatch.setattr(ips.QMessageBox, "question", lambda *a, **kw: ips.QMessageBox.Yes)
 
 
+@pytest.fixture(autouse=True)
+def completion_sound(monkeypatch):
+    sound = MagicMock()
+    monkeypatch.setattr(
+        "services.process_completion_sound.play_process_completion_sound",
+        sound,
+    )
+    return sound
+
+
 class TestCekanjeNaIstorijskuValidaciju:
     """
     Popravka (2026-07-27): _on_validate_all(auto=True) iznutra pokreće
@@ -98,7 +108,9 @@ class TestCekanjeNaIstorijskuValidaciju:
 
 
 class TestUspjesanTok:
-    def test_sve_faze_uspjesne_daje_zavrsnu_poruku(self, mock_ctrl, mock_fw, mock_chat):
+    def test_sve_faze_uspjesne_daje_zavrsnu_poruku(
+        self, mock_ctrl, mock_fw, mock_chat, completion_sound
+    ):
         mock_ctrl.draft.items = [MagicMock()]
 
         _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
@@ -109,6 +121,7 @@ class TestUspjesanTok:
         mock_fw._on_calculate_masses.assert_called_once_with(auto=True)
         mock_fw._on_validate_all.assert_called_once_with(auto=True)
         mock_fw._on_create_naimenovanja.assert_called_once_with(auto=True)
+        completion_sound.assert_called_once_with("success")
 
     def test_preskace_auto_popuni_kad_sve_stavke_imaju_tarifu(self, mock_ctrl, mock_fw, mock_chat):
         _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
@@ -160,7 +173,9 @@ class TestKritickeFazePadaju:
     """Kriticna greska (mase / validacija-fail / naimenovanja) mora zaustaviti
     pipeline PRIJE sljedece faze — ne smije se nastaviti sa "except -> warn -> nastavi"."""
 
-    def test_pad_izracuna_masa_zaustavlja_sve_naredne_faze(self, mock_ctrl, mock_fw, mock_chat):
+    def test_pad_izracuna_masa_zaustavlja_sve_naredne_faze(
+        self, mock_ctrl, mock_fw, mock_chat, completion_sound
+    ):
         mock_fw._on_calculate_masses.return_value = False
 
         _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
@@ -171,6 +186,7 @@ class TestKritickeFazePadaju:
         messages = _agent_messages(mock_chat)
         assert any("zaustavljena" in m and "mase" in m for m in messages)
         assert not any("završena!" in m for m in messages)
+        completion_sound.assert_called_once_with("error")
 
     def test_izuzetak_u_izracunu_masa_ne_probija_pipeline(self, mock_ctrl, mock_fw, mock_chat):
         """Ako View metoda baci izuzetak (a ne samo vrati False), pipeline i
@@ -211,7 +227,7 @@ class TestKritickeFazePadaju:
 
 class TestDeklarantskaPotvrda:
     def test_odbijena_potvrda_ne_kreira_naimenovanja_i_ne_javlja_zavrseno(
-        self, mock_ctrl, mock_fw, mock_chat, monkeypatch
+        self, mock_ctrl, mock_fw, mock_chat, monkeypatch, completion_sound
     ):
         monkeypatch.setattr(ips.QMessageBox, "question", lambda *a, **kw: ips.QMessageBox.No)
 
@@ -221,6 +237,7 @@ class TestDeklarantskaPotvrda:
         messages = _agent_messages(mock_chat)
         assert any("pauzirana" in m for m in messages)
         assert not any("završena!" in m or "zaustavljena" in m for m in messages)
+        completion_sound.assert_not_called()
 
 
 class TestParcijalniRezultat:
@@ -239,7 +256,7 @@ class TestParcijalniRezultat:
         mock_fw._on_create_naimenovanja.assert_called_once_with(auto=True)
 
     def test_validacija_sa_samo_upozorenjima_nastavlja_i_daje_partial(
-        self, mock_ctrl, mock_fw, mock_chat
+        self, mock_ctrl, mock_fw, mock_chat, completion_sound
     ):
         mock_fw._on_validate_all.return_value = (True, 0, 2)  # 0 grešaka, 2 upozorenja
 
@@ -248,3 +265,4 @@ class TestParcijalniRezultat:
         mock_fw._on_create_naimenovanja.assert_called_once_with(auto=True)
         messages = _agent_messages(mock_chat)
         assert any("djelimično" in m for m in messages)
+        completion_sound.assert_called_once_with("warning")

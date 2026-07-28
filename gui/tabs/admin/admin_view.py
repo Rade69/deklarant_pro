@@ -17,6 +17,7 @@ from gui.tabs.admin.panels.system_panel import SystemPanel
 from gui.tabs.admin.panels.analytics_panel import AnalyticsPanel
 from gui.tabs.admin.panels.license_panel import LicensePanel
 from gui.tabs.admin.panels.learning_panel import LearningPanel
+from gui.tabs.admin.panels.settings_panel import SettingsPanel
 import qtawesome as qta
 
 
@@ -97,6 +98,7 @@ class AdminView(BaseTabView):
             ("fa5s.database",     "Baza Podataka",          "Status PostgreSQL baze i broj zapisa"),
             ("fa5s.chart-bar",    "Analitika",              "Statistika import-a i korišćenje parsera"),
             ("fa5s.file-alt",     "Logovi",                 "Pregled i filtriranje logova"),
+            ("fa5s.cog",          "Podešavanja",            "Izgled, backup, logovanje i zvučna obavještenja"),
             ("fa5s.info-circle",  "Sistemske Informacije",  "Informacije o sistemu i aplikaciji"),
             ("fa5s.key",          "Licenca",                "Machine ID, status licence, uvoz licence"),
             ("fa5s.brain",        "Učenje iz XML-ova",      "Reindeksiranje XML deklaracija i pregled stanja baze znanja"),
@@ -161,6 +163,9 @@ class AdminView(BaseTabView):
         self.logs_panel = LogsPanel()
         self.content_stack.addWidget(self.logs_panel)
 
+        self.settings_panel = SettingsPanel()
+        self.content_stack.addWidget(self.settings_panel)
+
         # System Info panel
         self.system_panel = SystemPanel()
         self.content_stack.addWidget(self.system_panel)
@@ -204,9 +209,9 @@ class AdminView(BaseTabView):
         """Getter za system panel."""
         return self.system_panel
 
-    def get_settings_panel(self) -> SystemPanel:
-        """Backward-compatible alias za stari naziv panela."""
-        return self.system_panel
+    def get_settings_panel(self) -> SettingsPanel:
+        """Getter za settings panel."""
+        return self.settings_panel
 
     def get_license_panel(self) -> LicensePanel:
         """Getter za license panel."""
