@@ -13,8 +13,12 @@ from gui.tabs.agent.services.import_pipeline_service import _puna_auto_pipeline
 from gui.tabs.agent.services import import_pipeline_service as ips
 
 
-def _line(tarifni_broj="12345678"):
-    return MagicMock(tarifni_broj=tarifni_broj)
+def _line(tarifni_broj="12345678", bruto_kg=0, neto_kg=0):
+    # bruto_kg/neto_kg=0 podrazumijevano (ne None/MagicMock auto-attribut,
+    # koji bi bio uvijek truthy i lažno "preskočio" fazu mase — vidi
+    # TestPreskociMaseAkoVecPopunjene ispod) — odražava svježe uvezenu
+    # stavku bez izračunate mase.
+    return MagicMock(tarifni_broj=tarifni_broj, bruto_kg=bruto_kg, neto_kg=neto_kg)
 
 
 @pytest.fixture
@@ -109,6 +113,47 @@ class TestUspjesanTok:
     def test_preskace_auto_popuni_kad_sve_stavke_imaju_tarifu(self, mock_ctrl, mock_fw, mock_chat):
         _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
         mock_fw._on_auto_fill.assert_not_called()
+
+
+class TestPreskociMaseAkoVecPopunjene:
+    """
+    Popravka (2026-07-28): _on_calculate_masses(auto=True) vraća False i
+    kad NEMA šta da se preračuna (sve stavke već imaju obje težine —
+    faktura_view.py:5180 "updated_count == 0"), ne samo pri stvarnom padu.
+    _puna_auto_pipeline je taj benigni "nema šta da se radi" ishod tretirala
+    kao fatalan pad i lažno zaustavljala cijelu automatizaciju — korisnička
+    primjedba: mase su ispravno prikazane u tabeli (npr. parser koji
+    ekstraktuje bruto/neto direktno po stavci), a pipeline ipak javlja
+    "Izračun masa nije uspio".
+    """
+
+    def test_ne_poziva_calculate_masses_kad_sve_stavke_vec_imaju_masu(
+        self, mock_ctrl, mock_fw, mock_chat,
+    ):
+        mock_ctrl.draft.invoice_lines = [
+            _line(bruto_kg=5.58, neto_kg=5.13),
+            _line(bruto_kg=1.90, neto_kg=1.75),
+        ]
+        mock_ctrl.draft.items = [MagicMock()]
+
+        _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
+
+        mock_fw._on_calculate_masses.assert_not_called()
+        messages = _agent_messages(mock_chat)
+        assert not any("zaustavljena" in m for m in messages)
+
+    def test_poziva_calculate_masses_kad_bar_jedna_stavka_nema_masu(
+        self, mock_ctrl, mock_fw, mock_chat,
+    ):
+        mock_ctrl.draft.invoice_lines = [
+            _line(bruto_kg=5.58, neto_kg=5.13),
+            _line(bruto_kg=0, neto_kg=0),
+        ]
+        mock_ctrl.draft.items = [MagicMock()]
+
+        _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
+
+        mock_fw._on_calculate_masses.assert_called_once_with(auto=True)
 
 
 class TestKritickeFazePadaju:

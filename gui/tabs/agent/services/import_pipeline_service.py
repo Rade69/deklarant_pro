@@ -242,22 +242,39 @@ def _puna_auto_pipeline(ctrl, fw, chat, all_lines: list) -> None:
     results: list[PipelineStageResult] = []
 
     # 1. Izračunaj mase — KRITIČNO, zaustavlja pipeline ako ne uspije.
-    chat.add_activity("⚖️ [Auto] Izračunavam mase...")
-    try:
-        ok = bool(fw and hasattr(fw, '_on_calculate_masses') and fw._on_calculate_masses(auto=True))
-    except Exception as e:
-        logger.error("[Puna automatizacija] Izračun masa — neočekivan izuzetak: %s", e, exc_info=True)
-        ok = False
-    if not ok:
-        chat.add_activity("❌ Izračun masa nije uspio — automatizacija zaustavljena")
-        results.append(PipelineStageResult(
-            "mase", PipelineStageStatus.FAILED,
-            message="Izračun masa nije uspio (provjeri unesene bruto/neto vrijednosti).",
-            can_continue=False,
-        ))
-        return _finish_puna_auto_pipeline(ctrl, chat, results)
-    chat.add_activity("✅ Mase izračunate")
-    results.append(PipelineStageResult("mase", PipelineStageStatus.SUCCESS))
+    # Preskoči ako SVE linije već imaju obje težine (npr. parser koji
+    # ekstraktuje bruto/neto direktno po stavci, bez potrebe za toolbar-total
+    # redistribucijom) — isti obrazac kao provjera "bez_tarife" ispod za
+    # auto-popunu tarifa. _on_calculate_masses(auto=True) vraća False i kad
+    # NEMA šta da se preračuna (sve već popunjeno, "updated_count == 0" —
+    # faktura_view.py:5180) — to nije greška, ali _puna_auto_pipeline je to
+    # tretirala kao fatalan pad i lažno zaustavljala cijelu automatizaciju
+    # (korisnička primjedba 2026-07-28: mase su ispravno prikazane u tabeli,
+    # a pipeline ipak javlja "Izračun masa nije uspio").
+    bez_mase = sum(
+        1 for l in ctrl.draft.invoice_lines
+        if not getattr(l, 'bruto_kg', None) or not getattr(l, 'neto_kg', None)
+    )
+    if bez_mase > 0:
+        chat.add_activity("⚖️ [Auto] Izračunavam mase...")
+        try:
+            ok = bool(fw and hasattr(fw, '_on_calculate_masses') and fw._on_calculate_masses(auto=True))
+        except Exception as e:
+            logger.error("[Puna automatizacija] Izračun masa — neočekivan izuzetak: %s", e, exc_info=True)
+            ok = False
+        if not ok:
+            chat.add_activity("❌ Izračun masa nije uspio — automatizacija zaustavljena")
+            results.append(PipelineStageResult(
+                "mase", PipelineStageStatus.FAILED,
+                message="Izračun masa nije uspio (provjeri unesene bruto/neto vrijednosti).",
+                can_continue=False,
+            ))
+            return _finish_puna_auto_pipeline(ctrl, chat, results)
+        chat.add_activity("✅ Mase izračunate")
+        results.append(PipelineStageResult("mase", PipelineStageStatus.SUCCESS))
+    else:
+        chat.add_activity("✅ [Auto] Sve stavke već imaju izračunatu masu — preskačem")
+        results.append(PipelineStageResult("mase", PipelineStageStatus.SUCCESS))
     QApplication.processEvents()
 
     # 2. Auto-popuni tarifne — WARNING ako ostanu neriješene, ne zaustavlja.
