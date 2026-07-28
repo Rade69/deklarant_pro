@@ -2966,3 +2966,74 @@ Ručni izbor tarifnog broja mora ići kroz
 `tariff_lookup_requested` → `NaimenovanjaController.on_tariff_changed()`.
 View smije prikazati izabranu šifru, ali ne smije direktno mijenjati draft,
 emitovati dirty stanje niti sam pokretati tarifnu poslovnu logiku.
+
+---
+
+## 88. "Provjeri" — SHOW_UNCONFIRMED popravlja cor-22 za prijedloge bez izvora (2026-07-28)
+
+Korisnik je prijavio da za proizvod "SUSSINA" (i slične) "Provjeri" dugme ne
+daje prijedlog tarife iako postoji jasna istorijska evidencija. Istraga je
+otkrila dvoslojan uzrok, direktno vezan za politiku iz §65 (26.07.2026,
+"istorijski prijedlog bez potvrđenog izvora se nikad ne prikazuje").
+
+**Sloj 1 — zašto izvor nedostaje**: `TariffMappingService.save_mapping()`
+(`services/tariff/tariff_mapping_service.py:937`), putanja koju koristi
+SVAKA ručna potvrda/ispravka tarife u aplikaciji (Naimenovanja "Nauči",
+Faktura ispravka, agent chat "nauči tarifu" — preko `TariffFacade.learn()`/
+`sync_mapping()`), **nikad nije primala niti upisivala `source`/`supplier`
+kolonu**. Samo odvojena `learn_from_draft()` (bulk XML učenje) to radi.
+Potvrđeno u bazi: `SUSSINA 650/200/1200 tbl.` → `21069098`, korišteno
+41-47×, `source`/`supplier` potpuno prazni. Ovaj sloj NIJE popravljen u
+ovom fixu (van scope-a — zahtijevalo bi dodavanje `source` parametra kroz
+lanac `save_mapping`→`learn`→`sync_mapping` i sve pozivaoce).
+
+**Sloj 2 — pravi Catch-22**: politika §65 suprimira zapis bez izvora PRIJE
+nego što uopšte stigne do `TariffValidationDialog` (`decide_tariff_match` →
+`SUPPRESS` → `should_show=False`). Ali "ranija ručna potvrda (100%)"
+auto-primjena (`_notify_auto_applied_tariffs`) radi preko POTPUNO ODVOJENE
+tabele `catalogs.user_feedback`, koja se puni ISKLJUČIVO eksplicitnim
+Prihvati/Odbij klikom UNUTAR tog istog dijaloga. Pošto se zapis nikad ne
+prikaže, korisnik ga nikad ne može ni potvrditi, pa `user_feedback` nikad
+ne dobije zapis — trajno nevidljiv i nepotvrdiv, bez obzira na broj
+istorijskih korištenja.
+
+**Fix** (korisnikov eksplicitan izbor: "vrati vidljivost SAMO za ručnu
+potvrdu"): `decide_tariff_match()` (`tariff_decision_model.py`) dobija nov
+ishod `SHOW_UNCONFIRMED` — kad izvor nedostaje ALI `usage_count ≥
+min_usage_for_unsourced_review` (novi prag, 5 — namjerno viši od
+`min_usage_for_weak_source`=2, jer je "nema izvora" rizičnije od "slab
+izvor"), prijedlog se PRIKAZUJE umjesto potpunog suprimiranja. Postojeća
+UI/evidence infrastruktura je već bila spremna za ovo bez ijedne izmjene:
+`evidence_from_tariff_decision()` već vraća `DecisionConfidence.UNKNOWN`
+za bilo koji zapis bez izvora (nezavisno od outcome-a), što
+`TariffValidationDialog._make_row()` već renderuje kao "izvor nepoznat —
+nije potvrđena historija", a `_can_accept_all()` već isključuje iz
+"Prihvati sve". Samo pojedinačan klik "Prihvati" upisuje u `user_feedback`
+— TEK NAKON toga (na sljedećem uvozu) radi auto-primjena.
+
+**Ne slabi politiku §65** — ništa se i dalje ne primjenjuje bez eksplicitne
+ljudske potvrde, samo se ta potvrda opet omogućava.
+
+**Sporedan nalaz, nedirano**: baza sadrži i pogrešnu paralelnu mapu
+(`SUSSINA` → `38249993`, usage=12 — poraslo sa 2 otkad je §65 politika
+aktivna, vjerovatno korisnici ručno unosili pogrešnu tarifu jer im sistem
+ništa nije predlagao). `_search_one()` sortira po `usage_count DESC`, pa
+ispravan zapis (47) i dalje pobjeđuje kao `best` u `validate_lines()` —
+nema praktičan negativan efekat, nije čišćeno.
+
+Testovi: `tests/unit/test_historical_tariff_validation.py` —
+`test_unknown_source_never_auto_applied_regardless_of_usage_or_heading`
+(preimenovan i prepisan iz `..._never_shown_...`), plus rekonstruisan
+`test_search_one_ne_gubi_najjaci_zapis_bez_dobavljaca` (izvoran SUSSINA test
+iz 22.07 — sad end-to-end dokazuje `validate_lines()` vraća SHOW_UNCONFIRMED
+umjesto praznog rezultata). `tests/unit/test_tariff_validation_dialog.py` —
+nov `test_unconfirmed_source_excluded_from_bulk_accept`. Nijedan JSON
+fixture case nije trebalo mijenjati (svi postojeći "bez izvora" slučajevi
+imaju usage 1-2, ispod novog praga 5).
+
+Puna svita: 1460 passed (1459 + 1 nov test), isti pre-postojeći nepovezani
+padovi. `dist_client` test fajlovi (`test_historical_tariff_validation.py`,
+`test_tariff_validation_dialog.py`) su bili već zaostali prije ovog fixa
+(pre-postojeći drift, nepovezano) — nisu ažurirani da se izbjegne miješanje
+sa nepovezanim razlikama; produkcioni kod (`tariff_decision_model.py`,
+`historical_tariff_search_service.py`) JESTE ogledan i identičan root-u.
