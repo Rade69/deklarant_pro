@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from core.draft.draft import InvoiceLine, DeclarationDraft
+from importers.invoice_line_utils import normalize_tariff_number
 from services.tariff.product_master_list import ProductMasterList
 from services.tariff.tariff_mapping_service import validate_preference
 
@@ -147,7 +148,7 @@ class DeclarationAssembly:
                 line_no=count + 1,
                 product_code=record.code,  # Originalna šifra (ne dict ključ koji može imati #2 sufiks)
                 naziv_robe=record.name,
-                tarifni_broj=record.tariff,
+                tarifni_broj=normalize_tariff_number(record.tariff),
                 zemlja_porijekla=record.origin,
                 povlastica=validate_preference(record.origin, record.preferential),
                 jm=record.unit,

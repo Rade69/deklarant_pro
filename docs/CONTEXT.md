@@ -2838,3 +2838,131 @@ Puna svita: 1424 passed (1418 + 6 novih), isti 3 pre-postojeća nepovezana
 pada (tool registry drift, hardkodovana Linux putanja u test_xml_parser_fix,
 model_benchmark network error) + 1 pre-postojeći error — svi nepovezani sa
 ovom izmjenom.
+
+---
+
+## 81. Naimenovanja Controller — brisanje ne smije pozvati save poslije delete (2026-07-28)
+
+Kod brisanja aktivnog naimenovanja forma još prikazuje obrisanu stavku. Ako se
+nakon `del items[index]` pozove navigacija koja prvo snima formu, podaci
+obrisane stavke prepišu sljedeću stavku koja je zauzela isti indeks. Ispravan
+redoslijed je: potvrda u View-u → Controller briše i renumeriše → postavlja
+validan indeks → renderuje, bez save-before-navigation poziva. Numerička polja
+forme moraju ostati `int`/`float`, a tarifni broj se normalizuje na cifre prije
+upisa u draft; Controller dobija aktivni draft isključivo kroz getter.
+
+---
+
+## 82. Naimenovanja faze 5–8 — kontrolisano učenje i PE/XML pravila (2026-07-28)
+
+Promjena tarife kroz Naimenovanja tab prolazi View signal → Controller →
+NaimenovanjaService. Kod grupisanog naimenovanja povezane faktura-stavke uvijek
+se nalaze preko `assigned_naimenovanje_ordinal`; obrazac `ordinal_no - 1` nije
+ispravan. Baza znanja se ažurira tek poslije eksplicitne potvrde korisnika i za
+svaku povezanu faktura-stavku zasebno.
+
+Prihvaćeni tarifni prijedlog smije automatski promijeniti samo tarifni broj.
+Zemlja porijekla i povlastica iz prijedloga nisu dovoljan dokaz i ostaju
+nepromijenjene. PE1/PE2/PE3 se normalizuju i čuvaju u `attached_document4`
+samo kada naimenovanje ima povlasticu; sekundarna PE polja se čiste, a zaglavlje
+se svaki put ponovo gradi bez duplikata.
+
+ASYCUDA XML import mutira postojeći draft objekat, čuva aktuelna transportna
+polja, prazni reference svih globalnih dokumenata osim `DIS`, zatim osvježava
+Naimenovanja i Zaglavlje kroz wrapper callback. View samo bira fajl, traži
+potvrdu i emituje namjeru; ne smije nakon toga drugi put samostalno uvoziti XML.
+
+---
+
+## 83. Rub.31 trgovački naziv — GUI format ostaje ograničen na 280 znakova (2026-07-28)
+
+Windows grana je autoritativna za formatiranje trgovačkog naziva u Naimenovanja
+tabu: `_format_trading_names()` podrazumijevano vraća najviše 280 znakova.
+Pri skraćivanju prvo se izostavlja ili skraćuje tarifni heading, zatim nazivi
+proizvoda, dok se podatak `Faktura: ... (rb. ...)` čuva kad god stane u limit.
+Refaktor ne smije promijeniti podrazumijevani `max_chars` na `None`.
+
+Ovo GUI pravilo je dodatno uz strožije XML pravilo iz `rub31_builder.py`:
+`Description_of_goods` je jedna linija do 55 znakova, a
+`Commercial_Description` najviše tri linije i ukupno do 280 znakova.
+
+---
+
+## 84. Naimenovanja XML import — dokumenti se čitaju iz attached_documents (2026-07-28)
+
+Pri uvozu ASYCUDA XML-a globalni dokumenti moraju se graditi iz kompletne
+`NaimenovanjeDraft.attached_documents` liste, ne iz pet pomoćnih
+`attached_document1..5` polja. Pomoćna polja su samo ograničeni GUI prikaz:
+gube šesti i naredne dokumente i formatiraju reference kao `ŠIFRA (broj)`,
+što bi pokvarilo broj `DIS` dokumenta.
+
+PE master iz XML-a služi samo za popunjavanje praznog `attached_document4` na
+stavkama sa povlasticom. Već postojeći različiti PE1/PE2/PE3 podaci po stavkama
+ne smiju se prepisati master vrijednošću. Nakon toga se zaglavlje ponovo gradi
+iz stvarnih item vrijednosti.
+
+Tarifni opis u Naimenovanja servisu koristi lokalni SQLite lookup kao primarni
+izvor, ali mora zadržati PostgreSQL fallback iz Windows toka za podbroj i
+četvorocifrenu glavu.
+
+---
+
+## 85. InvoiceLine tarifa je uvijek najviše 8 cifara (2026-07-28)
+
+Desetocifreni oblik pripada PostgreSQL/TARIC lookup sloju i ne smije ostati u
+`InvoiceLine`. Zajednički `normalize_tariff_number()` uklanja nenumeričke
+znakove i svaki kod duži od 8 cifara svodi na prvih 8; kodovi kraći od 8 ostaju
+nepromijenjeni jer se smjer nedostajuće cifre ne smije pogađati.
+
+Tok „Učitaj glavnu listu“ je zaseban od standardnog ImportService toka.
+`ProductMasterList` može interno proizvesti 10-cifreni bazni zapis, pa
+`DeclarationAssembly.load_master_list()` mora normalizovati tarifu pri
+kreiranju `InvoiceLine`, prije prikaza u Faktura tabeli i prije grupisanja.
+
+---
+
+## 86. ASYCUDA parity corpus 2024–2026 (2026-07-28)
+
+Referentni ASYCUDA corpus je `H:\New folder\NOVA ASIKUDA`, ali se koriste
+isključivo 1.630 XML fajlova iz 2024–2026. Interni datum ima prednost, a kada je
+prazan koristi se potvrđeno pouzdani datum izmjene. Sirovi XML, partneri,
+fakture i reference dokumenata ne smiju se kopirati u repo niti slati LLM-u;
+dozvoljeni su samo agregirani rezultati.
+
+Potvrđene formule su:
+
+`Total_cost = external + internal + insurance + other - deduction`
+
+`Total_CIF = invoice_national + external + insurance + other - deduction`
+
+Broj obrazaca je `1 + ceil((broj_naimenovanja - 1) / 3)`, ne
+`ceil(broj_naimenovanja / 3)`.
+
+Dopunske jedinice su dovoljno stabilne za evidence-based automatizaciju, ali
+trenutni NAR/PCE i fallback za poglavlja 01–24 imaju dokazano mnogo promašaja.
+Dokumenti nisu deterministička funkcija tarife, zemlje, povlastice i postupka;
+historija smije dati prijedlog, ne automatski upis bez službenog pravila.
+
+Detaljna metodologija i plan:
+`docs/ASYCUDA_PARITY_PROFILE_2024_2026.md`.
+
+---
+
+## 87. Naimenovanja render i dist_client moraju imati jedan aktivan put (2026-07-28)
+
+Aktivni prikaz naimenovanja ostaje
+`NaimenovanjaView.render_current_item()` → `_load_current_item()`. Neaktivni
+`NaimenovanjeRenderContext` i istoimena slobodna render funkcija iz Phase 4
+bili su nepotpun scaffold: nisu imali pozivaoce, nisu pokrivali sva polja forme
+i zaobilazili su kanonsko `_set_widget_value()` formatiranje. Ne smiju se
+ponovo uključiti bez kompletne migracije svih polja i karakterizacionih testova.
+
+`dist_client` se može pokretati i buildovati kao samostalan root, zato svaki
+modul koji root servis uvozi mora postojati i pod `dist_client`. Posebno,
+`dist_client/services/naimenovanja/models.py` je obavezan jer ga
+`NaimenovanjaService` uvozi pri kreiranju taba.
+
+Ručni izbor tarifnog broja mora ići kroz
+`tariff_lookup_requested` → `NaimenovanjaController.on_tariff_changed()`.
+View smije prikazati izabranu šifru, ali ne smije direktno mijenjati draft,
+emitovati dirty stanje niti sam pokretati tarifnu poslovnu logiku.

@@ -177,6 +177,14 @@ class NaimenovanjaView(BaseTabView):
     # data_changed naslijeđen iz BaseTabView
     import_xml_requested = Signal(str)
     suggest_tariff_requested = Signal()
+    save_current_requested = Signal()
+    navigate_requested = Signal(int)
+    add_requested = Signal()
+    delete_requested = Signal(int)
+    tariff_lookup_requested = Signal(str)
+    knowledge_base_update_requested = Signal(str)
+    pe_documents_changed = Signal()
+    tariff_suggestion_accepted = Signal(dict)
 
     def __init__(
         self, draft: Optional[DeclarationDraft] = None, on_dirty: Optional[Callable] = None
@@ -194,7 +202,7 @@ class NaimenovanjaView(BaseTabView):
 
         self.tariff_timer = QTimer()
         self.tariff_timer.setSingleShot(True)
-        self.tariff_timer.timeout.connect(self._perform_tariff_lookup)
+        self.tariff_timer.timeout.connect(self._emit_tariff_lookup)
 
         # Initialize cache for tariff descriptions
         self.tariff_cache = {}
@@ -1227,18 +1235,6 @@ class NaimenovanjaView(BaseTabView):
             return digits[:4]
         return digits
 
-    def _extract_short_code(self, tariff_code: str) -> str:
-        """
-        Vrati 4-cifreni prefiks za traženje heading opisa (viši nivo klasifikacije).
-        Primjer: "1601009100" → "1601", "1602421000" → "1602"
-        """
-        if not tariff_code:
-            return ""
-        digits = "".join(filter(str.isdigit, tariff_code))
-        if len(digits) >= 4:
-            return digits[:4]
-        return digits
-
     def _clean_tariff_description(self, description: str) -> str:
         """
         Uklanja tehničke tarifne stope s kraja opisa.
@@ -1612,6 +1608,11 @@ class NaimenovanjaView(BaseTabView):
         self.tariff_timer.stop()
         self.tariff_timer.start(400)
 
+    def _emit_tariff_lookup(self) -> None:
+        self.tariff_lookup_requested.emit(
+            self.tariff_timer.property("pending_code") or ""
+        )
+
     def _on_tariff_enter(self) -> None:
         """
         Korisnik je pritisnuo Enter u polju Rb.33.
@@ -1715,11 +1716,14 @@ class NaimenovanjaView(BaseTabView):
         if not item:
             return
 
-        invoice_line = None
-        line_idx = item.ordinal_no - 1
-        if hasattr(self.draft, 'invoice_lines') and self.draft.invoice_lines:
-            if 0 <= line_idx < len(self.draft.invoice_lines):
-                invoice_line = self.draft.invoice_lines[line_idx]
+        invoice_line = next(
+            (
+                line for line in (getattr(self.draft, "invoice_lines", []) or [])
+                if getattr(line, "assigned_naimenovanje_ordinal", 0)
+                == getattr(item, "ordinal_no", 0)
+            ),
+            None,
+        )
 
         # Trgovački naziv — čitaj direktno iz te_r31_trg_naziv (ono što korisnik vidi)
         naziv_robe = ""
@@ -1753,87 +1757,39 @@ class NaimenovanjaView(BaseTabView):
 
         if reply == QMessageBox.Yes:
             try:
-                # Učenje — docs/architecture/TARIFF_FACADE_REFACTORING.md
-                from services.tariff_facade import TariffFacade
-                product_code = invoice_line.product_code if invoice_line else ""
-                zemlja = invoice_line.zemlja_porijekla if invoice_line else (item.origin_country_code or "")
-                new_suffix = item.tariff_suffix or "000"
-
-                # sync_mapping: obriši stare zapise + sačuvaj novi (objedinjeno u TariffFacade)
-                if naziv_robe and new_tariff:
-                    TariffFacade.get_instance().sync_mapping(
-                        naziv_robe=naziv_robe,
-                        product_code=product_code or "",
-                        new_tariff=new_tariff,
-                        zemlja_porijekla=zemlja or "",
-                        precision_1=new_suffix,
-                    )
-                import logging
-                logging.getLogger(__name__).info(
-                    f"✅ KB ažuriran: '{naziv_robe[:40]}' → {new_tariff}"
-                )
+                self.knowledge_base_update_requested.emit(new_tariff)
             except Exception as e:
                 QMessageBox.warning(self, "Greška", f"Nije moguće ažurirati bazu znanja:\n{e}")
 
-    def _perform_tariff_lookup(self) -> None:
-        """Izvrsi tariff lookup sa cache-om (poziva se nakon 400ms pauze).
-
-        Popunjava dva nivoa opisa:
-          - te_r31_opis   → 6-8 cifreni podbroj (precizni opis, npr. "847130")
-          - te_r31_opis_2 → 4-cifreni heading (npr. "8471")
-        Uvijek poziva _populate_tariff_description kako bi se polja očistila
-        kada novi tarifni broj nije pronađen.
-        """
-        tariff_code = self.tariff_timer.property("pending_code")
-        if not tariff_code or len(tariff_code.strip()) == 0:
-            # Ako je polje prazno — obriši oba opisa
-            self._populate_tariff_description("", "")
-            return
-
-        digits = "".join(filter(str.isdigit, tariff_code.strip()))
-
-        # 4-cifreni heading (viši nivo)
-        heading_code = digits[:4] if len(digits) >= 4 else digits
-
-        # 6-cifreni subheading (srednji nivo, ako postoji dovoljno cifara)
-        subheading_code = digits[:6] if len(digits) >= 6 else ""
-
-        def _get_cached_or_lookup(code: str, nivo: str) -> str:
-            cache_key = f"{nivo}:{code}"
-            if cache_key in self.tariff_cache:
-                return self.tariff_cache[cache_key]
-            desc = self._load_tariff_description_from_db(code, nivo=nivo)
-            if desc:
-                self.tariff_cache[cache_key] = desc
-            return desc
-
-        # Tačan opis podbroja (10 cifara, sa fallback na kraće)
-        full_description = _get_cached_or_lookup(digits, "podbroj") if digits else ""
-
-        # Heading opis (4 cifre, nivo='glava')
-        heading_description = _get_cached_or_lookup(heading_code, "glava") if heading_code else ""
-
-        self._populate_tariff_description(full_description, heading_description)
-
-        # tariff_description2 (heading) ide u le_r31_trg_naziv ako je prazno
-        if heading_description:
+    def show_tariff_lookup(self, result) -> None:
+        self._populate_tariff_description(
+            result.full_description, result.short_description
+        )
+        if result.short_description:
             trg = self._get_widget("le_r31_trg_naziv")
-            trg_empty = not (trg and (trg.toPlainText() if hasattr(trg, 'toPlainText') else trg.text()).strip())
-            if trg_empty and hasattr(self, "te_trg_naziv"):
-                trg_empty = not self.te_trg_naziv.toPlainText().strip()
-            if trg_empty:
-                if hasattr(self, "te_trg_naziv"):
-                    self.te_trg_naziv.setPlainText(heading_description)
-                item = self.draft.items[self.current_item_index] if self.draft.items else None
-                if item:
-                    item.goods_trade_name = heading_description
+            current = ""
+            if trg:
+                current = (
+                    trg.toPlainText() if hasattr(trg, "toPlainText") else trg.text()
+                ).strip()
+            if not current and hasattr(self, "te_trg_naziv"):
+                self.te_trg_naziv.setPlainText(result.short_description)
+        self._check_and_show_tariff_warning(result.tariff_code)
 
-        # Provjeri inspekcijsku kontrolu za uneseni tarifni broj
-        self._check_and_show_tariff_warning(tariff_code)
+    def show_knowledge_base_updated(self, count: int, tariff_code: str) -> None:
+        self.show_success(
+            f"Baza znanja je ažurirana za {count} stavki tarifom {tariff_code}."
+        )
 
-        # Automatski dodaj potrebne priložene dokumente u header_attached_documents
-        self._add_tariff_control_docs(tariff_code)
-        self._add_history_docs(tariff_code)
+    def show_invalid_suggestion_input(self, reason: str, name: str) -> None:
+        if reason == "stop_word":
+            message = "Naziv robe je previše opšti za automatsku sugestiju."
+        else:
+            message = (
+                f"Naziv robe je previše kratak ({len((name or '').strip())} "
+                "karaktera)."
+            )
+        self.show_warning(message)
 
     def _add_history_docs(self, tariff_code: str) -> None:
         """Dodaj priložene dokumente iz istorije XML deklaracija za dati tarifni broj."""
@@ -1987,143 +1943,24 @@ class NaimenovanjaView(BaseTabView):
                 self.te_trg_naziv.setPlainText(trading_names)
 
     def _format_trading_names(self, max_chars: int = 280) -> str:
-        # docs/sections/export-pdf-excel.md — dodaje footer sa Faktura: info
-        """
-        Formatuj sve nazive proizvoda iz fakture koji pripadaju trenutnom naimenovanju.
-        Na dnu dodaje spisak faktura i rednih brojeva stavki koje ulaze u naimenovanje.
-
-        Args:
-            max_chars: Maksimalan broj karaktera — ASYCUDA Rb.31 limit je 280
-
-        Returns:
-            Nazivi proizvoda + na dnu "Faktura: broj (rb. x, y)" informacija
-        """
-        if len(self.draft.items) == 0:
-            logger.warning("  ⚠️ _format_trading_names: Nema naimenovanja u draft.items")
-            return ""
-
-        # Get current naimenovanje ordinal
-        current_item = self.draft.items[self.current_item_index]
-        ordinal_no = current_item.ordinal_no
-
-        # Filter invoice lines assigned to this naimenovanje
-        assigned_lines = [
-            line
-            for line in self.draft.invoice_lines
-            if line.assigned_naimenovanje_ordinal == ordinal_no
-        ]
-
-        if not assigned_lines:
-            return ""
-
-        # --- 1. Opis 4-cifrene glave (tariff_description2) ---
-        tariff_heading = (current_item.tariff_description2 or "").strip()
-
-        # --- 2. Nazivi proizvoda ---
-        product_names = [line.naziv_robe for line in assigned_lines if line.naziv_robe]
-        nazivi_dio = ", ".join(product_names) if product_names else ""
-
-        # --- 3. Faktura info na dnu ---
-        from collections import OrderedDict
-        fakture: dict = OrderedDict()
-        for line in assigned_lines:
-            inv = line.invoice_number or "?"
-            if inv not in fakture:
-                fakture[inv] = []
-            fakture[inv].append(str(line.line_no))
-
-        fakture_dio_parts = []
-        for inv, rb_list in fakture.items():
-            fakture_dio_parts.append(f"{inv} (rb. {', '.join(rb_list)})")
-
-        fakture_dio = "Faktura: " + ", ".join(fakture_dio_parts)
-
-        # --- 4. Kombinuj: prioritet nazivi > faktura > heading ---
-        # Fiksni dio: nazivi + faktura (uvijek se prikazuju puni)
-        core_parts = [p for p in [nazivi_dio, fakture_dio] if p]
-        core = ", ".join(core_parts)
-
-        if tariff_heading:
-            # Koliko prostora ostaje za heading (+ ", " separator)
-            heading_budget = max_chars - len(core) - 2  # -2 za ", "
-            if heading_budget >= len(tariff_heading):
-                final_heading = tariff_heading
-            elif heading_budget > 6:
-                # Skrati heading, pokušaj na granici riječi
-                cut = tariff_heading[:heading_budget - 3]
-                last_space = cut.rfind(" ")
-                final_heading = (cut[:last_space] if last_space > 0 else cut) + "..."
-            else:
-                final_heading = ""  # nema mjesta ni za skraćeni heading
-            parts = [p for p in [final_heading, nazivi_dio, fakture_dio] if p]
-        else:
-            parts = core_parts
-
-        result = ", ".join(parts)
-
-        # Ako čak i bez headinga core > max_chars, skrati nazive
-        if len(result) > max_chars:
-            fakture_len = len(fakture_dio) + 2
-            nazivi_max = max_chars - fakture_len - 3
-            if nazivi_max > 20 and product_names:
-                truncated_nazivi = nazivi_dio[:nazivi_max]
-                last_comma = truncated_nazivi.rfind(", ")
-                if last_comma > 0:
-                    truncated_nazivi = truncated_nazivi[:last_comma]
-                result = ", ".join([truncated_nazivi + "...", fakture_dio])
-            else:
-                result = result[:max_chars - 3] + "..."
-
-        logger.debug(f"  📝 Ukupna dužina: {len(result)} karaktera")
-        return result
+        from services.naimenovanja.naimenovanja_service import NaimenovanjaService
+        return NaimenovanjaService.format_trading_names(
+            self.draft,
+            self.current_item_index,
+            max_chars=max_chars,
+        )
 
     # ═══════════════════════════════════════════════════════════
     # DATA BINDING
     # ═══════════════════════════════════════════════════════════
 
-    def _parse_cost(self, val) -> float:
-        """Parse trošak iz stringa (podržava zarez i tačku kao decimalni separator)."""
-        try:
-            return float(str(val or 0).replace(",", ".").replace(" ", ""))
-        except Exception:
-            return 0.0
-
     def _compute_pd_codes(self, item=None) -> str:
-        """Rb.44 P.D. — objedinjene šifre from_rule priloženih dokumenata.
-
-        PE1/PE2/PE3 se prikazuju samo ako naimenovanje ima povlasticu (Rub.36),
-        jer Rub.44 ne smije biti popunjena ako Rub.36 nije.
-        """
-        docs = []
-        docs.extend(getattr(self.draft, "header_attached_documents", []) or [])
-        if item is not None:
-            docs.extend(getattr(item, "attached_documents", []) or [])
-
-        codes = []
-        seen = set()
-        for doc in docs:
-            code = (getattr(doc, "code", "") or "").strip().upper()
-            if not code or not getattr(doc, "from_rule", False):
-                continue
-            if code in _PE_DOC_CODES:
-                continue
-            if code not in seen:
-                seen.add(code)
-                codes.append(code)
-        return " ".join(codes)
+        from services.naimenovanja.naimenovanja_service import NaimenovanjaService
+        return NaimenovanjaService.compute_pd_codes(item, self.draft)
 
     def _compute_statistical_value(self, item) -> str:
-        """Rb.46 — statistička vrijednost: (item_value_EUR × kurs) + ext_freight_BAM."""
-        item_value = float(item.item_value or 0)
-        total_items_value = sum(float(it.item_value or 0) for it in self.draft.items)
-        if total_items_value <= 0 or item_value <= 0:
-            return ""
-        kurs = float(self.draft.kurs or 1.0) or 1.0
-        alpha = item_value / total_items_value
-        t1 = self._parse_cost(getattr(self.draft, "trosak_1", 0))
-        ext_freight = t1 * alpha
-        stat_val = round(item_value * kurs, 2) + ext_freight
-        return f"{stat_val:.2f}"
+        from services.naimenovanja.naimenovanja_service import NaimenovanjaService
+        return NaimenovanjaService.compute_statistical_value(item, self.draft)
 
     def _setup_rb44_pd_codes_field(self) -> None:
         field = self._get_widget("le_rubrika44_1")
@@ -2326,116 +2163,8 @@ class NaimenovanjaView(BaseTabView):
                 self.te_trg_naziv.setPlainText(item.goods_trade_name)
 
     def _save_current_item(self) -> None:
-        """Save form data to current item in draft"""
-        if self.is_loading or len(self.draft.items) == 0 or not hasattr(self, "ui"):
-            return
-
-        item = self.draft.items[self.current_item_index]
-
-        # Zapamtimo stari tarifni broj prije izmjene (za sinhronizaciju)
-        old_tariff = item.tariff_code or ""
-        old_suffix = item.tariff_suffix or "000"
-
-        # Virtualna polja (auto-izračun) — ne čuvaju se u draftu
-        _READONLY_VIRTUAL_FIELDS = {"statistical_value", "pd_codes"}
-
-        for widget_name, field_name in self.field_map.items():
-            if not field_name or field_name in _READONLY_VIRTUAL_FIELDS:
-                continue
-
-            widget = self._get_widget(widget_name)
-
-            if widget:
-                value = self._read_widget_value(widget)
-                normalized = self._normalize_field_value(field_name, value)
-                setattr(item, field_name, normalized)
-
-        _clear_secondary_pe_documents(item)
-        self._mark_dirty()
-
-        # ── Sinhronizacija tarifnog broja ako je promijenjen ──────────────
-        new_tariff = item.tariff_code or ""
-        new_suffix = item.tariff_suffix or "000"
-        if new_tariff and (new_tariff != old_tariff or new_suffix != old_suffix):
-            self._sync_tariff_to_source(old_tariff, old_suffix, new_tariff, new_suffix, item)
-
-    def _sync_tariff_to_source(
-        self, old_tariff: str, old_suffix: str,
-        new_tariff: str, new_suffix: str,
-        naim_item,
-    ) -> None:
-        """
-        Sinhronizacija promjene tarifnog broja na 3 mjesta:
-        1. InvoiceLine (source iz PDF-a) — tarifni_broj + tariff_suffix
-        2. Baza znanja (product_tariff_mapping) — commodity_code + precision_1
-        3. Log obavijest korisniku
-
-        Pokreće se samo kad korisnik RUČNO promijeni tarif u Naimenovanja tabu.
-        """
-        import logging
-        log = logging.getLogger(__name__)
-
-        # ── 1. Pronađi izvornu InvoiceLine ────────────────────────────────
-        invoice_line = None
-        # Za 1:1 mapiranje: ordinal_no = index + 1
-        line_idx = naim_item.ordinal_no - 1
-        if hasattr(self.draft, 'invoice_lines') and self.draft.invoice_lines:
-            if 0 <= line_idx < len(self.draft.invoice_lines):
-                invoice_line = self.draft.invoice_lines[line_idx]
-
-        # Ako nismo našli po indexu, probaj po nazivu robe (za grupisane)
-        if invoice_line is None:
-            naziv = naim_item.goods_description or naim_item.goods_trade_name or ""
-            if naziv:
-                for line in self.draft.invoice_lines:
-                    if (line.naziv_robe or "").lower() == naziv.lower():
-                        invoice_line = line
-                        break
-
-        # ── 2. Ažuriraj InvoiceLine ───────────────────────────────────────
-        if invoice_line:
-            old_line_tariff = invoice_line.tarifni_broj or ""
-            invoice_line.tarifni_broj = new_tariff
-            invoice_line.tariff_suffix = new_suffix
-            if old_line_tariff and old_line_tariff != new_tariff:
-                log.info(
-                    f"🔄 Tariff sync: InvoiceLine '{invoice_line.naziv_robe[:40]}' "
-                    f"{old_line_tariff} → {new_tariff}/{new_suffix}"
-                )
-
-        # ── 3. Ažuriraj bazu znanja ───────────────────────────────────────
-        product_code = invoice_line.product_code if invoice_line else ""
-        naziv_robe = (
-            invoice_line.naziv_robe if invoice_line
-            else (naim_item.goods_description or naim_item.goods_trade_name or "")
-        )
-        zemlja = invoice_line.zemlja_porijekla if invoice_line else naim_item.origin_country_code
-
-        try:
-            # Učenje — docs/architecture/TARIFF_FACADE_REFACTORING.md
-            from services.tariff_facade import TariffFacade
-
-            # sync_mapping: obriši stare zapise (samo old_tariff) + sačuvaj novi
-            deleted = 0
-            if naziv_robe and new_tariff:
-                deleted = TariffFacade.get_instance().sync_mapping(
-                    naziv_robe=naziv_robe,
-                    product_code=product_code or "",
-                    new_tariff=new_tariff,
-                    zemlja_porijekla=zemlja or "",
-                    precision_1=new_suffix,
-                    old_tariff=old_tariff,
-                )
-                log.info(
-                    f"✅ KB sync: '{naziv_robe[:40]}' → {new_tariff}/{new_suffix} "
-                    f"({deleted} starih zapisa obrisano)"
-                )
-
-        except Exception as e:
-            log.warning(f"⚠️ Tariff KB sync failed for '{naziv_robe[:40]}': {e}")
-
-        # Obavijest se prikazuje samo iz _ask_update_knowledge_base (na Enter)
-        pass
+        if not self.is_loading:
+            self.save_current_requested.emit()
 
     def _update_all_ui(self) -> None:
         """Update all UI elements"""
@@ -2549,27 +2278,10 @@ class NaimenovanjaView(BaseTabView):
             self._navigate_to_item(self.current_item_index + 1)
 
     def _navigate_to_item(self, index: int) -> None:
-        """Navigate to specific item"""
-        self._save_current_item()
-        self.current_item_index = index
-        self._load_current_item()
-        self._update_all_ui()
+        self.navigate_requested.emit(index)
 
     def _on_add_item(self) -> None:
-        """Add new naimenovanje"""
-        logger.debug("  ➕ Adding item...")
-        self._save_current_item()
-
-        new_item = self.draft.add_item()
-        new_item.ordinal_no = len(self.draft.items)
-
-        self._navigate_to_item(len(self.draft.items) - 1)
-
-        # Focus first field (tariff code)
-        if hasattr(self, "ui"):
-            first_field = self._get_widget("le_rubrika33")
-            if first_field:
-                first_field.setFocus()
+        self.add_requested.emit()
 
     def _on_delete_item(self) -> None:
         """Delete current naimenovanje"""
@@ -2587,21 +2299,20 @@ class NaimenovanjaView(BaseTabView):
         )
 
         if reply == QMessageBox.Yes:
-            del self.draft.items[self.current_item_index]
+            self.delete_requested.emit(self.current_item_index)
 
-            if self.current_item_index >= len(self.draft.items):
-                self.current_item_index = len(self.draft.items) - 1
+    def read_current_form(self) -> dict:
+        from gui.tabs.naimenovanja_view_phase4 import read_current_form
+        return read_current_form(self)
 
-            # Renumber
-            for i, item in enumerate(self.draft.items):
-                item.ordinal_no = i + 1
+    def render_current_item(self) -> None:
+        self._load_current_item()
+        self._update_all_ui()
 
-            self.draft.mark_dirty()
-            if self.on_dirty:
-                self.on_dirty()
-
-            self._load_current_item()
-            self._update_all_ui()
+    def focus_tariff_field(self) -> None:
+        first_field = self._get_widget("le_rubrika33")
+        if first_field:
+            first_field.setFocus()
 
     def _on_save(self) -> None:
         """Save the complete declaration as a portable XML working draft."""
@@ -2959,106 +2670,18 @@ class NaimenovanjaView(BaseTabView):
         self._refresh_summary_and_status()
 
     def _on_rubrika44_4_finished(self) -> None:
-        """Primijeni rubrika44_4 na sve iteme NAKON zavrsetka uredivanja (Enter/blur).
-
-        Automatski dodaje PE1/PE2/PE3 u header_attached_documents
-        radi prikaza u tabeli priloženih dokumenata u zaglavlju.
-        Vidi docs/sections/pe-rub44-4.md
-        """
         if self.is_loading:
             return
-
-        le_rubrika44_4 = self._get_widget("le_rubrika44_4")
-        if not le_rubrika44_4:
-            return
-
-        text = _normalize_pe_document_text(le_rubrika44_4.text())
-        if text != le_rubrika44_4.text().strip():
-            le_rubrika44_4.setText(text)
-
-        # 1. Sacuvaj trenutni item
         self._save_current_item()
-        current_item = self.draft.items[self.current_item_index]
-        for widget_name, field_name in self.field_map.items():
-            if field_name in (
-                "attached_document1",
-                "attached_document2",
-                "attached_document3",
-                "attached_document5",
-            ):
-                widget = self._get_widget(widget_name)
-                if widget:
-                    widget.setText(getattr(current_item, field_name, "") or "")
+        self.pe_documents_changed.emit()
 
-        # 2. Primijeni na sve ostale iteme
-        # PRAVILO: Rub.44 se ne smije postaviti ako Rub.36 nije popunjena
-        if len(self.draft.items) > 1:
-            for i, item in enumerate(self.draft.items):
-                if i != self.current_item_index:
-                    has_pref = bool((getattr(item, 'preference_code', '') or '').strip())
-                    if text and not has_pref:
-                        continue  # ne upisuj Rub.44 bez Rub.36
-                    item.attached_document4 = text
-                    _clear_secondary_pe_documents(item)
+    def current_pe_document(self) -> str:
+        widget = self._get_widget("le_rubrika44_4")
+        return widget.text().strip() if widget else ""
 
-        # 3. Sinhronizuj PE šifre iz rub.44.4 u header_attached_documents
-        self._sync_pe_docs_to_header()
-
+    def show_document_merge(self, result) -> None:
+        self.render_current_item()
         self._update_summary()
-
-    def _sync_pe_docs_to_header(self) -> None:
-        """Sinhronizuj PE1/PE2/PE3 dokumente iz naimenovanja u header_attached_documents.
-
-        Čita attached_document4 sa svih naimenovanja, parsira format "ŠIFRA broj",
-        i dodaje AttachedDocument(code=ŠIFRA, number=broj) u draft.header_attached_documents.
-        Stari PE unosi se uklanjaju i zamjenjuju aktuelnim.
-        """
-        header_docs = getattr(self.draft, "header_attached_documents", None)
-        if header_docs is None:
-            return
-
-        # 1. Sakupi sve jedinstvene (sifra, broj) parove iz svih naimenovanja
-        pe_entries: list[tuple[str, str]] = []
-        seen: set[str] = set()
-        for item in self.draft.items:
-            _clear_secondary_pe_documents(item)
-            doc4 = _normalize_pe_document_text(getattr(item, 'attached_document4', '') or '')
-            if doc4 != (getattr(item, 'attached_document4', '') or '').strip():
-                item.attached_document4 = doc4
-            if not doc4:
-                continue
-            # Format: "ŠIFRA broj" (npr. "PE1 12345", "PE2 INV-001")
-            parts = doc4.split(' ', 1)
-            sifra = parts[0].strip()
-            broj = parts[1].strip() if len(parts) > 1 else ''
-            if sifra in _PE_DOC_CODES:
-                if sifra not in seen:  # dedup po šifri — jedna deklaracija = jedan EUR.1
-                    seen.add(sifra)
-                    pe_entries.append((sifra, broj))
-
-        # 2. Ukloni postojeće PE1/PE2/PE3 unose iz header_attached_documents
-        header_docs[:] = [d for d in header_docs if d.code not in _PE_DOC_CODES]
-
-        # 3. Dodaj nove unose
-        if pe_entries:
-            from core.draft.draft import AttachedDocument
-            for sifra, broj in pe_entries:
-                # Mapiraj šifru u naziv dokumenta
-                naziv_map = {
-                    "PE1": "EUR.1 obrazac",
-                    "PE2": "Izjava na fakturi",
-                    "PE3": "Izjava ovlaštenog izvoznika",
-                }
-                naziv = naziv_map.get(sifra, f"Dokument {sifra}")
-                header_docs.append(AttachedDocument(
-                    code=sifra,
-                    name=naziv,
-                    number=broj,
-                    from_rule=sifra == "PE1",  # EUR.1 je fizički priložen
-                ))
-
-            # Obavijesti zaglavlje da se podaci promijenili
-            self.draft.mark_dirty()
 
     def _on_rubrika40_3_finished(self) -> None:
         """Primijeni referencu dokumenta (rubrika40_3) na sve iteme.
@@ -3149,8 +2772,8 @@ class NaimenovanjaView(BaseTabView):
             QTimer.singleShot(500, lambda: widget.setStyleSheet(original_style))
 
     def _on_suggest_tariff(self) -> None:
-        """Pokreni sugestiju tarifnog broja direktno (view implementacija)."""
-        self._suggest_tariff_impl()
+        self.save_current_requested.emit()
+        self.suggest_tariff_requested.emit()
 
     def _on_import_xml(self) -> None:
         """Otvori file dialog i uvezi naimenovanja iz XML fajla."""
@@ -3197,24 +2820,10 @@ class NaimenovanjaView(BaseTabView):
                 self.show_success(f"Otvoren je nacrt deklaracije:\n{filename}")
                 return
 
-            # 1. Parsiraj naimenovanja iz XML
-            from services.zaglavlje_service import ZaglavljeService
-            svc = ZaglavljeService()
-            items = svc.parse_naimenovanja_from_xml(filename)
-
-            if not items:
-                self.show_warning(
-                    "XML fajl ne sadrži naimenovanja (Item sekcije).\n\n"
-                    "Provjerite da li je XML u ASYCUDA World ili Pro formatu."
-                )
-                return
-
-            # 2. Potvrda
             reply = QMessageBox.question(
                 self,
                 "Uvoz naimenovanja",
-                f"Pronađeno {len(items)} naimenovanja u XML fajlu.\n\n"
-                f"Ovo će zamijeniti trenutna naimenovanja.\n"
+                "Uvoz će zamijeniti trenutna naimenovanja.\n"
                 f"Da li želite nastaviti?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No,
@@ -3222,27 +2831,11 @@ class NaimenovanjaView(BaseTabView):
             if reply == QMessageBox.StandardButton.No:
                 return
 
-            # 3. Zamijeni draft.items
-            self._apply_xml_import_global_documents(items)
-            self._apply_xml_import_to_zaglavlje(filename)
-            self.draft.items = items
-            self.draft.mark_dirty()
-
-            # 4. Resetuj na prvu stavku i reload
-            self.current_item_index = 0
-            self.reload_data()
-
-            self.show_success(
-                f"✅ Uvezeno {len(items)} naimenovanja iz XML-a.\n"
-                f"Kliknite 'Sačuvaj' da potvrdite promjene."
-            )
+            self.import_xml_requested.emit(filename)
 
         except Exception as e:
             logger.error(f"Greška pri uvozu XML naimenovanja: {e}", exc_info=True)
             self.show_error(f"Greška pri uvozu: {e}")
-
-        # Emituj signal za controller (ako postoji)
-        self.import_xml_requested.emit(filename)
 
     def _on_inspekcije(self) -> None:
         """Otvori dijalog sa inspekcijskim pregledom naimenovanja."""
@@ -3415,51 +3008,8 @@ class NaimenovanjaView(BaseTabView):
         Args:
             result: Dictionary sa {tarifni_broj, povlastica, zemlja_porijekla, similarity, usage_count}
         """
-        current_item = self.draft.items[self.current_item_index]
-        logger.info("✅ Prijedlog prihvaćen: %s (%.0f%%)", result.get('tarifni_broj'), (result.get('similarity') or 0) * 100)
-
-        # Track original value za Edge Case 7 (ručna izmjena nakon prihvatanja)
         self._auto_filled_tariff = result.get("tarifni_broj")
-
-        # Primijeni tarifni broj
-        if result.get("tarifni_broj"):
-            current_item.tariff_code = result["tarifni_broj"]
-
-        # Primijeni zemlju porijekla (opciono)
-        if result.get("zemlja_porijekla"):
-            current_item.origin_country_code = result["zemlja_porijekla"]
-
-        # Primijeni povlasticu — validiraj kombinaciju zemlja+povlastica
-        if result.get("povlastica"):
-            zemlja = current_item.origin_country_code or result.get(
-                "zemlja_porijekla", ""
-            )
-            valid_pref = validate_preference(zemlja, result["povlastica"])
-            if valid_pref:
-                current_item.preference_code = valid_pref
-            elif result["povlastica"]:
-                logger.warning(f"⚠️ Povlastica {result['povlastica']!r} odbijena za zemlju {zemlja!r}")
-
-        # Reload trenutni item u GUI
-        self._load_current_item()
-
-        logger.debug(f"📝 Podaci učitani u form")
-
-        # Mark as dirty
-        self.data_changed.emit()
-        if self.on_dirty:
-            self.on_dirty()
-
-        # Inkrementiraj usage_count — docs/architecture/TARIFF_FACADE_REFACTORING.md
-        try:
-            from services.tariff_facade import TariffFacade
-            TariffFacade.get_instance().increment_usage(
-                result["tarifni_broj"],
-                None,
-                current_item.goods_trade_name,
-            )
-        except Exception as e:
-            logger.warning(f"⚠️  Greška pri ažuriranju usage_count: {e}")
+        self.tariff_suggestion_accepted.emit(result)
 
         QMessageBox.information(
             self,
@@ -3478,12 +3028,17 @@ class NaimenovanjaView(BaseTabView):
         if search_dialog.exec() == QDialog.Accepted:
             code = search_dialog.get_selected_code()
             if code:
-                current_item = self.draft.items[self.current_item_index]
-                current_item.tariff_code = code
-                self._load_current_item()
-                self.data_changed.emit()
-                if self.on_dirty:
-                    self.on_dirty()
+                tariff_widget = self._get_widget("le_rubrika33")
+                if tariff_widget:
+                    was_loading = self.is_loading
+                    self.is_loading = True
+                    try:
+                        self._set_widget_value(
+                            tariff_widget, "le_rubrika33", "tariff_code", code
+                        )
+                    finally:
+                        self.is_loading = was_loading
+                self.tariff_lookup_requested.emit(code)
 
                 # Zatvori TariffSuggestionDialog ako je otvoren
                 active = getattr(self, "_active_suggestion_dialog", None)
