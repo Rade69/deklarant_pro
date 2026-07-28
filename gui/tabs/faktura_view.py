@@ -3601,6 +3601,10 @@ class FakturaView(BaseTabView):
             if len(apply_result.warnings) > 5:
                 message += f"   ... i još {len(apply_result.warnings) - 5}\n"
 
+        from services.process_completion_sound import play_process_completion_sound
+
+        outcome = "warning" if failed_imports or apply_result.warnings else "success"
+        play_process_completion_sound(outcome)
         QMessageBox.information(self, "Grupni uvoz", message)
 
     def _collect_manual_import_decisions(self, plan):
@@ -3770,8 +3774,11 @@ class FakturaView(BaseTabView):
                 self._expected_importer = importer
 
     def _show_manual_import_workflow_result(self, plan, apply_result) -> None:
+        from services.process_completion_sound import play_process_completion_sound
+
         title = "Uvoz uspješan"
         if not apply_result.success:
+            play_process_completion_sound("error")
             QMessageBox.warning(self, "Uvoz nije primijenjen", apply_result.message)
             return
 
@@ -3805,6 +3812,9 @@ class FakturaView(BaseTabView):
                 message += f"... i još {len(apply_result.warnings) - 5}\n"
 
         message = self._append_imported_files_message(message, min_files=2)
+        play_process_completion_sound(
+            "warning" if apply_result.warnings else "success"
+        )
         QMessageBox.information(self, title, message)
 
     def _on_import_finished(self, result):
@@ -5837,12 +5847,16 @@ class FakturaView(BaseTabView):
             success = ExportService.export_to_excel(self.draft.invoice_lines, filepath, self.draft)
 
             if success:
+                from services.process_completion_sound import play_process_completion_sound
+                play_process_completion_sound("success")
                 QMessageBox.information(
                     self,
                     "Export uspješan",
                     f"✅ Faktura exportovana u Excel!\n\nFajl: {Path(filepath).name}\nStavki: {len(self.draft.invoice_lines)}",
                 )
             else:
+                from services.process_completion_sound import play_process_completion_sound
+                play_process_completion_sound("error")
                 QMessageBox.critical(
                     self,
                     "Greška",
@@ -5890,6 +5904,8 @@ class FakturaView(BaseTabView):
                 num_naimenovanja = len(self.draft.items)
                 num_stavki = len(self.draft.invoice_lines)
 
+                from services.process_completion_sound import play_process_completion_sound
+                play_process_completion_sound("success")
                 QMessageBox.information(
                     self,
                     "Export uspješan",
@@ -5899,6 +5915,8 @@ class FakturaView(BaseTabView):
                     f"Ukupno stavki: {num_stavki}",
                 )
             else:
+                from services.process_completion_sound import play_process_completion_sound
+                play_process_completion_sound("error")
                 QMessageBox.critical(
                     self,
                     "Greška",
@@ -5935,6 +5953,8 @@ class FakturaView(BaseTabView):
                 broj_faktura = len(set(
                     l.invoice_number for l in self.draft.invoice_lines if l.invoice_number
                 ))
+                from services.process_completion_sound import play_process_completion_sound
+                play_process_completion_sound("success")
                 QMessageBox.information(
                     self,
                     "Export uspješan",
@@ -5944,6 +5964,8 @@ class FakturaView(BaseTabView):
                     f"Stavki: {len(self.draft.invoice_lines)}",
                 )
             else:
+                from services.process_completion_sound import play_process_completion_sound
+                play_process_completion_sound("error")
                 QMessageBox.critical(
                     self,
                     "Greška",
