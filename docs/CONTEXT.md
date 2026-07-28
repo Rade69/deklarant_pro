@@ -2976,10 +2976,14 @@ Windows sistemske zvukove za tri ishoda: uspjeh, upozorenje i grešku. Poziv je
 best-effort: nedostupan `winsound` ili greška reprodukcije ne smiju prekinuti
 poslovni tok niti zamijeniti postojeći modal.
 
-Zvuk se emituje tek kada je konačni ishod poznat. Otkazana Puna automatizacija
-ostaje bez zvuka, dok parcijalni rezultat koristi upozorenje. Funkcionalnost se
-može isključiti postavljanjem `PROCESS_COMPLETION_SOUND=false` u aktivnom
-`.env` fajlu. Root i `dist_client` moraju zadržati isti servis i ista mjesta
-poziva. Faktura tab ima objedinjeni i legacy završni put uvoza; oba moraju
-emitovati isti zvučni ishod. Legacy put je aktivan kada je glavna lista već
-učitana ili parser ne vrati `ImportResult`.
+Za Punu automatizaciju i izvoze zvuk se emituje kada je konačni ishod poznat.
+Kod ručnog parsiranja fakture emituje se odmah nakon uspješnog parser rezultata,
+prije prvog EUR.1/PE ili konfliktnog dijaloga; kasniji završni modal ne smije
+ponoviti zvuk. Otkazana Puna automatizacija ostaje bez zvuka, dok parcijalni
+rezultat koristi upozorenje.
+
+Funkcionalnost se može isključiti postavljanjem
+`PROCESS_COMPLETION_SOUND=false` u aktivnom `.env` fajlu. Root i `dist_client`
+moraju zadržati isti servis i ista mjesta poziva. Faktura tab ima objedinjeni i
+legacy završni put uvoza; oba moraju emitovati isti zvučni ishod. Legacy put je
+aktivan kada je glavna lista već učitana ili parser ne vrati `ImportResult`.

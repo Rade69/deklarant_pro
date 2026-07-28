@@ -45,6 +45,9 @@ Nije pronađen HIGH ili CRITICAL impact.
 - Naknadnom živom provjerom otkriven je i zatvoren nepokriven legacy put
   parsiranja, koji se koristi kada je glavna lista već učitana ili rezultat
   nije `ImportResult`.
+- Druga živa provjera pokazala je da EUR.1/PE dijalog blokira završni modal.
+  Zvuk ručnog parsiranja zato je pomjeren neposredno prije prvog interaktivnog
+  dijaloga, a kasniji dupli zvuk je uklonjen.
 
 ## Zašto je urađeno
 
@@ -68,8 +71,8 @@ zvučna obavijest ne može promijeniti ishod poslovnog procesa. Varijabla
 
 ## Verifikacija
 
-- Ciljani regresioni testovi završnog parsiranja: 31 prošao.
-- Kompletan test paket nakon legacy ispravke: 1380 prošlo, 72 preskočena,
+- Ciljani regresioni testovi, uključujući redoslijed zvuk → EUR.1: 32 prošla.
+- Kompletan test paket nakon promjene redoslijeda: 1381 prošlo, 72 preskočena,
   5 očekivano neuspješnih.
 - Root i `dist_client` kopije provjerene su na funkcionalni paritet.
 - `git diff --check` ne prijavljuje greške u promjenama ovog zadatka.
@@ -86,6 +89,11 @@ rad sa prethodno učitanom glavnom listom namjerno ostaje na legacy toku.
 Zvučni pozivi su zato dodani i tom toku, uključujući uspjeh, upozorenje i
 grešku.
 
+Prvobitno mjesto uspješnog zvuka bilo je iza EUR.1/PE dijaloga. Pošto je taj
+dijalog modalni i blokirajući, korisnik opravdano nije čuo signal kada se
+parsiranje završilo. Regresioni test sada eksplicitno zahtijeva redoslijed
+`sound:success` prije poziva `_show_eur1_dialog()`.
+
 ## Konflikti / kontradiktorni izvori
 
 Nema funkcionalnih konflikata. GitNexus analiza je privremeno promijenila samo
@@ -98,6 +106,7 @@ vraćene su. Korisnička potvrda nije potrebna.
 | --- | --- |
 | `f2ed838` | `feat(obavjestenja): dodaj zvuk zavrsetka procesa` |
 | `eff49c2` | `fix(uvoz): dodaj zvuk legacy zavrsetku parsiranja` |
+| `37cabc9` | `fix(uvoz): pusti zvuk prije eur1 dijaloga` |
 
 ## Rizici / ograničenja
 
