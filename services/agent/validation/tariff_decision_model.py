@@ -9,7 +9,6 @@ from typing import Any, Dict
 class TariffDecisionOutcome(Enum):
     SHOW_STRONG = "show_strong"
     SHOW_WEAK = "show_weak"
-    SHOW_UNCONFIRMED = "show_unconfirmed"
     SUPPRESS = "suppress"
 
 
@@ -18,11 +17,6 @@ class TariffDecisionThresholds:
     min_usage_for_cross_chapter: int
     min_usage_for_out_of_profile_chapter: int
     min_usage_for_weak_source: int
-    # Prag za SHOW_UNCONFIRMED (bez izvora, ali prikazano na ručnu potvrdu) —
-    # namjerno viši od min_usage_for_weak_source: nema izvora je rizičnije
-    # od slabog izvora, pa treba jasan ponovljen obrazac (ne 1-2 slučajna
-    # zapisa) prije nego se uopšte ponudi deklarantu na pregled.
-    min_usage_for_unsourced_review: int
 
 
 @dataclass(frozen=True)
@@ -38,7 +32,6 @@ class TariffDecision:
         return self.outcome in {
             TariffDecisionOutcome.SHOW_STRONG,
             TariffDecisionOutcome.SHOW_WEAK,
-            TariffDecisionOutcome.SHOW_UNCONFIRMED,
         }
 
 
@@ -84,35 +77,11 @@ def decide_tariff_match(
     has_source = has_meaningful_source(match.source)
     if not has_source:
         # Korisnička odluka (2026-07-26): prijedlog bez potvrđenog izvora
-        # (izvoznik/XML) se NIKAD ne primjenjuje automatski niti dobija
-        # SHOW_STRONG/SHOW_WEAK status — pogrešna carinska tarifa nosi
-        # stvaran rizik sankcija/kazni.
-        #
-        # Dopuna (2026-07-28, nalaz "SUSSINA"): potpuno suprimiranje bez
-        # ikakvog puta do potvrde stvaralo je trajan cor-22 za stare
-        # "zlatne" zapise naučene prije nego što je izvor počeo dosljedno
-        # da se bilježi (npr. `TariffMappingService.save_mapping()`, putanja
-        # za ručnu ispravku tarife, source/supplier uopšte ne piše) —
-        # `catalogs.user_feedback` (koji jedini daje kasniju "ranija ručna
-        # potvrda" auto-primjenu) se puni ISKLJUČIVO kroz eksplicitan klik
-        # u ovom dijalogu, a zapis koji se nikad ne prikaže nikad ne može
-        # dobiti taj klik. Zato: ako postoji jasan, ponovljen istorijski
-        # obrazac (usage_count ≥ min_usage_for_unsourced_review — namjerno
-        # viši prag nego za "slab izvor"), prijedlog se PRIKAZUJE kao
-        # SHOW_UNCONFIRMED — jasno obilježen "izvor nepoznat" u dijalogu
-        # (TariffValidationDialog._make_row, DecisionConfidence.UNKNOWN) i
-        # ISKLJUČEN iz "Prihvati sve" (_can_accept_all) — samo pojedinačan,
-        # eksplicitan klik "Prihvati" ga upisuje u user_feedback. Ovo NE
-        # slabi politiku od 26.07: ništa se i dalje ne primjenjuje bez
-        # eksplicitne ljudske potvrde, samo se ta potvrda opet omogućava.
-        if match.usage_count >= thresholds.min_usage_for_unsourced_review:
-            return _decision(
-                TariffDecisionOutcome.SHOW_UNCONFIRMED,
-                score - 10,
-                positive_reasons,
-                negative_reasons + ["Istorijski zapis nema poznat izvor (izvoznik/XML) — zahtijeva ručnu potvrdu."],
-                "Bez potvrđenog izvora, ali ponovljen istorijski obrazac — zahtijeva ručnu potvrdu.",
-            )
+        # (izvoznik/XML) se NIKAD ne prikazuje, bez obzira na tarifnu glavu
+        # ili broj korištenja — pogrešna carinska tarifa nosi stvaran rizik
+        # sankcija/kazni, pa nepotvrđen izvor nije dovoljan dokaz ni za
+        # informativan prijedlog. Ranije su neke grane (npr. "ista tarifna
+        # glava") prikazivale prijedlog i bez izvora ako je koristen ≥1x.
         return _decision(
             TariffDecisionOutcome.SUPPRESS,
             score - 10,

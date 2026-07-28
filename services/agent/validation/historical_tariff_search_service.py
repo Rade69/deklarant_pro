@@ -51,7 +51,7 @@ class TariffHistoryMatch:
     source: str                    # supplier iz baze (xml fajl ili ime dobavljača)
     confidence: float              # 0.0–1.0
     decision_reason: str = ""      # kratak razlog zašto je prijedlog prošao filter
-    decision_outcome: str = ""     # show_strong/show_weak/show_unconfirmed/suppress
+    decision_outcome: str = ""     # show_strong/show_weak/suppress
     decision_score: int = 0
     evidence: Evidence | None = None
 
@@ -67,9 +67,6 @@ class HistoricalTariffSearchService:
     MIN_USAGE_FOR_CROSS_CHAPTER = 5
     MIN_USAGE_FOR_OUT_OF_PROFILE_CHAPTER = 10
     MIN_USAGE_FOR_WEAK_SOURCE = 2
-    # Prag za SHOW_UNCONFIRMED (bez izvora, prikazano na ručnu potvrdu) —
-    # vidi tariff_decision_model.py, isti prag kao cross-chapter (5).
-    MIN_USAGE_FOR_UNSOURCED_REVIEW = 5
 
     def __init__(self):
         self.last_auto_applied: list[tuple[int, str]] = []
@@ -308,7 +305,6 @@ class HistoricalTariffSearchService:
                 min_usage_for_cross_chapter=self.MIN_USAGE_FOR_CROSS_CHAPTER,
                 min_usage_for_out_of_profile_chapter=self.MIN_USAGE_FOR_OUT_OF_PROFILE_CHAPTER,
                 min_usage_for_weak_source=self.MIN_USAGE_FOR_WEAK_SOURCE,
-                min_usage_for_unsourced_review=self.MIN_USAGE_FOR_UNSOURCED_REVIEW,
             ),
         )
         match.decision_reason = decision.reason

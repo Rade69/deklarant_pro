@@ -3037,7 +3037,53 @@ padovi. `dist_client` test fajlovi (`test_historical_tariff_validation.py`,
 (pre-postojeći drift, nepovezano) — nisu ažurirani da se izbjegne miješanje
 sa nepovezanim razlikama; produkcioni kod (`tariff_decision_model.py`,
 `historical_tariff_search_service.py`) JESTE ogledan i identičan root-u.
-## 89. Zvučna obavještenja označavaju završetak, ne početak procesa (2026-07-28)
+---
+
+## 89. §88 (SHOW_UNCONFIRMED) POVUČEN — korisnik potvrdio strogu politiku bez izuzetka (2026-07-28)
+
+Neposredno nakon §88, korisnik je preispitao i EKSPLICITNO odbacio taj
+pristup: "Ne možemo korisniku ponuditi prijedlog a da pritom ne znamo
+odakle dolazi, šta je izvor te informacije — jer onda bismo ga mogli
+dovesti u zabludu da aplikacija zna, da ne pominjem da greška u tarifiranju
+može izazvati kazne." Ovo je jasna, namjerna potvrda da politika iz §65
+(26.07) vrijedi BEZ IZUZETKA — čak ni jasno obilježen "izvor nepoznat,
+zahtijeva ručnu potvrdu" prikaz (§88) nije prihvatljiv, jer sâmo pojavljivanje
+prijedloga u aplikaciji nosi implicitan autoritet koji korisnik ne želi dati
+neprovjerenim podacima.
+
+**§88 u potpunosti povučen** — `git revert 8b22281` (commit `aac9b19`),
+vraća `decide_tariff_match()` na TAČNO ponašanje iz §65: bez izuzetka
+SUPPRESS kad `source` nije poznat, bez obzira na `usage_count`. Test
+fajlovi vraćeni na stanje prije §88 istim revert-om.
+
+**Praktična posljedica, prihvaćena svjesno**: SUSSINA (i svaki sličan
+"zlatni" istorijski zapis naučen prije nego što je izvor počeo dosljedno
+da se bilježi) ostaje TRAJNO nevidljiv u "Provjeri" dijalogu — ne postoji
+put unutar tog dijaloga kojim bi ikad mogao dobiti potvrđen izvor, jer
+`catalogs.user_feedback` (koji bi mu dao izvor) se puni ISKLJUČIVO iz
+klika u tom istom dijalogu, do kojeg zapis sad nikad ne stiže.
+
+**Jedini preostali put naprijed** (nije urađen, čeka korisničku odluku):
+Sloj 1 iz §88 istrage — `TariffMappingService.save_mapping()` (putanja za
+SVAKU ručnu potvrdu/ispravku tarife: Naimenovanja "Nauči", Faktura
+ispravka, agent chat) nikad ne piše `source`/`supplier`. Kad bi ta putanja
+počela bilježiti smislen izvor (npr. `"RUCNA_POTVRDA"`) za NOVE ručne
+potvrde, takvi zapisi bi ubuduće normalno prolazili kroz postojeće
+SHOW_STRONG/SHOW_WEAK grane (imaju izvor, politika ih ne dira) — bez
+ikakvog posebnog "neprovjereno" prikaza. Ovo NE bi vratilo vidljivost
+postojećih 129 SUSSINA zapisa (nemoguće retroaktivno znati ko ih je
+potvrdio), ali bi spriječilo da se isti problem ponovi za svaki budući
+proizvod. Za SUSSINA konkretno, jedini preostali put je ručni ispravak
+podatka u bazi (van scope-a agenta bez eksplicitnog naloga) ili da
+korisnik ubuduće ručno unese tačnu tarifu na fakturi dovoljno puta da,
+ako Sloj 1 fix bude urađen, taj NOVI unos dobije izvor i postane vidljiv.
+
+Testovi: puna svita provjerena nakon revert-a — 44/44 u oba dotaknuta test
+fajla, isti pre-postojeći nepovezani padovi u punoj suiti.
+
+---
+
+## 90. Zvučna obavještenja označavaju završetak, ne početak procesa (2026-07-28)
 
 Zajednički servis `services/process_completion_sound.py` koristi asinhrone
 lokalne WAV signale za tri ishoda: uspjeh, upozorenje i grešku. WAV fajlovi se
