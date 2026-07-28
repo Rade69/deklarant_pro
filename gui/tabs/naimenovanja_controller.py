@@ -136,3 +136,73 @@ class NaimenovanjaController(QObject):
         draft.mark_dirty()
         new_idx = min(index, len(items) - 1) if items else 0
         self.navigate_to(view, new_idx)
+
+    # ── Tarifni tok (Faza 5) ──────────────────────────────────────
+
+    def on_tariff_changed(self, view, code: str) -> None:
+        """Handler za promjenu tarifnog broja u View-u.
+
+        Flow: Controller debounce → TariffService lookup →
+        Service dokumenti → Controller primjena → View render.
+        KB učenje samo nakon eksplicitne potvrde.
+        """
+        if not code or not code.strip():
+            return
+        code = code.strip()
+
+        # 1. Tarifni lookup (full + short opisi)
+        full, short = self._tariff_service.load_tariff_descriptions(code)
+        warnings = []
+
+        if not full and not short:
+            warnings.append(f"Tarifni broj '{code}' nije pronađen u zvaničnoj tarifi")
+
+        # 2. Dopunska JM
+        supp_code = self._service.resolve_supplementary_unit(code)
+
+        # 3. Dokumenti po tarifi
+        try:
+            from services.tariff_controls_service import check_tariff_controls, get_required_docs
+            controls = check_tariff_controls(code)
+            docs = get_required_docs(code) if controls else []
+        except Exception:
+            docs = []
+
+        # 4. Primijeni na draft
+        draft = self._get_draft()
+        idx = getattr(view, "current_item_index", 0)
+        items = getattr(draft, "items", []) or []
+        if items and idx < len(items):
+            item = items[idx]
+            item.tariff_code = code
+            if full:
+                item.tariff_description1 = full
+            if short:
+                item.tariff_description2 = short
+            if supp_code and not getattr(item, "supplementary_unit_code", ""):
+                item.supplementary_unit_code = supp_code
+            draft.mark_dirty()
+
+        # 5. View render (ako postoji render metoda)
+        if hasattr(view, "_populate_tariff_description"):
+            view._populate_tariff_description(full or "", short or "")
+        if warnings and hasattr(view, "_check_and_show_tariff_warning"):
+            view._check_and_show_tariff_warning(code)
+
+    def accept_tariff_suggestion(self, view, result: dict) -> None:
+        """Primijeni prihvaćeni tarifni prijedlog."""
+        draft = self._get_draft()
+        idx = getattr(view, "current_item_index", 0)
+        items = getattr(draft, "items", []) or []
+        if not items or idx >= len(items):
+            return
+
+        item = items[idx]
+        code = result.get("tarifni_broj", "")
+        if code:
+            item.tariff_code = code
+            item.preference_code = result.get("povlastica", "")
+            item.origin_country_code = result.get("zemlja_porijekla", "")
+            draft.mark_dirty()
+            if hasattr(view, "_load_current_item"):
+                view._load_current_item()
