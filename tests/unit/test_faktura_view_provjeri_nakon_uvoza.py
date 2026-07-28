@@ -84,6 +84,21 @@ def test_uvoz_pojedinacne_fakture_pokrece_provjeru_i_u_agent_modu():
     mock_self._run_historical_tariff_validation.assert_called_once_with(auto=False)
 
 
+def test_zvuk_se_cuje_prije_eur1_dijaloga():
+    mock_self = _mock_self_for_import_finished(agent_mode=False)
+    mock_self._should_show_eur1_dialog.return_value = True
+    events = []
+    mock_self._show_eur1_dialog.side_effect = lambda: events.append("eur1")
+
+    with patch("gui.tabs.faktura_view.QMessageBox"), patch(
+        "services.process_completion_sound.play_process_completion_sound",
+        side_effect=lambda outcome: events.append(f"sound:{outcome}"),
+    ):
+        FakturaView._on_import_finished(mock_self, [])
+
+    assert events[:2] == ["sound:success", "eur1"]
+
+
 def _mock_self_for_batch_records(agent_mode: bool) -> MagicMock:
     mock_self = MagicMock()
     mock_self._agent_mode = agent_mode
