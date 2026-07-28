@@ -42,6 +42,9 @@ Nije pronađen HIGH ili CRITICAL impact.
   postojećeg modalnog obavještenja.
 - Implementacija je preslikana u `dist_client`.
 - Dodani su testovi servisa i ishoda Pune automatizacije.
+- Naknadnom živom provjerom otkriven je i zatvoren nepokriven legacy put
+  parsiranja, koji se koristi kada je glavna lista već učitana ili rezultat
+  nije `ImportResult`.
 
 ## Zašto je urađeno
 
@@ -65,8 +68,9 @@ zvučna obavijest ne može promijeniti ishod poslovnog procesa. Varijabla
 
 ## Verifikacija
 
-- Ciljani testovi: 107 prošlo.
-- Kompletan test paket: 1379 prošlo, 72 preskočena, 5 očekivano neuspješnih.
+- Ciljani regresioni testovi završnog parsiranja: 31 prošao.
+- Kompletan test paket nakon legacy ispravke: 1380 prošlo, 72 preskočena,
+  5 očekivano neuspješnih.
 - Root i `dist_client` kopije provjerene su na funkcionalni paritet.
 - `git diff --check` ne prijavljuje greške u promjenama ovog zadatka.
 
@@ -75,6 +79,12 @@ zvučna obavijest ne može promijeniti ishod poslovnog procesa. Varijabla
 Prvi testni prolaz bez lokalne konfiguracije i razvojne SQLite baze dao je
 nepovezane DB greške. Nakon korišćenja lokalnih, git-ignorisanih testnih
 kopija konfiguracije i baze kompletan paket je prošao.
+
+Živa korisnička provjera pokazala je da prvi obuhvat nije uključio legacy
+završne callbackove Faktura taba. Novi objedinjeni put je bio pokriven, ali
+rad sa prethodno učitanom glavnom listom namjerno ostaje na legacy toku.
+Zvučni pozivi su zato dodani i tom toku, uključujući uspjeh, upozorenje i
+grešku.
 
 ## Konflikti / kontradiktorni izvori
 
@@ -87,6 +97,7 @@ vraćene su. Korisnička potvrda nije potrebna.
 | Hash | Poruka |
 | --- | --- |
 | `f2ed838` | `feat(obavjestenja): dodaj zvuk zavrsetka procesa` |
+| `eff49c2` | `fix(uvoz): dodaj zvuk legacy zavrsetku parsiranja` |
 
 ## Rizici / ograničenja
 

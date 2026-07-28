@@ -2980,4 +2980,6 @@ Zvuk se emituje tek kada je konačni ishod poznat. Otkazana Puna automatizacija
 ostaje bez zvuka, dok parcijalni rezultat koristi upozorenje. Funkcionalnost se
 može isključiti postavljanjem `PROCESS_COMPLETION_SOUND=false` u aktivnom
 `.env` fajlu. Root i `dist_client` moraju zadržati isti servis i ista mjesta
-poziva.
+poziva. Faktura tab ima objedinjeni i legacy završni put uvoza; oba moraju
+emitovati isti zvučni ishod. Legacy put je aktivan kada je glavna lista već
+učitana ili parser ne vrati `ImportResult`.
