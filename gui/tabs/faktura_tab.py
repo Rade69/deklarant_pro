@@ -51,26 +51,57 @@ class FakturaTab(QWidget):
     # ── Signal handleri (delegiraju na Controller) ────────────────
 
     def _on_import_requested(self, filepaths: list):
+        """Import handler — koristi postojeći unified import workflow."""
         for fp in filepaths:
-            self.controller.draft  # koristi get_draft_fn
+            try:
+                from services.faktura.import_service import ImportService
+                svc = ImportService()
+                result = svc.import_file(fp)
+                self.view._on_import_finished(result)
+            except Exception as e:
+                logger.error(f"Import failed for {fp}: {e}")
 
     def _on_validate_requested(self, scope: str, rows: list):
-        self.controller.validate_and_color_rows(self.view, self.controller.draft)
+        """Validacija — delegira na Controller, primjenjuje boje na tabelu."""
+        result = self.controller.validate_and_color_rows(self.controller.draft)
+        if result and result.get("color_map"):
+            for row_idx, (color, tooltip) in result["color_map"].items():
+                if row_idx < self.view.table.rowCount():
+                    for col in range(self.view.table.columnCount()):
+                        cell = self.view.table.item(row_idx, col)
+                        if cell:
+                            from gui.delegates.validation_delegate import ValidationDelegate
+                            cell.setData(ValidationDelegate.ValidationColorRole, color)
+                            if tooltip:
+                                cell.setToolTip(tooltip)
 
     def _on_auto_fill_requested(self):
-        pass  # delegira na TariffFacade kroz View postojeći handler
+        """Auto-popuna tarifa — delegira na postojeći View handler."""
+        if hasattr(self.view, "_on_auto_fill"):
+            self.view._on_auto_fill()
 
     def _on_create_naimenovanja_requested(self, auto: bool):
-        self.controller.create_naimenovanja(self.controller.draft)
-        self.view.naimenovanja_created.emit()
+        """Kreiranje naimenovanja — delegira na Controller."""
+        result = self.controller.create_naimenovanja(self.controller.draft)
+        if result.get("error"):
+            from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
+            QMessageBox.warning(self, "Greška", f"Kreiranje naimenovanja nije uspjelo:\n{result['error']}")
+        elif result.get("count", 0) > 0:
+            self.view._load_data_from_draft()
+            self.view.naimenovanja_created.emit()
 
     def _on_calculate_masses_requested(self):
-        pass
+        """Računanje masa — delegira na postojeći View handler."""
+        if hasattr(self.view, "_on_calculate_masses"):
+            self.view._on_calculate_masses()
 
     def _on_delete_item_requested(self, row: int):
+        """Brisanje stavke — Controller + View refresh."""
         if self.controller.delete_item(self.controller.draft, row):
             self.view._load_data_from_draft()
 
     def _on_tariff_bulk_change_requested(self, rows: list, tariff: str):
-        self.controller.bulk_change_tariff(self.controller.draft, rows, tariff)
-        self.view._load_data_from_draft()
+        """Bulk izmjena tarife — Controller + View refresh."""
+        updated = self.controller.bulk_change_tariff(self.controller.draft, rows, tariff)
+        if updated:
+            self.view._load_data_from_draft()

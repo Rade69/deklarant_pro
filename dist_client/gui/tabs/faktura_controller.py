@@ -1,7 +1,7 @@
 """
-FakturaController — prazna infrastruktura bez promjene ponašanja.
+FakturaController — 3-layer refaktor.
 
-Faza 1 prema Codex planu §8: composition root.
+Faza 1-7B prema Codex planu.
 """
 
 from __future__ import annotations
@@ -12,7 +12,6 @@ from typing import Callable, Optional
 from PySide6.QtCore import QObject
 
 from core.draft import DeclarationDraft
-from services.faktura.naimenovanja_service import NaimenovanjaService
 
 logger = logging.getLogger("deklarant_pro.faktura.controller")
 
@@ -33,13 +32,12 @@ class FakturaController(QObject):
 
     # ── Validacija i bojenje (Faza 3) ──────────────────────────
 
-    def validate_and_color_rows(self, view, draft) -> ValidationPassResult:
+    def validate_and_color_rows(self, draft) -> dict:
         """Validiraj sve redove i vrati boje + tooltip.
         
         Koristi postojeći FakturaValidationService.
         """
         from services.faktura.validation_service import FakturaValidationService
-        from services.faktura.models import ValidationPassResult
         
         svc = FakturaValidationService()
         lines = getattr(draft, "invoice_lines", []) or []
@@ -51,23 +49,25 @@ class FakturaController(QObject):
             try:
                 color, tooltip = svc.validate_and_get_color(line)
                 color_map[idx] = (color, tooltip)
-                if "#ff" in color.lower() or "#F9" in color.upper():  # crvena
+                # Crvena = #F9E4E3 ili #ffcccc
+                if "F9E4E3" in color.upper() or "FFCCCC" in color.upper():
                     errors += 1
-                elif "#ff" in color.lower() or "#FF" in color.upper():  # žuta
+                # Žuta = #FFF4D6 ili #fff9c4 ili #ffffcc
+                elif "FFF4D6" in color.upper() or "FFF9C4" in color.upper() or "FFFFCC" in color.upper():
                     warnings += 1
             except Exception:
                 color_map[idx] = ("#ffffff", "")
         
-        return ValidationPassResult(
-            validated_count=len(lines),
-            error_count=errors,
-            warning_count=warnings,
-            color_map=color_map,
-        )
+        return {
+            "validated_count": len(lines),
+            "error_count": errors,
+            "warning_count": warnings,
+            "color_map": color_map,
+        }
 
     # ── Import tok (Faza 4) ──────────────────────────────────
 
-    def prepare_import_plan(self, draft, result, source_path: str = ""):
+    def prepare_import_plan(self, result, source_path: str = ""):
         """Kreira ImportPlan iz ImportResult-a."""
         from services.import_workflow.adapters import from_import_result
         from services.import_workflow.prepare_service import prepare_import
@@ -79,68 +79,102 @@ class FakturaController(QObject):
         from services.import_workflow.apply_service import apply_import_plan
         return apply_import_plan(draft, plan, decisions)
 
+    def normalize_item_tariffs(self, items: list) -> None:
+        """Normalizuj tarifne brojeve na 8/10 cifara."""
+        from importers.invoice_line_utils import normalize_tariff_number
+        for item in items:
+            code = getattr(item, "tarifni_broj", "") or ""
+            if not code:
+                continue
+            normalized = normalize_tariff_number(code)
+            if normalized and normalized.isdigit() and 4 <= len(normalized) < 8:
+                normalized = normalized.zfill(8)
+            item.tarifni_broj = normalized
+
     # ── Kreiranje naimenovanja (Faza 5) ───────────────────────
 
     def create_naimenovanja(self, draft) -> dict:
         """Kreiraj naimenovanja iz invoice_lines."""
-        from services.create_naimenovanja_service import CreateNaimenovanjaService
-        svc = CreateNaimenovanjaService(draft)
-        count = svc.create_smart_group()
-        result = {"count": count}
+        result = {"count": 0, "error": None}
         try:
-            from services.tariff_facade import TariffFacade
-            TariffFacade.get_instance().learn_from_draft(draft.invoice_lines)
-        except Exception:
-            pass
+            from services.naimenovanja.create_naimenovanja_service import CreateNaimenovanjaService
+            svc = CreateNaimenovanjaService(draft)
+            count = svc.create_smart_group()
+            result["count"] = count
+            try:
+                from services.tariff_facade import TariffFacade
+                TariffFacade.get_instance().learn_from_draft(draft.invoice_lines)
+            except Exception as e:
+                logger.warning("TariffFacade.learn_from_draft failed: %s", e)
+        except Exception as e:
+            logger.exception("create_naimenovanja failed")
+            result["error"] = str(e)
         return result
 
     # ── Mase (Faza 6) ────────────────────────────────────────
 
-    def calculate_masses(self, draft, bruto_kg: float, neto_kg: float, items: list):
+    def calculate_masses(self, items: list, bruto_kg: float, neto_kg: float):
         """Rasporedi ukupne težine na stavke."""
         from services.faktura.mass_calculator import MassCalculator
         MassCalculator.calculate_masses(items, bruto_kg, neto_kg)
 
-    def accumulate_weights(self, draft, bruto_kg: float, neto_kg: float):
-        """Akumuliraj težine u draft."""
+    def accumulate_weights(self, draft, bruto_kg: float, neto_kg: float, invoice_name: str = ""):
+        """Akumuliraj težine za fakturu u draft.invoice_weights."""
+        if not invoice_name or (bruto_kg <= 0 and neto_kg <= 0):
+            return
         from services.faktura.weight_guards import normalize_invoice_key
-        invoice_name = getattr(draft, "invoice_lines", []) and getattr(draft.invoice_lines[0], "invoice_number", "") if getattr(draft, "invoice_lines", []) else ""
-        if invoice_name and (bruto_kg > 0 or neto_kg > 0):
-            draft.invoice_weights[normalize_invoice_key(invoice_name)] = (bruto_kg, neto_kg)
+        key = normalize_invoice_key(invoice_name)
+        draft.invoice_weights[key] = (bruto_kg, neto_kg)
 
     # ── Item edit / undo (Faza 7A) ────────────────────────────
 
     def bulk_change_tariff(self, draft, rows: list, tariff: str):
-        """Bulk izmjena tarifnog broja za selektovane redove."""
+        """Bulk izmjena tarifnog broja za selektovane redove.
+        
+        Uključuje normalizaciju tarife i mark_dirty.
+        """
+        from importers.invoice_line_utils import normalize_tariff_number
+        normalized = normalize_tariff_number(tariff)
         updated = 0
         for row in rows:
-            if row < len(draft.invoice_lines):
+            if 0 <= row < len(draft.invoice_lines):
                 old = draft.invoice_lines[row].tarifni_broj
-                draft.invoice_lines[row].tarifni_broj = tariff
-                if old != tariff:
+                draft.invoice_lines[row].tarifni_broj = normalized
+                if old != normalized:
                     updated += 1
         if updated:
             draft.mark_dirty()
         return updated
 
     def delete_item(self, draft, row: int) -> bool:
-        """Obriši stavku iz drafta."""
+        """Obriši stavku iz drafta (sa mark_dirty)."""
         if 0 <= row < len(draft.invoice_lines):
             del draft.invoice_lines[row]
             draft.mark_dirty()
             return True
         return False
 
-    # ── Export / Partneri (Faza 7B) ────────────────────────────
+    # ── Partneri (Faza 7B) ─────────────────────────────────────
 
-    def check_partner_consistency(self, draft, exporter: str, importer: str,
+    def check_partner_consistency(self, exporter: str, importer: str,
                                    expected_exporter: str = "", expected_importer: str = ""):
-        """Provjeri konzistentnost partnera."""
-        from services.faktura.faktura_service import FakturaService
+        """Provjeri konzistentnost partnera — delegira na postojeći View metod."""
+        import re
+        
+        def _normalize(name: str) -> str:
+            name = name.lower().strip()
+            name = re.sub(r"[.\-,;:'/\\()]", " ", name)
+            name = re.sub(r"\b(doo|d\.o\.o|dd|a\.d|ad|llc|ltd|gmbh|srl)\b", "", name)
+            return re.sub(r"\s+", " ", name).strip()
         
         def similar(a: str, b: str) -> bool:
-            na = FakturaService.parse_number.__doc__ or ""  # placeholder
-            return a.lower().replace(" ", "") == b.lower().replace(" ", "")
+            na, nb = _normalize(a), _normalize(b)
+            if not na or not nb:
+                return True
+            ta, tb = set(na.split()), set(nb.split())
+            if not ta or not tb:
+                return True
+            return len(ta & tb) / max(len(ta), len(tb)) >= 0.6
         
         warnings = []
         if expected_exporter and exporter and not similar(exporter, expected_exporter):
