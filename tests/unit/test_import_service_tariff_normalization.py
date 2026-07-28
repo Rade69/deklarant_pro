@@ -46,18 +46,31 @@ def test_10_cifara_sa_trailing_00_skracuje_na_8():
     assert result.items[0].tarifni_broj == "85118000"
 
 
-def test_10_cifara_bez_trailing_00_ostaje_10_ex_tarifa():
+def test_10_cifara_bez_trailing_00_skracuje_na_internih_8():
     svc = ImportService()
     result = _result_with_tariff("8511800010")
     svc._normalize_tariffs_in_result(result)
-    assert result.items[0].tarifni_broj == "8511800010"
+    assert result.items[0].tarifni_broj == "85118000"
 
 
-def test_vise_od_10_cifara_skracuje_na_10():
+def test_vise_od_10_cifara_skracuje_na_8():
     svc = ImportService()
     result = _result_with_tariff("851180001099")
     svc._normalize_tariffs_in_result(result)
-    assert len(result.items[0].tarifni_broj) == 10
+    assert result.items[0].tarifni_broj == "85118000"
+
+
+def test_tarife_iz_glavne_liste_skracuje_na_internih_8():
+    svc = ImportService()
+    for raw, expected in (
+        ("8516802090", "85168020"),
+        ("8421298090", "84212980"),
+        ("8415900090", "84159000"),
+        ("8413608090", "84136080"),
+    ):
+        result = _result_with_tariff(raw)
+        svc._normalize_tariffs_in_result(result)
+        assert result.items[0].tarifni_broj == expected
 
 
 def test_kod_sa_kosom_crtom_uzima_dio_prije_crte():

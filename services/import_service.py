@@ -188,7 +188,7 @@ class ImportService:
             )
 
     def _normalize_tariffs_in_result(self, result) -> None:
-        """In-place normalizacija tarifnih brojeva svih stavki u ImportResult na 8/10 cifara.
+        """In-place normalizacija tarifnih brojeva svih stavki u ImportResult na najviše 8 cifara.
 
         NAPOMENA: 4-7-cifreni kod se NE dopunjava nulama — takav unos je uvijek
         nepotpun (izostavljena cifra), a smjer dopune (lijevo/desno) nije
@@ -549,4 +549,3 @@ def get_import_service() -> ImportService:
     if _import_service_instance is None:
         _import_service_instance = ImportService()
     return _import_service_instance
-
