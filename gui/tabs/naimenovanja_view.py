@@ -1227,18 +1227,6 @@ class NaimenovanjaView(BaseTabView):
             return digits[:4]
         return digits
 
-    def _extract_short_code(self, tariff_code: str) -> str:
-        """
-        Vrati 4-cifreni prefiks za traženje heading opisa (viši nivo klasifikacije).
-        Primjer: "1601009100" → "1601", "1602421000" → "1602"
-        """
-        if not tariff_code:
-            return ""
-        digits = "".join(filter(str.isdigit, tariff_code))
-        if len(digits) >= 4:
-            return digits[:4]
-        return digits
-
     def _clean_tariff_description(self, description: str) -> str:
         """
         Uklanja tehničke tarifne stope s kraja opisa.
