@@ -2733,3 +2733,17 @@ iz stvarnih item vrijednosti.
 Tarifni opis u Naimenovanja servisu koristi lokalni SQLite lookup kao primarni
 izvor, ali mora zadržati PostgreSQL fallback iz Windows toka za podbroj i
 četvorocifrenu glavu.
+
+---
+
+## 82. InvoiceLine tarifa je uvijek najviše 8 cifara (2026-07-28)
+
+Desetocifreni oblik pripada PostgreSQL/TARIC lookup sloju i ne smije ostati u
+`InvoiceLine`. Zajednički `normalize_tariff_number()` uklanja nenumeričke
+znakove i svaki kod duži od 8 cifara svodi na prvih 8; kodovi kraći od 8 ostaju
+nepromijenjeni jer se smjer nedostajuće cifre ne smije pogađati.
+
+Tok „Učitaj glavnu listu“ je zaseban od standardnog ImportService toka.
+`ProductMasterList` može interno proizvesti 10-cifreni bazni zapis, pa
+`DeclarationAssembly.load_master_list()` mora normalizovati tarifu pri
+kreiranju `InvoiceLine`, prije prikaza u Faktura tabeli i prije grupisanja.
