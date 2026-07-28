@@ -52,6 +52,8 @@ Nije pronađen HIGH ili CRITICAL impact.
   pa čujnost više ne zavisi od aktivnog Windows sound scheme-a.
 - Admin navigaciji vraćen je stvarni Settings panel sa uključivanjem,
   isključivanjem i neposrednom probom zvuka.
+- `Eur1QuickDialog.showEvent()` postavljen je kao direktni, jednokratni okidač
+  zvuka kada modal stvarno postane vidljiv, nezavisno od puta uvoza.
 
 ## Zašto je urađeno
 
@@ -76,7 +78,8 @@ zvučna obavijest ne može promijeniti ishod poslovnog procesa. Varijabla
 ## Verifikacija
 
 - Admin E2E: 16 prošlo; ciljani sound/Admin/tok testovi: 30 prošlo.
-- Kompletan test paket nakon WAV i Admin izmjene: 1386 prošlo, 72 preskočena,
+- Kompletan test paket nakon EUR.1 showEvent wiringa: 1387 prošlo,
+  72 preskočena,
   5 očekivano neuspješnih.
 - Root i `dist_client` kopije provjerene su na funkcionalni paritet.
 - `git diff --check` ne prijavljuje greške u promjenama ovog zadatka.
@@ -107,6 +110,11 @@ SettingsPanel je postojao u kodu, ali nije bio u Admin navigaciji, dok je
 signali nisu bili povezani u controlleru. Zbog toga korisnik nije mogao vidjeti
 niti sačuvati postavku; sva tri wiring propusta su zatvorena.
 
+Nakon potvrde da Admin probni WAV radi, a parser i dalje nema zvuk, dokazano je
+da backend i uređaj nisu uzrok. Parserski callback nije pouzdan zajednički
+okidač za sve putanje. Zvuk je zato vezan za stvarni `showEvent` EUR.1 modala,
+sa zaštitom od ponavljanja pri hide/show događajima.
+
 ## Konflikti / kontradiktorni izvori
 
 Nema funkcionalnih konflikata. GitNexus analiza je privremeno promijenila samo
@@ -121,6 +129,7 @@ vraćene su. Korisnička potvrda nije potrebna.
 | `eff49c2` | `fix(uvoz): dodaj zvuk legacy zavrsetku parsiranja` |
 | `37cabc9` | `fix(uvoz): pusti zvuk prije eur1 dijaloga` |
 | `e64745d` | `fix(obavjestenja): uvedi pouzdan zvuk i admin kontrolu` |
+| `2da7f33` | `fix(eur1): pusti zvuk pri otvaranju modala` |
 
 ## Rizici / ograničenja
 

@@ -2995,3 +2995,8 @@ Korisnička postavka `completion_sound_enabled` pripada
 Admin → Podešavanja → Zvučna obavještenja, zajedno sa dugmetom za probu.
 AdminView mora imati stvarni SettingsPanel u navigaciji; `get_settings_panel()`
 ne smije vraćati SystemPanel. `.env=false` ostaje administratorski override.
+
+EUR.1 modal je sam autoritativni UI okidač: `Eur1QuickDialog.showEvent()` mora
+jednom, preko event loopa, pustiti zvuk kada dijalog stvarno postane vidljiv.
+Time su pokriveni svi ručni, agent, objedinjeni i legacy putevi koji otvaraju
+isti modal, bez oslanjanja na pretpostavljeni callback parsiranja.
