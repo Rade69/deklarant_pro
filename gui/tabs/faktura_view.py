@@ -228,6 +228,17 @@ class FakturaView(BaseTabView):
     # Vidi: docs/decisions/002-tool-dispatcher-integration.md
     naimenovanja_created = Signal()
 
+    # ── Signali za Controller (Faza 4-7B 3-layer refaktor) ──────
+    # Definisani ali NE prespojeni — View i dalje koristi stare handlere.
+    # Prespajanje zahtijeva testiranje na stvarnoj aplikaciji.
+    import_requested = Signal(list)        # filepaths
+    validate_requested = Signal(str, list) # scope, rows
+    auto_fill_requested = Signal()
+    create_naimenovanja_requested = Signal(bool)  # auto
+    calculate_masses_requested = Signal()
+    delete_item_requested = Signal(int)     # row
+    tariff_bulk_change_requested = Signal(list, str)  # rows, tariff
+
     # Regex za detekciju alfanumeričke šifre na početku naziva robe
     _RE_CODE_PREFIX = re.compile(r"^([A-Z0-9]{6,10})\s+(.+)$", re.IGNORECASE)
 
