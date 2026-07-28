@@ -35,6 +35,7 @@ class NaimenovanjaTab(QWidget):
         self.controller = NaimenovanjaController(
             get_draft_fn=lambda: self.view.draft,
             service=self._service,
+            reload_header_fn=self._reload_header,
             parent=self,
         )
         self.view.save_current_requested.connect(
@@ -48,6 +49,24 @@ class NaimenovanjaTab(QWidget):
         )
         self.view.delete_requested.connect(
             lambda index: self.controller.delete_item(self.view, index)
+        )
+        self.view.tariff_lookup_requested.connect(
+            lambda code: self.controller.on_tariff_changed(self.view, code)
+        )
+        self.view.knowledge_base_update_requested.connect(
+            lambda code: self.controller.update_knowledge_base(self.view, code)
+        )
+        self.view.pe_documents_changed.connect(
+            lambda: self.controller.sync_pe_docs_to_header(self.view)
+        )
+        self.view.import_xml_requested.connect(
+            lambda path: self.controller.import_xml(self.view, path)
+        )
+        self.view.suggest_tariff_requested.connect(self._prepare_tariff_suggestions)
+        self.view.tariff_suggestion_accepted.connect(
+            lambda result: self.controller.accept_tariff_suggestion(
+                self.view, result
+            )
         )
 
         layout = QVBoxLayout(self)
@@ -66,3 +85,16 @@ class NaimenovanjaTab(QWidget):
     def _sync_header_packages(self):
         """Delegira _sync_header_packages() prema NaimenovanjaView."""
         self.view._sync_header_packages()
+
+    def _prepare_tariff_suggestions(self):
+        mappings = self.controller.prepare_tariff_suggestions(self.view)
+        if not mappings:
+            return
+        item = self.view.draft.items[self.view.current_item_index]
+        self.view._show_tariff_suggestion_dialog(mappings, item)
+
+    def _reload_header(self):
+        main_window = self.window()
+        tab = getattr(main_window, "zaglavlje_tab", None)
+        if tab and hasattr(tab, "reload_data"):
+            tab.reload_data()

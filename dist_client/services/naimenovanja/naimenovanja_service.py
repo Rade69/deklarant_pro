@@ -17,6 +17,11 @@ from typing import Dict, Any, List, Optional
 from core.draft.draft import DeclarationDraft, NaimenovanjeDraft, InvoiceLine
 from services.naimenovanja.tariff_service import TariffService
 from services.origin_statement_detector import OriginStatementDetector
+from services.naimenovanja.models import (
+    DocumentMergeResult,
+    TariffLookupResult,
+    XmlImportResult,
+)
 
 
 class NaimenovanjaService:
@@ -432,6 +437,219 @@ class NaimenovanjaService:
             return get_supplementary_unit(tariff_code)
         except Exception:
             return ""
+
+    def build_tariff_lookup(self, tariff_code: str) -> TariffLookupResult:
+        code = self.normalize_field_value("tariff_code", tariff_code)
+        full, short = self._get_tariff_service().load_tariff_descriptions(code)
+        warnings = []
+        if code and not full and not short:
+            warnings.append(
+                f"Tarifni broj '{code}' nije pronađen u zvaničnoj tarifi"
+            )
+        return TariffLookupResult(
+            tariff_code=code,
+            full_description=full,
+            short_description=short,
+            supplementary_unit_code=self.resolve_supplementary_unit(code),
+            warnings=warnings,
+        )
+
+    @staticmethod
+    def add_tariff_documents(draft, tariff_code: str) -> int:
+        from core.draft.draft import AttachedDocument
+        from services.tariff_controls_service import get_required_docs
+        from services.tariff_doc_history_service import (
+            get_tariff_doc_history_service,
+        )
+
+        if not tariff_code or len(tariff_code.strip()) < 4:
+            return 0
+        candidates = []
+        try:
+            candidates.extend(get_required_docs(tariff_code) or [])
+        except Exception:
+            pass
+        try:
+            candidates.extend(
+                get_tariff_doc_history_service().get_suggested_docs(
+                    tariff_code, min_count=3
+                ) or []
+            )
+        except Exception:
+            pass
+
+        header_docs = getattr(draft, "header_attached_documents", None)
+        if header_docs is None:
+            return 0
+        existing = {
+            (getattr(doc, "code", "") or "").strip().upper()
+            for doc in header_docs
+        }
+        added = 0
+        for candidate in candidates:
+            code = (candidate.get("code") or "").strip().upper()
+            if not code or code in existing:
+                continue
+            header_docs.append(AttachedDocument(
+                code=code,
+                name=candidate.get("name") or code,
+                number="",
+                from_rule=False,
+            ))
+            existing.add(code)
+            added += 1
+        return added
+
+    @staticmethod
+    def assigned_invoice_lines(draft, item) -> list:
+        ordinal = getattr(item, "ordinal_no", 0)
+        return [
+            line for line in (getattr(draft, "invoice_lines", []) or [])
+            if getattr(line, "assigned_naimenovanje_ordinal", 0) == ordinal
+        ]
+
+    @staticmethod
+    def normalize_pe_document(value: str) -> str:
+        text = " ".join((value or "").strip().split())
+        if not text:
+            return ""
+        parts = text.split(" ", 1)
+        code = parts[0].upper()
+        if code not in {"PE1", "PE2", "PE3"}:
+            return text
+        return code + (f" {parts[1]}" if len(parts) > 1 else "")
+
+    @staticmethod
+    def clear_secondary_pe_documents(item) -> bool:
+        changed = False
+        for field_name in (
+            "attached_document1",
+            "attached_document2",
+            "attached_document3",
+            "attached_document5",
+        ):
+            value = (getattr(item, field_name, "") or "").strip()
+            code = value.split(" ", 1)[0].upper() if value else ""
+            if code in {"PE1", "PE2", "PE3"}:
+                setattr(item, field_name, "")
+                changed = True
+        return changed
+
+    def apply_pe_document(self, draft, current_index: int, value: str) -> DocumentMergeResult:
+        from core.draft.draft import AttachedDocument
+
+        normalized = self.normalize_pe_document(value)
+        items = getattr(draft, "items", []) or []
+        if not items or current_index < 0 or current_index >= len(items):
+            return DocumentMergeResult(warnings=["Nema aktivnog naimenovanja"])
+
+        for index, item in enumerate(items):
+            has_preference = bool(
+                (getattr(item, "preference_code", "") or "").strip()
+            )
+            if index == current_index or not normalized or has_preference:
+                item.attached_document4 = normalized
+            self.clear_secondary_pe_documents(item)
+
+        entries = []
+        seen = set()
+        for item in items:
+            doc = self.normalize_pe_document(
+                getattr(item, "attached_document4", "") or ""
+            )
+            if doc and not (getattr(item, "preference_code", "") or "").strip():
+                item.attached_document4 = ""
+                continue
+            item.attached_document4 = doc
+            parts = doc.split(" ", 1) if doc else []
+            code = parts[0] if parts else ""
+            number = parts[1] if len(parts) > 1 else ""
+            if code in {"PE1", "PE2", "PE3"} and code not in seen:
+                seen.add(code)
+                entries.append((code, number))
+
+        header_docs = list(getattr(draft, "header_attached_documents", []) or [])
+        header_docs = [
+            doc for doc in header_docs
+            if (getattr(doc, "code", "") or "").upper() not in {"PE1", "PE2", "PE3"}
+        ]
+        names = {
+            "PE1": "EUR.1 obrazac",
+            "PE2": "Izjava na fakturi",
+            "PE3": "Izjava ovlaštenog izvoznika",
+        }
+        for code, number in entries:
+            header_docs.append(AttachedDocument(
+                code=code,
+                name=names[code],
+                number=number,
+                from_rule=code == "PE1",
+            ))
+        draft.header_attached_documents = header_docs
+        return DocumentMergeResult(
+            documents=[{"code": code, "number": number} for code, number in entries]
+        )
+
+    def import_xml(self, draft, filepath: str) -> XmlImportResult:
+        from services.zaglavlje_service import ZaglavljeService
+        from core.draft.draft import AttachedDocument
+
+        service = ZaglavljeService()
+        items = service.parse_naimenovanja_from_xml(filepath)
+        if not items:
+            return XmlImportResult(warnings=["XML fajl ne sadrži naimenovanja"])
+
+        global_docs = []
+        seen = set()
+        for item in items:
+            for field_name in (
+                "attached_document1",
+                "attached_document2",
+                "attached_document3",
+                "attached_document4",
+                "attached_document5",
+            ):
+                raw = (getattr(item, field_name, "") or "").strip()
+                if not raw:
+                    continue
+                parts = raw.split(" ", 1)
+                key = (parts[0].upper(), parts[1] if len(parts) > 1 else "")
+                if key not in seen:
+                    seen.add(key)
+                    global_docs.append({"code": key[0], "number": key[1]})
+
+        imported_header = service.load_from_xml(filepath)
+        preserved_transport = {
+            name: getattr(draft, name, "")
+            for name in (
+                "transport_id",
+                "aktivno_transport",
+                "aktivno_transport_nat",
+            )
+        }
+        service.save_to_draft(draft, imported_header)
+        for name, value in preserved_transport.items():
+            setattr(draft, name, value)
+
+        draft.header_attached_documents = [
+            AttachedDocument(
+                code=doc["code"],
+                name=doc["code"],
+                number=doc["number"] if doc["code"] == "DIS" else "",
+            )
+            for doc in global_docs
+            if doc["code"] not in {"PE1", "PE2", "PE3"}
+        ]
+        draft.items = items
+        self.apply_pe_document(
+            draft,
+            0,
+            getattr(items[0], "attached_document4", "") if items else "",
+        )
+        return XmlImportResult(
+            items_count=len(items),
+            global_documents=global_docs,
+        )
 
     @staticmethod
     def normalize_field_value(field_name: str, value):

@@ -36,12 +36,14 @@ class NaimenovanjaController(QObject):
         get_draft_fn: Callable[[], DeclarationDraft],
         service: Optional[NaimenovanjaService] = None,
         tariff_service: Optional[TariffService] = None,
+        reload_header_fn: Optional[Callable[[], None]] = None,
         parent: Optional[QObject] = None,
     ):
         super().__init__(parent)
         self._get_draft = get_draft_fn
         self._service = service or NaimenovanjaService()
         self._tariff_service = tariff_service or TariffService()
+        self._reload_header = reload_header_fn or (lambda: None)
 
     @property
     def draft(self) -> DeclarationDraft:
@@ -90,8 +92,7 @@ class NaimenovanjaController(QObject):
         form_data = view.read_current_form()
         changed = self._service.apply_form_to_item(form_data, item)
 
-        from gui.tabs.naimenovanja_view import _clear_secondary_pe_documents
-        changed = _clear_secondary_pe_documents(item) or changed
+        changed = self._service.clear_secondary_pe_documents(item) or changed
 
         new_tariff = getattr(item, "tariff_code", "") or ""
         new_suffix = getattr(item, "tariff_suffix", "") or "000"
@@ -153,54 +154,80 @@ class NaimenovanjaController(QObject):
     # ── Tarifni tok (Faza 5) ──────────────────────────────────────
 
     def on_tariff_changed(self, view, code: str) -> None:
-        """Handler za promjenu tarifnog broja u View-u.
-
-        Flow: Controller debounce → TariffService lookup →
-        Service dokumenti → Controller primjena → View render.
-        KB učenje samo nakon eksplicitne potvrde.
-        """
-        if not code or not code.strip():
-            return
-        code = code.strip()
-
-        # 1. Tarifni lookup (full + short opisi)
-        full, short = self._tariff_service.load_tariff_descriptions(code)
-        warnings = []
-
-        if not full and not short:
-            warnings.append(f"Tarifni broj '{code}' nije pronađen u zvaničnoj tarifi")
-
-        # 2. Dopunska JM
-        supp_code = self._service.resolve_supplementary_unit(code)
-
-        # 3. Dokumenti po tarifi
-        try:
-            from services.tariff_controls_service import check_tariff_controls, get_required_docs
-            controls = check_tariff_controls(code)
-            docs = get_required_docs(code) if controls else []
-        except Exception:
-            docs = []
-
-        # 4. Primijeni na draft
+        result = self._service.build_tariff_lookup(code)
         draft = self._get_draft()
         idx = getattr(view, "current_item_index", 0)
         items = getattr(draft, "items", []) or []
         if items and idx < len(items):
             item = items[idx]
-            item.tariff_code = code
-            if full:
-                item.tariff_description1 = full
-            if short:
-                item.tariff_description2 = short
-            if supp_code and not getattr(item, "supplementary_unit_code", ""):
-                item.supplementary_unit_code = supp_code
-            draft.mark_dirty()
+            old_code = getattr(item, "tariff_code", "") or ""
+            item.tariff_code = result.tariff_code
+            item.tariff_description1 = result.full_description
+            item.tariff_description2 = result.short_description
+            if (
+                result.supplementary_unit_code
+                and not getattr(item, "supplementary_unit_code", "")
+            ):
+                item.supplementary_unit_code = result.supplementary_unit_code
+            self._service.sync_tariff_to_invoice_lines(
+                old_code,
+                getattr(item, "tariff_suffix", "") or "000",
+                result.tariff_code,
+                getattr(item, "tariff_suffix", "") or "000",
+                item,
+                draft,
+            )
+            self._service.add_tariff_documents(draft, result.tariff_code)
+            self._notify_mutation(view, draft)
+        view.show_tariff_lookup(result)
 
-        # 5. View render (ako postoji render metoda)
-        if hasattr(view, "_populate_tariff_description"):
-            view._populate_tariff_description(full or "", short or "")
-        if warnings and hasattr(view, "_check_and_show_tariff_warning"):
-            view._check_and_show_tariff_warning(code)
+    def update_knowledge_base(self, view, tariff_code: str) -> None:
+        draft = self._get_draft()
+        items = getattr(draft, "items", []) or []
+        index = getattr(view, "current_item_index", 0)
+        if not items or index >= len(items):
+            return
+        item = items[index]
+        lines = self._service.assigned_invoice_lines(draft, item)
+        try:
+            from services.tariff_facade import TariffFacade
+            facade = TariffFacade.get_instance()
+            updated = 0
+            for line in lines:
+                name = (getattr(line, "naziv_robe", "") or "").strip()
+                if not name:
+                    continue
+                facade.sync_mapping(
+                    naziv_robe=name,
+                    product_code=getattr(line, "product_code", "") or "",
+                    new_tariff=tariff_code,
+                    zemlja_porijekla=getattr(line, "zemlja_porijekla", "") or "",
+                    precision_1=getattr(item, "tariff_suffix", "") or "000",
+                )
+                updated += 1
+            if not lines:
+                name = (
+                    getattr(item, "goods_description", "")
+                    or getattr(item, "goods_trade_name", "")
+                    or ""
+                ).strip()
+                if name:
+                    facade.sync_mapping(
+                        naziv_robe=name,
+                        product_code="",
+                        new_tariff=tariff_code,
+                        zemlja_porijekla=(
+                            getattr(item, "origin_country_code", "") or ""
+                        ),
+                        precision_1=(
+                            getattr(item, "tariff_suffix", "") or "000"
+                        ),
+                    )
+                    updated = 1
+            view.show_knowledge_base_updated(updated, tariff_code)
+        except Exception as exc:
+            logger.exception("Greška pri ažuriranju baze znanja")
+            view.show_error(f"Nije moguće ažurirati bazu znanja:\n{exc}")
 
     def accept_tariff_suggestion(self, view, result: dict) -> None:
         """Primijeni prihvaćeni tarifni prijedlog."""
@@ -211,65 +238,59 @@ class NaimenovanjaController(QObject):
             return
 
         item = items[idx]
-        code = result.get("tarifni_broj", "")
+        code = self._service.normalize_field_value(
+            "tariff_code", result.get("tarifni_broj", "")
+        )
         if code:
             item.tariff_code = code
-            item.preference_code = result.get("povlastica", "")
-            item.origin_country_code = result.get("zemlja_porijekla", "")
-            draft.mark_dirty()
-            if hasattr(view, "_load_current_item"):
-                view._load_current_item()
+            self._notify_mutation(view, draft)
+            view.render_current_item()
+            try:
+                from services.tariff_facade import TariffFacade
+                TariffFacade.get_instance().increment_usage(
+                    code, None, getattr(item, "goods_trade_name", "") or ""
+                )
+            except Exception:
+                logger.warning("Nije ažuriran brojač korištenja tarife", exc_info=True)
 
     # ── Dokumenti (Faza 6) ────────────────────────────────────────
 
     def sync_pe_docs_to_header(self, view) -> None:
         """Sinhronizuj PE1/PE2/PE3 dokumente iz naimenovanja u zaglavlje."""
         draft = self._get_draft()
-        pe_codes = {"PE1", "PE2", "PE3"}
-        items = getattr(draft, "items", []) or []
-        header_docs = getattr(draft, "header_attached_documents", None) or []
-        from core.draft import AttachedDocument
-        for field_name in ("attached_document4", "attached_document5", "attached_document1", "attached_document2", "attached_document3"):
-            for item in items:
-                doc_text = getattr(item, field_name, "") or ""
-                code = doc_text.strip().split(" ", 1)[0].upper() if doc_text.strip() else ""
-                if code in pe_codes:
-                    if not any(d.code == code for d in header_docs):
-                        header_docs.append(AttachedDocument(code=code, name=code, number=doc_text.strip().split(" ", 1)[1] if " " in doc_text else ""))
-        draft.header_attached_documents = header_docs
-        draft.mark_dirty()
+        index = getattr(view, "current_item_index", 0)
+        value = view.current_pe_document()
+        result = self._service.apply_pe_document(draft, index, value)
+        self._notify_mutation(view, draft)
+        view.show_document_merge(result)
 
-    def compute_document_merge(self, items: list) -> dict:
-        """Deduplikovani dokumenti za sva naimenovanja."""
-        result: dict = {}
-        pe_codes = {"PE1", "PE2", "PE3"}
-        for item in items:
-            for field_name in ("attached_document4", "attached_document5", "attached_document1", "attached_document2", "attached_document3"):
-                doc_text = getattr(item, field_name, "") or ""
-                if not doc_text.strip():
-                    continue
-                code = doc_text.strip().split(" ", 1)[0].upper()
-                number = doc_text.strip().split(" ", 1)[1] if " " in doc_text else ""
-                if code not in result:
-                    result[code] = number
-        return result
+    def compute_document_merge(self, items: list):
+        draft = self._get_draft()
+        value = getattr(items[0], "attached_document4", "") if items else ""
+        return self._service.apply_pe_document(draft, 0, value)
 
     # ── XML / Prijedlozi (Faza 7) ──────────────────────────────────
 
     def import_xml(self, view, filepath: str) -> bool:
         """Uvezi naimenovanja iz XML fajla."""
         try:
-            from services.zaglavlje_service import ZaglavljeService
-            svc = ZaglavljeService()
-            items = svc.parse_naimenovanja_from_xml(filepath)
-            if not items:
-                return False
-
             draft = self._get_draft()
-            draft.items = items
-            draft.mark_dirty()
+            result = self._service.import_xml(draft, filepath)
+            if not result.items_count:
+                view.show_warning("\n".join(result.warnings))
+                return False
+            setattr(view, "current_item_index", 0)
+            self._notify_mutation(view, draft)
+            view.reload_data()
+            self._reload_header()
+            view.show_success(
+                f"Uvezeno {result.items_count} naimenovanja iz XML-a.\n"
+                "Kliknite 'Sačuvaj' da potvrdite promjene."
+            )
             return True
-        except Exception:
+        except Exception as exc:
+            logger.exception("Greška pri uvozu XML naimenovanja")
+            view.show_error(f"Greška pri uvozu: {exc}")
             return False
 
     def prepare_tariff_suggestions(self, view) -> list:
@@ -284,4 +305,9 @@ class NaimenovanjaController(QObject):
         origin = getattr(item, "origin_country_code", "")
         if not name or not name.strip():
             return []
-        return self._tariff_service.suggest_tariff(name, origin)
+        is_valid, reason = self._tariff_service.validate_suggestion_input(name)
+        if not is_valid:
+            view.show_invalid_suggestion_input(reason, name)
+            return []
+        mappings = self._tariff_service.suggest_tariff(name, origin)
+        return self._tariff_service.validate_mappings(mappings)
