@@ -538,3 +538,49 @@ class NaimenovanjaService:
                 f"⚠️ Greška pri učitavanju Rb.40 iz baze: {e}"
             )
         return result
+
+    # ============================================================
+    # Save/Navigation (Faza 4)
+    # ============================================================
+
+    @staticmethod
+    def apply_form_to_item(form_data: dict, item) -> None:
+        """Primijeni vrijednosti iz forme na NaimenovanjeDraft item.
+
+        Normalizuje vrijednosti i setuje atribute. NE dira DB.
+        Preskače virtualna polja (statistical_value, pd_codes).
+        """
+        _VIRTUAL_FIELDS = {"statistical_value", "pd_codes"}
+        for field_name, raw_value in form_data.items():
+            if not field_name or field_name in _VIRTUAL_FIELDS:
+                continue
+            normalized = NaimenovanjaService.normalize_field_value(field_name, raw_value)
+            setattr(item, field_name, normalized)
+
+    @staticmethod
+    def sync_tariff_to_invoice_lines(
+        old_tariff: str, old_suffix: str,
+        new_tariff: str, new_suffix: str,
+        item, draft,
+    ) -> int:
+        """Sinhronizuj promjenu tarifnog broja na povezane InvoiceLine stavke.
+
+        Za grupisana naimenovanja koristi assigned_naimenovanje_ordinal,
+        ne ordinal_no - 1 (kritična korekcija iz Codex plana §7.4).
+
+        Returns:
+            Broj ažuriranih InvoiceLine stavki.
+        """
+        if not new_tariff:
+            return 0
+        if new_tariff == old_tariff and new_suffix == old_suffix:
+            return 0
+
+        ordinal = getattr(item, "ordinal_no", 0)
+        updated = 0
+        for line in (getattr(draft, "invoice_lines", []) or []):
+            if getattr(line, "assigned_naimenovanje_ordinal", 0) == ordinal:
+                line.tarifni_broj = new_tariff
+                line.tariff_suffix = new_suffix
+                updated += 1
+        return updated
