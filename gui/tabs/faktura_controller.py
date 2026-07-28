@@ -30,3 +30,37 @@ class FakturaController(QObject):
     @property
     def draft(self) -> DeclarationDraft:
         return self._get_draft()
+
+    # ── Validacija i bojenje (Faza 3) ──────────────────────────
+
+    def validate_and_color_rows(self, view, draft) -> ValidationPassResult:
+        """Validiraj sve redove i vrati boje + tooltip.
+        
+        Koristi postojeći FakturaValidationService.
+        """
+        from services.faktura.validation_service import FakturaValidationService
+        from services.faktura.models import ValidationPassResult
+        
+        svc = FakturaValidationService()
+        lines = getattr(draft, "invoice_lines", []) or []
+        color_map = {}
+        errors = 0
+        warnings = 0
+        
+        for idx, line in enumerate(lines):
+            try:
+                color, tooltip = svc.validate_and_get_color(line)
+                color_map[idx] = (color, tooltip)
+                if "#ff" in color.lower() or "#F9" in color.upper():  # crvena
+                    errors += 1
+                elif "#ff" in color.lower() or "#FF" in color.upper():  # žuta
+                    warnings += 1
+            except Exception:
+                color_map[idx] = ("#ffffff", "")
+        
+        return ValidationPassResult(
+            validated_count=len(lines),
+            error_count=errors,
+            warning_count=warnings,
+            color_map=color_map,
+        )
