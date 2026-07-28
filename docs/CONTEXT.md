@@ -2774,3 +2774,24 @@ historija smije dati prijedlog, ne automatski upis bez službenog pravila.
 
 Detaljna metodologija i plan:
 `docs/ASYCUDA_PARITY_PROFILE_2024_2026.md`.
+
+---
+
+## 84. Naimenovanja render i dist_client moraju imati jedan aktivan put (2026-07-28)
+
+Aktivni prikaz naimenovanja ostaje
+`NaimenovanjaView.render_current_item()` → `_load_current_item()`. Neaktivni
+`NaimenovanjeRenderContext` i istoimena slobodna render funkcija iz Phase 4
+bili su nepotpun scaffold: nisu imali pozivaoce, nisu pokrivali sva polja forme
+i zaobilazili su kanonsko `_set_widget_value()` formatiranje. Ne smiju se
+ponovo uključiti bez kompletne migracije svih polja i karakterizacionih testova.
+
+`dist_client` se može pokretati i buildovati kao samostalan root, zato svaki
+modul koji root servis uvozi mora postojati i pod `dist_client`. Posebno,
+`dist_client/services/naimenovanja/models.py` je obavezan jer ga
+`NaimenovanjaService` uvozi pri kreiranju taba.
+
+Ručni izbor tarifnog broja mora ići kroz
+`tariff_lookup_requested` → `NaimenovanjaController.on_tariff_changed()`.
+View smije prikazati izabranu šifru, ali ne smije direktno mijenjati draft,
+emitovati dirty stanje niti sam pokretati tarifnu poslovnu logiku.
