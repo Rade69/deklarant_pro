@@ -206,3 +206,69 @@ class NaimenovanjaController(QObject):
             draft.mark_dirty()
             if hasattr(view, "_load_current_item"):
                 view._load_current_item()
+
+    # ── Dokumenti (Faza 6) ────────────────────────────────────────
+
+    def sync_pe_docs_to_header(self, view) -> None:
+        """Sinhronizuj PE1/PE2/PE3 dokumente iz naimenovanja u zaglavlje."""
+        draft = self._get_draft()
+        pe_codes = {"PE1", "PE2", "PE3"}
+        items = getattr(draft, "items", []) or []
+        header_docs = getattr(draft, "header_attached_documents", None) or []
+        from core.draft import AttachedDocument
+        for field_name in ("attached_document4", "attached_document5", "attached_document1", "attached_document2", "attached_document3"):
+            for item in items:
+                doc_text = getattr(item, field_name, "") or ""
+                code = doc_text.strip().split(" ", 1)[0].upper() if doc_text.strip() else ""
+                if code in pe_codes:
+                    if not any(d.code == code for d in header_docs):
+                        header_docs.append(AttachedDocument(code=code, name=code, number=doc_text.strip().split(" ", 1)[1] if " " in doc_text else ""))
+        draft.header_attached_documents = header_docs
+        draft.mark_dirty()
+
+    def compute_document_merge(self, items: list) -> dict:
+        """Deduplikovani dokumenti za sva naimenovanja."""
+        result: dict = {}
+        pe_codes = {"PE1", "PE2", "PE3"}
+        for item in items:
+            for field_name in ("attached_document4", "attached_document5", "attached_document1", "attached_document2", "attached_document3"):
+                doc_text = getattr(item, field_name, "") or ""
+                if not doc_text.strip():
+                    continue
+                code = doc_text.strip().split(" ", 1)[0].upper()
+                number = doc_text.strip().split(" ", 1)[1] if " " in doc_text else ""
+                if code not in result:
+                    result[code] = number
+        return result
+
+    # ── XML / Prijedlozi (Faza 7) ──────────────────────────────────
+
+    def import_xml(self, view, filepath: str) -> bool:
+        """Uvezi naimenovanja iz XML fajla."""
+        try:
+            from services.zaglavlje_service import ZaglavljeService
+            svc = ZaglavljeService()
+            items = svc.parse_naimenovanja_from_xml(filepath)
+            if not items:
+                return False
+
+            draft = self._get_draft()
+            draft.items = items
+            draft.mark_dirty()
+            return True
+        except Exception:
+            return False
+
+    def prepare_tariff_suggestions(self, view) -> list:
+        """Pripremi kandidate za tarifni prijedlog (ne prikazuje dijalog)."""
+        draft = self._get_draft()
+        idx = getattr(view, "current_item_index", 0)
+        items = getattr(draft, "items", []) or []
+        if not items or idx >= len(items):
+            return []
+        item = items[idx]
+        name = getattr(item, "goods_trade_name", "") or getattr(item, "goods_description", "")
+        origin = getattr(item, "origin_country_code", "")
+        if not name or not name.strip():
+            return []
+        return self._tariff_service.suggest_tariff(name, origin)
