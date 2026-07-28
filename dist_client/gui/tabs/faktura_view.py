@@ -5630,9 +5630,13 @@ class FakturaView(BaseTabView):
             table.setItem(i, 4, item_opis)
 
         table.setColumnWidth(0, 45)
-        table.setColumnWidth(2, 90)
         table.setColumnWidth(3, 160)
         table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        # Tarifa: ResizeToContents umjesto fiksnih 90px — puni tarifni broj
+        # (8 cifara, bold font) se nije uvijek uklapao, Qt ga je skraćivao na
+        # "63079..." — korisnička primjedba 2026-07-28. ResizeToContents se
+        # sam prilagođava dužini stvarnog sadržaja, ne treba ručno širenje.
+        table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
         table.horizontalHeader().setSectionResizeMode(4, QHeaderView.Stretch)
         table.resizeRowsToContents()
         return table
