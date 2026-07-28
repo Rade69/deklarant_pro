@@ -45,6 +45,32 @@ def test_eur1_dialog_groups_by_invoice_and_country(monkeypatch):
     ]
 
 
+def test_eur1_dialog_plays_sound_when_it_becomes_visible(monkeypatch):
+    app = _app()
+    calls = []
+    monkeypatch.setattr(
+        "gui.dialogs.eur1_quick_dialog.play_process_completion_sound",
+        lambda outcome: calls.append(outcome),
+    )
+    monkeypatch.setattr(Eur1QuickDialog, "_create_country_combo", _fake_country_combo)
+    monkeypatch.setattr(
+        Eur1QuickDialog, "_get_country_name", lambda _self, key: key.split(" - ")[-1]
+    )
+    dialog = Eur1QuickDialog(
+        [InvoiceLine(invoice_number="1476/26", zemlja_porijekla="AT")]
+    )
+
+    dialog.show()
+    app.processEvents()
+    app.processEvents()
+    dialog.hide()
+    dialog.show()
+    app.processEvents()
+
+    assert calls == ["success"]
+    dialog.close()
+
+
 def test_eur1_dialog_applies_only_selected_invoice_country_group(monkeypatch):
     _app()
     monkeypatch.setattr(Eur1QuickDialog, "_create_country_combo", _fake_country_combo)
