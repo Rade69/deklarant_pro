@@ -10,8 +10,8 @@ Codex
 
 ## Scope
 
-Naimenovanja View/Controller/Service wiring, DI composition root, karakterizacioni
-testovi i odgovarajuće `dist_client` kopije.
+Naimenovanja View/Controller/Service wiring za svih osam faza, DI composition
+root, tarifni/PE/XML tokovi, karakterizacioni testovi i `dist_client` kopije.
 
 ## Status izvora
 
@@ -27,6 +27,8 @@ testovi i odgovarajuće `dist_client` kopije.
 - `_format_trading_names`: LOW, dva direktna poziva.
 - `_compute_statistical_value` i `_compute_pd_codes`: LOW, po jedan direktni poziv.
 - Završni `detect_changes`: LOW; Qt dinamički signali dodatno su provjereni testovima.
+- Faze 5–8 (`on_tariff_changed`, XML, PE i suggestion handleri): LOW, bez
+  statičkih pozivalaca; stvarni pozivaoci su Qt signali.
 
 ## Šta je urađeno
 
@@ -39,6 +41,16 @@ testovi i odgovarajuće `dist_client` kopije.
 - GUI trgovački naziv više se ne skraćuje na XML limit od 280 znakova.
 - Šest runtime fajlova preslikano je u `dist_client` uz SHA-256 paritet.
 - Karakterizacioni testovi prošireni stvarnim widget/controller operacijama.
+- Tarifni debounce sada emituje namjeru Controlleru; lookup, dopunska JM,
+  povezane faktura-stavke i dokumenti obrađuju se kroz Service.
+- Kontrolisano KB učenje koristi sve linije povezane preko
+  `assigned_naimenovanje_ordinal` i radi samo nakon korisničke potvrde.
+- Prihvatanje prijedloga mijenja samo tarifni broj, ne zemlju ni povlasticu.
+- PE dokumenti se normalizuju, uklanjaju bez povlastice, čiste iz sekundarnih
+  polja i deduplikuju u zaglavlju.
+- XML import više nije dvostruk: View bira/potvrđuje fajl, Service mutira isti
+  draft i čuva aktuelna transportna polja, Controller osvježava oba taba.
+- Root i `dist_client` Python kopije imaju potvrđen SHA-256 paritet.
 
 ## Zašto je urađeno
 
@@ -55,48 +67,51 @@ renderuje validan indeks. Servis vraća informaciju da li je model stvarno promi
 
 ## Šta nije dirano
 
-- Tarifni prijedlozi, XML import, PE sinhronizacija i ASYCUDA builder.
+- ASYCUDA XML builder i XML export pravila.
 - Četiri ranije izmijenjena generisana UI Python fajla.
-- Korisnički `.env`.
-- Nepovezani padovi DB i penetration testova.
+- Novi, nevezani Faktura refaktor plan u radnom stablu.
 
 ## Verifikacija
 
-- Ciljani paket: `35 passed`.
-- Puna suite: `1346 passed, 72 skipped, 5 xfailed, 11 failed`.
-- Deset padova zahtijeva nedostupan PostgreSQL/circuit breaker.
-- Jedan pad je postojeći `.env` problem: `DEBUG=release` nije validan boolean.
+- Prvi rez ciljano: `35 passed`; faze 5–8 ciljano: `52 passed`.
+- Puna suite sa dostupnim serverom: `1361 passed, 72 skipped, 5 xfailed`.
+- Server `192.168.0.25:5432`: TCP dostupnost potvrđena.
+- Procesna varijabla `DEBUG=release` privremeno je pregažena sa `false`;
+  `.env` već sadrži validno `DEBUG=False`.
 - `py_compile` prolazi za svih šest root i šest `dist_client` runtime fajlova.
 - SHA-256 sadržajni paritet root/`dist_client`: potvrđen za svih šest parova.
 - `git diff --check`: prolazi.
 
 ## Pronađeni problemi
 
-Puna suite zavisi od dostupnog PostgreSQL servera. Takođe, lokalni `.env` sadrži
-`DEBUG=release`, zbog čega `AppSettings` penetration test pada prije izvođenja
-same provjere.
+Procesno okruženje IDE-a ima `DEBUG=release`, što nadjačava ispravni `.env`.
+Testovi su zeleni kada se proces pokrene sa `DEBUG=false`. To nije kodna
+regresija, ali IDE/runtime environment treba trajno očistiti.
 
 ## Konflikti / kontradiktorni izvori
 
-Plan nalaže puni test gate, ali trenutna infrastruktura ne omogućava zelenu punu
-suite bez dostupne baze i validnog lokalnog `DEBUG` podešavanja. Ciljani refaktorski
-testovi i sve nepovezane test grupe prolaze. Korisnička potvrda nije potrebna za kod.
+Raniji izvještaj navodio je nedostupan server i 11 padova. Korisnik je dao novu
+adresu `192.168.0.25`; nakon promjene aktivnog `.env` hosta puna suite je zelena.
+Korisnička potvrda nije potrebna za kod.
 
 ## Commitovi
 
 | Hash | Poruka |
 | --- | --- |
 | `2e145c3` | `fix(naimenovanja): zatvori controller wiring i zastiti draft` |
+| `24fb7af` | `docs(report): evidentiraj popravke naimenovanja refaktora` |
+| `7d9d6e2` | `refactor(naimenovanja): zavrsi tarifni dokument i xml tok` |
 
 ## Rizici / ograničenja
 
-Qt signalne veze su dinamičke i GitNexus ih ne vidi u potpunosti; zato su pokrivene
-offscreen klik i controller testovima. Ručni Windows smoke test još nije izvršen.
+Qt signalne veze su dinamičke i GitNexus ih ne vidi u potpunosti; zato su
+pokrivene offscreen i controller/service testovima. Ručni Windows smoke test
+tarifnog dijaloga i XML izbora fajla još nije izvršen.
 
 ## Potreban follow-up
 
-- Pokrenuti punu suite kada PostgreSQL bude dostupan.
-- Ispraviti lokalni `DEBUG` u `.env` na validnu boolean vrijednost prije security testa.
+- U IDE/terminal okruženju ukloniti sistemsku/procesnu varijablu
+  `DEBUG=release`, jer nadjačava `.env`.
 
 ## Potrebna korisnička potvrda
 

@@ -2679,3 +2679,24 @@ redoslijed je: potvrda u View-u → Controller briše i renumeriše → postavlj
 validan indeks → renderuje, bez save-before-navigation poziva. Numerička polja
 forme moraju ostati `int`/`float`, a tarifni broj se normalizuje na cifre prije
 upisa u draft; Controller dobija aktivni draft isključivo kroz getter.
+
+---
+
+## 79. Naimenovanja faze 5–8 — kontrolisano učenje i PE/XML pravila (2026-07-28)
+
+Promjena tarife kroz Naimenovanja tab prolazi View signal → Controller →
+NaimenovanjaService. Kod grupisanog naimenovanja povezane faktura-stavke uvijek
+se nalaze preko `assigned_naimenovanje_ordinal`; obrazac `ordinal_no - 1` nije
+ispravan. Baza znanja se ažurira tek poslije eksplicitne potvrde korisnika i za
+svaku povezanu faktura-stavku zasebno.
+
+Prihvaćeni tarifni prijedlog smije automatski promijeniti samo tarifni broj.
+Zemlja porijekla i povlastica iz prijedloga nisu dovoljan dokaz i ostaju
+nepromijenjene. PE1/PE2/PE3 se normalizuju i čuvaju u `attached_document4`
+samo kada naimenovanje ima povlasticu; sekundarna PE polja se čiste, a zaglavlje
+se svaki put ponovo gradi bez duplikata.
+
+ASYCUDA XML import mutira postojeći draft objekat, čuva aktuelna transportna
+polja, prazni reference svih globalnih dokumenata osim `DIS`, zatim osvježava
+Naimenovanja i Zaglavlje kroz wrapper callback. View samo bira fajl, traži
+potvrdu i emituje namjeru; ne smije nakon toga drugi put samostalno uvoziti XML.
