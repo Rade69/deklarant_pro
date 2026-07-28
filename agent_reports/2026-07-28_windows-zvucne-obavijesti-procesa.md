@@ -48,6 +48,10 @@ Nije pronađen HIGH ili CRITICAL impact.
 - Druga živa provjera pokazala je da EUR.1/PE dijalog blokira završni modal.
   Zvuk ručnog parsiranja zato je pomjeren neposredno prije prvog interaktivnog
   dijaloga, a kasniji dupli zvuk je uklonjen.
+- Sistemski Windows aliasi zamijenjeni su lokalno generisanim WAV signalima,
+  pa čujnost više ne zavisi od aktivnog Windows sound scheme-a.
+- Admin navigaciji vraćen je stvarni Settings panel sa uključivanjem,
+  isključivanjem i neposrednom probom zvuka.
 
 ## Zašto je urađeno
 
@@ -71,8 +75,8 @@ zvučna obavijest ne može promijeniti ishod poslovnog procesa. Varijabla
 
 ## Verifikacija
 
-- Ciljani regresioni testovi, uključujući redoslijed zvuk → EUR.1: 32 prošla.
-- Kompletan test paket nakon promjene redoslijeda: 1381 prošlo, 72 preskočena,
+- Admin E2E: 16 prošlo; ciljani sound/Admin/tok testovi: 30 prošlo.
+- Kompletan test paket nakon WAV i Admin izmjene: 1386 prošlo, 72 preskočena,
   5 očekivano neuspješnih.
 - Root i `dist_client` kopije provjerene su na funkcionalni paritet.
 - `git diff --check` ne prijavljuje greške u promjenama ovog zadatka.
@@ -94,6 +98,15 @@ dijalog modalni i blokirajući, korisnik opravdano nije čuo signal kada se
 parsiranje završilo. Regresioni test sada eksplicitno zahtijeva redoslijed
 `sound:success` prije poziva `_show_eur1_dialog()`.
 
+Windows je prihvatao asinhroni sistemski alias i vraćao uspjeh, ali korisnik
+nije čuo zvuk. Povratna vrijednost API-ja nije dokaz čujnosti kada alias nema
+zvuk u aktivnoj Windows šemi. Lokalni WAV uklanja tu zavisnost.
+
+SettingsPanel je postojao u kodu, ali nije bio u Admin navigaciji, dok je
+`get_settings_panel()` vraćao SystemPanel. Istovremeno njegovi save/reset
+signali nisu bili povezani u controlleru. Zbog toga korisnik nije mogao vidjeti
+niti sačuvati postavku; sva tri wiring propusta su zatvorena.
+
 ## Konflikti / kontradiktorni izvori
 
 Nema funkcionalnih konflikata. GitNexus analiza je privremeno promijenila samo
@@ -107,17 +120,17 @@ vraćene su. Korisnička potvrda nije potrebna.
 | `f2ed838` | `feat(obavjestenja): dodaj zvuk zavrsetka procesa` |
 | `eff49c2` | `fix(uvoz): dodaj zvuk legacy zavrsetku parsiranja` |
 | `37cabc9` | `fix(uvoz): pusti zvuk prije eur1 dijaloga` |
+| `e64745d` | `fix(obavjestenja): uvedi pouzdan zvuk i admin kontrolu` |
 
 ## Rizici / ograničenja
 
-Zvuk zavisi od Windows sistemske zvučne konfiguracije, izlaznog uređaja i
-korisničke jačine zvuka. Na platformi bez `winsound` servis se bezbjedno
+Zvuk i dalje zavisi od izlaznog uređaja i Windows glasnoće aplikacije. Ne zavisi
+više od Windows sound scheme-a. Na platformi bez `winsound` servis se bezbjedno
 isključuje i aplikacija nastavlja bez zvuka.
 
 ## Potreban follow-up
 
-Nema obaveznog tehničkog follow-upa. Po želji se kasnije može dodati korisnička
-postavka u Admin tabu umjesto upravljanja kroz `.env`.
+Nema obaveznog tehničkog follow-upa.
 
 ## Potrebna korisnička potvrda
 

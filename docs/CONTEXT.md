@@ -2972,9 +2972,11 @@ emitovati dirty stanje niti sam pokretati tarifnu poslovnu logiku.
 ## 88. Zvučna obavještenja označavaju završetak, ne početak procesa (2026-07-28)
 
 Zajednički servis `services/process_completion_sound.py` koristi asinhrone
-Windows sistemske zvukove za tri ishoda: uspjeh, upozorenje i grešku. Poziv je
-best-effort: nedostupan `winsound` ili greška reprodukcije ne smiju prekinuti
-poslovni tok niti zamijeniti postojeći modal.
+lokalne WAV signale za tri ishoda: uspjeh, upozorenje i grešku. WAV fajlovi se
+generišu u `~/.deklarant_pro/sounds` i reprodukuju preko `winsound` kao fajlovi,
+jer Windows sistemski alias može biti nijem kada je sound scheme isključen.
+Poziv je best-effort: nedostupan `winsound` ili greška reprodukcije ne smiju
+prekinuti poslovni tok niti zamijeniti postojeći modal.
 
 Za Punu automatizaciju i izvoze zvuk se emituje kada je konačni ishod poznat.
 Kod ručnog parsiranja fakture emituje se odmah nakon uspješnog parser rezultata,
@@ -2987,3 +2989,9 @@ Funkcionalnost se može isključiti postavljanjem
 moraju zadržati isti servis i ista mjesta poziva. Faktura tab ima objedinjeni i
 legacy završni put uvoza; oba moraju emitovati isti zvučni ishod. Legacy put je
 aktivan kada je glavna lista već učitana ili parser ne vrati `ImportResult`.
+
+Korisnička postavka `completion_sound_enabled` pripada
+`~/.deklarant_pro/settings.json` i mora biti dostupna u
+Admin → Podešavanja → Zvučna obavještenja, zajedno sa dugmetom za probu.
+AdminView mora imati stvarni SettingsPanel u navigaciji; `get_settings_panel()`
+ne smije vraćati SystemPanel. `.env=false` ostaje administratorski override.
