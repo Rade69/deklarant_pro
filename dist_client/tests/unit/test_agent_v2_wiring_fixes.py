@@ -37,6 +37,7 @@ def _minimal_ready_draft() -> DeclarationDraft:
         naziv_robe="Test proizvod", tarifni_broj="08052190",
         bruto_kg=100.0, neto_kg=90.0, iznos=500.0,
         kolicina=10, jm="kom", zemlja_porijekla="DE",
+        assigned_naimenovanje_id="1",
     )]
     d.items = [NaimenovanjeDraft(
         item_id="1", ordinal_no=1,
@@ -375,6 +376,36 @@ class TestDeclarationWorkflowState:
 
         state = compute_state_from_draft(d)
         assert not state.gate("tariffs_resolved").passed
+
+    def test_zastarjelo_naimenovanje_iz_prethodne_sesije_ne_prolazi_items_created(self):
+        """
+        Popravka (2026-07-28): draft.items koji nije prazan (npr. ostatak
+        vraćene/prekinute prethodne sesije, session restore) NE smije proći
+        items_created kapiju ako invoice_lines nisu POVEZANE sa tim items
+        preko assigned_naimenovanje_id. Prije popravke bool(items) je
+        trivijalno prolazio, _puna_auto_pipeline se nikad nije pozivala
+        (create_smart_group() bi inače prvo obrisala stara items), a
+        items_validated kapija je onda provjeravala TUĐE, nepovezano
+        naimenovanje — korisnička primjedba: "agent ne okida aktivnost kad
+        klikne Provjeri/Kreiraj Naimenovanja, samo nastavlja i udara u zid".
+        """
+        from services.agent.workflow.declaration_workflow_state import compute_state_from_draft
+        from core.draft.draft import NaimenovanjeDraft
+
+        d = _minimal_ready_draft()
+        # Simulira stanje odmah nakon uvoza: nova invoice_lines stavka NIJE
+        # povezana (assigned_naimenovanje_id="") sa zastarjelim item-om
+        # ostavljenim iz prethodne (druge) sesije/fakture.
+        d.invoice_lines[0].assigned_naimenovanje_id = ""
+        d.items = [NaimenovanjeDraft(item_id="stara-sesija-999", ordinal_no=1)]
+
+        state = compute_state_from_draft(d)
+
+        assert not state.gate("items_created").passed
+        assert "zastarjela" in state.gate("items_created").reason.lower()
+        # Kapije poslije items_created se ne pokušavaju (isti obrazac kao
+        # files_imported/items_created ranije u from_draft).
+        assert state.gate("items_validated") is None
 
 
 # ── Nalaz 3: declaration_workflow_service — orkestrator + single-flight brava ──

@@ -101,10 +101,30 @@ class DeclarationWorkflowState:
             reason="" if bez_mase == 0 else f"{bez_mase} stavki bez izračunate mase",
         ))
 
-        has_items = bool(items)
+        # NE provjeravati samo bool(items) — draft.items može sadržati
+        # ZASTARJELA naimenovanja iz vraćene/prekinute prethodne sesije
+        # (session restore) koja nemaju veze sa TRENUTNIM invoice_lines.
+        # bool(items)==True bi tada lažno "prošao" ovu kapiju i preskočio
+        # _puna_auto_pipeline (koja bi inače pozvala create_smart_group() i
+        # ispravno prvo obrisala stara items), pa bi items_validated kapija
+        # dole provjeravala stare, nepovezane naimenovanje umjesto stvarnih —
+        # korisnička primjedba 2026-07-27/28 ("agent ne okida aktivnost kad
+        # klikne Provjeri/Kreiraj Naimenovanja, samo nastavlja i udara u
+        # zid"). Ispravan uslov: SVAKA invoice_lines stavka mora imati
+        # assigned_naimenovanje_id koji pokazuje na POSTOJEĆI item.
+        item_ids = {getattr(it, "item_id", None) for it in items}
+        unmapped = sum(
+            1 for l in invoice_lines
+            if not getattr(l, "assigned_naimenovanje_id", None)
+            or getattr(l, "assigned_naimenovanje_id", None) not in item_ids
+        )
+        has_items = bool(items) and unmapped == 0
         gates.append(DeclarationGate(
             "items_created", passed=has_items,
-            reason="" if has_items else "Naimenovanja nisu kreirana",
+            reason="" if has_items else (
+                "Naimenovanja nisu kreirana" if not items
+                else f"{unmapped} stavki nije povezano sa trenutnim naimenovanjima (moguće zastarjela iz prethodne sesije)"
+            ),
         ))
         if not has_items:
             state.gates = gates
