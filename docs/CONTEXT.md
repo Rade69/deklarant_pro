@@ -2731,3 +2731,52 @@ u obzir perzistentno/vraćeno stanje (session restore, cache, stale
 reference) — `bool(nešto)` nije isto što i "nešto je validno OVDJE i SADA".
 
 Puna svita: 1416 passed, 0 failed (isti 3 pre-postojeća nepovezana pada).
+
+---
+
+## 79. "Puna automatizacija" — izračun masa lažno tretiran kao pad kad je već sve popunjeno (2026-07-28)
+
+Neposredno nakon §78 (items_created popravka), korisnik je uživo testirao i
+potvrdio da `_puna_auto_pipeline` **konačno biva pozvana** ("🤖 Pokrećem
+pripremu fakture i naimenovanja..." se prvi put pojavljuje u "Aktivnosti"
+tabu) — ali odmah pada na prvoj fazi: "❌ Izračun masa nije uspio", iako je
+Faktura tabela jasno prikazivala ispravno popunjene bruto/neto vrijednosti
+po stavci (npr. 5.58/5.13 kg za prvu stavku).
+
+**Uzrok**: `_on_calculate_masses(auto=True)` (`faktura_view.py:4984`) vraća
+`False` u DVA različita slučaja koja se ne razlikuju na povratnoj
+vrijednosti:
+1. stvaran neuspjeh (nedostaju/neispravne vrijednosti, `mass_mismatches`)
+2. **benigno stanje** — `updated_count == 0` jer SVE stavke već imaju obje
+   težine (`faktura_view.py:5180`, "Nema stavki za update - sve imaju obe
+   težine") — u interaktivnom modu ovo prikazuje informativnu poruku ("Sve
+   težine već imaju upisane obe težine... Nema šta da se računa"), ali
+   povratna vrijednost je i dalje `False`.
+
+`_puna_auto_pipeline` je oba slučaja tretirala identično kao fatalan pad
+("mase" faza → `FAILED`, `can_continue=False`), iako je slučaj 2 potpuno
+očekivan kad parser (npr. za Medicopharm PDF) direktno ekstraktuje
+bruto/neto po stavci, bez potrebe za toolbar-total redistribucijom.
+
+**Fix**: dodata provjera prije poziva (`bez_mase = sum(1 for l in
+invoice_lines if not l.bruto_kg or not l.neto_kg)`) — isti obrazac kao već
+postojeća provjera "bez_tarife" za auto-popunu tarifa (faza 2). Ako sve
+linije već imaju obje težine, faza mase se PRESKAČE (uz poruku "✅ [Auto]
+Sve stavke već imaju izračunatu masu — preskačem") umjesto da poziva
+`_on_calculate_masses`, koja bi vratila `False` i lažno zaustavila cijelu
+automatizaciju.
+
+**Namjerno NIJE dirano**: `_on_calculate_masses` sama — mijenjanje njene
+povratne vrijednosti (npr. razlikovanje "nema šta"/"pravi pad") bi
+zahtijevalo provjeru SVIH pozivalaca (uklj. GUI dugme), veći i rizičniji
+zahvat od potrebnog. Ciljani fix ostaje samo u `_puna_auto_pipeline`
+(orkestrator), ne u dijeljenoj View metodi.
+
+Testovi: 2 nova u `test_puna_auto_pipeline.py`
+(`TestPreskociMaseAkoVecPopunjene`) — dokazuju oba smjera (preskače kad je
+sve popunjeno, i dalje poziva kad bar jedna stavka nema masu). Test helper
+`_line()` ažuriran da eksplicitno postavi `bruto_kg=0, neto_kg=0` po
+defaultu (MagicMock auto-atribut je uvijek truthy, što bi lažno "preskočilo"
+fazu i u POSTOJEĆIM testovima bez ove eksplicitne postavke).
+
+Puna svita: 1418 passed, 0 failed (isti 3 pre-postojeća nepovezana pada).
