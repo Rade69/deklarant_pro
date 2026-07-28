@@ -2667,3 +2667,67 @@ baza je namjerno READ-WRITE/lokalna i NE bundluje se u `_internal/` preko
 referentni podaci), nego živi POKRAJ `.exe`-a i mora se ručno kopirati
 nakon svakog builda (isto kao `.env`) — nije bila potrebna izmjena spec fajla
 niti `_resolve_db_path()`, samo propušten ručni korak u test okruženju.
+
+---
+
+## 78. "Puna automatizacija" — STVARAN uzrok praznih naimenovanja: items_created kapija prihvatala zastarjela naimenovanja iz vraćene sesije (2026-07-28)
+
+Nakon §77 (async čekanje na istorijsku validaciju — real fix, ali nije riješio
+glavni simptom), duga uživo istraga (dvije sesije, korisnik testirao i ručni
+i automatski put više puta) je konačno pronašla PRAVI uzrok.
+
+**Ćorsokaci prije pravog nalaza** (za buduće agente — ne ponavljati):
+1. Pretpostavka da `deklarant_sistem.db` treba u `spec.datas` — netačno,
+   već dokumentovano u §44/45 da je namjerno read-write/lokalna, živi pored
+   `.exe`-a. Samo je propušten ručni korak kopiranja u test okruženju.
+2. Pretpostavka o async gap-u u istorijskoj validaciji (§77) — REALAN i
+   popravljen problem, ali NIJE bio uzrok ovog konkretnog simptoma.
+3. **Korisnik je jedan test slučajno pokrenuo na potpuno DRUGOM, zastarjelom
+   EXE-u** (`.worktrees/agent-v2/dist/DeklarantPro/`, izgrađen 12:31 istog
+   dana, prije svih popravki) umjesto na ispravnom
+   (`deklarant_pro/dist/DeklarantPro/`) — otkriveno tek preko
+   `Get-Process DeklarantPro | Select Path`. **Pouka: UVIJEK provjeriti
+   putanju pokrenutog procesa prije analize test rezultata kad postoji više
+   worktree-ova sa vlastitim `dist/` folderima.**
+
+**Ključan dijagnostički korak**: Agent chat panel ima 3 taba (Agent /
+Aktivnosti / Pitanja) — `chat.add_agent_message()` ide na "Agent" tab,
+`chat.add_activity()` ide na "Aktivnosti" tab. Korisnik je dosad gledao samo
+"Agent" tab; tek uvid u "Aktivnosti" je pokazao da se tok zaustavlja na
+`"🔄 Faza: Završeno"` odmah nakon uvoznog EUR1 dijaloga — **nijedna** poruka
+iz `_puna_auto_pipeline` (izračun masa, auto-popuna, validacija) se nikad
+nije pojavila, dokazujući da ta funkcija NIKAD nije pozvana.
+
+**Pravi uzrok**: `items_created` kapija (`declaration_workflow_state.py`) je
+provjeravala samo `bool(draft.items)`. Aktivnosti log je otkrio liniju
+"⚠️ Prethodna sesija prekinuta u fazi: analyzing" (Blagić fakture) — session
+restore mehanizam je vratio draft koji je već imao BAREM JEDNO zastarjelo
+naimenovanje iz DRUGE, ranije/prekinute sesije, nepovezano sa trenutnim
+94 stavki (Medicopharm 1476/26). `bool(items)` je zato lažno prošao,
+`run_declaration_workflow._run()` NIKAD nije pozvala
+`ImportPipelineService.puna_auto_pipeline()` (koja bi inače, preko
+`create_smart_group()`, prvo obrisala stara items i kreirala prava), a
+`items_validated` kapija je onda ispravno prijavila da to STARO,
+nepovezano naimenovanje nema popunjena polja — što JE bilo tačno, samo za
+pogrešno naimenovanje.
+
+**Dokaz da logika grupiranja nikad nije bila problem**: dijagnostički
+`logger.warning` (privremeno ugrađen, sad uklonjen) je pokazao da ručni
+klik "Provjeri"→"Kreiraj Naimenovanja" na ISTIM 94 stavki daje **26 potpuno
+ispravno popunjenih naimenovanja** — potvrđujući da je `create_smart_group()`
+uvijek radila ispravno; automatski put je jednostavno nikad nije pozivao.
+
+**Fix**: `items_created` kapija sad provjerava da SVAKA `invoice_lines`
+stavka ima `assigned_naimenovanje_id` koji pokazuje na POSTOJEĆI `item_id`
+u `draft.items` — ne samo da lista nije prazna. Test fixture
+`_minimal_ready_draft()` (`test_agent_v2_wiring_fixes.py`) ažuriran da
+postavi tu vezu (odražava stvarno stanje nakon `create_smart_group()`).
+Novi test `test_zastarjelo_naimenovanje_iz_prethodne_sesije_ne_prolazi_items_created`
+direktno dokazuje popravku.
+
+**Pouka za buduće kapije**: kad kapija provjerava "da li X postoji" kao
+zamjenu za "da li je X ISPRAVNO/AŽURNO kreiran za TRENUTNI kontekst", uzeti
+u obzir perzistentno/vraćeno stanje (session restore, cache, stale
+reference) — `bool(nešto)` nije isto što i "nešto je validno OVDJE i SADA".
+
+Puna svita: 1416 passed, 0 failed (isti 3 pre-postojeća nepovezana pada).
