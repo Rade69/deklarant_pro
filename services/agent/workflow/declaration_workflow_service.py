@@ -51,6 +51,12 @@ def run_declaration_workflow(ctrl, chat, fw=None, confirm_fn=None) -> WorkflowRu
       → (finalni izvoz kroz xml_workflow_service._izvezi_xml, koji sam po sebi
          ponovo provjerava readiness i traži potvrdu — plan §17)
 
+    Prije provjere header_ready: pokušaj auto-popune Izvoznik/Primalac/Deklarant
+    iz najbliže istorijske deklaracije istog izvoznika (header_autofill_service,
+    isti mehanizam kao dugme "Uvezi XML"). Popunjava samo prazna polja; ako
+    nema pogotka ili i dalje nedostaju obavezna polja, kapija se zaustavlja
+    normalno i traži ručni unos.
+
     fw: Faktura tab widget potreban za _puna_auto_pipeline (mase/auto-popuna).
         Ako nije prosljeđen, rezolvira se iz ctrl.faktura_tab.
     confirm_fn: Callable[[str, str], bool] — prosljeđuje se do _izvezi_xml.
@@ -113,6 +119,14 @@ def _run(ctrl, chat, fw, confirm_fn, compute_state_from_draft,
         msg = "Naimenovanja imaju blokirajuće nalaze — ispravi ih prije nastavka."
         chat.add_agent_message(f"⚠️ {msg}")
         return WorkflowRunResult(completed=False, stopped_at="items_validated", message=msg)
+
+    if not _passed(state, "header_ready"):
+        from services.agent.workflow.header_autofill_service import auto_fill_header_from_history
+        try:
+            if auto_fill_header_from_history(ctrl, chat):
+                state = compute_state_from_draft(ctrl.draft)
+        except Exception:
+            logger.warning("Auto-popuna zaglavlja iz istorije nije uspjela", exc_info=True)
 
     if not _passed(state, "header_ready"):
         from services.agent.validation.header_review_service import provjeri_zaglavlje
