@@ -3028,12 +3028,17 @@ class NaimenovanjaView(BaseTabView):
         if search_dialog.exec() == QDialog.Accepted:
             code = search_dialog.get_selected_code()
             if code:
-                current_item = self.draft.items[self.current_item_index]
-                current_item.tariff_code = code
-                self._load_current_item()
-                self.data_changed.emit()
-                if self.on_dirty:
-                    self.on_dirty()
+                tariff_widget = self._get_widget("le_rubrika33")
+                if tariff_widget:
+                    was_loading = self.is_loading
+                    self.is_loading = True
+                    try:
+                        self._set_widget_value(
+                            tariff_widget, "le_rubrika33", "tariff_code", code
+                        )
+                    finally:
+                        self.is_loading = was_loading
+                self.tariff_lookup_requested.emit(code)
 
                 # Zatvori TariffSuggestionDialog ako je otvoren
                 active = getattr(self, "_active_suggestion_dialog", None)

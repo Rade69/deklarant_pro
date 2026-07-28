@@ -62,6 +62,35 @@ class TestSignalCharacterization:
         assert spy.count() == 1
         assert spy.at(0) == [1]
 
+    def test_manual_tariff_search_emits_lookup_without_mutating_draft(
+        self, qtbot, monkeypatch
+    ):
+        from PySide6.QtWidgets import QDialog
+        from gui.dialogs.tariff_search_dialog import TariffSearchDialog
+
+        draft = DeclarationDraft()
+        draft.items = [
+            NaimenovanjeDraft(
+                item_id="1", ordinal_no=1, tariff_code="11111111"
+            )
+        ]
+        view = NaimenovanjaView(draft=draft)
+        qtbot.addWidget(view)
+        spy = QSignalSpy(view.tariff_lookup_requested)
+        monkeypatch.setattr(
+            TariffSearchDialog, "exec", lambda _dialog: QDialog.Accepted
+        )
+        monkeypatch.setattr(
+            TariffSearchDialog, "get_selected_code", lambda _dialog: "22222222"
+        )
+
+        view._on_manual_tariff_search()
+
+        assert spy.count() == 1
+        assert spy.at(0) == ["22222222"]
+        assert view._get_widget("le_rubrika33").text() == "22222222"
+        assert draft.items[0].tariff_code == "11111111"
+
 
 class TestRub40Rub44Characterization:
 
