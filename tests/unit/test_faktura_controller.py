@@ -127,6 +127,7 @@ class TestDistStandalone:
             "gui/tabs/faktura_tab.py",
             "gui/tabs/faktura_view.py",
             "services/faktura/models.py",
+            "services/faktura/faktura_service.py",
         ],
     )
     def test_dist_faktura_modules_match_root(self, relative_path):
