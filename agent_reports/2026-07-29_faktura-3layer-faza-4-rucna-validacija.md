@@ -77,7 +77,7 @@ Komentar u `FakturaTab` govorio je da View još ne emituje signale. To je bilo t
 
 | Hash | Poruka |
 | --- | --- |
-| pending | `refactor(faktura): aktiviraj rucnu validaciju kroz controller` |
+| 7d3b402 | `refactor(faktura): aktiviraj rucnu validaciju kroz controller` |
 
 ## Rizici / ograničenja
 
