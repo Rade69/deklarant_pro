@@ -2966,3 +2966,151 @@ Ručni izbor tarifnog broja mora ići kroz
 `tariff_lookup_requested` → `NaimenovanjaController.on_tariff_changed()`.
 View smije prikazati izabranu šifru, ali ne smije direktno mijenjati draft,
 emitovati dirty stanje niti sam pokretati tarifnu poslovnu logiku.
+
+---
+
+## 88. "Provjeri" — SHOW_UNCONFIRMED popravlja cor-22 za prijedloge bez izvora (2026-07-28)
+
+Korisnik je prijavio da za proizvod "SUSSINA" (i slične) "Provjeri" dugme ne
+daje prijedlog tarife iako postoji jasna istorijska evidencija. Istraga je
+otkrila dvoslojan uzrok, direktno vezan za politiku iz §65 (26.07.2026,
+"istorijski prijedlog bez potvrđenog izvora se nikad ne prikazuje").
+
+**Sloj 1 — zašto izvor nedostaje**: `TariffMappingService.save_mapping()`
+(`services/tariff/tariff_mapping_service.py:937`), putanja koju koristi
+SVAKA ručna potvrda/ispravka tarife u aplikaciji (Naimenovanja "Nauči",
+Faktura ispravka, agent chat "nauči tarifu" — preko `TariffFacade.learn()`/
+`sync_mapping()`), **nikad nije primala niti upisivala `source`/`supplier`
+kolonu**. Samo odvojena `learn_from_draft()` (bulk XML učenje) to radi.
+Potvrđeno u bazi: `SUSSINA 650/200/1200 tbl.` → `21069098`, korišteno
+41-47×, `source`/`supplier` potpuno prazni. Ovaj sloj NIJE popravljen u
+ovom fixu (van scope-a — zahtijevalo bi dodavanje `source` parametra kroz
+lanac `save_mapping`→`learn`→`sync_mapping` i sve pozivaoce).
+
+**Sloj 2 — pravi Catch-22**: politika §65 suprimira zapis bez izvora PRIJE
+nego što uopšte stigne do `TariffValidationDialog` (`decide_tariff_match` →
+`SUPPRESS` → `should_show=False`). Ali "ranija ručna potvrda (100%)"
+auto-primjena (`_notify_auto_applied_tariffs`) radi preko POTPUNO ODVOJENE
+tabele `catalogs.user_feedback`, koja se puni ISKLJUČIVO eksplicitnim
+Prihvati/Odbij klikom UNUTAR tog istog dijaloga. Pošto se zapis nikad ne
+prikaže, korisnik ga nikad ne može ni potvrditi, pa `user_feedback` nikad
+ne dobije zapis — trajno nevidljiv i nepotvrdiv, bez obzira na broj
+istorijskih korištenja.
+
+**Fix** (korisnikov eksplicitan izbor: "vrati vidljivost SAMO za ručnu
+potvrdu"): `decide_tariff_match()` (`tariff_decision_model.py`) dobija nov
+ishod `SHOW_UNCONFIRMED` — kad izvor nedostaje ALI `usage_count ≥
+min_usage_for_unsourced_review` (novi prag, 5 — namjerno viši od
+`min_usage_for_weak_source`=2, jer je "nema izvora" rizičnije od "slab
+izvor"), prijedlog se PRIKAZUJE umjesto potpunog suprimiranja. Postojeća
+UI/evidence infrastruktura je već bila spremna za ovo bez ijedne izmjene:
+`evidence_from_tariff_decision()` već vraća `DecisionConfidence.UNKNOWN`
+za bilo koji zapis bez izvora (nezavisno od outcome-a), što
+`TariffValidationDialog._make_row()` već renderuje kao "izvor nepoznat —
+nije potvrđena historija", a `_can_accept_all()` već isključuje iz
+"Prihvati sve". Samo pojedinačan klik "Prihvati" upisuje u `user_feedback`
+— TEK NAKON toga (na sljedećem uvozu) radi auto-primjena.
+
+**Ne slabi politiku §65** — ništa se i dalje ne primjenjuje bez eksplicitne
+ljudske potvrde, samo se ta potvrda opet omogućava.
+
+**Sporedan nalaz, nedirano**: baza sadrži i pogrešnu paralelnu mapu
+(`SUSSINA` → `38249993`, usage=12 — poraslo sa 2 otkad je §65 politika
+aktivna, vjerovatno korisnici ručno unosili pogrešnu tarifu jer im sistem
+ništa nije predlagao). `_search_one()` sortira po `usage_count DESC`, pa
+ispravan zapis (47) i dalje pobjeđuje kao `best` u `validate_lines()` —
+nema praktičan negativan efekat, nije čišćeno.
+
+Testovi: `tests/unit/test_historical_tariff_validation.py` —
+`test_unknown_source_never_auto_applied_regardless_of_usage_or_heading`
+(preimenovan i prepisan iz `..._never_shown_...`), plus rekonstruisan
+`test_search_one_ne_gubi_najjaci_zapis_bez_dobavljaca` (izvoran SUSSINA test
+iz 22.07 — sad end-to-end dokazuje `validate_lines()` vraća SHOW_UNCONFIRMED
+umjesto praznog rezultata). `tests/unit/test_tariff_validation_dialog.py` —
+nov `test_unconfirmed_source_excluded_from_bulk_accept`. Nijedan JSON
+fixture case nije trebalo mijenjati (svi postojeći "bez izvora" slučajevi
+imaju usage 1-2, ispod novog praga 5).
+
+Puna svita: 1460 passed (1459 + 1 nov test), isti pre-postojeći nepovezani
+padovi. `dist_client` test fajlovi (`test_historical_tariff_validation.py`,
+`test_tariff_validation_dialog.py`) su bili već zaostali prije ovog fixa
+(pre-postojeći drift, nepovezano) — nisu ažurirani da se izbjegne miješanje
+sa nepovezanim razlikama; produkcioni kod (`tariff_decision_model.py`,
+`historical_tariff_search_service.py`) JESTE ogledan i identičan root-u.
+---
+
+## 89. §88 (SHOW_UNCONFIRMED) POVUČEN — korisnik potvrdio strogu politiku bez izuzetka (2026-07-28)
+
+Neposredno nakon §88, korisnik je preispitao i EKSPLICITNO odbacio taj
+pristup: "Ne možemo korisniku ponuditi prijedlog a da pritom ne znamo
+odakle dolazi, šta je izvor te informacije — jer onda bismo ga mogli
+dovesti u zabludu da aplikacija zna, da ne pominjem da greška u tarifiranju
+može izazvati kazne." Ovo je jasna, namjerna potvrda da politika iz §65
+(26.07) vrijedi BEZ IZUZETKA — čak ni jasno obilježen "izvor nepoznat,
+zahtijeva ručnu potvrdu" prikaz (§88) nije prihvatljiv, jer sâmo pojavljivanje
+prijedloga u aplikaciji nosi implicitan autoritet koji korisnik ne želi dati
+neprovjerenim podacima.
+
+**§88 u potpunosti povučen** — `git revert 8b22281` (commit `aac9b19`),
+vraća `decide_tariff_match()` na TAČNO ponašanje iz §65: bez izuzetka
+SUPPRESS kad `source` nije poznat, bez obzira na `usage_count`. Test
+fajlovi vraćeni na stanje prije §88 istim revert-om.
+
+**Praktična posljedica, prihvaćena svjesno**: SUSSINA (i svaki sličan
+"zlatni" istorijski zapis naučen prije nego što je izvor počeo dosljedno
+da se bilježi) ostaje TRAJNO nevidljiv u "Provjeri" dijalogu — ne postoji
+put unutar tog dijaloga kojim bi ikad mogao dobiti potvrđen izvor, jer
+`catalogs.user_feedback` (koji bi mu dao izvor) se puni ISKLJUČIVO iz
+klika u tom istom dijalogu, do kojeg zapis sad nikad ne stiže.
+
+**Jedini preostali put naprijed** (nije urađen, čeka korisničku odluku):
+Sloj 1 iz §88 istrage — `TariffMappingService.save_mapping()` (putanja za
+SVAKU ručnu potvrdu/ispravku tarife: Naimenovanja "Nauči", Faktura
+ispravka, agent chat) nikad ne piše `source`/`supplier`. Kad bi ta putanja
+počela bilježiti smislen izvor (npr. `"RUCNA_POTVRDA"`) za NOVE ručne
+potvrde, takvi zapisi bi ubuduće normalno prolazili kroz postojeće
+SHOW_STRONG/SHOW_WEAK grane (imaju izvor, politika ih ne dira) — bez
+ikakvog posebnog "neprovjereno" prikaza. Ovo NE bi vratilo vidljivost
+postojećih 129 SUSSINA zapisa (nemoguće retroaktivno znati ko ih je
+potvrdio), ali bi spriječilo da se isti problem ponovi za svaki budući
+proizvod. Za SUSSINA konkretno, jedini preostali put je ručni ispravak
+podatka u bazi (van scope-a agenta bez eksplicitnog naloga) ili da
+korisnik ubuduće ručno unese tačnu tarifu na fakturi dovoljno puta da,
+ako Sloj 1 fix bude urađen, taj NOVI unos dobije izvor i postane vidljiv.
+
+Testovi: puna svita provjerena nakon revert-a — 44/44 u oba dotaknuta test
+fajla, isti pre-postojeći nepovezani padovi u punoj suiti.
+
+---
+
+## 90. Zvučna obavještenja označavaju završetak, ne početak procesa (2026-07-28)
+
+Zajednički servis `services/process_completion_sound.py` koristi asinhrone
+lokalne WAV signale za tri ishoda: uspjeh, upozorenje i grešku. WAV fajlovi se
+generišu u `~/.deklarant_pro/sounds` i reprodukuju preko `winsound` kao fajlovi,
+jer Windows sistemski alias može biti nijem kada je sound scheme isključen.
+Poziv je best-effort: nedostupan `winsound` ili greška reprodukcije ne smiju
+prekinuti poslovni tok niti zamijeniti postojeći modal.
+
+Za Punu automatizaciju i izvoze zvuk se emituje kada je konačni ishod poznat.
+Kod ručnog parsiranja fakture emituje se odmah nakon uspješnog parser rezultata,
+prije prvog EUR.1/PE ili konfliktnog dijaloga; kasniji završni modal ne smije
+ponoviti zvuk. Otkazana Puna automatizacija ostaje bez zvuka, dok parcijalni
+rezultat koristi upozorenje.
+
+Funkcionalnost se može isključiti postavljanjem
+`PROCESS_COMPLETION_SOUND=false` u aktivnom `.env` fajlu. Root i `dist_client`
+moraju zadržati isti servis i ista mjesta poziva. Faktura tab ima objedinjeni i
+legacy završni put uvoza; oba moraju emitovati isti zvučni ishod. Legacy put je
+aktivan kada je glavna lista već učitana ili parser ne vrati `ImportResult`.
+
+Korisnička postavka `completion_sound_enabled` pripada
+`~/.deklarant_pro/settings.json` i mora biti dostupna u
+Admin → Podešavanja → Zvučna obavještenja, zajedno sa dugmetom za probu.
+AdminView mora imati stvarni SettingsPanel u navigaciji; `get_settings_panel()`
+ne smije vraćati SystemPanel. `.env=false` ostaje administratorski override.
+
+EUR.1 modal je sam autoritativni UI okidač: `Eur1QuickDialog.showEvent()` mora
+jednom, preko event loopa, pustiti zvuk kada dijalog stvarno postane vidljiv.
+Time su pokriveni svi ručni, agent, objedinjeni i legacy putevi koji otvaraju
+isti modal, bez oslanjanja na pretpostavljeni callback parsiranja.

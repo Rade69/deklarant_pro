@@ -66,6 +66,11 @@ class AdminController(BaseTabController):
         if hasattr(system_panel, 'refresh_requested'):
             system_panel.refresh_requested.connect(self._refresh_system_info)
 
+        settings_panel = self.view.get_settings_panel()
+        settings_panel.save_requested.connect(self._on_save_settings)
+        settings_panel.reset_requested.connect(self._on_reset_settings)
+        settings_panel.test_sound_requested.connect(self._on_test_sound)
+
     def _load_initial_data(self):
         """Učitaj inicijalne podatke pri pokretanju."""
         # Load plugin data
@@ -73,6 +78,31 @@ class AdminController(BaseTabController):
 
         # Load system info
         self._refresh_system_info()
+
+        self.view.get_settings_panel().set_settings(self.service.get_settings())
+
+    def _on_save_settings(self, settings: dict):
+        panel = self.view.get_settings_panel()
+        if self.service.save_settings(settings):
+            panel.show_success("Podešavanja su uspješno sačuvana.")
+        else:
+            panel.show_error("Podešavanja nisu sačuvana.")
+
+    def _on_reset_settings(self):
+        panel = self.view.get_settings_panel()
+        if self.service.reset_settings():
+            panel.set_settings(self.service.get_settings())
+            panel.show_success("Podešavanja su vraćena na fabričke vrijednosti.")
+        else:
+            panel.show_error("Podešavanja nije moguće resetovati.")
+
+    def _on_test_sound(self):
+        from services.process_completion_sound import play_process_completion_sound
+
+        if not play_process_completion_sound("success", force=True):
+            self.view.get_settings_panel().show_error(
+                "Probni zvuk nije moguće reprodukovati."
+            )
 
     # PLUGIN HANDLERS
 

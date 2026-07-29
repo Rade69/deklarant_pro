@@ -904,6 +904,8 @@ class ZaglavljeController:
                 success = self.service.export_to_xml(data, filename)
 
             if success:
+                from services.process_completion_sound import play_process_completion_sound
+                play_process_completion_sound("success")
                 self.view.show_success(f"XML exportovan u: {filename}")
                 self.logger.info(f"Export successful: {filename}")
                 # Docs: docs/sections/asycuda-99-item-limit.md
@@ -929,10 +931,14 @@ class ZaglavljeController:
                                 "Nije pronađen mehanizam za učitavanje sljedeće deklaracije."
                             )
             else:
+                from services.process_completion_sound import play_process_completion_sound
+                play_process_completion_sound("error")
                 self.view.show_error("Greška pri eksportu")
 
         except Exception as e:
             self.logger.error(f"Export failed: {e}", exc_info=True)
+            from services.process_completion_sound import play_process_completion_sound
+            play_process_completion_sound("error")
             self.view.show_error(f"Greška pri eksportu: {e}")
         finally:
             restore_window_geometry_queued(geometry_state)

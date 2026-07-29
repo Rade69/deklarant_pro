@@ -24,6 +24,7 @@ class SettingsPanel(QWidget):
     # Signali
     save_requested = Signal(dict)
     reset_requested = Signal()
+    test_sound_requested = Signal()
 
     def __init__(self, parent=None):
         """Inicijalizacija."""
@@ -137,6 +138,7 @@ class SettingsPanel(QWidget):
         
         self.btn_save.setStyleSheet(button_style)
         self.btn_reset.setStyleSheet(button_style)
+        self.btn_test_sound.setStyleSheet(button_style)
 
     def setup_ui(self):
         """Setup UI-a sa grupisanim settings-ima."""
@@ -227,6 +229,28 @@ class SettingsPanel(QWidget):
 
         main_layout.addWidget(logging_group)
 
+        sound_group = QGroupBox("🔊 Zvučna obavještenja")
+        sound_layout = QFormLayout(sound_group)
+        sound_layout.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        sound_layout.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        sound_layout.setVerticalSpacing(10)
+
+        self.completion_sound_check = QCheckBox()
+        self.completion_sound_check.setToolTip(
+            "Pusti zvuk kada se završi parsiranje, automatizacija ili izvoz"
+        )
+        sound_layout.addRow("Zvuk završetka:", self.completion_sound_check)
+
+        self.btn_test_sound = QPushButton(
+            qta.icon('fa5s.volume-up', color='#17324a'),
+            " Testiraj zvuk"
+        )
+        self.btn_test_sound.setToolTip("Odmah pusti probni zvuk")
+        self.btn_test_sound.clicked.connect(self.test_sound_requested.emit)
+        sound_layout.addRow("Provjera:", self.btn_test_sound)
+
+        main_layout.addWidget(sound_group)
+
         # ===== PLUGINS GROUP =====
         plugins_group = QGroupBox("🔌 Plugin-i")
         plugins_layout = QFormLayout(plugins_group)
@@ -291,6 +315,9 @@ class SettingsPanel(QWidget):
         self.backup_interval_spin.setValue(settings.get('backup_interval_days', 7))
         self.log_level_combo.setCurrentText(settings.get('log_level', 'INFO'))
         self.plugins_auto_load_check.setChecked(settings.get('plugins_auto_load', True))
+        self.completion_sound_check.setChecked(
+            settings.get('completion_sound_enabled', True)
+        )
 
     def show_success(self, message: str):
         """Prikaži success poruku."""
@@ -315,6 +342,7 @@ class SettingsPanel(QWidget):
             'backup_interval_days': self.backup_interval_spin.value(),
             'log_level': self.log_level_combo.currentText(),
             'plugins_auto_load': self.plugins_auto_load_check.isChecked(),
+            'completion_sound_enabled': self.completion_sound_check.isChecked(),
         }
 
         self.save_requested.emit(settings)

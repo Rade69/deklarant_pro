@@ -59,10 +59,13 @@ def _mock_self_for_import_finished(agent_mode: bool) -> MagicMock:
 def test_uvoz_pojedinacne_fakture_pokrece_provjeru_bez_agent_moda():
     mock_self = _mock_self_for_import_finished(agent_mode=False)
 
-    with patch("gui.tabs.faktura_view.QMessageBox"):
+    with patch("gui.tabs.faktura_view.QMessageBox"), patch(
+        "services.process_completion_sound.play_process_completion_sound"
+    ) as play_sound:
         FakturaView._on_import_finished(mock_self, [])
 
     mock_self._run_historical_tariff_validation.assert_called_once_with(auto=False)
+    play_sound.assert_called_once_with("success")
 
 
 def test_uvoz_pojedinacne_fakture_pokrece_provjeru_i_u_agent_modu():
@@ -73,10 +76,27 @@ def test_uvoz_pojedinacne_fakture_pokrece_provjeru_i_u_agent_modu():
     """
     mock_self = _mock_self_for_import_finished(agent_mode=True)
 
-    with patch("gui.tabs.faktura_view.QMessageBox"):
+    with patch("gui.tabs.faktura_view.QMessageBox"), patch(
+        "services.process_completion_sound.play_process_completion_sound"
+    ):
         FakturaView._on_import_finished(mock_self, [])
 
     mock_self._run_historical_tariff_validation.assert_called_once_with(auto=False)
+
+
+def test_zvuk_se_cuje_prije_eur1_dijaloga():
+    mock_self = _mock_self_for_import_finished(agent_mode=False)
+    mock_self._should_show_eur1_dialog.return_value = True
+    events = []
+    mock_self._show_eur1_dialog.side_effect = lambda: events.append("eur1")
+
+    with patch("gui.tabs.faktura_view.QMessageBox"), patch(
+        "services.process_completion_sound.play_process_completion_sound",
+        side_effect=lambda outcome: events.append(f"sound:{outcome}"),
+    ):
+        FakturaView._on_import_finished(mock_self, [])
+
+    assert events[:2] == ["sound:success", "eur1"]
 
 
 def _mock_self_for_batch_records(agent_mode: bool) -> MagicMock:
@@ -122,7 +142,9 @@ def _batch_records():
 def test_grupni_uvoz_pokrece_provjeru_bez_agent_moda():
     mock_self = _mock_self_for_batch_records(agent_mode=False)
 
-    with patch("gui.tabs.faktura_view.QMessageBox"):
+    with patch("gui.tabs.faktura_view.QMessageBox"), patch(
+        "services.process_completion_sound.play_process_completion_sound"
+    ):
         FakturaView._process_batch_records(mock_self, _batch_records())
 
     mock_self._run_historical_tariff_validation.assert_called_once_with(auto=False)
@@ -131,7 +153,21 @@ def test_grupni_uvoz_pokrece_provjeru_bez_agent_moda():
 def test_grupni_uvoz_pokrece_provjeru_i_u_agent_modu():
     mock_self = _mock_self_for_batch_records(agent_mode=True)
 
-    with patch("gui.tabs.faktura_view.QMessageBox"):
+    with patch("gui.tabs.faktura_view.QMessageBox"), patch(
+        "services.process_completion_sound.play_process_completion_sound"
+    ):
         FakturaView._process_batch_records(mock_self, _batch_records())
 
     mock_self._run_historical_tariff_validation.assert_called_once_with(auto=False)
+
+
+def test_grupni_uvoz_sa_glavnom_listom_ima_zvuk_zavrsetka():
+    mock_self = _mock_self_for_batch_records(agent_mode=False)
+    mock_self.assembly.master_list_loaded = True
+
+    with patch("gui.tabs.faktura_view.QMessageBox"), patch(
+        "services.process_completion_sound.play_process_completion_sound"
+    ) as play_sound:
+        FakturaView._process_batch_records(mock_self, _batch_records())
+
+    play_sound.assert_called_once_with("success")

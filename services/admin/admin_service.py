@@ -136,6 +136,9 @@ class AdminService:
         """
         return self.settings_service.save_settings(settings)
 
+    def reset_settings(self) -> bool:
+        return self.settings_service.reset_to_defaults()
+
     # DATABASE OPERATIONS (delegate to BackupService)
 
     def create_backup(self, backup_path: str) -> bool:
