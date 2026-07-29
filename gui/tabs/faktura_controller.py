@@ -101,7 +101,10 @@ class FakturaController(QObject):
             result["count"] = count
             try:
                 from services.tariff_facade import TariffFacade
-                TariffFacade.get_instance().learn_from_draft(draft.invoice_lines)
+                TariffFacade.get_instance().learn_from_draft(
+                    draft.invoice_lines,
+                    draft_uid=getattr(draft, "draft_uid", "") or "",
+                )
             except Exception as e:
                 logger.warning("TariffFacade.learn_from_draft failed: %s", e)
         except Exception as e:

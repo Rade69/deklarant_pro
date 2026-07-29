@@ -3233,3 +3233,18 @@ Ciljani dokaz: 29/29 za `test_faktura_table_roundtrip.py`,
 `test_faktura_characterization.py`, `test_tariff_learning_ledger.py`; širi
 Faktura/import skup 59/59. Puna suite: 1517 passed, isti pre-postojeći
 nepovezani padovi (4 failed + 1 error). Produkcioni kod nije diran.
+
+---
+
+## 96. Faktura 3-layer Faza 1 zatvorena — Controller ledger invarijanta (2026-07-29)
+
+`FakturaTab` ostaje composition root: kreira `FakturaView` i pasivni
+`FakturaController` sa `get_draft_fn=lambda: self.view.draft`, bez zasebne
+draft reference. Signalni handleri u `FakturaTab` još nisu aktivni produkcioni
+tok jer `FakturaView` dugmad i agent i dalje koriste stare View handlere.
+
+Sigurnosna zakrpa: `FakturaController.create_naimenovanja()` mora proslijediti
+`draft_uid=getattr(draft, "draft_uid", "") or ""` u
+`TariffFacade.learn_from_draft()`. Aktivni View put je to već radio; bez ove
+zakrpe bi buduće aktiviranje Controller signala zaobišlo dedup ledger iz §93.
+Root i `dist_client` controller moraju ostati identični.

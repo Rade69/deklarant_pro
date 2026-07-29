@@ -65,6 +65,44 @@ class TestFakturaControllerImport:
         assert ok is True
         assert warnings == []
 
+    def test_create_naimenovanja_passes_draft_uid_to_learning(self, monkeypatch):
+        from gui.tabs.faktura_controller import FakturaController
+
+        draft = DeclarationDraft()
+        draft.draft_uid = "phase-1-controller-draft"
+        draft.invoice_lines = [InvoiceLine(naziv_robe="Test", tarifni_broj="08052190")]
+        ctrl = FakturaController(get_draft_fn=lambda: draft)
+
+        class FakeCreateService:
+            def __init__(self, received_draft):
+                self.received_draft = received_draft
+
+            def create_smart_group(self):
+                return 1
+
+        class FakeFacade:
+            calls = []
+
+            @classmethod
+            def get_instance(cls):
+                return cls()
+
+            def learn_from_draft(self, lines, **kwargs):
+                self.calls.append((lines, kwargs))
+
+        monkeypatch.setattr(
+            "services.naimenovanja.create_naimenovanja_service.CreateNaimenovanjaService",
+            FakeCreateService,
+        )
+        monkeypatch.setattr("services.tariff_facade.TariffFacade", FakeFacade)
+
+        result = ctrl.create_naimenovanja(draft)
+
+        assert result == {"count": 1, "error": None}
+        assert FakeFacade.calls == [
+            (draft.invoice_lines, {"draft_uid": "phase-1-controller-draft"})
+        ]
+
 
 class TestFakturaTabImport:
     """FakturaTab startup import testovi."""
