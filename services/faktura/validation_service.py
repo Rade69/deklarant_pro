@@ -2,9 +2,18 @@
 Validation Service - Validacija stavki
 """
 
+from dataclasses import dataclass, field
 from typing import List, Tuple, Dict, Any, Optional
 from core.draft import InvoiceLine
 from services.validation.validation_service import FakturaItemValidator, ValidationResult
+
+
+@dataclass
+class RowValidationStyle:
+    result: ValidationResult
+    row_color: str = "#ffffff"
+    row_tooltip: str = ""
+    cell_overrides: dict[int, tuple[str, str]] = field(default_factory=dict)
 
 
 class ValidationService:
@@ -23,7 +32,12 @@ class ValidationService:
         Returns:
             Tuple: (color_hex, tooltip)
         """
+        style = self.validate_and_get_style(item)
+        return style.row_color, style.row_tooltip
+
+    def validate_and_get_style(self, item: InvoiceLine) -> RowValidationStyle:
         result = self.validator.validate(item)
+        tariff_sim = getattr(item, "tariff_similarity", 0.0) or 0.0
 
         # Check if item is UNMATCHED
         is_unmatched = (
@@ -31,26 +45,50 @@ class ValidationService:
         ) and (not item.zemlja_porijekla or len(item.zemlja_porijekla.strip()) == 0)
 
         # Determine color based on validation result
-        if is_unmatched:
-            color_hex = "#cce5ff"  # Light blue for unmatched
+        cell_overrides: dict[int, tuple[str, str]] = {}
+        if item.tarifni_broj and 0.70 <= tariff_sim < 0.92:
+            color_hex = "#FFF4D6"
+            tooltip = (
+                f"⚠️ Tarifni broj: {item.tarifni_broj}\n"
+                f"Pouzdanje: {tariff_sim:.0%}\n"
+                f"Preporučuje se ručna provjera tarifnog broja"
+            )
+            cell_overrides[4] = (color_hex, tooltip)
+            color_hex = "#ffffff"
+            tooltip = ""
+        elif is_unmatched:
+            color_hex = "#E6F0F8"
             tooltip = "🔵 Nepodudarajuća stavka - nije pronađena u master listi. Popunite tarifni broj i zemlju porijekla."
+            cell_overrides[4] = (color_hex, "❌ Nedostaje tarifni broj")
+            cell_overrides[9] = (color_hex, "❌ Nedostaje zemlja porijekla")
+            color_hex = "#ffffff"
+            tooltip = ""
         elif not item.tarifni_broj or len(item.tarifni_broj.strip()) == 0:
-            color_hex = "#ffcccc"  # Red for missing tariff
+            color_hex = "#F9E4E3"
             tooltip = "❌ Greška: Nedostaje tarifni broj"
+            cell_overrides[4] = (color_hex, tooltip)
+            color_hex = "#ffffff"
+            tooltip = ""
+        elif not item.zemlja_porijekla or len(item.zemlja_porijekla.strip()) == 0:
+            color_hex = "#F9E4E3"
+            tooltip = "❌ Greška: Nedostaje zemlja porijekla"
+            cell_overrides[9] = (color_hex, tooltip)
+            color_hex = "#ffffff"
+            tooltip = ""
         elif result.has_blocking_errors():
-            color_hex = "#ffcccc"  # Red for errors
+            color_hex = "#F9E4E3"
             tooltip = "❌ Greška: " + "; ".join([e.message for e in (result.errors or [])])
         elif len(result.warnings or []) > 0:
-            color_hex = "#ffffcc"  # Yellow for warnings
+            color_hex = "#FFF4D6"
             tooltip = "⚠️ Upozorenje: " + "; ".join([e.message for e in (result.warnings or [])])
         elif result.valid:
-            color_hex = "#ccffcc"  # Green for valid
+            color_hex = "#EAF4EE"
             tooltip = "✅ Validna stavka"
         else:
             color_hex = "#ffffff"  # White (not validated)
             tooltip = ""
 
-        return color_hex, tooltip
+        return RowValidationStyle(result, color_hex, tooltip, cell_overrides)
 
     def validate_all(self, items: List[InvoiceLine]) -> Dict[str, int]:
         """

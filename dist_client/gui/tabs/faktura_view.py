@@ -1429,69 +1429,13 @@ class FakturaView(BaseTabView):
 
     def _validate_and_color_row(self, row: int, item: InvoiceLine):
         """Validate item and apply background color to row."""
-        # Validate item
-        result = self.validator.validate(item)
+        from services.faktura.validation_service import ValidationService
 
-        # ⭐ TARIFF SIMILARITY BOJENJE
-        # Ako je tarifni broj nađen fuzzy match-om sa sličnošću < 0.92
-        # oboj red žutom kao upozorenje da treba provjeriti
-        tariff_sim = getattr(item, 'tariff_similarity', 0.0) or 0.0
-
-        # Check if item is UNMATCHED (came from invoice but not found in master list)
-        is_unmatched = (
-            not item.tarifni_broj or len(item.tarifni_broj.strip()) == 0
-        ) and (not item.zemlja_porijekla or len(item.zemlja_porijekla.strip()) == 0)
-
-        # Determine color based on validation result
-        # ⭐ PRVO provjeri tariff similarity (žuta za fuzzy match < 0.92)
-        cell_overrides = {}
-        if item.tarifni_broj and 0.70 <= tariff_sim < 0.92:
-            # ŽUTA boja - fuzzy match, preporučuje se provjera
-            color_hex = "#FFF4D6"  # Svijetlo žuta
-            tooltip = f"⚠️ Tarifni broj: {item.tarifni_broj}\n" \
-                      f"Pouzdanje: {tariff_sim:.0%}\n" \
-                      f"Preporučuje se ručna provjera tarifnog broja"
-            cell_overrides[4] = (color_hex, tooltip)
-            color_hex = "#ffffff"
-            tooltip = ""
-        elif is_unmatched:
-            # PLAVA boja za nepodudarajuće stavke (nisu pronađene u master listi)
-            color_hex = "#E6F0F8"  # Light blue for unmatched
-            tooltip = "🔵 Nepodudarajuća stavka - nije pronađena u master listi. Popunite tarifni broj i zemlju porijekla."
-            cell_overrides[4] = (color_hex, "❌ Nedostaje tarifni broj")
-            cell_overrides[9] = (color_hex, "❌ Nedostaje zemlja porijekla")
-            color_hex = "#ffffff"
-            tooltip = ""
-        elif not item.tarifni_broj or len(item.tarifni_broj.strip()) == 0:
-            # CRVENA boja samo ako NEMA tarifnog broja
-            color_hex = "#F9E4E3"  # Red for missing tariff
-            tooltip = "❌ Greška: Nedostaje tarifni broj"
-            cell_overrides[4] = (color_hex, tooltip)
-            color_hex = "#ffffff"
-            tooltip = ""
-        elif not item.zemlja_porijekla or len(item.zemlja_porijekla.strip()) == 0:
-            # CRVENA boja ako NEMA zemlje porijekla
-            color_hex = "#F9E4E3"
-            tooltip = "❌ Greška: Nedostaje zemlja porijekla"
-            cell_overrides[9] = (color_hex, tooltip)
-            color_hex = "#ffffff"
-            tooltip = ""
-        elif result.has_blocking_errors():
-            # CRVENA boja za druge kritične greške
-            color_hex = "#F9E4E3"  # Red for errors
-            tooltip = "❌ Greška: " + "; ".join([e.message for e in result.errors])
-        elif len(result.warnings) > 0:
-            # ŽUTA boja za upozorenja
-            color_hex = "#FFF4D6"  # Yellow for warnings
-            tooltip = "⚠️ Upozorenje: " + "; ".join([e.message for e in result.warnings])
-        elif result.valid:
-            # ZELENA boja za validne stavke
-            color_hex = "#EAF4EE"  # Green for valid
-            tooltip = "✅ Validna stavka"
-        else:
-            # Bijela boja za neprovjerene
-            color_hex = "#ffffff"  # White (not validated)
-            tooltip = ""
+        style = ValidationService().validate_and_get_style(item)
+        result = style.result
+        color_hex = style.row_color
+        tooltip = style.row_tooltip
+        cell_overrides = style.cell_overrides
 
         # Update cache
         self.validation_cache.set(row, result)

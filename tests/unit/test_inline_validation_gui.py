@@ -1,5 +1,6 @@
 from types import SimpleNamespace
 
+from core.draft.draft import InvoiceLine
 from gui.tabs.faktura_view import FakturaView, ValidationDelegate
 from gui.tabs.naimenovanja_view import NaimenovanjaView
 from gui.tabs.sifarnici_view import SifarniciView
@@ -52,7 +53,8 @@ def test_faktura_missing_tariff_marks_only_tariff_cell():
         _apply_country_confidence_color=lambda row, item: None,
         _apply_preference_confidence_color=lambda row, item: None,
     )
-    item = SimpleNamespace(
+    item = InvoiceLine(
+        naziv_robe="Test",
         tarifni_broj="",
         zemlja_porijekla="CN",
         tariff_similarity=0.0,
@@ -89,7 +91,8 @@ def test_faktura_missing_country_overrides_country_confidence_color():
         _apply_country_confidence_color=apply_country,
         _apply_preference_confidence_color=lambda row, item: None,
     )
-    item = SimpleNamespace(
+    item = InvoiceLine(
+        naziv_robe="Test",
         tarifni_broj="39269097",
         zemlja_porijekla="",
         tariff_similarity=0.0,

@@ -3266,3 +3266,23 @@ moraju ostati sadržajno isti.
 
 Test kapija: ciljano 78/78 za Faktura service/controller/status/import/ledger;
 puna suite 1529 passed uz iste pre-postojeće nepovezane padove (4 failed + 1 error).
+
+---
+
+## 98. Faktura 3-layer Faza 3 — osnovna validaciona boja u servisu (2026-07-29)
+
+`services/faktura/validation_service.py` je usklađen sa stvarnim
+`FakturaView._validate_and_color_row()` ponašanjem. Servis vraća neutralni
+`RowValidationStyle`: validator result, osnovnu boju reda, tooltip i
+per-cell override mapu. Paleta mora ostati postojeća GUI paleta:
+`#F9E4E3`, `#FFF4D6`, `#EAF4EE`, `#E6F0F8`.
+
+`FakturaView._validate_and_color_row()` je sada tanji wrapper: servis odlučuje
+osnovnu boju i cell override-e, a View i dalje jedini dodiruje Qt tabelu,
+`ValidationColorRole`, `validation_cache`, `_apply_country_confidence_color()`
+i `_apply_preference_confidence_color()`. Country/preference confidence bojenje
+nije premješteno u ovoj fazi jer nosi dodatne poslovne uslove oko povlastice i
+dokaza. Root i `dist_client` moraju ostati ogledani.
+
+Test kapija: ciljano 104/104 za širi Faktura validacioni skup; puna suite
+1534 passed uz iste pre-postojeće nepovezane padove (4 failed + 1 error).
