@@ -3187,6 +3187,25 @@ Testovi: `tests/unit/test_tariff_learning_ledger.py` — 7/9 prolazi bez baze
 (guard klauzule, draft_uid roundtrip, wiring), 2 markirana `@pytest.mark.integration`
 padaju sa "relation does not exist" dok migracija ne uđe (očekivano, ne bug).
 
+**Ažuriranje (2026-07-29, isti dan)**: migracija 013 primijenjena na `dmserver`
+preko SSH-a (`dmpromet@<trenutna IP>`, `sudo -u postgres psql -d deklarant_pro`).
+Dva nova nalaza pri primjeni:
+1. `CREATE TABLE` kao `postgres` superuser ne daje automatski prava
+   `deklarant_app` runtime nalogu — treba eksplicitan
+   `GRANT SELECT, INSERT, UPDATE, DELETE ON catalogs.tariff_learning_ledger TO deklarant_app`
+   (sad dio migracije 013). Za buduće migracije koje dodaju tabele: GRANT je
+   obavezan korak, ne podrazumijeva se iz sheme.
+2. Integration testovi su koristili fiksne `draft_uid`/`naziv_robe` vrijednosti
+   bez čišćenja → drugo pokretanje (npr. u punoj svici poslije izolovanog run-a)
+   je vidjelo red iz prošlog run-a i lažno padalo. Dodat `clean_ledger_rows`
+   fixture (DELETE prije i poslije) u `test_tariff_learning_ledger.py` — realan
+   DB cleanup, ne mock (AGENTS.md zabrana).
+
+Nakon oba fixa: `tests/unit/test_tariff_learning_ledger.py` 9/9 prolazi, dvaput
+uzastopno (idempotentno). Puna svita: 1514 passed, isti pre-postojeći
+nepovezani padovi kao prije (3 failed + 1 error), nula novih regresija.
+Dedup ledger je sada potpuno operativan.
+
 ---
 
 ## 94. Faktura stvarna 3-layer migracija i cleanup su odvojeni checkpointi (2026-07-29)

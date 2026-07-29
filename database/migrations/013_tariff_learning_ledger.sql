@@ -10,3 +10,5 @@ CREATE TABLE IF NOT EXISTS catalogs.tariff_learning_ledger (
 
 CREATE INDEX IF NOT EXISTS idx_tariff_learning_ledger_draft
     ON catalogs.tariff_learning_ledger (draft_uid);
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON catalogs.tariff_learning_ledger TO deklarant_app;

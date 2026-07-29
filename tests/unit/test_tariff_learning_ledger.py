@@ -25,6 +25,30 @@ def service():
     return TariffMappingService()
 
 
+@pytest.fixture
+def clean_ledger_rows():
+    """Ciscenje test redova iz ledgera pre i posle - integration testovi
+    nisu idempotentni bez ovoga (drugo pokretanje vidi red iz proslog)."""
+    draft_uids = ("test-dedup-ista-tarifa", "test-dedup-ispravka")
+
+    def _cleanup():
+        from database.db import get_db_connection
+
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "DELETE FROM catalogs.tariff_learning_ledger WHERE draft_uid = ANY(%s)",
+                    (list(draft_uids),),
+                )
+                cur.execute(
+                    "DELETE FROM catalogs.product_tariff_mapping WHERE naziv_robe LIKE 'TEST DEDUP PROIZVOD%'"
+                )
+
+    _cleanup()
+    yield
+    _cleanup()
+
+
 def test_draft_uid_generisan_i_stabilan():
     """Svaki draft dobija jedinstven draft_uid, razliciti draftovi razlicit uid."""
     d1 = DeclarationDraft()
@@ -89,7 +113,7 @@ def test_learn_from_draft_sa_draft_uid_ide_kroz_dedup(service):
 
 
 @pytest.mark.integration
-def test_learn_with_dedup_ponovljena_ista_tarifa_ne_povecava_usage(service):
+def test_learn_with_dedup_ponovljena_ista_tarifa_ne_povecava_usage(service, clean_ledger_rows):
     """Prava DB provjera: ista (draft_uid, line_key, tarifa) drugi put = no-op."""
     draft_uid = "test-dedup-ista-tarifa"
     line_key = "test-dedup-proizvod-a"
@@ -103,7 +127,7 @@ def test_learn_with_dedup_ponovljena_ista_tarifa_ne_povecava_usage(service):
 
 
 @pytest.mark.integration
-def test_learn_with_dedup_ispravka_skida_bod_sa_stare_tarife(service):
+def test_learn_with_dedup_ispravka_skida_bod_sa_stare_tarife(service, clean_ledger_rows):
     """Prava DB provjera: promjena tarife u istoj deklaraciji skida bod sa stare."""
     from database.db import get_db_connection
 
