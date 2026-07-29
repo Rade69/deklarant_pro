@@ -2050,47 +2050,16 @@ class FakturaView(BaseTabView):
 
     @staticmethod
     def _format_issue_counts(counts: dict[str, int], limit: int = 3) -> str:
-        if not counts:
-            return ""
-        parts = [
-            f"{count} {label}"
-            for label, count in sorted(counts.items(), key=lambda item: (-item[1], item[0]))
-        ]
-        if len(parts) > limit:
-            hidden = len(parts) - limit
-            parts = parts[:limit] + [f"+{hidden} tip"]
-        return " | ".join(parts)
+        from services.faktura.faktura_service import FakturaService
+        return FakturaService.format_issue_counts(counts, limit)
 
     def _parse_number(self, value_str: str) -> float:
-        """Parse broj (EU 1.234,56 ili US 1,234.56 format) u float.
-
-        Delegira na _parse_weight_input() koji auto-detektuje format po
-        poziciji zadnjeg separatora — stara implementacija je bezuslovno
-        brisala tačke kao hiljadarke, pa je "1234.56" (bez zareza, čist
-        decimalni zapis) davala 123456.0 umjesto 1234.56.
-        """
-        return self._parse_weight_input(value_str)
+        from services.faktura.faktura_service import FakturaService
+        return FakturaService.parse_number(value_str)
 
     def _parse_weight_input(self, text: str) -> float:
-        """Parsira težinu iz input polja - podržava US (1,234.56) i EU (1.234,56) format."""
-        if not text:
-            return 0.0
-        text = text.strip()
-        if "," in text and "." in text:
-            # Koji separator dolazi zadnji - to je decimalni
-            if text.rindex(".") > text.rindex(","):
-                # US format: 1,234.56 → ukloni zareze
-                text = text.replace(",", "")
-            else:
-                # EU format: 1.234,56 → ukloni tačke, zamijeni zarez s tačkom
-                text = text.replace(".", "").replace(",", ".")
-        elif "," in text:
-            # Samo zarez → EU decimalni separator
-            text = text.replace(",", ".")
-        try:
-            return float(text)
-        except ValueError:
-            return 0.0
+        from services.faktura.faktura_service import FakturaService
+        return FakturaService.parse_weight_input(text)
 
     def _update_weights_after_deletion(self, deleted_bruto: float, deleted_neto: float):
         """Ažurira input polja za bruto/neto nakon brisanja stavke (oduzima težine obrisane stavke)."""

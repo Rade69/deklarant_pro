@@ -45,32 +45,53 @@ class FakturaService:
 
     @staticmethod
     def parse_number(value_str: str) -> float:
-        """Parse broj iz stringa (podržava zarez i tačku)."""
-        if not value_str:
-            return 0.0
-        try:
-            cleaned = str(value_str).replace(",", ".").replace(" ", "")
-            return float(cleaned)
-        except (ValueError, TypeError):
-            return 0.0
+        """Parse broj iz stringa (EU 1.234,56 ili US 1,234.56 format)."""
+        return FakturaService.parse_weight_input(value_str)
 
     @staticmethod
     def parse_weight_input(text: str) -> float:
         """Parse težinu iz input polja."""
-        return FakturaService.parse_number(text)
+        if not text:
+            return 0.0
+        text = str(text).strip()
+        if "," in text and "." in text:
+            if text.rindex(".") > text.rindex(","):
+                text = text.replace(",", "")
+            else:
+                text = text.replace(".", "").replace(",", ".")
+        elif "," in text:
+            text = text.replace(",", ".")
+        try:
+            return float(text)
+        except (ValueError, TypeError):
+            return 0.0
 
     @staticmethod
     def format_weight(weight: float) -> str:
-        """Formatiraj težinu — pune preciznosti, sa hiljadnim separatorom."""
-        if weight == 0.0:
-            return "0.000"
-        return f"{weight:,.3f}"
+        """Formatiraj težinu punom preciznošću, sa hiljadnim separatorom."""
+        if weight == 0:
+            return "0"
+        weight_str = f"{weight:f}".rstrip("0").rstrip(".")
+        if "." in weight_str:
+            integer_part, decimal_part = weight_str.split(".")
+        else:
+            integer_part, decimal_part = weight_str, ""
+        integer_with_sep = f"{int(integer_part):,}"
+        return f"{integer_with_sep}.{decimal_part}" if decimal_part else integer_with_sep
 
     @staticmethod
     def format_issue_counts(counts: dict[str, int], limit: int = 3) -> str:
         """Formatiraj broj problema za prikaz."""
-        parts = [f"{k}: {v}" for k, v in counts.items() if v > 0]
-        return ", ".join(parts[:limit])
+        if not counts:
+            return ""
+        parts = [
+            f"{count} {label}"
+            for label, count in sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+        ]
+        if len(parts) > limit:
+            hidden = len(parts) - limit
+            parts = parts[:limit] + [f"+{hidden} tip"]
+        return " | ".join(parts)
 
     @staticmethod
     def extract_import_result_data(result) -> tuple:

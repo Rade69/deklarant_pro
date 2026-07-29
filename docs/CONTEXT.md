@@ -3248,3 +3248,21 @@ Sigurnosna zakrpa: `FakturaController.create_naimenovanja()` mora proslijediti
 `TariffFacade.learn_from_draft()`. Aktivni View put je to već radio; bez ove
 zakrpe bi buduće aktiviranje Controller signala zaobišlo dedup ledger iz §93.
 Root i `dist_client` controller moraju ostati identični.
+
+---
+
+## 97. Faktura 3-layer Faza 2 — čisti helperi delegirani u servis (2026-07-29)
+
+Mali HIGH-impact Faza 2 rez završen je bez aktiviranja novih signala: postojeći
+`FakturaView._parse_number()`, `_parse_weight_input()` i `_format_issue_counts()`
+ostaju compatibility wrapper-i, ali delegiraju u `FakturaService`. Time je
+čista logika prebačena u Service sloj bez promjene javnih View metoda.
+
+`FakturaService` mora zadržati paritet sa ranijim View ponašanjem: EU/US parse
+brojeva (`1.234,56`, `1,234.56`, `1234.56`), težine punom preciznošću bez
+prisilnog zaokruživanja na 3 decimale i issue summary format
+`3 bez tarife | 2 bruto < neto | ... | +N tip`. Root i `dist_client` fajlovi
+moraju ostati sadržajno isti.
+
+Test kapija: ciljano 78/78 za Faktura service/controller/status/import/ledger;
+puna suite 1529 passed uz iste pre-postojeće nepovezane padove (4 failed + 1 error).
