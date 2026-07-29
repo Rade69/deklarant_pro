@@ -72,7 +72,7 @@ Prvi test run je otkrio da su stari inline GUI testovi koristili `SimpleNamespac
 
 | Hash | Poruka |
 | --- | --- |
-| pending | `refactor(faktura): premjesti osnovnu validacionu boju u servis` |
+| `5a7c190` | `refactor(faktura): premjesti osnovnu validacionu boju u servis` |
 
 ## Rizici / ograničenja
 
