@@ -115,28 +115,24 @@ class TestNoDoubleValidation:
     """Dokazuje da signal NE izaziva duplu validaciju ni itemChanged spam."""
 
     def test_validate_signal_handler_uses_block_signals(self, qtbot):
-        """Handler koristi blockSignals — nema itemChanged događaja."""
-        from gui.tabs.faktura_view import FakturaView
+        """Handler na FakturaTab koristi blockSignals — nema itemChanged."""
+        from gui.tabs.faktura_tab import FakturaTab
         from core.draft.draft import DeclarationDraft, InvoiceLine
-        
+
         draft = DeclarationDraft()
         draft.invoice_lines = [InvoiceLine(naziv_robe="Test", tarifni_broj="08052190")]
-        view = FakturaView(draft=draft)
-        qtbot.addWidget(view)
-        view.show()
-        
+        tab = FakturaTab(draft=draft)
+        qtbot.addWidget(tab)
+        tab.view.show()
+
         item_changed_count = 0
         def count_changes(*args):
             nonlocal item_changed_count
             item_changed_count += 1
-        
-        view.table.itemChanged.connect(count_changes)
-        
-        # Emituj signal direktno — handler mora koristiti blockSignals
-        view.validate_requested.emit("all", [])
-        
-        # Bez blockSignals: 12 itemChanged po redu
-        # Sa blockSignals: 0
+
+        tab.view.table.itemChanged.connect(count_changes)
+        tab.view.validate_requested.emit("all", [])
+
         assert item_changed_count == 0, (
             f"blockSignals nije korišten: {item_changed_count} itemChanged događaja"
         )
@@ -145,12 +141,12 @@ class TestNoDoubleValidation:
         """Signal na stvarnom View-u sa stavkom ne izaziva pad."""
         from gui.tabs.faktura_view import FakturaView
         from core.draft.draft import DeclarationDraft, InvoiceLine
-        
+
         draft = DeclarationDraft()
         draft.invoice_lines = [InvoiceLine(naziv_robe="Test", tarifni_broj="08052190")]
         view = FakturaView(draft=draft)
         qtbot.addWidget(view)
         view.show()
-        
+
         # Direktan emit — ne smije pasti
         view.validate_requested.emit("all", [])
