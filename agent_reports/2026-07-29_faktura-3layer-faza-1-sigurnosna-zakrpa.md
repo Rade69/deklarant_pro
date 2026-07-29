@@ -62,7 +62,7 @@ Nema konflikta: §91 kaže da je signalni tok pasivan, a ova zakrpa ga samo čin
 
 | Hash | Poruka |
 | --- | --- |
-| pending | `fix(faktura): sacuvaj ledger ugovor u controlleru` |
+| `6230522` | `fix(faktura): sacuvaj ledger ugovor u controlleru` |
 
 ## Rizici / ograničenja
 
