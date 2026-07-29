@@ -3126,3 +3126,30 @@ se emitovati na kraju starog handlera jer bi isti proces bio izvršen dvaput.
 Bulk primjena validacionih boja mora koristiti `blockSignals`, a `dist_client`
 kapija mora stvarno importovati module kao samostalan root, ne samo provjeriti
 da fajlovi postoje.
+
+---
+
+## 92. Faktura-3layer spojen u windows — dist_client paritet dopunjen (2026-07-29)
+
+`refactor/faktura-3layer` spojen (fast-forward, 0 konflikata) — infrastruktura
+je pasivna/neaktivna (vidi §91), stari View handleri ostaju živi tok.
+
+Prije spajanja popravljen `dist_client/services/faktura/faktura_service.py`
+kome je nedostajalo ~55 linija (Faza 2 metode: `parse_number`,
+`parse_weight_input`, `format_weight`, `format_issue_counts`,
+`extract_import_result_data`) — paritet-test
+(`test_faktura_controller.py::TestDistStandalone::test_dist_faktura_modules_match_root`)
+nije pokrivao taj fajl u svojoj parametrize listi, sad pokriva.
+
+**Otvoreno, NIJE popravljeno ovim zadatkom**: `dist_client/services/tariff/
+tariff_mapping_service.py` je pokvaren 1-linijski compat shim
+(`from services.tariff_mapping_service import *`) ka modulu koji nigdje ne
+postoji — dok root ima punih 1271 linija (stvaran `TariffMappingService`).
+Pre-postojeće na `windows` prije ove grane (`git show windows:...` potvrđuje,
+zadnja izmjena `91cfac5`), refaktor ga nije unio. Ako se `dist_client` ikad
+build-uje/pokrene kao samostalan root, puca odmah na bilo kom uvozu tarifa
+(Faktura, Naimenovanja, agent chat). Poseban follow-up zadatak — sinhronizacija
+je veća (1271 linija), van scope-a ovog spajanja.
+
+Puna svita nakon merge-a: 1504 passed, isti pre-postojeći nepovezani padovi
++ gornji `tariff_mapping_service.py` pad.
