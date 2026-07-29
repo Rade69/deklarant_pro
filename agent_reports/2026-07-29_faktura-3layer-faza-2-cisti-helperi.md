@@ -74,7 +74,7 @@ Nema konflikta: View ponašanje je tretirano kao autoritativno i servis je uskla
 
 | Hash | Poruka |
 | --- | --- |
-| pending | `refactor(faktura): prebaci ciste helpere u servis` |
+| `fe634a0` | `refactor(faktura): prebaci ciste helpere u servis` |
 
 ## Rizici / ograničenja
 
