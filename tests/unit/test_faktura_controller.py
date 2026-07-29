@@ -3,6 +3,10 @@ Testovi za FakturaController i FakturaTab — direktni import i funkcionalnost.
 """
 from __future__ import annotations
 
+import subprocess
+import sys
+from pathlib import Path
+
 import pytest
 
 from core.draft.draft import DeclarationDraft, InvoiceLine
@@ -98,17 +102,41 @@ class TestFakturaTabImport:
 class TestDistStandalone:
     """Root i dist_client samostalni import."""
 
-    def test_dist_controller_exists(self):
-        import sys
-        # Samo provjeri da fajl postoji
-        from pathlib import Path
-        dist_ctrl = Path("dist_client/gui/tabs/faktura_controller.py")
-        assert dist_ctrl.exists(), "dist_client Controller ne postoji"
+    def test_dist_faktura_modules_import_as_standalone_root(self):
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "from gui.tabs.faktura_controller import FakturaController; "
+                    "from gui.tabs.faktura_tab import FakturaTab"
+                ),
+            ],
+            cwd=Path("dist_client"),
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        assert result.returncode == 0, result.stderr
 
-    def test_dist_tab_exists(self):
-        from pathlib import Path
-        dist_tab = Path("dist_client/gui/tabs/faktura_tab.py")
-        assert dist_tab.exists(), "dist_client FakturaTab ne postoji"
+    @pytest.mark.parametrize(
+        "relative_path",
+        [
+            "gui/tabs/faktura_controller.py",
+            "gui/tabs/faktura_tab.py",
+            "gui/tabs/faktura_view.py",
+            "services/faktura/models.py",
+        ],
+    )
+    def test_dist_faktura_modules_match_root(self, relative_path):
+        root_text = Path(relative_path).read_text(encoding="utf-8").replace("\r\n", "\n")
+        dist_text = (
+            Path("dist_client", relative_path)
+            .read_text(encoding="utf-8")
+            .replace("\r\n", "\n")
+        )
+        assert dist_text == root_text
 
 
 class TestNoDoubleValidation:
