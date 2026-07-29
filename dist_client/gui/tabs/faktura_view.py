@@ -4660,9 +4660,6 @@ class FakturaView(BaseTabView):
             # Istorijska validacija tarifnih brojeva (iz XML deklaracija)
             self._run_historical_tariff_validation(auto=auto)
 
-            # Emituj signal za Controller (Faza 3 — read-only, bezbjedno)
-            self.validate_requested.emit("all", [])
-
             return (True, error_count, warning_count)
 
         except Exception as e:

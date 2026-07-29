@@ -36,13 +36,13 @@ class FakturaController(QObject):
         """Validiraj sve redove i vrati boje + tooltip.
         """
         from services.faktura.validation_service import ValidationService
-        
+
         svc = ValidationService()
         lines = getattr(draft, "invoice_lines", []) or []
         color_map = {}
         errors = 0
         warnings = 0
-        
+
         for idx, line in enumerate(lines):
             try:
                 color, tooltip = svc.validate_and_get_color(line)
@@ -55,7 +55,7 @@ class FakturaController(QObject):
                     warnings += 1
             except Exception:
                 color_map[idx] = ("#ffffff", "")
-        
+
         return {
             "validated_count": len(lines),
             "error_count": errors,
@@ -128,7 +128,7 @@ class FakturaController(QObject):
 
     def bulk_change_tariff(self, draft, rows: list, tariff: str):
         """Bulk izmjena tarifnog broja za selektovane redove.
-        
+
         Uključuje normalizaciju tarife i mark_dirty.
         """
         from importers.invoice_line_utils import normalize_tariff_number
@@ -158,13 +158,13 @@ class FakturaController(QObject):
                                    expected_exporter: str = "", expected_importer: str = ""):
         """Provjeri konzistentnost partnera — delegira na postojeći View metod."""
         import re
-        
+
         def _normalize(name: str) -> str:
             name = name.lower().strip()
             name = re.sub(r"[.\-,;:'/\\()]", " ", name)
             name = re.sub(r"\b(doo|d\.o\.o|dd|a\.d|ad|llc|ltd|gmbh|srl)\b", "", name)
             return re.sub(r"\s+", " ", name).strip()
-        
+
         def similar(a: str, b: str) -> bool:
             na, nb = _normalize(a), _normalize(b)
             if not na or not nb:
@@ -173,7 +173,7 @@ class FakturaController(QObject):
             if not ta or not tb:
                 return True
             return len(ta & tb) / max(len(ta), len(tb)) >= 0.6
-        
+
         warnings = []
         if expected_exporter and exporter and not similar(exporter, expected_exporter):
             warnings.append(f"Pošiljalac se razlikuje: '{expected_exporter}' vs '{exporter}'")

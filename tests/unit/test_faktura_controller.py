@@ -109,3 +109,48 @@ class TestDistStandalone:
         from pathlib import Path
         dist_tab = Path("dist_client/gui/tabs/faktura_tab.py")
         assert dist_tab.exists(), "dist_client FakturaTab ne postoji"
+
+
+class TestNoDoubleValidation:
+    """Dokazuje da signal NE izaziva duplu validaciju ni itemChanged spam."""
+
+    def test_validate_signal_handler_uses_block_signals(self, qtbot):
+        """Handler koristi blockSignals — nema itemChanged događaja."""
+        from gui.tabs.faktura_view import FakturaView
+        from core.draft.draft import DeclarationDraft, InvoiceLine
+        
+        draft = DeclarationDraft()
+        draft.invoice_lines = [InvoiceLine(naziv_robe="Test", tarifni_broj="08052190")]
+        view = FakturaView(draft=draft)
+        qtbot.addWidget(view)
+        view.show()
+        
+        item_changed_count = 0
+        def count_changes(*args):
+            nonlocal item_changed_count
+            item_changed_count += 1
+        
+        view.table.itemChanged.connect(count_changes)
+        
+        # Emituj signal direktno — handler mora koristiti blockSignals
+        view.validate_requested.emit("all", [])
+        
+        # Bez blockSignals: 12 itemChanged po redu
+        # Sa blockSignals: 0
+        assert item_changed_count == 0, (
+            f"blockSignals nije korišten: {item_changed_count} itemChanged događaja"
+        )
+
+    def test_validate_signal_no_crash_with_real_view(self, qtbot):
+        """Signal na stvarnom View-u sa stavkom ne izaziva pad."""
+        from gui.tabs.faktura_view import FakturaView
+        from core.draft.draft import DeclarationDraft, InvoiceLine
+        
+        draft = DeclarationDraft()
+        draft.invoice_lines = [InvoiceLine(naziv_robe="Test", tarifni_broj="08052190")]
+        view = FakturaView(draft=draft)
+        qtbot.addWidget(view)
+        view.show()
+        
+        # Direktan emit — ne smije pasti
+        view.validate_requested.emit("all", [])

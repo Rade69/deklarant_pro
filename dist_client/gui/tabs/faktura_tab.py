@@ -63,18 +63,29 @@ class FakturaTab(QWidget):
                 logger.error(f"Import failed for {fp}: {e}")
 
     def _on_validate_requested(self, scope: str, rows: list):
-        """Validacija — delegira na Controller, primjenjuje boje na tabelu."""
+        """Validacija — delegira na Controller, primjenjuje boje na tabelu.
+        Koristi blockSignals da spriječi neželjene itemChanged događaje."""
         result = self.controller.validate_and_color_rows(self.controller.draft)
-        if result and result.get("color_map"):
-            for row_idx, (color, tooltip) in result["color_map"].items():
-                if row_idx < self.view.table.rowCount():
-                    for col in range(self.view.table.columnCount()):
-                        cell = self.view.table.item(row_idx, col)
+        if not result or not result.get("color_map"):
+            return
+        color_map = result["color_map"]
+        table = self.view.table
+        table.blockSignals(True)
+        try:
+            target_rows = rows if rows and scope != "all" else range(table.rowCount())
+            for row_idx in target_rows:
+                if row_idx in color_map and row_idx < table.rowCount():
+                    color, tooltip = color_map[row_idx]
+                    for col in range(table.columnCount()):
+                        cell = table.item(row_idx, col)
                         if cell:
                             from gui.delegates.validation_delegate import ValidationDelegate
                             cell.setData(ValidationDelegate.ValidationColorRole, color)
                             if tooltip:
                                 cell.setToolTip(tooltip)
+        finally:
+            table.blockSignals(False)
+            table.viewport().update()
 
     def _on_auto_fill_requested(self):
         """Auto-popuna tarifa — delegira na postojeći View handler."""
