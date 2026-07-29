@@ -71,7 +71,7 @@ Nema novih konflikata. Worktree je već imao nepovezane izmjene prije ovog rada;
 
 | Hash | Poruka |
 | --- | --- |
-| `2e1b6e7` | `test(faktura): zakljucaj faza 0 baseline` |
+| `194a793` | `test(faktura): zakljucaj faza 0 baseline` |
 
 ## Rizici / ograničenja
 
