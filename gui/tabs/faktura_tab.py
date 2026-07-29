@@ -3,6 +3,9 @@
 from PySide6.QtWidgets import QWidget, QVBoxLayout
 from PySide6.QtCore import Signal
 from typing import Optional, Callable
+import logging
+
+logger = logging.getLogger("deklarant_pro.faktura_tab")
 
 from core.draft import DeclarationDraft
 from gui.tabs.faktura_view import FakturaView
@@ -51,13 +54,11 @@ class FakturaTab(QWidget):
     # ── Signal handleri (delegiraju na Controller) ────────────────
 
     def _on_import_requested(self, filepaths: list):
-        """Import handler — koristi postojeći unified import workflow."""
+        """Import handler — delegira na postojeći FakturaView._start_import."""
         for fp in filepaths:
             try:
-                from services.faktura.import_service import ImportService
-                svc = ImportService()
-                result = svc.import_file(fp)
-                self.view._on_import_finished(result)
+                if hasattr(self.view, "_start_import"):
+                    self.view._start_import(fp)
             except Exception as e:
                 logger.error(f"Import failed for {fp}: {e}")
 

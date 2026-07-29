@@ -34,12 +34,10 @@ class FakturaController(QObject):
 
     def validate_and_color_rows(self, draft) -> dict:
         """Validiraj sve redove i vrati boje + tooltip.
-        
-        Koristi postojeći FakturaValidationService.
         """
-        from services.faktura.validation_service import FakturaValidationService
+        from services.faktura.validation_service import ValidationService
         
-        svc = FakturaValidationService()
+        svc = ValidationService()
         lines = getattr(draft, "invoice_lines", []) or []
         color_map = {}
         errors = 0
@@ -80,16 +78,16 @@ class FakturaController(QObject):
         return apply_import_plan(draft, plan, decisions)
 
     def normalize_item_tariffs(self, items: list) -> None:
-        """Normalizuj tarifne brojeve na 8/10 cifara."""
+        """Normalizuj tarifne brojeve na 8/10 cifara.
+        Kodovi kraći od 8 cifara OSTAJU nepromijenjeni — mjesto
+        nedostajuće cifre se ne smije nagađati (projektno pravilo).
+        """
         from importers.invoice_line_utils import normalize_tariff_number
         for item in items:
             code = getattr(item, "tarifni_broj", "") or ""
             if not code:
                 continue
-            normalized = normalize_tariff_number(code)
-            if normalized and normalized.isdigit() and 4 <= len(normalized) < 8:
-                normalized = normalized.zfill(8)
-            item.tarifni_broj = normalized
+            item.tarifni_broj = normalize_tariff_number(code)
 
     # ── Kreiranje naimenovanja (Faza 5) ───────────────────────
 
