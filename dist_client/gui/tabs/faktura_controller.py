@@ -32,7 +32,7 @@ class FakturaController(QObject):
 
     # ── Validacija i bojenje (Faza 3) ──────────────────────────
 
-    def validate_and_color_rows(self, draft) -> dict:
+    def validate_and_color_rows(self, draft, rows: list[int] | None = None) -> dict:
         """Validiraj sve redove i vrati boje + tooltip.
         """
         from services.faktura.validation_service import ValidationService
@@ -40,19 +40,25 @@ class FakturaController(QObject):
         svc = ValidationService()
         lines = getattr(draft, "invoice_lines", []) or []
         color_map = {}
+        style_map = {}
         errors = 0
         warnings = 0
+        valid = 0
+        target_rows = set(rows or range(len(lines)))
 
         for idx, line in enumerate(lines):
             try:
-                color, tooltip = svc.validate_and_get_color(line)
+                style = svc.validate_and_get_style(line)
+                color, tooltip = style.row_color, style.row_tooltip
                 color_map[idx] = (color, tooltip)
-                # Crvena = #F9E4E3 ili #ffcccc
-                if "F9E4E3" in color.upper() or "FFCCCC" in color.upper():
-                    errors += 1
-                # Žuta = #FFF4D6 ili #fff9c4 ili #ffffcc
-                elif "FFF4D6" in color.upper() or "FFF9C4" in color.upper() or "FFFFCC" in color.upper():
-                    warnings += 1
+                style_map[idx] = style
+                if idx in target_rows:
+                    if style.result.has_blocking_errors():
+                        errors += 1
+                    elif style.result.warnings:
+                        warnings += 1
+                    elif style.result.valid:
+                        valid += 1
             except Exception:
                 color_map[idx] = ("#ffffff", "")
 
@@ -60,7 +66,10 @@ class FakturaController(QObject):
             "validated_count": len(lines),
             "error_count": errors,
             "warning_count": warnings,
+            "valid_count": valid,
             "color_map": color_map,
+            "style_map": style_map,
+            "target_rows": sorted(target_rows),
         }
 
     # ── Import tok (Faza 4) ──────────────────────────────────

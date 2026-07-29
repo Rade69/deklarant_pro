@@ -799,7 +799,7 @@ class FakturaView(BaseTabView):
                 object_name="btnValidacija",
                 icon_name="fa5s.check-circle",
             )
-            self.btn_validate.clicked.connect(self._on_validate_all)
+            self.btn_validate.clicked.connect(self._emit_validate_requested)
 
             mass_controls_panel = QWidget()
             mass_controls_panel.setObjectName("massControlsPanel")
@@ -4648,6 +4648,20 @@ class FakturaView(BaseTabView):
             if not auto:
                 self.error_handler.handle_validation_error(e)
             return (False, -1, -1)
+
+    def _emit_validate_requested(self) -> None:
+        rows = []
+        if hasattr(self, "table"):
+            selection = self.table.selectionModel()
+            selected_rows = selection.selectedRows() if selection else []
+            rows = sorted(
+                {
+                    idx.row()
+                    for idx in selected_rows
+                    if 0 <= idx.row() < len(self.draft.invoice_lines)
+                }
+            )
+        self.validate_requested.emit("rows" if rows else "all", rows)
 
     def _run_historical_tariff_validation(self, modal=False, auto=False):
         """

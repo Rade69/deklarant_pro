@@ -3286,3 +3286,28 @@ dokaza. Root i `dist_client` moraju ostati ogledani.
 
 Test kapija: ciljano 104/104 za širi Faktura validacioni skup; puna suite
 1534 passed uz iste pre-postojeće nepovezane padove (4 failed + 1 error).
+
+---
+
+## 99. Faktura 3-layer Faza 4 — ručna validacija aktivirana preko Controller toka (2026-07-29)
+
+Dugme `Provjeri` u Faktura tabu više ne poziva direktno
+`FakturaView._on_validate_all`, nego emituje `validate_requested`. Signal hvata
+`FakturaTab._on_validate_requested`, koji sinhronizuje tabelu u draft, poziva
+`FakturaController.validate_and_color_rows()`, primjenjuje validacione stilove
+na Qt tabelu, ažurira `validation_cache` i status bar, prikazuje isti ručni
+sažetak validacije i zatim pokreće istorijsku tarifnu provjeru.
+
+Ovo je prvi aktivni View -> Controller -> Service vertikalni rez Faktura taba.
+Automatski pozivi `_on_validate_all(auto=True)` nisu prebačeni u ovoj fazi:
+ostaju stari pipeline/fallback tok jer su vezani za import, punu automatizaciju
+i tajming istorijske validacije. Ostali Faktura signali ostaju pasivna
+migraciona infrastruktura dok ne dobiju zasebne test kapije.
+
+`FakturaController.validate_and_color_rows()` mora zadržati stari `color_map`
+ugovor, ali sada dodatno vraća `style_map`, `valid_count` i `target_rows` da
+handler može popuniti cache i sačuvati selekcijski scope. Testovi koji direktno
+emituju signal moraju patchovati `SafeMessageBox` jer aktivni ručni tok sada,
+kao prava aplikacija, prikazuje modal.
+
+Test kapija: 69/69 za Faza 0-4 Faktura/ledger skup.

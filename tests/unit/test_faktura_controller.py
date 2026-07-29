@@ -127,12 +127,15 @@ class TestFakturaTabImport:
         assert hasattr(tab.view, "import_requested")
         assert hasattr(tab.view, "create_naimenovanja_requested")
 
-    def test_validate_signal_connected(self, qtbot):
+    def test_validate_signal_connected(self, qtbot, monkeypatch):
         """Signal je povezan na handler (ne puca pri emitovanju)."""
         from gui.tabs.faktura_tab import FakturaTab
+        from gui.utils.safe_message_box import SafeMessageBox
         draft = DeclarationDraft()
         tab = FakturaTab(draft=draft)
         qtbot.addWidget(tab)
+        monkeypatch.setattr(SafeMessageBox, "information", lambda *args, **kwargs: None)
+        monkeypatch.setattr(SafeMessageBox, "warning", lambda *args, **kwargs: None)
         # Emituj signal — ne smije pasti
         tab.view.validate_requested.emit("all", [])
 
@@ -181,16 +184,20 @@ class TestDistStandalone:
 class TestNoDoubleValidation:
     """Dokazuje da signal NE izaziva duplu validaciju ni itemChanged spam."""
 
-    def test_validate_signal_handler_uses_block_signals(self, qtbot):
+    def test_validate_signal_handler_uses_block_signals(self, qtbot, monkeypatch):
         """Handler na FakturaTab koristi blockSignals — nema itemChanged."""
         from gui.tabs.faktura_tab import FakturaTab
         from core.draft.draft import DeclarationDraft, InvoiceLine
+        from gui.utils.safe_message_box import SafeMessageBox
 
         draft = DeclarationDraft()
         draft.invoice_lines = [InvoiceLine(naziv_robe="Test", tarifni_broj="08052190")]
         tab = FakturaTab(draft=draft)
         qtbot.addWidget(tab)
         tab.view.show()
+        monkeypatch.setattr(SafeMessageBox, "information", lambda *args, **kwargs: None)
+        monkeypatch.setattr(SafeMessageBox, "warning", lambda *args, **kwargs: None)
+        monkeypatch.setattr(tab.view, "_run_historical_tariff_validation", lambda *args, **kwargs: None)
 
         item_changed_count = 0
         def count_changes(*args):
@@ -204,8 +211,8 @@ class TestNoDoubleValidation:
             f"blockSignals nije korišten: {item_changed_count} itemChanged događaja"
         )
 
-    def test_validate_signal_no_crash_with_real_view(self, qtbot):
-        """Signal na stvarnom View-u sa stavkom ne izaziva pad."""
+    def test_validate_button_emits_validate_signal(self, qtbot):
+        """Dugme Provjeri emituje signal umjesto direktnog View handlera."""
         from gui.tabs.faktura_view import FakturaView
         from core.draft.draft import DeclarationDraft, InvoiceLine
 
@@ -215,5 +222,8 @@ class TestNoDoubleValidation:
         qtbot.addWidget(view)
         view.show()
 
-        # Direktan emit — ne smije pasti
-        view.validate_requested.emit("all", [])
+        emitted = []
+        view.validate_requested.connect(lambda scope, rows: emitted.append((scope, rows)))
+        view.btn_validate.click()
+
+        assert emitted == [("all", [])]

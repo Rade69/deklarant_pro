@@ -36,9 +36,8 @@ class FakturaTab(QWidget):
         )
 
         # ── Signal wiring (Faza 4-7B) ──────────────────────────
-        # Signali su definisani u View-u, povezani na Controller.
-        # View JOŠ NE emituje ove signale — stari handleri ostaju aktivni.
-        # Prespajanje zahtijeva testiranje na stvarnoj aplikaciji.
+        # Ručna validacija je aktivan Controller tok; ostali signali su još
+        # pasivna migraciona infrastruktura dok ne dobiju zasebne test kapije.
         self.view.import_requested.connect(self._on_import_requested)
         self.view.validate_requested.connect(self._on_validate_requested)
         self.view.auto_fill_requested.connect(self._on_auto_fill_requested)
@@ -65,27 +64,87 @@ class FakturaTab(QWidget):
     def _on_validate_requested(self, scope: str, rows: list):
         """Validacija — delegira na Controller, primjenjuje boje na tabelu.
         Koristi blockSignals da spriječi neželjene itemChanged događaje."""
-        result = self.controller.validate_and_color_rows(self.controller.draft)
-        if not result or not result.get("color_map"):
+        from gui.delegates.validation_delegate import ValidationDelegate
+        from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
+
+        draft = self.controller.draft
+        if not getattr(draft, "invoice_lines", None):
+            QMessageBox.information(self, "Nema stavki", "Nema stavki za validaciju.")
             return
-        color_map = result["color_map"]
+
+        self.view._sync_table_to_draft()
+        selected_rows = rows if rows and scope != "all" else None
+        result = self.controller.validate_and_color_rows(draft, selected_rows)
+        style_map = result.get("style_map") or {}
         table = self.view.table
         table.blockSignals(True)
         try:
-            target_rows = rows if rows and scope != "all" else range(table.rowCount())
-            for row_idx in target_rows:
-                if row_idx in color_map and row_idx < table.rowCount():
-                    color, tooltip = color_map[row_idx]
+            for row_idx, style in style_map.items():
+                if row_idx < table.rowCount():
+                    self.view.validation_cache.set(row_idx, style.result)
                     for col in range(table.columnCount()):
                         cell = table.item(row_idx, col)
                         if cell:
-                            from gui.delegates.validation_delegate import ValidationDelegate
-                            cell.setData(ValidationDelegate.ValidationColorRole, color)
-                            if tooltip:
-                                cell.setToolTip(tooltip)
+                            cell.setData(
+                                ValidationDelegate.ValidationColorRole,
+                                style.row_color,
+                            )
+                            cell.setToolTip(style.row_tooltip)
+                    self.view._apply_country_confidence_color(
+                        row_idx, draft.invoice_lines[row_idx]
+                    )
+                    self.view._apply_preference_confidence_color(
+                        row_idx, draft.invoice_lines[row_idx]
+                    )
+                    for col, (cell_color, cell_tooltip) in style.cell_overrides.items():
+                        cell = table.item(row_idx, col)
+                        if cell:
+                            cell.setData(ValidationDelegate.ValidationColorRole, cell_color)
+                            cell.setToolTip(cell_tooltip)
         finally:
             table.blockSignals(False)
             table.viewport().update()
+
+        self.view._update_status_bar()
+        error_count = result.get("error_count", 0)
+        warning_count = result.get("warning_count", 0)
+        valid_count = result.get("valid_count", 0)
+        total_count = len(selected_rows) if selected_rows is not None else len(draft.invoice_lines)
+        error_issues, warning_issues = self.view._validation_issue_counts(selected_rows)
+
+        message = ""
+        if selected_rows is not None:
+            message += f"📌 Prikazano samo za {len(selected_rows)} selektovanih stavki.\n\n"
+        message += "╔══════════════════════════════════════╗\n"
+        message += "║      REZULTAT VALIDACIJE             ║\n"
+        message += "╠══════════════════════════════════════╣\n"
+        message += f"║  Ukupno stavki: {total_count:>4}                ║\n"
+        message += f"║  ✅ Validne:     {valid_count:>4}                ║\n"
+        message += f"║  ❌ Nevažeće:    {error_count:>4}                ║\n"
+        message += "╠══════════════════════════════════════╣\n"
+        message += f"║  🔴 Greške:      {error_count:>4}                ║\n"
+        message += f"║  🟡 Upozorenja:  {warning_count:>4}                ║\n"
+        message += "╚══════════════════════════════════════╝\n"
+        if error_issues:
+            message += "\nGreške po tipu:\n"
+            for label, count in sorted(error_issues.items(), key=lambda item: (-item[1], item[0])):
+                message += f"  • {count} {label}\n"
+        if warning_issues:
+            message += "\nUpozorenja po tipu:\n"
+            for label, count in sorted(warning_issues.items(), key=lambda item: (-item[1], item[0])):
+                message += f"  • {count} {label}\n"
+
+        if error_count > 0:
+            message += "\n⚠️  NAPOMENA:\nProvjerite crveno označene stavke!"
+            QMessageBox.warning(self, "Validacija", message)
+        elif warning_count > 0:
+            message += "\n💡 SAVJET:\nProvjerite žuto označene stavke."
+            QMessageBox.information(self, "Validacija", message)
+        else:
+            message += "\n🎉 SVE STAVKE SU VALIDNE!"
+            QMessageBox.information(self, "Validacija", message)
+
+        self.view._run_historical_tariff_validation(auto=False)
 
     def _on_auto_fill_requested(self):
         """Auto-popuna tarifa — delegira na postojeći View handler."""
