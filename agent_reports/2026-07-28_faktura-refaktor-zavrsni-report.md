@@ -1,50 +1,118 @@
-# Faktura 3-layer refaktor — završni report
+# Faktura 3-layer infrastruktura — završni report
 
-**Datum**: 2026-07-28
-**Agent**: Pi
-**Grana**: `refactor/faktura-3layer`
-**Plan**: `project_rooms/2026-07-27_faktura-3layer-refaktor-detaljni-plan.md`
-**Status**: Faze 0-8 završene, signali NISU prespojeni
+## Datum
 
-## Commitovi
+2026-07-29
 
-| Faza | Commit | Šta |
-|------|--------|-----|
-| 0 | `ace41da` | 17 karakterizacionih testova (55/55) |
-| 1 | `7372c09` | Controller + neutralni modeli + composition root |
-| 2 | `c46fe9f` | Čiste kalkulacije u FakturaService |
-| 3 | `479adea` | Controller validate_and_color_rows |
-| 4-7B | `b9c5b6c` | Controller: import, naimenovanja, mase, edit, export |
-| 8 | `395c364` | Statička validacija |
+## Agent
 
-## Statičke kapije
+Pi, završni nezavisni pregled i dopuna: Codex
 
-- View SQL: 0 ✅
-- Novi Service PySide6: 0 ✅
-- Controller findChild: 0 ✅
-- Controller SQL: 0 ✅
-- View bez izmjena: 6.329 linija (isto kao baseline)
+## Scope
+
+Grana `refactor/faktura-3layer`, composition root, pasivni Controller ugovori,
+karakterizacioni testovi i root/`dist_client` paritet. Kanonski plan je
+`project_rooms/2026-07-27_faktura-3layer-refaktor-detaljni-plan.md`.
+
+## Status izvora
+
+- Kanonski detaljni plan: aktivan.
+- Raniji naslov „Faze 0–8 završene“: zastario i netačan za produkcioni wiring.
+- Postojeći View handleri na `windows`: aktivni autoritativni tok.
+- Controller signali: aktivna migraciona infrastruktura, ali pasivni u
+  produkcionom toku.
+
+## GitNexus impact
+
+Indeks formalno vraća `LOW`, ali je parcijalan i ne vidi poznate dinamičke
+Agent/MainWindow pozivaoce. Ručni impact zato ostaje autoritativna dopuna:
+Faktura tab je startup obavezan i koristi ga Puna automatizacija, import,
+naimenovanja, mase, validacija i export. Dozvola: `no auto-merge`, obavezni
+test gate i ručna Windows potvrda.
 
 ## Šta je urađeno
 
-- 55/55 testova prolazi kroz sve faze
-- `FakturaController` sa metodama za import, naimenovanja, mase, edit, export
-- `FakturaService` proširen sa čistim kalkulacijama
-- Neutralni modeli u `services/faktura/models.py`
-- Composition root u `FakturaTab`
+- Uveden je `FakturaController` sa dinamičkim getterom aktivnog drafta.
+- Dodani su neutralni result modeli i čiste pomoćne funkcije.
+- Dodani su View signali i povezani wrapper handleri.
+- Signali nisu automatski emitovani iz starih View handlera, čime se izbjegava
+  duplo izvršavanje.
+- Validacioni handler poštuje `scope/rows` i koristi `blockSignals`.
+- Ispravljeni su startup importi, servisni importi, logger i tarifna
+  normalizacija bez nedozvoljenog `zfill`.
+- Root i `dist_client` imaju sadržajno isti produkcioni Faktura kod.
+- Uključen je najnoviji `windows` vrh sa zvučnim i tarifnim popravkama.
 
-## Šta NIJE urađeno (namjerno)
+## Zašto je urađeno
 
-- **Signali nisu prespojeni** — View i dalje koristi stare handlere.
-  Ovo je po planu §3.2: "Ne povezivati Controller na signal koji još obrađuje View."
-  Prespajanje je rizična operacija koja zahtijeva testiranje na stvarnoj aplikaciji.
-- Legacy metode nisu obrisane — aktivne su dok unified tok nije potvrđen.
-- Agent/MainWindow direktni pristup widgetima nije migriran.
+Centralni Faktura View ima veliki blast radius. Pasivna infrastruktura omogućava
+buduće vertikalne rezove bez promjene postojećeg ponašanja. Aktiviranje signala
+na kraju starog View handlera bilo je odbačeno jer validaciju izvršava dvaput i
+proizvodi `itemChanged` događaje.
 
-## Sledeći korak (za drugog agenta)
+## Kako je urađeno
 
-1. Prespojiti signale u vertikalnim rezovima (Faza 4 → Faza 5 → Faza 6...)
-2. Testirati sa stvarnim fakturama iz `najavauvoza/`
-3. Migrirati Agent/MainWindow pozivaoce na `FakturaTab` API
-4. Obrisati legacy metode nakon potvrde stabilnosti
-5. `dist_client` mirror
+Composition root kreira Controller, ali vlasništvo aktivnog toka ostaje u View-u
+dok pojedinačni rez nema potpuni paritet test. `dist_client` test se izvršava iz
+samog `dist_client` direktorija i importuje Controller i Tab kao standalone root.
+
+## Šta nije dirano
+
+- Nisu prespojeni import, auto-fill, mase, naimenovanja, brisanje, bulk tarifa
+  niti export na Controller.
+- Legacy View metode nisu brisane.
+- Agent i MainWindow direktni adapteri nisu migrirani.
+- Nisu mijenjani poslovni rezultati, grupiranje, povlastice ni XML format.
+
+## Verifikacija
+
+- Kombinovani ciljani testovi nakon spajanja `windows`: 63 prošla, 1 preskočen.
+- Završna standalone/paritet i stvarni E2E import kapija: 26 prošlo.
+- Puna svita: 1408 prošlo, 72 preskočena, 5 očekivano xfailed; 10 DB testova
+  palo isključivo zato što PostgreSQL server nije bio dostupan.
+- Stvarni povezani `FakturaTab` offscreen: 0 `itemChanged`, selektivno bojenje
+  mijenja samo traženi red.
+- Merge simulacija sa `windows`: bez konflikta.
+- `git diff --check` i pre-commit `py_compile`: prolaze.
+
+## Pronađeni problemi
+
+Raniji test je provjeravao samo postojanje `dist_client` fajlova, a ne stvarni
+standalone import. Raniji „aktivni“ validacioni signal bio je dodat na kraj
+kompletnog View toka i time je validirao dvaput. Oba obrasca su uklonjena.
+
+## Konflikti / kontradiktorni izvori
+
+Commit poruke i stari report tvrdili su da su Faze 0–8 završene, dok sam kod i
+plan potvrđuju da produkcioni signali nisu prespojeni. Kod i acceptance kriteriji
+plana tretirani su kao važeći. Korisnička potvrda za tu interpretaciju nije
+potrebna jer je funkcionalno stanje direktno dokazivo.
+
+## Commitovi
+
+| Hash | Poruka |
+|---|---|
+| `237915d` | `fix(test): koristi FakturaTab za blockSignals test, očisti trailing whitespace` |
+| `05ac9c6` | `merge(windows): osvjezi faktura refaktor` |
+| `e88b2de` | `test(faktura): ojacaj standalone i paritet kapije` |
+
+Raniji fazni commitovi ostaju u historiji grane.
+
+## Rizici / ograničenja
+
+Ovo nije završen puni 3-layer refaktor. Kanonski plan procjenjuje kompletnu
+migraciju na 53–83 sata i zahtijeva zaseban zeleni checkpoint za svaki
+vertikalni rez. PostgreSQL-zavisni testovi moraju se ponoviti kada server bude
+dostupan.
+
+## Potreban follow-up
+
+Migrirati redom validaciju, import, naimenovanja/auto-fill, mase, item edit i
+export, svaki kao zaseban vertikalni rez. Stare View metode uklanjati tek kada
+pretraga i testovi dokažu da nemaju pozivaoce.
+
+## Potrebna korisnička potvrda
+
+Prije mergea u `windows` korisnik treba ručno potvrditi startup i osnovni tok sa
+stvarnom fakturom. Puni 3-layer refaktor zahtijeva novu eksplicitnu realizaciju
+faza iz kanonskog plana, a ne samo uključivanje pripremljene infrastrukture.

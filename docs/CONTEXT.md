@@ -3114,3 +3114,15 @@ EUR.1 modal je sam autoritativni UI okidač: `Eur1QuickDialog.showEvent()` mora
 jednom, preko event loopa, pustiti zvuk kada dijalog stvarno postane vidljiv.
 Time su pokriveni svi ručni, agent, objedinjeni i legacy putevi koji otvaraju
 isti modal, bez oslanjanja na pretpostavljeni callback parsiranja.
+
+---
+
+## 91. Faktura Controller signali ostaju pasivna migraciona infrastruktura (2026-07-29)
+
+Postojanje i povezivanje `FakturaView` signala sa `FakturaTab` handlerima nije
+dokaz da je tok migriran u Controller. Signal se aktivira tek kada stari View
+handler bude zamijenjen cijelim vertikalnim rezom sa paritet testovima; ne smije
+se emitovati na kraju starog handlera jer bi isti proces bio izvršen dvaput.
+Bulk primjena validacionih boja mora koristiti `blockSignals`, a `dist_client`
+kapija mora stvarno importovati module kao samostalan root, ne samo provjeriti
+da fajlovi postoje.
