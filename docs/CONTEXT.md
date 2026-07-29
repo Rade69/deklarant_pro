@@ -3217,3 +3217,19 @@ E2E odobrenja otvara se zasebna cleanup grana, gdje se svaki stari simbol briše
 prema manifestu pozivalaca i zamjene. DB migracija 013 i 9/9 ledger testova su
 ulazna kapija. Plan:
 `project_rooms/2026-07-29_faktura-stvarna-3layer-migracija-i-ciscenje-plan.md`.
+
+---
+
+## 95. Faktura 3-layer Faza 0 — baseline test kapija dopunjena (2026-07-29)
+
+Faza 0 ne smije mijenjati produkcioni Faktura tok. Dopunjeni su samo
+karakterizacioni testovi: tabela → draft roundtrip za sva editabilna polja
+uključujući EU broj format i čitanje čiste zemlje iz `Qt.UserRole`, zabrana
+nagađanja nedostajućih cifara tarife (`3304990` ostaje takav), te `_on_create_naimenovanja`
+mora proslijediti `draft_uid` u `TariffFacade.learn_from_draft()` da dedup ledger
+iz §93 ostane zaštićena invarijanta tokom narednih faza.
+
+Ciljani dokaz: 29/29 za `test_faktura_table_roundtrip.py`,
+`test_faktura_characterization.py`, `test_tariff_learning_ledger.py`; širi
+Faktura/import skup 59/59. Puna suite: 1517 passed, isti pre-postojeći
+nepovezani padovi (4 failed + 1 error). Produkcioni kod nije diran.

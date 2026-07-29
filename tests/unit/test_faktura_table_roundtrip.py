@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import pytest
 
+from PySide6.QtCore import Qt
+
 from core.draft.draft import DeclarationDraft, InvoiceLine
 
 
@@ -66,3 +68,50 @@ class TestFakturaTableRoundtrip:
         from PySide6.QtCore import Signal
         assert hasattr(view, "naimenovanja_created")
         assert isinstance(view.naimenovanja_created, Signal)
+
+    def test_sync_table_to_draft_preserves_all_editable_columns(self, view_with_lines):
+        view, draft = view_with_lines
+
+        view.table.blockSignals(True)
+        try:
+            view.table.item(0, 1).setText("INV-900")
+            view.table.item(0, 3).setText("Izmijenjen naziv robe")
+            view.table.item(0, 4).setText("0805.21.90")
+            view.table.item(0, 5).setText("1.234,50")
+            view.table.item(0, 6).setText("2.469,00")
+            view.table.item(0, 7).setText("123,456")
+            view.table.item(0, 8).setText("120,111")
+            view.table.item(0, 9).setData(Qt.UserRole, "DE")
+            view.table.item(0, 9).setText("✅ DE")
+            view.table.item(0, 10).setText("EUPR")
+            view.table.item(0, 11).setText("EUR")
+        finally:
+            view.table.blockSignals(False)
+
+        view._sync_table_to_draft()
+        line = draft.invoice_lines[0]
+
+        assert line.invoice_number == "INV-900"
+        assert line.naziv_robe == "Izmijenjen naziv robe"
+        assert line.tarifni_broj == "0805.21.90"
+        assert line.kolicina == pytest.approx(1234.50)
+        assert line.iznos == pytest.approx(2469.00)
+        assert line.cijena_jed == pytest.approx(2.0)
+        assert line.bruto_kg == pytest.approx(123.456)
+        assert line.neto_kg == pytest.approx(120.111)
+        assert line.zemlja_porijekla == "DE"
+        assert line.povlastica == "EUPR"
+        assert line.valuta == "EUR"
+
+    def test_sync_table_to_draft_does_not_guess_missing_tariff_digits(self, view_with_lines):
+        view, draft = view_with_lines
+
+        view.table.blockSignals(True)
+        try:
+            view.table.item(0, 4).setText("3304990")
+        finally:
+            view.table.blockSignals(False)
+
+        view._sync_table_to_draft()
+
+        assert draft.invoice_lines[0].tarifni_broj == "3304990"

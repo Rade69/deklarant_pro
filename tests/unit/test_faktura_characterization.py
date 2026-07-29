@@ -77,6 +77,49 @@ class TestSignalCharacterization:
         from PySide6.QtCore import Signal
         assert isinstance(view.naimenovanja_created, Signal)
 
+    def test_create_naimenovanja_passes_draft_uid_to_tariff_learning(self):
+        """Kreiranje naimenovanja mora uciti tarife kroz dedup ledger kljuc drafta."""
+        from core.draft import DeclarationDraft
+        from core.draft.draft import InvoiceLine
+
+        draft = DeclarationDraft()
+        draft.invoice_lines = [
+            InvoiceLine(naziv_robe="TEST LEDGER", tarifni_broj="08052190")
+        ]
+        draft.draft_uid = "phase-0-draft-uid"
+
+        mock_self = MagicMock()
+        mock_self.draft = draft
+        mock_self._multi_drafts = []
+        mock_self.on_dirty = None
+        mock_self.data_changed.emit = MagicMock()
+        mock_self.naimenovanja_created.emit = MagicMock()
+        mock_self._sync_pe_docs_to_header.return_value = None
+        mock_self._sync_inspection_docs_to_header.return_value = None
+        mock_self._set_weight_inputs_from_draft.return_value = None
+        mock_self._load_data_from_draft.return_value = None
+        mock_self._reload_naimenovanja_tab.return_value = None
+
+        create_service = MagicMock()
+        create_service.create_smart_group.return_value = 1
+        create_service.last_split_info = None
+        tariff_facade = MagicMock()
+
+        with patch(
+            "services.naimenovanja.create_naimenovanja_service.CreateNaimenovanjaService",
+            return_value=create_service,
+        ), patch("services.tariff_facade.TariffFacade.get_instance", return_value=tariff_facade), \
+             patch("services.import_service.get_import_service") as import_service:
+            import_service.return_value.clear_memory.return_value = None
+            ok = FakturaView._on_create_naimenovanja(mock_self, auto=True)
+
+        assert ok is True
+        create_service.create_smart_group.assert_called_once()
+        tariff_facade.learn_from_draft.assert_called_once_with(
+            draft.invoice_lines, draft_uid="phase-0-draft-uid"
+        )
+        mock_self.naimenovanja_created.emit.assert_called_once()
+
 
 class TestWeightCharacterization:
 
