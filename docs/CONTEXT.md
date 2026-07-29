@@ -3186,3 +3186,15 @@ Sporedan efekat: kopiranje punog `tariff_mapping_service.py` u `dist_client`
 Testovi: `tests/unit/test_tariff_learning_ledger.py` — 7/9 prolazi bez baze
 (guard klauzule, draft_uid roundtrip, wiring), 2 markirana `@pytest.mark.integration`
 padaju sa "relation does not exist" dok migracija ne uđe (očekivano, ne bug).
+
+---
+
+## 94. Faktura stvarna 3-layer migracija i cleanup su odvojeni checkpointi (2026-07-29)
+
+Pasivni Faktura scaffold nije završen refaktor. Aktivna migracija mora ići
+vertikalnim rezovima na posebnoj grani, bez brisanja starog koda, uz očuvanje
+`draft_uid`/`learn_with_dedup` toka iz §93. Tek nakon punog testa i korisničkog
+E2E odobrenja otvara se zasebna cleanup grana, gdje se svaki stari simbol briše
+prema manifestu pozivalaca i zamjene. DB migracija 013 i 9/9 ledger testova su
+ulazna kapija. Plan:
+`project_rooms/2026-07-29_faktura-stvarna-3layer-migracija-i-ciscenje-plan.md`.
