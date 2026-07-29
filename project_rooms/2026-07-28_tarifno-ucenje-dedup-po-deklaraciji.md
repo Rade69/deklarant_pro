@@ -2,20 +2,16 @@
 
 ## Status
 
-**BLOKIRANO do daljnjeg — čeka `refactor/faktura-3layer` (Pi) da se završi i spoji u `windows`.**
-
-Razlog blokade: svih ~6 mjesta koja poziva `save_mapping()` (vidi GitNexus
-impact niže) su u `gui/tabs/faktura_view.py` — TAČNO fajl koji Pi trenutno
-razbija na View/Controller/Service ([project_rooms/
-2026-07-27_faktura-3layer-refaktor-detaljni-plan.md](2026-07-27_faktura-3layer-refaktor-detaljni-plan.md)).
-Rad na ovome sad bi značio direktan sukob/duplirani posao sa tim refaktorom.
-
-**Ne implementirati dok se `refactor/faktura-3layer` ne spoji u `windows`.**
-Kad se spoji, ovaj dokument treba PONOVO PROVJERITI protiv novog Controller/
-Service koda prije implementacije (imena metoda/fajlova će se promijeniti
-prema §7 mapiranju u planu refaktora — npr. `_auto_learn_edits` postaje
-Controller metoda, `save_mapping` poziv ide kroz `TariffFacade` iz
-Controller-a, ne direktno iz View-a).
+**ODBLOKIRANO (2026-07-29)** — `refactor/faktura-3layer` spojen u `windows`
+(fast-forward, commit `b5801b6`). Ponovo provjeren GitNexus impact na
+`save_mapping`: **identičan** kao prije — 8 direktnih pozivalaca, ista imena
+i lokacije (`_auto_learn_edits`, `_correct_tariff_in_db`,
+`_on_bulk_change_tariff`, `_on_table_context_menu`, `correct_mapping`,
+`learn_from_draft`, `TariffIntentService.learn_tariff`). Refaktor je
+infrastruktura ostala pasivna (docs/CONTEXT.md §91) — View pozivi na
+`save_mapping()` NISU pomjereni u Controller, pa ovaj plan ne treba
+ažurirati po tom pitanju. Čeka se samo korisnička potvrda dizajna (§5 ispod)
+prije pisanja koda.
 
 ## Kontekst — zašto ovo uopšte postoji
 

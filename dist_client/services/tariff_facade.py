@@ -312,13 +312,17 @@ class TariffFacade:
         """
         return self._mapping().commit_proposals(invoice_lines, proposals)
 
-    def learn_from_draft(self, invoice_lines: list) -> int:
+    def learn_from_draft(self, invoice_lines: list, draft_uid: str = "") -> int:
         """
         Uči iz već kreiranih naimenovanja — sprema mappinge u bazu znanja.
         Pass-through na TariffMappingService.learn_from_draft().
+
+        draft_uid: identitet deklaracije za dedup ledger (vidi
+        project_rooms/2026-07-28_tarifno-ucenje-dedup-po-deklaraciji.md) —
+        prazan string zadrzava stari nezasticeni put.
         """
         try:
-            return self._mapping().learn_from_draft(invoice_lines)
+            return self._mapping().learn_from_draft(invoice_lines, draft_uid=draft_uid)
         except Exception as e:
             logger.warning(f"learn_from_draft() greška: {e}")
             return 0

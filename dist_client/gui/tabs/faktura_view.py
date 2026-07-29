@@ -1881,7 +1881,14 @@ class FakturaView(BaseTabView):
                     continue
                 product_code = (getattr(line, 'product_code', '') or '').strip()
                 zemlja = (getattr(line, 'zemlja_porijekla', '') or '').strip()
-                ok = svc.save_mapping(product_code, naziv, tarifa, zemlja)
+                # Dedup preko ledger-a (draft_uid + line_key) sprječava da
+                # ponovljena ispravka iste stavke naduva usage_count — vidi
+                # project_rooms/2026-07-28_tarifno-ucenje-dedup-po-deklaraciji.md
+                line_key = (product_code or naziv).lower()
+                ok = svc.learn_with_dedup(
+                    getattr(self.draft, 'draft_uid', '') or '',
+                    line_key, naziv, product_code, tarifa, zemlja,
+                )
                 if ok:
                     kratko = naziv[:30] + ('…' if len(naziv) > 30 else '')
                     learned.append(f"{kratko} → {tarifa}")
@@ -4463,7 +4470,9 @@ class FakturaView(BaseTabView):
                 # Auto-učenje za svaki draft
                 try:
                     from services.tariff_facade import TariffFacade
-                    TariffFacade.get_instance().learn_from_draft(draft.invoice_lines)
+                    TariffFacade.get_instance().learn_from_draft(
+                        draft.invoice_lines, draft_uid=getattr(draft, 'draft_uid', '') or ''
+                    )
                 except Exception as e:
                     logger.warning("Auto-učenje tarifa nije uspjelo: %s", e)
 

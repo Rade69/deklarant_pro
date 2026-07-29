@@ -3153,3 +3153,36 @@ je veća (1271 linija), van scope-a ovog spajanja.
 
 Puna svita nakon merge-a: 1504 passed, isti pre-postojeći nepovezani padovi
 + gornji `tariff_mapping_service.py` pad.
+
+---
+
+## 93. Tarifni dedup ledger implementiran — čeka DB migraciju (2026-07-29)
+
+Implementiran arhivirani plan (`project_rooms/2026-07-28_tarifno-ucenje-dedup-po-deklaraciji.md`)
+nakon što je `refactor/faktura-3layer` spojen (§92) i deblokirao rad.
+
+`DeclarationDraft.draft_uid` (nov UUID field, generisan po draftu, preživljava
+nacrt save/load kroz postojeći generički serializer bez dodatnog koda).
+`TariffMappingService.learn_with_dedup()` — piše u `catalogs.tariff_learning_ledger`
+(draft_uid + line_key), sprječava dupli `usage_count` za istu stavku u istoj
+deklaraciji; kod ispravke tarife skida bod sa stare, dodaje novoj (korisnikova
+eksplicitna potvrda tog dizajna). Žičeno na dva mjesta koja je korisnik naveo:
+`_auto_learn_edits` (Faktura ispravka) i `learn_from_draft` (poziva se iz
+`_on_create_naimenovanja`). `_izvezi_xml` radi završno idempotentno
+usklađivanje kao sigurnosna mreža.
+
+**Blokirano na DB migraciji**: `deklarant_app` runtime nalog nema DDL
+privilegiju (namjerno, sigurnosni hardening) — `database/migrations/
+013_tariff_learning_ledger.sql` mora primijeniti neko sa admin/owner pravima
+na `dmserver` prije nego ledger stvarno radi. Do tada `learn_with_dedup`
+tiho vraća `False` (fail-safe, ne pada) — postojeće ponašanje (bez zaštite od
+dupliranja) je nepromijenjeno dok migracija ne uđe.
+
+Sporedan efekat: kopiranje punog `tariff_mapping_service.py` u `dist_client`
+(radi dedup funkcije) je usput popravilo pre-postojeći bug iz §92
+(`tariff_mapping_service.py` bio 1-linijski pokvaren shim) — potvrđeno,
+`dist_client` standalone import test sad prolazi.
+
+Testovi: `tests/unit/test_tariff_learning_ledger.py` — 7/9 prolazi bez baze
+(guard klauzule, draft_uid roundtrip, wiring), 2 markirana `@pytest.mark.integration`
+padaju sa "relation does not exist" dok migracija ne uđe (očekivano, ne bug).

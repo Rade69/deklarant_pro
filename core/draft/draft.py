@@ -478,6 +478,11 @@ class DeclarationDraft:
     created_at: str = field(
         default_factory=lambda: datetime.now().isoformat(timespec="seconds")
     )
+    # Stabilan identitet OVE deklaracije, generisan jednom i sacuvan kroz
+    # nacrt XML save/load — koristi ga tariff_learning_ledger da spreci
+    # dvostruko brojanje usage_count za istu deklaraciju (vidi
+    # project_rooms/2026-07-28_tarifno-ucenje-dedup-po-deklaraciji.md).
+    draft_uid: str = field(default_factory=lambda: str(_uuid.uuid4()))
 
     @property
     def fingerprint(self) -> int:

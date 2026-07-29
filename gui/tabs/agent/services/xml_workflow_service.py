@@ -352,6 +352,21 @@ def _izvezi_xml(ctrl, chat, confirm_fn=None) -> None:
         chat.add_agent_message(
             f"✅ <b>XML izvezen.</b><br>Fajl sačuvan: <b>{Path(filepath).name}</b>"
         )
+
+        # Zavrsno uskladjivanje tarifnog ucenja — sigurnosna mreza koja
+        # hvata ispravke van "Kreiraj naimenovanja"/Faktura toka (npr.
+        # direktna izmjena u Naimenovanja tabu). Idempotentno preko
+        # dedup ledger-a (draft_uid) — ne duplira vec naucene stavke.
+        # Vidi project_rooms/2026-07-28_tarifno-ucenje-dedup-po-deklaraciji.md.
+        try:
+            from services.tariff_facade import TariffFacade
+            draft_uid = getattr(ctrl.draft, "draft_uid", "") or ""
+            if draft_uid:
+                TariffFacade.get_instance().learn_from_draft(
+                    ctrl.draft.invoice_lines, draft_uid=draft_uid
+                )
+        except Exception as e:
+            logger.warning("Zavrsno uskladjivanje tarifnog ucenja nije uspjelo: %s", e)
     except Exception as e:
         logger.error(f"Greška pri XML exportu: {e}", exc_info=True)
         chat.add_activity(f"❌ Greška pri XML exportu: {e}")

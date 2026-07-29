@@ -997,6 +997,95 @@ class TariffMappingService:
             logger.error(f"❌ Greška pri čuvanju mapiranja: {e}")
             return False
 
+    def learn_with_dedup(
+        self,
+        draft_uid: str,
+        line_key: str,
+        naziv_robe: str,
+        product_code: str,
+        tarifni_broj: str,
+        zemlja_porijekla: str = "",
+        povlastica: str = "",
+        precision_1: str = "000",
+    ) -> bool:
+        """
+        Nauči tarifu preko `tariff_learning_ledger` — sprječava da ISTA
+        stavka u ISTOJ deklaraciji naduva usage_count kad se ponovo ispravi
+        ili kad se "Kreiraj naimenovanja"/auto-učenje pokrene više puta.
+
+        Vidi project_rooms/2026-07-28_tarifno-ucenje-dedup-po-deklaraciji.md.
+
+        - Ako stavka u ovoj deklaraciji nikad nije naučena → upiši u ledger,
+          pravi usage_count +1 (preko save_mapping).
+        - Ako je već naučena SA ISTOM tarifom → ništa (idempotentno).
+        - Ako je već naučena SA DRUGAČIJOM tarifom (ispravka) → skini 1 sa
+          stare tarife, upiši novu u ledger, pravi usage_count +1 na novoj.
+
+        Returns:
+            True ako je usage_count stvarno promijenjen (nova stavka ili
+            ispravka), False ako je bio no-op (već naučeno) ili greška.
+        """
+        if not draft_uid or not line_key or not tarifni_broj:
+            return False
+        commodity = re.sub(r"\D", "", tarifni_broj.strip())[:8] if tarifni_broj else ""
+        if not commodity or len(commodity) != 8:
+            return False
+
+        try:
+            with get_db_connection() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        """
+                        SELECT tarifni_broj, product_code, naziv_robe
+                        FROM catalogs.tariff_learning_ledger
+                        WHERE draft_uid = %s AND line_key = %s
+                        """,
+                        (draft_uid, line_key),
+                    )
+                    existing = cursor.fetchone()
+                    old_commodity = (
+                        re.sub(r"\D", "", (existing["tarifni_broj"] or ""))[:8]
+                        if existing else None
+                    )
+                    if old_commodity == commodity:
+                        return False  # već naučeno, no-op
+
+                    if old_commodity:
+                        cursor.execute(
+                            """
+                            UPDATE catalogs.product_tariff_mapping
+                            SET usage_count = GREATEST(usage_count - 1, 0)
+                            WHERE product_code = %s AND naziv_robe = %s
+                              AND commodity_code = %s
+                            """,
+                            (
+                                existing["product_code"] or "",
+                                existing["naziv_robe"] or "",
+                                old_commodity,
+                            ),
+                        )
+
+                    cursor.execute(
+                        """
+                        INSERT INTO catalogs.tariff_learning_ledger
+                            (draft_uid, line_key, naziv_robe, product_code, tarifni_broj)
+                        VALUES (%s, %s, %s, %s, %s)
+                        ON CONFLICT (draft_uid, line_key) DO UPDATE SET
+                            naziv_robe = EXCLUDED.naziv_robe,
+                            product_code = EXCLUDED.product_code,
+                            tarifni_broj = EXCLUDED.tarifni_broj,
+                            learned_at = CURRENT_TIMESTAMP
+                        """,
+                        (draft_uid, line_key, naziv_robe or "", product_code or "", commodity),
+                    )
+        except Exception as e:
+            logger.error(f"❌ Greška pri ledger dedup upisu: {e}")
+            return False
+
+        return self.save_mapping(
+            product_code, naziv_robe, tarifni_broj, zemlja_porijekla, povlastica, precision_1
+        )
+
     def correct_mapping(
         self,
         product_code: str,
@@ -1049,7 +1138,10 @@ class TariffMappingService:
         except Exception as e:
             logger.warning(f"⚠️  Greška pri ažuriranju usage_count: {e}")
 
-    def learn_from_draft(self, invoice_lines: List[InvoiceLine], confirmed_only: bool = True) -> int:
+    def learn_from_draft(
+        self, invoice_lines: List[InvoiceLine], confirmed_only: bool = True,
+        draft_uid: str = "",
+    ) -> int:
         """
         Nauči iz invoice lines sa popunjenim tarifnim brojevima.
 
@@ -1058,6 +1150,10 @@ class TariffMappingService:
             confirmed_only: Ako True (default), uci samo iz linija sa
                 CONFIRMED tariff decision_state-om. Preview kandidati,
                 odbijeni i nepotvrdjeni se preskacu (Faza 5).
+            draft_uid: identitet deklaracije za dedup ledger — ako je
+                prazan, poziva stari (nezaštićen) put radi kompatibilnosti
+                sa pozivaocima koji ga još ne prosljeđuju (vidi
+                project_rooms/2026-07-28_tarifno-ucenje-dedup-po-deklaraciji.md).
 
         Returns:
             Broj sačuvanih mappinga
@@ -1075,6 +1171,19 @@ class TariffMappingService:
                 if not fd.is_confirmed:
                     skipped += 1
                     continue
+
+            if draft_uid:
+                naziv = line.naziv_robe or ""
+                product_code = line.product_code or ""
+                line_key = (product_code or naziv).lower()
+                success = self.learn_with_dedup(
+                    draft_uid, line_key, naziv, product_code, line.tarifni_broj,
+                    zemlja_porijekla=line.zemlja_porijekla or "",
+                    povlastica=line.povlastica or "",
+                )
+                if success:
+                    saved_count += 1
+                continue
 
             success = self.save_mapping(
                 product_code=line.product_code or "",
