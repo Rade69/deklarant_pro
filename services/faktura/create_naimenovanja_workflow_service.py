@@ -2,6 +2,7 @@ import logging
 
 from services.faktura.models import (
     CreateNaimenovanjaDraftResult,
+    CreateNaimenovanjaPostActionPlan,
     CreateNaimenovanjaWorkflowResult,
 )
 
@@ -41,6 +42,9 @@ class CreateNaimenovanjaWorkflowService:
             get_import_service().clear_memory()
         except Exception:
             logger.debug("Import service memory cleanup preskočen", exc_info=True)
+
+    def build_post_action_plan(self) -> CreateNaimenovanjaPostActionPlan:
+        return CreateNaimenovanjaPostActionPlan()
 
     def _learn_from_draft(self, draft) -> tuple[int, str]:
         try:

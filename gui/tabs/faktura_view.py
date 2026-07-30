@@ -4419,33 +4419,10 @@ class FakturaView(BaseTabView):
                     )
 
             # Mark as dirty
-            if self.on_dirty:
-                self.on_dirty()
-
-            self.data_changed.emit()
-
-            # Sinhronizuj PE1/PE2/PE3 iz attached_document4 u header_attached_documents
-            self._sync_pe_docs_to_header()
-            self._sync_inspection_docs_to_header()
-
-            # Reload table to show assigned naimenovanje numbers in column
-            logger.debug(f"🔍 [_on_create_naimenovanja] Pozivanje _load_data_from_draft()...")
-            self._set_weight_inputs_from_draft()
-            self._load_data_from_draft()
-            logger.info(f"✅ [_on_create_naimenovanja] Faktura tab ažuriran")
-
-            # Notify Naimenovanja Tab to reload data
-            logger.debug(f"🔍 [_on_create_naimenovanja] Pozivanje _reload_naimenovanja_tab()...")
-            self._reload_naimenovanja_tab()
-            logger.info(f"✅ [_on_create_naimenovanja] Naimenovanja i Zaglavlje tab ažurirani")
-
-            try:
-                self.naimenovanja_created.emit()
-            except Exception as e:
-                logger.warning(f"⚠️ [_on_create_naimenovanja] Signal naimenovanja_created nije uspio: {e}")
-
-            # Clear import service memory (za auto-kombinovanje Loren parova)
-            workflow.clear_import_memory()
+            self._run_create_naimenovanja_post_actions(
+                workflow.build_post_action_plan(),
+                workflow,
+            )
 
             return True
 
@@ -4464,6 +4441,38 @@ class FakturaView(BaseTabView):
 
     def create_naimenovanja(self, auto: bool = False) -> bool:
         return self._on_create_naimenovanja(auto=auto)
+
+    def _run_create_naimenovanja_post_actions(self, plan, workflow) -> None:
+        if plan.mark_dirty and self.on_dirty:
+            self.on_dirty()
+
+        if plan.emit_data_changed:
+            self.data_changed.emit()
+
+        if plan.sync_pe_docs:
+            self._sync_pe_docs_to_header()
+        if plan.sync_inspection_docs:
+            self._sync_inspection_docs_to_header()
+
+        if plan.reload_faktura_table:
+            logger.debug("🔍 [_on_create_naimenovanja] Pozivanje _load_data_from_draft()...")
+            self._set_weight_inputs_from_draft()
+            self._load_data_from_draft()
+            logger.info("✅ [_on_create_naimenovanja] Faktura tab ažuriran")
+
+        if plan.reload_related_tabs:
+            logger.debug("🔍 [_on_create_naimenovanja] Pozivanje _reload_naimenovanja_tab()...")
+            self._reload_naimenovanja_tab()
+            logger.info("✅ [_on_create_naimenovanja] Naimenovanja i Zaglavlje tab ažurirani")
+
+        if plan.emit_naimenovanja_created:
+            try:
+                self.naimenovanja_created.emit()
+            except Exception as e:
+                logger.warning(f"⚠️ [_on_create_naimenovanja] Signal naimenovanja_created nije uspio: {e}")
+
+        if plan.clear_import_memory:
+            workflow.clear_import_memory()
 
     def _set_weight_inputs_from_draft(self):
         total_bruto = sum(getattr(line, "bruto_kg", 0.0) or 0.0 for line in self.draft.invoice_lines)

@@ -101,3 +101,16 @@ def test_create_error_vraca_strukturisanu_gresku(monkeypatch):
 
     assert result.error is not None
     assert "create failed" in str(result.error)
+
+
+def test_build_post_action_plan_cuva_legacy_korake_kao_default():
+    plan = CreateNaimenovanjaWorkflowService().build_post_action_plan()
+
+    assert plan.mark_dirty is True
+    assert plan.emit_data_changed is True
+    assert plan.sync_pe_docs is True
+    assert plan.sync_inspection_docs is True
+    assert plan.reload_faktura_table is True
+    assert plan.reload_related_tabs is True
+    assert plan.emit_naimenovanja_created is True
+    assert plan.clear_import_memory is True

@@ -11,6 +11,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from gui.tabs.faktura_view import FakturaView
+from services.faktura.models import CreateNaimenovanjaPostActionPlan
 
 
 class _MockWeightManager:
@@ -99,6 +100,13 @@ class TestSignalCharacterization:
         mock_self._set_weight_inputs_from_draft.return_value = None
         mock_self._load_data_from_draft.return_value = None
         mock_self._reload_naimenovanja_tab.return_value = None
+        mock_self._run_create_naimenovanja_post_actions.side_effect = (
+            lambda plan, workflow: FakturaView._run_create_naimenovanja_post_actions(
+                mock_self,
+                plan,
+                workflow,
+            )
+        )
 
         create_service = MagicMock()
         create_service.create_smart_group.return_value = 1
@@ -119,6 +127,40 @@ class TestSignalCharacterization:
             draft.invoice_lines, draft_uid="phase-0-draft-uid"
         )
         mock_self.naimenovanja_created.emit.assert_called_once()
+
+    def test_create_naimenovanja_post_actions_keep_legacy_order(self):
+        order = []
+
+        mock_self = MagicMock()
+        mock_self.on_dirty.side_effect = lambda: order.append("dirty")
+        mock_self.data_changed.emit.side_effect = lambda: order.append("data_changed")
+        mock_self._sync_pe_docs_to_header.side_effect = lambda: order.append("sync_pe")
+        mock_self._sync_inspection_docs_to_header.side_effect = lambda: order.append("sync_inspection")
+        mock_self._set_weight_inputs_from_draft.side_effect = lambda: order.append("set_weights")
+        mock_self._load_data_from_draft.side_effect = lambda: order.append("load_faktura")
+        mock_self._reload_naimenovanja_tab.side_effect = lambda: order.append("reload_tabs")
+        mock_self.naimenovanja_created.emit.side_effect = lambda: order.append("signal")
+
+        workflow = MagicMock()
+        workflow.clear_import_memory.side_effect = lambda: order.append("clear_memory")
+
+        FakturaView._run_create_naimenovanja_post_actions(
+            mock_self,
+            CreateNaimenovanjaPostActionPlan(),
+            workflow,
+        )
+
+        assert order == [
+            "dirty",
+            "data_changed",
+            "sync_pe",
+            "sync_inspection",
+            "set_weights",
+            "load_faktura",
+            "reload_tabs",
+            "signal",
+            "clear_memory",
+        ]
 
 
 class TestWeightCharacterization:

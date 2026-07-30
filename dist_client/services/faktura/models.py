@@ -110,6 +110,18 @@ class CreateNaimenovanjaWorkflowResult:
 
 
 @dataclass
+class CreateNaimenovanjaPostActionPlan:
+    mark_dirty: bool = True
+    emit_data_changed: bool = True
+    sync_pe_docs: bool = True
+    sync_inspection_docs: bool = True
+    reload_faktura_table: bool = True
+    reload_related_tabs: bool = True
+    emit_naimenovanja_created: bool = True
+    clear_import_memory: bool = True
+
+
+@dataclass
 class PartnerConsistencyResult:
     consistent: bool = True
     exporter_match: bool = True

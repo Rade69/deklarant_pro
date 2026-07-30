@@ -3363,3 +3363,18 @@ projekta). GitNexus footer, Zabrane, Arhitektura, tarifna/naimenovanja
 pravila — netaknuto.
 
 Detalji: `agent_reports/2026-07-30_root-agents-md-usklada.md`.
+
+---
+
+## 115. Faktura Cleanup Faza D2 — create-naimenovanja post-akcije (2026-07-30)
+
+Cleanup Faza D2 izdvaja legacy post-akcije nakon uspješnog `Kreiraj Naimenovanja`
+u neutralni `CreateNaimenovanjaPostActionPlan`. Service sada opisuje koje korake
+treba izvršiti, a View ih i dalje izvršava istim redoslijedom: dirty/data_changed,
+PE i inspection sync, reload Faktura tabele, reload Naimenovanja/Zaglavlje tabova,
+signal `naimenovanja_created` i cleanup import memorije.
+
+Namjerno nije mijenjan split po zemljama, preflight dijalog, core kreiranje,
+tarifno učenje, poruke korisniku ni javni `_on_create_naimenovanja` /
+`create_naimenovanja` ugovor. Test kapija: ciljano 73/73; širi Faktura/Agent skup
+167/167 uz `-m "not integration"`.
