@@ -72,7 +72,7 @@ Potrebna korisnička potvrda: NE.
 
 | Hash | Poruka |
 | --- | --- |
-| pending | `refactor(faktura): povezi izracun masa dugme preko signala` |
+| 0f69fd0 | `refactor(faktura): povezi izracun masa dugme preko signala` |
 
 ## Rizici / ograničenja
 
