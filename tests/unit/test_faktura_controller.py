@@ -323,3 +323,37 @@ class TestNoDoubleValidation:
 
         assert view.calculate_masses(auto=True) is True
         assert called == [True]
+
+    def test_faktura_tab_auto_fill_uses_view_adapter(self, qtbot, monkeypatch):
+        from gui.tabs.faktura_tab import FakturaTab
+
+        draft = DeclarationDraft()
+        tab = FakturaTab(draft=draft)
+        qtbot.addWidget(tab)
+        result = object()
+        called = []
+        monkeypatch.setattr(
+            tab.view,
+            "_on_auto_fill",
+            lambda auto=False: called.append(auto) or result,
+        )
+
+        assert tab.auto_fill(auto=True) is result
+        assert called == [True]
+
+    def test_faktura_view_auto_fill_is_public_adapter(self, qtbot, monkeypatch):
+        from gui.tabs.faktura_view import FakturaView
+
+        draft = DeclarationDraft()
+        view = FakturaView(draft=draft)
+        qtbot.addWidget(view)
+        result = object()
+        called = []
+        monkeypatch.setattr(
+            view,
+            "_on_auto_fill",
+            lambda auto=False: called.append(auto) or result,
+        )
+
+        assert view.auto_fill(auto=True) is result
+        assert called == [True]

@@ -287,9 +287,12 @@ def _puna_auto_pipeline(ctrl, fw, chat, all_lines: list) -> None:
     if bez_tarife > 0:
         chat.add_activity(f"🤖 [Auto] Popunjavam tarifne brojeve ({bez_tarife} stavki bez tarife)...")
         try:
-            mapping_result = (
-                fw._on_auto_fill(auto=True) if fw and hasattr(fw, '_on_auto_fill') else None
-            )
+            if fw and hasattr(fw, 'auto_fill'):
+                mapping_result = fw.auto_fill(auto=True)
+            elif fw and hasattr(fw, '_on_auto_fill'):
+                mapping_result = fw._on_auto_fill(auto=True)
+            else:
+                mapping_result = None
         except Exception as e:
             logger.error("[Puna automatizacija] Auto-popuna — neočekivan izuzetak: %s", e, exc_info=True)
             mapping_result = None

@@ -5515,6 +5515,9 @@ class FakturaView(BaseTabView):
 
         self._show_scrollable_info_dialog("Auto-popuni - Rezultati", message)
 
+    def auto_fill(self, auto: bool = False):
+        return self._on_auto_fill(auto=auto)
+
     def _get_tariff_description(self, tariff_code: str) -> str:
         """Dohvati kratki opis tarifnog broja iz tarifa_2026 (hijerarhijski).
 

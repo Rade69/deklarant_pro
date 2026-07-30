@@ -34,6 +34,7 @@ def mock_fw():
     fw = MagicMock()
     fw.calculate_masses.return_value = True
     fw._on_calculate_masses.return_value = True
+    fw.auto_fill.return_value = MagicMock(matched_items=1)
     fw._on_auto_fill.return_value = MagicMock(matched_items=1)
     fw.validate.return_value = (True, 0, 0)
     fw._on_validate_all.return_value = (True, 0, 0)
@@ -131,7 +132,7 @@ class TestUspjesanTok:
 
     def test_preskace_auto_popuni_kad_sve_stavke_imaju_tarifu(self, mock_ctrl, mock_fw, mock_chat):
         _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
-        mock_fw._on_auto_fill.assert_not_called()
+        mock_fw.auto_fill.assert_not_called()
 
 
 class TestPreskociMaseAkoVecPopunjene:
@@ -187,7 +188,7 @@ class TestKritickeFazePadaju:
 
         _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
 
-        mock_fw._on_auto_fill.assert_not_called()
+        mock_fw.auto_fill.assert_not_called()
         mock_fw.validate.assert_not_called()
         mock_fw.create_naimenovanja.assert_not_called()
         messages = _agent_messages(mock_chat)
@@ -252,7 +253,7 @@ class TestParcijalniRezultat:
         self, mock_ctrl, mock_fw, mock_chat
     ):
         mock_ctrl.draft.invoice_lines = [_line(tarifni_broj=""), _line(tarifni_broj="12345678")]
-        mock_fw._on_auto_fill.return_value = MagicMock(matched_items=0)  # ništa novo popunjeno
+        mock_fw.auto_fill.return_value = MagicMock(matched_items=0)  # ništa novo popunjeno
 
         _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
 
@@ -260,6 +261,8 @@ class TestParcijalniRezultat:
         assert any("djelimično" in m for m in messages)
         assert not any("završena!" in m for m in messages)
         # PARTIAL i dalje nastavlja do kraja — naimenovanja se kreiraju
+        mock_fw.auto_fill.assert_called_once_with(auto=True)
+        mock_fw._on_auto_fill.assert_not_called()
         mock_fw.create_naimenovanja.assert_called_once_with(auto=True)
         mock_fw._on_create_naimenovanja.assert_not_called()
 

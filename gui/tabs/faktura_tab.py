@@ -68,6 +68,9 @@ class FakturaTab(QWidget):
     def calculate_masses(self, auto: bool = False) -> bool:
         return self.view._on_calculate_masses(auto=auto)
 
+    def auto_fill(self, auto: bool = False):
+        return self.view._on_auto_fill(auto=auto)
+
     def _on_import_requested(self, filepaths: list):
         """Import handler — delegira na postojeći FakturaView._start_import."""
         for fp in filepaths:
