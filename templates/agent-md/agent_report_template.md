@@ -20,6 +20,10 @@ YYYY-MM-DD
 ## Impact analiza
 <<< rezultat provjere prije izmjene — rizik, broj/koji pogođeni simboli/procesi. "Nema" ako izmjena ne dira kod (npr. čista dokumentacija). >>>
 
+## Reprodukcija prije izmjene
+<!-- Za bugfix zadatke. Vidi AGENTS.md "Reprodukcija prije bugfixa". -->
+<<< dokaz da je problem reprodukovan PRIJE izmjene — failing test, konkretan ulaz, log, screenshot/video, precizan ručni postupak. Ako nije reprodukovano: šta je pokušano, zašto nije uspjelo, na kojoj pretpostavci se izmjena zasniva, koji rizik ostaje. "N/A" ako zadatak nije bugfix. >>>
+
 ## Kontekst korišćen
 <!-- Samo za kompleksne/rizične zadatke. Koji veći fajlovi su pročitani u cijelosti i zašto (ne samo pretraženi/grep-ovani). -->
 <<< POPUNI ili "Nema — samo ciljana pretraga." >>>
@@ -37,7 +41,17 @@ YYYY-MM-DD
 <<< eksplicitno navesti šta je OSTAVLJENO netaknuto, uključujući nepovezan WIP koji je zatečen >>>
 
 ## Verifikacija
-<<< kako je dokazano da promjena radi — testovi, ručna provjera, ispis prije/poslije... >>>
+<<< kako je dokazano da promjena radi — testovi, ručna provjera, ispis prije/poslije. Mora odgovarati "Definition of Done" za tip promjene (vidi AGENTS.md). >>>
+
+## Nezavisna provjera
+<!-- Obavezno za HIGH/CRITICAL (vidi AGENTS.md "Nezavisna provjera"). Za LOW/MEDIUM ostaviti "N/A — nije zahtijevano". -->
+- Checker korišćen: <<< DA/NE >>>
+- Checker agent/model: <<< >>>
+- Šta je checker provjerio nezavisno: <<< >>>
+- Koje pretpostavke je pokušao oboriti: <<< >>>
+- Šta je potvrđeno: <<< >>>
+- Šta nije potvrđeno: <<< >>>
+- Da li je promjena spremna za prihvatanje: <<< DA/NE/PARCIJALNO >>>
 
 ## Pronađeni problemi
 <<< uključujući lažno pozitivne zaključke tokom rada. "Nema" ako zaista nema. >>>

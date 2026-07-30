@@ -198,6 +198,12 @@ sa sekcijama:
 - **Plan** — fajlovi i redoslijed izmjena
 - **Šta NE dirati** — eksplicitne granice (scope lock — vidi `AGENTS.md`
   "Handoff visokog rizika" za format prijave rizika korisniku)
+- **Plan verifikacije** — koji dokaz mora postojati prije nego se promjena
+  smatra završenom (vidi `AGENTS.md` "Definition of Done po tipu promjene")
+- **Rollback / oporavak** — kako se promjena vraća ili sistem oporavlja
+  ako rezultat nije dobar
+- **Nezavisni checker** — ko provjerava rezultat (vidi `AGENTS.md`
+  "Nezavisna provjera"), šta provjerava, koji dokaz mora ostaviti
 - **Konflikti** — ako postoje kontradiktorni izvori (stari agent_report,
   memorija, kod), navesti oba, koji se tretira kao važeći i zašto, i da li
   je potrebna korisnička potvrda (DA/NE)
@@ -249,13 +255,20 @@ Svaki agent koji radi na ovom projektu MORA slijediti ovaj redosljed nakon
     status: aktivan / zastario / duplikat / treba potvrdu
   - **Impact analiza** — rezultat provjere prije izmjene (rizik, broj
     pogođenih simbola/procesa) — vidi opcionu sekciju "Code Intelligence"
+  - **Reprodukcija prije izmjene** (za bugfix zadatke) — dokaz da je
+    problem reprodukovan PRIJE nego što je kod mijenjan (vidi `AGENTS.md`
+    "Reprodukcija prije bugfixa"), ili zašto nije bilo moguće
   - **Šta je urađeno** — kratki pregled promjena
   - **Zašto je urađeno** — poslovni razlog, bug uzrok, odluka i alternativa
   - **Kako je urađeno** — tehnički pristup, koje funkcije/fajlovi
   - **Šta nije dirano** — eksplicitno navesti šta je OSTAVLJENO netaknuto
     (npr. nepovezan WIP), da se spriječi širenje scope-a
   - **Verifikacija** — kako je agent dokazao da promjena radi (testovi,
-    offscreen provjere, py_compile...)
+    offscreen provjere, py_compile...) — dokaz mora odgovarati "Definition
+    of Done" za tip promjene (vidi `AGENTS.md`)
+  - **Nezavisna provjera** (obavezno za HIGH/CRITICAL, vidi `AGENTS.md`
+    "Nezavisna provjera") — da li je urađena, ko je uradio, šta je
+    potvrđeno/nije potvrđeno, da li je promjena spremna za prihvatanje
   - **Pronađeni problemi** — uključujući lažno pozitivne zaključke (npr.
     verifikacija koja je krivo pokazala uspjeh)
   - **Konflikti / kontradiktorni izvori** (ako postoje) — dva izvora koja se

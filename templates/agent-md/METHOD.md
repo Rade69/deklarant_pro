@@ -8,7 +8,7 @@
 >
 > Izvedeno iz stvarnog, višemjesečnog rada na `deklarant_pro` projektu
 > (PySide6 desktop aplikacija, više agenata — Claude Code, Codex, GitHub
-> Copilot — rade paralelno na istoj kodnoj bazi). Princip je prenosiv na
+> Copilot,agent pi,open router sa masom drugih LLM-ova (GLM5.2,KIMI K3,qwen 3.8,MinMax 2.8...itd) — rade paralelno na istoj kodnoj bazi). Princip je prenosiv na
 > bilo koji softverski projekat gdje: (a) rad traje kroz više sesija, (b)
 > više agenata/alata dira istu kodnu bazu, (c) greška ima cijenu veću od
 > "samo ponovo pokreni".
@@ -36,7 +36,7 @@ razgovor, prenosi artefakt** — i taj artefakt ima fiksnu, predvidivu formu.
 
 ---
 
-## Deset komponenti
+## Dvanaest komponenti
 
 ### 1. Kanonski fajl pravila — jedan izvor istine
 
@@ -148,6 +148,32 @@ razdvojiti. Rješenje: svaki dugotrajan/automatizovan agent tok radi u
 zasebnom `git worktree`, ne na glavnom working tree-u koji dijele
 interaktivne sesije.
 
+### 11. Reprodukuj prije popravke
+
+Bug se ne popravlja dok nije reprodukovan (failing test, konkretan ulaz,
+log, screenshot, precizan ručni postupak) — osim kad je eksplicitno
+zapisano zašto reprodukcija nije bila moguća i na kojoj se pretpostavci
+izmjena onda zasniva. Razlog: bez reprodukcije, "popravka" lako gađa
+simptom koji je agent primijetio, ne stvarni uzrok — kod koji IZGLEDA
+sumnjivo nije isto što i kod koji je DOKAZANO uzrok. Agent koji promijeni
+kod prije reprodukcije često napiše test POSLIJE koji potvrđuje njegovu
+vlastitu izmjenu, ne stvarni problem — lažno pozitivan osjećaj da je
+zatvoreno.
+
+### 12. Worker ≠ checker ≠ čovjek — razdvojena verifikacija
+
+Isti agent koji je pisao izmjenu, pisao test, pokrenuo test i protumačio
+rezultat je u suštini provjeravao sam sebe. `agent_report` (komponenta
+#6) dokazuje da je PROCEDURA praćena — ne dokazuje sam po sebi da je
+RJEŠENJE ispravno. Za HIGH/CRITICAL (komponenta #5) i slične visoko-
+rizične promjene, treći, nezavisan pregled (drugi agent, drugi model,
+ili čovjek) mora aktivno pokušati OBORITI hipotezu workera, ne samo
+potvrditi je — i mora jasno reći šta NIJE provjerio, ne samo šta jeste.
+Tri različite tvrdnje se ne smiju miješati: "worker kaže da je gotovo"
+(agent_report), "checker je dokazao da radi" (nezavisna provjera), i
+"čovjek prihvata poslovni/rizični ishod" (ljudska potvrda) — vidi
+`AGENTS.md` "Podjela odgovornosti".
+
 ---
 
 ## Kako početi u novom projektu
@@ -181,10 +207,13 @@ interaktivne sesije.
 - Jednokratan skript, eksperiment, prototip bez budućnosti — sva ova
   ceremonija je čist overhead.
 - Solo rad, kratak vijek projekta, nema drugih agenata koji će ikad
-  dirati ovaj kod — komponente #1, #3, #6, #7 i dalje vrijede u minimalnoj
-  formi (par rečenica prije/poslije; #7 posebno je jeftina navika bez
-  obzira na veličinu tima), ali #5 (project_room), #10 (worktree izolacija)
-  i formalni `docs/CONTEXT.md` split su suvišni dok ne zatrebaju.
+  dirati ovaj kod — komponente #1, #3, #6, #7, #11 i dalje vrijede u
+  minimalnoj formi (par rečenica prije/poslije; #7 i #11 su posebno
+  jeftine navike bez obzira na veličinu tima ili tima od jednog), ali #5
+  (project_room), #10 (worktree izolacija) i formalni `docs/CONTEXT.md`
+  split su suvišni dok ne zatrebaju. #12 (nezavisan checker) formalno
+  zahtijeva drugu stranu — u solo radu se aproksimira "vrati se sutra i
+  pročitaj diff kao da je tuđi", nije potpuna zamjena.
 - Pravilo palca: uvedi komponentu kad je PRVI PUT stvarno nedostajala
   (agent je "popravio" namjerno pravilo natrag, izgubljena je odluka, dva
   agenta su se sudarila) — ne unaprijed "za svaki slučaj".
@@ -194,12 +223,15 @@ interaktivne sesije.
 ## Šta je univerzalno, šta je zamjenjivo
 
 **Univerzalno** (prenosi se skoro 1:1 na bilo koji softverski projekat, a
-komponente #1, #2, #3, #5, #6, #8, #10 vjerovatno i na drugi rad sa jasnim
-"artefaktima" i verzijama — pravni dokumenti, data pipeline konfiguracije,
-content sistemi): komponente #1, #2, #3, #5, #6, #7, #8, #10. Komponenta
-#7 (samoobjašnjavajući kod) je specifično za rad SA KODOM — ne prenosi se
-1:1 na ne-kodni rad, ali analogija postoji (kratka bilješka koja linkuje
-na detaljan zapis, umjesto dugog inline objašnjenja u samom dokumentu).
+komponente #1, #2, #3, #5, #6, #8, #10, #11, #12 vjerovatno i na drugi rad
+sa jasnim "artefaktima" i verzijama — pravni dokumenti, data pipeline
+konfiguracije, content sistemi): komponente #1, #2, #3, #5, #6, #7, #8,
+#10, #11, #12. Komponenta #7 (samoobjašnjavajući kod) je specifično za
+rad SA KODOM — ne prenosi se 1:1 na ne-kodni rad, ali analogija postoji
+(kratka bilješka koja linkuje na detaljan zapis, umjesto dugog inline
+objašnjenja u samom dokumentu). Komponenta #11 (reprodukuj prije
+popravke) se na ne-kodni rad prenosi kao "potvrdi da problem stvarno
+postoji i razumij ga prije nego predložiš rješenje".
 
 **Zamjenjivo** (princip ostaje, alat/implementacija se mijenja po
 projektu): komponenta #4 (code-graph alat vs grep vs IDE), tačan format

@@ -65,6 +65,31 @@ razdvojiti šta je čije. Rješenje: svaki dugotrajan/automatizovan agent
 pipeline radi u zasebnom `git worktree` (npr. `.worktrees/<naziv-toka>/`),
 ne direktno na glavnom working tree-u koji dijele interaktivne sesije. >>>
 
+**Bez obzira na worktree izolaciju**, u dijeljenom working tree-u (bilo koji
+agent u istoj interaktivnoj sesiji) nikad ne koristiti širok staging
+(`git add -A`/`git add .`) — uvijek navesti tačne fajlove koje je TAJ
+zadatak izmijenio. Prije svakog `git add`, provjeriti `git status` i
+potvrditi da je lista fajlova očekivana; ako ima nepoznatih izmjena, prvo
+utvrditi čije su prije nastavka.
+
+---
+
+## Reprodukcija prije bugfixa
+
+Pravi bug se ne popravlja dok nije reprodukovan, osim kad je jasno
+dokumentovano zašto reprodukcija nije moguća. Prihvatljivi dokazi:
+failing test, minimalna reprodukcijska skripta, konkretan ulaz (fajl,
+zahtjev, upit) koji izaziva problem, log sa preciznim podacima i greškom,
+screenshot/video stvarnog ponašanja, precizno opisan ručni postupak, ili
+stanje baze + upit koji izaziva problem.
+
+Ako reprodukcija nije moguća, zapisati: šta je pokušano, zašto problem
+nije reprodukovan, na kojoj pretpostavci se zasniva predložena izmjena, i
+koji dodatni rizik zbog toga ostaje.
+
+Ne mijenjati kod samo zato što pronađena implementacija izgleda sumnjivo
+— "izgleda sumnjivo" nije isto što i "dokazano je uzrok problema".
+
 ---
 
 ## Obavezno prije nego počneš kodirati
@@ -152,6 +177,69 @@ public API. Controller metode su tanki 1-liner pozivi servisa." >>>**
 
 ---
 
+## Definition of Done po tipu promjene
+
+Promjena nije završena samo zato što se aplikacija pokrenula ili je jedan
+test prošao. Obavezan dokaz zavisi od TIPA promjene — popuniti kategorije
+koje odgovaraju ovom projektu (obrisati/dodati po potrebi):
+
+<<< POPUNI: primjeri kategorija — zamijeniti/dopuniti stvarnim tipovima
+promjena u ovom projektu:
+
+- **GUI/frontend** — screenshot prije/poslije, provjera ciljanog
+  ponašanja (fokus, tastaturne prečice, skrol, realan korisnički tok);
+  offscreen render NIJE dovoljan dokaz za nešto što zavisi od stvarnog
+  prikaza (monitor, skaliranje, fontovi)
+- **Parseri/import** — realni ili anonimizovani fixture fajlovi,
+  očekivani strukturisan rezultat, edge case-ovi (nedostajuća polja,
+  prazni/skriveni redovi, različit encoding/format), dokaz da stari
+  izvori/formati nisu pokvareni ponovnim testom
+- **Generisani dokumenti (XML/PDF/Excel/Word...)** — golden fajlovi,
+  semantičko poređenje ključnih polja (ne slijepo binarno poređenje),
+  schema validacija gdje postoji, otvaranje/provjera da rezultat nije
+  korumpiran
+- **Baza i migracije** — test na disposable bazi, backup prije
+  produkcijske migracije, transakcija gdje je moguća, provjera broja
+  redova prije/poslije, idempotentnost, NIKAD prvi put testirati na
+  produkcionim podacima
+- **Performanse** — mjerenje PRIJE, identifikovano usko grlo, ciljana
+  izmjena, isto mjerenje POSLIJE, provjera funkcionalne jednakosti (brže
+  ALI i dalje tačno)
+- **Sigurnost/osjetljivi podaci** — agent nema pristup originalnim
+  osjetljivim dokumentima/podacima mimo allowlist-ovanih polja,
+  osjetljivi podaci ne završavaju u promptu/logovima/agent_report-u >>>
+
+---
+
+## Podjela odgovornosti
+
+| Ko | Šta |
+| --- | --- |
+| **Agent radi samostalno** | pretraga koda, pronalaženje pozivalaca, sažimanje postojećeg ponašanja, priprema failing testa, mala lokalna izmjena, pokretanje testova, `agent_report` |
+| **Agent samo predlaže** (čovjek odlučuje) | arhitektonska promjena, promjena domenskog modela/centralne poslovne logike, bazna migracija, nova sigurnosna politika, širi refactor, promjena javnog interfejsa |
+| **Nezavisan checker potvrđuje** (vidi "Nezavisna provjera" ispod) | da diff odgovara scope-u, da testovi provjeravaju pravi problem, da nisu promijenjena sporedna ponašanja, da nema očigledne regresije |
+| **Čovjek odlučuje** | da li poslovna logika ima smisla, da li je UX prihvatljiv, da li se prihvata HIGH/CRITICAL rizik, da li se pušta migracija/mijenja produkcijsko stanje |
+
+---
+
+## Nezavisna provjera (checker)
+
+Nezavisan pregled (drugi agent, drugi model, ili čovjek — bilo ko OSIM
+onoga ko je pisao izmjenu) je obavezan ili snažno preporučen kada
+promjena: ima HIGH/CRITICAL impact; dira bazu/migracije; dira centralnu
+poslovnu logiku ili sigurnost; mijenja generisani finansijski/pravni/
+carinski dokument; nije bila pouzdano reprodukovana; ima kontradiktorne
+izvore; ima veliku cijenu greške.
+
+Checker nezavisno: pregleda diff, potvrdi scope, provjeri pozivaoce i
+zavisnosti, pokrene relevantne testove, POKUŠA OBORITI hipotezu workera
+(ne samo potvrditi je), provjeri edge case-ove, i jasno navede šta NIJE
+provjerio. `agent_report` (worker) tvrdi da je zadatak završen;
+`agent_report`-ovo polje "Nezavisna provjera" tvrdi da je to i DOKAZANO —
+to su dvije različite stvari, ne miješati ih.
+
+---
+
 ## Handoff visokog rizika (HIGH/CRITICAL impact)
 
 Kada impact-analiza (npr. `gitnexus_impact()`, ili procjena po kriterijumu
@@ -194,12 +282,15 @@ PITANJA: (ako postoje)
 
 ## Provjera prije predaje
 
+- [ ] Bug je reprodukovan prije popravke (ili je zapisano zašto nije mogao biti)
 - [ ] Nisam mijenjao kod van scope-a zadatka
 - [ ] Nisam dodao nepotrebne komentare ili docstrings
 - [ ] Nisam ostavio zakomentiran kod
 - [ ] <<< POPUNI: projekat-specifične provjere, npr. "Nisam koristio string
   interpolaciju u SQL-u" >>>
 - [ ] Testovi prolaze: `<<< POPUNI: komanda, npr. "python -m pytest tests/ -q" >>>`
+- [ ] Dokaz odgovara "Definition of Done" za tip promjene (GUI/parser/dokument/baza/...)
+- [ ] Za HIGH/CRITICAL: nezavisna provjera je urađena i navedena u `agent_report`
 - [ ] Output format je popunjen (STATUS, IZMIJENJENI FAJLOVI, itd.)
 
 ---

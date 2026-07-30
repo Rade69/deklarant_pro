@@ -23,6 +23,17 @@ dokumentacija.
 ## Prihvatljiv ishod (scope lock)
 <<< šta MORA ostati identično nakon izmjene (npr. "validacija ostaje ista osim novog izvora dokaza") >>>
 
+## Plan verifikacije
+<!-- Vidi AGENTS.md "Definition of Done po tipu promjene". -->
+<<< koji dokaz mora postojati prije nego se promjena smatra završenom >>>
+
+## Rollback / oporavak
+<<< kako se promjena vraća ili sistem oporavlja ako rezultat nije dobar (revert, backup, feature flag...) >>>
+
+## Nezavisni checker
+<!-- Vidi AGENTS.md "Nezavisna provjera". -->
+<<< ko provjerava rezultat, šta provjerava, koji dokaz mora ostaviti >>>
+
 ## Konflikti
 <!-- Ako postoje kontradiktorni izvori (stari agent_report, memorija, kod). Ukloniti ako nema. -->
 <<< oba izvora, koji se tretira kao važeći i zašto, da li treba korisnička potvrda (DA/NE) >>>

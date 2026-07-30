@@ -46,6 +46,28 @@ Utvrdi da li je ovo:
 Ako je (c), stani ovdje i pitaj korisnika kako želi da se postojeći fajl i
 ovaj template pomire (spoji ručno, zamijeni, ili odustani).
 
+**Prije bilo čega drugog, pokreni `git status --short`.** Ako working
+tree nije čist (ima nekomitovanih izmjena koje ti nisi napravio), utvrdi
+čije su prije nego što nastaviš — mogu biti WIP drugog agenta koji radi
+paralelno u istom working tree-u (vidi `AGENTS.md` "Paralelni agenti").
+Nikad ne pokretati široki `git add`/commit preko tuđih nekomitovanih
+izmjena kao dio ovog bootstrap-a.
+
+Tokom cijelog skeniranja (Koraci 1-7), isključi iz pretrage/čitanja:
+
+```text
+.git/  .worktrees/  node_modules/  .venv/  venv/  dist/  build/
+__pycache__/  generated/  backups/
+```
+
+<<< POPUNI: dopuniti listom generisanih/vendor foldera specifičnih za
+ovaj projekat (npr. `target/` za Rust/Java, `bin/`/`obj/` za .NET) >>>
+
+Ovi folderi su ili tuđi kod (vendor/dependency) ili generisan sadržaj —
+skeniranje bez izuzimanja troši vrijeme/kontekst bez koristi i može
+dovesti do pogrešnih zaključaka (npr. konvencija iz `node_modules/`
+pogrešno pripisana projektu).
+
 ---
 
 ## Korak 1 — tech stack (dokaz: manifest fajlovi)
