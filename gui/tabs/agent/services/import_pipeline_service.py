@@ -396,9 +396,12 @@ def _puna_auto_pipeline(ctrl, fw, chat, all_lines: list) -> None:
     # 5. Kreiraj naimenovanja — KRITIČNO.
     chat.add_activity("📋 [Auto] Kreiram naimenovanja...")
     try:
-        ok = bool(
-            fw and hasattr(fw, '_on_create_naimenovanja') and fw._on_create_naimenovanja(auto=True)
-        )
+        if fw and hasattr(fw, 'create_naimenovanja'):
+            ok = bool(fw.create_naimenovanja(auto=True))
+        elif fw and hasattr(fw, '_on_create_naimenovanja'):
+            ok = bool(fw._on_create_naimenovanja(auto=True))
+        else:
+            ok = False
     except Exception as e:
         logger.error("[Puna automatizacija] Kreiranje naimenovanja — neočekivan izuzetak: %s", e, exc_info=True)
         ok = False

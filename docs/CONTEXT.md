@@ -3334,3 +3334,26 @@ Test kapija: 36/36 za javni validation API + Puna automatizacija pipeline;
 širi Faktura/Agent validacioni skup 107/107 uz `-m "not integration"`.
 Pokušaj sa integration ledger testovima imao je 2 DB greške zbog nedostupnog
 PostgreSQL servera na `192.168.100.154` / circuit breaker, ne zbog Faze 5.
+
+---
+
+## 101. Faktura 3-layer Faza 6 — javni create-naimenovanja API za Agent pipeline (2026-07-30)
+
+Agent Puna automatizacija više ne mora direktno pozivati privatni
+`FakturaView._on_create_naimenovanja(auto=True)`. Uveden je javni
+`create_naimenovanja(auto=True)` adapter na `FakturaTab` i kompatibilni adapter
+na `FakturaView`, jer trenutni Agent tok još uvijek u nekim putanjama radi sa
+View objektom. `_puna_auto_pipeline` prvo pokušava javni
+`fw.create_naimenovanja(auto=True)`, a privatni `_on_create_naimenovanja`
+ostaje fallback dok se svi pozivaoci ne prebace na javni `FakturaTab` API.
+
+Ovo nije potpuna migracija kreiranja naimenovanja u Controller. Postojeći
+legacy View tok ostaje autoritativan za auto režim jer sadrži split draftove,
+pre-flight, PE/header sync, reload Faktura/Naimenovanja/Zaglavlje tabova,
+ASYCUDA 99 limit, import-service cleanup i `draft_uid` prosljeđivanje u
+`TariffFacade.learn_from_draft()`. `FakturaController.create_naimenovanja()`
+ostaje zaštićen testom da prosljeđuje `draft_uid`, ali još nije paritetna
+zamjena za cijeli View tok.
+
+Test kapija: 38/38 za javni create-naimenovanja API + Puna automatizacija
+pipeline; širi Faktura/Agent skup 109/109 uz `-m "not integration"`.

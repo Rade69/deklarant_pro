@@ -259,3 +259,35 @@ class TestNoDoubleValidation:
 
         assert view.validate(auto=True) == (True, 0, 0)
         assert called == [True]
+
+    def test_faktura_tab_create_naimenovanja_uses_view_adapter(self, qtbot, monkeypatch):
+        from gui.tabs.faktura_tab import FakturaTab
+
+        draft = DeclarationDraft()
+        tab = FakturaTab(draft=draft)
+        qtbot.addWidget(tab)
+        called = []
+        monkeypatch.setattr(
+            tab.view,
+            "_on_create_naimenovanja",
+            lambda auto=False: called.append(auto) or True,
+        )
+
+        assert tab.create_naimenovanja(auto=True) is True
+        assert called == [True]
+
+    def test_faktura_view_create_naimenovanja_is_public_adapter(self, qtbot, monkeypatch):
+        from gui.tabs.faktura_view import FakturaView
+
+        draft = DeclarationDraft()
+        view = FakturaView(draft=draft)
+        qtbot.addWidget(view)
+        called = []
+        monkeypatch.setattr(
+            view,
+            "_on_create_naimenovanja",
+            lambda auto=False: called.append(auto) or True,
+        )
+
+        assert view.create_naimenovanja(auto=True) is True
+        assert called == [True]

@@ -4474,6 +4474,9 @@ class FakturaView(BaseTabView):
                 self.btn_create_naimenovanja.setEnabled(True)
             restore_window_geometry_queued(geometry_state)
 
+    def create_naimenovanja(self, auto: bool = False) -> bool:
+        return self._on_create_naimenovanja(auto=auto)
+
     def _set_weight_inputs_from_draft(self):
         total_bruto = sum(getattr(line, "bruto_kg", 0.0) or 0.0 for line in self.draft.invoice_lines)
         total_neto = sum(getattr(line, "neto_kg", 0.0) or 0.0 for line in self.draft.invoice_lines)

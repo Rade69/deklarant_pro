@@ -36,6 +36,7 @@ def mock_fw():
     fw._on_auto_fill.return_value = MagicMock(matched_items=1)
     fw.validate.return_value = (True, 0, 0)
     fw._on_validate_all.return_value = (True, 0, 0)
+    fw.create_naimenovanja.return_value = True
     fw._on_create_naimenovanja.return_value = True
     return fw
 
@@ -122,7 +123,8 @@ class TestUspjesanTok:
         mock_fw._on_calculate_masses.assert_called_once_with(auto=True)
         mock_fw.validate.assert_called_once_with(auto=True)
         mock_fw._on_validate_all.assert_not_called()
-        mock_fw._on_create_naimenovanja.assert_called_once_with(auto=True)
+        mock_fw.create_naimenovanja.assert_called_once_with(auto=True)
+        mock_fw._on_create_naimenovanja.assert_not_called()
         completion_sound.assert_called_once_with("success")
 
     def test_preskace_auto_popuni_kad_sve_stavke_imaju_tarifu(self, mock_ctrl, mock_fw, mock_chat):
@@ -184,7 +186,7 @@ class TestKritickeFazePadaju:
 
         mock_fw._on_auto_fill.assert_not_called()
         mock_fw.validate.assert_not_called()
-        mock_fw._on_create_naimenovanja.assert_not_called()
+        mock_fw.create_naimenovanja.assert_not_called()
         messages = _agent_messages(mock_chat)
         assert any("zaustavljena" in m and "mase" in m for m in messages)
         assert not any("završena!" in m for m in messages)
@@ -197,7 +199,7 @@ class TestKritickeFazePadaju:
 
         _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])  # ne smije baciti
 
-        mock_fw._on_create_naimenovanja.assert_not_called()
+        mock_fw.create_naimenovanja.assert_not_called()
 
     def test_validacija_sa_kritickim_greskama_zaustavlja_prije_naimenovanja(
         self, mock_ctrl, mock_fw, mock_chat
@@ -206,7 +208,7 @@ class TestKritickeFazePadaju:
 
         _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
 
-        mock_fw._on_create_naimenovanja.assert_not_called()
+        mock_fw.create_naimenovanja.assert_not_called()
         messages = _agent_messages(mock_chat)
         assert any("zaustavljena" in m and "validacija" in m for m in messages)
 
@@ -215,10 +217,10 @@ class TestKritickeFazePadaju:
 
         _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
 
-        mock_fw._on_create_naimenovanja.assert_not_called()
+        mock_fw.create_naimenovanja.assert_not_called()
 
     def test_pad_kreiranja_naimenovanja_ne_prijavljuje_lazan_uspjeh(self, mock_ctrl, mock_fw, mock_chat):
-        mock_fw._on_create_naimenovanja.return_value = False
+        mock_fw.create_naimenovanja.return_value = False
 
         _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
 
@@ -235,7 +237,7 @@ class TestDeklarantskaPotvrda:
 
         _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
 
-        mock_fw._on_create_naimenovanja.assert_not_called()
+        mock_fw.create_naimenovanja.assert_not_called()
         messages = _agent_messages(mock_chat)
         assert any("pauzirana" in m for m in messages)
         assert not any("završena!" in m or "zaustavljena" in m for m in messages)
@@ -255,7 +257,8 @@ class TestParcijalniRezultat:
         assert any("djelimično" in m for m in messages)
         assert not any("završena!" in m for m in messages)
         # PARTIAL i dalje nastavlja do kraja — naimenovanja se kreiraju
-        mock_fw._on_create_naimenovanja.assert_called_once_with(auto=True)
+        mock_fw.create_naimenovanja.assert_called_once_with(auto=True)
+        mock_fw._on_create_naimenovanja.assert_not_called()
 
     def test_validacija_sa_samo_upozorenjima_nastavlja_i_daje_partial(
         self, mock_ctrl, mock_fw, mock_chat, completion_sound
@@ -264,7 +267,8 @@ class TestParcijalniRezultat:
 
         _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
 
-        mock_fw._on_create_naimenovanja.assert_called_once_with(auto=True)
+        mock_fw.create_naimenovanja.assert_called_once_with(auto=True)
+        mock_fw._on_create_naimenovanja.assert_not_called()
         messages = _agent_messages(mock_chat)
         assert any("djelimično" in m for m in messages)
         completion_sound.assert_called_once_with("warning")
