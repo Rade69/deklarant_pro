@@ -3139,3 +3139,41 @@ i render/status semantiku. Ručni toolbar klik još nije prespojen na signal.
 
 Test kapija: 42/42 za javni auto-fill API + Puna automatizacija pipeline;
 širi Faktura/Agent/tariff skup 133/133 uz `-m "not integration"`.
+
+---
+
+## 104. Token/context disciplina — podjela CONTEXT.md na evergreen + hronologiju (2026-07-30)
+
+`docs/CONTEXT.md` je narastao na 3380 linija / ~440k tokena pri punom čitanju,
+a AGENTS.md je nalagao "OBAVEZNO pročitaj docs/CONTEXT.md prije bilo kakvog
+kodiranja" za SVAKOG agenta u SVAKOJ sesiji — klasičan "harness bloat"
+(reused input koji se ponavlja bez potrebe). Sekcije 1-14 (evergreen,
+cross-cutting pravila bez vezanog datuma) ostale su u `docs/CONTEXT.md`
+(sad 301 linija). Sekcije 15-102 (dated, hronološki log pojedinačnih
+sesija/faza) premještene su, sa istim brojevima sekcija i sadržajem,
+u ovaj fajl (`docs/context/history.md`) — koji se namjerno NE čita cijeli,
+nego pretražuje (Grep) po temi/datumu.
+
+**Napomena o §103 iznad**: dok je ova izmjena bila u toku (radna kopija
+`docs/context/history.md` još nije bila commitovana), paralelni Codex agent
+je na istom `windows` branch-u nezavisno završavao Fazu 8 Faktura 3-layer
+refaktora, zatekao novi fajl na disku i ispravno dodao svoj zapis kao "§103"
+prateći tek uvedenu konvenciju — a zatim taj rad, uz svoj, commitovao pod
+nepovezanom porukom ("uvedi javni auto fill api"). Nema izgubljenog sadržaja,
+samo je numeracija poravnata (§103 = Codex Faza 8, §104 = ova izmjena) da se
+izbjegne duplikat broja sekcije.
+
+**AGENTS.md izmjene**: "Kontekst projekta" sekcija sad razlikuje dva fajla;
+dodana kratka sekcija "Token budget i context disciplina" (princip "ne
+prenosi razgovor, prenesi artefakt" — project_room/agent_report umjesto
+cijelog chata); Korak 2 sad upućuje nove dated stavke u `history.md`, ne u
+`CONTEXT.md`; Korak 3 (agent_report) checklist dobio novo polje "Kontekst
+korišćen" (koji veći fajlovi su pročitani u cijelosti i zašto).
+
+**Nije mijenjano**: sadržaj nijedne postojeće stavke (samo premještaj +
+promjena brojeva linija), `agent_reports/` arhiva (referenca "Detalji:
+docs/CONTEXT.md §N" u starim izvještajima i dalje je tačna po broju
+sekcije, samo fizička lokacija sekcije 15+ je sad `docs/context/history.md`
+umjesto `docs/CONTEXT.md`), MCP memorija.
+
+Detalji: `agent_reports/2026-07-30_token-disciplina-context-split.md`.

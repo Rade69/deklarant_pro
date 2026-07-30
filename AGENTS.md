@@ -25,12 +25,25 @@ Taj fajl sadrži ne-trivijalne odluke, zabranjene patterne i poznate bugove
 koji nisu vidljivi iz samog koda. Dostupan je svim agentima jer je u git repozitoriju.
 
 ```text
-docs/CONTEXT.md   ← zajednička memorija za sve agente (Claude, Codex, DeepSeek...)
+docs/CONTEXT.md          ← evergreen pravila (sekcije 1-14) — pročitati cijeli, kratak je
+docs/context/history.md  ← dated hronologija sesija — NE čitati cijeli, samo Grep po temi/datumu
 ```
 
 > **Samo za Claude:** detaljna sesijska memorija je u
 > `~/.claude/projects/<projekat>/memory/` (vidi CLAUDE.md).
 > Za sve ostale agente `docs/CONTEXT.md` je autoritativni izvor.
+
+---
+
+## Token budget i context disciplina
+
+Agent ne prenosi cijeli prethodni razgovor u novi zadatak — prenosi
+prihvaćeni artefakt (`project_room` fajl, `agent_report`, ili konkretan
+plan). Veliki fajlovi (stotine+ linija, npr. `docs/context/history.md`,
+`faktura_view.py`) se prvo pretraže (Grep) po relevantnom pojmu; cijeli
+fajl se čita samo kad je zadatak stvarno zahtijeva. Za HIGH/CRITICAL
+odluke ili kad je potreban širi arhitektonski uvid, potpunost ima
+prednost nad štednjom konteksta — ne štedjeti tokene na račun tačnosti.
 
 ---
 
@@ -296,8 +309,10 @@ py_compile provjeru i ispisuje podsjetnike — NE zaobilaziti ga sa `--no-verify
   (npr. `Co-Authored-By: Claude <noreply@anthropic.com>`)
 
 ### Korak 2 — Zajednička memorija
-- Sve **ne-očigledno** i korisno za buduće sesije upisati u `docs/CONTEXT.md`
-  (svi agenti) — Claude dodatno u svoju sesijsku memoriju (vidi CLAUDE.md)
+- Sve **ne-očigledno** i korisno za buduće sesije upisati u `docs/context/history.md`
+  (dated stavka na kraj fajla) — samo trajna, cross-cutting pravila idu u
+  `docs/CONTEXT.md` sekcije 1-14 (vidi CONTEXT.md §13). Claude dodatno u svoju
+  sesijsku memoriju (vidi CLAUDE.md)
 - **Šta upisivati**: poslovne odluke, pravila koja nisu u kodu, bug uzroci, fiksevi koji se ponavljaju
 - **Šta NE upisivati**: šta kod radi (vidi se iz koda), git historija, privremeno stanje
 
@@ -317,6 +332,8 @@ py_compile provjeru i ispisuje podsjetnike — NE zaobilaziti ga sa `--no-verify
   - **Konflikti / kontradiktorni izvori** (ako postoje) — koji je tretiran kao važeći
     i zašto, i da li treba korisnička potvrda (DA/NE)
   - **Commitovi** — tabela hash/poruka
+  - **Kontekst korišćen** (samo kompleksni/rizični zadaci) — koji veći fajlovi
+    su pročitani u cijelosti i zašto (ne samo pretraženi/grep-ovani)
   - **Rizici / ograničenja**
   - **Potreban follow-up** — šta NIJE zatvoreno
   - **Potrebna korisnička potvrda** — šta korisnik treba ručno provjeriti
@@ -378,7 +395,7 @@ Kada hook injektuje `[DOC-GUARD]` poruku:
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **deklarant_pro** (49513 symbols, 76404 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **deklarant_pro** (53557 symbols, 82880 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
