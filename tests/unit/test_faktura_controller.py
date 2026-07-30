@@ -378,3 +378,24 @@ class TestNoDoubleValidation:
 
         assert emitted == [True]
         assert private_called == []
+
+    def test_calculate_masses_button_emits_signal_not_private_handler(self, qtbot, monkeypatch):
+        from gui.tabs.faktura_view import FakturaView
+
+        draft = DeclarationDraft()
+        view = FakturaView(draft=draft)
+        qtbot.addWidget(view)
+        view.show()
+        private_called = []
+        emitted = []
+        monkeypatch.setattr(
+            view,
+            "_on_calculate_masses",
+            lambda auto=False: private_called.append(auto),
+        )
+        view.calculate_masses_requested.connect(lambda: emitted.append(True))
+
+        view.btn_calc_masses.click()
+
+        assert emitted == [True]
+        assert private_called == []

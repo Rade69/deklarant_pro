@@ -817,7 +817,7 @@ class FakturaView(BaseTabView):
                 object_name="btnIzracunajMase",
                 icon_name="fa5s.balance-scale",
             )
-            self.btn_calc_masses.clicked.connect(self._on_calculate_masses)
+            self.btn_calc_masses.clicked.connect(lambda checked=False: self.calculate_masses_requested.emit())
             layout.addWidget(self.btn_calc_masses)
 
             self.btn_auto_fill = self._create_button(

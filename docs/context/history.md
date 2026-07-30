@@ -3194,3 +3194,21 @@ TariffFacade preview/commit, dijaloge i status/render semantiku.
 
 Test kapija: `test_faktura_controller.py` 28/28; širi Faktura/Agent skup
 135/135 uz `-m "not integration"`.
+
+---
+
+## 106. Faktura 3-layer Faza 11 — ručni Izračunaj mase klik ide preko signala (2026-07-30)
+
+Ručni klik na dugme `Izračunaj mase` u Faktura tabu više ne poziva direktno
+`FakturaView._on_calculate_masses`, nego emituje postojeći
+`calculate_masses_requested` signal. `FakturaTab._on_calculate_masses_requested`
+za sada i dalje delegira na isti legacy View handler, pa se poslovno ponašanje
+raspodjele bruto/neto masa ne mijenja.
+
+Ovo je drugi mali ručni-toolbar rez poslije Agent adapter faza. Namjerno nije
+migrirana unutrašnja logika masa u Controller/Service, jer `_on_calculate_masses`
+još nosi toolbar parsing, per-invoice raspodjelu, fallback i status/dirty
+semantiku.
+
+Test kapija: `test_faktura_controller.py` 29/29; širi Faktura/Agent skup
+136/136 uz `-m "not integration"`.
