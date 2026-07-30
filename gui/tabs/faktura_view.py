@@ -746,7 +746,9 @@ class FakturaView(BaseTabView):
                 object_name="btnKreirajNaimenovanja",
                 icon_name="fa5s.clipboard-list",
             )
-            self.btn_create_naimenovanja.clicked.connect(self._on_create_naimenovanja)
+            self.btn_create_naimenovanja.clicked.connect(
+                lambda checked=False: self.create_naimenovanja_requested.emit(False)
+            )
             layout.addWidget(self.btn_create_naimenovanja)
 
             # Bruto/Neto weights

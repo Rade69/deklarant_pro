@@ -3212,3 +3212,23 @@ semantiku.
 
 Test kapija: `test_faktura_controller.py` 29/29; širi Faktura/Agent skup
 136/136 uz `-m "not integration"`.
+
+---
+
+## 107. Faktura 3-layer Faza 12 — ručni Kreiraj Naimenovanja klik ide preko signala uz legacy paritet (2026-07-30)
+
+Ručni klik na dugme `Kreiraj Naimenovanja` više ne poziva direktno
+`FakturaView._on_create_naimenovanja`, nego emituje postojeći
+`create_naimenovanja_requested(False)` signal. Prije aktiviranja signala
+ispravljen je `FakturaTab._on_create_naimenovanja_requested`: više ne koristi
+parcijalni Controller put, nego delegira na javni `create_naimenovanja(auto=...)`
+adapter, koji trenutno čuva autoritativni legacy View tok.
+
+Ova odluka je namjerna sigurnosna mjera. Controller create put još nije paritetna
+zamjena za View tok jer legacy handler nosi split draftove, preflight, PE/header
+sync, reload Faktura/Naimenovanja/Zaglavlje tabova, ASYCUDA 99 limit i
+`draft_uid` učenje. Faza 12 zato mijenja wiring, ali ne mijenja poslovno
+ponašanje kreiranja naimenovanja.
+
+Test kapija: `test_faktura_controller.py` 31/31; širi Faktura/Agent skup
+138/138 uz `-m "not integration"`.

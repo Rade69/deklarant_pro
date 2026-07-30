@@ -399,3 +399,43 @@ class TestNoDoubleValidation:
 
         assert emitted == [True]
         assert private_called == []
+
+    def test_create_naimenovanja_button_emits_signal_not_private_handler(self, qtbot, monkeypatch):
+        from gui.tabs.faktura_view import FakturaView
+
+        draft = DeclarationDraft()
+        view = FakturaView(draft=draft)
+        qtbot.addWidget(view)
+        view.show()
+        private_called = []
+        emitted = []
+        monkeypatch.setattr(
+            view,
+            "_on_create_naimenovanja",
+            lambda auto=False: private_called.append(auto),
+        )
+        view.create_naimenovanja_requested.connect(lambda auto: emitted.append(auto))
+
+        view.btn_create_naimenovanja.click()
+
+        assert emitted == [False]
+        assert private_called == []
+
+    def test_create_naimenovanja_signal_handler_uses_public_legacy_adapter(
+        self, qtbot, monkeypatch
+    ):
+        from gui.tabs.faktura_tab import FakturaTab
+
+        draft = DeclarationDraft()
+        tab = FakturaTab(draft=draft)
+        qtbot.addWidget(tab)
+        called = []
+        monkeypatch.setattr(
+            tab,
+            "create_naimenovanja",
+            lambda auto=False: called.append(auto) or True,
+        )
+
+        tab.view.create_naimenovanja_requested.emit(False)
+
+        assert called == [False]

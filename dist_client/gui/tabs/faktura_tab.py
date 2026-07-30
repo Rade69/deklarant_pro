@@ -171,14 +171,8 @@ class FakturaTab(QWidget):
             self.view._on_auto_fill()
 
     def _on_create_naimenovanja_requested(self, auto: bool):
-        """Kreiranje naimenovanja — delegira na Controller."""
-        result = self.controller.create_naimenovanja(self.controller.draft)
-        if result.get("error"):
-            from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
-            QMessageBox.warning(self, "Greška", f"Kreiranje naimenovanja nije uspjelo:\n{result['error']}")
-        elif result.get("count", 0) > 0:
-            self.view._load_data_from_draft()
-            self.view.naimenovanja_created.emit()
+        """Kreiranje naimenovanja — delegira na javni legacy adapter."""
+        return self.create_naimenovanja(auto=auto)
 
     def _on_calculate_masses_requested(self):
         """Računanje masa — delegira na postojeći View handler."""
