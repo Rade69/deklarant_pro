@@ -70,7 +70,7 @@ Nema kontradikcije. Manifest nalaže da legacy fallback ostane do E2E potvrde; z
 
 | Hash | Poruka |
 | --- | --- |
-| pending | `refactor(faktura): prebaci mase u service controller tok` |
+| 2009552 | `refactor(faktura): prebaci mase u service controller tok` |
 
 ## Rizici / ograničenja
 
