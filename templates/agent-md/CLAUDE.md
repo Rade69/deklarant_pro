@@ -12,6 +12,11 @@
 > Cursor...). Ako projekat koristi SAMO Claude Code, sadržaj `AGENTS.md`
 > templejta (tech stack, arhitektura, zabrane) se može spojiti ovdje i
 > `AGENTS.md` izostaviti.
+>
+> Za OBJAŠNJENJE zašto su ovi fajlovi ovako strukturirani (princip, ne
+> samo forma), pročitati `METHOD.md` u istom folderu. `agent_report_template.md`
+> i `project_room_template.md` (isti folder) su prazni fajlovi za kopiranje
+> koji operacionalizuju sekcije "Agent report" i "Plan prije izmjene" ispod.
 
 ---
 
@@ -167,7 +172,8 @@ nepotreban overhead — koristiti procjenu.
 Ako alat za impact-analizu (npr. `gitnexus_impact` — vidi opcionu sekciju
 "Code Intelligence" na kraju fajla, ili ekvivalentan alat) za simbol koji se
 mijenja vrati **HIGH** ili **CRITICAL**, agent PRIJE izmjene napravi JEDAN
-kratki fajl (ne cijeli "project room" sa više fajlova):
+kratki fajl (ne cijeli "project room" sa više fajlova) — kopirati
+`project_room_template.md` (isti template folder) kao polaznu tačku:
 
 ```text
 project_rooms/YYYY-MM-DD_kratak-naziv-zadatka.md
@@ -221,7 +227,8 @@ Svaki agent koji radi na ovom projektu MORA slijediti ovaj redosljed nakon
 
 ### Korak 3 — Agent report
 
-- Kreirati izvještaj u `agent_reports/YYYY-MM-DD_naziv-zadatka.md`
+- Kreirati izvještaj u `agent_reports/YYYY-MM-DD_naziv-zadatka.md` —
+  kopirati `agent_report_template.md` (isti folder) kao polaznu tačku
 - Izvještaj mora pratiti ovu strukturu (sekcije kao `##`):
   - **Datum**, **Agent**, **Scope** — fajlovi/moduli na koje se zadatak
     odnosi

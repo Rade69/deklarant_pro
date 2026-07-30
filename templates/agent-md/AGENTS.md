@@ -20,6 +20,51 @@ paternima i poznatim bugovima koji nisu vidljivi iz koda — referencirati ga
 ovdje kao OBAVEZNO štivo prije kodiranja. Ako ne postoji, ukloniti sekciju
 (ili je kreirati kad prvi takav slučaj nastane). >>>
 
+**Kad ovaj fajl naraste** (orijentaciono: >500 linija ili >1-2 sedmice
+aktivnog dodavanja), podijeliti ga na dva:
+
+```text
+docs/CONTEXT.md          ← SAMO evergreen, cross-cutting pravila. Malo,
+                            čita se u cijelosti svaki put.
+docs/context/history.md  ← dated, append-only log pojedinačnih odluka/
+                            bugova/faza. NE čita se u cijelosti — pretražuje
+                            se (grep/Grep) po temi ili datumu kad zatreba.
+```
+
+Ovo je isti princip kao token budget ispod primijenjen na dokumentaciju:
+razdvoji "šta agent MORA znati unaprijed" od "šta agent MOŽE pronaći kad
+zatreba". Bez podjele, fajl koji je nekad bio koristan postaje reused input
+koji se ponavlja u svaku sesiju bez potrebe.
+
+---
+
+## Token budget i context disciplina
+
+Agent ne prenosi cijeli prethodni razgovor u novi zadatak — prenosi
+prihvaćen artefakt (`project_room` fajl, `agent_report`, ili konkretan
+plan). Veliki fajlovi (stotine+ linija) se prvo pretraže (grep) po
+relevantnom pojmu; cijeli fajl se čita samo kad zadatak to stvarno
+zahtijeva. Isto važi za alate: ne povezivati širok skup alata "za svaki
+slučaj" — samo one koje zadatak stvarno koristi.
+
+Izuzetak (ne štedjeti kontekst ovdje): HIGH/CRITICAL odluke, sigurnosni
+rizik, ili kad agent ne može pouzdano razumjeti zadatak bez šire slike —
+tačnost ima prednost nad štednjom tokena.
+
+---
+
+## Paralelni agenti — izolacija working tree-a (ako više agenata radi istovremeno)
+
+<<< POPUNI/UKLONI: relevantno samo ako više agenata (različiti CLI-jevi,
+ili više paralelnih instanci istog) mogu raditi na istom repozitorijumu u
+isto vrijeme. Ako agent A ostavi nekomitovane izmjene u working tree-u dok
+agent B (npr. automatizovan pipeline koji radi `git add -A` na kraju svoje
+faze) commituje, B će nesvjesno pokupiti A-ove izmjene u svoj commit —
+sadržaj se ne gubi, ali autorstvo/commit poruka postanu netačni i teško je
+razdvojiti šta je čije. Rješenje: svaki dugotrajan/automatizovan agent
+pipeline radi u zasebnom `git worktree` (npr. `.worktrees/<naziv-toka>/`),
+ne direktno na glavnom working tree-u koji dijele interaktivne sesije. >>>
+
 ---
 
 ## Obavezno prije nego počneš kodirati
