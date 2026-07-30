@@ -72,7 +72,7 @@ Potrebna korisnička potvrda: NE.
 
 | Hash | Poruka |
 | --- | --- |
-| pending | `refactor(faktura): povezi auto popuni dugme preko signala` |
+| a2115e4 | `refactor(faktura): povezi auto popuni dugme preko signala` |
 
 ## Rizici / ograničenja
 
