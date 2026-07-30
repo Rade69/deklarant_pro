@@ -79,7 +79,7 @@ Potrebna korisnička potvrda: NE.
 
 | Hash | Poruka |
 | --- | --- |
-| pending | `refactor(faktura): povezi kreiraj naimenovanja dugme preko signala` |
+| c1a5d62 | `refactor(faktura): povezi kreiraj naimenovanja dugme preko signala` |
 
 ## Rizici / ograničenja
 
