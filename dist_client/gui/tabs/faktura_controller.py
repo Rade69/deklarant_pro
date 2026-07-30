@@ -132,6 +132,22 @@ class FakturaController(QObject):
         from services.faktura.mass_workflow_service import MassWorkflowService
         return MassWorkflowService().calculate(draft, request)
 
+    def auto_fill_workflow(self, request):
+        from services.faktura.auto_fill_workflow_service import AutoFillWorkflowService
+        return AutoFillWorkflowService().run(request)
+
+    def prepare_auto_fill_preview(self, request):
+        from services.faktura.auto_fill_workflow_service import AutoFillWorkflowService
+        return AutoFillWorkflowService().prepare_preview(request)
+
+    def empty_auto_fill_result(self, total_items: int, skipped_details: list):
+        from services.faktura.auto_fill_workflow_service import AutoFillWorkflowService
+        return AutoFillWorkflowService().empty_result(total_items, skipped_details)
+
+    def sync_auto_fill_decision_state(self, target_lines: list, supplier_name: str) -> None:
+        from services.faktura.auto_fill_workflow_service import AutoFillWorkflowService
+        AutoFillWorkflowService().sync_decision_state(target_lines, supplier_name)
+
     def accumulate_weights(self, draft, bruto_kg: float, neto_kg: float, invoice_name: str = ""):
         """Akumuliraj težine za fakturu u draft.invoice_weights."""
         if not invoice_name or (bruto_kg <= 0 and neto_kg <= 0):

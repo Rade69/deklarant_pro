@@ -5176,6 +5176,9 @@ class FakturaView(BaseTabView):
         return message
 
     def _on_auto_fill(self, auto=False):
+        return self.auto_fill(auto=auto)
+
+    def auto_fill(self, auto: bool = False, controller=None):
         """
         Auto-popuni tarifne brojeve iz baze znanja.
 
@@ -5185,6 +5188,9 @@ class FakturaView(BaseTabView):
         Returns:
             MappingResult ako je popunjavanje izvršeno, inače None.
         """
+        from services.faktura.auto_fill_workflow_service import AutoFillWorkflowService
+        from services.faktura.models import AutoFillWorkflowRequest
+
         if not self.draft.invoice_lines:
             if not auto:
                 QMessageBox.information(
@@ -5201,60 +5207,19 @@ class FakturaView(BaseTabView):
                 logger.info("✅ [Auto-popuni] Sve stavke imaju tarifni broj — preskačem")
                 return None
 
-        selected_row = -1
-        selected_row_indexes = []
-        target_lines = self.draft.invoice_lines
-        if not auto and hasattr(self, "table"):
-            selection = self.table.selectionModel()
-            selected_rows = selection.selectedRows() if selection else []
-            if selected_rows:
-                row_indexes = sorted(
-                    {
-                        idx.row()
-                        for idx in selected_rows
-                        if 0 <= idx.row() < len(self.draft.invoice_lines)
-                    }
-                )
-                if row_indexes:
-                    selected_row_indexes = row_indexes
-                    selected_row = row_indexes[0]
-                    target_lines = [self.draft.invoice_lines[row] for row in row_indexes]
-            else:
-                # Nema selekcije — ograniči samo na stavke bez tarifnog broja
-                target_lines = [l for l in self.draft.invoice_lines if not getattr(l, 'tarifni_broj', None)]
+        target_lines, selected_row_indexes, selected_row = self._auto_fill_target_lines(auto)
+        workflow = AutoFillWorkflowService(self.auto_fill_service)
+        supplier_name = workflow.supplier_name_for(target_lines)
+        skipped_details = workflow.skipped_details_for(target_lines)
 
         # Undo snapshot PRIJE fill_basic_fields() — ta metoda MUTIRA stavke
         # odmah, i prije preview dijaloga i prije eventualnog otkazivanja;
         # bez snapshot-a ovdje "Otkaži" u dijalogu ostavlja neundo-vateljivu
         # mutaciju (Codex nalaz #5).
         self._push_undo_snapshot()
+        basic_filled_count = self.auto_fill_service.fill_basic_fields(target_lines)
 
-        # Prvo popuni osnovna polja (valuta, jm, iznos)
-        basic_filled_count = self.auto_fill_service.fill_basic_fields(
-            target_lines
-        )
-
-        # Auto-popuni tarifne iz baze znanja — docs/architecture/TARIFF_FACADE_REFACTORING.md
         try:
-            from services.tariff_facade import TariffFacade
-
-            facade = TariffFacade.get_instance()
-
-            # Skupi skipped stavke (već imaju tarifni broj)
-            skipped_details = [
-                (
-                    line.line_no,
-                    line.product_code or line.naziv_robe[:30],
-                    line.tarifni_broj,
-                )
-                for line in target_lines
-                if line.tarifni_broj
-            ]
-
-            supplier_name = ""
-            if target_lines:
-                supplier_name = target_lines[0].exporter.name or ""
-
             # U interaktivnom modu: preview prijedloga PRIJE pisanja
             if not auto:
                 progress = QProgressDialog(
@@ -5270,19 +5235,26 @@ class FakturaView(BaseTabView):
                 progress.setValue(0)
                 QCoreApplication.processEvents()
 
-                preview_result = self._collect_tariff_previews(target_lines, facade, supplier_name)
+                preview_request = AutoFillWorkflowRequest(
+                    target_lines=target_lines,
+                    supplier_name=supplier_name,
+                    auto=False,
+                )
+                if controller is not None:
+                    preview_result = controller.prepare_auto_fill_preview(preview_request)
+                else:
+                    preview_result = workflow.prepare_preview(preview_request)
                 progress.setValue(len(target_lines))
 
                 if not preview_result or not preview_result.proposals:
                     # Nema prijedloga — prikaži poruku i završi bez pisanja
-                    from services.tariff.tariff_mapping_service import MappingResult
-                    empty = MappingResult(
-                        total_items=len(target_lines),
-                        matched_items=0,
-                        unmatched_items=len(target_lines) - len(skipped_details),
-                    )
-                    empty.skipped_items = len(skipped_details)
-                    empty.skipped_details = skipped_details
+                    if controller is not None:
+                        empty = controller.empty_auto_fill_result(
+                            len(target_lines),
+                            skipped_details,
+                        )
+                    else:
+                        empty = workflow.empty_result(len(target_lines), skipped_details)
                     self._show_tariff_mapping_result(empty, basic_filled_count)
                     return empty
 
@@ -5295,24 +5267,30 @@ class FakturaView(BaseTabView):
                 progress = None
                 preview_result = None
 
-            # Primijeni (ili auto mod bez potvrde) — undo snapshot je već
-            # napravljen prije fill_basic_fields() iznad.
+            confirmed_proposals = None
             if preview_result is not None:
                 # Interaktivni tok: upiši TAČNO ono što je odobreno u dijalogu,
                 # bez ponovnog računanja (preview ≡ upis — vidi
                 # project_rooms/2026-07-21_preciznost-tarifnih-prijedloga.md).
-                result = facade.commit_proposals(target_lines, preview_result.proposals)
-            else:
-                result = facade.auto_populate_tariffs(
-                    target_lines,
-                    min_similarity=0.92,
-                    overwrite_existing=False,
-                    supplier=supplier_name,
-                )
+                confirmed_proposals = preview_result.proposals
 
-            # Dodaj skipped info u result
-            result.skipped_items = len(skipped_details)
-            result.skipped_details = skipped_details
+            request = AutoFillWorkflowRequest(
+                target_lines=target_lines,
+                supplier_name=supplier_name,
+                auto=auto,
+                confirmed_proposals=confirmed_proposals,
+                basic_filled_count=basic_filled_count,
+            )
+            workflow_result = (
+                controller.auto_fill_workflow(request)
+                if controller is not None
+                else workflow.run(request)
+            )
+            if workflow_result.error:
+                raise workflow_result.error
+
+            result = workflow_result.mapping_result
+            supplier_name = workflow_result.supplier_name
 
             if progress is not None:
                 progress.setValue(len(target_lines))
@@ -5354,13 +5332,10 @@ class FakturaView(BaseTabView):
 
             # Sinhronizuj decision_state nakon auto-popune
             if result.matched_items > 0:
-                try:
-                    from services.decision.integration import sync_decision_state_after_autofill
-                    sync_decision_state_after_autofill(
-                        target_lines, supplier=supplier_name, action_type="auto_fill_clicked"
-                    )
-                except Exception:
-                    logger.warning("Decision sync autofill nije uspio", exc_info=True)
+                if controller is not None:
+                    controller.sync_auto_fill_decision_state(target_lines, supplier_name)
+                else:
+                    workflow.sync_decision_state(target_lines, supplier_name)
 
             return result
 
@@ -5369,6 +5344,32 @@ class FakturaView(BaseTabView):
             if not auto:
                 self.error_handler.handle_auto_fill_error(e)
             return None
+
+    def _auto_fill_target_lines(self, auto: bool):
+        selected_row = -1
+        selected_row_indexes = []
+        target_lines = self.draft.invoice_lines
+        if not auto and hasattr(self, "table"):
+            selection = self.table.selectionModel()
+            selected_rows = selection.selectedRows() if selection else []
+            if selected_rows:
+                row_indexes = sorted(
+                    {
+                        idx.row()
+                        for idx in selected_rows
+                        if 0 <= idx.row() < len(self.draft.invoice_lines)
+                    }
+                )
+                if row_indexes:
+                    selected_row_indexes = row_indexes
+                    selected_row = row_indexes[0]
+                    target_lines = [self.draft.invoice_lines[row] for row in row_indexes]
+            else:
+                target_lines = [
+                    l for l in self.draft.invoice_lines
+                    if not getattr(l, 'tarifni_broj', None)
+                ]
+        return target_lines, selected_row_indexes, selected_row
 
     def _show_tariff_mapping_result(self, result, basic_filled_count: int):
         """
@@ -5449,9 +5450,6 @@ class FakturaView(BaseTabView):
             message += "   sistem će ih zapamtiti za buduće uvoza."
 
         self._show_scrollable_info_dialog("Auto-popuni - Rezultati", message)
-
-    def auto_fill(self, auto: bool = False):
-        return self._on_auto_fill(auto=auto)
 
     def _get_tariff_description(self, tariff_code: str) -> str:
         """Dohvati kratki opis tarifnog broja iz tarifa_2026 (hijerarhijski).

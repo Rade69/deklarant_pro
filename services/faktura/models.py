@@ -64,6 +64,25 @@ class TariffAutoFillResult:
 
 
 @dataclass
+class AutoFillWorkflowRequest:
+    target_lines: list = field(default_factory=list)
+    supplier_name: str = ""
+    auto: bool = False
+    confirmed_proposals: list | None = None
+    min_similarity: float = 0.92
+    basic_filled_count: int | None = None
+
+
+@dataclass
+class AutoFillWorkflowResult:
+    mapping_result: object | None = None
+    basic_filled_count: int = 0
+    supplier_name: str = ""
+    skipped_details: list[tuple[int, str, str]] = field(default_factory=list)
+    error: Exception | None = None
+
+
+@dataclass
 class NaimenovanjaCreationResult:
     created_count: int = 0
     split_count: int = 0

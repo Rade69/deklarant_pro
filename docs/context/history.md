@@ -3297,3 +3297,19 @@ toolbar neto fallback kada fakture nemaju neto, sumnjivi fallback za stavke bez
 broja fakture, boolean ugovor za Agent pipeline, dirty/data_changed i root/dist_client
 paritet. Test kapija: ciljano 64/64; širi Faktura/Agent skup 153/153 uz
 `-m "not integration"`.
+
+---
+
+## 112. Faktura Cleanup Faza C — auto-fill kroz Service/Controller (2026-07-30)
+
+Cleanup Faza C migrira auto-fill orkestraciju iz `FakturaView._on_auto_fill`
+u `AutoFillWorkflowService` sa `AutoFillWorkflowRequest/Result`. View i dalje
+bira target redove, prikazuje progress/preview dijalog, radi reload i poruke,
+dok Controller/Service pokrivaju basic-fill, skipped metadata, dry-run preview,
+commit potvrđenih prijedloga i auto mode bez ponovnog računanja.
+
+Zadržane invarijante: `min_similarity=0.92`, `overwrite_existing=False`,
+preview ≡ commit preko `commit_proposals`, auto-fill ne dira povlastice,
+decision sync ostaje post-action hook, `_on_auto_fill` ostaje wrapper i
+root/dist_client paritet uključuje novi servis. Test kapija: ciljano 63/63;
+širi Faktura/Agent skup 165/165 uz `-m "not integration"`.

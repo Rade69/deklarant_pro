@@ -171,6 +171,7 @@ class TestDistStandalone:
             "services/faktura/models.py",
             "services/faktura/faktura_service.py",
             "services/faktura/mass_workflow_service.py",
+            "services/faktura/auto_fill_workflow_service.py",
         ],
     )
     def test_dist_faktura_modules_match_root(self, relative_path):
@@ -332,7 +333,7 @@ class TestNoDoubleValidation:
         assert view._on_calculate_masses(auto=True) is True
         assert called == [True]
 
-    def test_faktura_tab_auto_fill_uses_view_adapter(self, qtbot, monkeypatch):
+    def test_faktura_tab_auto_fill_uses_controller_service(self, qtbot, monkeypatch):
         from gui.tabs.faktura_tab import FakturaTab
 
         draft = DeclarationDraft()
@@ -342,14 +343,14 @@ class TestNoDoubleValidation:
         called = []
         monkeypatch.setattr(
             tab.view,
-            "_on_auto_fill",
-            lambda auto=False: called.append(auto) or result,
+            "auto_fill",
+            lambda auto=False, controller=None: called.append((auto, controller)) or result,
         )
 
         assert tab.auto_fill(auto=True) is result
-        assert called == [True]
+        assert called == [(True, tab.controller)]
 
-    def test_faktura_view_auto_fill_is_public_adapter(self, qtbot, monkeypatch):
+    def test_faktura_view_private_auto_fill_is_wrapper(self, qtbot, monkeypatch):
         from gui.tabs.faktura_view import FakturaView
 
         draft = DeclarationDraft()
@@ -359,11 +360,11 @@ class TestNoDoubleValidation:
         called = []
         monkeypatch.setattr(
             view,
-            "_on_auto_fill",
+            "auto_fill",
             lambda auto=False: called.append(auto) or result,
         )
 
-        assert view.auto_fill(auto=True) is result
+        assert view._on_auto_fill(auto=True) is result
         assert called == [True]
 
     def test_auto_fill_button_emits_signal_not_private_handler(self, qtbot, monkeypatch):
