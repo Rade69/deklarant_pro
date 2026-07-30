@@ -316,7 +316,9 @@ def _puna_auto_pipeline(ctrl, fw, chat, all_lines: list) -> None:
     # ne izmišlja novu poslovnu logiku za "šta je kritično".
     chat.add_activity("🔍 [Auto] Validacija stavki...")
     try:
-        if fw and hasattr(fw, '_on_validate_all'):
+        if fw and hasattr(fw, 'validate'):
+            ok, error_count, warning_count = fw.validate(auto=True)
+        elif fw and hasattr(fw, '_on_validate_all'):
             ok, error_count, warning_count = fw._on_validate_all(auto=True)
         else:
             ok, error_count, warning_count = False, -1, -1

@@ -34,6 +34,7 @@ def mock_fw():
     fw = MagicMock()
     fw._on_calculate_masses.return_value = True
     fw._on_auto_fill.return_value = MagicMock(matched_items=1)
+    fw.validate.return_value = (True, 0, 0)
     fw._on_validate_all.return_value = (True, 0, 0)
     fw._on_create_naimenovanja.return_value = True
     return fw
@@ -119,7 +120,8 @@ class TestUspjesanTok:
         assert any("Puna automatizacija završena!" in m for m in messages)
         assert not any("zaustavljena" in m or "djelimično" in m for m in messages)
         mock_fw._on_calculate_masses.assert_called_once_with(auto=True)
-        mock_fw._on_validate_all.assert_called_once_with(auto=True)
+        mock_fw.validate.assert_called_once_with(auto=True)
+        mock_fw._on_validate_all.assert_not_called()
         mock_fw._on_create_naimenovanja.assert_called_once_with(auto=True)
         completion_sound.assert_called_once_with("success")
 
@@ -181,7 +183,7 @@ class TestKritickeFazePadaju:
         _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
 
         mock_fw._on_auto_fill.assert_not_called()
-        mock_fw._on_validate_all.assert_not_called()
+        mock_fw.validate.assert_not_called()
         mock_fw._on_create_naimenovanja.assert_not_called()
         messages = _agent_messages(mock_chat)
         assert any("zaustavljena" in m and "mase" in m for m in messages)
@@ -200,7 +202,7 @@ class TestKritickeFazePadaju:
     def test_validacija_sa_kritickim_greskama_zaustavlja_prije_naimenovanja(
         self, mock_ctrl, mock_fw, mock_chat
     ):
-        mock_fw._on_validate_all.return_value = (True, 3, 1)  # 3 kritične greške
+        mock_fw.validate.return_value = (True, 3, 1)  # 3 kritične greške
 
         _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
 
@@ -209,7 +211,7 @@ class TestKritickeFazePadaju:
         assert any("zaustavljena" in m and "validacija" in m for m in messages)
 
     def test_validacija_koja_ne_moze_biti_izvrsena_zaustavlja(self, mock_ctrl, mock_fw, mock_chat):
-        mock_fw._on_validate_all.return_value = (False, -1, -1)
+        mock_fw.validate.return_value = (False, -1, -1)
 
         _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
 
@@ -258,7 +260,7 @@ class TestParcijalniRezultat:
     def test_validacija_sa_samo_upozorenjima_nastavlja_i_daje_partial(
         self, mock_ctrl, mock_fw, mock_chat, completion_sound
     ):
-        mock_fw._on_validate_all.return_value = (True, 0, 2)  # 0 grešaka, 2 upozorenja
+        mock_fw.validate.return_value = (True, 0, 2)  # 0 grešaka, 2 upozorenja
 
         _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
 

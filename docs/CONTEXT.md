@@ -3311,3 +3311,26 @@ emituju signal moraju patchovati `SafeMessageBox` jer aktivni ručni tok sada,
 kao prava aplikacija, prikazuje modal.
 
 Test kapija: 69/69 za Faza 0-4 Faktura/ledger skup.
+
+---
+
+## 100. Faktura 3-layer Faza 5 — javni validation API za Agent pipeline (2026-07-30)
+
+Agent Puna automatizacija više ne mora direktno pozivati privatni
+`FakturaView._on_validate_all(auto=True)`. Uveden je javni `validate(auto=True)`
+adapter na `FakturaTab` i kompatibilni adapter na `FakturaView`, jer trenutni
+Agent kod u nekim putanjama i dalje dobija sam View (`AgentController._faktura_view`).
+`_puna_auto_pipeline` prvo pokušava `fw.validate(auto=True)`, a privatni
+`_on_validate_all(auto=True)` ostaje samo fallback dok svi vanjski pozivaoci ne
+pređu na javni `FakturaTab` API.
+
+Ovo nije potpuna migracija automatske validacije u Controller/Service tok.
+Namjerno nije promijenjena unutrašnja logika `_on_validate_all(auto=True)`,
+generation token, historical worker ni import/puna automatizacija tajming.
+Faza 5 je mali adapter rez koji uklanja najvažniju Agent zavisnost od privatnog
+View imena, bez promjene poslovnog rezultata.
+
+Test kapija: 36/36 za javni validation API + Puna automatizacija pipeline;
+širi Faktura/Agent validacioni skup 107/107 uz `-m "not integration"`.
+Pokušaj sa integration ledger testovima imao je 2 DB greške zbog nedostupnog
+PostgreSQL servera na `192.168.100.154` / circuit breaker, ne zbog Faze 5.

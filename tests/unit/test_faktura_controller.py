@@ -227,3 +227,35 @@ class TestNoDoubleValidation:
         view.btn_validate.click()
 
         assert emitted == [("all", [])]
+
+    def test_faktura_tab_validate_auto_uses_view_validation_adapter(self, qtbot, monkeypatch):
+        from gui.tabs.faktura_tab import FakturaTab
+
+        draft = DeclarationDraft()
+        tab = FakturaTab(draft=draft)
+        qtbot.addWidget(tab)
+        called = []
+        monkeypatch.setattr(
+            tab.view,
+            "_on_validate_all",
+            lambda auto=False: called.append(auto) or (True, 0, 0),
+        )
+
+        assert tab.validate(auto=True) == (True, 0, 0)
+        assert called == [True]
+
+    def test_faktura_view_validate_is_public_adapter(self, qtbot, monkeypatch):
+        from gui.tabs.faktura_view import FakturaView
+
+        draft = DeclarationDraft()
+        view = FakturaView(draft=draft)
+        qtbot.addWidget(view)
+        called = []
+        monkeypatch.setattr(
+            view,
+            "_on_validate_all",
+            lambda auto=False: called.append(auto) or (True, 0, 0),
+        )
+
+        assert view.validate(auto=True) == (True, 0, 0)
+        assert called == [True]

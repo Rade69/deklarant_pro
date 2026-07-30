@@ -52,6 +52,16 @@ class FakturaTab(QWidget):
 
     # ── Signal handleri (delegiraju na Controller) ────────────────
 
+    def validate(self, auto: bool = False) -> tuple[bool, int, int]:
+        if auto:
+            return self.view._on_validate_all(auto=True)
+        self.view.validate_requested.emit("all", [])
+        return (
+            True,
+            self.view.validation_cache.get_error_count(),
+            self.view.validation_cache.get_warning_count(),
+        )
+
     def _on_import_requested(self, filepaths: list):
         """Import handler — delegira na postojeći FakturaView._start_import."""
         for fp in filepaths:
