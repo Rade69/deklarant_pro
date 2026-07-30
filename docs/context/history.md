@@ -3232,3 +3232,23 @@ ponašanje kreiranja naimenovanja.
 
 Test kapija: `test_faktura_controller.py` 31/31; širi Faktura/Agent skup
 138/138 uz `-m "not integration"`.
+
+---
+
+## 108. Faktura 3-layer stabilizacija ručnog toolbar toka (2026-07-30)
+
+Nakon Faza 10-12 potvrđena je mapa ručnih "pametnih" dugmadi u Faktura tabu:
+`Provjeri`, `Auto-popuni`, `Izračunaj mase` i `Kreiraj Naimenovanja` sada
+sva idu preko Qt signala iz View sloja. Samo `Provjeri` je pravi aktivni
+Controller/Service tok; ostala tri signala namjerno delegiraju na javne
+legacy adaptere (`auto_fill`, `calculate_masses`, `create_naimenovanja`) da bi
+se zadržao produkcioni paritet.
+
+Stabilizacioni fix: `_on_auto_fill_requested` i `_on_calculate_masses_requested`
+su ujednačeni sa create handlerom — više ne zovu direktno privatne View metode,
+nego javne adaptere na `FakturaTab`. Privatni `_on_*` handleri ostaju ispod
+adaptera kao autoritativni legacy tok dok ne dobiju zasebnu migracionu fazu.
+
+Test kapija: `test_faktura_controller.py` 32/32; širi Faktura/Agent skup
+139/139 uz `-m "not integration"`. Root/dist_client paritet potvrđen za
+`faktura_tab.py` i `faktura_view.py`.

@@ -166,18 +166,16 @@ class FakturaTab(QWidget):
         self.view._run_historical_tariff_validation(auto=False)
 
     def _on_auto_fill_requested(self):
-        """Auto-popuna tarifa — delegira na postojeći View handler."""
-        if hasattr(self.view, "_on_auto_fill"):
-            self.view._on_auto_fill()
+        """Auto-popuna tarifa — delegira na javni legacy adapter."""
+        return self.auto_fill(auto=False)
 
     def _on_create_naimenovanja_requested(self, auto: bool):
         """Kreiranje naimenovanja — delegira na javni legacy adapter."""
         return self.create_naimenovanja(auto=auto)
 
     def _on_calculate_masses_requested(self):
-        """Računanje masa — delegira na postojeći View handler."""
-        if hasattr(self.view, "_on_calculate_masses"):
-            self.view._on_calculate_masses()
+        """Računanje masa — delegira na javni legacy adapter."""
+        return self.calculate_masses(auto=False)
 
     def _on_delete_item_requested(self, row: int):
         """Brisanje stavke — Controller + View refresh."""

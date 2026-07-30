@@ -439,3 +439,35 @@ class TestNoDoubleValidation:
         tab.view.create_naimenovanja_requested.emit(False)
 
         assert called == [False]
+
+    def test_manual_toolbar_signal_map_is_stabilized(self, qtbot, monkeypatch):
+        from gui.tabs.faktura_tab import FakturaTab
+        from gui.utils.safe_message_box import SafeMessageBox
+
+        draft = DeclarationDraft()
+        draft.invoice_lines = [InvoiceLine(naziv_robe="Test", tarifni_broj="08052190")]
+        tab = FakturaTab(draft=draft)
+        qtbot.addWidget(tab)
+        tab.view.show()
+
+        calls = []
+        monkeypatch.setattr(SafeMessageBox, "information", lambda *args, **kwargs: None)
+        monkeypatch.setattr(SafeMessageBox, "warning", lambda *args, **kwargs: None)
+        monkeypatch.setattr(tab.view, "_run_historical_tariff_validation", lambda *args, **kwargs: None)
+        monkeypatch.setattr(tab, "auto_fill", lambda auto=False: calls.append(("auto_fill", auto)))
+        monkeypatch.setattr(tab, "calculate_masses", lambda auto=False: calls.append(("mase", auto)))
+        monkeypatch.setattr(
+            tab,
+            "create_naimenovanja",
+            lambda auto=False: calls.append(("naimenovanja", auto)) or True,
+        )
+
+        tab.view.btn_auto_fill.click()
+        tab.view.btn_calc_masses.click()
+        tab.view.btn_create_naimenovanja.click()
+
+        assert calls == [
+            ("auto_fill", False),
+            ("mase", False),
+            ("naimenovanja", False),
+        ]
