@@ -3252,3 +3252,17 @@ adaptera kao autoritativni legacy tok dok ne dobiju zasebnu migracionu fazu.
 Test kapija: `test_faktura_controller.py` 32/32; širi Faktura/Agent skup
 139/139 uz `-m "not integration"`. Root/dist_client paritet potvrđen za
 `faktura_tab.py` i `faktura_view.py`.
+
+---
+
+## 109. Faktura cleanup/migracioni manifest za legacy handlere (2026-07-30)
+
+Nakon stabilizacije ručnih toolbar signala napravljen je cleanup/migracioni
+manifest za naredne faze: `project_rooms/2026-07-30_faktura-cleanup-migracioni-manifest.md`.
+Manifest ne mijenja produkcioni kod; zaključava trenutnu mapu javnih ulaza,
+legacy `_on_*` handlera, invarijanti i uslova za buduće brisanje.
+
+Ključna odluka: agresivno brisanje legacy handlera nije dozvoljeno prije
+paritetnih testova i korisničkog E2E. Preporučeni redoslijed je prvo zaključati
+stanje testovima, zatim migrirati mase, potom auto-fill, a create-naimenovanja
+workflow ostaviti za kasniju, najoprezniju fazu.
