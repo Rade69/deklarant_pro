@@ -36,7 +36,7 @@ razgovor, prenosi artefakt** — i taj artefakt ima fiksnu, predvidivu formu.
 
 ---
 
-## Devet komponenti
+## Deset komponenti
 
 ### 1. Kanonski fajl pravila — jedan izvor istine
 
@@ -99,21 +99,45 @@ sprečava širenje scope-a i lažni utisak da je nešto provjereno), kako je
 VERIFIKOVANO, koji su rizici, i šta je otvoreno za sljedeći put. Fiksna
 šema garantuje da se ništa tiho ne preskoči — čak i kad je odgovor "nema".
 
-### 7. Artefakt umjesto razgovora — prelaz između faza
+### 7. Kod je samoobjašnjavajući; komentar linkuje, ne duplira
+
+Default je BEZ komentara — imena funkcija/metoda/varijabli nose "šta".
+Komentar u kodu se piše SAMO kad postoji neočigledan "zašto" (workaround,
+skrivena invarijanta, podmukao bug) koje ime samo ne može prenijeti — i
+tada je komentar KRATAK (jedna linija), ne objašnjenje u prozi. Ako je
+odluka dovoljno netrivijalna da zaslužuje pravo objašnjenje (alternative
+koje su razmotrene i odbačene, poslovni razlog, veza sa bugom), to
+objašnjenje ide u `agent_report` (komponenta #6), a komentar u kodu je
+samo pokazivač na njega:
+
+```python
+# Vidi agent_reports/2026-07-19_evidence-adapter-exact-match-fix.md
+```
+
+Razlog za razdvajanje: inline objašnjenje u komentaru i objašnjenje u
+`agent_report`-u lako divergiraju kad se kod kasnije mijenja — neko
+ažurira kod, zaboravi ažurirati dugačak komentar iznad njega, i sad
+komentar aktivno laže. Kratak link ne može zastarjeti na isti način
+(fajl ostaje istorijski tačan za trenutak kad je pisan), a jedini izvor
+istine za "zašto" je jedan fajl, ne razbacan po desetinama komentara.
+Kolateralna korist: kod ostaje kratak i čitljiv, umjesto da svaka
+netrivijalna odluka nabubri funkciju sa pasusom komentara.
+
+### 8. Artefakt umjesto razgovora — prelaz između faza
 
 Kad se faza rada promijeni (istraživanje → plan → implementacija →
 verifikacija), sljedeća faza dobija PRETHODNI ARTEFAKT (plan fajl,
 report), ne cijeli chat. Ovo je isti princip kao #2, primijenjen na tok
 rada unutar jedne sesije/zadatka, ne samo na dugoročnu memoriju.
 
-### 8. Git higijena vezana za sve gore
+### 9. Git higijena vezana za sve gore
 
 Atomski commit po logičkoj cjelini (ne "sve u jedan commit"), konvencija
 poruke (`tip(oblast): opis`), i po mogućnosti automatska provjera
 (pre-commit hook) koja podsjeća na proceduru — ne da bi blokirala rad, nego
 da bi bila spoljna memorija za korake koje je lako preskočiti pod pritiskom.
 
-### 9. Izolacija paralelnih agenata
+### 10. Izolacija paralelnih agenata
 
 Čim više od jednog agenta (ili automatizovanog pipeline-a) može raditi na
 istom kodu u isto vrijeme, dijeljeni working tree postaje rizik: agent A
@@ -157,10 +181,10 @@ interaktivne sesije.
 - Jednokratan skript, eksperiment, prototip bez budućnosti — sva ova
   ceremonija je čist overhead.
 - Solo rad, kratak vijek projekta, nema drugih agenata koji će ikad
-  dirati ovaj kod — komponente #1, #3, #6 i dalje vrijede u minimalnoj
-  formi (par rečenica prije/poslije), ali #5 (project_room), #9
-  (worktree izolacija) i formalni `docs/CONTEXT.md` split su suvišni dok
-  ne zatrebaju.
+  dirati ovaj kod — komponente #1, #3, #6, #7 i dalje vrijede u minimalnoj
+  formi (par rečenica prije/poslije; #7 posebno je jeftina navika bez
+  obzira na veličinu tima), ali #5 (project_room), #10 (worktree izolacija)
+  i formalni `docs/CONTEXT.md` split su suvišni dok ne zatrebaju.
 - Pravilo palca: uvedi komponentu kad je PRVI PUT stvarno nedostajala
   (agent je "popravio" namjerno pravilo natrag, izgubljena je odluka, dva
   agenta su se sudarila) — ne unaprijed "za svaki slučaj".
@@ -170,14 +194,17 @@ interaktivne sesije.
 ## Šta je univerzalno, šta je zamjenjivo
 
 **Univerzalno** (prenosi se skoro 1:1 na bilo koji softverski projekat, a
-vjerovatno i na drugi rad sa jasnim "artefaktima" i verzijama — pravni
-dokumenti, data pipeline konfiguracije, content sistemi): komponente #1,
-#2, #3, #5, #6, #7, #9.
+komponente #1, #2, #3, #5, #6, #8, #10 vjerovatno i na drugi rad sa jasnim
+"artefaktima" i verzijama — pravni dokumenti, data pipeline konfiguracije,
+content sistemi): komponente #1, #2, #3, #5, #6, #7, #8, #10. Komponenta
+#7 (samoobjašnjavajući kod) je specifično za rad SA KODOM — ne prenosi se
+1:1 na ne-kodni rad, ali analogija postoji (kratka bilješka koja linkuje
+na detaljan zapis, umjesto dugog inline objašnjenja u samom dokumentu).
 
 **Zamjenjivo** (princip ostaje, alat/implementacija se mijenja po
 projektu): komponenta #4 (code-graph alat vs grep vs IDE), tačan format
 memorije u komponenti #2 (fajl-baziran vs vector store vs MCP server),
-git hook mehanizam u komponenti #8.
+git hook mehanizam u komponenti #9.
 
 **Projekt-specifično** (ne prenosi se — ovo su primjeri, ne šablon): sva
 konkretna poslovna pravila, tech stack, zabrane specifične za jedan

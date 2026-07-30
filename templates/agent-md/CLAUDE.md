@@ -106,8 +106,14 @@ stvarnim pravilima ovog projekta):
   - Ne dodavati error handling/validaciju za scenarije koji se ne mogu
     desiti — validacija samo na granicama sistema (korisnički unos, eksterni
     API)
-  - Default: bez komentara. Komentar samo kad objašnjava NEOČIGLEDAN "zašto"
-    (workaround, invarijanta, podmukli bug) — ne "šta" (to vide imena)
+  - Default: bez komentara — imena funkcija/metoda/varijabli nose "šta",
+    ne treba to ponavljati u komentaru. Komentar samo kad objašnjava
+    NEOČIGLEDAN "zašto" (workaround, invarijanta, podmukli bug), i tad je
+    KRATAK (jedna linija). Ako "zašto" zaslužuje pravo objašnjenje
+    (alternative koje su razmotrene, poslovni razlog), to ide u
+    `agent_report` (vidi "Korak 4 — Link u kodu" ispod), ne u dug komentar
+    u samom kodu — dugi inline komentar lako zastari kad se kod promijeni
+    a komentar ne, i onda aktivno laže
 
 ---
 

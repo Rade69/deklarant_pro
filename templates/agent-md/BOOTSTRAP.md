@@ -106,6 +106,18 @@ docstrings, pola nema) → napiši to kao zapažanje, ne kao pravilo, i
 flag za odluku ("projekat nema dosljednu konvenciju za X — predložiti
 korisniku da odluči").
 
+**Provjera specifično za "Stil koda" default (bez komentara + link ka
+agent_report umjesto inline objašnjenja, vidi `CLAUDE.md`)**: ako
+uzorkovani fajlovi pokazuju DOSLJEDNU, drugačiju postojeću konvenciju
+(npr. obavezan JSDoc/Javadoc na svakoj public funkciji, ili opsežni
+inline komentari koji su očigledno namjeran standard tima, ne zapušten
+kod) — NE prepisuj template default preko toga. Flaguj za odluku
+("postojeći kod dosljedno koristi X stil komentarisanja, template
+default je Y — koji zadržati?"). Ako je postojeći kod nekonzistentan bez
+jasnog standarda, template default (minimalni komentari + link ka
+`agent_report` za netrivijalne odluke) ostaje kao predloženo pravilo
+ubuduće, bez potrebe za potvrdom.
+
 ---
 
 ## Korak 4 — testovi (dokaz: test config + CI + postojeći testovi)
