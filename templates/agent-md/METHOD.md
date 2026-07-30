@@ -130,7 +130,13 @@ interaktivne sesije.
 
 1. Kopirati `AGENTS.md` i `CLAUDE.md` (ili samo `CLAUDE.md` ako je jedini
    agent Claude Code) u korijen novog projekta, popuniti sve
-   `<<< POPUNI: ... >>>` placeholdere.
+   `<<< POPUNI: ... >>>` placeholdere. **Za postojeću kodnu bazu**, ovaj
+   korak ne mora biti ručan — `BOOTSTRAP.md` (isti folder) je striktna
+   procedura koju agent (Claude, Codex, bilo koji CLI agent) izvršava sam:
+   skenira tech stack, strukturu, konvencije i istoriju, popunjava
+   placeholdere sa dokazom (fajl/linija) gdje je siguran, i eksplicitno
+   flaguje za ljudsku potvrdu sve što je poslovna odluka a ne vidljiva
+   činjenica iz koda.
 2. Napraviti prazne foldere `agent_reports/` i (opciono, dok ne zatreba)
    `project_rooms/`.
 3. NE praviti `docs/CONTEXT.md`/`docs/context/history.md` unaprijed — tek

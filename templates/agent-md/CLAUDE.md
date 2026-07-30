@@ -17,6 +17,12 @@
 > samo forma), pročitati `METHOD.md` u istom folderu. `agent_report_template.md`
 > i `project_room_template.md` (isti folder) su prazni fajlovi za kopiranje
 > koji operacionalizuju sekcije "Agent report" i "Plan prije izmjene" ispod.
+>
+> Ako ove placeholdere popunjava AGENT (ne čovjek ručno) — npr. kad se
+> metoda prvi put uvodi u postojeću kodnu bazu — koristiti `BOOTSTRAP.md`
+> (isti folder): to je striktna, agent-izvršiva procedura koja skenira
+> projekat i popunjava `<<< POPUNI >>>` mjesta na osnovu dokaza iz koda,
+> uz eksplicitnu zabranu izmišljanja poslovnih pravila.
 
 ---
 
