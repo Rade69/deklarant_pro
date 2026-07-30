@@ -90,7 +90,7 @@ Nema funkcionalnih kontradikcija. Jedina procesna napomena je da je drugi agent 
 
 | Hash | Poruka |
 | --- | --- |
-| pending | `refactor(faktura): izdvoji create naimenovanja post akcije` |
+| e55caa4 | `refactor(faktura): izdvoji create naimenovanja post akcije` |
 
 ## Rizici / ograničenja
 
