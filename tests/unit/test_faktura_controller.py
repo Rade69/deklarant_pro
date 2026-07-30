@@ -291,3 +291,35 @@ class TestNoDoubleValidation:
 
         assert view.create_naimenovanja(auto=True) is True
         assert called == [True]
+
+    def test_faktura_tab_calculate_masses_uses_view_adapter(self, qtbot, monkeypatch):
+        from gui.tabs.faktura_tab import FakturaTab
+
+        draft = DeclarationDraft()
+        tab = FakturaTab(draft=draft)
+        qtbot.addWidget(tab)
+        called = []
+        monkeypatch.setattr(
+            tab.view,
+            "_on_calculate_masses",
+            lambda auto=False: called.append(auto) or True,
+        )
+
+        assert tab.calculate_masses(auto=True) is True
+        assert called == [True]
+
+    def test_faktura_view_calculate_masses_is_public_adapter(self, qtbot, monkeypatch):
+        from gui.tabs.faktura_view import FakturaView
+
+        draft = DeclarationDraft()
+        view = FakturaView(draft=draft)
+        qtbot.addWidget(view)
+        called = []
+        monkeypatch.setattr(
+            view,
+            "_on_calculate_masses",
+            lambda auto=False: called.append(auto) or True,
+        )
+
+        assert view.calculate_masses(auto=True) is True
+        assert called == [True]

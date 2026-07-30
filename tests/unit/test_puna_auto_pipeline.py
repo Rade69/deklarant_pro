@@ -32,6 +32,7 @@ def mock_ctrl():
 @pytest.fixture
 def mock_fw():
     fw = MagicMock()
+    fw.calculate_masses.return_value = True
     fw._on_calculate_masses.return_value = True
     fw._on_auto_fill.return_value = MagicMock(matched_items=1)
     fw.validate.return_value = (True, 0, 0)
@@ -120,7 +121,8 @@ class TestUspjesanTok:
         messages = _agent_messages(mock_chat)
         assert any("Puna automatizacija završena!" in m for m in messages)
         assert not any("zaustavljena" in m or "djelimično" in m for m in messages)
-        mock_fw._on_calculate_masses.assert_called_once_with(auto=True)
+        mock_fw.calculate_masses.assert_called_once_with(auto=True)
+        mock_fw._on_calculate_masses.assert_not_called()
         mock_fw.validate.assert_called_once_with(auto=True)
         mock_fw._on_validate_all.assert_not_called()
         mock_fw.create_naimenovanja.assert_called_once_with(auto=True)
@@ -155,7 +157,7 @@ class TestPreskociMaseAkoVecPopunjene:
 
         _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
 
-        mock_fw._on_calculate_masses.assert_not_called()
+        mock_fw.calculate_masses.assert_not_called()
         messages = _agent_messages(mock_chat)
         assert not any("zaustavljena" in m for m in messages)
 
@@ -170,7 +172,8 @@ class TestPreskociMaseAkoVecPopunjene:
 
         _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
 
-        mock_fw._on_calculate_masses.assert_called_once_with(auto=True)
+        mock_fw.calculate_masses.assert_called_once_with(auto=True)
+        mock_fw._on_calculate_masses.assert_not_called()
 
 
 class TestKritickeFazePadaju:
@@ -180,7 +183,7 @@ class TestKritickeFazePadaju:
     def test_pad_izracuna_masa_zaustavlja_sve_naredne_faze(
         self, mock_ctrl, mock_fw, mock_chat, completion_sound
     ):
-        mock_fw._on_calculate_masses.return_value = False
+        mock_fw.calculate_masses.return_value = False
 
         _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
 
@@ -195,7 +198,7 @@ class TestKritickeFazePadaju:
     def test_izuzetak_u_izracunu_masa_ne_probija_pipeline(self, mock_ctrl, mock_fw, mock_chat):
         """Ako View metoda baci izuzetak (a ne samo vrati False), pipeline i
         dalje mora ispravno zaustaviti — ne propagirati izuzetak dalje."""
-        mock_fw._on_calculate_masses.side_effect = RuntimeError("neočekivano")
+        mock_fw.calculate_masses.side_effect = RuntimeError("neočekivano")
 
         _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])  # ne smije baciti
 

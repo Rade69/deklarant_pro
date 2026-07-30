@@ -3357,3 +3357,24 @@ zamjena za cijeli View tok.
 
 Test kapija: 38/38 za javni create-naimenovanja API + Puna automatizacija
 pipeline; širi Faktura/Agent skup 109/109 uz `-m "not integration"`.
+
+---
+
+## 102. Faktura 3-layer Faza 7 — javni calculate-masses API za Agent pipeline (2026-07-30)
+
+Agent Puna automatizacija više ne mora direktno pozivati privatni
+`FakturaView._on_calculate_masses(auto=True)`. Uveden je javni
+`calculate_masses(auto=True)` adapter na `FakturaTab` i kompatibilni adapter
+na `FakturaView`, jer trenutni Agent tok još uvijek u nekim putanjama radi sa
+View objektom. `_puna_auto_pipeline` prvo pokušava javni
+`fw.calculate_masses(auto=True)`, a privatni `_on_calculate_masses` ostaje
+fallback dok se svi pozivaoci ne prebace na javni `FakturaTab` API.
+
+Ovo nije potpuna migracija masa u Controller/Service tok. Postojeći legacy View
+tok ostaje autoritativan za auto režim jer sadrži toolbar parsing, per-invoice
+težine, fallback za stavke bez fakture, suspicious fallback guard, poruke,
+reload tabele i dirty/data_changed semantiku. Ručni toolbar klik još nije
+prespojen na javni signal.
+
+Test kapija: 40/40 za javni calculate-masses API + Puna automatizacija
+pipeline; širi Faktura/Agent/mase skup 131/131 uz `-m "not integration"`.

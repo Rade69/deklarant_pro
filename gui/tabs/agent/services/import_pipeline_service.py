@@ -258,7 +258,12 @@ def _puna_auto_pipeline(ctrl, fw, chat, all_lines: list) -> None:
     if bez_mase > 0:
         chat.add_activity("⚖️ [Auto] Izračunavam mase...")
         try:
-            ok = bool(fw and hasattr(fw, '_on_calculate_masses') and fw._on_calculate_masses(auto=True))
+            if fw and hasattr(fw, 'calculate_masses'):
+                ok = bool(fw.calculate_masses(auto=True))
+            elif fw and hasattr(fw, '_on_calculate_masses'):
+                ok = bool(fw._on_calculate_masses(auto=True))
+            else:
+                ok = False
         except Exception as e:
             logger.error("[Puna automatizacija] Izračun masa — neočekivan izuzetak: %s", e, exc_info=True)
             ok = False

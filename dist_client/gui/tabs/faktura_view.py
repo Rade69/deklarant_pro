@@ -5237,6 +5237,9 @@ class FakturaView(BaseTabView):
         self.data_changed.emit()
         return True
 
+    def calculate_masses(self, auto: bool = False) -> bool:
+        return self._on_calculate_masses(auto=auto)
+
     def _on_auto_fill(self, auto=False):
         """
         Auto-popuni tarifne brojeve iz baze znanja.
