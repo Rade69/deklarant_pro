@@ -26,9 +26,39 @@
 nekomitovan rad (vidi "Paralelni agenti" u Sekciji 2). Ne pokretati širok
 `git add` preko tuđih izmjena.
 
-**Ako u korijenu VEĆ postoji drugi `AGENTS.md`/`CLAUDE.md`** (ne ovaj
-fajl) — NE prepisivati ga bez pitanja. Prikazati korisniku predloženu
-dopunu/spajanje i tražiti potvrdu.
+**Ako u korijenu VEĆ postoji `CLAUDE.md`/`AGENTS.md`** (ovaj fajl je
+odvojen, npr. pod imenom `UNIVERSAL_CLAUDE.md` ili slično — NIKAD ga
+prvo ne preimenovati preko postojećeg, to je posao agenta, ne korisnika) —
+ovo je OČEKIVAN slučaj, ne rijedak izuzetak (većina projekata u
+poodmakloj fazi već ima neki CLAUDE.md). Postupak je MERGE, ne
+zamjena:
+
+1. Pročitaj postojeći `CLAUDE.md` u cijelosti PRIJE bilo čega drugog.
+2. **Sve što je u njemu — projektne konvencije, poslovna pravila, tech
+   stack, arhitektura, zabrane, bilo šta specifično za taj projekat —
+   ZADRŽATI DOSLOVNO.** Postojeći fajl je ljudski kurirano znanje, po
+   pravilu tačnije od bilo čega što bi svježi sken koda mogao zaključiti
+   — ne prepisivati ga "ljepšim" ili "strukturiranijim" tekstom, ne
+   sažimati, ne "čistiti".
+3. Iz ovog fajla (Sekcija 2) dodati SAMO strukturne dijelove kojih u
+   postojećem `CLAUDE.md` nema (tipično: Token budget, Paralelni agenti,
+   Reprodukcija prije bugfixa, Definition of Done po tipu promjene,
+   Podjela odgovornosti, Nezavisna provjera, ažurirana agent_report/
+   project_room šema, pravilo za kasniju podjelu fajla). Ako postojeći
+   fajl već ima nešto ekvivalentno pod drugim imenom/formulacijom (npr.
+   već ima neki risk-tiering ili checklist), NE duplirati — prikazati oba
+   teksta korisniku i pitati koji zadržati ili kako spojiti.
+4. Napraviti **konkretan predlog spojenog teksta** (cijeli novi `CLAUDE.md`
+   sadržaj) i prikazati ga korisniku PRIJE bilo kakvog upisa na disk.
+5. Tek nakon eksplicitne korisničke potvrde, upisati spojeni sadržaj u
+   postojeći `CLAUDE.md` (prepisati TAJ fajl, ne kreirati novi pored
+   njega). Fajl korišćen za prijenos principa (`UNIVERSAL_CLAUDE.md` ili
+   kako je nazvan) se poslije može obrisati — svrha mu je bila samo
+   referenca za spajanje, ne trajno postojanje u projektu.
+
+Ako korisnik da ovaj fajl agentu BEZ postojećeg CLAUDE.md u projektu
+(prazan/nov projekat), koraci 1-3 se preskaču — nastaviti direktno na
+skeniranje ispod i popuniti `<<< POPUNI >>>` mjesta u ovom istom fajlu.
 
 Zatim, sledećim redom, POTVRDI DOKAZOM (fajl/linija/komanda) prije upisa
 — nikad ne pretpostaviti ni izmisliti:
