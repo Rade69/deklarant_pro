@@ -135,6 +135,38 @@ class TestUspjesanTok:
         mock_fw.auto_fill.assert_not_called()
 
 
+class TestJavniApiIFallback:
+    def test_legacy_fallback_ostaje_ziv_kad_javni_api_ne_postoji(
+        self, mock_ctrl, mock_chat, completion_sound
+    ):
+        line = _line(tarifni_broj="", bruto_kg=0, neto_kg=0)
+        mock_ctrl.draft.invoice_lines = [line]
+        mock_ctrl.draft.items = [MagicMock()]
+
+        class LegacyFakturaView:
+            def __init__(self):
+                self._on_calculate_masses = MagicMock(return_value=True)
+                self._on_auto_fill = MagicMock(side_effect=self._auto_fill)
+                self._on_validate_all = MagicMock(return_value=(True, 0, 0))
+                self._on_create_naimenovanja = MagicMock(return_value=True)
+
+            def _auto_fill(self, auto=False):
+                line.tarifni_broj = "12345678"
+                return MagicMock(matched_items=1)
+
+        fw = LegacyFakturaView()
+
+        _puna_auto_pipeline(mock_ctrl, fw, mock_chat, [])
+
+        fw._on_calculate_masses.assert_called_once_with(auto=True)
+        fw._on_auto_fill.assert_called_once_with(auto=True)
+        fw._on_validate_all.assert_called_once_with(auto=True)
+        fw._on_create_naimenovanja.assert_called_once_with(auto=True)
+        messages = _agent_messages(mock_chat)
+        assert any("Puna automatizacija završena!" in m for m in messages)
+        completion_sound.assert_called_once_with("success")
+
+
 class TestPreskociMaseAkoVecPopunjene:
     """
     Popravka (2026-07-28): _on_calculate_masses(auto=True) vraća False i
