@@ -76,7 +76,7 @@ Potrebna korisnička potvrda: NE.
 
 | Hash | Poruka |
 | --- | --- |
-| pending | `test(faktura): zakljucaj cleanup faza a javne ulaze` |
+| 5cdb6e0 | `test(faktura): zakljucaj cleanup faza a javne ulaze` |
 
 ## Rizici / ograničenja
 
