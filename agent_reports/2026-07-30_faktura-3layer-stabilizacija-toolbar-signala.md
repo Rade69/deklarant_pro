@@ -82,7 +82,7 @@ Potrebna korisnička potvrda: NE.
 
 | Hash | Poruka |
 | --- | --- |
-| pending | `refactor(faktura): stabilizuj toolbar signalne adaptere` |
+| 8275398 | `refactor(faktura): stabilizuj toolbar signalne adaptere` |
 
 ## Rizici / ograničenja
 
