@@ -172,6 +172,7 @@ class TestDistStandalone:
             "services/faktura/faktura_service.py",
             "services/faktura/mass_workflow_service.py",
             "services/faktura/auto_fill_workflow_service.py",
+            "services/faktura/create_naimenovanja_workflow_service.py",
         ],
     )
     def test_dist_faktura_modules_match_root(self, relative_path):

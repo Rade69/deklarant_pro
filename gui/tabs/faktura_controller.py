@@ -103,22 +103,17 @@ class FakturaController(QObject):
     def create_naimenovanja(self, draft) -> dict:
         """Kreiraj naimenovanja iz invoice_lines."""
         result = {"count": 0, "error": None}
-        try:
-            from services.naimenovanja.create_naimenovanja_service import CreateNaimenovanjaService
-            svc = CreateNaimenovanjaService(draft)
-            count = svc.create_smart_group()
-            result["count"] = count
-            try:
-                from services.tariff_facade import TariffFacade
-                TariffFacade.get_instance().learn_from_draft(
-                    draft.invoice_lines,
-                    draft_uid=getattr(draft, "draft_uid", "") or "",
-                )
-            except Exception as e:
-                logger.warning("TariffFacade.learn_from_draft failed: %s", e)
-        except Exception as e:
+        from services.faktura.create_naimenovanja_workflow_service import (
+            CreateNaimenovanjaWorkflowService,
+        )
+        workflow_result = CreateNaimenovanjaWorkflowService().create_for_drafts([draft])
+        if workflow_result.error:
+            e = workflow_result.error
             logger.exception("create_naimenovanja failed")
             result["error"] = str(e)
+            return result
+        if workflow_result.draft_results:
+            result["count"] = workflow_result.draft_results[0].count
         return result
 
     # ── Mase (Faza 6) ────────────────────────────────────────

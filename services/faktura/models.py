@@ -91,6 +91,25 @@ class NaimenovanjaCreationResult:
 
 
 @dataclass
+class CreateNaimenovanjaDraftResult:
+    draft: object
+    count: int = 0
+    split_info: object | None = None
+    learning_count: int = 0
+    learning_error: str = ""
+
+
+@dataclass
+class CreateNaimenovanjaWorkflowResult:
+    draft_results: list[CreateNaimenovanjaDraftResult] = field(default_factory=list)
+    error: Exception | None = None
+
+    @property
+    def total_count(self) -> int:
+        return sum(result.count for result in self.draft_results)
+
+
+@dataclass
 class PartnerConsistencyResult:
     consistent: bool = True
     exporter_match: bool = True

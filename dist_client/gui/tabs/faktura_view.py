@@ -4322,8 +4322,10 @@ class FakturaView(BaseTabView):
             self.btn_create_naimenovanja.setEnabled(False)
             self.btn_create_naimenovanja.setText("Kreiram...")
             QCoreApplication.processEvents()
-        from services.naimenovanja.create_naimenovanja_service import CreateNaimenovanjaService
         from services.faktura.declaration_split_service import group_label as _group_label
+        from services.faktura.create_naimenovanja_workflow_service import (
+            CreateNaimenovanjaWorkflowService,
+        )
 
         try:
             logger.debug(f"\n{'='*80}")
@@ -4363,27 +4365,22 @@ class FakturaView(BaseTabView):
                     logger.debug("🔍 [_on_create_naimenovanja] Korisnik odustao na pre-flight")
                     return False
 
-            # Kreiraj naimenovanja za svaki draft
-            results = []  # [(draft, count, split_info)]
-            for draft in drafts_to_process:
-                svc = CreateNaimenovanjaService(draft)
-                cnt = svc.create_smart_group()
-                si = getattr(svc, "last_split_info", None)
-                results.append((draft, cnt, si))
+            workflow = CreateNaimenovanjaWorkflowService()
+            workflow_result = workflow.create_for_drafts(drafts_to_process)
+            if workflow_result.error:
+                raise workflow_result.error
+
+            results = [
+                (result.draft, result.count, result.split_info)
+                for result in workflow_result.draft_results
+            ]
+            for draft, cnt, _ in results:
                 logger.info(
                     f"✅ [_on_create_naimenovanja] {_group_label(getattr(draft, '_country_group', ''), getattr(draft, '_currency_group', ''))}"
                     f": {cnt} naimenovanja"
                     if len(drafts_to_process) > 1
                     else f"✅ [_on_create_naimenovanja] Kreirano {cnt} naimenovanja"
                 )
-                # Auto-učenje za svaki draft
-                try:
-                    from services.tariff_facade import TariffFacade
-                    TariffFacade.get_instance().learn_from_draft(
-                        draft.invoice_lines, draft_uid=getattr(draft, 'draft_uid', '') or ''
-                    )
-                except Exception as e:
-                    logger.warning("Auto-učenje tarifa nije uspjelo: %s", e)
 
             # Prikaz rezultata (samo u interaktivnom modu)
             if not auto:
@@ -4448,12 +4445,7 @@ class FakturaView(BaseTabView):
                 logger.warning(f"⚠️ [_on_create_naimenovanja] Signal naimenovanja_created nije uspio: {e}")
 
             # Clear import service memory (za auto-kombinovanje Loren parova)
-            try:
-                from services.import_service import get_import_service
-                service = get_import_service()
-                service.clear_memory()
-            except Exception as e:
-                pass  # Ne blokiraj ako clear_memory ne uspije
+            workflow.clear_import_memory()
 
             return True
 

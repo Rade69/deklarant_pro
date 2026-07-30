@@ -3313,3 +3313,19 @@ preview ≡ commit preko `commit_proposals`, auto-fill ne dira povlastice,
 decision sync ostaje post-action hook, `_on_auto_fill` ostaje wrapper i
 root/dist_client paritet uključuje novi servis. Test kapija: ciljano 63/63;
 širi Faktura/Agent skup 165/165 uz `-m "not integration"`.
+
+---
+
+## 113. Faktura Cleanup Faza D1 — create-naimenovanja core servis (2026-07-30)
+
+Cleanup Faza D1 je prva, ograničena podfaza najrizičnijeg workflow-a
+`Kreiraj Naimenovanja`. Core dio kreiranja po draftovima je izdvojen u
+`CreateNaimenovanjaWorkflowService`: poziva `CreateNaimenovanjaService.create_smart_group`,
+prenosi `draft_uid` u `TariffFacade.learn_from_draft` i vraća strukturisan rezultat
+po draftu.
+
+View i dalje vodi split po zemljama, preflight dijalog, poruke, PE/inspection
+header sync, reload Faktura/Naimenovanja/Zaglavlje tabova, signal
+`naimenovanja_created` i kompatibilni `_on_create_naimenovanja` wrapper. Test kapija:
+ciljano 71/71; širi Faktura/Agent skup 165/165 bez DB-zavisnog ledger testa koji je
+timeoutovao na PostgreSQL serveru `192.168.100.154`.
