@@ -3329,3 +3329,37 @@ header sync, reload Faktura/Naimenovanja/Zaglavlje tabova, signal
 `naimenovanja_created` i kompatibilni `_on_create_naimenovanja` wrapper. Test kapija:
 ciljano 71/71; širi Faktura/Agent skup 165/165 bez DB-zavisnog ledger testa koji je
 timeoutovao na PostgreSQL serveru `192.168.100.154`.
+
+---
+
+## 114. Root AGENTS.md usklađen sa novom agent-md metodom (2026-07-30)
+
+Tri prethodne izmjene istog dana (§104 podjela CONTEXT.md, i dvije
+nadogradnje `templates/agent-md/` paketa — vidi `agent_reports/
+2026-07-30_agent-md-metoda-template-paket.md` i `agent_reports/
+2026-07-30_worker-checker-reprodukcija-dod.md`) su nove ideje ugradile u
+GENERIČKI template za buduće projekte, ali ne i u sam root `AGENTS.md`
+ovog projekta — korisnik je eksplicitno tražio gap-analizu i zatvaranje.
+
+7 rupa zatvoreno u root `AGENTS.md` (sve additive, bez brisanja
+postojećeg sadržaja): "Paralelni agenti — izolacija working tree-a"
+(eksplicitna zabrana `git add -A`/`.` u dijeljenom working tree-u —
+direktna posljedica sudara sa paralelnim Codex agentom ranije istog
+dana), "Reprodukcija prije bugfixa", "Definition of Done po tipu
+promjene" (GUI/PySide6, parseri/import, XML export ASYCUDA/PZT/CMR/DV1,
+baza/migracije na `dmserver`, tarifno matching/performanse, sigurnost),
+"Podjela odgovornosti" tabela, "Nezavisna provjera (checker)" —
+konkretizovano za ovaj projekat kao `/code-review`/`/security-review`
+skillovi ili druga paralelna agent sesija (Codex, druga Claude sesija).
+Korak 3 (agent_report) i "Plan prije izmjene" (project_room) sekcijske
+liste dopunjene novim poljima i upućene na `templates/agent-md/
+agent_report_template.md`/`project_room_template.md` kao copyable
+polaznu tačku umjesto paralelnog održavanja prozom.
+
+**Nije mijenjano**: component #7 ekvivalent (samoobjašnjavajući kod +
+kratak link ka `agent_report`) — root ga je već imao prije nego smo ga
+formalizovali u `METHOD.md` (logično, template je izveden IZ ovog
+projekta). GitNexus footer, Zabrane, Arhitektura, tarifna/naimenovanja
+pravila — netaknuto.
+
+Detalji: `agent_reports/2026-07-30_root-agents-md-usklada.md`.
