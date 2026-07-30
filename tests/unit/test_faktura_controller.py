@@ -167,15 +167,22 @@ class TestDistStandalone:
             "gui/tabs/faktura_controller.py",
             "gui/tabs/faktura_tab.py",
             "gui/tabs/faktura_view.py",
+            "gui/tabs/agent/services/import_pipeline_service.py",
             "services/faktura/models.py",
             "services/faktura/faktura_service.py",
         ],
     )
     def test_dist_faktura_modules_match_root(self, relative_path):
-        root_text = Path(relative_path).read_text(encoding="utf-8").replace("\r\n", "\n")
+        root_text = (
+            Path(relative_path)
+            .read_text(encoding="utf-8")
+            .lstrip("\ufeff")
+            .replace("\r\n", "\n")
+        )
         dist_text = (
             Path("dist_client", relative_path)
             .read_text(encoding="utf-8")
+            .lstrip("\ufeff")
             .replace("\r\n", "\n")
         )
         assert dist_text == root_text

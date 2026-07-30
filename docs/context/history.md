@@ -3266,3 +3266,19 @@ Ključna odluka: agresivno brisanje legacy handlera nije dozvoljeno prije
 paritetnih testova i korisničkog E2E. Preporučeni redoslijed je prvo zaključati
 stanje testovima, zatim migrirati mase, potom auto-fill, a create-naimenovanja
 workflow ostaviti za kasniju, najoprezniju fazu.
+
+---
+
+## 110. Faktura Cleanup Faza A — test-only zaključavanje javnih ulaza (2026-07-30)
+
+Cleanup Faza A je urađena bez produkcionih izmjena. Dodati/dopunjeni su
+characterization testovi koji zaključavaju da Agent pipeline koristi javne
+`calculate_masses`, `auto_fill`, `validate` i `create_naimenovanja` metode prije
+privatnih `_on_*` fallback-a, dok legacy fallback i dalje ostaje živ za starije
+runtime objekte.
+
+Root/dist_client paritet test proširen je na
+`gui/tabs/agent/services/import_pipeline_service.py`; test normalizuje samo BOM
+razliku (`\ufeff`) jer projekat zabranjuje slijepo mijenjanje BOM encoding-a.
+Test kapija: ciljano 50/50; širi Faktura/Agent skup 141/141 uz
+`-m "not integration"`.

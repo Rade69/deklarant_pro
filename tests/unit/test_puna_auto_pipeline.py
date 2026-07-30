@@ -136,6 +136,30 @@ class TestUspjesanTok:
 
 
 class TestJavniApiIFallback:
+    def test_javni_api_pokriva_sve_agent_faze_prije_private_fallbacka(
+        self, mock_ctrl, mock_fw, mock_chat
+    ):
+        line = _line(tarifni_broj="", bruto_kg=0, neto_kg=0)
+        mock_ctrl.draft.invoice_lines = [line]
+        mock_ctrl.draft.items = [MagicMock()]
+
+        def _auto_fill(auto=False):
+            line.tarifni_broj = "12345678"
+            return MagicMock(matched_items=1)
+
+        mock_fw.auto_fill.side_effect = _auto_fill
+
+        _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
+
+        mock_fw.calculate_masses.assert_called_once_with(auto=True)
+        mock_fw.auto_fill.assert_called_once_with(auto=True)
+        mock_fw.validate.assert_called_once_with(auto=True)
+        mock_fw.create_naimenovanja.assert_called_once_with(auto=True)
+        mock_fw._on_calculate_masses.assert_not_called()
+        mock_fw._on_auto_fill.assert_not_called()
+        mock_fw._on_validate_all.assert_not_called()
+        mock_fw._on_create_naimenovanja.assert_not_called()
+
     def test_legacy_fallback_ostaje_ziv_kad_javni_api_ne_postoji(
         self, mock_ctrl, mock_chat, completion_sound
     ):
