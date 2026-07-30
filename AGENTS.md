@@ -47,10 +47,63 @@ prednost nad štednjom konteksta — ne štedjeti tokene na račun tačnosti.
 
 ---
 
+## Paralelni agenti — izolacija working tree-a
+
+Na ovom projektu stvarno rade više agenata paralelno u istom working
+tree-u (Claude Code, Codex i drugi — potvrđeno, ne hipotetički: vidi
+`agent_reports/2026-07-30_token-disciplina-context-split.md`, sekcija
+"Pronađeni problemi", gdje je Codex-ov automatizovan commit pokupio
+nekomitovane Claude-ove izmjene jer su oba agenta radila u istom working
+tree-u u isto vrijeme).
+
+Pravila:
+
+- **Nikad `git add -A`/`git add .`** — uvijek navesti tačne fajlove koje
+  je TAJ zadatak izmijenio.
+- **Prije svakog `git add` i prije svakog `git commit`** provjeriti
+  `git status --short` i `git log --oneline -1` (da vidiš da li se HEAD
+  pomjerio od početka zadatka). Ako ima nepoznatih izmjena u working
+  tree-u, prvo utvrditi čije su — mogu biti WIP drugog agenta.
+- Ako se otkrije da je paralelan agent pokupio tvoje nekomitovane
+  izmjene u svoj (nepovezan) commit — sadržaj nije izgubljen, ali
+  numeracija/nazivi (npr. dated sekcije u `docs/context/history.md`)
+  mogu se sudariti; provjeriti i poravnati prije nastavka, ne prepisivati
+  tuđ rad bez provjere.
+- Dugotrajni/automatizovani agent pipeline-ovi (npr. Codex faze koje rade
+  u nizu commit-ova bez ljudskog pregleda svakog koraka) trebaju,
+  gdje je moguće, raditi u zasebnom `git worktree` (`.worktrees/<tok>/`)
+  umjesto direktno na `windows` working tree-u koji dijele interaktivne
+  sesije — ovo nije uvijek pod kontrolom Claude sesije, ali je vrijedno
+  predložiti korisniku kad se primijeti da se pattern ponavlja.
+
+---
+
 ## Obavezno prije nego počneš kodirati
 
 Napiši kratko (2-4 rečenice) šta si razumio iz zadatka i šta planiraš uraditi.
 Čekaj potvrdu korisnika prije implementacije ako zadatak nije jednoznačan.
+
+---
+
+## Reprodukcija prije bugfixa
+
+Bug se ne popravlja dok nije reprodukovan, osim kad je jasno dokumentovano
+zašto reprodukcija nije moguća. Prihvatljivi dokazi: failing test,
+minimalna reprodukcijska skripta, konkretan ulaz (faktura iz
+`najavauvoza/`, XML, upit), log sa preciznim podacima i greškom,
+screenshot/video stvarnog GUI ponašanja, precizno opisan ručni postupak,
+ili stanje baze + upit koji izaziva problem.
+
+Ako reprodukcija nije moguća, zapisati u `agent_report` (polje
+"Reprodukcija prije izmjene"): šta je pokušano, zašto problem nije
+reprodukovan, na kojoj pretpostavci se zasniva predložena izmjena, i koji
+dodatni rizik zbog toga ostaje.
+
+Ne mijenjati kod samo zato što pronađena implementacija izgleda sumnjivo
+— "izgleda sumnjivo" nije isto što i "dokazano je uzrok problema". Ovo
+dopunjuje "Provjeri hipotezu" korak u "Format zadatka za agenta" ispod —
+tamo je pravilo za korisnikovu hipotezu, ovdje je zahtjev za KONKRETAN
+dokaz prije izmjene koda.
 
 ---
 
@@ -253,12 +306,85 @@ ispravke (npr. jedan red u bazi, jedna konstanta) format je nepotreban overhead.
 
 ---
 
+## Definition of Done po tipu promjene
+
+Promjena nije završena samo zato što se aplikacija pokrenula ili je jedan
+test prošao. Obavezan dokaz zavisi od tipa promjene:
+
+- **GUI (PySide6)** — screenshot prije/poslije za vizuelne izmjene;
+  provjera realnog korisničkog toka (fokus, tab redoslijed, skrol);
+  offscreen render NIJE dovoljan dokaz za nešto što zavisi od stvarnog
+  prikaza (monitor, skaliranje, fontovi na Windows-u) — za takve slučajeve
+  eksplicitno navesti da je potrebna ručna provjera na stvarnom računaru.
+- **Parseri/import** (`importers/`) — fixture/realne fakture iz
+  `najavauvoza/`, edge case-ovi (bez kodova, multi-line opisi, različite
+  jedinice — vidi "Testiranje" ispod), provjera `consumed_paths`/
+  `incoterm_code` gdje su primjenjivi, dokaz da postojeći/stari izvori
+  nisu pokvareni (ponovni test na poznatom dobavljaču).
+- **XML export / generisani dokumenti** (ASYCUDA, PZT, CMR, DV1) —
+  poređenje ključnih polja sa referentnim/ranije ispravnim XML-om;
+  provjera specifičnih pravila (Rb.31 max 280 znakova/3 linije, Rb.48 se
+  ne prepisuje iz istorijskog XML-a); otvaranje generisanog fajla i
+  potvrda da nije korumpiran.
+- **Baza i migracije** (PostgreSQL/SQLite) — test na izolovanoj test
+  bazi/šemi, backup prije bilo koje migracije na `dmserver`, broj redova
+  prije/poslije, transakcija gdje je moguća; NIKAD prvi put testirati na
+  produkcionim podacima.
+- **Tarifno matching/performanse** — ako se dira `TariffMappingService`/
+  `HybridMatchingService` ili slično, mjerenje broja SQL upita ili
+  vremena prije/poslije za reprezentativan skup stavki; provjera da
+  `min_similarity = 0.92` nije tiho promijenjen bez eksplicitnog razloga.
+- **Sigurnost/osjetljivi podaci** — carinski dokumenti sadrže poslovne i
+  lične podatke (JIB, imena, adrese, brojevi faktura); ti podaci ne
+  završavaju u `agent_report`-u, logovima van postojećeg logger stila,
+  niti u promptu preko onoga što je zadatak stvarno zahtijevao.
+
+---
+
+## Podjela odgovornosti
+
+| Ko | Šta |
+| --- | --- |
+| **Agent radi samostalno** | pretraga koda, pronalaženje pozivalaca, sažimanje postojećeg ponašanja, priprema failing testa, mala lokalna izmjena, pokretanje testova, `agent_report` |
+| **Agent samo predlaže** (korisnik odlučuje) | arhitektonska promjena, promjena domenskog modela (`InvoiceLine`/`NaimenovanjeDraft` polja), promjena centralne poslovne logike (tarifno mapiranje, grupiranje naimenovanja, XML template), bazna migracija, širi refactor, promjena javnog interfejsa |
+| **Nezavisan checker potvrđuje** (vidi "Nezavisna provjera" ispod) | da diff odgovara scope-u, da testovi provjeravaju pravi problem, da nisu promijenjena sporedna ponašanja, da nema očigledne regresije |
+| **Korisnik odlučuje** | da li poslovna logika ima smisla, da li je UX prihvatljiv, da li se prihvata HIGH/CRITICAL rizik, da li se pušta migracija/mijenja produkcijsko stanje na `dmserver` |
+
+---
+
+## Nezavisna provjera (checker)
+
+Nezavisan pregled — neko OSIM onoga ko je pisao izmjenu (druga agent
+sesija, drugi model, ili korisnik) — je obavezan ili snažno preporučen
+kada promjena: ima HIGH/CRITICAL GitNexus impact; dira bazu/migracije na
+`dmserver`; dira tarifno mapiranje, grupiranje naimenovanja, ili XML
+export logiku; nije bila pouzdano reprodukovana; ima kontradiktorne
+izvore (vidi "Konflikti" polja); ima veliku cijenu greške (carinski
+dokument koji ide u ASYCUDA).
+
+Konkretni mehanizmi na ovom projektu: `/code-review` skill (za pregled
+trenutnog diff-a), `/security-review` skill (za sigurnosno osjetljive
+izmjene), ili druga paralelna agent sesija (Codex, druga Claude sesija —
+vidi "Paralelni agenti" iznad za bezbjedan rad u dijeljenom working
+tree-u dok se to radi).
+
+Checker nezavisno: pregleda diff, potvrdi scope, provjeri pozivaoce i
+zavisnosti, pokrene relevantne testove, POKUŠA OBORITI hipotezu prvog
+agenta (ne samo potvrditi je), provjeri edge case-ove, i jasno navede šta
+NIJE provjerio. `agent_report` (radni agent) tvrdi da je zadatak završen;
+polje "Nezavisna provjera" u istom izvještaju tvrdi da je to i DOKAZANO —
+ne miješati te dvije tvrdnje.
+
+---
+
 ## Plan prije izmjene — HIGH/CRITICAL GitNexus impact
 
 Ako `gitnexus_impact` za simbol koji se mijenja vrati **HIGH** ili **CRITICAL**,
-agent PRIJE izmjene napravi JEDAN kratki fajl (ne cijeli "project room"):
+agent PRIJE izmjene napravi JEDAN kratki fajl (ne cijeli "project room") —
+`templates/agent-md/project_room_template.md` je gotova polazna tačka za
+kopiranje:
 
-```
+```text
 project_rooms/YYYY-MM-DD_kratak-naziv-zadatka.md
 ```
 
@@ -268,6 +394,12 @@ sa sekcijama:
 - **Pogođeno** — simboli/procesi iz `gitnexus_impact` (broj, koji, rizik)
 - **Plan** — fajlovi i redoslijed izmjena
 - **Šta NE dirati** — eksplicitne granice (scope lock — vidi "Handoff visokog rizika" ispod)
+- **Plan verifikacije** — koji dokaz mora postojati prije nego se promjena
+  smatra završenom (vidi "Definition of Done po tipu promjene" iznad)
+- **Rollback / oporavak** — kako se promjena vraća ili sistem oporavlja
+  ako rezultat nije dobar
+- **Nezavisni checker** — ko provjerava rezultat (vidi "Nezavisna
+  provjera" iznad), šta provjerava, koji dokaz mora ostaviti
 - **Konflikti** — ako postoje kontradiktorni izvori (stari agent_report, memorija, kod),
   navesti oba, koji se tretira kao važeći i zašto, i da li je potrebna korisnička potvrda (DA/NE)
 
@@ -307,6 +439,8 @@ py_compile provjeru i ispisuje podsjetnike — NE zaobilaziti ga sa `--no-verify
 - Format poruke: `tip(oblast): kratki opis` (`fix`, `feat`, `refactor`, `docs`, `chore`)
 - Uvijek dodati `Co-Authored-By:` liniju sa imenom modela koji je radio
   (npr. `Co-Authored-By: Claude <noreply@anthropic.com>`)
+- **Nikad `git add -A`/`git add .`** — vidi "Paralelni agenti — izolacija
+  working tree-a" iznad; provjeriti `git status --short` prije staging-a
 
 ### Korak 2 — Zajednička memorija
 - Sve **ne-očigledno** i korisno za buduće sesije upisati u `docs/context/history.md`
@@ -317,17 +451,27 @@ py_compile provjeru i ispisuje podsjetnike — NE zaobilaziti ga sa `--no-verify
 - **Šta NE upisivati**: šta kod radi (vidi se iz koda), git historija, privremeno stanje
 
 ### Korak 3 — Agent report
-- Kreirati izvještaj u `agent_reports/YYYY-MM-DD_naziv-zadatka.md` sa sekcijama (`##`):
+- Kreirati izvještaj u `agent_reports/YYYY-MM-DD_naziv-zadatka.md` —
+  `templates/agent-md/agent_report_template.md` je gotova polazna tačka za
+  kopiranje. Sekcije (`##`):
   - **Datum**, **Agent**, **Scope** — fajlovi/moduli na koje se zadatak odnosi
   - **Status izvora** (samo kompleksni/rizični zadaci) — koji raniji
     agent_reports/memory/kod fajlovi su korišćeni i njihov status:
     aktivan / zastario / duplikat / treba potvrdu
   - **GitNexus impact** — rezultat provjere prije izmjene (rizik, broj pogođenih simbola/procesa)
+  - **Reprodukcija prije izmjene** (za bugfix zadatke) — dokaz da je
+    problem reprodukovan PRIJE izmjene (vidi "Reprodukcija prije
+    bugfixa" iznad), ili zašto nije bilo moguće
   - **Šta je urađeno** — kratki pregled promjena
   - **Zašto je urađeno** — poslovni razlog, bug uzrok, odluka i alternativa
   - **Kako je urađeno** — tehnički pristup, koje funkcije/fajlovi
   - **Šta nije dirano** — eksplicitno navesti šta je OSTAVLJENO netaknuto
-  - **Verifikacija** — kako je dokazano da promjena radi (testovi, offscreen provjere, py_compile...)
+  - **Verifikacija** — kako je dokazano da promjena radi (testovi,
+    offscreen provjere, py_compile...) — dokaz mora odgovarati
+    "Definition of Done" za tip promjene
+  - **Nezavisna provjera** (obavezno za HIGH/CRITICAL, vidi "Nezavisna
+    provjera" iznad) — da li je urađena, ko je uradio, šta je
+    potvrđeno/nije potvrđeno, da li je promjena spremna za prihvatanje
   - **Pronađeni problemi** — uključujući lažno pozitivne zaključke
   - **Konflikti / kontradiktorni izvori** (ako postoje) — koji je tretiran kao važeći
     i zašto, i da li treba korisnička potvrda (DA/NE)
@@ -374,11 +518,15 @@ PITANJA: (ako postoje)
 
 ## Provjera prije predaje
 
+- [ ] Bug je reprodukovan prije popravke (ili je zapisano zašto nije mogao biti)
 - [ ] Nisam mijenjao kod van scope-a zadatka
 - [ ] Nisam dodao nepotrebne komentare ili docstrings
 - [ ] Nisam ostavio zakomentiran kod
 - [ ] Nisam koristio string interpolaciju u SQL-u
 - [ ] Testovi prolaze: `python -m pytest tests/ -q` (iz korijena projekta)
+- [ ] Dokaz odgovara "Definition of Done" za tip promjene (GUI/parser/XML/baza/...)
+- [ ] Za HIGH/CRITICAL: nezavisna provjera je urađena i navedena u `agent_report`
+- [ ] Provjerio sam `git status --short` prije staging-a (nema tuđeg WIP-a)
 - [ ] Output format je popunjen (STATUS, IZMIJENJENI FAJLOVI, itd.)
 
 ## DOC Guard
@@ -395,7 +543,7 @@ Kada hook injektuje `[DOC-GUARD]` poruku:
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **deklarant_pro** (53557 symbols, 82880 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **deklarant_pro** (53979 symbols, 81035 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
