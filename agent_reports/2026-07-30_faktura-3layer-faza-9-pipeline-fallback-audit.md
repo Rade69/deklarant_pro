@@ -74,7 +74,7 @@ Potrebna korisnička potvrda: NE.
 
 | Hash | Poruka |
 | --- | --- |
-| pending | `test(faktura): pokrij legacy fallback agent pipelinea` |
+| 57dc959 | `test(faktura): pokrij legacy fallback agent pipelinea` |
 
 ## Rizici / ograničenja
 
