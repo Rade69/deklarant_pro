@@ -1,6 +1,11 @@
 from unittest.mock import MagicMock
+from types import SimpleNamespace
 
 from core.draft import DeclarationDraft, InvoiceLine
+from services.faktura.models import (
+    CreateNaimenovanjaDraftResult,
+    CreateNaimenovanjaWorkflowResult,
+)
 from services.faktura.create_naimenovanja_workflow_service import (
     CreateNaimenovanjaWorkflowService,
 )
@@ -114,3 +119,76 @@ def test_build_post_action_plan_cuva_legacy_korake_kao_default():
     assert plan.reload_related_tabs is True
     assert plan.emit_naimenovanja_created is True
     assert plan.clear_import_memory is True
+
+
+def test_prepare_trazi_split_samo_u_interaktivnom_single_draft_toku(monkeypatch):
+    draft = _draft()
+
+    monkeypatch.setattr(
+        "services.faktura.declaration_split_service.count_declaration_groups",
+        lambda lines: 2,
+    )
+
+    result = CreateNaimenovanjaWorkflowService().prepare(draft, [], auto=False)
+
+    assert result.should_offer_split is True
+    assert result.drafts_to_process == [draft]
+    assert result.all_lines == draft.invoice_lines
+
+
+def test_prepare_ne_trazi_split_u_auto_toku(monkeypatch):
+    draft = _draft()
+
+    monkeypatch.setattr(
+        "services.faktura.declaration_split_service.count_declaration_groups",
+        lambda lines: 2,
+    )
+
+    result = CreateNaimenovanjaWorkflowService().prepare(draft, [], auto=True)
+
+    assert result.should_offer_split is False
+
+
+def test_prepare_multi_drafts_obradjuje_sve_draftove(monkeypatch):
+    draft_1 = _draft("uid-1")
+    draft_2 = _draft("uid-2")
+
+    monkeypatch.setattr(
+        "services.faktura.declaration_split_service.count_declaration_groups",
+        lambda lines: 99,
+    )
+
+    result = CreateNaimenovanjaWorkflowService().prepare(draft_1, [draft_1, draft_2])
+
+    assert result.should_offer_split is False
+    assert result.drafts_to_process == [draft_1, draft_2]
+    assert result.all_lines == draft_1.invoice_lines + draft_2.invoice_lines
+
+
+def test_build_success_message_single_draft_cuva_legacy_tekst():
+    draft = _draft()
+    result = CreateNaimenovanjaWorkflowResult(
+        draft_results=[CreateNaimenovanjaDraftResult(draft=draft, count=3)]
+    )
+
+    message = CreateNaimenovanjaWorkflowService().build_success_message(result, all_lines_count=5)
+
+    assert message.level == "information"
+    assert message.title == "Uspjeh!"
+    assert "Kreirano 3 naimenovanja iz 5 stavki" in message.message
+
+
+def test_build_success_message_overflow_ima_prioritet():
+    draft = _draft()
+    split_info = SimpleNamespace(total_count=120, current_count=99, overflow_count=21)
+    result = CreateNaimenovanjaWorkflowResult(
+        draft_results=[
+            CreateNaimenovanjaDraftResult(draft=draft, count=99, split_info=split_info)
+        ]
+    )
+
+    message = CreateNaimenovanjaWorkflowService().build_success_message(result, all_lines_count=100)
+
+    assert message.level == "warning"
+    assert message.title == "ASYCUDA limit — 99 naimenovanja"
+    assert "Preostalih 21 naimenovanja" in message.message

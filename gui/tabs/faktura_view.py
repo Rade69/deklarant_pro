@@ -4326,22 +4326,23 @@ class FakturaView(BaseTabView):
         from services.faktura.create_naimenovanja_workflow_service import (
             CreateNaimenovanjaWorkflowService,
         )
+        workflow = CreateNaimenovanjaWorkflowService()
 
         try:
             logger.debug(f"\n{'='*80}")
             logger.debug(f"🔍 [_on_create_naimenovanja] START (auto={auto})")
 
             # Ako split još nije urađen, provjeri da li treba podjelu po zemljama
-            if len(self._multi_drafts) <= 1 and self.draft.invoice_lines and not auto:
-                from services.faktura.declaration_split_service import count_declaration_groups
-                if count_declaration_groups(self.draft.invoice_lines) > 1:
-                    self._offer_split_by_country(self.draft.invoice_lines)
+            preparation = workflow.prepare(self.draft, self._multi_drafts, auto=auto)
+            if preparation.should_offer_split:
+                self._offer_split_by_country(self.draft.invoice_lines)
+                preparation = workflow.prepare(self.draft, self._multi_drafts, auto=auto)
 
             # Odaberi koje draftove obraditi: sve split draftove ili samo trenutni
-            drafts_to_process = self._multi_drafts if len(self._multi_drafts) > 1 else [self.draft]
+            drafts_to_process = preparation.drafts_to_process
 
             # Provjera: mora biti bar jedna stavka u svim draftovima
-            all_lines = [ln for d in drafts_to_process for ln in d.invoice_lines]
+            all_lines = preparation.all_lines
             if not all_lines:
                 if not auto:
                     QMessageBox.warning(
@@ -4365,7 +4366,6 @@ class FakturaView(BaseTabView):
                     logger.debug("🔍 [_on_create_naimenovanja] Korisnik odustao na pre-flight")
                     return False
 
-            workflow = CreateNaimenovanjaWorkflowService()
             workflow_result = workflow.create_for_drafts(drafts_to_process)
             if workflow_result.error:
                 raise workflow_result.error
@@ -4384,39 +4384,9 @@ class FakturaView(BaseTabView):
 
             # Prikaz rezultata (samo u interaktivnom modu)
             if not auto:
-                overflow_drafts = [(d, cnt, si) for d, cnt, si in results if si and si.overflow_count > 0]
-                if overflow_drafts:
-                    _, cnt, si = overflow_drafts[0]
-                    QMessageBox.warning(
-                        self,
-                        "ASYCUDA limit — 99 naimenovanja",
-                        f"ASYCUDA World u BiH podržava najviše 99 naimenovanja po deklaraciji.\n\n"
-                        f"Ukupno je formirano {si.total_count} naimenovanja.\n"
-                        f"Trenutna deklaracija je ograničena na prvih {si.current_count}.\n"
-                        f"Preostalih {si.overflow_count} naimenovanja je pripremljeno za sljedeću deklaraciju.\n\n"
-                        f"Završite i izvezite ovu deklaraciju, pa će aplikacija ponuditi nastavak sa ostatkom.",
-                    )
-                elif len(results) > 1:
-                    linije = "\n".join(
-                        f"  • {_group_label(getattr(d, '_country_group', ''), getattr(d, '_currency_group', ''))}: {cnt} naimenovanja"
-                        for d, cnt, _ in results
-                    )
-                    QMessageBox.information(
-                        self,
-                        "Uspjeh!",
-                        f"✅ Kreirano naimenovanja za {len(results)} deklaracije:\n\n"
-                        f"{linije}\n\n"
-                        f"Koristite navigator ◀ ▶ za pregled svake deklaracije.",
-                    )
-                else:
-                    _, count, _ = results[0]
-                    QMessageBox.information(
-                        self,
-                        "Uspjeh!",
-                        f"✅ Kreirano {count} naimenovanja iz {len(self.draft.invoice_lines)} stavki!\n\n"
-                        f"Naimenovanja su grupisana po tarifi, zemlji porijekla i povlastici.\n\n"
-                        f"Možete ih pregledati i editovati u tabu 'Naimenovanja'.",
-                    )
+                self._show_create_naimenovanja_message(
+                    workflow.build_success_message(workflow_result, len(all_lines))
+                )
 
             # Mark as dirty
             self._run_create_naimenovanja_post_actions(
@@ -4441,6 +4411,12 @@ class FakturaView(BaseTabView):
 
     def create_naimenovanja(self, auto: bool = False) -> bool:
         return self._on_create_naimenovanja(auto=auto)
+
+    def _show_create_naimenovanja_message(self, message) -> None:
+        if message.level == "warning":
+            QMessageBox.warning(self, message.title, message.message)
+        else:
+            QMessageBox.information(self, message.title, message.message)
 
     def _run_create_naimenovanja_post_actions(self, plan, workflow) -> None:
         if plan.mark_dirty and self.on_dirty:

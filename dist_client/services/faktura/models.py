@@ -110,6 +110,20 @@ class CreateNaimenovanjaWorkflowResult:
 
 
 @dataclass
+class CreateNaimenovanjaPreparationResult:
+    drafts_to_process: list = field(default_factory=list)
+    all_lines: list = field(default_factory=list)
+    should_offer_split: bool = False
+
+
+@dataclass
+class CreateNaimenovanjaUserMessage:
+    level: str = "information"
+    title: str = ""
+    message: str = ""
+
+
+@dataclass
 class CreateNaimenovanjaPostActionPlan:
     mark_dirty: bool = True
     emit_data_changed: bool = True

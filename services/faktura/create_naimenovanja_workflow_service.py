@@ -3,6 +3,8 @@ import logging
 from services.faktura.models import (
     CreateNaimenovanjaDraftResult,
     CreateNaimenovanjaPostActionPlan,
+    CreateNaimenovanjaPreparationResult,
+    CreateNaimenovanjaUserMessage,
     CreateNaimenovanjaWorkflowResult,
 )
 
@@ -10,6 +12,23 @@ logger = logging.getLogger("deklarant_pro.faktura.create_naimenovanja_workflow")
 
 
 class CreateNaimenovanjaWorkflowService:
+    def prepare(self, draft, multi_drafts: list, auto: bool = False) -> CreateNaimenovanjaPreparationResult:
+        from services.faktura.declaration_split_service import count_declaration_groups
+
+        drafts_to_process = multi_drafts if len(multi_drafts) > 1 else [draft]
+        all_lines = [line for current_draft in drafts_to_process for line in current_draft.invoice_lines]
+        should_offer_split = (
+            len(multi_drafts) <= 1
+            and bool(getattr(draft, "invoice_lines", []))
+            and not auto
+            and count_declaration_groups(draft.invoice_lines) > 1
+        )
+        return CreateNaimenovanjaPreparationResult(
+            drafts_to_process=drafts_to_process,
+            all_lines=all_lines,
+            should_offer_split=should_offer_split,
+        )
+
     def create_for_drafts(self, drafts: list) -> CreateNaimenovanjaWorkflowResult:
         results = []
         try:
@@ -45,6 +64,59 @@ class CreateNaimenovanjaWorkflowService:
 
     def build_post_action_plan(self) -> CreateNaimenovanjaPostActionPlan:
         return CreateNaimenovanjaPostActionPlan()
+
+    def build_success_message(
+        self,
+        result: CreateNaimenovanjaWorkflowResult,
+        all_lines_count: int,
+    ) -> CreateNaimenovanjaUserMessage:
+        from services.faktura.declaration_split_service import group_label
+
+        display_results = [
+            (draft_result.draft, draft_result.count, draft_result.split_info)
+            for draft_result in result.draft_results
+        ]
+        overflow_drafts = [
+            (draft, count, split_info)
+            for draft, count, split_info in display_results
+            if split_info and split_info.overflow_count > 0
+        ]
+        if overflow_drafts:
+            _, _, split_info = overflow_drafts[0]
+            return CreateNaimenovanjaUserMessage(
+                level="warning",
+                title="ASYCUDA limit — 99 naimenovanja",
+                message=(
+                    "ASYCUDA World u BiH podržava najviše 99 naimenovanja po deklaraciji.\n\n"
+                    f"Ukupno je formirano {split_info.total_count} naimenovanja.\n"
+                    f"Trenutna deklaracija je ograničena na prvih {split_info.current_count}.\n"
+                    f"Preostalih {split_info.overflow_count} naimenovanja je pripremljeno za sljedeću deklaraciju.\n\n"
+                    "Završite i izvezite ovu deklaraciju, pa će aplikacija ponuditi nastavak sa ostatkom."
+                ),
+            )
+        if len(display_results) > 1:
+            lines = "\n".join(
+                f"  • {group_label(getattr(draft, '_country_group', ''), getattr(draft, '_currency_group', ''))}: {count} naimenovanja"
+                for draft, count, _ in display_results
+            )
+            return CreateNaimenovanjaUserMessage(
+                title="Uspjeh!",
+                message=(
+                    f"✅ Kreirano naimenovanja za {len(display_results)} deklaracije:\n\n"
+                    f"{lines}\n\n"
+                    "Koristite navigator ◀ ▶ za pregled svake deklaracije."
+                ),
+            )
+
+        _, count, _ = display_results[0]
+        return CreateNaimenovanjaUserMessage(
+            title="Uspjeh!",
+            message=(
+                f"✅ Kreirano {count} naimenovanja iz {all_lines_count} stavki!\n\n"
+                "Naimenovanja su grupisana po tarifi, zemlji porijekla i povlastici.\n\n"
+                "Možete ih pregledati i editovati u tabu 'Naimenovanja'."
+            ),
+        )
 
     def _learn_from_draft(self, draft) -> tuple[int, str]:
         try:

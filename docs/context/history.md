@@ -3378,3 +3378,18 @@ Namjerno nije mijenjan split po zemljama, preflight dijalog, core kreiranje,
 tarifno učenje, poruke korisniku ni javni `_on_create_naimenovanja` /
 `create_naimenovanja` ugovor. Test kapija: ciljano 73/73; širi Faktura/Agent skup
 167/167 uz `-m "not integration"`.
+
+---
+
+## 116. Faktura Cleanup Faza D3 — create-naimenovanja priprema i poruke (2026-07-30)
+
+Cleanup Faza D3 dodatno smanjuje inline kompleksnost `Kreiraj Naimenovanja`
+workflow-a bez promjene ponašanja. `CreateNaimenovanjaWorkflowService` sada
+priprema listu draftova/linija za obradu, označava da li interaktivni tok treba
+ponuditi split po zemljama, i generiše neutralnu success/warning poruku rezultata.
+View i dalje izvršava UI: split dijalog, preflight dijalog, QMessageBox prikaz i
+post-akcije iz D2.
+
+Namjerno nije aktiviran novi Controller create put kao zamjena za legacy View
+handler i nije brisan nijedan fallback. Test kapija: ciljano 78/78; širi
+Faktura/Agent skup 172/172 uz `-m "not integration"`.
