@@ -71,7 +71,7 @@ Veliki plan naziva Fazu 5 auto-popunom tarifa, dok je stvarni prethodni rad zavr
 
 | Hash | Poruka |
 | --- | --- |
-| pending | `refactor(faktura): uvedi javni validation api za agent` |
+| bf6b3e9 | `refactor(faktura): uvedi javni validation api za agent` |
 
 ## Rizici / ograničenja
 
