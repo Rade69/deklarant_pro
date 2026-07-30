@@ -71,7 +71,7 @@ Veliki plan predviđa potpunu migraciju auto-popune tarifa u zasebnoj fazi. Važ
 
 | Hash | Poruka |
 | --- | --- |
-| pending | `refactor(faktura): uvedi javni auto fill api za agent` |
+| ccfb923 | `refactor(faktura): uvedi javni auto fill api za agent` |
 
 ## Rizici / ograničenja
 
