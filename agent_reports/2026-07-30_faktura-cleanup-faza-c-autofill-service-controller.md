@@ -70,7 +70,7 @@ Nema kontradikcije. Manifest nalaže da `_on_auto_fill` ostane do korisničkog E
 
 | Hash | Poruka |
 | --- | --- |
-| pending | `refactor(faktura): prebaci autofill u service controller tok` |
+| 9e74422 | `refactor(faktura): prebaci autofill u service controller tok` |
 
 ## Rizici / ograničenja
 
