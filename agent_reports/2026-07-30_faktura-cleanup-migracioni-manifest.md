@@ -76,7 +76,7 @@ Potrebna korisnička potvrda: NE.
 
 | Hash | Poruka |
 | --- | --- |
-| pending | `docs(faktura): dodaj cleanup migracioni manifest` |
+| a452a5c | `docs(faktura): dodaj cleanup migracioni manifest` |
 
 ## Rizici / ograničenja
 
