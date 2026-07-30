@@ -71,7 +71,7 @@ Nije pronađena nova regresija. Ostaje raniji uslov iz Faze 5: PostgreSQL integr
 
 | Hash | Poruka |
 | --- | --- |
-| pending | `refactor(faktura): uvedi javni create naimenovanja api za agent` |
+| c525c83 | `refactor(faktura): uvedi javni create naimenovanja api za agent` |
 
 ## Rizici / ograničenja
 
