@@ -170,6 +170,7 @@ class TestDistStandalone:
             "gui/tabs/agent/services/import_pipeline_service.py",
             "services/faktura/models.py",
             "services/faktura/faktura_service.py",
+            "services/faktura/mass_workflow_service.py",
         ],
     )
     def test_dist_faktura_modules_match_root(self, relative_path):
@@ -299,7 +300,7 @@ class TestNoDoubleValidation:
         assert view.create_naimenovanja(auto=True) is True
         assert called == [True]
 
-    def test_faktura_tab_calculate_masses_uses_view_adapter(self, qtbot, monkeypatch):
+    def test_faktura_tab_calculate_masses_uses_controller_service(self, qtbot, monkeypatch):
         from gui.tabs.faktura_tab import FakturaTab
 
         draft = DeclarationDraft()
@@ -308,14 +309,14 @@ class TestNoDoubleValidation:
         called = []
         monkeypatch.setattr(
             tab.view,
-            "_on_calculate_masses",
-            lambda auto=False: called.append(auto) or True,
+            "calculate_masses",
+            lambda auto=False, controller=None: called.append((auto, controller)) or True,
         )
 
         assert tab.calculate_masses(auto=True) is True
-        assert called == [True]
+        assert called == [(True, tab.controller)]
 
-    def test_faktura_view_calculate_masses_is_public_adapter(self, qtbot, monkeypatch):
+    def test_faktura_view_private_calculate_masses_is_wrapper(self, qtbot, monkeypatch):
         from gui.tabs.faktura_view import FakturaView
 
         draft = DeclarationDraft()
@@ -324,11 +325,11 @@ class TestNoDoubleValidation:
         called = []
         monkeypatch.setattr(
             view,
-            "_on_calculate_masses",
+            "calculate_masses",
             lambda auto=False: called.append(auto) or True,
         )
 
-        assert view.calculate_masses(auto=True) is True
+        assert view._on_calculate_masses(auto=True) is True
         assert called == [True]
 
     def test_faktura_tab_auto_fill_uses_view_adapter(self, qtbot, monkeypatch):

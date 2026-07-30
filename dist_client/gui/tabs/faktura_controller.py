@@ -128,6 +128,10 @@ class FakturaController(QObject):
         from services.faktura.mass_calculator import MassCalculator
         MassCalculator.calculate_masses(items, bruto_kg, neto_kg)
 
+    def calculate_masses_for_draft(self, draft, request):
+        from services.faktura.mass_workflow_service import MassWorkflowService
+        return MassWorkflowService().calculate(draft, request)
+
     def accumulate_weights(self, draft, bruto_kg: float, neto_kg: float, invoice_name: str = ""):
         """Akumuliraj težine za fakturu u draft.invoice_weights."""
         if not invoice_name or (bruto_kg <= 0 and neto_kg <= 0):

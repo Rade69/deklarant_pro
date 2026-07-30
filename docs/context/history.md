@@ -3282,3 +3282,18 @@ Root/dist_client paritet test proširen je na
 razliku (`\ufeff`) jer projekat zabranjuje slijepo mijenjanje BOM encoding-a.
 Test kapija: ciljano 50/50; širi Faktura/Agent skup 141/141 uz
 `-m "not integration"`.
+
+---
+
+## 111. Faktura Cleanup Faza B — mase kroz Service/Controller (2026-07-30)
+
+Cleanup Faza B migrira računanje masa iz monolitnog `FakturaView._on_calculate_masses`
+u neutralni `MassWorkflowService` sa `CalculateMassesRequest/Result`. View i dalje
+parsira toolbar polja i prikazuje poruke, Controller poziva servis, a privatni
+`_on_calculate_masses` ostaje kompatibilni wrapper na javni `calculate_masses`.
+
+Zadržane invarijante: per-invoice raspodjela preko `draft.invoice_weights`,
+toolbar neto fallback kada fakture nemaju neto, sumnjivi fallback za stavke bez
+broja fakture, boolean ugovor za Agent pipeline, dirty/data_changed i root/dist_client
+paritet. Test kapija: ciljano 64/64; širi Faktura/Agent skup 153/153 uz
+`-m "not integration"`.

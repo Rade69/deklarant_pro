@@ -77,13 +77,7 @@ from gui.tabs.base_view import BaseTabView
 from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
 from gui.utils.safe_message_box import capture_window_geometry, restore_window_geometry_queued
 from gui.utils.safe_message_box import exec_dialog_preserving_geometry, show_dialog_preserving_geometry
-from services.faktura.weight_guards import (
-    find_mass_total_mismatches,
-    group_lines_by_invoice,
-    is_suspicious_fallback,
-    normalize_invoice_key,
-    normalized_invoice_weights,
-)
+from services.faktura.weight_guards import normalize_invoice_key
 from services.agent.validation.evidence_model import evidence_from_preference
 
 _PE_DOC_CODES = {"PE1", "PE2", "PE3"}
@@ -4996,24 +4990,71 @@ class FakturaView(BaseTabView):
         self.input_neto.setText(neto_text)
 
     def _on_calculate_masses(self, auto=False) -> bool:
-        """
-        Handle Calculate Masses button click - proporcionalno raspodjeli težine.
+        return self.calculate_masses(auto=auto)
 
-        Returns:
-            True ako je bar jedna stavka ažurirana, False ako nije (nedostaju
-            unosi, neispravna vrijednost, nema stavki za update, itd.) — vidi
-            docs/agent/AGENT_MODE_IMPROVEMENT_IMPLEMENTATION_PLAN.md §7.
-        """
+    def calculate_masses(self, auto: bool = False, controller=None) -> bool:
         logger.debug("\n" + "=" * 80)
         logger.debug("⚖️  IZRAČUNAJ MASE - START")
         logger.debug("=" * 80)
 
-        # Get total bruto and neto from input fields
+        request = self._build_calculate_masses_request(auto=auto)
+        if request is None:
+            return False
+
+        logger.debug(f"\n🔍 Ukupno stavki u draft-u: {len(self.draft.invoice_lines)}")
+
+        if request.suspicious_fallback and not auto:
+            response = QMessageBox.question(
+                self,
+                "Stavke bez broja fakture",
+                f"Pronađeno je {request.no_invoice_count} stavki bez broja "
+                "fakture u deklaraciji koja ima više faktura.\n\n"
+                "Ako nastavite, za te stavke će se koristiti ukupna težina iz toolbar-a.\n\n"
+                "Nastaviti obračun za stavke bez broja fakture?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No,
+            )
+            request.allow_suspicious_fallback = response == QMessageBox.Yes
+
+        if controller is not None:
+            result = controller.calculate_masses_for_draft(self.draft, request)
+        else:
+            from services.faktura.mass_workflow_service import MassWorkflowService
+            result = MassWorkflowService().calculate(self.draft, request)
+
+        if not result.success:
+            self._show_calculate_masses_noop(result, auto=auto)
+            return False
+
+        logger.info(
+            f"\n✅ ZAVRŠENO: ažurirano {result.updated_count}, preskočeno {result.skipped_count}"
+        )
+        logger.debug("=" * 80 + "\n")
+
+        self._load_data_from_draft()
+
+        if not auto:
+            QMessageBox.information(
+                self,
+                "Težine raspoređene",
+                self._calculate_masses_success_message(result),
+            )
+
+        if self.on_dirty:
+            self.on_dirty()
+
+        self.data_changed.emit()
+        return True
+
+    def _build_calculate_masses_request(self, auto: bool):
+        from services.faktura.models import CalculateMassesRequest
+        from services.faktura.weight_guards import group_lines_by_invoice, is_suspicious_fallback
+
         try:
             bruto_total_text = self.input_bruto.text().strip()
             neto_total_text = self.input_neto.text().strip()
 
-            logger.debug(f"📊 Toolbar polja:")
+            logger.debug("📊 Toolbar polja:")
             logger.debug(f"   Bruto: '{bruto_total_text}'")
             logger.debug(f"   Neto: '{neto_total_text}'")
 
@@ -5025,10 +5066,8 @@ class FakturaView(BaseTabView):
                         "Nedostaju težine",
                         "Unesite ukupnu bruto i/ili neto težinu sa fakture.",
                     )
-                return False
+                return None
 
-            # Remove thousands separators (comma) before parsing
-            # Format is: 1,234.567 (comma = thousands, dot = decimal)
             bruto_total = (
                 float(bruto_total_text.replace(",", "")) if bruto_total_text else 0.0
             )
@@ -5036,7 +5075,7 @@ class FakturaView(BaseTabView):
                 float(neto_total_text.replace(",", "")) if neto_total_text else 0.0
             )
 
-            logger.debug(f"\n📐 Parsirano:")
+            logger.debug("\n📐 Parsirano:")
             logger.debug(f"   bruto_total = {bruto_total:.2f} kg")
             logger.debug(f"   neto_total = {neto_total:.2f} kg")
 
@@ -5045,7 +5084,7 @@ class FakturaView(BaseTabView):
                     QMessageBox.warning(
                         self, "Neispravne težine", "Težine moraju biti veće od nule."
                     )
-                return False
+                return None
 
         except ValueError as e:
             logger.error(f"❌ ValueError: {e}")
@@ -5055,192 +5094,86 @@ class FakturaView(BaseTabView):
                     "Greška",
                     "Neispravna vrijednost težine. Koristite brojeve (npr. 1234.56).",
                 )
-            return False
+            return None
 
-        logger.debug(f"\n🔍 Ukupno stavki u draft-u: {len(self.draft.invoice_lines)}")
-
-        from services.faktura.mass_calculator import MassCalculator
-
-        invoice_groups, no_invoice_lines, invoice_labels = group_lines_by_invoice(
-            self.draft.invoice_lines
-        )
-        invoice_weights = normalized_invoice_weights(self.draft.invoice_weights)
-
-        # Ako je neto unesen u toolbar a sve sačuvane neto vrijednosti su 0
-        # (neto nije bio dostupan u fajlu), rasporedi toolbar neto proporcionalno.
-        # Ovo pokriva slučaj kad korisnik upiše neto=bruto (ili bilo koji neto)
-        # za fakture gdje ga fajl nije sadržavao (npr. Šumaprom XLS bez neto težine).
-        if neto_total > 0 and invoice_weights:
-            stored_neto_sum = sum(n for _, n in invoice_weights.values())
-            if stored_neto_sum == 0:
-                total_stored_bruto = sum(b for b, _ in invoice_weights.values())
-                if total_stored_bruto > 0:
-                    for key in list(invoice_weights.keys()):
-                        inv_bruto, _ = invoice_weights[key]
-                        proportion = inv_bruto / total_stored_bruto
-                        invoice_weights[key] = (inv_bruto, round(neto_total * proportion, 3))
-                    logger.debug(
-                        f"   ℹ️ Neto iz toolbar-a ({neto_total:.3f} kg) raspoređen proporcionalno "
-                        f"na {len(invoice_weights)} faktura(e)"
-                    )
-
-        total_updated = 0
-        total_skipped = 0
-        no_weight_invoices = []
-        fallback_skipped = 0
-
-        # Per-invoice raspodjela težine
-        for inv_key, lines in invoice_groups.items():
-            if inv_key in invoice_weights:
-                inv_bruto, inv_neto = invoice_weights[inv_key]
-                stats = MassCalculator.calculate_masses(lines, inv_bruto, inv_neto)
-                total_updated += stats["updated"]
-                total_skipped += stats["skipped"]
-                label = invoice_labels.get(inv_key, inv_key)
-                logger.debug(
-                    f"   ⚖️ [{label}]: {stats['updated']} ažurirano, "
-                    f"{stats['skipped']} preskočeno "
-                    f"({inv_bruto:.3f}/{inv_neto:.3f} kg)"
-                )
-            else:
-                no_weight_invoices.append(inv_key)
-                total_skipped += len(lines)
-                label = invoice_labels.get(inv_key, inv_key)
-                logger.debug(f"   ⚠️ [{label}]: nema sačuvane težine — preskočeno")
-
-        # Fallback: stavke bez invoice_number → koristi toolbar total
-        if no_invoice_lines:
-            proceed_with_fallback = True
-            if is_suspicious_fallback(invoice_groups, no_invoice_lines):
-                proceed_with_fallback = False
-                if not auto:
-                    response = QMessageBox.question(
-                        self,
-                        "Stavke bez broja fakture",
-                        f"Pronađeno je {len(no_invoice_lines)} stavki bez broja "
-                        "fakture u deklaraciji koja ima više faktura.\n\n"
-                        "Ako nastavite, za te stavke će se koristiti ukupna težina iz toolbar-a.\n\n"
-                        "Nastaviti obračun za stavke bez broja fakture?",
-                        QMessageBox.Yes | QMessageBox.No,
-                        QMessageBox.No,
-                    )
-                    proceed_with_fallback = response == QMessageBox.Yes
-
-            if proceed_with_fallback:
-                stats = MassCalculator.calculate_masses(
-                    no_invoice_lines,
-                    bruto_total,
-                    neto_total,
-                )
-                total_updated += stats["updated"]
-                total_skipped += stats["skipped"]
-                logger.debug(
-                    f"   ⚖️ [bez fakture]: {stats['updated']} ažurirano "
-                    "koristeći toolbar total"
-                )
-            else:
-                fallback_skipped = len(no_invoice_lines)
-                total_skipped += fallback_skipped
-                logger.debug(
-                    f"   ⚠️ [bez fakture]: {fallback_skipped} preskočeno "
-                    "zbog sumnjivog fallback-a"
-                )
-
-        updated_count = total_updated
-        skipped_count = total_skipped
-        mass_mismatches = find_mass_total_mismatches(
-            invoice_groups,
-            invoice_weights,
-            invoice_labels,
+        invoice_groups, no_invoice_lines, _ = group_lines_by_invoice(self.draft.invoice_lines)
+        suspicious_fallback = is_suspicious_fallback(invoice_groups, no_invoice_lines)
+        return CalculateMassesRequest(
+            bruto_total=bruto_total,
+            neto_total=neto_total,
+            allow_suspicious_fallback=not suspicious_fallback,
+            suspicious_fallback=suspicious_fallback,
+            no_invoice_count=len(no_invoice_lines),
         )
 
-        if updated_count == 0:
-            if fallback_skipped:
-                if not auto:
-                    QMessageBox.warning(
-                        self,
-                        "Stavke bez broja fakture",
-                        f"Preskočeno je {fallback_skipped} stavki bez broja fakture.\n\n"
-                        "Dodijelite broj fakture tim stavkama ili ih obračunajte ručno.",
-                    )
-                return False
-            if no_weight_invoices and not no_invoice_lines:
-                # Sve fakture nemaju sačuvane težine (stari draft ili ručni unos)
-                logger.debug("   ❌ Nema sačuvanih težina ni za jednu fakturu")
-                if not auto:
-                    names = "\n".join(
-                        f"  - {invoice_labels.get(inv, inv)}" for inv in no_weight_invoices
-                    )
-                    QMessageBox.warning(
-                        self,
-                        "Nema sačuvanih težina",
-                        f"Nijedna faktura nema sačuvanu težinu. Uvezite fakture ponovo ili ručno unesite težine.\n\nFakture:\n{names}",
-                    )
-                return False
-            if mass_mismatches:
-                if not auto:
-                    details = "\n".join(
-                        f"  - {m['invoice']} {m['field']}: "
-                        f"stavke {m['actual']:.3f} kg, "
-                        f"faktura {m['expected']:.3f} kg"
-                        for m in mass_mismatches[:5]
-                    )
-                    QMessageBox.warning(
-                        self,
-                        "Neslaganje težina",
-                        f"Zbir težina stavki se ne slaže sa težinom fakture.\n\n{details}",
-                    )
-                return False
-            logger.debug("   ❌ Nema stavki za update - sve imaju obe težine")
+    def _show_calculate_masses_noop(self, result, auto: bool) -> None:
+        if result.reason == "fallback_skipped":
             if not auto:
-                QMessageBox.information(
+                QMessageBox.warning(
                     self,
-                    "Sve težine popunjene",
-                    "Sve stavke već imaju upisane obe težine (bruto i neto). Nema šta da se računa.",
+                    "Stavke bez broja fakture",
+                    f"Preskočeno je {result.fallback_skipped} stavki bez broja fakture.\n\n"
+                    "Dodijelite broj fakture tim stavkama ili ih obračunajte ručno.",
                 )
-            return False
+            return
+        if result.reason == "missing_invoice_weights":
+            logger.debug("   ❌ Nema sačuvanih težina ni za jednu fakturu")
+            if not auto:
+                names = "\n".join(
+                    f"  - {result.invoice_labels.get(inv, inv)}"
+                    for inv in result.no_weight_invoices
+                )
+                QMessageBox.warning(
+                    self,
+                    "Nema sačuvanih težina",
+                    f"Nijedna faktura nema sačuvanu težinu. Uvezite fakture ponovo ili ručno unesite težine.\n\nFakture:\n{names}",
+                )
+            return
+        if result.reason == "mass_mismatch":
+            if not auto:
+                details = "\n".join(
+                    f"  - {m['invoice']} {m['field']}: "
+                    f"stavke {m['actual']:.3f} kg, "
+                    f"faktura {m['expected']:.3f} kg"
+                    for m in result.mass_mismatches[:5]
+                )
+                QMessageBox.warning(
+                    self,
+                    "Neslaganje težina",
+                    f"Zbir težina stavki se ne slaže sa težinom fakture.\n\n{details}",
+                )
+            return
+        logger.debug("   ❌ Nema stavki za update - sve imaju obe težine")
+        if not auto:
+            QMessageBox.information(
+                self,
+                "Sve težine popunjene",
+                "Sve stavke već imaju upisane obe težine (bruto i neto). Nema šta da se računa.",
+            )
 
-        logger.info(f"\n✅ ZAVRŠENO: ažurirano {updated_count}, preskočeno {skipped_count}")
-        logger.debug("=" * 80 + "\n")
-
-        # Reload table
-        self._load_data_from_draft()
-
-        # Show success message
-        message = f"Težine raspoređene na {updated_count} stavki.\n\n"
-        if skipped_count > 0:
-            message += f"⚠️ Preskočeno {skipped_count} stavki koje već imaju obe težine.\n"
-        if fallback_skipped:
+    def _calculate_masses_success_message(self, result) -> str:
+        message = f"Težine raspoređene na {result.updated_count} stavki.\n\n"
+        if result.skipped_count > 0:
+            message += f"⚠️ Preskočeno {result.skipped_count} stavki koje već imaju obe težine.\n"
+        if result.fallback_skipped:
             message += (
-                f"\n⚠️ Preskočeno {fallback_skipped} stavki bez broja fakture "
+                f"\n⚠️ Preskočeno {result.fallback_skipped} stavki bez broja fakture "
                 "zbog sumnjivog fallback-a.\n"
             )
-        if no_weight_invoices:
-            message += f"\n⚠️ Fakture bez sačuvanih težina (preskočene):\n"
-            for inv in no_weight_invoices:
-                message += f"  - {invoice_labels.get(inv, inv)}\n"
+        if result.no_weight_invoices:
+            message += "\n⚠️ Fakture bez sačuvanih težina (preskočene):\n"
+            for inv in result.no_weight_invoices:
+                message += f"  - {result.invoice_labels.get(inv, inv)}\n"
             message += "\nZa ove fakture uvezite ih ponovo ili ručno unesite težine."
-        if mass_mismatches:
+        if result.mass_mismatches:
             message += "\n⚠️ Neslaganje zbira težina:\n"
-            for mismatch in mass_mismatches[:5]:
+            for mismatch in result.mass_mismatches[:5]:
                 message += (
                     f"  - {mismatch['invoice']} {mismatch['field']}: "
                     f"stavke {mismatch['actual']:.3f} kg, "
                     f"faktura {mismatch['expected']:.3f} kg\n"
                 )
-
-        if not auto:
-            QMessageBox.information(self, "Težine raspoređene", message)
-
-        # Mark as dirty
-        if self.on_dirty:
-            self.on_dirty()
-
-        self.data_changed.emit()
-        return True
-
-    def calculate_masses(self, auto: bool = False) -> bool:
-        return self._on_calculate_masses(auto=auto)
+        return message
 
     def _on_auto_fill(self, auto=False):
         """

@@ -26,6 +26,29 @@ class MassCalculationResult:
 
 
 @dataclass
+class CalculateMassesRequest:
+    bruto_total: float = 0.0
+    neto_total: float = 0.0
+    allow_suspicious_fallback: bool = False
+    suspicious_fallback: bool = False
+    no_invoice_count: int = 0
+
+
+@dataclass
+class CalculateMassesResult:
+    success: bool = False
+    updated_count: int = 0
+    skipped_count: int = 0
+    fallback_skipped: int = 0
+    no_weight_invoices: list[str] = field(default_factory=list)
+    mass_mismatches: list[dict] = field(default_factory=list)
+    suspicious_fallback: bool = False
+    no_invoice_count: int = 0
+    reason: str = ""
+    invoice_labels: dict = field(default_factory=dict)
+
+
+@dataclass
 class ValidationPassResult:
     validated_count: int = 0
     error_count: int = 0
