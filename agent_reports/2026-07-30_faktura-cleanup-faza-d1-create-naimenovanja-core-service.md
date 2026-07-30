@@ -71,7 +71,7 @@ Nema kontradikcije. Manifest zabranjuje agresivno preuzimanje kompletnog create 
 
 | Hash | Poruka |
 | --- | --- |
-| pending | `refactor(faktura): izdvoji create naimenovanja core servis` |
+| d79589b | `refactor(faktura): izdvoji create naimenovanja core servis` |
 
 ## Rizici / ograničenja
 
