@@ -826,7 +826,7 @@ class FakturaView(BaseTabView):
                 object_name="btnAutoPopuni",
                 icon_name="fa5s.magic",
             )
-            self.btn_auto_fill.clicked.connect(self._on_auto_fill)
+            self.btn_auto_fill.clicked.connect(lambda checked=False: self.auto_fill_requested.emit())
             layout.addWidget(self.btn_auto_fill)
 
             self.btn_load_mappings = self._create_button(

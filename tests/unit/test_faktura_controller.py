@@ -357,3 +357,24 @@ class TestNoDoubleValidation:
 
         assert view.auto_fill(auto=True) is result
         assert called == [True]
+
+    def test_auto_fill_button_emits_signal_not_private_handler(self, qtbot, monkeypatch):
+        from gui.tabs.faktura_view import FakturaView
+
+        draft = DeclarationDraft()
+        view = FakturaView(draft=draft)
+        qtbot.addWidget(view)
+        view.show()
+        private_called = []
+        emitted = []
+        monkeypatch.setattr(
+            view,
+            "_on_auto_fill",
+            lambda auto=False: private_called.append(auto),
+        )
+        view.auto_fill_requested.connect(lambda: emitted.append(True))
+
+        view.btn_auto_fill.click()
+
+        assert emitted == [True]
+        assert private_called == []

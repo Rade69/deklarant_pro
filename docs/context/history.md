@@ -3177,3 +3177,20 @@ sekcije, samo fizička lokacija sekcije 15+ je sad `docs/context/history.md`
 umjesto `docs/CONTEXT.md`), MCP memorija.
 
 Detalji: `agent_reports/2026-07-30_token-disciplina-context-split.md`.
+
+---
+
+## 105. Faktura 3-layer Faza 10 — ručni Auto-popuni klik ide preko signala (2026-07-30)
+
+Ručni klik na dugme `Auto-popuni` u Faktura tabu više ne poziva direktno
+`FakturaView._on_auto_fill`, nego emituje postojeći `auto_fill_requested`
+signal. `FakturaTab._on_auto_fill_requested` za sada i dalje delegira na isti
+legacy View handler, pa se poslovno ponašanje auto-popune tarifa ne mijenja.
+
+Ovo je prvi mali ručni-toolbar rez poslije Agent adapter faza. Namjerno nije
+migrirana unutrašnja auto-popuna u Controller/Service i nije uklonjen privatni
+fallback, jer `_on_auto_fill` još sadrži undo snapshot, selekcijski scope,
+TariffFacade preview/commit, dijaloge i status/render semantiku.
+
+Test kapija: `test_faktura_controller.py` 28/28; širi Faktura/Agent skup
+135/135 uz `-m "not integration"`.
