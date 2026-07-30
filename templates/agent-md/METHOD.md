@@ -12,6 +12,12 @@
 > bilo koji softverski projekat gdje: (a) rad traje kroz više sesija, (b)
 > više agenata/alata dira istu kodnu bazu, (c) greška ima cijenu veću od
 > "samo ponovo pokreni".
+>
+> **Za brzo prenošenje u DRUGI projekat** (gdje ne postoji cijeli ovaj
+> folder) — `UNIVERSAL_CLAUDE.md` (isti folder) je sve iz ovog paketa
+> stopljeno u JEDAN samostalan fajl, sa ugrađenim bootstrap-om koji se
+> sam pokreće pri prvom čitanju (posebno pogodan za kodne baze koje su
+> već u poodmakloj fazi, ne prazne projekte).
 
 ---
 
