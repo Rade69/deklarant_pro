@@ -70,7 +70,7 @@ Veliki plan predviđa potpunu migraciju masa u zasebnoj fazi. Važeća odluka za
 
 | Hash | Poruka |
 | --- | --- |
-| pending | `refactor(faktura): uvedi javni calculate masses api za agent` |
+| 7716d81 | `refactor(faktura): uvedi javni calculate masses api za agent` |
 
 ## Rizici / ograničenja
 
