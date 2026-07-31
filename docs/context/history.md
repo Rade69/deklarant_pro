@@ -3393,3 +3393,50 @@ post-akcije iz D2.
 Namjerno nije aktiviran novi Controller create put kao zamjena za legacy View
 handler i nije brisan nijedan fallback. Test kapija: ciljano 78/78; širi
 Faktura/Agent skup 172/172 uz `-m "not integration"`.
+
+---
+
+## 117. PROBE, Facts/Decisions, evidence hijerarhija, ADR filter — dopuna iz eksternog dokumenta (2026-07-30)
+
+Korisnik podijelio `MATT_AI_ENGINEERING_RADNI_TOK_ARHIVA_V2.md` (lična
+arhiva korisnika, prilagođena Mattovom AI Engineering predavanju i
+aihero.dev sistemu). Iz 55 sekcija — većina restatuje ono što `METHOD.md`/
+`AGENTS.md` već pokrivaju, ili je infrastruktura za mnogo veći orkestracioni
+sistem (Wayfinder decision-DAG, FlowOS, ticket baze, model routing) nego što
+ovaj projekat trenutno ima — izdvojeno 9 stavki kao stvarna nadogradnja bez
+potrebe za novom infrastrukturom:
+
+1. **PROBE** — nov tip zadatka za stvarne nepoznanice (throwaway grana,
+   fiksni izlaz Pitanje/Dokaz/Odluka) — `METHOD.md` komponenta #13.
+2. **Facts vs Decisions** format za pitanja agenta čovjeku.
+3. **Confirmation gate** (Shared Understanding Check) za veće zadatke.
+4. Reprodukcija proširena na **"verify before brief"** — i za feature/
+   enhancement zahtjeve i eksterne predloge koda, ne samo bugfix.
+5. **Hijerarhija dokaza** u Definition of Done (deterministički test > ... >
+   agentovo objašnjenje kao najslabiji dokaz).
+6. **Standards review + Spec review** kao dvije odvojene ose u Nezavisnoj
+   provjeri (da li je kod dobro napisan vs. da li rješava pravi problem).
+7. **Odbačene opcije** kao strukturisano polje u `agent_report`/
+   `project_room` (opcija/zašto razmatrana/zašto odbačena/kad ponovo otvoriti).
+8. Eksplicitna zabrana miješanja refactor-a i funkcionalne izmjene u istom
+   zadatku/commit-u.
+9. **ADR/project_room filter** od tri pitanja (teško vratiti / iznenađujuće
+   bez konteksta / stvaran kompromis) — omogućava `project_room` i ISPOD
+   HIGH/CRITICAL praga kad ta tri uslova važe.
+
+Primijenjeno na sva 3 sloja: root `AGENTS.md`, `templates/agent-md/
+{AGENTS,CLAUDE}.md`+predlošci, i `UNIVERSAL_CLAUDE.md` (single-file
+varijanta). Namjerno preskočeno: Wayfinder/FlowOS/ticket-DAG (čeka stvaran
+FlowOS alat), model routing po tipu zadatka (ne uklapa se u single-agent-po-
+sesiji tok), bounded-context domain docs (projekat još nije dovoljno
+fragmentisan da opravda podjelu — postojeća "Imenovanje polja" sekcija je
+dovoljna za sad).
+
+**Tehnička napomena**: pri commit-u otkriven Codex-ov WIP fajl već stažovan
+u indexu (`agent_reports/2026-07-30_faktura-cleanup-faza-d3-...md`) — nije
+dirano; commit urađen eksplicitnim pathspec-om (`git commit -- <fajlovi>`)
+da se izbjegne povlačenje tuđeg staged sadržaja u ovaj commit — čist način
+da se riješi isti rizik koji je ranije ovog dana izazvao sudar sa paralelnim
+agentom.
+
+Detalji: `agent_reports/2026-07-30_probe-facts-decisions-adr-dopuna.md`.
