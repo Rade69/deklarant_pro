@@ -83,13 +83,39 @@ Pravila:
 Napiši kratko (2-4 rečenice) šta si razumio iz zadatka i šta planiraš uraditi.
 Čekaj potvrdu korisnika prije implementacije ako zadatak nije jednoznačan.
 
+**Facts vs Decisions**: agent ne pita korisnika ono što može sam
+provjeriti u kodu/repou (to je "fact", ne "decision"). Agent ne smije sam
+odlučiti ono što je poslovna/UX/arhitektonska odluka samo zato što je
+usput otkrio relevantnu tehničku činjenicu. Kad je pitanje stvarno za
+korisnika, format:
+
+```markdown
+## Fact found
+<<< tehnička činjenica koju si utvrdio (sa referencom) >>>
+
+## Decision required
+<<< konkretno pitanje koje samo korisnik može odlučiti >>>
+
+## Recommendation
+<<< tvoj predloženi odgovor i zašto >>>
+
+## Consequence
+<<< šta se dešava ako se ide suprotnim putem >>>
+```
+
+**Confirmation gate za veće/nejasne zadatke** (ne za svaku sitnicu):
+prije implementacije, prikazati kratak "Shared Understanding Check" —
+cilj, ključne odluke, otvorena pitanja, pretpostavke, predloženi sljedeći
+korak — i sačekati potvrdu. Za mali, jednoznačan zadatak dovoljna je
+gornja rečenica "šta sam razumio", bez posebnog gate-a.
+
 ---
 
-## Reprodukcija prije bugfixa
+## Reprodukcija i provjera prije rada (verify before brief)
 
-Bug se ne popravlja dok nije reprodukovan, osim kad je jasno dokumentovano
-zašto reprodukcija nije moguća. Prihvatljivi dokazi: failing test,
-minimalna reprodukcijska skripta, konkretan ulaz (faktura iz
+**Bugfix**: bug se ne popravlja dok nije reprodukovan, osim kad je jasno
+dokumentovano zašto reprodukcija nije moguća. Prihvatljivi dokazi: failing
+test, minimalna reprodukcijska skripta, konkretan ulaz (faktura iz
 `najavauvoza/`, XML, upit), log sa preciznim podacima i greškom,
 screenshot/video stvarnog GUI ponašanja, precizno opisan ručni postupak,
 ili stanje baze + upit koji izaziva problem.
@@ -104,6 +130,44 @@ Ne mijenjati kod samo zato što pronađena implementacija izgleda sumnjivo
 dopunjuje "Provjeri hipotezu" korak u "Format zadatka za agenta" ispod —
 tamo je pravilo za korisnikovu hipotezu, ovdje je zahtjev za KONKRETAN
 dokaz prije izmjene koda.
+
+**Feature/enhancement**: prije prihvatanja zadatka, potvrditi da
+funkcionalnost već ne postoji (grep/pretraga postojećeg koda) i da
+postoji stvarna korisnička potreba, ne samo pretpostavka da bi bilo
+korisno.
+
+**Eksterni/tuđi predlog koda** (patch od drugog agenta bez nezavisne
+provjere, kod predložen van ove sesije): prije usvajanja — checkout,
+pokrenuti testove, pregledati diff. Tek onda odluka o prihvatanju.
+
+---
+
+## PROBE — kad postoji stvarna nepoznanica
+
+Za zadatke koji zahtijevaju istraživanje, ne implementaciju: nepoznato
+ponašanje PySide6/Qt-a ili Windows štampača, neprovjerene performanse
+(npr. koliko traje SMART_GROUP/`create_smart_group()` za 500+ stavki),
+nepoznat format novog dobavljača prije pisanja parsera, dilema između
+arhitektura. `PROBE` NE proizvodi produkcionu funkcionalnost — cilj mu je
+da odgovori na JEDNO konkretno pitanje.
+
+Rad na probe-u ide na throwaway granu/worktree (`probe/<pitanje>`) —
+NIKAD se ne mergea u `windows`. Ako se pokaže vrijednim, prototip se ili
+baci i implementira pravilno, ili se zadrži samo dokazani dio iza novog
+interfejsa — nikad se ne "očvršćava" na licu mjesta u produkcioni kod.
+
+Obavezan izlaz (u `agent_report` ili kratkom fajlu vezanom za probe):
+
+```markdown
+# Pitanje
+# Pretpostavka
+# Način provjere
+# Rezultat
+# Dokaz (test, screenshot, benchmark, primjer izlaza, log, mali prototip)
+# Ograničenja rezultata
+# Preporuka
+# Odluka koju sada možemo donijeti
+```
 
 ---
 
@@ -168,6 +232,11 @@ Controller metode direktno). Business logika ili DB konekcija u View-u je grešk
 - **Nema novih komentara** osim za neočigledne workarounds ili skrivene invarijante
 - **Nema docstrings** na metodama koje slijede jasne naming konvencije
   (novi docstrings, gdje su stvarno potrebni, pišu se na srpskom latinici)
+- **Ne miješati refactor i funkcionalnu izmjenu u istom zadatku/commit-u**
+  — teško je dokazati šta je promijenilo ponašanje kad su izmiješani.
+  Sitno čišćenje nastalo u istom koraku (očigledna duplikacija, ime
+  varijable) je OK; veći refactor (pomjeranje granice modula, novi sloj)
+  ide u poseban zadatak, čak i ako ga review otkrije usput
 - Fuzzy matching threshold: `min_similarity = 0.92` (ne spuštati bez eksplicitnog razloga)
 - SQL: isključivo parametrizovani upiti — nikad f-string u SQL-u
 - Debug ispisi: emoji za vizualnu identifikaciju (🔍, ✅, ⚠️, 📝) — ali NIKAD direktno
@@ -339,6 +408,24 @@ test prošao. Obavezan dokaz zavisi od tipa promjene:
   završavaju u `agent_report`-u, logovima van postojećeg logger stila,
   niti u promptu preko onoga što je zadatak stvarno zahtijevao.
 
+**Hijerarhija dokaza** (od najjačeg prema najslabijem — koristiti
+najjači koji je razumno dostupan):
+
+```text
+1. deterministički test
+2. integration test
+3. reproducibilan benchmark
+4. build/package rezultat
+5. golden file (semantičko poređenje)
+6. screenshot ili video
+7. ručna QA kontrolna lista
+8. agentovo objašnjenje ("radi jer sam tako napisao")
+```
+
+Agentova tvrdnja da nešto radi je NAJSLABIJI mogući dokaz — prihvatljiva
+samo kad ništa jače nije razumno dostupno, i tada eksplicitno navesti
+zašto.
+
 ---
 
 ## Podjela odgovornosti
@@ -375,6 +462,17 @@ NIJE provjerio. `agent_report` (radni agent) tvrdi da je zadatak završen;
 polje "Nezavisna provjera" u istom izvještaju tvrdi da je to i DOKAZANO —
 ne miješati te dvije tvrdnje.
 
+**Dvije odvojene ose pregleda** (kod može biti lijepo napisan a rješavati
+pogrešan problem, ili tačno riješiti problem a biti arhitekturno loše —
+jedan opšti pregled često pomiješa ova dva kriterija):
+
+- **Standards review** — da li je kod u skladu sa konvencijama i
+  arhitekturom (naming, stil, 3-layer razdvajanje, error handling,
+  zavisnosti, testna praksa, sigurnost, performanse).
+- **Spec review** — da li kod zaista rješava zadati problem (acceptance
+  kriteriji, izostavljeni slučajevi, scope creep, kontradikcije sa
+  zadatkom, van-opsežne promjene).
+
 ---
 
 ## Plan prije izmjene — HIGH/CRITICAL GitNexus impact
@@ -400,11 +498,22 @@ sa sekcijama:
   ako rezultat nije dobar
 - **Nezavisni checker** — ko provjerava rezultat (vidi "Nezavisna
   provjera" iznad), šta provjerava, koji dokaz mora ostaviti
+- **Odbačene opcije** (ako je bilo alternativa) — opcija, zašto je
+  razmatrana, zašto je odbačena, kada odluku ponovo otvoriti
 - **Konflikti** — ako postoje kontradiktorni izvori (stari agent_report, memorija, kod),
   navesti oba, koji se tretira kao važeći i zašto, i da li je potrebna korisnička potvrda (DA/NE)
 
 Fajl se na kraju može spojiti u `agent_report` (Korak 3) ili obrisati — nije trajna
 dokumentacija. Za MEDIUM ili niži impact ovaj korak se preskače.
+
+**Kad praviti `project_room` i ISPOD HIGH/CRITICAL praga**: tri pitanja —
+da li je odluku teško vratiti, da li je iznenađujuća bez konteksta (neko
+bi je mogao "popraviti" natrag jer izgleda kao greška), da li je rezultat
+stvarnog kompromisa (razmotrene alternative, ne očigledan izbor). Ako je
+odgovor DA na bilo koje — vrijedi kratak zapis čak i za MEDIUM impact
+(npr. netrivijalna odluka u tarifnom mapiranju ili grupiranju
+naimenovanja koja tehnički ne dira mnogo simbola, ali je lako da je neko
+kasnije "ispravi" nazad).
 
 ---
 
@@ -460,8 +569,8 @@ py_compile provjeru i ispisuje podsjetnike — NE zaobilaziti ga sa `--no-verify
     aktivan / zastario / duplikat / treba potvrdu
   - **GitNexus impact** — rezultat provjere prije izmjene (rizik, broj pogođenih simbola/procesa)
   - **Reprodukcija prije izmjene** (za bugfix zadatke) — dokaz da je
-    problem reprodukovan PRIJE izmjene (vidi "Reprodukcija prije
-    bugfixa" iznad), ili zašto nije bilo moguće
+    problem reprodukovan PRIJE izmjene (vidi "Reprodukcija i provjera
+    prije rada" iznad), ili zašto nije bilo moguće
   - **Šta je urađeno** — kratki pregled promjena
   - **Zašto je urađeno** — poslovni razlog, bug uzrok, odluka i alternativa
   - **Kako je urađeno** — tehnički pristup, koje funkcije/fajlovi
@@ -473,6 +582,9 @@ py_compile provjeru i ispisuje podsjetnike — NE zaobilaziti ga sa `--no-verify
     provjera" iznad) — da li je urađena, ko je uradio, šta je
     potvrđeno/nije potvrđeno, da li je promjena spremna za prihvatanje
   - **Pronađeni problemi** — uključujući lažno pozitivne zaključke
+  - **Odbačene opcije** (ako je bilo alternativa) — opcija, zašto je
+    razmatrana, zašto je odbačena, kada odluku ponovo otvoriti — sprečava
+    da drugi agent kasnije ponovo predloži istu odbačenu ideju
   - **Konflikti / kontradiktorni izvori** (ako postoje) — koji je tretiran kao važeći
     i zašto, i da li treba korisnička potvrda (DA/NE)
   - **Commitovi** — tabela hash/poruka

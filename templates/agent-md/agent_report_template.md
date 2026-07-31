@@ -21,7 +21,7 @@ YYYY-MM-DD
 <<< rezultat provjere prije izmjene — rizik, broj/koji pogođeni simboli/procesi. "Nema" ako izmjena ne dira kod (npr. čista dokumentacija). >>>
 
 ## Reprodukcija prije izmjene
-<!-- Za bugfix zadatke. Vidi AGENTS.md "Reprodukcija prije bugfixa". -->
+<!-- Za bugfix zadatke. Vidi AGENTS.md "Reprodukcija i provjera prije rada". -->
 <<< dokaz da je problem reprodukovan PRIJE izmjene — failing test, konkretan ulaz, log, screenshot/video, precizan ručni postupak. Ako nije reprodukovano: šta je pokušano, zašto nije uspjelo, na kojoj pretpostavci se izmjena zasniva, koji rizik ostaje. "N/A" ako zadatak nije bugfix. >>>
 
 ## Kontekst korišćen
@@ -55,6 +55,13 @@ YYYY-MM-DD
 
 ## Pronađeni problemi
 <<< uključujući lažno pozitivne zaključke tokom rada. "Nema" ako zaista nema. >>>
+
+## Odbačene opcije
+<!-- Ako je bilo razmotrenih alternativa. "Nema" ako je rješenje bilo očigledno/jedino. -->
+- Opcija: <<< >>>
+- Zašto je razmatrana: <<< >>>
+- Zašto je odbačena: <<< >>>
+- Kada odluku ponovo otvoriti: <<< >>>
 
 ## Konflikti / kontradiktorni izvori
 <<< ako postoje dva izvora koja se ne slažu (stari report vs. kod, dvije memorije, paralelan agent...), navesti oba, koji je tretiran kao važeći i zašto, i da li treba korisnička potvrda (DA/NE). "Nema" ako nema. >>>

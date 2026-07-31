@@ -177,6 +177,12 @@ Ovaj format je preporuka, ne zamjena za "OBAVEZNA PROCEDURA": za sitne,
 jednolinijske ispravke (npr. jedan red u bazi, jedna konstanta) format je
 nepotreban overhead — koristiti procjenu.
 
+Za veće/nejasnije zadatke vidi i `AGENTS.md`: "Facts vs Decisions" format
+(ne pitati ono što se može provjeriti u kodu, ne odlučivati ono što je
+poslovna odluka), "Confirmation gate" (Shared Understanding Check prije
+implementacije), i "PROBE" (kad zadatak zahtijeva istraživanje/dokaz
+prije nego rješenje, ne implementaciju direktno).
+
 ---
 
 ## Plan prije izmjene — HIGH/CRITICAL impact
@@ -204,6 +210,8 @@ sa sekcijama:
   ako rezultat nije dobar
 - **Nezavisni checker** — ko provjerava rezultat (vidi `AGENTS.md`
   "Nezavisna provjera"), šta provjerava, koji dokaz mora ostaviti
+- **Odbačene opcije** (ako je bilo alternativa) — opcija, zašto je
+  razmatrana, zašto je odbačena, kada odluku ponovo otvoriti
 - **Konflikti** — ako postoje kontradiktorni izvori (stari agent_report,
   memorija, kod), navesti oba, koji se tretira kao važeći i zašto, i da li
   je potrebna korisnička potvrda (DA/NE)
@@ -211,6 +219,15 @@ sa sekcijama:
 Fajl se na kraju može spojiti u `agent_report` (Korak 3 ispod) ili obrisati —
 nije trajna dokumentacija. Za MEDIUM ili niži impact ovaj korak se
 preskače — dovoljan je "Format zadatka" iznad i `agent_report` na kraju.
+
+**Kad praviti `project_room` i ISPOD HIGH/CRITICAL praga**: tri pitanja —
+da li je odluku teško vratiti, da li je iznenađujuća bez konteksta (neko
+bi je mogao "popraviti" natrag jer izgleda kao greška), da li je rezultat
+stvarnog kompromisa (razmotrene alternative, ne očigledan izbor). Ako je
+odgovor DA na bilo koje — vrijedi kratak zapis čak i za MEDIUM impact.
+Ovo je isti filter koji odlučuje da li nešto zaslužuje ADR u projektima
+koji koriste ADR — spriječava da svaka sitna odluka dobije project_room,
+a da prava (samo tehnički "MEDIUM") odluka ostane nezapisana.
 
 <<< POPUNI: ako projekat NEMA alat za impact-analizu, definisati ovdje
 zamjenski kriterijum za "HIGH/CRITICAL" (npr. "simbol ima >10 pozivača",
@@ -257,7 +274,7 @@ Svaki agent koji radi na ovom projektu MORA slijediti ovaj redosljed nakon
     pogođenih simbola/procesa) — vidi opcionu sekciju "Code Intelligence"
   - **Reprodukcija prije izmjene** (za bugfix zadatke) — dokaz da je
     problem reprodukovan PRIJE nego što je kod mijenjan (vidi `AGENTS.md`
-    "Reprodukcija prije bugfixa"), ili zašto nije bilo moguće
+    "Reprodukcija i provjera prije rada"), ili zašto nije bilo moguće
   - **Šta je urađeno** — kratki pregled promjena
   - **Zašto je urađeno** — poslovni razlog, bug uzrok, odluka i alternativa
   - **Kako je urađeno** — tehnički pristup, koje funkcije/fajlovi
@@ -271,6 +288,9 @@ Svaki agent koji radi na ovom projektu MORA slijediti ovaj redosljed nakon
     potvrđeno/nije potvrđeno, da li je promjena spremna za prihvatanje
   - **Pronađeni problemi** — uključujući lažno pozitivne zaključke (npr.
     verifikacija koja je krivo pokazala uspjeh)
+  - **Odbačene opcije** (ako je bilo alternativa) — opcija, zašto je
+    razmatrana, zašto je odbačena, kada odluku ponovo otvoriti. Sprečava
+    da drugi agent kasnije ponovo predloži istu odbačenu ideju
   - **Konflikti / kontradiktorni izvori** (ako postoje) — dva izvora koja se
     ne slažu (stari report vs. kod, dvije memorije...), koji je tretiran kao
     važeći i zašto, i da li treba korisnička potvrda (DA/NE)

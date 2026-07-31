@@ -42,7 +42,7 @@ razgovor, prenosi artefakt** — i taj artefakt ima fiksnu, predvidivu formu.
 
 ---
 
-## Dvanaest komponenti
+## Trinaest komponenti
 
 ### 1. Kanonski fajl pravila — jedan izvor istine
 
@@ -180,6 +180,19 @@ Tri različite tvrdnje se ne smiju miješati: "worker kaže da je gotovo"
 "čovjek prihvata poslovni/rizični ishod" (ljudska potvrda) — vidi
 `AGENTS.md` "Podjela odgovornosti".
 
+### 13. PROBE — istraživanje je poseban tip zadatka, ne implementacija
+
+Kad postoji stvarna nepoznanica (nepoznata biblioteka, neprovjerene
+performanse, nejasno GUI/OS ponašanje, dilema arhitekture), miješanje
+istraživanja i implementacije u isti zadatak proizvodi kod koji je
+napola dokaz, napola produkcija — ni dovoljno rigorozan da bude pouzdan
+odgovor, ni dovoljno čist da uđe u glavnu granu. `PROBE` (vidi
+`AGENTS.md`) razdvaja ih eksplicitno: rad ide na throwaway granu koja se
+nikad ne mergea, izlaz je fiksnog oblika (pitanje → dokaz → odluka), a
+odluka koju probe donese preživljava i kad se kod baci. Ovo je
+komponenta #11 (reprodukuj prije popravke) primijenjena na NEPOZNANICE
+umjesto na BUGOVE — isti princip "dokaz prije zaključka", drugi okidač.
+
 ---
 
 ## Kako početi u novom projektu
@@ -213,8 +226,8 @@ Tri različite tvrdnje se ne smiju miješati: "worker kaže da je gotovo"
 - Jednokratan skript, eksperiment, prototip bez budućnosti — sva ova
   ceremonija je čist overhead.
 - Solo rad, kratak vijek projekta, nema drugih agenata koji će ikad
-  dirati ovaj kod — komponente #1, #3, #6, #7, #11 i dalje vrijede u
-  minimalnoj formi (par rečenica prije/poslije; #7 i #11 su posebno
+  dirati ovaj kod — komponente #1, #3, #6, #7, #11, #13 i dalje vrijede u
+  minimalnoj formi (par rečenica prije/poslije; #7, #11 i #13 su posebno
   jeftine navike bez obzira na veličinu tima ili tima od jednog), ali #5
   (project_room), #10 (worktree izolacija) i formalni `docs/CONTEXT.md`
   split su suvišni dok ne zatrebaju. #12 (nezavisan checker) formalno
@@ -229,15 +242,18 @@ Tri različite tvrdnje se ne smiju miješati: "worker kaže da je gotovo"
 ## Šta je univerzalno, šta je zamjenjivo
 
 **Univerzalno** (prenosi se skoro 1:1 na bilo koji softverski projekat, a
-komponente #1, #2, #3, #5, #6, #8, #10, #11, #12 vjerovatno i na drugi rad
-sa jasnim "artefaktima" i verzijama — pravni dokumenti, data pipeline
-konfiguracije, content sistemi): komponente #1, #2, #3, #5, #6, #7, #8,
-#10, #11, #12. Komponenta #7 (samoobjašnjavajući kod) je specifično za
-rad SA KODOM — ne prenosi se 1:1 na ne-kodni rad, ali analogija postoji
-(kratka bilješka koja linkuje na detaljan zapis, umjesto dugog inline
-objašnjenja u samom dokumentu). Komponenta #11 (reprodukuj prije
-popravke) se na ne-kodni rad prenosi kao "potvrdi da problem stvarno
-postoji i razumij ga prije nego predložiš rješenje".
+komponente #1, #2, #3, #5, #6, #8, #10, #11, #12, #13 vjerovatno i na
+drugi rad sa jasnim "artefaktima" i verzijama — pravni dokumenti, data
+pipeline konfiguracije, content sistemi): komponente #1, #2, #3, #5, #6,
+#7, #8, #10, #11, #12, #13. Komponenta #7 (samoobjašnjavajući kod) je
+specifično za rad SA KODOM — ne prenosi se 1:1 na ne-kodni rad, ali
+analogija postoji (kratka bilješka koja linkuje na detaljan zapis,
+umjesto dugog inline objašnjenja u samom dokumentu). Komponenta #11
+(reprodukuj prije popravke) se na ne-kodni rad prenosi kao "potvrdi da
+problem stvarno postoji i razumij ga prije nego predložiš rješenje".
+Komponenta #13 (PROBE) se prenosi kao "istraženo nešto nepoznato" —
+throwaway istraživanje sa fiksnim zapisnikom odluke, van glavnog
+artefakta.
 
 **Zamjenjivo** (princip ostaje, alat/implementacija se mijenja po
 projektu): komponenta #4 (code-graph alat vs grep vs IDE), tačan format

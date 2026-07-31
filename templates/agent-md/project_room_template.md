@@ -1,6 +1,8 @@
 <!--
-TEMPLATE. Koristiti SAMO kad impact-analiza vrati HIGH/CRITICAL (vidi
-CLAUDE.md "Plan prije izmjene"). Kopirati kao
+TEMPLATE. Koristiti kad impact-analiza vrati HIGH/CRITICAL, ILI (čak i za
+MEDIUM) kad je odluku teško vratiti, iznenađujuća je bez konteksta, ili
+je rezultat stvarnog kompromisa (vidi CLAUDE.md "Plan prije izmjene" —
+isti filter kao ADR). Kopirati kao
 project_rooms/YYYY-MM-DD_kratak-naziv-zadatka.md, popuniti PRIJE izmjene.
 Objašnjenje ZAŠTO ovaj fajl postoji: templates/agent-md/METHOD.md #5.
 Fajl se na kraju može spojiti u agent_report ili obrisati — nije trajna
@@ -33,6 +35,13 @@ dokumentacija.
 ## Nezavisni checker
 <!-- Vidi AGENTS.md "Nezavisna provjera". -->
 <<< ko provjerava rezultat, šta provjerava, koji dokaz mora ostaviti >>>
+
+## Odbačene opcije
+<!-- Ako je bilo razmotrenih alternativa pristupa. Ukloniti ako nema. -->
+- Opcija: <<< >>>
+- Zašto je razmatrana: <<< >>>
+- Zašto je odbačena: <<< >>>
+- Kada odluku ponovo otvoriti: <<< >>>
 
 ## Konflikti
 <!-- Ako postoje kontradiktorni izvori (stari agent_report, memorija, kod). Ukloniti ako nema. -->

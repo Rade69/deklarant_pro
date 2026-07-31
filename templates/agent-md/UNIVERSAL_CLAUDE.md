@@ -141,25 +141,30 @@ arhitektonska promjena dobijaju isti tretman). Dolje navedena pravila
 rješavaju sva tri kroz jedan princip: **agent ne prenosi razgovor, prenosi
 artefakt** — plan prije rizične izmjene, `agent_report` poslije svake.
 
-Deset ideja u pozadini (detalji u Sekciji 2, ovo je samo podsjetnik ZAŠTO
-ih ne brisati kad zasmetaju):
+Jedanaest ideja u pozadini (detalji u Sekciji 2, ovo je samo podsjetnik
+ZAŠTO ih ne brisati kad zasmetaju):
 
 1. **Jedan izvor istine** — sva pravila na jednom mjestu, ne duplirano.
 2. **Slojevit kontekst** — evergreen (malo, uvijek se čita) odvojeno od
    dated istorije (veliko, pretražuje se po potrebi).
-3. **Strukturisan intake** — hipoteza se potvrđuje dokazom prije izmjene.
+3. **Strukturisan intake** — hipoteza se potvrđuje dokazom prije izmjene;
+   agent ne pita ono što može sam provjeriti (fact), ne odlučuje ono što
+   je poslovna odluka (decision).
 4. **Gejt provjere uticaja** — nikad ne pretpostaviti blast radius.
 5. **Rizik-stepenovana ceremonija** — LOW direktno, HIGH/CRITICAL sa
    planom i scope lock-om.
-6. **Fiksna šema izvještaja** — ništa se tiho ne preskače.
+6. **Fiksna šema izvještaja** — ništa se tiho ne preskače; hijerarhija
+   dokaza (test je jači dokaz od agentovog objašnjenja).
 7. **Samoobjašnjavajući kod** — ime nosi "šta", komentar (kratak) nosi
    neočigledno "zašto", dugo objašnjenje ide u `agent_report` uz link.
 8. **Artefakt umjesto razgovora** — prelaz između faza nosi zaključak,
    ne cijeli chat.
 9. **Git higijena** — atomski commit, nikad širok `git add` u dijeljenom
-   working tree-u.
+   working tree-u; refactor odvojen od funkcionalne izmjene.
 10. **Reprodukcija prije popravke + nezavisna provjera** — "agent kaže da
     je gotovo" i "dokazano je da radi" su dvije različite tvrdnje.
+11. **PROBE** — za stvarne nepoznanice, istraživanje na throwaway grani
+    je poseban tip zadatka, ne pola-implementacija.
 
 ---
 
@@ -200,13 +205,61 @@ odjeljak naraste (vidi Sekciju 3), premjestiti u zaseban fajl. >>>
 Napiši kratko (2-4 rečenice) šta si razumio iz zadatka i šta planiraš
 uraditi. Čekaj potvrdu korisnika ako zadatak nije jednoznačan.
 
-### Reprodukcija prije bugfixa
+**Facts vs Decisions**: agent ne pita korisnika ono što može sam
+provjeriti u kodu/repou. Agent ne odlučuje sam ono što je poslovna/UX/
+arhitektonska odluka samo zato što je usput otkrio tehničku činjenicu.
+Kad je pitanje stvarno za korisnika:
 
-Bug se ne popravlja dok nije reprodukovan (failing test, konkretan ulaz,
-log, screenshot/video, precizan ručni postupak), osim kad je zapisano
-zašto reprodukcija nije moguća i na kojoj se pretpostavci izmjena
-zasniva. Ne mijenjati kod samo zato što implementacija izgleda sumnjivo —
-to nije isto što i dokazan uzrok.
+```markdown
+## Fact found
+<<< tehnička činjenica sa referencom >>>
+## Decision required
+<<< konkretno pitanje koje samo korisnik može odlučiti >>>
+## Recommendation
+<<< predloženi odgovor i zašto >>>
+## Consequence
+<<< šta se dešava suprotnim putem >>>
+```
+
+**Confirmation gate** za veće/nejasne zadatke (ne za svaku sitnicu):
+prije implementacije prikazati kratak "Shared Understanding Check" —
+cilj, ključne odluke, otvorena pitanja, pretpostavke, predloženi sljedeći
+korak — i sačekati potvrdu.
+
+### Reprodukcija i provjera prije rada (verify before brief)
+
+**Bugfix**: bug se ne popravlja dok nije reprodukovan (failing test,
+konkretan ulaz, log, screenshot/video, precizan ručni postupak), osim
+kad je zapisano zašto reprodukcija nije moguća i na kojoj se pretpostavci
+izmjena zasniva. Ne mijenjati kod samo zato što implementacija izgleda
+sumnjivo — to nije isto što i dokazan uzrok.
+
+**Feature/enhancement**: prije prihvatanja zadatka, potvrditi da
+funkcionalnost već ne postoji i da postoji stvarna korisnička potreba.
+
+**Eksterni/tuđi predlog koda**: prije usvajanja — checkout, testovi,
+pregled diff-a, tek onda odluka.
+
+### PROBE — kad postoji stvarna nepoznanica
+
+Za nepoznatu biblioteku/API, nejasne performanse, neprovjeren format,
+nepoznato GUI/OS ponašanje, dilemu arhitekture — `PROBE` NE proizvodi
+produkcionu funkcionalnost, samo odgovara na JEDNO konkretno pitanje.
+Rad ide na throwaway granu/worktree (`probe/<pitanje>`), NIKAD se ne
+mergea. Ako se pokaže vrijednim: baciti i implementirati pravilno, ili
+zadržati samo dokazani dio iza novog interfejsa — nikad "očvrsnuti" na
+licu mjesta.
+
+```markdown
+# Pitanje
+# Pretpostavka
+# Način provjere
+# Rezultat
+# Dokaz (test, screenshot, benchmark, primjer izlaza, log, mali prototip)
+# Ograničenja rezultata
+# Preporuka
+# Odluka koju sada možemo donijeti
+```
 
 ### Tech stack
 
@@ -236,6 +289,9 @@ ako potvrđeno u 2+ primjera, ne pretpostavka) >>>
 - Tri slične linije > prerana apstrakcija.
 - Bez error handling/validacije za scenarije koji se ne mogu desiti —
   validacija samo na granicama sistema.
+- Ne miješati refactor i funkcionalnu izmjenu u istom zadatku/commit-u —
+  teško je dokazati šta je promijenilo ponašanje. Sitno čišćenje nastalo
+  u istom koraku je OK; veći refactor ide u poseban zadatak.
 - <<< POPUNI (BOOTSTRAP Korak 3): projekat-specifične konvencije koda,
   imenovanja, formatiranja >>>
 
@@ -259,6 +315,11 @@ produkcijske migracije, NIKAD prvi put na produkcionim podacima);
 performanse (mjerenje prije/poslije, funkcionalna jednakost); sigurnost
 (osjetljivi podaci ne završavaju u promptu/logovima/agent_report-u) >>>
 
+**Hijerarhija dokaza** (najjači prema najslabijem): deterministički test
+→ integration test → reproducibilan benchmark → build/package rezultat →
+golden file → screenshot/video → ručna QA lista → agentovo objašnjenje
+(najslabiji mogući dokaz, prihvatljiv samo kad ništa jače nije dostupno).
+
 ### Podjela odgovornosti
 
 | Ko | Šta |
@@ -279,6 +340,11 @@ i jasno kaže šta NIJE provjerio. "Agent kaže da je gotovo" i "checker je
 dokazao da radi" su dvije različite tvrdnje — ne miješati ih u
 `agent_report`-u.
 
+Dvije odvojene ose (kod može biti lijepo napisan a rješavati pogrešan
+problem, ili obrnuto): **Standards review** (konvencije, arhitektura,
+error handling, sigurnost, performanse) i **Spec review** (da li kod
+zaista rješava zadati problem, izostavljeni slučajevi, scope creep).
+
 <<< POPUNI: konkretan mehanizam na ovom projektu — dostupni review
 skillovi, druga agent sesija, ili ljudski review >>>
 
@@ -298,8 +364,12 @@ PRIJE izmjene napraviti kratak fajl `project_rooms/YYYY-MM-DD_naziv.md`
 (ili odjeljak u `agent_report`-u ako `project_rooms/` folder još ne
 postoji) sa: **Cilj**, **Pogođeno**, **Plan**, **Šta NE dirati** (scope
 lock), **Plan verifikacije** (koji dokaz mora postojati — vidi Definition
-of Done), **Rollback/oporavak**, **Nezavisni checker**, **Konflikti**
-(ako postoje kontradiktorni izvori). Za MEDIUM ili niže se preskače.
+of Done), **Rollback/oporavak**, **Nezavisni checker**, **Odbačene
+opcije** (opcija/zašto razmatrana/zašto odbačena/kada ponovo otvoriti),
+**Konflikti** (ako postoje kontradiktorni izvori). Za MEDIUM ili niže se
+preskače — OSIM kad je odluku teško vratiti, iznenađujuća je bez
+konteksta, ili je stvaran kompromis (isti filter kao ADR) — tad kratak
+zapis vrijedi i ispod HIGH/CRITICAL praga.
 
 ### Handoff visokog rizika
 
@@ -327,8 +397,10 @@ prije izmjene** (za bugfix — dokaz ili razlog zašto nije moguće), **Šta
 je urađeno**, **Zašto je urađeno**, **Kako je urađeno**, **Šta nije
 dirano**, **Verifikacija** (mora odgovarati Definition of Done),
 **Nezavisna provjera** (obavezno za HIGH/CRITICAL), **Pronađeni
-problemi**, **Konflikti/kontradiktorni izvori**, **Commitovi**, **Rizici/
-ograničenja**, **Potreban follow-up**, **Potrebna korisnička potvrda**.
+problemi**, **Odbačene opcije** (ako je bilo alternativa — opcija/zašto
+razmatrana/zašto odbačena/kada ponovo otvoriti), **Konflikti/
+kontradiktorni izvori**, **Commitovi**, **Rizici/ograničenja**, **Potreban
+follow-up**, **Potrebna korisnička potvrda**.
 Commitovati odmah nakon pisanja.
 
 **Korak 4 — Link u kodu** (opcionalno): za netrivijalne odluke, kratak

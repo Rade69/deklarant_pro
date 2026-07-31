@@ -74,21 +74,55 @@ utvrditi čije su prije nastavka.
 
 ---
 
-## Reprodukcija prije bugfixa
+## Reprodukcija i provjera prije rada (verify before brief)
 
-Pravi bug se ne popravlja dok nije reprodukovan, osim kad je jasno
-dokumentovano zašto reprodukcija nije moguća. Prihvatljivi dokazi:
+**Bugfix**: pravi bug se ne popravlja dok nije reprodukovan, osim kad je
+jasno dokumentovano zašto reprodukcija nije moguća. Prihvatljivi dokazi:
 failing test, minimalna reprodukcijska skripta, konkretan ulaz (fajl,
 zahtjev, upit) koji izaziva problem, log sa preciznim podacima i greškom,
 screenshot/video stvarnog ponašanja, precizno opisan ručni postupak, ili
-stanje baze + upit koji izaziva problem.
+stanje baze + upit koji izaziva problem. Ako reprodukcija nije moguća,
+zapisati: šta je pokušano, zašto nije reprodukovan, na kojoj pretpostavci
+se zasniva izmjena, koji dodatni rizik zbog toga ostaje. Ne mijenjati kod
+samo zato što implementacija izgleda sumnjivo — "izgleda sumnjivo" nije
+isto što i "dokazano je uzrok problema".
 
-Ako reprodukcija nije moguća, zapisati: šta je pokušano, zašto problem
-nije reprodukovan, na kojoj pretpostavci se zasniva predložena izmjena, i
-koji dodatni rizik zbog toga ostaje.
+**Feature/enhancement**: prije nego se prihvati kao zadatak, potvrditi da
+funkcionalnost već ne postoji (grep/pretraga), i da postoji stvarna
+korisnička potreba (ne samo pretpostavka da bi bilo korisno).
 
-Ne mijenjati kod samo zato što pronađena implementacija izgleda sumnjivo
-— "izgleda sumnjivo" nije isto što i "dokazano je uzrok problema".
+**Eksterni/tuđi predlog koda** (patch, PR, kod od drugog agenta bez
+nezavisne provjere): prije usvajanja — checkout, pokrenuti testove,
+pregledati diff. Tek onda odluka da li se prihvata.
+
+---
+
+## PROBE — kad postoji stvarna nepoznanica
+
+Za zadatke koji zahtijevaju istraživanje, ne implementaciju: nepoznata
+biblioteka/API, nejasne performanse, neprovjeren format dokumenta,
+nepoznato ponašanje GUI/OS/hardvera, dilema između arhitektura. `PROBE`
+NE proizvodi produkcionu funkcionalnost — cilj mu je da odgovori na JEDNO
+konkretno pitanje.
+
+Rad na probe-u ide na throwaway granu/worktree (`probe/<pitanje>`) —
+NIKAD se ne mergea u glavnu granu. Ako se pokaže vrijednim, prototip se
+ili baci i implementira pravilno, ili se zadrži samo dokazani dio iza
+novog interfejsa — nikad se ne "očvršćava" na licu mjesta u produkcioni
+kod.
+
+Obavezan izlaz (u `agent_report` ili kratkom fajlu vezanom za probe):
+
+```markdown
+# Pitanje
+# Pretpostavka
+# Način provjere
+# Rezultat
+# Dokaz (test, screenshot, benchmark, primjer izlaza, log, mali prototip)
+# Ograničenja rezultata
+# Preporuka
+# Odluka koju sada možemo donijeti
+```
 
 ---
 
@@ -97,6 +131,32 @@ Ne mijenjati kod samo zato što pronađena implementacija izgleda sumnjivo
 Napiši kratko (2-4 rečenice) šta si razumio iz zadatka i šta planiraš
 uraditi. Čekaj potvrdu korisnika prije implementacije ako zadatak nije
 jednoznačan.
+
+**Facts vs Decisions**: agent ne pita korisnika ono što može sam
+provjeriti u kodu/repou (to je "fact", ne "decision"). Agent ne smije
+sam odlučiti ono što je poslovna/UX/arhitektonska odluka samo zato što
+je usput otkrio relevantnu tehničku činjenicu. Kad je pitanje stvarno
+za korisnika, format:
+
+```markdown
+## Fact found
+<<< tehnička činjenica koju si utvrdio (sa referencom) >>>
+
+## Decision required
+<<< konkretno pitanje koje samo korisnik može odlučiti >>>
+
+## Recommendation
+<<< tvoj predloženi odgovor i zašto >>>
+
+## Consequence
+<<< šta se dešava ako se ide suprotnim putem >>>
+```
+
+**Confirmation gate za veće/nejasne zadatke** (ne za svaku sitnicu):
+prije implementacije, prikazati kratak "Shared Understanding Check" —
+cilj, ključne odluke, otvorena pitanja, pretpostavke, predloženi sljedeći
+korak — i sačekati potvrdu. Za mali, jednoznačan zadatak dovoljna je
+gornja rečenica "šta sam razumio", bez posebnog gate-a.
 
 ---
 
@@ -151,6 +211,12 @@ public API. Controller metode su tanki 1-liner pozivi servisa." >>>**
 - **Nema novih komentara** osim za neočigledne workarounds ili skrivene
   invarijante
 - **Nema docstrings** na metodama koje slijede jasne naming konvencije
+- **Ne miješati refactor i funkcionalnu izmjenu u istom zadatku/commit-u**
+  — teško je dokazati šta je promijenilo ponašanje kad su izmiješani.
+  Sitno čišćenje nastalo u istom koraku (očigledna duplikacija, ime
+  varijable, formatiranje) je OK; veći refactor (pomjeranje granice
+  modula, novi apstraktni sloj, uklanjanje starog "smell-a") ide u
+  poseban zadatak, čak i ako ga review otkrije usput
 - <<< POPUNI: projekat-specifična pravila, npr. fuzzy matching threshold,
   zabrana f-string u SQL-u, obavezna polja u rezultatima servisa >>>
 
@@ -209,6 +275,24 @@ promjena u ovom projektu:
   osjetljivim dokumentima/podacima mimo allowlist-ovanih polja,
   osjetljivi podaci ne završavaju u promptu/logovima/agent_report-u >>>
 
+**Hijerarhija dokaza** (od najjačeg prema najslabijem — koristiti
+najjači koji je razumno dostupan):
+
+```text
+1. deterministički test
+2. integration test
+3. reproducibilan benchmark
+4. build/package rezultat
+5. golden file (semantičko poređenje)
+6. screenshot ili video
+7. ručna QA kontrolna lista
+8. agentovo objašnjenje ("radi jer sam tako napisao")
+```
+
+Agentova tvrdnja da nešto radi je NAJSLABIJI mogući dokaz — prihvatljiva
+samo kad ništa jače nije razumno dostupno, i tada eksplicitno navesti
+zašto.
+
 ---
 
 ## Podjela odgovornosti
@@ -238,6 +322,17 @@ provjerio. `agent_report` (worker) tvrdi da je zadatak završen;
 `agent_report`-ovo polje "Nezavisna provjera" tvrdi da je to i DOKAZANO —
 to su dvije različite stvari, ne miješati ih.
 
+**Dvije odvojene ose pregleda** (kod može biti lijepo napisan a rješavati
+pogrešan problem, ili tačno riješiti problem a biti arhitekturno loše —
+jedan opšti pregled često pomiješa ova dva kriterija):
+
+- **Standards review** — da li je kod u skladu sa konvencijama i
+  arhitekturom (naming, stil, modularnost, error handling, zavisnosti,
+  testna praksa, sigurnost, performanse).
+- **Spec review** — da li kod zaista rješava zadati problem (acceptance
+  kriteriji, izostavljeni slučajevi, scope creep, kontradikcije sa
+  zadatkom, van-opsežne promjene).
+
 ---
 
 ## Handoff visokog rizika (HIGH/CRITICAL impact)
@@ -265,6 +360,11 @@ Ovo dopunjuje pravilo "upozori korisnika ako impact analiza vrati HIGH ili
 CRITICAL" (vidi opcionu sekciju "Code Intelligence" u `CLAUDE.md`) — daje
 konkretan format umjesto generičkog upozorenja i tjera agenta da prije
 izmjene eksplicitno zapiše granice zadatka.
+
+**Napomena**: `project_room`/trajni zapis odluke ima smisla i ISPOD
+HIGH/CRITICAL praga kad je odluku teško vratiti, iznenađujuća je bez
+konteksta, ili je rezultat stvarnog kompromisa — vidi filter u
+`CLAUDE.md` "Plan prije izmjene".
 
 ---
 
