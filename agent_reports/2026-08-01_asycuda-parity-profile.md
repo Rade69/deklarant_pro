@@ -110,7 +110,7 @@ tretirao kao unosni izuzetak, ne sistemski kvar.
 
 | Hash | Poruka |
 | --- | --- |
-| pending | `docs(asycuda): dodaj parity profil` |
+| `7498389` | `docs(asycuda): dodaj parity profil` |
 
 ## Kontekst korišćen
 
