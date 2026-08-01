@@ -133,3 +133,28 @@ class MassWorkflowService:
         if mass_mismatches:
             return "mass_mismatch"
         return "nothing_to_update"
+
+    @staticmethod
+    def success_message(result) -> str:
+        message = f"Težine raspoređene na {result.updated_count} stavki.\n\n"
+        if result.skipped_count > 0:
+            message += f"⚠️ Preskočeno {result.skipped_count} stavki koje već imaju obe težine.\n"
+        if result.fallback_skipped:
+            message += (
+                f"\n⚠️ Preskočeno {result.fallback_skipped} stavki bez broja fakture "
+                "zbog sumnjivog fallback-a.\n"
+            )
+        if result.no_weight_invoices:
+            message += "\n⚠️ Fakture bez sačuvanih težina (preskočene):\n"
+            for inv in result.no_weight_invoices:
+                message += f"  - {result.invoice_labels.get(inv, inv)}\n"
+            message += "\nZa ove fakture uvezite ih ponovo ili ručno unesite težine."
+        if result.mass_mismatches:
+            message += "\n⚠️ Neslaganje zbira težina:\n"
+            for mismatch in result.mass_mismatches[:5]:
+                message += (
+                    f"  - {mismatch['invoice']} {mismatch['field']}: "
+                    f"stavke {mismatch['actual']:.3f} kg, "
+                    f"faktura {mismatch['expected']:.3f} kg\n"
+                )
+        return message

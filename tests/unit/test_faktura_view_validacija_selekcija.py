@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+from services.faktura.validation_service import ValidationService
 from gui.tabs.faktura_view import FakturaView
 
 
@@ -56,11 +57,11 @@ def test_validation_issue_counts_scoped_na_row_indexes():
         return error_result if row == 1 else ok_result
 
     mock_self.validation_cache.get.side_effect = fake_get
-    mock_self._validation_issue_label.return_value = "greska"
     error_result.errors = [MagicMock(field="tarifni_broj", message="obavezan")]
     ok_result.errors = []
 
-    errors, warnings = FakturaView._validation_issue_counts(mock_self, [1, 3])
+    with patch.object(ValidationService, "validation_issue_label", return_value="greska"):
+        errors, warnings = FakturaView._validation_issue_counts(mock_self, [1, 3])
 
     # Samo redovi 1 i 3 su provjereni - validation_cache.get pozvan tacno 2x
     assert mock_self.validation_cache.get.call_count == 2

@@ -2535,7 +2535,7 @@ class FakturaView(BaseTabView):
         self._offer_split_by_country(list(self.draft.invoice_lines))
 
         excel_count, pdf_count = ImportService.count_applied_batch_file_types(
-            self, plan, apply_result
+            plan, apply_result
         )
         self.imported_excel_count += excel_count
         self.imported_pdf_count   += pdf_count

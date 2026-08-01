@@ -22,7 +22,9 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 import pytest
+from unittest.mock import MagicMock, patch
 
+from services.faktura.mass_calculator import MassCalculator
 from core.draft.draft import DeclarationDraft, InvoiceLine, Party
 from gui.tabs.faktura_view import FakturaView
 from importers.import_result import ImportResult
@@ -88,7 +90,6 @@ def _mock_self_for_batch_import(agent_mode=False):
     mock_self.imported_pdf_count = 0
     mock_self._postprocess_master_frigo_pairs_records.return_value = None
     mock_self._normalize_item_tariffs.return_value = None
-    mock_self._distribute_invoice_weights.return_value = None
     mock_self._should_show_eur1_dialog.return_value = False
     mock_self._offer_split_by_country.return_value = None
     mock_self.on_dirty = None
@@ -128,11 +129,12 @@ class TestManualSingleImportCurrentBehavior:
         mock_self._check_partner_consistency.assert_called_once()
 
     def test_poziva_distribute_invoice_weights(self):
-        """Ručni uvoz raspoređuje ukupne težine na pojedinačne stavke."""
+        """Ručni uvoz raspoređuje ukupne težine na pojedinačne stavke (sada preko MassCalculator)."""
         mock_self = _mock_self_for_manual_import()
-        with patch("gui.tabs.faktura_view.QMessageBox"):
+        with patch("gui.tabs.faktura_view.QMessageBox"), \
+             patch.object(MassCalculator, "calculate_masses") as mock_calc:
             FakturaView._on_import_finished(mock_self, [])
-        mock_self._distribute_invoice_weights.assert_called_once()
+        mock_calc.assert_called_once()
 
     def test_poziva_normalize_item_tariffs(self):
         """Ručni uvoz normalizuje tarifne brojeve na 8 cifara."""
@@ -276,11 +278,12 @@ class TestManualBatchImportCurrentBehavior:
         mock_self = _mock_self_for_batch_import()
         mock_self.assembly.master_list_loaded = True
 
-        with patch("gui.tabs.faktura_view.QMessageBox"):
+        with patch("gui.tabs.faktura_view.QMessageBox"), \
+             patch.object(MassCalculator, "calculate_masses") as mock_calc:
             FakturaView._process_batch_records(mock_self, _batch_records())
 
         mock_self._normalize_item_tariffs.assert_called_once()
-        mock_self._distribute_invoice_weights.assert_called_once()
+        mock_calc.assert_called_once()
 
 
 # ── Trenutno stanje: agent uvoz ────────────────────────────────────────────

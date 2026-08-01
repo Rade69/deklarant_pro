@@ -13,7 +13,10 @@ from services.faktura.validation_service import ValidationService
 from services.faktura.faktura_service import FakturaService
 from services.faktura.error_handler import ErrorHandler
 from services.faktura.theme_manager import ThemeManager
+from services.faktura.mass_workflow_service import MassWorkflowService
+from services.faktura.undo_redo_service import UndoRedoService
 from services.faktura.weight_guards import normalize_invoice_key
+from services.faktura.xml_header_extraction import extract_header_from_xml
 
 __all__ = [
     "FakturaConstants",
@@ -25,7 +28,10 @@ __all__ = [
     "ExportService",
     "ValidationService",
     "FakturaService",
+    "MassWorkflowService",
     "ErrorHandler",
     "ThemeManager",
+    "UndoRedoService",
     "normalize_invoice_key",
+    "extract_header_from_xml",
 ]

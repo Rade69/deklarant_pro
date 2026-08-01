@@ -138,3 +138,50 @@ class ImportService:
             self.tab.imported_excel_count += 1
         elif ext == ".pdf":
             self.tab.imported_pdf_count += 1
+
+    @staticmethod
+    def count_applied_batch_file_types(plan, apply_result) -> tuple[int, int]:
+        from pathlib import Path
+        applied_keys = set(apply_result.applied_invoice_keys)
+        excel_count = 0
+        pdf_count = 0
+        for invoice in plan.invoices:
+            if invoice.internal_key not in applied_keys:
+                continue
+            for path in invoice.source_paths:
+                suffix = Path(path).suffix.lower()
+                if suffix in (".xlsx", ".xls", ".xlsm"):
+                    excel_count += 1
+                elif suffix == ".pdf":
+                    pdf_count += 1
+        return excel_count, pdf_count
+
+    @staticmethod
+    def is_same_combined_invoice(last_invoice_name: str, invoice_name: str, is_combined: bool) -> bool:
+        if not (last_invoice_name and invoice_name and is_combined):
+            return False
+        last_normalized = last_invoice_name.replace(" ", "").replace("-", "").lower()
+        current_normalized = invoice_name.replace(" ", "").replace("-", "").lower()
+        min_len = min(len(last_normalized), len(current_normalized))
+        if min_len < 5:
+            return False
+        prefix_match = last_normalized[:min_len] == current_normalized[:min_len]
+        substring_match = (
+            last_normalized in current_normalized
+            or current_normalized in last_normalized
+        )
+        return prefix_match or substring_match
+
+    @staticmethod
+    def append_imported_files_message(message: str, excel_count: int, pdf_count: int, min_files: int = 1) -> str:
+        total_files = excel_count + pdf_count
+        if total_files < min_files:
+            return message
+        message += f"📁 Uvezeni fajlovi:\n"
+        if excel_count > 0:
+            message += f"- Excel: {excel_count}\n"
+        if pdf_count > 0:
+            message += f"- PDF: {pdf_count}\n"
+        if min_files > 1:
+            message += f"- Ukupno: {total_files} fajlova\n\n"
+        return message
