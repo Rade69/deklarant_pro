@@ -98,7 +98,7 @@ Nema kontradikcija u produkcionom kodu. Postoji paritetni raskorak između root 
 
 | Hash | Poruka |
 | --- | --- |
-| pending | `docs(faktura): dokumentuj cleanup faza e2 audit` |
+| 9f9687e | `docs(faktura): dokumentuj cleanup faza e2 audit` |
 
 ## Kontekst korišćen
 
