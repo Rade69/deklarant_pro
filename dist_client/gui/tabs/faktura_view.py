@@ -83,7 +83,6 @@ from services.faktura.import_service import ImportService
 from services.faktura.undo_redo_service import UndoRedoService
 from services.faktura.xml_header_extraction import extract_header_from_xml
 from services.faktura.weight_guards import normalize_invoice_key
-from services.agent.validation.evidence_model import evidence_from_preference
 
 _PE_DOC_CODES = {"PE1", "PE2", "PE3"}
 
@@ -244,18 +243,7 @@ class FakturaView(BaseTabView):
     # Cache za ikone i tamnjenje boja (dijele sve instance)
     _icon_cache: Dict[str, Any] = {}
     _darken_cache: Dict[str, str] = {}
-    _CONFIDENCE_COLORS = {
-        "HIGH": "#d4edda",
-        "MEDIUM": "#fff3cd",
-        "LOW": "#ffe5d0",
-        "CONFLICT": "#f8d7da",
-    }
     _CONFIDENCE_ICONS = {"HIGH": "✅", "MEDIUM": "📋", "LOW": "⚠️", "CONFLICT": "🚨"}
-    # Neutralna nijansa (sivo-plava) za zemlje koje su pouzdano prepoznate, ali
-    # NEMAJU mogućnost povlastice (npr. Kina) — namjerno različita od zelene
-    # ("HIGH" pouzdanost), da se vizuelno ne miješa sa zemljama kod kojih
-    # povlastica jeste moguća/potvrđena. Vidi agent_reports/2026-06-07_*.
-    _NEUTRAL_COUNTRY_COLOR = "#dfe4ea"
 
     def __init__(self, draft: DeclarationDraft, on_dirty: Optional[Callable] = None):
         super().__init__()
@@ -1477,72 +1465,28 @@ class FakturaView(BaseTabView):
                 cell_item.setToolTip(cell_tooltip)
 
     def _apply_country_confidence_color(self, row: int, item: InvoiceLine):
+        """Primijeni boju/ikonicu/tooltip na kolonu Zemlja porijekla.
+
+        Pravilo (koja boja/tooltip za koju kombinaciju) živi u
+        ValidationService.country_confidence_style — ovdje ostaje samo Qt
+        primjena na ćeliju.
         """
-        Apply color coding to zemlja_porijekla column based on country_confidence.
-        
-        Confidence levels:
-        - HIGH (green): Data from PDF or matching PDF+DB
-        - MEDIUM (yellow): Data from database only
-        - LOW (orange): No data available
-        - CONFLICT (red): PDF and DB have different values
-        """
-        if not item.country_confidence:
+        from services.faktura.validation_service import ValidationService
+
+        style = ValidationService.country_confidence_style(item)
+        if style is None:
             return  # No confidence data
-
-        # Boja/znak na zemlji prati ISKLJUČIVO da li je povlastica EKSPLICITNO
-        # potvrđena za ovu konkretnu stavku (povlastica + prateći dokument:
-        # PE-šifra/EUR.1 broj/izjava o porijeklu) — bez obzira na pouzdanost
-        # podatka o zemlji, podobnost zemlje ili bilo koju drugu izvedenu/
-        # predviđenu vrijednost. Korisnik je eksplicitno tražio da aplikacija
-        # ne nagađa: sve što NEMA eksplicitnu potvrdu dobija istu neutralnu
-        # boju pozadine, bez ikonice. Znak (✅) i zelena boja se prikazuju
-        # ISKLJUČIVO kada je povlastica stvarno potvrđena.
-        preference = (getattr(item, "povlastica", "") or "").strip()
-        evidence = evidence_from_preference(item)
-        has_preferential_doc = bool(preference and not evidence.requires_confirmation)
-        if has_preferential_doc:
-            color_hex = self._CONFIDENCE_COLORS.get(item.country_confidence, "#ffffff")
-            icon = "✅"
-        else:
-            color_hex = self._NEUTRAL_COUNTRY_COLOR
-            icon = ""
-        neutral_country = not has_preferential_doc
-
-        # Build tooltip
-        tooltip_parts = []
-        if item.country_confidence == "HIGH":
-            if item.country_source in ("PDF", "EXCEL"):
-                tooltip_parts.append("✅ Podatak o poreklu iz uvezenog dokumenta (visoka pouzdanost)")
-            elif item.country_source == "PDF_IZJAVA":
-                tooltip_parts.append("✅ Podatak o poreklu iz izjave u dokumentu (visoka pouzdanost)")
-            elif item.country_source == "PDF_OZNAKA":
-                tooltip_parts.append("✅ Podatak o poreklu iz uvezenog dokumenta; povlasticu provjerava deklarant")
-            elif item.country_source == "MATCH":
-                tooltip_parts.append("✅ PDF i baza se poklapaju (visoka pouzdanost)")
-            elif item.country_source == "EUR1_POTVRDA":
-                tooltip_parts.append("✅ Porijeklo potvrđeno EUR.1 sertifikatom (visoka pouzdanost)")
-            else:
-                tooltip_parts.append("✅ Visoka pouzdanost")
-        elif item.country_confidence == "MEDIUM":
-            tooltip_parts.append("📋 Podatak o poreklu iz baze znanja (srednja pouzdanost)")
-        elif item.country_confidence == "LOW":
-            tooltip_parts.append("⚠️ Nema podataka o poreklu (potreban manuelni unos)")
-        elif item.country_confidence == "CONFLICT":
-            tooltip_parts.append(f"🚨 Konflikt porekla: {item.country_conflict_details or 'PDF i baza imaju različite vrednosti'}")
-            tooltip_parts.append("ℹ️ Korišćena je vrednost iz PDF-a")
-        if neutral_country:
-            tooltip_parts.append(
-                "ℹ️ Povlastica za ovu stavku nije eksplicitno potvrđena."
-            )
 
         # Apply to zemlja_porijekla column (col 9) - pomjereno zbog dodate kolone Faktura
         cell_item = self.table.item(row, 9)
         if cell_item:
-            cell_item.setData(ValidationDelegate.ValidationColorRole, color_hex)
+            cell_item.setData(ValidationDelegate.ValidationColorRole, style["color_hex"])
             if item.zemlja_porijekla:
                 # Čisti kod u UserRole (čita se pri sync), emoji samo u displayu
                 cell_item.setData(Qt.UserRole, item.zemlja_porijekla)
+                icon = style["icon"]
                 cell_item.setText(f"{icon} {item.zemlja_porijekla}" if icon else item.zemlja_porijekla)
+            tooltip_parts = style["tooltip_parts"]
             if tooltip_parts:
                 existing_tooltip = cell_item.toolTip()
                 if existing_tooltip:
@@ -1551,47 +1495,22 @@ class FakturaView(BaseTabView):
                     cell_item.setToolTip(" ".join(tooltip_parts))
 
     def _apply_preference_confidence_color(self, row: int, item: InvoiceLine):
-        """
-        Vizuelno označi pouzdanost POVLASTICE (kolona 10), odvojeno od
+        """Vizuelno označi pouzdanost POVLASTICE (kolona 10), odvojeno od
         pouzdanosti zemlje porijekla (kolona 9).
 
-        Razlog: korisnici su se zbunjivali kad vide ✅ zelenu "CN" oznaku za
-        zemlju i pomisle da je time potvrđena i povlastica — a sistem je
-        (namjerno, vidi merge_country_origin) NIKAD ne postavlja automatski
-        kad dokument nema izjavu o porijeklu (PDF_OZNAKA). Ova oznaka to čini
-        vidljivim direktno na ćeliji Povlastica, bez potrebe za hover-om nad
-        susjednom ćelijom Zemlja.
-
-        - ⚠️ žuto: povlastica namjerno NIJE postavljena — treba ručna provjera
-        - ✅ zeleno: povlastica izvedena iz potvrđenog porijekla (izjava/MATCH)
+        Pravilo živi u ValidationService.preference_confidence_style —
+        ovdje ostaje samo Qt primjena na ćeliju.
         """
+        from services.faktura.validation_service import ValidationService
+
         cell_item = self.table.item(row, 10)
         if not cell_item:
             return
 
-        source = getattr(item, 'country_source', None)
-        evidence = evidence_from_preference(item)
-        has_pref = bool(item.povlastica)
-        # Zemlja koja fundamentalno nema mogućnost povlastice (npr. Kina) ne
-        # treba upozorenje "provjerite ručno" — to samo zbunjuje korisnika jer
-        # za tu zemlju povlastica nikad neće postojati. Upozorenje ima smisla
-        # SAMO za zemlje koje su uopšte podobne za neku povlasticu (EU/CEFTA/TR/IR).
-        country_code = (getattr(item, 'zemlja_porijekla', '') or '').strip()
-        eligible_for_pref = bool(self._suggest_preference_by_country(country_code))
-
-        if source == "PDF_OZNAKA" and not has_pref and eligible_for_pref:
-            cell_item.setData(ValidationDelegate.ValidationColorRole, "#fff3cd")
-            cell_item.setToolTip(
-                "⚠️ Povlastica NIJE automatski postavljena — dokument sadrži "
-                "samo oznaku zemlje porijekla, bez izjave o porijeklu.\n"
-                "Provjerite ručno da li roba ima pravo na povlasticu i unesite je."
-            )
-        elif has_pref and not evidence.requires_confirmation:
-            cell_item.setData(ValidationDelegate.ValidationColorRole, "#d4edda")
-            cell_item.setToolTip(
-                "✅ Povlastica je potvrđena PE1/PE2/PE3 dokazom.\n"
-                "Provjerite da li odgovara podacima na fakturi."
-            )
+        style = ValidationService.preference_confidence_style(item)
+        if style is not None:
+            cell_item.setData(ValidationDelegate.ValidationColorRole, style["color_hex"])
+            cell_item.setToolTip(style["tooltip"])
 
     def _on_item_changed(self, item: QTableWidgetItem):
         """Handle when user edits a cell."""

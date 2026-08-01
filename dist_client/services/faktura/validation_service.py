@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import List, Tuple, Dict, Any, Optional
 from core.draft import InvoiceLine
 from services.validation.validation_service import FakturaItemValidator, ValidationResult
+from services.agent.validation.evidence_model import evidence_from_preference
 
 
 @dataclass
@@ -18,6 +19,18 @@ class RowValidationStyle:
 
 class ValidationService:
     """Validacija i bojenje redova"""
+
+    _COUNTRY_CONFIDENCE_COLORS = {
+        "HIGH": "#d4edda",
+        "MEDIUM": "#fff3cd",
+        "LOW": "#ffe5d0",
+        "CONFLICT": "#f8d7da",
+    }
+    # Neutralna nijansa (sivo-plava) za zemlje koje su pouzdano prepoznate, ali
+    # NEMAJU mogućnost povlastice (npr. Kina) — namjerno različita od zelene
+    # ("HIGH" pouzdanost), da se vizuelno ne miješa sa zemljama kod kojih
+    # povlastica jeste moguća/potvrđena. Vidi agent_reports/2026-06-07_*.
+    _NEUTRAL_COUNTRY_COLOR = "#dfe4ea"
 
     @staticmethod
     def validation_issue_label(field: str, message: str) -> str:
@@ -195,3 +208,100 @@ class ValidationService:
             for label, count in sorted(warning_issues.items(), key=lambda item: (-item[1], item[0])):
                 message += f"  • {count} {label}\n"
         return message
+
+    @staticmethod
+    def country_confidence_style(item: InvoiceLine) -> Optional[dict]:
+        """
+        Pravilo za bojenje/ikonicu kolone Zemlja porijekla.
+
+        Boja/znak prati ISKLJUČIVO da li je povlastica EKSPLICITNO potvrđena
+        za ovu konkretnu stavku (povlastica + prateći dokument: PE-šifra/
+        EUR.1 broj/izjava o porijeklu) — bez obzira na pouzdanost podatka o
+        zemlji, podobnost zemlje ili bilo koju drugu izvedenu/predviđenu
+        vrijednost. Vraća None ako nema country_confidence podatka (poziv
+        ne treba mijenjati ćeliju).
+        """
+        if not item.country_confidence:
+            return None
+
+        preference = (getattr(item, "povlastica", "") or "").strip()
+        evidence = evidence_from_preference(item)
+        has_preferential_doc = bool(preference and not evidence.requires_confirmation)
+        if has_preferential_doc:
+            color_hex = ValidationService._COUNTRY_CONFIDENCE_COLORS.get(
+                item.country_confidence, "#ffffff"
+            )
+            icon = "✅"
+        else:
+            color_hex = ValidationService._NEUTRAL_COUNTRY_COLOR
+            icon = ""
+        neutral_country = not has_preferential_doc
+
+        tooltip_parts = []
+        if item.country_confidence == "HIGH":
+            if item.country_source in ("PDF", "EXCEL"):
+                tooltip_parts.append("✅ Podatak o poreklu iz uvezenog dokumenta (visoka pouzdanost)")
+            elif item.country_source == "PDF_IZJAVA":
+                tooltip_parts.append("✅ Podatak o poreklu iz izjave u dokumentu (visoka pouzdanost)")
+            elif item.country_source == "PDF_OZNAKA":
+                tooltip_parts.append("✅ Podatak o poreklu iz uvezenog dokumenta; povlasticu provjerava deklarant")
+            elif item.country_source == "MATCH":
+                tooltip_parts.append("✅ PDF i baza se poklapaju (visoka pouzdanost)")
+            elif item.country_source == "EUR1_POTVRDA":
+                tooltip_parts.append("✅ Porijeklo potvrđeno EUR.1 sertifikatom (visoka pouzdanost)")
+            else:
+                tooltip_parts.append("✅ Visoka pouzdanost")
+        elif item.country_confidence == "MEDIUM":
+            tooltip_parts.append("📋 Podatak o poreklu iz baze znanja (srednja pouzdanost)")
+        elif item.country_confidence == "LOW":
+            tooltip_parts.append("⚠️ Nema podataka o poreklu (potreban manuelni unos)")
+        elif item.country_confidence == "CONFLICT":
+            tooltip_parts.append(
+                f"🚨 Konflikt porekla: {item.country_conflict_details or 'PDF i baza imaju različite vrednosti'}"
+            )
+            tooltip_parts.append("ℹ️ Korišćena je vrednost iz PDF-a")
+        if neutral_country:
+            tooltip_parts.append(
+                "ℹ️ Povlastica za ovu stavku nije eksplicitno potvrđena."
+            )
+
+        return {"color_hex": color_hex, "icon": icon, "tooltip_parts": tooltip_parts}
+
+    @staticmethod
+    def preference_confidence_style(item: InvoiceLine) -> Optional[dict]:
+        """
+        Pravilo za bojenje/tooltip kolone Povlastica (odvojeno od kolone
+        Zemlja porijekla).
+
+        - žuto: povlastica namjerno NIJE postavljena, dokument ima samo
+          oznaku zemlje (bez izjave), a zemlja je uopšte podobna za neku
+          povlasticu — treba ručna provjera.
+        - zeleno: povlastica izvedena iz potvrđenog porijekla (izjava/EUR.1/MATCH).
+        - None: nijedan od dva uslova ne važi — ćelija ostaje bez izmjene.
+        """
+        from services.faktura.preference_rules_service import suggest_preference_by_country
+
+        source = getattr(item, "country_source", None)
+        evidence = evidence_from_preference(item)
+        has_pref = bool(item.povlastica)
+        country_code = (getattr(item, "zemlja_porijekla", "") or "").strip()
+        eligible_for_pref = bool(suggest_preference_by_country(country_code))
+
+        if source == "PDF_OZNAKA" and not has_pref and eligible_for_pref:
+            return {
+                "color_hex": "#fff3cd",
+                "tooltip": (
+                    "⚠️ Povlastica NIJE automatski postavljena — dokument sadrži "
+                    "samo oznaku zemlje porijekla, bez izjave o porijeklu.\n"
+                    "Provjerite ručno da li roba ima pravo na povlasticu i unesite je."
+                ),
+            }
+        if has_pref and not evidence.requires_confirmation:
+            return {
+                "color_hex": "#d4edda",
+                "tooltip": (
+                    "✅ Povlastica je potvrđena PE1/PE2/PE3 dokazom.\n"
+                    "Provjerite da li odgovara podacima na fakturi."
+                ),
+            }
+        return None

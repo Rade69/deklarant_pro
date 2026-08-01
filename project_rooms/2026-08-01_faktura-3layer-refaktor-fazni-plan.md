@@ -336,29 +336,54 @@ pravila nisu očigledna iz koda) — preporučeno da PROČITA
 
 ## FAZA 5 — UI-utkana poslovna logika (bojenje/tooltip pravila)
 
-**Status: PENDING**
+**Status: KOD DONE, ČEKA VIZUELNU POTVRDU — 2026-08-01 (Claude, ova sesija)**
 
-`_apply_country_confidence_color` (1462-1534),
-`_apply_preference_confidence_color` (1536-1577) — sadrže netrivijalna
-evidence/confidence pravila (koja boja/tooltip za koji nivo pouzdanosti)
-utkana u Qt bojenje ćelije. Izdvojiti PRAVILO (koja kombinacija
-evidence/confidence → koja boja/poruka) u `validation_service.py` kao
-čistu funkciju koja vraća `(color, tooltip)`, Qt primjena boje ostaje u
-View kao tanak poziv.
+Urađeno: `_apply_country_confidence_color` (sada linija 1479, ranije
+1462-1534, linije se pomjerile nakon Faza 1-4), `_apply_preference_confidence_color`
+(sada 1553) — pravilo (koja kombinacija evidence/confidence → koja
+boja/ikonica/tooltip) premješteno u `services/faktura/validation_service.py`
+kao `ValidationService.country_confidence_style(item)` i
+`ValidationService.preference_confidence_style(item)`, obje vraćaju
+`dict` ili `None`. Qt primjena (cell lookup, `setData`, `Qt.UserRole`
+upis, tooltip merge sa postojećim tekstom) ostaje u View-u kao tanak
+poziv — identična logika, samo premješteno mjesto odluke.
 
-**Zašto pažljivo**: ovo područje ima 6 nezavisnih memorijskih zapisa u
-"Zemlja porijekla / povlastica" porodici bugova (vidi
-`~/.claude/projects/.../memory/MEMORY.md` sekciju "Zemlja porijekla /
-povlastica") — ekstrakcija NE SMIJE promijeniti ijedno pravilo, samo
-premjestiti gdje živi. Pročitati sve te memorijske zapise prije početka.
+Prije izmjene pročitano svih 6 memorijskih zapisa iz "Zemlja porijekla /
+povlastica" porodice (vidi MEMORY.md). Ključno pravilo iz
+`2026-06-07_neutralna-boja-zemlje-bez-povlastice.md` ("Krug 3", finalna
+verzija) — boja/ikonica na koloni Zemlja prati ISKLJUČIVO
+`has_preferential_doc` (povlastica + PE dokaz), NIKAD `country_confidence`
+samostalno — prekopirano bez izmjene, uz novi karakterizacioni test koji
+to zaključava (vidi ispod).
 
-**Plan verifikacije**: screenshot prije/poslije za par test-faktura sa
-poznatim scenarijima (EU zemlja+povlastica, CEFTA, zemlja bez povlastice,
-nepoznata zemlja) — GUI vizuelna promjena zahtijeva screenshot dokaz po
-AGENTS.md "Definition of Done".
+**Novo**: `tests/unit/test_faktura_confidence_color_rules.py` (10 testova,
+i u `dist_client/`) — ova oblast do sad NIJE imala automatski test,
+svih 6 prethodnih bugova otkriveno preko korisničkog screenshot-a. Testovi
+direktno kodiraju pravila iz memorije (Krug 1/2/3), uključujući regresioni
+test da MEDIUM/LOW/CONFLICT confidence bez potvrđene povlastice i dalje
+mora biti neutralna boja (ne prati svoju "confidence" boju) — tačno bug
+iz Kruga 3.
 
-**Nezavisni checker**: preporučen (nije GitNexus HIGH, ali visoka cijena
-greške — 6 prethodnih bugova u istoj oblasti).
+`faktura_view.py`: 5763→**5682 linija** (-81). `validation_service.py`:
+127→307 linija. `_CONFIDENCE_COLORS`/`_NEUTRAL_COUNTRY_COLOR` uklonjeni iz
+`FakturaView` (mrtvi nakon ekstrakcije, `_CONFIDENCE_ICONS` ostaje —
+koristi ga druga metoda). `evidence_from_preference` import uklonjen iz
+`faktura_view.py` (nema više pozivaoca). GitNexus impact: LOW za obje
+metode (1 pozivalac svaka — `_validate_and_color_row`), `gitnexus_detect_changes`
+potvrđuje risk LOW, 0 affected_processes.
+
+Pun test suite: 1433 passed / 1 poznat nepovezan DB nalaz (isti kao ranije).
+
+**Plan verifikacije — OSTAJE OTVORENO**: screenshot prije/poslije za 4
+poznata scenarija (EU zemlja+povlastica, CEFTA bez potvrde, zemlja bez
+mogućnosti povlastice, nepoznata zemlja) — korisnik radi ovu provjeru
+ručno na stvarnom računaru (dogovoreno unaprijed, offscreen render nije
+dovoljan dokaz za ovu oblast). DOK TA POTVRDA NE STIGNE, faza se ne
+smatra potpuno zatvorenom iako je kod commit-ovan i testiran.
+
+**Nezavisni checker**: nije korišćen u ovoj sesiji — korisnikova vizuelna
+potvrda služi kao ekvivalent za GUI dio; kod-nivo je pokriven novim
+karakterizacionim testovima umjesto ljudskog code-review-a.
 
 ---
 
