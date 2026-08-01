@@ -248,15 +248,21 @@ Grupisano po funkcionalnoj oblasti — svaka grupa može biti zaseban
 pod-zadatak unutar ove faze, ne mora sve jedan agent odjednom:
 
 **4a. Uvoz-workflow orkestracija** (novi ili postojeći `import_workflow` servisi):
-`_start_import` (2367-2390), `_prepare_manual_import_plan` (3411-3423),
-`_prepare_manual_batch_import_plan` (3477-3492),
-`_batch_record_to_import_candidate` (3430-3475),
-`_collect_manual_import_decisions` (3564-3616),
-`_sync_import_workflow_state_after_apply` (3709-3728),
-`_can_use_unified_manual_import` (3380-3385),
-`_can_use_unified_batch_import` (3425-3428),
-`_existing_invoice_keys_for_import_workflow` (3390-3396),
-`_expected_import_partners` (3398-3409), `_manual_import_source_path` (3387-3388).
+
+**Status: DJELIMIČNO DONE — 2026-08-01, commit `1b3a708` (Codex, granа `refactor/faktura-3layer-faza4a-codex`).**
+Urađeno (u `services/faktura/import_workflow_service.py`, `ImportWorkflowService`):
+`_prepare_manual_import_plan`, `_prepare_manual_batch_import_plan`,
+`_batch_record_to_import_candidate`, `_sync_import_workflow_state_after_apply`,
+`_can_use_unified_manual_import`, `_can_use_unified_batch_import`,
+`_existing_invoice_keys_for_import_workflow`, `_expected_import_partners`,
+`_manual_import_source_path`. Isti fallback pattern kao Faza 3 (Controller
+vlasnik, View poziva Controller sa direktnim service-pozivom kao fallback
+kad `self.controller is None`).
+NIJE urađeno (ostaje za sledeći podzadatak): `_start_import` (2367-2390),
+`_collect_manual_import_decisions` (3564-3616).
+Napomena: originalni Codex commit NIJE sinhronizovao `dist_client/` kopije
+(`TestDistStandalone` parity test to otkrio) — ispravljeno prije merge-a u
+`windows`, ubuduće provjeriti dist_client paritet PRIJE commit-a, ne poslije.
 
 **4b. Povlastice/porijeklo** (`validation_service.py` ili novi `preference_rules_service.py`):
 `_check_partner_consistency` (2966-3038) — core `similar()` logika je
