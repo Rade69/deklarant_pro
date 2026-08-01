@@ -3620,3 +3620,23 @@ EUR.1/PE dijalozi, težine i history validation ostaju isti. Root i `dist_client
 su poravnati. Test kapija: py_compile; root
 `test_import_workflow_parity.py test_faktura_characterization.py test_faktura_view_provjeri_nakon_uvoza.py`
 41/41; dist import/provjeri set 28/28.
+
+---
+
+## 128. Faktura završni E-cleanup audit — preostali `_on_*` su stvarni handleri (2026-08-01)
+
+Završni E-cleanup audit je potvrdio da su stari privatni Faktura View nazivi
+uklonjeni iz produkcionog runtime koda: `_on_calculate_masses`, `_on_auto_fill`,
+`_on_validate_all`, `_on_create_naimenovanja` i `_on_import_finished_legacy`
+više ne postoje kao metode u root/dist `faktura_view.py`.
+
+Preostali `_on_*` u `FakturaTab` su signal handleri za View -> Controller tok
+(`*_requested`). Preostali `_on_*` u `FakturaView` su stvarni Qt/UI handleri
+za tabelu, import, export, batch progress, modalne callbackove i selekciju;
+nisu kandidati za mehaničko brisanje u E-cleanup-u. Legacy nazivi koji se još
+pojavljuju u pipeline testovima su namjerni stubovi koji dokazuju da puna
+automatizacija koristi javni API i ne pada nazad na private fallback.
+
+Zaključak: E-cleanup je završen bez dodatnih sigurnih produkcionih code izmjena.
+Sljedeći rad, ako bude potreban, treba tretirati kao novu fazu dubljeg refaktora
+import/export handlera, ne kao nastavak E-cleanup brisanja.
