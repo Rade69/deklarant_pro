@@ -39,6 +39,22 @@ pokriva STVARNU ekstrakciju — dio koji tek predstoji.
 | Direktni pozivi `self.validator.*`/`self.assembly.*` iz View-a | 13 (10 van `_on_*`, 3 unutar `_on_load_master_list`) |
 | Direktan SQL/DB poziv u View-u | 0 (već čisto) |
 
+**Update 2026-08-01 (nakon spajanja Faza 1+2+3)**: Pi je uradio Faze 1+2
+(grana `refactor/faktura-3layer-claude`), Codex nezavisno Fazu 3 (grana
+`refactor/faktura-3layer-codex`) — OBJE bazirane na istom plan-commitu,
+rađene paralelno bez znanja jedna o drugoj (vidi "Paralelni agenti" u
+AGENTS.md). Spojeno u `refactor/faktura-3layer-claude` preko
+`git merge-tree` provjere (0 konflikata) pa pravog merge-a (commit
+`fae293b`, auto-merged bez konflikata). Nakon spajanja: `faktura_view.py`
+= **6046 linija** (bilo 6267), **148 metoda** (bilo 157). Pun test suite:
+**1417 passed / 71 skipped / 2 deselected / 5 xfailed / 1 failed** —
+taj jedan fail (`test_db_tariff_mapping_unknown_product_returns_none`)
+NIJE regresija ovog merge-a, isti je poznati recidivni DB-data-quality
+bug iz `~/.claude/projects/.../memory/2026-08-01_product-tariff-mapping-word-overlap-mina-bug.md`
+(red se vratio, usage_count sada 8) — algoritam nije popravljen, samo je
+red bio jednom obrisan ranije istog dana. Grana JOŠ NIJE spojena u
+`windows`.
+
 **⚠️ Ne ponavljati "% završeno" bez provjere.** Prije svake tvrdnje o
 napretku, ponoviti: `grep -c "^    def " gui/tabs/faktura_view.py`,
 `wc -l gui/tabs/faktura_view.py services/faktura/*.py`. Vidi
@@ -111,7 +127,7 @@ bez da ostane u polu-završenom stanju:
 
 ## FAZA 1 — Mehanički thin-wrapperi i mrtav kod
 
-**Status: PENDING**
+**Status: DONE — 2026-08-01, commit `365d0a7` (Pi), fix `e9cdf18`**
 
 **Cilj**: Ukloniti View metode koje su već čist duplikat postojeće servisne
 funkcije — zamijeniti pozive direktnim pozivom servisa, obrisati wrapper.
@@ -139,7 +155,7 @@ funkcije — zamijeniti pozive direktnim pozivom servisa, obrisati wrapper.
 
 ## FAZA 2 — Čiste funkcije bez Qt zavisnosti
 
-**Status: PENDING**
+**Status: DONE — 2026-08-01, commit `365d0a7` (Pi), fix `e9cdf18`. Faza 1+2 rađene u istom commitu.**
 
 **Cilj**: Premjestiti čiste funkcije (bez `self.table`/Qt widget pristupa)
 u `services/faktura/` — ili postojeći fajl po temi, ili novi
