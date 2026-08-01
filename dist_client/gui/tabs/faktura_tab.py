@@ -34,6 +34,7 @@ class FakturaTab(QWidget):
         self.controller = FakturaController(
             get_draft_fn=lambda: self.view.draft,
         )
+        self.view.set_controller(self.controller)
 
         # ── Signal wiring (Faza 4-7B) ──────────────────────────
         # Ručna validacija je aktivan Controller tok; ostali signali su još

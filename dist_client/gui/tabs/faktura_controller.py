@@ -25,6 +25,10 @@ class FakturaController(QObject):
     ):
         super().__init__(parent)
         self._get_draft = get_draft_fn
+        from services.validation.validation_service import FakturaItemValidator
+        from services.naimenovanja.declaration_assembly import DeclarationAssembly
+        self.validator = FakturaItemValidator()
+        self.assembly = DeclarationAssembly()
 
     @property
     def draft(self) -> DeclarationDraft:
@@ -71,6 +75,19 @@ class FakturaController(QObject):
             "style_map": style_map,
             "target_rows": sorted(target_rows),
         }
+
+    def validate_line(self, line):
+        return self.validator.validate(line)
+
+    def assembly_completion_status(self) -> dict | None:
+        if not getattr(self.assembly, "master_list_loaded", False):
+            return None
+        return self.assembly.get_completion_status()
+
+    def reset_assembly(self):
+        from services.naimenovanja.declaration_assembly import DeclarationAssembly
+        self.assembly = DeclarationAssembly()
+        return self.assembly
 
     # ── Import tok (Faza 4) ──────────────────────────────────
 

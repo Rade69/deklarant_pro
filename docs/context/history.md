@@ -3655,3 +3655,25 @@ u `Total_CIF` i `Total_cost`, pa sljedeći rad treba fokusirati na DV1/PZT,
 zavisne troškove, zaokruživanje i raspodjelu CIF-a po stavkama. PE1 zapis sa
 samostalnim navodnikom tretira se kao korisnikom potvrđena greška pri unosu,
 ne kao sistemski export bug, osim ako se obrazac ponovi na čistom unosu.
+
+---
+
+## 130. Faktura 3-layer Faza 3 — validator i assembly prebačeni u Controller (2026-08-01)
+
+Na grani `refactor/faktura-3layer-codex` Faza 3 je urađena izolovano od Pi/Claude
+rada na Fazama 1-2. `FakturaController` sada kreira i posjeduje
+`FakturaItemValidator` i `DeclarationAssembly`, a `FakturaTab` povezuje View sa
+Controllerom kroz `view.set_controller(controller)`.
+
+`FakturaView._validation_issue_counts()` više ne poziva `self.validator`
+direktno, a `_update_status_bar()` assembly status dobija preko Controller
+adaptera. Preostali `self.assembly` pozivi u master-list/legacy import granama
+nisu dirani jer su eksplicitno planirani za Fazu 6/7; View za njih privremeno
+čuva migracioni alias na Controller-owned assembly.
+
+GitNexus impact za `_validation_issue_counts` i `_update_status_bar` bio je
+HIGH, zato je scope ostao usko zaključan. Test kapija: py_compile root/dist
+Faktura fajlova; root controller/status 44/44; dist status 8/8; fokusirani
+Faktura/import/pipeline set 71/71. Širi unit set je imao postojeće DB/env failove
+(`tarifa_2026`, `DB_PASSWORD`, `DEBUG=release`) i nije tretiran kao regresija
+Faze 3. Potreban je Claude Code checker prije spajanja.
