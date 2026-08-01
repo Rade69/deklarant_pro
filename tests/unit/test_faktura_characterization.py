@@ -179,7 +179,7 @@ class TestWeightCharacterization:
 class TestAutoFillCharacterization:
 
     def test_auto_fill_uses_tariff_facade(self):
-        """Auto-popuna koristi TariffFacade kroz _on_auto_fill."""
+        """Auto-popuna koristi TariffFacade kroz javni auto_fill tok."""
         from services.tariff_facade import TariffFacade
         facade = TariffFacade.get_instance()
         assert hasattr(facade, "auto_populate_tariffs")

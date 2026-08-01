@@ -245,7 +245,7 @@ def _puna_auto_pipeline(ctrl, fw, chat, all_lines: list) -> None:
     # Preskoči ako SVE linije već imaju obje težine (npr. parser koji
     # ekstraktuje bruto/neto direktno po stavci, bez potrebe za toolbar-total
     # redistribucijom) — isti obrazac kao provjera "bez_tarife" ispod za
-    # auto-popunu tarifa. _on_calculate_masses(auto=True) vraća False i kad
+    # auto-popunu tarifa. calculate_masses(auto=True) vraća False i kad
     # NEMA šta da se preračuna (sve već popunjeno, "updated_count == 0" —
     # faktura_view.py:5180) — to nije greška, ali _puna_auto_pipeline je to
     # tretirala kao fatalan pad i lažno zaustavljala cijelu automatizaciju

@@ -3521,3 +3521,20 @@ Dodatni nalaz: root `tests/unit/test_puna_auto_pipeline.py` je ažuriran u E1,
 ali `dist_client/tests/unit/test_puna_auto_pipeline.py` još sadrži stara
 fallback očekivanja. To je dokumentovan test-paritet dug za kasnije, ne
 produkcioni runtime gap.
+
+---
+
+## 122. Faktura Cleanup Faza E3 — uklonjeni trivial private wrapperi (2026-08-01)
+
+Faza E3 je namjerno ostala uska: uklonjeni su samo `FakturaView._on_calculate_masses`
+i `FakturaView._on_auto_fill`, jer su bili trivial wrapperi preko javnih
+adaptera `calculate_masses()` i `auto_fill()`. Root i `dist_client` produkcioni
+`faktura_view.py` ostaju u paritetu, a `import_pipeline_service.py` komentar je
+ažuriran da ne pominje obrisani private naziv.
+
+Testovi su prebačeni da karakterišu javni API i signalni tok. Root
+`test_puna_auto_pipeline.py` i `dist_client/tests/unit/test_puna_auto_pipeline.py`
+su poravnati, uključujući E1 pravilo da Agent pipeline bez javnog API-ja staje
+kontrolisano i ne koristi private fallback. `_on_validate_all`,
+`_on_create_naimenovanja` i `_on_import_finished_legacy` nisu dirani jer su u E2
+potvrđeni kao aktivni implementation path.

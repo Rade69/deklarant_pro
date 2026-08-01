@@ -4656,7 +4656,7 @@ class FakturaView(BaseTabView):
 
         Selekcija redova (korisnička primjedba 2026-07-21): ako korisnik ima
         selektovane redove u tabeli, "Provjeri" provjerava SAMO te redove —
-        isti obrazac kao Auto-popuni (_on_auto_fill). Bez ovoga se uvijek
+        isti obrazac kao javni Auto-popuni tok. Bez ovoga se uvijek
         provjeravaju SVE stavke, pa dijalog sa prijedlozima za desetine
         nepovezanih redova zbunjuje korisnika koji je namjerno selektovao
         konkretnu(e) stavku(e) i pokušava prihvatiti baš njen prijedlog.
@@ -4966,9 +4966,6 @@ class FakturaView(BaseTabView):
         self.input_bruto.setText(bruto_text)
         self.input_neto.setText(neto_text)
 
-    def _on_calculate_masses(self, auto=False) -> bool:
-        return self.calculate_masses(auto=auto)
-
     def calculate_masses(self, auto: bool = False, controller=None) -> bool:
         logger.debug("\n" + "=" * 80)
         logger.debug("⚖️  IZRAČUNAJ MASE - START")
@@ -5151,9 +5148,6 @@ class FakturaView(BaseTabView):
                     f"faktura {mismatch['expected']:.3f} kg\n"
                 )
         return message
-
-    def _on_auto_fill(self, auto=False):
-        return self.auto_fill(auto=auto)
 
     def auto_fill(self, auto: bool = False, controller=None):
         """
@@ -5449,7 +5443,7 @@ class FakturaView(BaseTabView):
         Izračunaj prijedloge tarifnih brojeva za sve stavke BEZ pisanja u draft
         (dry_run). Vraća MappingResult sa popunjenim .proposals.
 
-        VAŽNO: ovo je ISTI proračun koji će _on_auto_fill kasnije stvarno upisati
+        VAŽNO: ovo je ISTI proračun koji će javni auto_fill tok kasnije stvarno upisati
         preko facade.commit_proposals(target_lines, result.proposals) — preview
         i upis se više NE računaju odvojeno (raniji suggest_fast() nije uzimao
         u obzir dobavljača ni istoriju XML deklaracija, pa je prikazana tarifa
@@ -5574,7 +5568,7 @@ class FakturaView(BaseTabView):
         Prikaži dijalog potvrde PRIJE auto-popunjavanja.
         Tabela: Rb | Naziv proizvoda | Tarifa | Izvor / Pouzdanost | Opis tarife
         proposals: lista TariffProposal (iz auto_populate_tariffs(dry_run=True)) —
-        isti proračun koji će _on_auto_fill kasnije stvarno upisati preko
+        isti proračun koji će javni auto_fill tok kasnije stvarno upisati preko
         facade.commit_proposals(), pa je i confidence/source ovdje istinit,
         ne odbačen kao ranije (vidi
         project_rooms/2026-07-21_preciznost-tarifnih-prijedloga.md).

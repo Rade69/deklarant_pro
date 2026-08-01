@@ -318,22 +318,6 @@ class TestNoDoubleValidation:
         assert tab.calculate_masses(auto=True) is True
         assert called == [(True, tab.controller)]
 
-    def test_faktura_view_private_calculate_masses_is_wrapper(self, qtbot, monkeypatch):
-        from gui.tabs.faktura_view import FakturaView
-
-        draft = DeclarationDraft()
-        view = FakturaView(draft=draft)
-        qtbot.addWidget(view)
-        called = []
-        monkeypatch.setattr(
-            view,
-            "calculate_masses",
-            lambda auto=False: called.append(auto) or True,
-        )
-
-        assert view._on_calculate_masses(auto=True) is True
-        assert called == [True]
-
     def test_faktura_tab_auto_fill_uses_controller_service(self, qtbot, monkeypatch):
         from gui.tabs.faktura_tab import FakturaTab
 
@@ -351,64 +335,35 @@ class TestNoDoubleValidation:
         assert tab.auto_fill(auto=True) is result
         assert called == [(True, tab.controller)]
 
-    def test_faktura_view_private_auto_fill_is_wrapper(self, qtbot, monkeypatch):
-        from gui.tabs.faktura_view import FakturaView
-
-        draft = DeclarationDraft()
-        view = FakturaView(draft=draft)
-        qtbot.addWidget(view)
-        result = object()
-        called = []
-        monkeypatch.setattr(
-            view,
-            "auto_fill",
-            lambda auto=False: called.append(auto) or result,
-        )
-
-        assert view._on_auto_fill(auto=True) is result
-        assert called == [True]
-
-    def test_auto_fill_button_emits_signal_not_private_handler(self, qtbot, monkeypatch):
+    def test_auto_fill_button_emits_signal(self, qtbot):
         from gui.tabs.faktura_view import FakturaView
 
         draft = DeclarationDraft()
         view = FakturaView(draft=draft)
         qtbot.addWidget(view)
         view.show()
-        private_called = []
         emitted = []
-        monkeypatch.setattr(
-            view,
-            "_on_auto_fill",
-            lambda auto=False: private_called.append(auto),
-        )
         view.auto_fill_requested.connect(lambda: emitted.append(True))
 
         view.btn_auto_fill.click()
 
         assert emitted == [True]
-        assert private_called == []
+        assert not hasattr(view, "_on_auto_fill")
 
-    def test_calculate_masses_button_emits_signal_not_private_handler(self, qtbot, monkeypatch):
+    def test_calculate_masses_button_emits_signal(self, qtbot):
         from gui.tabs.faktura_view import FakturaView
 
         draft = DeclarationDraft()
         view = FakturaView(draft=draft)
         qtbot.addWidget(view)
         view.show()
-        private_called = []
         emitted = []
-        monkeypatch.setattr(
-            view,
-            "_on_calculate_masses",
-            lambda auto=False: private_called.append(auto),
-        )
         view.calculate_masses_requested.connect(lambda: emitted.append(True))
 
         view.btn_calc_masses.click()
 
         assert emitted == [True]
-        assert private_called == []
+        assert not hasattr(view, "_on_calculate_masses")
 
     def test_create_naimenovanja_button_emits_signal_not_private_handler(self, qtbot, monkeypatch):
         from gui.tabs.faktura_view import FakturaView

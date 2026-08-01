@@ -33,9 +33,7 @@ def mock_ctrl():
 def mock_fw():
     fw = MagicMock()
     fw.calculate_masses.return_value = True
-    fw._on_calculate_masses.return_value = True
     fw.auto_fill.return_value = MagicMock(matched_items=1)
-    fw._on_auto_fill.return_value = MagicMock(matched_items=1)
     fw.validate.return_value = (True, 0, 0)
     fw._on_validate_all.return_value = (True, 0, 0)
     fw.create_naimenovanja.return_value = True
@@ -123,7 +121,6 @@ class TestUspjesanTok:
         assert any("Puna automatizacija završena!" in m for m in messages)
         assert not any("zaustavljena" in m or "djelimično" in m for m in messages)
         mock_fw.calculate_masses.assert_called_once_with(auto=True)
-        mock_fw._on_calculate_masses.assert_not_called()
         mock_fw.validate.assert_called_once_with(auto=True)
         mock_fw._on_validate_all.assert_not_called()
         mock_fw.create_naimenovanja.assert_called_once_with(auto=True)
@@ -155,8 +152,6 @@ class TestJavniApiIFallback:
         mock_fw.auto_fill.assert_called_once_with(auto=True)
         mock_fw.validate.assert_called_once_with(auto=True)
         mock_fw.create_naimenovanja.assert_called_once_with(auto=True)
-        mock_fw._on_calculate_masses.assert_not_called()
-        mock_fw._on_auto_fill.assert_not_called()
         mock_fw._on_validate_all.assert_not_called()
         mock_fw._on_create_naimenovanja.assert_not_called()
 
@@ -193,7 +188,7 @@ class TestJavniApiIFallback:
 
 class TestPreskociMaseAkoVecPopunjene:
     """
-    Popravka (2026-07-28): _on_calculate_masses(auto=True) vraća False i
+    Popravka (2026-07-28): calculate_masses(auto=True) vraća False i
     kad NEMA šta da se preračuna (sve stavke već imaju obje težine —
     faktura_view.py:5180 "updated_count == 0"), ne samo pri stvarnom padu.
     _puna_auto_pipeline je taj benigni "nema šta da se radi" ishod tretirala
@@ -230,7 +225,6 @@ class TestPreskociMaseAkoVecPopunjene:
         _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
 
         mock_fw.calculate_masses.assert_called_once_with(auto=True)
-        mock_fw._on_calculate_masses.assert_not_called()
 
 
 class TestKritickeFazePadaju:
@@ -318,7 +312,6 @@ class TestParcijalniRezultat:
         assert not any("završena!" in m for m in messages)
         # PARTIAL i dalje nastavlja do kraja — naimenovanja se kreiraju
         mock_fw.auto_fill.assert_called_once_with(auto=True)
-        mock_fw._on_auto_fill.assert_not_called()
         mock_fw.create_naimenovanja.assert_called_once_with(auto=True)
         mock_fw._on_create_naimenovanja.assert_not_called()
 

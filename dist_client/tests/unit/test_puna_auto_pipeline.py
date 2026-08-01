@@ -32,9 +32,11 @@ def mock_ctrl():
 @pytest.fixture
 def mock_fw():
     fw = MagicMock()
-    fw._on_calculate_masses.return_value = True
-    fw._on_auto_fill.return_value = MagicMock(matched_items=1)
+    fw.calculate_masses.return_value = True
+    fw.auto_fill.return_value = MagicMock(matched_items=1)
+    fw.validate.return_value = (True, 0, 0)
     fw._on_validate_all.return_value = (True, 0, 0)
+    fw.create_naimenovanja.return_value = True
     fw._on_create_naimenovanja.return_value = True
     return fw
 
@@ -118,19 +120,75 @@ class TestUspjesanTok:
         messages = _agent_messages(mock_chat)
         assert any("Puna automatizacija završena!" in m for m in messages)
         assert not any("zaustavljena" in m or "djelimično" in m for m in messages)
-        mock_fw._on_calculate_masses.assert_called_once_with(auto=True)
-        mock_fw._on_validate_all.assert_called_once_with(auto=True)
-        mock_fw._on_create_naimenovanja.assert_called_once_with(auto=True)
+        mock_fw.calculate_masses.assert_called_once_with(auto=True)
+        mock_fw.validate.assert_called_once_with(auto=True)
+        mock_fw._on_validate_all.assert_not_called()
+        mock_fw.create_naimenovanja.assert_called_once_with(auto=True)
+        mock_fw._on_create_naimenovanja.assert_not_called()
         completion_sound.assert_called_once_with("success")
 
     def test_preskace_auto_popuni_kad_sve_stavke_imaju_tarifu(self, mock_ctrl, mock_fw, mock_chat):
         _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
-        mock_fw._on_auto_fill.assert_not_called()
+        mock_fw.auto_fill.assert_not_called()
+
+
+class TestJavniApiIFallback:
+    def test_javni_api_pokriva_sve_agent_faze_prije_private_fallbacka(
+        self, mock_ctrl, mock_fw, mock_chat
+    ):
+        line = _line(tarifni_broj="", bruto_kg=0, neto_kg=0)
+        mock_ctrl.draft.invoice_lines = [line]
+        mock_ctrl.draft.items = [MagicMock()]
+
+        def _auto_fill(auto=False):
+            line.tarifni_broj = "12345678"
+            return MagicMock(matched_items=1)
+
+        mock_fw.auto_fill.side_effect = _auto_fill
+
+        _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
+
+        mock_fw.calculate_masses.assert_called_once_with(auto=True)
+        mock_fw.auto_fill.assert_called_once_with(auto=True)
+        mock_fw.validate.assert_called_once_with(auto=True)
+        mock_fw.create_naimenovanja.assert_called_once_with(auto=True)
+        mock_fw._on_validate_all.assert_not_called()
+        mock_fw._on_create_naimenovanja.assert_not_called()
+
+    def test_bez_javnog_api_zaustavlja_bez_private_fallbacka(
+        self, mock_ctrl, mock_chat, completion_sound
+    ):
+        line = _line(tarifni_broj="", bruto_kg=0, neto_kg=0)
+        mock_ctrl.draft.invoice_lines = [line]
+        mock_ctrl.draft.items = [MagicMock()]
+
+        class LegacyFakturaView:
+            def __init__(self):
+                self._on_calculate_masses = MagicMock(return_value=True)
+                self._on_auto_fill = MagicMock(side_effect=self._auto_fill)
+                self._on_validate_all = MagicMock(return_value=(True, 0, 0))
+                self._on_create_naimenovanja = MagicMock(return_value=True)
+
+            def _auto_fill(self, auto=False):
+                line.tarifni_broj = "12345678"
+                return MagicMock(matched_items=1)
+
+        fw = LegacyFakturaView()
+
+        _puna_auto_pipeline(mock_ctrl, fw, mock_chat, [])
+
+        fw._on_calculate_masses.assert_not_called()
+        fw._on_auto_fill.assert_not_called()
+        fw._on_validate_all.assert_not_called()
+        fw._on_create_naimenovanja.assert_not_called()
+        messages = _agent_messages(mock_chat)
+        assert any("zaustavljena" in m and "mase" in m for m in messages)
+        completion_sound.assert_called_once_with("error")
 
 
 class TestPreskociMaseAkoVecPopunjene:
     """
-    Popravka (2026-07-28): _on_calculate_masses(auto=True) vraća False i
+    Popravka (2026-07-28): calculate_masses(auto=True) vraća False i
     kad NEMA šta da se preračuna (sve stavke već imaju obje težine —
     faktura_view.py:5180 "updated_count == 0"), ne samo pri stvarnom padu.
     _puna_auto_pipeline je taj benigni "nema šta da se radi" ishod tretirala
@@ -151,7 +209,7 @@ class TestPreskociMaseAkoVecPopunjene:
 
         _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
 
-        mock_fw._on_calculate_masses.assert_not_called()
+        mock_fw.calculate_masses.assert_not_called()
         messages = _agent_messages(mock_chat)
         assert not any("zaustavljena" in m for m in messages)
 
@@ -166,7 +224,7 @@ class TestPreskociMaseAkoVecPopunjene:
 
         _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
 
-        mock_fw._on_calculate_masses.assert_called_once_with(auto=True)
+        mock_fw.calculate_masses.assert_called_once_with(auto=True)
 
 
 class TestKritickeFazePadaju:
@@ -176,13 +234,13 @@ class TestKritickeFazePadaju:
     def test_pad_izracuna_masa_zaustavlja_sve_naredne_faze(
         self, mock_ctrl, mock_fw, mock_chat, completion_sound
     ):
-        mock_fw._on_calculate_masses.return_value = False
+        mock_fw.calculate_masses.return_value = False
 
         _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
 
-        mock_fw._on_auto_fill.assert_not_called()
-        mock_fw._on_validate_all.assert_not_called()
-        mock_fw._on_create_naimenovanja.assert_not_called()
+        mock_fw.auto_fill.assert_not_called()
+        mock_fw.validate.assert_not_called()
+        mock_fw.create_naimenovanja.assert_not_called()
         messages = _agent_messages(mock_chat)
         assert any("zaustavljena" in m and "mase" in m for m in messages)
         assert not any("završena!" in m for m in messages)
@@ -191,32 +249,32 @@ class TestKritickeFazePadaju:
     def test_izuzetak_u_izracunu_masa_ne_probija_pipeline(self, mock_ctrl, mock_fw, mock_chat):
         """Ako View metoda baci izuzetak (a ne samo vrati False), pipeline i
         dalje mora ispravno zaustaviti — ne propagirati izuzetak dalje."""
-        mock_fw._on_calculate_masses.side_effect = RuntimeError("neočekivano")
+        mock_fw.calculate_masses.side_effect = RuntimeError("neočekivano")
 
         _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])  # ne smije baciti
 
-        mock_fw._on_create_naimenovanja.assert_not_called()
+        mock_fw.create_naimenovanja.assert_not_called()
 
     def test_validacija_sa_kritickim_greskama_zaustavlja_prije_naimenovanja(
         self, mock_ctrl, mock_fw, mock_chat
     ):
-        mock_fw._on_validate_all.return_value = (True, 3, 1)  # 3 kritične greške
+        mock_fw.validate.return_value = (True, 3, 1)  # 3 kritične greške
 
         _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
 
-        mock_fw._on_create_naimenovanja.assert_not_called()
+        mock_fw.create_naimenovanja.assert_not_called()
         messages = _agent_messages(mock_chat)
         assert any("zaustavljena" in m and "validacija" in m for m in messages)
 
     def test_validacija_koja_ne_moze_biti_izvrsena_zaustavlja(self, mock_ctrl, mock_fw, mock_chat):
-        mock_fw._on_validate_all.return_value = (False, -1, -1)
+        mock_fw.validate.return_value = (False, -1, -1)
 
         _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
 
-        mock_fw._on_create_naimenovanja.assert_not_called()
+        mock_fw.create_naimenovanja.assert_not_called()
 
     def test_pad_kreiranja_naimenovanja_ne_prijavljuje_lazan_uspjeh(self, mock_ctrl, mock_fw, mock_chat):
-        mock_fw._on_create_naimenovanja.return_value = False
+        mock_fw.create_naimenovanja.return_value = False
 
         _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
 
@@ -233,7 +291,7 @@ class TestDeklarantskaPotvrda:
 
         _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
 
-        mock_fw._on_create_naimenovanja.assert_not_called()
+        mock_fw.create_naimenovanja.assert_not_called()
         messages = _agent_messages(mock_chat)
         assert any("pauzirana" in m for m in messages)
         assert not any("završena!" in m or "zaustavljena" in m for m in messages)
@@ -245,7 +303,7 @@ class TestParcijalniRezultat:
         self, mock_ctrl, mock_fw, mock_chat
     ):
         mock_ctrl.draft.invoice_lines = [_line(tarifni_broj=""), _line(tarifni_broj="12345678")]
-        mock_fw._on_auto_fill.return_value = MagicMock(matched_items=0)  # ništa novo popunjeno
+        mock_fw.auto_fill.return_value = MagicMock(matched_items=0)  # ništa novo popunjeno
 
         _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
 
@@ -253,16 +311,19 @@ class TestParcijalniRezultat:
         assert any("djelimično" in m for m in messages)
         assert not any("završena!" in m for m in messages)
         # PARTIAL i dalje nastavlja do kraja — naimenovanja se kreiraju
-        mock_fw._on_create_naimenovanja.assert_called_once_with(auto=True)
+        mock_fw.auto_fill.assert_called_once_with(auto=True)
+        mock_fw.create_naimenovanja.assert_called_once_with(auto=True)
+        mock_fw._on_create_naimenovanja.assert_not_called()
 
     def test_validacija_sa_samo_upozorenjima_nastavlja_i_daje_partial(
         self, mock_ctrl, mock_fw, mock_chat, completion_sound
     ):
-        mock_fw._on_validate_all.return_value = (True, 0, 2)  # 0 grešaka, 2 upozorenja
+        mock_fw.validate.return_value = (True, 0, 2)  # 0 grešaka, 2 upozorenja
 
         _puna_auto_pipeline(mock_ctrl, mock_fw, mock_chat, [])
 
-        mock_fw._on_create_naimenovanja.assert_called_once_with(auto=True)
+        mock_fw.create_naimenovanja.assert_called_once_with(auto=True)
+        mock_fw._on_create_naimenovanja.assert_not_called()
         messages = _agent_messages(mock_chat)
         assert any("djelimično" in m for m in messages)
         completion_sound.assert_called_once_with("warning")
