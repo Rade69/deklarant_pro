@@ -3407,19 +3407,14 @@ class FakturaView(BaseTabView):
         QMessageBox.information(self, "Grupni uvoz", message)
 
     def _collect_manual_import_decisions(self, plan):
+        from services.faktura.import_workflow_service import ImportWorkflowService
         from services.import_workflow.decision_models import (
             CurrencyConflictResponse,
-            InvoiceDecision,
             PartnerConflictResolution,
             PartnerConflictResponse,
-            UserDecisions,
         )
 
-        decisions = UserDecisions()
-        for invoice in plan.invoices:
-            decisions.invoice_decisions[invoice.internal_key] = InvoiceDecision(
-                invoice_key=invoice.internal_key
-            )
+        decisions = ImportWorkflowService().init_import_decisions(plan)
 
         if plan.partner_conflicts:
             if not self._confirm_import_partner_conflicts(plan.partner_conflicts):

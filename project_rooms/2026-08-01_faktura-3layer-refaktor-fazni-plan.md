@@ -249,20 +249,15 @@ pod-zadatak unutar ove faze, ne mora sve jedan agent odjednom:
 
 **4a. Uvoz-workflow orkestracija** (novi ili postojeći `import_workflow` servisi):
 
-**Status: DJELIMIČNO DONE — 2026-08-01, commit `1b3a708` (Codex, granа `refactor/faktura-3layer-faza4a-codex`).**
-Urađeno (u `services/faktura/import_workflow_service.py`, `ImportWorkflowService`):
-`_prepare_manual_import_plan`, `_prepare_manual_batch_import_plan`,
-`_batch_record_to_import_candidate`, `_sync_import_workflow_state_after_apply`,
-`_can_use_unified_manual_import`, `_can_use_unified_batch_import`,
-`_existing_invoice_keys_for_import_workflow`, `_expected_import_partners`,
-`_manual_import_source_path`. Isti fallback pattern kao Faza 3 (Controller
-vlasnik, View poziva Controller sa direktnim service-pozivom kao fallback
-kad `self.controller is None`).
-NIJE urađeno (ostaje za sledeći podzadatak): `_start_import` (2367-2390),
-`_collect_manual_import_decisions` (3564-3616).
-Napomena: originalni Codex commit NIJE sinhronizovao `dist_client/` kopije
-(`TestDistStandalone` parity test to otkrio) — ispravljeno prije merge-a u
-`windows`, ubuduće provjeriti dist_client paritet PRIJE commit-a, ne poslije.
+**Status: DONE — 2026-08-01**
+
+Urađeno:
+- Codex (`1b3a708`): 9 metoda u `ImportWorkflowService`
+- Pi (`<novi_commit>`): preostale 2 metode — `_start_import` ostaje u View-u
+  (čist UI metod, nema poslovne logike za ekstrakciju),
+  `_collect_manual_import_decisions` delegira inicijalizaciju
+  `UserDecisions`/`InvoiceDecision` u `ImportWorkflowService.init_import_decisions()`,
+  dijalozi za konflikte ostaju u View-u.
 
 **4b. Povlastice/porijeklo** (`validation_service.py` ili novi `preference_rules_service.py`):
 `_check_partner_consistency` (2966-3038) — core `similar()` logika je

@@ -13,6 +13,10 @@ from services.import_workflow.models import (
     _normalize_path,
 )
 from services.import_workflow.prepare_service import prepare_import
+from services.import_workflow.decision_models import (
+    InvoiceDecision,
+    UserDecisions,
+)
 
 
 @dataclass(frozen=True)
@@ -172,3 +176,11 @@ class ImportWorkflowService:
             expected_exporter=exporter,
             expected_importer=importer,
         )
+
+    def init_import_decisions(self, plan) -> UserDecisions:
+        decisions = UserDecisions()
+        for invoice in plan.invoices:
+            decisions.invoice_decisions[invoice.internal_key] = InvoiceDecision(
+                invoice_key=invoice.internal_key
+            )
+        return decisions
