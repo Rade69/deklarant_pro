@@ -94,7 +94,7 @@ Nema konflikta u produkcionom kodu. Raniji E2 nalaz da se `dist_client` test dug
 
 | Hash | Poruka |
 | --- | --- |
-| pending | `refactor(faktura): ukloni mrtve view wrappere` |
+| 29940e4 | `refactor(faktura): ukloni mrtve view wrappere` |
 
 ## Kontekst korišćen
 
