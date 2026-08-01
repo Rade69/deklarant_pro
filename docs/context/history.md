@@ -3587,3 +3587,20 @@ interna implementacija javnog adaptera i ima characterization/legacy testove.
 delegira na njega kad unified import uslovi nisu ispunjeni. Test kapija:
 py_compile; root controller/characterization/pipeline set 64/64; dist pipeline
 17/17.
+
+---
+
+## 126. Faktura Cleanup Faza E7 — preimenovana interna implementacija kreiranja naimenovanja (2026-08-01)
+
+Faza E7 je preimenovala aktivnu internu metodu
+`FakturaView._on_create_naimenovanja` u neutralnije
+`FakturaView._create_naimenovanja_from_draft`. Javni API ostaje
+`FakturaView.create_naimenovanja(auto=True/False)`, koji delegira na novu
+internu metodu; `FakturaTab.create_naimenovanja()` i PDF export fallback već od
+E6 idu preko javnog adaptera.
+
+Tijelo metode i poslovna logika nisu mijenjani: grupisanje, pre-flight,
+split draftovi, post-akcije i učenje tarifa ostaju isti. `_on_create_naimenovanja`
+ostaje samo u legacy pipeline test stubu koji namjerno dokazuje da se stari
+private fallback ne poziva. Test kapija: py_compile; root
+controller/characterization/pipeline set 64/64; dist pipeline 17/17.

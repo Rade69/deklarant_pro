@@ -119,7 +119,7 @@ class TestSignalCharacterization:
         ), patch("services.tariff_facade.TariffFacade.get_instance", return_value=tariff_facade), \
              patch("services.import_service.get_import_service") as import_service:
             import_service.return_value.clear_memory.return_value = None
-            ok = FakturaView._on_create_naimenovanja(mock_self, auto=True)
+            ok = FakturaView._create_naimenovanja_from_draft(mock_self, auto=True)
 
         assert ok is True
         create_service.create_smart_group.assert_called_once()

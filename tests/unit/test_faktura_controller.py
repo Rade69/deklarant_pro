@@ -295,7 +295,7 @@ class TestNoDoubleValidation:
         called = []
         monkeypatch.setattr(
             view,
-            "_on_create_naimenovanja",
+            "_create_naimenovanja_from_draft",
             lambda auto=False: called.append(auto) or True,
         )
 
@@ -365,26 +365,26 @@ class TestNoDoubleValidation:
         assert emitted == [True]
         assert not hasattr(view, "_on_calculate_masses")
 
-    def test_create_naimenovanja_button_emits_signal_not_private_handler(self, qtbot, monkeypatch):
+    def test_create_naimenovanja_button_emits_signal_not_internal_handler(self, qtbot, monkeypatch):
         from gui.tabs.faktura_view import FakturaView
 
         draft = DeclarationDraft()
         view = FakturaView(draft=draft)
         qtbot.addWidget(view)
         view.show()
-        private_called = []
+        internal_called = []
         emitted = []
         monkeypatch.setattr(
             view,
-            "_on_create_naimenovanja",
-            lambda auto=False: private_called.append(auto),
+            "_create_naimenovanja_from_draft",
+            lambda auto=False: internal_called.append(auto),
         )
         view.create_naimenovanja_requested.connect(lambda auto: emitted.append(auto))
 
         view.btn_create_naimenovanja.click()
 
         assert emitted == [False]
-        assert private_called == []
+        assert internal_called == []
 
     def test_create_naimenovanja_signal_handler_uses_public_legacy_adapter(
         self, qtbot, monkeypatch

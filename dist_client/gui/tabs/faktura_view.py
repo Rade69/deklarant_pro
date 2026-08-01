@@ -4303,7 +4303,7 @@ class FakturaView(BaseTabView):
 
             self.data_changed.emit()
 
-    def _on_create_naimenovanja(self, auto=False) -> bool:
+    def _create_naimenovanja_from_draft(self, auto=False) -> bool:
         """Handle Create Naimenovanja button click.
 
         Args:
@@ -4330,7 +4330,7 @@ class FakturaView(BaseTabView):
 
         try:
             logger.debug(f"\n{'='*80}")
-            logger.debug(f"🔍 [_on_create_naimenovanja] START (auto={auto})")
+            logger.debug(f"🔍 [_create_naimenovanja_from_draft] START (auto={auto})")
 
             # Ako split još nije urađen, provjeri da li treba podjelu po zemljama
             preparation = workflow.prepare(self.draft, self._multi_drafts, auto=auto)
@@ -4352,7 +4352,7 @@ class FakturaView(BaseTabView):
                     )
                 return False
 
-            logger.debug(f"🔍 [_on_create_naimenovanja] Draftovi za obradu: {len(drafts_to_process)}, ukupno stavki: {len(all_lines)}")
+            logger.debug(f"🔍 [_create_naimenovanja_from_draft] Draftovi za obradu: {len(drafts_to_process)}, ukupno stavki: {len(all_lines)}")
 
             # Pre-flight provjera (zamjenjuje stare fragmetnarne QMessageBox poruke)
             if not auto:
@@ -4363,7 +4363,7 @@ class FakturaView(BaseTabView):
                 pf = analyse_preflight(all_lines)
                 dlg = PreFlightNaimenovanjaDialog(pf, parent=self)
                 if dlg.exec() != PreFlightNaimenovanjaDialog.Accepted:
-                    logger.debug("🔍 [_on_create_naimenovanja] Korisnik odustao na pre-flight")
+                    logger.debug("🔍 [_create_naimenovanja_from_draft] Korisnik odustao na pre-flight")
                     return False
 
             workflow_result = workflow.create_for_drafts(drafts_to_process)
@@ -4376,10 +4376,10 @@ class FakturaView(BaseTabView):
             ]
             for draft, cnt, _ in results:
                 logger.info(
-                    f"✅ [_on_create_naimenovanja] {_group_label(getattr(draft, '_country_group', ''), getattr(draft, '_currency_group', ''))}"
+                    f"✅ [_create_naimenovanja_from_draft] {_group_label(getattr(draft, '_country_group', ''), getattr(draft, '_currency_group', ''))}"
                     f": {cnt} naimenovanja"
                     if len(drafts_to_process) > 1
-                    else f"✅ [_on_create_naimenovanja] Kreirano {cnt} naimenovanja"
+                    else f"✅ [_create_naimenovanja_from_draft] Kreirano {cnt} naimenovanja"
                 )
 
             # Prikaz rezultata (samo u interaktivnom modu)
@@ -4397,7 +4397,7 @@ class FakturaView(BaseTabView):
             return True
 
         except Exception as e:
-            logger.error(f"[_on_create_naimenovanja] Greška: {e}", exc_info=True)
+            logger.error(f"[_create_naimenovanja_from_draft] Greška: {e}", exc_info=True)
             if not auto:
                 QMessageBox.critical(
                     self, "Greška", f"Greška prilikom kreiranja naimenovanja:\n\n{str(e)}"
@@ -4410,7 +4410,7 @@ class FakturaView(BaseTabView):
             restore_window_geometry_queued(geometry_state)
 
     def create_naimenovanja(self, auto: bool = False) -> bool:
-        return self._on_create_naimenovanja(auto=auto)
+        return self._create_naimenovanja_from_draft(auto=auto)
 
     def _show_create_naimenovanja_message(self, message) -> None:
         if message.level == "warning":
@@ -4431,21 +4431,21 @@ class FakturaView(BaseTabView):
             self._sync_inspection_docs_to_header()
 
         if plan.reload_faktura_table:
-            logger.debug("🔍 [_on_create_naimenovanja] Pozivanje _load_data_from_draft()...")
+            logger.debug("🔍 [_create_naimenovanja_from_draft] Pozivanje _load_data_from_draft()...")
             self._set_weight_inputs_from_draft()
             self._load_data_from_draft()
-            logger.info("✅ [_on_create_naimenovanja] Faktura tab ažuriran")
+            logger.info("✅ [_create_naimenovanja_from_draft] Faktura tab ažuriran")
 
         if plan.reload_related_tabs:
-            logger.debug("🔍 [_on_create_naimenovanja] Pozivanje _reload_naimenovanja_tab()...")
+            logger.debug("🔍 [_create_naimenovanja_from_draft] Pozivanje _reload_naimenovanja_tab()...")
             self._reload_naimenovanja_tab()
-            logger.info("✅ [_on_create_naimenovanja] Naimenovanja i Zaglavlje tab ažurirani")
+            logger.info("✅ [_create_naimenovanja_from_draft] Naimenovanja i Zaglavlje tab ažurirani")
 
         if plan.emit_naimenovanja_created:
             try:
                 self.naimenovanja_created.emit()
             except Exception as e:
-                logger.warning(f"⚠️ [_on_create_naimenovanja] Signal naimenovanja_created nije uspio: {e}")
+                logger.warning(f"⚠️ [_create_naimenovanja_from_draft] Signal naimenovanja_created nije uspio: {e}")
 
         if plan.clear_import_memory:
             workflow.clear_import_memory()
