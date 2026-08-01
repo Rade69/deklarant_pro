@@ -92,7 +92,7 @@ Nema kontradikcija. Manifest kaže da se fallback briše tek nakon stabilizacije
 
 | Hash | Poruka |
 | --- | --- |
-| pending | `docs(faktura): dokumentuj stabilizaciju poslije d3` |
+| d089f21 | `docs(faktura): dokumentuj stabilizaciju poslije d3` |
 
 ## Kontekst korišćen
 
