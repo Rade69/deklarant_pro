@@ -273,11 +273,9 @@ Izuzetak: **NaimenovanjeDraft koristi engleski** (`tariff_code`, `goods_descript
 - **IMAMOGLU**: dvofazno parsiranje (kodovi/opisi na str. 1-2, cijene na str. 4-5)
 - **Težine**: uvijek ekstraktovati gross/net weight iz PDF-a
 - **Rezultat**: uvijek vraća `ImportResult` sa items, bruto_kg, neto_kg
-- **OBAVEZNO — `consumed_paths`**: svaki kombinirani importer koji interno koristi drugi
-  fajl (Excel+PDF par, Invoice+PackingList) MORA postaviti
-  `consumed_paths=[putanja_potrošenog_fajla]` u `ImportResult`. Bez toga agent procesira
-  oba fajla zasebno → duplikati stavki u deklaraciji.
-  Primjer: CASE 1/2 (Blagić), CASE 1B/2B (Šumaprom), CASE 3/4 (Invoice+PackingList), Leburic.
+- **OBAVEZNO — `consumed_paths`** za kombinirane importere (puno pravilo + primjeri
+  dobavljača: `docs/CONTEXT.md` §1) — bez toga agent procesira oba fajla zasebno →
+  duplikati stavki u deklaraciji
 - **OBAVEZNO — `incoterm_code`**: svaki importer koji ekstraktuje puni tekst fakture
   (PDF, ili Excel+PDF kombinacija) MORA pozvati `detect_incoterm(full_text)` iz
   `importers/incoterm_utils.py` i proslijediti rezultat kao `incoterm_code=...` u
@@ -296,15 +294,15 @@ Izuzetak: **NaimenovanjeDraft koristi engleski** (`tariff_code`, `goods_descript
 
 ### XML template (xml_template_service.py)
 
-- Rb.48 (`odgodjeno_placanje`) se **ne prepisuje** iz historijskog XML-a — šifra se mijenja godišnje
-- Mijenjati samo `TEMPLATE_FIELDS` whitelist — ne pisati ad-hoc logiku po polju
+- Rb.48/`TEMPLATE_FIELDS` pravila (šifra odgođenog plaćanja se ne prepisuje iz
+  historijskog XML-a, mijenjati samo whitelist) — puno pravilo: `docs/CONTEXT.md` §3
 
 ### Naimenovanja
 
 - Rb.31 auto-opis se generiše po tarifi, ne prepisuje iz fakture
 - **Trgovački naziv (`le_r31_trg_naziv`)**: prikazuje sve nazive proizvoda iz fakture koji
   pripadaju tom naimenovanju (comma-separated / multi-line, QTextEdit)
-- ASYCUDA XML Rub.31 mora ostati max 280 znakova / 3 linije; skraćivanje raditi pri buildanju XML-a
+- ASYCUDA XML Rub.31 max 280 znakova/3 linije — puno pravilo: `docs/CONTEXT.md` §3
 - **Grupiranje po 4 ključa** (svi moraju biti identični): `tarifni_broj`, `zemlja_porijekla`,
   `povlastica`, `eur1_number` — koristiti `CreateNaimenovanjaService.create_smart_group()`,
   ne pisati vlastitu logiku grupiranja
@@ -478,30 +476,20 @@ jedan opšti pregled često pomiješa ova dva kriterija):
 ## Plan prije izmjene — HIGH/CRITICAL GitNexus impact
 
 Ako `gitnexus_impact` za simbol koji se mijenja vrati **HIGH** ili **CRITICAL**,
-agent PRIJE izmjene napravi JEDAN kratki fajl (ne cijeli "project room") —
-`templates/agent-md/project_room_template.md` je gotova polazna tačka za
-kopiranje:
+agent PRIJE izmjene napravi JEDAN kratki fajl (ne cijeli "project room"):
 
 ```text
 project_rooms/YYYY-MM-DD_kratak-naziv-zadatka.md
 ```
 
-sa sekcijama:
-
-- **Cilj** — šta se mijenja i zašto
-- **Pogođeno** — simboli/procesi iz `gitnexus_impact` (broj, koji, rizik)
-- **Plan** — fajlovi i redoslijed izmjena
-- **Šta NE dirati** — eksplicitne granice (scope lock — vidi "Handoff visokog rizika" ispod)
-- **Plan verifikacije** — koji dokaz mora postojati prije nego se promjena
-  smatra završenom (vidi "Definition of Done po tipu promjene" iznad)
-- **Rollback / oporavak** — kako se promjena vraća ili sistem oporavlja
-  ako rezultat nije dobar
-- **Nezavisni checker** — ko provjerava rezultat (vidi "Nezavisna
-  provjera" iznad), šta provjerava, koji dokaz mora ostaviti
-- **Odbačene opcije** (ako je bilo alternativa) — opcija, zašto je
-  razmatrana, zašto je odbačena, kada odluku ponovo otvoriti
-- **Konflikti** — ako postoje kontradiktorni izvori (stari agent_report, memorija, kod),
-  navesti oba, koji se tretira kao važeći i zašto, i da li je potrebna korisnička potvrda (DA/NE)
+Kopirati `templates/agent-md/project_room_template.md` kao polaznu
+tačku — puna šema sa objašnjenjem svakog polja živi TAMO. Sekcije:
+Cilj, Pogođeno (simboli/procesi iz `gitnexus_impact`), Plan, Šta NE
+dirati (scope lock — vidi "Handoff visokog rizika" ispod), Plan
+verifikacije (vidi "Definition of Done" iznad), Rollback/oporavak,
+Nezavisni checker (vidi "Nezavisna provjera" iznad), Odbačene opcije,
+Konflikti (kontradiktorni izvori — koji se tretira kao važeći i zašto,
+da li treba korisnička potvrda).
 
 Fajl se na kraju može spojiti u `agent_report` (Korak 3) ili obrisati — nije trajna
 dokumentacija. Za MEDIUM ili niži impact ovaj korak se preskače.
@@ -561,38 +549,17 @@ py_compile provjeru i ispisuje podsjetnike — NE zaobilaziti ga sa `--no-verify
 
 ### Korak 3 — Agent report
 - Kreirati izvještaj u `agent_reports/YYYY-MM-DD_naziv-zadatka.md` —
-  `templates/agent-md/agent_report_template.md` je gotova polazna tačka za
-  kopiranje. Sekcije (`##`):
-  - **Datum**, **Agent**, **Scope** — fajlovi/moduli na koje se zadatak odnosi
-  - **Status izvora** (samo kompleksni/rizični zadaci) — koji raniji
-    agent_reports/memory/kod fajlovi su korišćeni i njihov status:
-    aktivan / zastario / duplikat / treba potvrdu
-  - **GitNexus impact** — rezultat provjere prije izmjene (rizik, broj pogođenih simbola/procesa)
-  - **Reprodukcija prije izmjene** (za bugfix zadatke) — dokaz da je
-    problem reprodukovan PRIJE izmjene (vidi "Reprodukcija i provjera
-    prije rada" iznad), ili zašto nije bilo moguće
-  - **Šta je urađeno** — kratki pregled promjena
-  - **Zašto je urađeno** — poslovni razlog, bug uzrok, odluka i alternativa
-  - **Kako je urađeno** — tehnički pristup, koje funkcije/fajlovi
-  - **Šta nije dirano** — eksplicitno navesti šta je OSTAVLJENO netaknuto
-  - **Verifikacija** — kako je dokazano da promjena radi (testovi,
-    offscreen provjere, py_compile...) — dokaz mora odgovarati
-    "Definition of Done" za tip promjene
-  - **Nezavisna provjera** (obavezno za HIGH/CRITICAL, vidi "Nezavisna
-    provjera" iznad) — da li je urađena, ko je uradio, šta je
-    potvrđeno/nije potvrđeno, da li je promjena spremna za prihvatanje
-  - **Pronađeni problemi** — uključujući lažno pozitivne zaključke
-  - **Odbačene opcije** (ako je bilo alternativa) — opcija, zašto je
-    razmatrana, zašto je odbačena, kada odluku ponovo otvoriti — sprečava
-    da drugi agent kasnije ponovo predloži istu odbačenu ideju
-  - **Konflikti / kontradiktorni izvori** (ako postoje) — koji je tretiran kao važeći
-    i zašto, i da li treba korisnička potvrda (DA/NE)
-  - **Commitovi** — tabela hash/poruka
-  - **Kontekst korišćen** (samo kompleksni/rizični zadaci) — koji veći fajlovi
-    su pročitani u cijelosti i zašto (ne samo pretraženi/grep-ovani)
-  - **Rizici / ograničenja**
-  - **Potreban follow-up** — šta NIJE zatvoreno
-  - **Potrebna korisnička potvrda** — šta korisnik treba ručno provjeriti
+  kopirati `templates/agent-md/agent_report_template.md` kao polaznu
+  tačku (puna šema sa objašnjenjem svakog polja živi TAMO, ne ovdje)
+- Obavezna polja (`##` sekcije): Datum, Agent, Scope, Status izvora
+  (samo kompleksni/rizični zadaci), GitNexus impact, Reprodukcija prije
+  izmjene (bugfix — vidi "Reprodukcija i provjera prije rada" iznad),
+  Šta je urađeno, Zašto je urađeno, Kako je urađeno, Šta nije dirano,
+  Verifikacija (mora odgovarati "Definition of Done" iznad), Nezavisna
+  provjera (obavezno za HIGH/CRITICAL), Pronađeni problemi, Odbačene
+  opcije, Konflikti/kontradiktorni izvori, Commitovi, Kontekst korišćen
+  (samo kompleksni zadaci), Rizici/ograničenja, Potreban follow-up,
+  Potrebna korisnička potvrda
 - Commitovati izvještaj odmah nakon pisanja
 
 ### Korak 4 — Link u kodu (opcionalno, za kompleksne odluke)
