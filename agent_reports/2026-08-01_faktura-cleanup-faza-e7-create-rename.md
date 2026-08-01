@@ -92,7 +92,7 @@ Nema konflikta u produkcionom kodu. E6 tvrdnja da se metoda ne smije brisati ost
 
 | Hash | Poruka |
 | --- | --- |
-| pending | `refactor(faktura): preimenuj internu logiku kreiranja naimenovanja` |
+| af83bd9 | `refactor(faktura): preimenuj internu logiku kreiranja naimenovanja` |
 
 ## Kontekst korišćen
 
