@@ -3440,3 +3440,28 @@ da se riješi isti rizik koji je ranije ovog dana izazvao sudar sa paralelnim
 agentom.
 
 Detalji: `agent_reports/2026-07-30_probe-facts-decisions-adr-dopuna.md`.
+
+---
+
+## 118. Uklonjeno potvrđeno dupliranje AGENTS.md ↔ CONTEXT.md/predlošci (2026-07-30)
+
+Korisnik pitao ima li način da se AGENTS.md (narastao na 698 linija kroz
+4 dopune istog dana) smanji. Umjesto pretpostavke, prvo provjereno grep-om
+— potvrđeno stvarno preklapanje (ne samo dužina): `consumed_paths` pravilo,
+Rb.48/`TEMPLATE_FIELDS` pravilo, i Rb.31 280-znakova pravilo su postojali
+skoro identično i u AGENTS.md "Ključne konvencije" i u `docs/CONTEXT.md`
+§1/§3. Svedeno na jednu liniju + pointer, `CONTEXT.md` ostaje puni izvor
+(bez gubitka informacije). AGENTS.md-only pravila u istim sekcijama
+(incoterm_code, Blagić/IMAMOGLU specifike, Trgovački naziv, Grupiranje po
+4 ključa) namjerno nisu dirana — nemaju ekvivalent u CONTEXT.md.
+
+Korak 3 (agent_report šema) i "Plan prije izmjene" (project_room šema) su
+skoro doslovno duplirali `templates/agent-md/{agent_report,
+project_room}_template.md` — svedeno na listu naziva polja + pointer.
+
+**698 → 665 linija** — manje od prvobitne procjene (~600) jer je stvarna
+provjera pokazala uže preklapanje nego pretpostavljeno prije provjere;
+namjerno izvještena tačna brojka, ne prvobitna procjena (ista "Facts vs
+Decisions" disciplina koju smo istog dana formalizovali u §117).
+
+Detalji: `agent_reports/2026-07-30_agents-md-dedup-consolidacija.md`.
