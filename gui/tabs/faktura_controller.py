@@ -29,6 +29,8 @@ class FakturaController(QObject):
         from services.naimenovanja.declaration_assembly import DeclarationAssembly
         self.validator = FakturaItemValidator()
         self.assembly = DeclarationAssembly()
+        from services.faktura.import_workflow_service import ImportWorkflowService
+        self.import_workflow = ImportWorkflowService()
 
     @property
     def draft(self) -> DeclarationDraft:
@@ -102,6 +104,59 @@ class FakturaController(QObject):
         """Primijeni ImportPlan na draft."""
         from services.import_workflow.apply_service import apply_import_plan
         return apply_import_plan(draft, plan, decisions)
+
+    def can_use_unified_manual_import(self, result, draft) -> bool:
+        return self.import_workflow.can_use_unified_manual_import(
+            result, draft, self.assembly
+        )
+
+    def can_use_unified_batch_import(self, draft) -> bool:
+        return self.import_workflow.can_use_unified_batch_import(draft, self.assembly)
+
+    def manual_import_source_path(self, import_worker) -> str:
+        return self.import_workflow.manual_import_source_path(import_worker)
+
+    def existing_invoice_keys_for_import_workflow(self, draft) -> set[str]:
+        return self.import_workflow.existing_invoice_keys(draft)
+
+    def expected_import_partners(
+        self,
+        draft,
+        expected_exporter: str = "",
+        expected_importer: str = "",
+    ) -> tuple[str, str]:
+        return self.import_workflow.expected_import_partners(
+            draft, expected_exporter, expected_importer
+        )
+
+    def prepare_manual_import_plan(
+        self,
+        result,
+        source_path: str,
+        draft,
+        expected_exporter: str = "",
+        expected_importer: str = "",
+    ):
+        return self.import_workflow.prepare_manual_import_plan(
+            result, source_path, draft, expected_exporter, expected_importer
+        )
+
+    def batch_record_to_import_candidate(self, record: dict):
+        return self.import_workflow.batch_record_to_import_candidate(record)
+
+    def prepare_manual_batch_import_plan(
+        self,
+        records: list,
+        draft,
+        expected_exporter: str = "",
+        expected_importer: str = "",
+    ):
+        return self.import_workflow.prepare_manual_batch_import_plan(
+            records, draft, expected_exporter, expected_importer
+        )
+
+    def sync_import_workflow_state_after_apply(self, draft, plan, apply_result):
+        return self.import_workflow.sync_state_after_apply(draft, plan, apply_result)
 
     def normalize_item_tariffs(self, items: list) -> None:
         """Normalizuj tarifne brojeve na 8/10 cifara.

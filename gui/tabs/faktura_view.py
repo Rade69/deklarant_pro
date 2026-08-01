@@ -345,6 +345,9 @@ class FakturaView(BaseTabView):
         if hasattr(self, "lbl_assembly"):
             self._update_status_bar()
 
+    def _faktura_controller(self):
+        return getattr(self, "__dict__", {}).get("controller")
+
     def _validate_line_for_issue_counts(self, line):
         if self.controller is not None:
             return self.controller.validate_line(line)
@@ -3269,117 +3272,82 @@ class FakturaView(BaseTabView):
                 self._notify_data_changed()
 
     def _can_use_unified_manual_import(self, result) -> bool:
-        if not isinstance(result, ImportResult):
-            return False
-        if getattr(self.assembly, "master_list_loaded", False):
-            return False
-        return isinstance(getattr(self.draft, "invoice_weights", None), dict)
+        controller = FakturaView._faktura_controller(self)
+        if controller is not None:
+            return controller.can_use_unified_manual_import(result, self.draft)
+        from services.faktura.import_workflow_service import ImportWorkflowService
+        return ImportWorkflowService().can_use_unified_manual_import(
+            result, self.draft, getattr(self, "assembly", None)
+        )
 
     def _manual_import_source_path(self) -> str:
-        return getattr(self.import_worker, "filepath", "") or ""
+        controller = FakturaView._faktura_controller(self)
+        if controller is not None:
+            return controller.manual_import_source_path(getattr(self, "import_worker", None))
+        from services.faktura.import_workflow_service import ImportWorkflowService
+        return ImportWorkflowService().manual_import_source_path(
+            getattr(self, "import_worker", None)
+        )
 
     def _existing_invoice_keys_for_import_workflow(self) -> set[str]:
-        keys = set(getattr(self.draft, "invoice_weights", {}) or {})
-        for line in getattr(self.draft, "invoice_lines", []) or []:
-            key = normalize_invoice_key(getattr(line, "invoice_number", "") or "")
-            if key:
-                keys.add(key)
-        return keys
+        controller = FakturaView._faktura_controller(self)
+        if controller is not None:
+            return controller.existing_invoice_keys_for_import_workflow(self.draft)
+        from services.faktura.import_workflow_service import ImportWorkflowService
+        return ImportWorkflowService().existing_invoice_keys(self.draft)
 
     def _expected_import_partners(self) -> tuple[str, str]:
-        exporter = getattr(self, "_expected_exporter", "")
-        importer = getattr(self, "_expected_importer", "")
-        exporter = exporter if isinstance(exporter, str) else ""
-        importer = importer if isinstance(importer, str) else ""
-        draft_exporter = getattr(self.draft, "izvoznik_naziv", "")
-        draft_importer = getattr(self.draft, "primalac_naziv", "")
-        if not exporter and isinstance(draft_exporter, str):
-            exporter = draft_exporter
-        if not importer and isinstance(draft_importer, str):
-            importer = draft_importer
-        return exporter or "", importer or ""
+        expected_exporter = getattr(self, "_expected_exporter", "")
+        expected_importer = getattr(self, "_expected_importer", "")
+        controller = FakturaView._faktura_controller(self)
+        if controller is not None:
+            return controller.expected_import_partners(
+                self.draft, expected_exporter, expected_importer
+            )
+        from services.faktura.import_workflow_service import ImportWorkflowService
+        return ImportWorkflowService().expected_import_partners(
+            self.draft, expected_exporter, expected_importer
+        )
 
     def _prepare_manual_import_plan(self, result: ImportResult):
-        from services.import_workflow.adapters import from_import_result
-        from services.import_workflow.prepare_service import prepare_import
-
-        candidate = from_import_result(result, self._manual_import_source_path())
         expected_exporter, expected_importer = FakturaView._expected_import_partners(self)
-        return prepare_import(
-            [candidate],
-            existing_invoice_keys=FakturaView._existing_invoice_keys_for_import_workflow(self),
-            expected_exporter=expected_exporter,
-            expected_importer=expected_importer,
-            expected_currency=getattr(self.draft, "valuta", "") or "",
+        source_path = FakturaView._manual_import_source_path(self)
+        controller = FakturaView._faktura_controller(self)
+        if controller is not None:
+            return controller.prepare_manual_import_plan(
+                result, source_path, self.draft, expected_exporter, expected_importer
+            )
+        from services.faktura.import_workflow_service import ImportWorkflowService
+        return ImportWorkflowService().prepare_manual_import_plan(
+            result, source_path, self.draft, expected_exporter, expected_importer
         )
 
     def _can_use_unified_batch_import(self) -> bool:
-        if getattr(self.assembly, "master_list_loaded", False):
-            return False
-        return isinstance(getattr(self.draft, "invoice_weights", None), dict)
+        controller = FakturaView._faktura_controller(self)
+        if controller is not None:
+            return controller.can_use_unified_batch_import(self.draft)
+        from services.faktura.import_workflow_service import ImportWorkflowService
+        return ImportWorkflowService().can_use_unified_batch_import(
+            self.draft, getattr(self, "assembly", None)
+        )
 
     def _batch_record_to_import_candidate(self, record: dict):
-        from copy import deepcopy
-
-        from services.import_workflow.adapters import from_import_result
-        from services.import_workflow.models import (
-            ImportCandidate,
-            _detect_file_type,
-            _normalize_path,
-        )
-
-        path = record.get("filepath", "") or "unknown"
-        result = record.get("_import_result")
-        if result is not None:
-            candidate = from_import_result(result, path)
-            candidate.invoice_lines = deepcopy(list(record.get("items", []) or []))
-            candidate.bruto_kg = record.get("bruto_kg", candidate.bruto_kg) or 0.0
-            candidate.neto_kg = record.get("neto_kg", candidate.neto_kg) or 0.0
-            candidate.warnings = list(record.get("parser_warnings", []) or candidate.warnings)
-            return candidate
-
-        invoice_name = (record.get("invoice_name", "") or "").strip()
-        source_stem = Path(path).stem if path else ""
-        lines = deepcopy(list(record.get("items", []) or []))
-        line_numbers = {
-            (getattr(line, "invoice_number", "") or "").strip()
-            for line in lines
-            if (getattr(line, "invoice_number", "") or "").strip()
-        }
-        explicit_invoice_number = ""
-        if invoice_name and (invoice_name != source_stem or invoice_name in line_numbers):
-            explicit_invoice_number = invoice_name
-
-        return ImportCandidate(
-            source_path=path,
-            normalized_path=_normalize_path(path),
-            file_type=_detect_file_type(path),
-            parser="",
-            invoice_lines=lines,
-            explicit_invoice_number=explicit_invoice_number,
-            display_name=invoice_name or source_stem or "faktura",
-            bruto_kg=record.get("bruto_kg", 0.0) or 0.0,
-            neto_kg=record.get("neto_kg", 0.0) or 0.0,
-            has_origin_statement=record.get("has_origin_statement", False),
-            is_authorized_exporter=record.get("is_authorized_exporter", False),
-            warnings=list(record.get("parser_warnings", []) or []),
-        )
+        controller = FakturaView._faktura_controller(self)
+        if controller is not None:
+            return controller.batch_record_to_import_candidate(record)
+        from services.faktura.import_workflow_service import ImportWorkflowService
+        return ImportWorkflowService().batch_record_to_import_candidate(record)
 
     def _prepare_manual_batch_import_plan(self, records: list):
-        from services.import_workflow.prepare_service import prepare_import
-
-        candidates = [
-            FakturaView._batch_record_to_import_candidate(self, record)
-            for record in records
-            if not record.get("skipped") and record.get("items")
-        ]
         expected_exporter, expected_importer = FakturaView._expected_import_partners(self)
-        return prepare_import(
-            candidates,
-            existing_invoice_keys=FakturaView._existing_invoice_keys_for_import_workflow(self),
-            expected_exporter=expected_exporter,
-            expected_importer=expected_importer,
-            expected_currency=getattr(self.draft, "valuta", "") or "",
+        controller = FakturaView._faktura_controller(self)
+        if controller is not None:
+            return controller.prepare_manual_batch_import_plan(
+                records, self.draft, expected_exporter, expected_importer
+            )
+        from services.faktura.import_workflow_service import ImportWorkflowService
+        return ImportWorkflowService().prepare_manual_batch_import_plan(
+            records, self.draft, expected_exporter, expected_importer
         )
 
     def _confirm_partial_batch_import(self, failed_imports: list, valid_count: int) -> bool:
@@ -3584,25 +3552,29 @@ class FakturaView(BaseTabView):
         )
 
     def _sync_import_workflow_state_after_apply(self, plan, apply_result) -> None:
-        self.weight_manager.accumulated_bruto_kg = 0.0
-        self.weight_manager.accumulated_neto_kg = 0.0
-        for bruto, neto in (getattr(self.draft, "invoice_weights", {}) or {}).values():
-            self.weight_manager.accumulated_bruto_kg += bruto or 0.0
-            self.weight_manager.accumulated_neto_kg += neto or 0.0
+        controller = FakturaView._faktura_controller(self)
+        if controller is not None:
+            state = controller.sync_import_workflow_state_after_apply(
+                self.draft, plan, apply_result
+            )
+        else:
+            from services.faktura.import_workflow_service import ImportWorkflowService
+            state = ImportWorkflowService().sync_state_after_apply(
+                self.draft, plan, apply_result
+            )
+
+        self.weight_manager.accumulated_bruto_kg = state.accumulated_bruto_kg
+        self.weight_manager.accumulated_neto_kg = state.accumulated_neto_kg
         self.input_bruto.setText(FakturaService.format_weight(self.weight_manager.accumulated_bruto_kg))
         self.input_neto.setText(FakturaService.format_weight(self.weight_manager.accumulated_neto_kg))
 
-        applied_keys = set(apply_result.applied_invoice_keys)
-        applied = [invoice for invoice in plan.invoices if invoice.internal_key in applied_keys]
-        if applied:
-            self.last_invoice_name = applied[-1].invoice_number or applied[-1].display_name
-            self.last_import_count = len(applied[-1].invoice_lines)
-            exporter = applied[-1].exporter.name if applied[-1].exporter else ""
-            importer = applied[-1].importer.name if applied[-1].importer else ""
-            if exporter:
-                self._expected_exporter = exporter
-            if importer:
-                self._expected_importer = importer
+        if state.last_invoice_name:
+            self.last_invoice_name = state.last_invoice_name
+            self.last_import_count = state.last_import_count
+        if state.expected_exporter:
+            self._expected_exporter = state.expected_exporter
+        if state.expected_importer:
+            self._expected_importer = state.expected_importer
 
     def _show_manual_import_workflow_result(self, plan, apply_result) -> None:
         from services.process_completion_sound import play_process_completion_sound
