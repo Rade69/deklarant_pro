@@ -101,7 +101,7 @@ Nema konflikta u produkcionom kodu. E2 tvrdnja da metoda nije za brisanje je zad
 
 | Hash | Poruka |
 | --- | --- |
-| pending | `refactor(faktura): preimenuj internu validaciju` |
+| da437cf | `refactor(faktura): preimenuj internu validaciju` |
 
 ## Kontekst korišćen
 
