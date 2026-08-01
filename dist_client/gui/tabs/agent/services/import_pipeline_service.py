@@ -355,7 +355,7 @@ def _puna_auto_pipeline(ctrl, fw, chat, all_lines: list) -> None:
         results.append(PipelineStageResult("validacija", PipelineStageStatus.SUCCESS))
     QApplication.processEvents()
 
-    # 3b. _on_validate_all (auto=True) iznutra pokreće HistoricalValidationWorker
+    # 3b. validate(auto=True) iznutra pokreće HistoricalValidationWorker
     # kao fire-and-forget QThread (docs/CONTEXT.md §59 — DB upiti po stavci su
     # prespori za UI thread) i vraća se ODMAH, prije nego worker stvarno završi.
     # Bez ovog čekanja, "Puna automatizacija" je nastavljala na EUR.1/PE potvrdu

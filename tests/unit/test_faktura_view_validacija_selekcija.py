@@ -1,5 +1,5 @@
 """
-Testovi za selekcijsko skopiranje opšte validacije (_on_validate_all, 2026-07-22).
+Testovi za selekcijsko skopiranje opšte validacije (_validate_all_items, 2026-07-22).
 
 Prije ove izmjene je "Provjeri" scopirao SAMO istorijsku tarifnu provjeru na
 selekciju (vidi test_faktura_view_provjeri_selekcija.py) — opšta validacija
@@ -67,7 +67,7 @@ def test_validation_issue_counts_scoped_na_row_indexes():
     assert errors.get("greska") == 1
 
 
-def test_on_validate_all_broji_samo_selektovane_stavke():
+def test_validate_all_items_broji_samo_selektovane_stavke():
     """
     5 stavki, selektovani redovi [1, 3]: red 1 ima blokirajucu gresku,
     red 3 ima upozorenje. Sazetak mora prijaviti error_count=1,
@@ -87,7 +87,7 @@ def test_on_validate_all_broji_samo_selektovane_stavke():
     mock_self.validation_cache.get.side_effect = fake_get
 
     with patch("gui.tabs.faktura_view.QMessageBox"):
-        ok, error_count, warning_count = FakturaView._on_validate_all(mock_self, auto=False)
+        ok, error_count, warning_count = FakturaView._validate_all_items(mock_self, auto=False)
 
     assert ok is True
     assert error_count == 1
@@ -98,7 +98,7 @@ def test_on_validate_all_broji_samo_selektovane_stavke():
     assert message == []
 
 
-def test_on_validate_all_bez_selekcije_broji_sve_stavke():
+def test_validate_all_items_bez_selekcije_broji_sve_stavke():
     """Bez selekcije (staro ponasanje) - koristi se globalni validation_cache brojac."""
     mock_self = _mock_self_with_selection(num_lines=3, selected_rows=[])
     mock_self.validation_cache.get_error_count.return_value = 2
@@ -106,7 +106,7 @@ def test_on_validate_all_bez_selekcije_broji_sve_stavke():
     mock_self.validation_cache.get_valid_count.return_value = 0
 
     with patch("gui.tabs.faktura_view.QMessageBox"):
-        ok, error_count, warning_count = FakturaView._on_validate_all(mock_self, auto=False)
+        ok, error_count, warning_count = FakturaView._validate_all_items(mock_self, auto=False)
 
     assert ok is True
     assert error_count == 2

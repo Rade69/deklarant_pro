@@ -11,7 +11,7 @@ klik "Provjeri") automatski na kraju uvoza, umjesto da se čeka klik.
 ISPRAVKA (isti dan): prvobitna verzija je preskakala poziv kad je
 self._agent_mode aktivan, pod pretpostavkom da puna automatizacija
 (import_pipeline_service._puna_auto_pipeline) uvijek sama pokrene
-_on_validate_all(auto=True) kasnije. Korisnik je testirao uvoz kroz agent
+validate(auto=True) kasnije. Korisnik je testirao uvoz kroz agent
 mod (rutu "Uvezi u deklaraciju", NE "Puna automatizacija") i dobio potpunu
 tišinu — self._agent_mode je aktivan za SVE tri agent rute uvoza ("Analiza",
 "Uvezi u deklaraciju", "Puna automatizacija"), a samo "Puna automatizacija"

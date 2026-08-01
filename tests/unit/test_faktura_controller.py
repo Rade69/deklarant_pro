@@ -263,7 +263,7 @@ class TestNoDoubleValidation:
         called = []
         monkeypatch.setattr(
             view,
-            "_on_validate_all",
+            "_validate_all_items",
             lambda auto=False: called.append(auto) or (True, 0, 0),
         )
 

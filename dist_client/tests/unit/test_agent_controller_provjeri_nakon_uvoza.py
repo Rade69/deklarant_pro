@@ -11,7 +11,7 @@ prolaska kroz _on_import_finished/_process_batch_records (Qt signal
 handleri vezani za obični GUI ImportWorker, ne agent processing_worker).
 
 "Puna automatizacija" grana već ima svoj poziv (_puna_auto_pipeline ->
-_on_validate_all(auto=True), tih/log-only). Ova grana ("Uvezi u
+validate(auto=True), tih/log-only). Ova grana ("Uvezi u
 deklaraciju" — sve OSTALE agent rute) prije fixa nije imala NIŠTA.
 
 MainWindow.closeEvent test (test_main_window_close_event.py) je isti obrazac:

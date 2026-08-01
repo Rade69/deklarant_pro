@@ -68,7 +68,7 @@ def completion_sound(monkeypatch):
 
 class TestCekanjeNaIstorijskuValidaciju:
     """
-    Popravka (2026-07-27): _on_validate_all(auto=True) iznutra pokreće
+    Popravka (2026-07-27): validate(auto=True) iznutra pokreće
     HistoricalValidationWorker kao fire-and-forget QThread i vraća se ODMAH
     — bez čekanja, "Puna automatizacija" je nastavljala na EUR.1/PE potvrdu
     i kreiranje naimenovanja dok je taj worker još radio (korisnička

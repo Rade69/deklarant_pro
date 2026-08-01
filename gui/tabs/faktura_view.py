@@ -4505,7 +4505,7 @@ class FakturaView(BaseTabView):
             logger.error(f"❌ [_reload_naimenovanja_tab] Error: {e}")
             pass
 
-    def _on_validate_all(self, auto=False) -> tuple[bool, int, int]:
+    def _validate_all_items(self, auto=False) -> tuple[bool, int, int]:
         """
         Handle Validate button click.
 
@@ -4640,7 +4640,7 @@ class FakturaView(BaseTabView):
         self.validate_requested.emit("rows" if rows else "all", rows)
 
     def validate(self, auto: bool = False) -> tuple[bool, int, int]:
-        return self._on_validate_all(auto=auto)
+        return self._validate_all_items(auto=auto)
 
     def _run_historical_tariff_validation(self, modal=False, auto=False):
         """

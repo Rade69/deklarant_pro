@@ -3554,3 +3554,19 @@ Root i `dist_client` `faktura_tab.py` ostaju u paritetu. Komentar u
 `validate(auto=True)` tok, ne stari private naziv. Test kapija: py_compile i
 `tests/unit/test_faktura_controller.py tests/unit/test_puna_auto_pipeline.py`
 51/51 passed.
+
+---
+
+## 124. Faktura Cleanup Faza E5 — preimenovana interna validaciona implementacija (2026-08-01)
+
+Faza E5 je preimenovala aktivnu internu metodu `FakturaView._on_validate_all`
+u neutralnije `FakturaView._validate_all_items`. Javni API ostaje
+`FakturaView.validate(auto=True/False)`, koji delegira na novu internu metodu;
+`FakturaTab.validate(auto=True)` već od E4 ide preko tog javnog adaptera.
+
+Root i `dist_client` produkcioni fajlovi i relevantni testovi su poravnati.
+Selekcijski testovi sada direktno karakterišu `_validate_all_items`, dok
+`_on_validate_all` ostaje samo u legacy pipeline test stubu koji namjerno
+dokazuje da se stari private fallback ne poziva. Test kapija: py_compile;
+root validacioni/pipeline/provjeri set 64/64; dist validacioni/pipeline/provjeri
+set 30/30.
