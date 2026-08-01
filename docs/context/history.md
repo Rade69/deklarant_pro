@@ -3465,3 +3465,21 @@ namjerno izvještena tačna brojka, ne prvobitna procjena (ista "Facts vs
 Decisions" disciplina koju smo istog dana formalizovali u §117).
 
 Detalji: `agent_reports/2026-07-30_agents-md-dedup-consolidacija.md`.
+
+---
+
+## 119. Faktura Cleanup stabilizacija poslije D3 (2026-08-01)
+
+Poslije D1-D3 cleanup-a za `Kreiraj Naimenovanja` urađena je stabilizaciona
+provjera bez novih produkcionih izmjena. Root/dist_client paritet je potvrđen
+za `gui/tabs/faktura_view.py`, `services/faktura/create_naimenovanja_workflow_service.py`
+i `services/faktura/models.py`. Grep pozivalaca potvrđuje da ručni toolbar ide
+preko signala i javnog adaptera, Agent pipeline prvo koristi
+`create_naimenovanja(auto=True)`, a privatni `_on_create_naimenovanja` ostaje
+samo legacy/fallback kandidat za završnu Fazu E.
+
+Automatizovana kapija: py_compile za D1-D3 fajlove; ciljani create/pipeline set
+78/78; širi Faktura/Agent set 172/172; XML/ASYCUDA smoke set 126/126. Nije
+rađen GUI live E2E — korisnik još treba ručno potvrditi realan tok prije Faze E:
+uvoz fakture → mase → auto-fill/validacija → `Kreiraj Naimenovanja` → pregled
+Naimenovanja/Zaglavlje → XML export smoke.
