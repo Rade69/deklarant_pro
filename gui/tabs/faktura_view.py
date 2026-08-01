@@ -4147,7 +4147,7 @@ class FakturaView(BaseTabView):
             # je bio pogrešan — self._agent_mode je aktivan za SVE agent rute uvoza
             # ("Analiza", "Uvezi u deklaraciju", "Puna automatizacija"), ne samo za
             # punu automatizaciju. Samo "Puna automatizacija" ima naknadni
-            # _on_validate_all(auto=True) poziv (import_pipeline_service.
+            # javni validate(auto=True) poziv (import_pipeline_service.
             # _puna_auto_pipeline); ostale dvije rute NIKAD ne bi dobile provjeru
             # ako se ovdje preskoči. Pipeline se pokreće ODVOJENO i KASNIJE (radi na
             # već uvezenom draft-u, ne uvozi sam) — nema stvarnog preklapanja jer

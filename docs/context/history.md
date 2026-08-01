@@ -3538,3 +3538,19 @@ su poravnati, uključujući E1 pravilo da Agent pipeline bez javnog API-ja staje
 kontrolisano i ne koristi private fallback. `_on_validate_all`,
 `_on_create_naimenovanja` i `_on_import_finished_legacy` nisu dirani jer su u E2
 potvrđeni kao aktivni implementation path.
+
+---
+
+## 123. Faktura Cleanup Faza E4 — validacija kroz javni adapter (2026-08-01)
+
+Faza E4 je prebacila `FakturaTab.validate(auto=True)` sa direktnog poziva
+`self.view._on_validate_all(auto=True)` na javni `self.view.validate(auto=True)`.
+Time je zatvorena još jedna private View zavisnost na Tab sloju, bez promjene
+same validacione implementacije. `_on_validate_all` ostaje u `FakturaView` jer
+je i dalje core implementation path za javni `validate()` i selekcijske testove.
+
+Root i `dist_client` `faktura_tab.py` ostaju u paritetu. Komentar u
+`faktura_view.py` koji opisuje punu automatizaciju ažuriran je da pominje javni
+`validate(auto=True)` tok, ne stari private naziv. Test kapija: py_compile i
+`tests/unit/test_faktura_controller.py tests/unit/test_puna_auto_pipeline.py`
+51/51 passed.

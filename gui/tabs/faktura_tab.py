@@ -54,7 +54,7 @@ class FakturaTab(QWidget):
 
     def validate(self, auto: bool = False) -> tuple[bool, int, int]:
         if auto:
-            return self.view._on_validate_all(auto=True)
+            return self.view.validate(auto=True)
         self.view.validate_requested.emit("all", [])
         return (
             True,
