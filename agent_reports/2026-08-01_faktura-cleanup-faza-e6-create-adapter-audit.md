@@ -96,7 +96,7 @@ Nema konflikata u produkcionom kodu. E2 nalaz da se ove metode ne smiju brisati 
 
 | Hash | Poruka |
 | --- | --- |
-| pending | `refactor(faktura): koristi javni adapter za kreiranje naimenovanja` |
+| 79fcce5 | `refactor(faktura): koristi javni adapter za kreiranje naimenovanja` |
 
 ## Kontekst korišćen
 
