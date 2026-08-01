@@ -407,6 +407,18 @@ signal-wired metode, greška u razdvajanju lakše lomi Qt signal chain).
    ne u postojećem zastarjelom `.worktrees/faktura-3layer/` (vidi
    "Konflikti" #1) — pogotovo ako više agenata radi paralelno na različitim
    fazama.
+9. **Prije PRVOG pokretanja testova u novom worktree-u**, kopirati
+   gitignore-ovane lokalne fajlove iz root working tree-a — oni se NE
+   kopiraju automatski pri `git worktree add`:
+   - `.env` (bez njega `get_db_settings()` puca sa `DB_PASSWORD` missing —
+     PostgreSQL-zavisni testovi tada padaju sa pogrešnim uzrokom)
+   - `database/deklarant_sistem.db` (bez njega SQLite-zavisni testovi
+     — `tarifa_2026` tabela, `TarifaService`, penetration/SQL injection
+     testovi — padaju sa "no such table", ne sa stvarnim bugom)
+   Ovo je (2026-08-01, Faza 4a) DRUGI PUT da je ovaj tačan obrazac lažno
+   prijavio 19-22 "regresije" koje nisu postojale — prije bilo kakvog
+   zaključka o "puklo je zbog izmjene", prvo provjeriti da li worktree
+   uopšte ima ova dva fajla (`ls .env database/deklarant_sistem.db`).
 
 ## Rollback / oporavak
 
