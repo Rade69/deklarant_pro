@@ -274,14 +274,25 @@ je izdvojena u servis.
 
 `faktura_view.py`: 5888 linija (-130), 149 metoda (isto).
 
-**4c. Naimenovanja post-processing**:
-`_run_create_naimenovanja_post_actions` (4421-4451),
-`_set_weight_inputs_from_draft` (4453-4459),
-`_reload_naimenovanja_tab` (4461-4506) — cross-tab, provjeriti da ne dira
-Naimenovanja/Zaglavlje refaktor koji ide paralelno (provjeriti
-`docs/context/history.md` za status tog rada prije početka, izbjeći
-sudar),
-`_sync_pe_docs_to_header` (6171-6223), `_sync_inspection_docs_to_header` (6225-6262).
+**Status: DONE — 2026-08-01, commit `<novi_commit>` (Pi)**
+
+Urađeno: novi `services/faktura/header_doc_sync_service.py` (87 linija):
+- `collect_pe_docs_from_items(items)` — sakupljanje PE1/PE2/PE3 iz attached_document4
+- `build_pe_attached_documents(pe_entries)` — kreiranje AttachedDocument objekata
+- `collect_inspection_docs_from_items(items, existing_codes)` — inspekcijski dokumenti
+  po tarifnom broju
+
+`_sync_pe_docs_to_header` i `_sync_inspection_docs_to_header` postale thin wrapper-i.
+
+Namjerno ostavljeno u View-u (nisu kandidati za ekstrakciju):
+- `_run_create_naimenovanja_post_actions` — orkestracija signala/UI poziva,
+  flagovi su već u `plan` objektu, nema poslovne logike za izdvajanje
+- `_reload_naimenovanja_tab` — 100% cross-tab UI (Qt window, tab reference,
+  reload_data, _sync_header_packages, load_from_draft)
+- `_set_weight_inputs_from_draft` — trivijalna (7 linija), kalkulacija totala
+  + UI upis, premalo za izdvajanje
+
+`faktura_view.py`: 5837 linija (-51), 149 metoda (isto).
 
 **4d. Masa/validacija**:
 `_build_calculate_masses_request` (5023-5081),

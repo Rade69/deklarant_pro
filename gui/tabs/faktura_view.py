@@ -5790,56 +5790,28 @@ class FakturaView(BaseTabView):
         pass
 
     def _sync_pe_docs_to_header(self) -> None:
-        """Sinhronizuj PE1/PE2/PE3 iz attached_document4 u header_attached_documents.
-
-        Ovo je ista logika kao u naimenovanja_view.py._sync_pe_docs_to_header,
-        samo pozvana nakon kreiranja naimenovanja.
-        """
         header_docs = getattr(self.draft, "header_attached_documents", None)
         if header_docs is None:
             return
 
-        # 1. Sakupi sve jedinstvene (sifra, broj) parove iz svih naimenovanja
-        pe_entries: list[tuple[str, str]] = []
-        seen: set[tuple[str, str]] = set()
+        from services.faktura.header_doc_sync_service import (
+            collect_pe_docs_from_items,
+            build_pe_attached_documents,
+        )
+
         for item in self.draft.items:
             _clear_secondary_pe_documents(item)
             raw_doc4 = (getattr(item, 'attached_document4', '') or '').strip()
             doc4 = _normalize_pe_document_text(raw_doc4)
             if doc4 != raw_doc4:
                 item.attached_document4 = doc4
-            if not doc4:
-                continue
-            parts = doc4.split(' ', 1)
-            sifra = parts[0].strip()
-            broj = parts[1].strip() if len(parts) > 1 else ''
-            if sifra in _PE_DOC_CODES:
-                key = (sifra, broj)
-                if key not in seen:
-                    seen.add(key)
-                    pe_entries.append(key)
 
-        # 2. Ukloni postojeće PE1/PE2/PE3 unose iz header_attached_documents
+        pe_entries = collect_pe_docs_from_items(self.draft.items)
+
         header_docs[:] = [d for d in header_docs if d.code not in _PE_DOC_CODES]
 
-        # 3. Dodaj nove unose
         if pe_entries:
-            from core.draft.draft import AttachedDocument
-            naziv_map = {
-                "PE1": "EUR.1 obrazac",
-                "PE2": "Izjava na fakturi",
-                "PE3": "Izjava ovlaštenog izvoznika",
-            }
-            for sifra, broj in pe_entries:
-                naziv = naziv_map.get(sifra, f"Dokument {sifra}")
-                header_docs.append(AttachedDocument(
-                    code=sifra,
-                    name=naziv,
-                    number=broj,
-                    from_rule=sifra == "PE1",
-                ))
-
-            # Obavijesti da su se podaci promijenili
+            header_docs.extend(build_pe_attached_documents(pe_entries))
             if self.on_dirty:
                 self.on_dirty()
 
@@ -5848,39 +5820,16 @@ class FakturaView(BaseTabView):
         if header_docs is None:
             return
 
-        try:
-            from services.tariff_controls_service import get_tariff_controls_service
-            svc = get_tariff_controls_service()
-        except Exception:
-            return
+        from services.faktura.header_doc_sync_service import collect_inspection_docs_from_items
 
         seen_codes = {getattr(d, "code", "") for d in header_docs}
-        added = 0
-
-        for item in getattr(self.draft, "items", []) or []:
-            tariff_code = (getattr(item, "tariff_code", "") or "").strip()
-            if not tariff_code:
-                continue
-            try:
-                docs = svc.get_required_docs(tariff_code)
-            except Exception:
-                continue
-            for doc in docs:
-                code = (doc.get("code") or "").strip()
-                if not code or code in seen_codes:
-                    continue
-                from core.draft.draft import AttachedDocument
-                header_docs.append(AttachedDocument(
-                    code=code,
-                    name=doc.get("name", ""),
-                    number="",
-                    from_rule=False,
-                ))
-                seen_codes.add(code)
-                added += 1
-
-        if added > 0 and self.on_dirty:
-            self.on_dirty()
+        new_docs = collect_inspection_docs_from_items(
+            getattr(self.draft, "items", []) or [], seen_codes
+        )
+        if new_docs:
+            header_docs.extend(new_docs)
+            if self.on_dirty:
+                self.on_dirty()
 
     def clear_form(self) -> None:
         """Čisti formu (BaseTabView interface) - uklanja sve stavke iz tabele."""

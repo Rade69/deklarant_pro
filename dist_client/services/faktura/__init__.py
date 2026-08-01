@@ -24,6 +24,11 @@ from services.faktura.preference_rules_service import (
     should_show_pe2_dialog,
     auto_handle_povlastice_agent,
 )
+from services.faktura.header_doc_sync_service import (
+    collect_pe_docs_from_items,
+    build_pe_attached_documents,
+    collect_inspection_docs_from_items,
+)
 
 __all__ = [
     "FakturaConstants",
@@ -46,4 +51,7 @@ __all__ = [
     "should_show_eur1_dialog",
     "should_show_pe2_dialog",
     "auto_handle_povlastice_agent",
+    "collect_pe_docs_from_items",
+    "build_pe_attached_documents",
+    "collect_inspection_docs_from_items",
 ]
