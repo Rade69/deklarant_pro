@@ -91,7 +91,7 @@ Nema konflikta u produkcionom kodu. E6 tvrdnja da fallback nije za brisanje osta
 
 | Hash | Poruka |
 | --- | --- |
-| pending | `refactor(faktura): preimenuj legacy import fallback` |
+| 8b134e6 | `refactor(faktura): preimenuj legacy import fallback` |
 
 ## Kontekst korišćen
 
