@@ -3640,3 +3640,18 @@ automatizacija koristi javni API i ne pada nazad na private fallback.
 Zaključak: E-cleanup je završen bez dodatnih sigurnih produkcionih code izmjena.
 Sljedeći rad, ako bude potreban, treba tretirati kao novu fazu dubljeg refaktora
 import/export handlera, ne kao nastavak E-cleanup brisanja.
+
+---
+
+## 129. ASYCUDA parity profil — početni referentni XML skup (2026-08-01)
+
+Kreiran je `docs/asycuda_parity_profile_2026-08-01.md` na osnovu jednog
+Deklarant Pro exporta, njegovog ASYCUDA-provjerenog para i dva dodatna ASYCUDA
+referentna XML-a. Profil potvrđuje da Faktura refaktor nije pokazao očiglednu
+XML regresiju na stavkama, masama, tarifama, povlasticama i Rub.31 limitima.
+
+Najvažniji otvoreni parity nalaz nije UI, nego obračun: probni par ima razliku
+u `Total_CIF` i `Total_cost`, pa sljedeći rad treba fokusirati na DV1/PZT,
+zavisne troškove, zaokruživanje i raspodjelu CIF-a po stavkama. PE1 zapis sa
+samostalnim navodnikom tretira se kao korisnikom potvrđena greška pri unosu,
+ne kao sistemski export bug, osim ako se obrazac ponovi na čistom unosu.
