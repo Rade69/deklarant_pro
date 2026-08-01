@@ -77,6 +77,13 @@ from gui.tabs.base_view import BaseTabView
 from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
 from gui.utils.safe_message_box import capture_window_geometry, restore_window_geometry_queued
 from gui.utils.safe_message_box import exec_dialog_preserving_geometry, show_dialog_preserving_geometry
+from services.faktura.faktura_service import FakturaService
+from services.faktura.mass_calculator import MassCalculator
+from services.faktura.mass_workflow_service import MassWorkflowService
+from services.faktura.validation_service import ValidationService
+from services.faktura.import_service import ImportService
+from services.faktura.undo_redo_service import UndoRedoService
+from services.faktura.xml_header_extraction import extract_header_from_xml
 from services.faktura.weight_guards import normalize_invoice_key
 from services.agent.validation.evidence_model import evidence_from_preference
 
@@ -308,9 +315,8 @@ class FakturaView(BaseTabView):
         self._pending_validate_rows: set = set()
         self._pending_learn_rows: set = set()   # redovi gdje je tarifni_broj ručno izmijenjen
 
-        # Undo/redo stekovi — max 30 snapshotova
-        self._undo_stack: list = []
-        self._redo_stack: list = []
+        # Undo/redo — delegirano servisu
+        self.undo_redo = UndoRedoService()
 
         self._learn_notify_timer = QTimer(self)
         self._learn_notify_timer.setSingleShot(True)
@@ -1382,10 +1388,10 @@ class FakturaView(BaseTabView):
         self._set_table_item(row, 2, naimenovanje_text, align=Qt.AlignCenter)
         self._set_table_item(row, 3, naziv_display)
         self._set_table_item(row, 4, item.tarifni_broj or "", align=Qt.AlignCenter)
-        self._set_table_item(row, 5, self._format_number(item.kolicina), align=Qt.AlignRight)
-        self._set_table_item(row, 6, self._format_number(item.iznos), align=Qt.AlignRight)
-        self._set_table_item(row, 7, self._format_number(item.bruto_kg), align=Qt.AlignRight)
-        self._set_table_item(row, 8, self._format_number(item.neto_kg), align=Qt.AlignRight)
+        self._set_table_item(row, 5, FakturaService.format_number(item.kolicina), align=Qt.AlignRight)
+        self._set_table_item(row, 6, FakturaService.format_number(item.iznos), align=Qt.AlignRight)
+        self._set_table_item(row, 7, FakturaService.format_number(item.bruto_kg), align=Qt.AlignRight)
+        self._set_table_item(row, 8, FakturaService.format_number(item.neto_kg), align=Qt.AlignRight)
         self._set_table_item(row, 9, item.zemlja_porijekla or "", align=Qt.AlignCenter)
         self._set_table_item(row, 10, item.povlastica or "", align=Qt.AlignCenter)
         self._set_table_item(row, 11, item.valuta or "", align=Qt.AlignCenter)
@@ -1412,16 +1418,6 @@ class FakturaView(BaseTabView):
         item = QTableWidgetItem(value)
         item.setTextAlignment(align | Qt.AlignVCenter)
         self.table.setItem(row, col, item)
-
-    def _format_number(self, value: Optional[float]) -> str:
-        """Format a number for display (European format: 10.258,23)."""
-        if value is None or value == 0.0:
-            return ""
-        # Format with thousands separator and comma for decimals
-        formatted = f"{value:,.2f}"
-        # Convert to European format: . for thousands, , for decimals
-        formatted = formatted.replace(",", "X").replace(".", ",").replace("X", ".")
-        return formatted
 
     def _validate_and_color_row(self, row: int, item: InvoiceLine):
         """Validate item and apply background color to row."""
@@ -1602,14 +1598,14 @@ class FakturaView(BaseTabView):
                 if value:
                     self._pending_learn_rows.add(row)
             elif col == 5:  # Količina (pomjereno za +1)
-                invoice_item.kolicina = self._parse_number(value) if value else 0.0
+                invoice_item.kolicina = FakturaService.parse_number(value) if value else 0.0
             elif col == 6:  # IZNOS (ukupan iznos, NE cijena po komadu!) (pomjereno za +1)
-                invoice_item.iznos = self._parse_number(value) if value else 0.0
+                invoice_item.iznos = FakturaService.parse_number(value) if value else 0.0
                 # VAŽNO: Ne mijenjamo cijena_jed - to je cijena po komadu koja dolazi iz fakture
             elif col == 7:  # Bruto kg (pomjereno za +1)
-                invoice_item.bruto_kg = self._parse_number(value) if value else 0.0
+                invoice_item.bruto_kg = FakturaService.parse_number(value) if value else 0.0
             elif col == 8:  # Neto kg (pomjereno za +1)
-                invoice_item.neto_kg = self._parse_number(value) if value else 0.0
+                invoice_item.neto_kg = FakturaService.parse_number(value) if value else 0.0
             elif col == 9:  # Zemlja porijekla (pomjereno za +1)
                 # VAŽNO: NE čitati Qt.UserRole — ono čuva PRETHODNU vrijednost
                 # koju je upisala _apply_country_confidence_color (auto-bojenje
@@ -1675,33 +1671,26 @@ class FakturaView(BaseTabView):
     # ------------------------------------------------------------------
 
     def _push_undo_snapshot(self):
-        import copy
-        snapshot = copy.deepcopy(self.draft.invoice_lines)
-        self._undo_stack.append(snapshot)
-        if len(self._undo_stack) > 30:
-            self._undo_stack.pop(0)
-        self._redo_stack.clear()
+        self.undo_redo.push_snapshot(self.draft.invoice_lines)
 
     def _undo(self):
-        if not self._undo_stack:
+        result = self.undo_redo.undo(self.draft.invoice_lines)
+        if result is None:
             self.lbl_validation.setText("⚠️ Nema više koraka za poništavanje")
             return
-        import copy
-        self._redo_stack.append(copy.deepcopy(self.draft.invoice_lines))
-        self.draft.invoice_lines = self._undo_stack.pop()
+        self.draft.invoice_lines = result
         self._load_data_from_draft()
         self._update_status_bar()
         self._notify_data_changed()
-        count = len(self._undo_stack)
+        count = self.undo_redo.undo_count
         self.lbl_validation.setText(f"↩ Poništeno — još {count} koraka u historiji")
 
     def _redo(self):
-        if not self._redo_stack:
+        result = self.undo_redo.redo(self.draft.invoice_lines)
+        if result is None:
             self.lbl_validation.setText("⚠️ Nema više koraka za ponavljanje")
             return
-        import copy
-        self._undo_stack.append(copy.deepcopy(self.draft.invoice_lines))
-        self.draft.invoice_lines = self._redo_stack.pop()
+        self.draft.invoice_lines = result
         self._load_data_from_draft()
         self._update_status_bar()
         self._notify_data_changed()
@@ -1966,46 +1955,21 @@ class FakturaView(BaseTabView):
             line = self.draft.invoice_lines[row]
             result = self.validation_cache.get(row) or self.validator.validate(line)
             for err in result.errors:
-                label = self._validation_issue_label(err.field, err.message)
+                label = ValidationService.validation_issue_label(err.field, err.message)
                 errors[label] = errors.get(label, 0) + 1
             for warn in result.warnings:
-                label = self._validation_issue_label(warn.field, warn.message)
+                label = ValidationService.validation_issue_label(warn.field, warn.message)
                 warnings[label] = warnings.get(label, 0) + 1
         return errors, warnings
 
-    @staticmethod
-    def _validation_issue_label(field: str, message: str) -> str:
-        msg = (message or "").lower()
-        if field == "tarifni_broj":
-            return "bez tarife" if "obavezan" in msg else "neispravna tarifa"
-        if field == "zemlja_porijekla":
-            return "bez zemlje"
-        if field == "naziv_robe":
-            return "bez naziva robe"
-        if field == "bruto":
-            return "bruto < neto"
-        if field == "cijena":
-            return "cijena 0/negativna"
-        return message or field or "nepoznata greška"
 
-    @staticmethod
-    def _format_issue_counts(counts: dict[str, int], limit: int = 3) -> str:
-        from services.faktura.faktura_service import FakturaService
-        return FakturaService.format_issue_counts(counts, limit)
 
-    def _parse_number(self, value_str: str) -> float:
-        from services.faktura.faktura_service import FakturaService
-        return FakturaService.parse_number(value_str)
-
-    def _parse_weight_input(self, text: str) -> float:
-        from services.faktura.faktura_service import FakturaService
-        return FakturaService.parse_weight_input(text)
 
     def _update_weights_after_deletion(self, deleted_bruto: float, deleted_neto: float):
         """Ažurira input polja za bruto/neto nakon brisanja stavke (oduzima težine obrisane stavke)."""
         # Read current values
-        current_bruto = self._parse_weight_input(self.input_bruto.text() or "0")
-        current_neto = self._parse_weight_input(self.input_neto.text() or "0")
+        current_bruto = FakturaService.parse_weight_input(self.input_bruto.text() or "0")
+        current_neto = FakturaService.parse_weight_input(self.input_neto.text() or "0")
         
         # Subtract deleted item weights
         new_bruto = max(0.0, current_bruto - deleted_bruto)
@@ -2043,19 +2007,19 @@ class FakturaView(BaseTabView):
             invoice_item.invoice_number = self._get_cell_value(row, 1)  # Nova kolona
             invoice_item.naziv_robe = self._get_cell_value(row, 3)      # Pomjereno za +1
             invoice_item.tarifni_broj = self._get_cell_value(row, 4)    # Pomjereno za +1
-            invoice_item.kolicina = self._parse_number(self._get_cell_value(row, 5))  # Pomjereno za +1
+            invoice_item.kolicina = FakturaService.parse_number(self._get_cell_value(row, 5))  # Pomjereno za +1
 
             # VAŽNO: Kolona 6 je "Ukupan iznos", ne cijena_jed! (pomjereno za +1)
             # Direktno čuvaj iznos, pa izračunaj cijena_jed ako ima količine
-            ukupan_iznos = self._parse_number(self._get_cell_value(row, 6))
+            ukupan_iznos = FakturaService.parse_number(self._get_cell_value(row, 6))
             invoice_item.iznos = ukupan_iznos
             if invoice_item.kolicina and invoice_item.kolicina > 0:
                 invoice_item.cijena_jed = ukupan_iznos / invoice_item.kolicina
             else:
                 invoice_item.cijena_jed = 0.0
 
-            invoice_item.bruto_kg = self._parse_number(self._get_cell_value(row, 7))  # Pomjereno za +1
-            invoice_item.neto_kg = self._parse_number(self._get_cell_value(row, 8))   # Pomjereno za +1
+            invoice_item.bruto_kg = FakturaService.parse_number(self._get_cell_value(row, 7))  # Pomjereno za +1
+            invoice_item.neto_kg = FakturaService.parse_number(self._get_cell_value(row, 8))   # Pomjereno za +1
             invoice_item.zemlja_porijekla = self._get_cell_value(row, 9)              # Pomjereno za +1
             invoice_item.povlastica = self._get_cell_value(row, 10)                   # Pomjereno za +1
             invoice_item.valuta = self._get_cell_value(row, 11)                       # Pomjereno za +1
@@ -2107,8 +2071,8 @@ class FakturaView(BaseTabView):
 
         # Read weights from input fields (which accumulate weights from PDFs)
         try:
-            total_bruto = self._parse_weight_input(self.input_bruto.text() or "0")
-            total_neto = self._parse_weight_input(self.input_neto.text() or "0")
+            total_bruto = FakturaService.parse_weight_input(self.input_bruto.text() or "0")
+            total_neto = FakturaService.parse_weight_input(self.input_neto.text() or "0")
         except (ValueError, TypeError):
             # Fallback: use calculated values from items
             total_bruto = total_bruto_items
@@ -2137,8 +2101,8 @@ class FakturaView(BaseTabView):
         )
         self.lbl_total_quantity.setText(f"📦 Komada: {int(round(total_quantity)):,}")
         # Use _format_weight to show full precision with thousands separator
-        self.lbl_bruto.setText(f"⚖️ Bruto: {self._format_weight(total_bruto)} kg")
-        self.lbl_neto.setText(f"📊 Neto: {self._format_weight(total_neto)} kg")
+        self.lbl_bruto.setText(f"⚖️ Bruto: {FakturaService.format_weight(total_bruto)} kg")
+        self.lbl_neto.setText(f"📊 Neto: {FakturaService.format_weight(total_neto)} kg")
 
         # Validation status - koristi cache umesto ponovne validacije
         error_count = self.validation_cache.get_error_count()
@@ -2148,14 +2112,14 @@ class FakturaView(BaseTabView):
 
         # Validation status and color
         if error_count > 0:
-            details = self._format_issue_counts(error_issues)
+            details = FakturaService.format_issue_counts(error_issues)
             self.lbl_validation.setText(f"❌ {details or f'{error_count} greška'}")
             if details:
                 self.lbl_validation.setToolTip(f"Greške: {details}")
             self.status_bar_widget.setProperty("status", "error")
             self.lbl_validation.setProperty("status", "error")
         elif warning_count > 0:
-            details = self._format_issue_counts(warning_issues)
+            details = FakturaService.format_issue_counts(warning_issues)
             self.lbl_validation.setText(f"⚠️ {details or f'{warning_count} upozorenja'}")
             if details:
                 self.lbl_validation.setToolTip(f"Upozorenja: {details}")
@@ -2570,7 +2534,7 @@ class FakturaView(BaseTabView):
         self._set_buttons_enabled(True)
         self._offer_split_by_country(list(self.draft.invoice_lines))
 
-        excel_count, pdf_count = FakturaView._count_applied_batch_file_types(
+        excel_count, pdf_count = ImportService.count_applied_batch_file_types(
             self, plan, apply_result
         )
         self.imported_excel_count += excel_count
@@ -2629,7 +2593,7 @@ class FakturaView(BaseTabView):
             neto_kg  = record["neto_kg"]
 
             self._normalize_item_tariffs(items)
-            self._distribute_invoice_weights(items, bruto_kg, neto_kg)
+            MassCalculator.calculate_masses(items, bruto_kg, neto_kg)
 
             all_items.extend(items)
             total_bruto_kg += bruto_kg
@@ -2692,8 +2656,8 @@ class FakturaView(BaseTabView):
         if skipped_count:
             message += f"🔗 Spojeno/preskočeno parova: {skipped_count}\n"
         message += f"📋 Ukupno stavki: {len(all_items)}\n"
-        message += f"⚖️  Bruto: {self._format_weight(total_bruto_kg)} kg\n"
-        message += f"⚖️  Neto: {self._format_weight(total_neto_kg)} kg\n"
+        message += f"⚖️  Bruto: {FakturaService.format_weight(total_bruto_kg)} kg\n"
+        message += f"⚖️  Neto: {FakturaService.format_weight(total_neto_kg)} kg\n"
 
         if failed_imports:
             message += f"\n❌ Neuspješno: {len(failed_imports)}\n"
@@ -2904,64 +2868,13 @@ class FakturaView(BaseTabView):
                 normalized = normalized.zfill(8)
             item.tarifni_broj = normalized
 
-    def _distribute_invoice_weights(self, items: list, bruto_kg: float, neto_kg: float) -> None:
-        """Rasporedi ukupnu težinu fakture na stavke koje nemaju individualne težine.
 
-        Delegira MassCalculator.calculate_masses — jedina centralna logika za raspodjelu.
-        Raspodijela ide proporcionalno po kolicina; pokriva scenarije:
-          - stavka bez obe težine → proporcionalno po kolicina
-          - stavka sa bruto ali bez neto → izračunaj neto iz neto/bruto omjera
-          - stavka sa neto ali bez bruto → izračunaj bruto iz bruto/neto omjera
-        """
-        if not items or (bruto_kg <= 0 and neto_kg <= 0):
-            return
-        from services.faktura.mass_calculator import MassCalculator
-        MassCalculator.calculate_masses(items, bruto_kg, neto_kg)
-
-    def _is_same_combined_invoice(self, invoice_name: str, is_combined: bool) -> bool:
-        if not (self.last_invoice_name and invoice_name and is_combined):
-            return False
-
-        last_normalized = self.last_invoice_name.replace(" ", "").replace("-", "").lower()
-        current_normalized = invoice_name.replace(" ", "").replace("-", "").lower()
-        min_len = min(len(last_normalized), len(current_normalized))
-
-        if min_len < 5:
-            return False
-
-        prefix_match = last_normalized[:min_len] == current_normalized[:min_len]
-        substring_match = (
-            last_normalized in current_normalized
-            or current_normalized in last_normalized
-        )
-        return prefix_match or substring_match
-
-    def _append_imported_files_message(self, message: str, min_files: int = 1) -> str:
-        total_files = self.imported_excel_count + self.imported_pdf_count
-        if total_files < min_files:
-            return message
-
-        message += f"📁 Uvezeni fajlovi:\n"
-        if self.imported_excel_count > 0:
-            message += f"- Excel: {self.imported_excel_count}\n"
-        if self.imported_pdf_count > 0:
-            message += f"- PDF: {self.imported_pdf_count}\n"
-        if min_files > 1:
-            message += f"- Ukupno: {total_files} fajlova\n\n"
-        return message
 
     def _show_no_export_items(self, title: str) -> None:
         QMessageBox.information(
             self, title, "Nema stavki za export.\n\nPrvo učitajte fakturu."
         )
 
-    @staticmethod
-    def _normalize_partner(name: str) -> str:
-        """Normalizuj naziv partnera za poređenje (mala slova, bez interpunkcije)."""
-        name = name.lower().strip()
-        name = re.sub(r"[.\-,;:'/\\()]", " ", name)
-        name = re.sub(r"\b(doo|d\.o\.o|dd|a\.d|ad|llc|ltd|gmbh|srl)\b", "", name)
-        return re.sub(r"\s+", " ", name).strip()
 
     def _check_partner_consistency(self, exporter_name: str, importer_name: str) -> bool:
         """
@@ -2973,7 +2886,7 @@ class FakturaView(BaseTabView):
         Vraća True ako treba nastaviti sa uvozom, False ako korisnik odbija.
         """
         def similar(a: str, b: str) -> bool:
-            na, nb = self._normalize_partner(a), self._normalize_partner(b)
+            na, nb = FakturaService.normalize_partner(a), FakturaService.normalize_partner(b)
             if not na or not nb:
                 return True  # Nema podataka — ne blokiraj
             # Token overlap: koliko zajedničkih tokena
@@ -3042,66 +2955,26 @@ class FakturaView(BaseTabView):
         self._expected_exporter = ""
         self._expected_importer = ""
 
-    def _format_weight(self, weight: float) -> str:
-        """
-        Format weight with thousands separator and without rounding.
+    def _is_same_combined_invoice(self, invoice_name: str, is_combined: bool) -> bool:
+        return ImportService.is_same_combined_invoice(
+            self.last_invoice_name, invoice_name, is_combined
+        )
 
-        Examples:
-            2.383 → "2.383"
-            1234.56 → "1,234.56"
-            1234567.891 → "1,234,567.891"
-        """
-        if weight == 0:
-            return "0"
-
-        # Convert to string to preserve all decimals
-        weight_str = f"{weight:f}".rstrip("0").rstrip(".")
-
-        # Split into integer and decimal parts
-        if "." in weight_str:
-            integer_part, decimal_part = weight_str.split(".")
-        else:
-            integer_part = weight_str
-            decimal_part = ""
-
-        # Add thousands separator to integer part
-        integer_with_sep = f"{int(integer_part):,}"
-
-        # Combine with decimal part
-        if decimal_part:
-            return f"{integer_with_sep}.{decimal_part}"
-        else:
-            return integer_with_sep
+    def _append_imported_files_message(self, message: str, min_files: int = 1) -> str:
+        return ImportService.append_imported_files_message(
+            message, self.imported_excel_count, self.imported_pdf_count, min_files
+        )
 
     def _accumulate_weights(
         self, bruto_kg: float, neto_kg: float, replace: bool = False
     ):
-        """
-        Accumulate weights from this import (HELPER METHOD).
-
-        Args:
-            bruto_kg: Bruto težina za dodati/zamijeniti
-            neto_kg: Neto težina za dodati/zamijeniti
-            replace: Ako je True, zamijeni postojeće težine (za kombinovanje parova).
-                     Ako je False, saberi sa postojećim (default - normalno učitavanje).
-        """
         if bruto_kg > 0 or neto_kg > 0:
-            if replace:
-                # Kombinovanje parova (Excel + PDF) - ZAMIJENI, ne sabirati!
-                self.weight_manager.accumulated_bruto_kg = bruto_kg
-                self.weight_manager.accumulated_neto_kg = neto_kg
-            else:
-                # Normalno učitavanje - saberi
-                self.weight_manager.accumulated_bruto_kg += bruto_kg
-                self.weight_manager.accumulated_neto_kg += neto_kg
-
-            # Update input fields with accumulated weights
-            # Format: hiljada separator + bez zaokruživanja (sve decimale sa fakture)
+            self.weight_manager.accumulate_weights(bruto_kg, neto_kg, replace)
             self.input_bruto.setText(
-                self._format_weight(self.weight_manager.accumulated_bruto_kg)
+                self.weight_manager.get_bruto_text()
             )
             self.input_neto.setText(
-                self._format_weight(self.weight_manager.accumulated_neto_kg)
+                self.weight_manager.get_neto_text()
             )
 
     def set_agent_mode(self, enabled: bool):
@@ -3509,20 +3382,6 @@ class FakturaView(BaseTabView):
         )
         return reply == QMessageBox.Yes
 
-    def _count_applied_batch_file_types(self, plan, apply_result) -> tuple[int, int]:
-        applied_keys = set(apply_result.applied_invoice_keys)
-        excel_count = 0
-        pdf_count = 0
-        for invoice in plan.invoices:
-            if invoice.internal_key not in applied_keys:
-                continue
-            for path in invoice.source_paths:
-                suffix = Path(path).suffix.lower()
-                if suffix in (".xlsx", ".xls", ".xlsm"):
-                    excel_count += 1
-                elif suffix == ".pdf":
-                    pdf_count += 1
-        return excel_count, pdf_count
 
     def _show_manual_batch_import_workflow_result(
         self,
@@ -3542,8 +3401,8 @@ class FakturaView(BaseTabView):
         if skipped_count:
             message += f"🔗 Spojeno/preskočeno parova: {skipped_count}\n"
         message += f"📋 Ukupno stavki: {apply_result.total_items}\n"
-        message += f"⚖️  Bruto: {self._format_weight(apply_result.total_bruto_kg)} kg\n"
-        message += f"⚖️  Neto: {self._format_weight(apply_result.total_neto_kg)} kg\n"
+        message += f"⚖️  Bruto: {FakturaService.format_weight(apply_result.total_bruto_kg)} kg\n"
+        message += f"⚖️  Neto: {FakturaService.format_weight(apply_result.total_neto_kg)} kg\n"
 
         if failed_imports:
             message += f"\n❌ Neuspješno: {len(failed_imports)}\n"
@@ -3712,8 +3571,8 @@ class FakturaView(BaseTabView):
         for bruto, neto in (getattr(self.draft, "invoice_weights", {}) or {}).values():
             self.weight_manager.accumulated_bruto_kg += bruto or 0.0
             self.weight_manager.accumulated_neto_kg += neto or 0.0
-        self.input_bruto.setText(self._format_weight(self.weight_manager.accumulated_bruto_kg))
-        self.input_neto.setText(self._format_weight(self.weight_manager.accumulated_neto_kg))
+        self.input_bruto.setText(FakturaService.format_weight(self.weight_manager.accumulated_bruto_kg))
+        self.input_neto.setText(FakturaService.format_weight(self.weight_manager.accumulated_neto_kg))
 
         applied_keys = set(apply_result.applied_invoice_keys)
         applied = [invoice for invoice in plan.invoices if invoice.internal_key in applied_keys]
@@ -3753,11 +3612,11 @@ class FakturaView(BaseTabView):
             message += f"Faktura preskočeno: {apply_result.skipped_invoices}\n"
         if apply_result.total_bruto_kg or apply_result.total_neto_kg:
             message += "\n"
-            message += f"Bruto: {self._format_weight(apply_result.total_bruto_kg)} kg\n"
-            message += f"Neto: {self._format_weight(apply_result.total_neto_kg)} kg\n"
+            message += f"Bruto: {FakturaService.format_weight(apply_result.total_bruto_kg)} kg\n"
+            message += f"Neto: {FakturaService.format_weight(apply_result.total_neto_kg)} kg\n"
             message += "\nAkumulirano ukupno:\n"
-            message += f"- Bruto: {self._format_weight(self.weight_manager.accumulated_bruto_kg)} kg\n"
-            message += f"- Neto: {self._format_weight(self.weight_manager.accumulated_neto_kg)} kg\n"
+            message += f"- Bruto: {FakturaService.format_weight(self.weight_manager.accumulated_bruto_kg)} kg\n"
+            message += f"- Neto: {FakturaService.format_weight(self.weight_manager.accumulated_neto_kg)} kg\n"
         if apply_result.warnings:
             message += "\n⚠️ Upozorenja:\n"
             for warning in apply_result.warnings[:5]:
@@ -3902,7 +3761,7 @@ class FakturaView(BaseTabView):
                 tariff = getattr(item, 'tarifni_broj', 'MISSING')
                 logger.debug(f"  Item {i}: code={item.product_code}, tariff={tariff}")
             # Rasporedi težinu fakture na stavke (ako parser nije dao per-line težine)
-            self._distribute_invoice_weights(items, bruto_kg, neto_kg)
+            MassCalculator.calculate_masses(items, bruto_kg, neto_kg)
             # Zapamti per-invoice težinu za dugme 'Izračunaj mase'
             if (bruto_kg > 0 or neto_kg > 0) and invoice_name:
                 self.draft.invoice_weights[normalize_invoice_key(invoice_name)] = (
@@ -3953,10 +3812,10 @@ class FakturaView(BaseTabView):
 
                 # Show actual draft weights (read from input fields - sada ispravno ažurirani)
                 try:
-                    current_bruto = self._parse_weight_input(
+                    current_bruto = FakturaService.parse_weight_input(
                         self.input_bruto.text() or "0"
                     )
-                    current_neto = self._parse_weight_input(
+                    current_neto = FakturaService.parse_weight_input(
                         self.input_neto.text() or "0"
                     )
                     message += f"Ukupno u draft-u (nakon matching-a):\n"
@@ -4455,8 +4314,8 @@ class FakturaView(BaseTabView):
         total_neto = sum(getattr(line, "neto_kg", 0.0) or 0.0 for line in self.draft.invoice_lines)
         self.weight_manager.accumulated_bruto_kg = total_bruto
         self.weight_manager.accumulated_neto_kg = total_neto
-        self.input_bruto.setText(self._format_weight(total_bruto) if total_bruto > 0 else "")
-        self.input_neto.setText(self._format_weight(total_neto) if total_neto > 0 else "")
+        self.input_bruto.setText(FakturaService.format_weight(total_bruto) if total_bruto > 0 else "")
+        self.input_neto.setText(FakturaService.format_weight(total_neto) if total_neto > 0 else "")
 
     def _reload_naimenovanja_tab(self):
         """Helper method to reload Naimenovanja Tab after creating items.
@@ -5011,7 +4870,7 @@ class FakturaView(BaseTabView):
             QMessageBox.information(
                 self,
                 "Težine raspoređene",
-                self._calculate_masses_success_message(result),
+                MassWorkflowService.success_message(result),
             )
 
         if self.on_dirty:
@@ -5125,29 +4984,6 @@ class FakturaView(BaseTabView):
                 "Sve stavke već imaju upisane obe težine (bruto i neto). Nema šta da se računa.",
             )
 
-    def _calculate_masses_success_message(self, result) -> str:
-        message = f"Težine raspoređene na {result.updated_count} stavki.\n\n"
-        if result.skipped_count > 0:
-            message += f"⚠️ Preskočeno {result.skipped_count} stavki koje već imaju obe težine.\n"
-        if result.fallback_skipped:
-            message += (
-                f"\n⚠️ Preskočeno {result.fallback_skipped} stavki bez broja fakture "
-                "zbog sumnjivog fallback-a.\n"
-            )
-        if result.no_weight_invoices:
-            message += "\n⚠️ Fakture bez sačuvanih težina (preskočene):\n"
-            for inv in result.no_weight_invoices:
-                message += f"  - {result.invoice_labels.get(inv, inv)}\n"
-            message += "\nZa ove fakture uvezite ih ponovo ili ručno unesite težine."
-        if result.mass_mismatches:
-            message += "\n⚠️ Neslaganje zbira težina:\n"
-            for mismatch in result.mass_mismatches[:5]:
-                message += (
-                    f"  - {mismatch['invoice']} {mismatch['field']}: "
-                    f"stavke {mismatch['actual']:.3f} kg, "
-                    f"faktura {mismatch['expected']:.3f} kg\n"
-                )
-        return message
 
     def auto_fill(self, auto: bool = False, controller=None):
         """
@@ -5437,35 +5273,6 @@ class FakturaView(BaseTabView):
             return svc.load_hierarchical_label(tariff_code)
         except Exception:
             return tariff_code
-
-    def _collect_tariff_previews(self, target_lines: list, facade, supplier: str = ""):
-        """
-        Izračunaj prijedloge tarifnih brojeva za sve stavke BEZ pisanja u draft
-        (dry_run). Vraća MappingResult sa popunjenim .proposals.
-
-        VAŽNO: ovo je ISTI proračun koji će javni auto_fill tok kasnije stvarno upisati
-        preko facade.commit_proposals(target_lines, result.proposals) — preview
-        i upis se više NE računaju odvojeno (raniji suggest_fast() nije uzimao
-        u obzir dobavljača ni istoriju XML deklaracija, pa je prikazana tarifa
-        mogla biti drugačija od one koja se stvarno upiše). Vidi
-        project_rooms/2026-07-21_preciznost-tarifnih-prijedloga.md.
-        """
-        try:
-            result = facade.auto_populate_tariffs(
-                target_lines,
-                min_similarity=0.92,
-                overwrite_existing=False,
-                supplier=supplier,
-                dry_run=True,
-            )
-            logger.debug(
-                "Auto-popuni preview: %d prijedloga od %d stavki",
-                len(result.proposals), len(target_lines),
-            )
-            return result
-        except Exception as e:
-            logger.warning("Auto-popuni preview greška: %s", e, exc_info=True)
-            return None
 
     _TARIFF_SOURCE_LABELS = {
         "istorija": "Istorija dobavljača",
@@ -6036,7 +5843,7 @@ class FakturaView(BaseTabView):
 
         # Parsiraj header iz XML-a
         try:
-            header = self._extract_header_from_xml(xml_path)
+            header = extract_header_from_xml(xml_path)
         except Exception as exc:
             QMessageBox.critical(self, "Greška", f"Nije moguće parsirati XML:\n{exc}")
             return
@@ -6092,56 +5899,6 @@ class FakturaView(BaseTabView):
         self.lbl_validation.style().polish(self.lbl_validation)
         self._learn_notify_timer.start()
 
-    @staticmethod
-    def _extract_header_from_xml(xml_path: str) -> dict:
-        """Parsira ASYCUDA XML i vraća dict sa header poljima za DeclarationDraft."""
-        tree = safe_parse(xml_path)
-        root = tree.getroot()
-
-        def _text(xpath: str) -> str:
-            el = root.find(xpath)
-            return (el.text or '').strip().split('\n')[0].strip() if el is not None else ''
-
-        header = {}
-
-        # Izvoznik — samo prva linija (ostale su adresa)
-        izvoznik = _text('.//Traders/Exporter/Exporter_name')
-        if izvoznik:
-            header['izvoznik_naziv'] = izvoznik
-
-        # Zemlja izvoza
-        zem = _text('.//General_information/Country/Export/Export_country_code')
-        if zem:
-            header['drzava_izvoza_sifra'] = zem
-            naziv = _text('.//General_information/Country/Export/Export_country_name')
-            if naziv:
-                header['drzava_izvoza_naziv'] = naziv
-
-        # Valuta (iz Gs_Invoice bloka)
-        val = _text('.//Valuation/Gs_Invoice/Currency_code')
-        if val:
-            header['valuta'] = val
-
-        # Incoterm i mjesto — uzimamo iz prve stavke
-        incoterm = _text('.//Item/IncoTerms/Code')
-        if incoterm:
-            header['uslovi_kod'] = incoterm
-        place = _text('.//Item/IncoTerms/Place')
-        if place:
-            header['uslovi_mjesto'] = place
-
-        # Tip deklaracije
-        tip = _text('.//Identification/Type/Type_of_declaration')
-        if tip:
-            header['deklaracija_tip'] = tip
-        ozn = _text('.//Identification/Type/Declaration_gen_procedure_code')
-        if ozn:
-            header['deklaracija_oznaka'] = ozn
-        tip_x = _text('.//Identification/Type/Type_of_Declaration_X')
-        if tip_x:
-            header['deklaracija_a'] = tip_x
-
-        return header
 
     def _set_buttons_enabled(self, enabled: bool):
         """Enable/disable all buttons (used during import)."""

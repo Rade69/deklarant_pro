@@ -12,6 +12,7 @@ import re
 import logging
 from .agent_view import AgentView
 from .widgets.processing_worker import ProcessingWorker
+from services.faktura.faktura_service import FakturaService
 from services.faktura.weight_guards import normalize_invoice_key
 
 logger = logging.getLogger("deklarant_pro.agent.controller")
@@ -516,10 +517,10 @@ class AgentController:
             for bruto, neto in (getattr(self.draft, "invoice_weights", {}) or {}).values():
                 fw.weight_manager.accumulated_bruto_kg += bruto or 0.0
                 fw.weight_manager.accumulated_neto_kg += neto or 0.0
-            if hasattr(fw, 'input_bruto') and hasattr(fw, '_format_weight'):
-                fw.input_bruto.setText(fw._format_weight(fw.weight_manager.accumulated_bruto_kg))
-            if hasattr(fw, 'input_neto') and hasattr(fw, '_format_weight'):
-                fw.input_neto.setText(fw._format_weight(fw.weight_manager.accumulated_neto_kg))
+            if hasattr(fw, 'input_bruto'):
+                fw.input_bruto.setText(FakturaService.format_weight(fw.weight_manager.accumulated_bruto_kg))
+            if hasattr(fw, 'input_neto'):
+                fw.input_neto.setText(FakturaService.format_weight(fw.weight_manager.accumulated_neto_kg))
 
         applied_keys = set(apply_result.applied_invoice_keys)
         applied = [invoice for invoice in plan.invoices if invoice.internal_key in applied_keys]

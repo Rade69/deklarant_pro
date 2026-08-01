@@ -19,6 +19,21 @@ class RowValidationStyle:
 class ValidationService:
     """Validacija i bojenje redova"""
 
+    @staticmethod
+    def validation_issue_label(field: str, message: str) -> str:
+        msg = (message or "").lower()
+        if field == "tarifni_broj":
+            return "bez tarife" if "obavezan" in msg else "neispravna tarifa"
+        if field == "zemlja_porijekla":
+            return "bez zemlje"
+        if field == "naziv_robe":
+            return "bez naziva robe"
+        if field == "bruto":
+            return "bruto < neto"
+        if field == "cijena":
+            return "cijena 0/negativna"
+        return message or field or "nepoznata greška"
+
     def __init__(self):
         self.validator = FakturaItemValidator()
 

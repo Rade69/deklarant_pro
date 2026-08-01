@@ -2,7 +2,8 @@
 Faktura Service - Glavni servis za fakturu
 """
 
-from typing import List
+from typing import List, Optional
+import re
 from core.draft import InvoiceLine, DeclarationDraft
 
 
@@ -92,6 +93,21 @@ class FakturaService:
             hidden = len(parts) - limit
             parts = parts[:limit] + [f"+{hidden} tip"]
         return " | ".join(parts)
+
+    @staticmethod
+    def format_number(value: Optional[float]) -> str:
+        if value is None or value == 0.0:
+            return ""
+        formatted = f"{value:,.2f}"
+        formatted = formatted.replace(",", "X").replace(".", ",").replace("X", ".")
+        return formatted
+
+    @staticmethod
+    def normalize_partner(name: str) -> str:
+        name = name.lower().strip()
+        name = re.sub(r"[.\-,;:'/\\()]", " ", name)
+        name = re.sub(r"\b(doo|d\.o\.o|dd|a\.d|ad|llc|ltd|gmbh|srl)\b", "", name)
+        return re.sub(r"\s+", " ", name).strip()
 
     @staticmethod
     def extract_import_result_data(result) -> tuple:
