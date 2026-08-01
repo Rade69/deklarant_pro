@@ -160,7 +160,7 @@ class TestJavniApiIFallback:
         mock_fw._on_validate_all.assert_not_called()
         mock_fw._on_create_naimenovanja.assert_not_called()
 
-    def test_legacy_fallback_ostaje_ziv_kad_javni_api_ne_postoji(
+    def test_bez_javnog_api_zaustavlja_bez_private_fallbacka(
         self, mock_ctrl, mock_chat, completion_sound
     ):
         line = _line(tarifni_broj="", bruto_kg=0, neto_kg=0)
@@ -182,13 +182,13 @@ class TestJavniApiIFallback:
 
         _puna_auto_pipeline(mock_ctrl, fw, mock_chat, [])
 
-        fw._on_calculate_masses.assert_called_once_with(auto=True)
-        fw._on_auto_fill.assert_called_once_with(auto=True)
-        fw._on_validate_all.assert_called_once_with(auto=True)
-        fw._on_create_naimenovanja.assert_called_once_with(auto=True)
+        fw._on_calculate_masses.assert_not_called()
+        fw._on_auto_fill.assert_not_called()
+        fw._on_validate_all.assert_not_called()
+        fw._on_create_naimenovanja.assert_not_called()
         messages = _agent_messages(mock_chat)
-        assert any("Puna automatizacija završena!" in m for m in messages)
-        completion_sound.assert_called_once_with("success")
+        assert any("zaustavljena" in m and "mase" in m for m in messages)
+        completion_sound.assert_called_once_with("error")
 
 
 class TestPreskociMaseAkoVecPopunjene:

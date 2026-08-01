@@ -3483,3 +3483,21 @@ Automatizovana kapija: py_compile za D1-D3 fajlove; ciljani create/pipeline set
 rađen GUI live E2E — korisnik još treba ručno potvrditi realan tok prije Faze E:
 uvoz fakture → mase → auto-fill/validacija → `Kreiraj Naimenovanja` → pregled
 Naimenovanja/Zaglavlje → XML export smoke.
+
+---
+
+## 120. Faktura Cleanup Faza E1 — uklonjen Agent private fallback (2026-08-01)
+
+Faza E je započeta uskim, sigurnim rezom: iz aktivnog Agent
+`_puna_auto_pipeline` uklonjene su privatne fallback grane prema
+`_on_calculate_masses`, `_on_auto_fill`, `_on_validate_all` i
+`_on_create_naimenovanja`. Pipeline sada koristi isključivo javne Faktura
+adaptere (`calculate_masses`, `auto_fill`, `validate`, `create_naimenovanja`);
+ako javni API ne postoji, faza kontrolisano pada umjesto ulaska u privatni
+View handler.
+
+Namjerno nisu brisane same private View metode jer ih još koriste javni
+adapteri, ručni/PDF helper tokovi i characterization testovi. Test kapija:
+py_compile; `test_puna_auto_pipeline.py` 17/17; širi Faktura/Agent set 172/172;
+XML/ASYCUDA smoke set 126/126; root/dist_client paritet Agent pipeline servisa
+bez razlika.

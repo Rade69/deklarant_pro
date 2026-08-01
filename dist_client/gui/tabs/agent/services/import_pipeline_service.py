@@ -1,4 +1,4 @@
-"""
+﻿"""
 Import Pipeline Service
 
 Pipeline logika za sve tri procesne rute agenta:
@@ -260,8 +260,6 @@ def _puna_auto_pipeline(ctrl, fw, chat, all_lines: list) -> None:
         try:
             if fw and hasattr(fw, 'calculate_masses'):
                 ok = bool(fw.calculate_masses(auto=True))
-            elif fw and hasattr(fw, '_on_calculate_masses'):
-                ok = bool(fw._on_calculate_masses(auto=True))
             else:
                 ok = False
         except Exception as e:
@@ -289,8 +287,6 @@ def _puna_auto_pipeline(ctrl, fw, chat, all_lines: list) -> None:
         try:
             if fw and hasattr(fw, 'auto_fill'):
                 mapping_result = fw.auto_fill(auto=True)
-            elif fw and hasattr(fw, '_on_auto_fill'):
-                mapping_result = fw._on_auto_fill(auto=True)
             else:
                 mapping_result = None
         except Exception as e:
@@ -326,8 +322,6 @@ def _puna_auto_pipeline(ctrl, fw, chat, all_lines: list) -> None:
     try:
         if fw and hasattr(fw, 'validate'):
             ok, error_count, warning_count = fw.validate(auto=True)
-        elif fw and hasattr(fw, '_on_validate_all'):
-            ok, error_count, warning_count = fw._on_validate_all(auto=True)
         else:
             ok, error_count, warning_count = False, -1, -1
     except Exception as e:
@@ -406,8 +400,6 @@ def _puna_auto_pipeline(ctrl, fw, chat, all_lines: list) -> None:
     try:
         if fw and hasattr(fw, 'create_naimenovanja'):
             ok = bool(fw.create_naimenovanja(auto=True))
-        elif fw and hasattr(fw, '_on_create_naimenovanja'):
-            ok = bool(fw._on_create_naimenovanja(auto=True))
         else:
             ok = False
     except Exception as e:
