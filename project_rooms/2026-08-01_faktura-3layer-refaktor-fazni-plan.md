@@ -294,10 +294,29 @@ Namjerno ostavljeno u View-u (nisu kandidati za ekstrakciju):
 
 `faktura_view.py`: 5837 linija (-51), 149 metoda (isto).
 
-**4d. Masa/validacija**:
-`_build_calculate_masses_request` (5023-5081),
-`_build_analysis_summary_from_draft` (1873-1949),
-`_validate_all_items` (4508-4626), `_run_historical_tariff_validation` (4645-4727).
+**Status: DONE — 2026-08-01, commit `<novi_commit>` (Pi)**
+
+Urađeno:
+- `FakturaService.parse_mass_inputs(bruto_text, neto_text)` — parsiranje toolbar
+  polja sa validacijom (baca ValueError za prazna/nula polja)
+- `FakturaService.analyze_draft_rows(rows)` + `format_analysis_summary(analysis)` —
+  analiza redova (bez tarife/zemlje/EUR1, zemlje) i formatiranje
+- `ValidationService.count_issues_from_cache(cache, row_indexes)` — brojanje
+  grešaka/upozorenja iz cache-a, skopirano na selekciju
+- `ValidationService.build_validation_message(counts, error_issues, warning_issues, row_indexes)` —
+  formatiranje validacionog message stringa
+
+`_build_calculate_masses_request` — parsiranje delegirano servisu, QMessageBox ostaje u View-u.
+`_build_analysis_summary_from_draft` — analiza delegirana servisu, čitanje iz Qt tabele ostaje.
+`_validate_all_items` — brojanje i message builder delegirani servisu, Qt selekcija/bojenje ostaje.
+
+Namjerno ostavljeno u View-u:
+- `_run_historical_tariff_validation` — 100% UI orkestracija (Qt selekcija,
+  HistoricalValidationWorker kreiranje, signal povezivanje, thread start),
+  isti obrazac kao `_start_import` u Fazi 4a
+
+`faktura_view.py`: 5763 linija (-74), 149 metoda (isto).
+`faktura_service.py`: 202 linije (+70). `validation_service.py`: 197 linija (+55).
 
 **Šta NE dirati**: fuzzy matching threshold `min_similarity=0.92` u bilo
 kojoj od ovih putanja (AGENTS.md — ne spuštati bez eksplicitnog razloga);

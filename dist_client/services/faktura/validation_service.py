@@ -140,3 +140,58 @@ class ValidationService:
             "valid_count": valid_count,
             "total_count": len(items),
         }
+
+    @staticmethod
+    def count_issues_from_cache(validation_cache, row_indexes=None) -> dict:
+        """Broji greške/upozorenja/validne iz cache-a, opciono skopirano na redove."""
+        if row_indexes is not None:
+            error_count = warning_count = valid_count = 0
+            for row in row_indexes:
+                result = validation_cache.get(row)
+                if result is None:
+                    continue
+                if result.has_blocking_errors():
+                    error_count += 1
+                elif result.warnings:
+                    warning_count += 1
+                elif result.valid:
+                    valid_count += 1
+            return {
+                "error_count": error_count,
+                "warning_count": warning_count,
+                "valid_count": valid_count,
+                "total_count": len(row_indexes),
+            }
+        return {
+            "error_count": validation_cache.get_error_count(),
+            "warning_count": validation_cache.get_warning_count(),
+            "valid_count": validation_cache.get_valid_count(),
+            "total_count": validation_cache.total_count if hasattr(validation_cache, 'total_count') else 0,
+        }
+
+    @staticmethod
+    def build_validation_message(counts: dict, error_issues: dict, warning_issues: dict,
+                                  row_indexes=None) -> str:
+        """Formatira validacioni message string."""
+        message = ""
+        if row_indexes is not None:
+            message += f"📌 Prikazano samo za {len(row_indexes)} selektovanih stavki.\n\n"
+        message += "╔══════════════════════════════════════╗\n"
+        message += "║      REZULTAT VALIDACIJE             ║\n"
+        message += "╠══════════════════════════════════════╣\n"
+        message += f"║  Ukupno stavki: {counts['total_count']:>4}                ║\n"
+        message += f"║  ✅ Validne:     {counts['valid_count']:>4}                ║\n"
+        message += f"║  ❌ Nevažeće:    {counts['error_count']:>4}                ║\n"
+        message += "╠══════════════════════════════════════╣\n"
+        message += f"║  🔴 Greške:      {counts['error_count']:>4}                ║\n"
+        message += f"║  🟡 Upozorenja:  {counts['warning_count']:>4}                ║\n"
+        message += "╚══════════════════════════════════════╝\n"
+        if error_issues:
+            message += "\nGreške po tipu:\n"
+            for label, count in sorted(error_issues.items(), key=lambda item: (-item[1], item[0])):
+                message += f"  • {count} {label}\n"
+        if warning_issues:
+            message += "\nUpozorenja po tipu:\n"
+            for label, count in sorted(warning_issues.items(), key=lambda item: (-item[1], item[0])):
+                message += f"  • {count} {label}\n"
+        return message

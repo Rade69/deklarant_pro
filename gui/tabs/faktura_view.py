@@ -1915,48 +1915,14 @@ class FakturaView(BaseTabView):
         if not rows:
             return "", ""
 
-        bez_tarife = [
-            row for row in rows
-            if not (row["tarifni_broj"] or "").strip()
-        ]
-        bez_zemlje = [
-            row for row in rows
-            if not (row["zemlja_porijekla"] or "").strip()
-        ]
-        sa_povlasticom = [
-            row for row in rows
-            if (row["povlastica"] or "").strip()
-        ]
-        bez_eur1 = [
-            row for row in sa_povlasticom
-            if not row["has_origin_statement"]
-            and not (row["eur1_number"] or "").strip()
-        ]
+        analysis = FakturaService.analyze_draft_rows(rows)
+        problemi_str, zemlja_str = FakturaService.format_analysis_summary(analysis)
 
-        countries: dict[str, int] = {}
-        for row in rows:
-            raw_country = (row["zemlja_porijekla"] or "").strip().upper()
-            match = re.search(r"\b[A-Z]{2}\b", raw_country)
-            country = match.group(0) if match else raw_country
-            country = country or "(nepoznato)"
-            countries[country] = countries.get(country, 0) + 1
-
-        problemi = []
-        if bez_tarife:
-            problemi.append(f"⚠️ {len(bez_tarife)} bez tarife")
-        if bez_zemlje:
-            problemi.append(f"⚠️ {len(bez_zemlje)} bez zemlje")
-        if bez_eur1:
-            problemi.append(f"⚠️ {len(bez_eur1)} bez EUR1")
-
-        zemlja_str = " | ".join(
-            f"{country}:{count}"
-            for country, count in sorted(countries.items(), key=lambda item: -item[1])
-        )
+        zemlja_str = zemlja_str.replace(" (", ":").replace(")", "")
         text = f"🌍 {zemlja_str}"
-        if problemi:
-            text += "  " + " | ".join(problemi)
-        return text, "warning" if problemi else "success"
+        if problemi_str:
+            text += "  " + problemi_str.replace("\n", " | ")
+        return text, "warning" if problemi_str else "success"
 
     def _refresh_analysis_summary_from_draft(self) -> None:
         if not self._analysis_summary_auto:
@@ -4281,50 +4247,20 @@ class FakturaView(BaseTabView):
             # Update status bar
             self._update_status_bar()
 
-            # Count results iz cache-a (već ažuriran u prethodnoj petlji) —
-            # scoped na selekciju ako je aktivna, inače sve stavke (staro ponašanje)
-            if row_indexes is not None:
-                error_count = warning_count = valid_count = 0
-                for row in row_indexes:
-                    result = self.validation_cache.get(row)
-                    if result is None:
-                        continue
-                    if result.has_blocking_errors():
-                        error_count += 1
-                    elif result.warnings:
-                        warning_count += 1
-                    elif result.valid:
-                        valid_count += 1
-                total_count = len(row_indexes)
-            else:
-                error_count = self.validation_cache.get_error_count()
-                warning_count = self.validation_cache.get_warning_count()
-                valid_count = self.validation_cache.get_valid_count()
-                total_count = len(self.draft.invoice_lines)
+            # Count results iz cache-a — delegirano servisu
+            counts = ValidationService.count_issues_from_cache(
+                self.validation_cache, row_indexes
+            )
+            if row_indexes is None:
+                counts["total_count"] = len(self.draft.invoice_lines)
             error_issues, warning_issues = self._validation_issue_counts(row_indexes)
 
-            # Show summary
-            message = ""
-            if row_indexes is not None:
-                message += f"📌 Prikazano samo za {len(row_indexes)} selektovanih stavki.\n\n"
-            message += "╔══════════════════════════════════════╗\n"
-            message += "║      REZULTAT VALIDACIJE             ║\n"
-            message += "╠══════════════════════════════════════╣\n"
-            message += f"║  Ukupno stavki: {total_count:>4}                ║\n"
-            message += f"║  ✅ Validne:     {valid_count:>4}                ║\n"
-            message += f"║  ❌ Nevažeće:    {error_count:>4}                ║\n"
-            message += "╠══════════════════════════════════════╣\n"
-            message += f"║  🔴 Greške:      {error_count:>4}                ║\n"
-            message += f"║  🟡 Upozorenja:  {warning_count:>4}                ║\n"
-            message += "╚══════════════════════════════════════╝\n"
-            if error_issues:
-                message += "\nGreške po tipu:\n"
-                for label, count in sorted(error_issues.items(), key=lambda item: (-item[1], item[0])):
-                    message += f"  • {count} {label}\n"
-            if warning_issues:
-                message += "\nUpozorenja po tipu:\n"
-                for label, count in sorted(warning_issues.items(), key=lambda item: (-item[1], item[0])):
-                    message += f"  • {count} {label}\n"
+            message = ValidationService.build_validation_message(
+                counts, error_issues, warning_issues, row_indexes
+            )
+
+            error_count = counts["error_count"]
+            warning_count = counts["warning_count"]
 
             if not auto:
                 if error_count > 0:
@@ -4747,51 +4683,41 @@ class FakturaView(BaseTabView):
         from services.faktura.models import CalculateMassesRequest
         from services.faktura.weight_guards import group_lines_by_invoice, is_suspicious_fallback
 
+        bruto_total_text = self.input_bruto.text().strip()
+        neto_total_text = self.input_neto.text().strip()
+
+        logger.debug("📊 Toolbar polja:")
+        logger.debug(f"   Bruto: '{bruto_total_text}'")
+        logger.debug(f"   Neto: '{neto_total_text}'")
+
         try:
-            bruto_total_text = self.input_bruto.text().strip()
-            neto_total_text = self.input_neto.text().strip()
-
-            logger.debug("📊 Toolbar polja:")
-            logger.debug(f"   Bruto: '{bruto_total_text}'")
-            logger.debug(f"   Neto: '{neto_total_text}'")
-
-            if not bruto_total_text and not neto_total_text:
-                logger.error("   ❌ OBA polja prazna - prikazujem warning")
-                if not auto:
+            bruto_total, neto_total = FakturaService.parse_mass_inputs(
+                bruto_total_text, neto_total_text
+            )
+        except ValueError as e:
+            logger.error(f"❌ ValueError: {e}")
+            if not auto:
+                if "prazna" in str(e):
                     QMessageBox.warning(
                         self,
                         "Nedostaju težine",
                         "Unesite ukupnu bruto i/ili neto težinu sa fakture.",
                     )
-                return None
-
-            bruto_total = (
-                float(bruto_total_text.replace(",", "")) if bruto_total_text else 0.0
-            )
-            neto_total = (
-                float(neto_total_text.replace(",", "")) if neto_total_text else 0.0
-            )
-
-            logger.debug("\n📐 Parsirano:")
-            logger.debug(f"   bruto_total = {bruto_total:.2f} kg")
-            logger.debug(f"   neto_total = {neto_total:.2f} kg")
-
-            if bruto_total <= 0 and neto_total <= 0:
-                if not auto:
+                elif "nule" in str(e):
                     QMessageBox.warning(
                         self, "Neispravne težine", "Težine moraju biti veće od nule."
                     )
-                return None
-
-        except ValueError as e:
-            logger.error(f"❌ ValueError: {e}")
-            if not auto:
-                QMessageBox.critical(
-                    self,
-                    "Greška",
-                    "Neispravna vrijednost težine. Koristite brojeve (npr. 1234.56).",
-                )
+                else:
+                    QMessageBox.critical(
+                        self,
+                        "Greška",
+                        "Neispravna vrijednost težine. Koristite brojeve (npr. 1234.56).",
+                    )
             return None
+
+        logger.debug("\n📐 Parsirano:")
+        logger.debug(f"   bruto_total = {bruto_total:.2f} kg")
+        logger.debug(f"   neto_total = {neto_total:.2f} kg")
 
         invoice_groups, no_invoice_lines, _ = group_lines_by_invoice(self.draft.invoice_lines)
         suspicious_fallback = is_suspicious_fallback(invoice_groups, no_invoice_lines)

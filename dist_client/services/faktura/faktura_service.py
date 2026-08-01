@@ -68,6 +68,23 @@ class FakturaService:
             return 0.0
 
     @staticmethod
+    def parse_mass_inputs(bruto_text: str, neto_text: str) -> tuple[float, float]:
+        """Parse bruto/neto input polja. Baca ValueError za neispravne vrijednosti."""
+        bruto_text = (bruto_text or "").strip()
+        neto_text = (neto_text or "").strip()
+
+        if not bruto_text and not neto_text:
+            raise ValueError("OBA polja prazna")
+
+        bruto_total = float(bruto_text.replace(",", "")) if bruto_text else 0.0
+        neto_total = float(neto_text.replace(",", "")) if neto_text else 0.0
+
+        if bruto_total <= 0 and neto_total <= 0:
+            raise ValueError("Težine moraju biti veće od nule")
+
+        return bruto_total, neto_total
+
+    @staticmethod
     def format_weight(weight: float) -> str:
         """Formatiraj težinu punom preciznošću, sa hiljadnim separatorom."""
         if weight == 0:
@@ -130,3 +147,56 @@ class FakturaService:
         elif isinstance(result, list):
             return (list(result), 0.0, 0.0, "", False, "invoice", False, False, "", "")
         return ([], 0.0, 0.0, "", False, "invoice", False, False, "", "")
+
+    @staticmethod
+    def analyze_draft_rows(rows: list[dict]) -> dict:
+        """Analizira redove draft-a: broji bez tarife, bez zemlje, bez EUR1, zemlje."""
+        import re
+
+        if not rows:
+            return {
+                "bez_tarife": [], "bez_zemlje": [], "sa_povlasticom": [],
+                "bez_eur1": [], "countries": {}, "total": 0,
+            }
+
+        bez_tarife = [r for r in rows if not (r.get("tarifni_broj") or "").strip()]
+        bez_zemlje = [r for r in rows if not (r.get("zemlja_porijekla") or "").strip()]
+        sa_povlasticom = [r for r in rows if (r.get("povlastica") or "").strip()]
+        bez_eur1 = [
+            r for r in sa_povlasticom
+            if not r.get("has_origin_statement") and not (r.get("eur1_number") or "").strip()
+        ]
+
+        countries: dict[str, int] = {}
+        for r in rows:
+            raw = (r.get("zemlja_porijekla") or "").strip().upper()
+            match = re.search(r"\b[A-Z]{2}\b", raw)
+            country = match.group(0) if match else raw
+            country = country or "(nepoznato)"
+            countries[country] = countries.get(country, 0) + 1
+
+        return {
+            "bez_tarife": bez_tarife,
+            "bez_zemlje": bez_zemlje,
+            "sa_povlasticom": sa_povlasticom,
+            "bez_eur1": bez_eur1,
+            "countries": countries,
+            "total": len(rows),
+        }
+
+    @staticmethod
+    def format_analysis_summary(analysis: dict) -> tuple[str, str]:
+        """Formatira analizu u (problemi_str, zemlje_str)."""
+        problemi = []
+        if analysis["bez_tarife"]:
+            problemi.append(f"⚠️ {len(analysis['bez_tarife'])} bez tarife")
+        if analysis["bez_zemlje"]:
+            problemi.append(f"⚠️ {len(analysis['bez_zemlje'])} bez zemlje")
+        if analysis["bez_eur1"]:
+            problemi.append(f"⚠️ {len(analysis['bez_eur1'])} bez EUR1")
+
+        zemlja_str = " | ".join(
+            f"{country} ({count})"
+            for country, count in sorted(analysis["countries"].items(), key=lambda x: (-x[1], x[0]))
+        )
+        return "\n".join(problemi), zemlja_str
