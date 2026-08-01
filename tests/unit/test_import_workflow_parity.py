@@ -214,7 +214,7 @@ class TestManualSingleImportUnifiedWorkflow:
         assert mock_self.draft.invoice_lines[0].invoice_number == "INV-006"
         assert mock_self.draft.invoice_lines[0].tarifni_broj == "03824993"
         assert mock_self.draft.invoice_weights["inv-006"] == (2.0, 1.8)
-        mock_self._on_import_finished_legacy.assert_not_called()
+        mock_self._finish_import_legacy_path.assert_not_called()
         mock_self._run_historical_tariff_validation.assert_called_once_with(auto=False)
 
 

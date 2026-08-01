@@ -3604,3 +3604,19 @@ split draftovi, post-akcije i učenje tarifa ostaju isti. `_on_create_naimenovan
 ostaje samo u legacy pipeline test stubu koji namjerno dokazuje da se stari
 private fallback ne poziva. Test kapija: py_compile; root
 controller/characterization/pipeline set 64/64; dist pipeline 17/17.
+
+---
+
+## 127. Faktura Cleanup Faza E8 — preimenovan legacy import fallback (2026-08-01)
+
+Faza E8 je preimenovala aktivni fallback import put
+`FakturaView._on_import_finished_legacy` u neutralnije
+`FakturaView._finish_import_legacy_path`. `_on_import_finished` ostaje Qt slot
+spojen na `import_worker.finished`, ali kada unified manual import nije moguć
+sada delegira na novo interno ime.
+
+Import ponašanje nije mijenjano: unified/manual workflow, legacy fallback,
+EUR.1/PE dijalozi, težine i history validation ostaju isti. Root i `dist_client`
+su poravnati. Test kapija: py_compile; root
+`test_import_workflow_parity.py test_faktura_characterization.py test_faktura_view_provjeri_nakon_uvoza.py`
+41/41; dist import/provjeri set 28/28.

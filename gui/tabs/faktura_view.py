@@ -3770,7 +3770,7 @@ class FakturaView(BaseTabView):
 
     def _on_import_finished(self, result):
         if not FakturaView._can_use_unified_manual_import(self, result):
-            return FakturaView._on_import_finished_legacy(self, result)
+            return FakturaView._finish_import_legacy_path(self, result)
 
         try:
             self.progress_bar.setVisible(False)
@@ -3832,7 +3832,7 @@ class FakturaView(BaseTabView):
             self._set_buttons_enabled(True)
             self._cleanup_import_worker()
 
-    def _on_import_finished_legacy(self, result):
+    def _finish_import_legacy_path(self, result):
         """Handle successful import.
 
         Args:
