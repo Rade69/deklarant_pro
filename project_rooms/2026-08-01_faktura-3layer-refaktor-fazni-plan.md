@@ -253,13 +253,13 @@ pod-zadatak unutar ove faze, ne mora sve jedan agent odjednom:
 
 Urađeno:
 - Codex (`1b3a708`): 9 metoda u `ImportWorkflowService`
-- Pi (`<novi_commit>`): preostale 2 metode — `_start_import` ostaje u View-u
+- Pi (`08f77b0`): preostale 2 metode — `_start_import` ostaje u View-u
   (čist UI metod, nema poslovne logike za ekstrakciju),
   `_collect_manual_import_decisions` delegira inicijalizaciju
   `UserDecisions`/`InvoiceDecision` u `ImportWorkflowService.init_import_decisions()`,
   dijalozi za konflikte ostaju u View-u.
 
-**Status: DONE — 2026-08-01, commit `<novi_commit>` (Pi)**
+**Status: DONE — 2026-08-01, commit `009d69d` (Pi)**
 
 Urađeno: novi `services/faktura/preference_rules_service.py` (111 linija):
 - `similar_partner_names(a, b)` — token-overlap logika iz `_check_partner_consistency`
@@ -274,7 +274,7 @@ je izdvojena u servis.
 
 `faktura_view.py`: 5888 linija (-130), 149 metoda (isto).
 
-**Status: DONE — 2026-08-01, commit `<novi_commit>` (Pi)**
+**Status: DONE — 2026-08-01, commit `1ec7b19` (Pi)**
 
 Urađeno: novi `services/faktura/header_doc_sync_service.py` (87 linija):
 - `collect_pe_docs_from_items(items)` — sakupljanje PE1/PE2/PE3 iz attached_document4
@@ -294,7 +294,7 @@ Namjerno ostavljeno u View-u (nisu kandidati za ekstrakciju):
 
 `faktura_view.py`: 5837 linija (-51), 149 metoda (isto).
 
-**Status: DONE — 2026-08-01, commit `<novi_commit>` (Pi)**
+**Status: DONE — 2026-08-01, commit `3aa8227` (Pi)**
 
 Urađeno:
 - `FakturaService.parse_mass_inputs(bruto_text, neto_text)` — parsiranje toolbar
