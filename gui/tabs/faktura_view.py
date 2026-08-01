@@ -65,8 +65,6 @@ from core.draft import DeclarationDraft, InvoiceLine, NaimenovanjeDraft
 import uuid
 from services.import_worker import ImportWorker
 from services.historical_validation_worker import HistoricalValidationWorker
-from services.validation.validation_service import FakturaItemValidator, ValidationLevel
-from services.naimenovanja.declaration_assembly import DeclarationAssembly
 from services.export_service import ExportService
 from exporters.pdf_invoice_exporter import export_invoice_to_pdf
 from exporters.pdf_faktura_pregled import export_faktura_pregled
@@ -259,8 +257,8 @@ class FakturaView(BaseTabView):
         self.import_worker: Optional[ImportWorker] = None
         self.historical_validation_worker: Optional[HistoricalValidationWorker] = None
         self._historical_validation_token = 0
-        self.validator = FakturaItemValidator()
-        self.assembly = DeclarationAssembly()  # Assembly system
+        self.controller = None
+        self.assembly = None  # Migracioni alias na Controller-owned assembly
         self._agent_mode = False  # Agent mod: bez GUI dijaloga za povlastice
 
         # Initialize service layer
@@ -334,6 +332,26 @@ class FakturaView(BaseTabView):
 
         # Update status bar
         self._update_status_bar()
+
+    def set_controller(self, controller) -> None:
+        self.controller = controller
+        self.assembly = controller.assembly
+        if hasattr(self, "lbl_assembly"):
+            self._update_status_bar()
+
+    def _validate_line_for_issue_counts(self, line):
+        if self.controller is not None:
+            return self.controller.validate_line(line)
+        from services.validation.validation_service import FakturaItemValidator
+        return FakturaItemValidator().validate(line)
+
+    def _assembly_completion_status_for_status_bar(self) -> dict | None:
+        if self.controller is not None:
+            return self.controller.assembly_completion_status()
+        assembly = getattr(self, "assembly", None)
+        if not getattr(assembly, "master_list_loaded", False):
+            return None
+        return assembly.get_completion_status()
 
     def _setup_keyboard_shortcuts(self) -> None:
         self._navigation_shortcuts = []
@@ -1964,7 +1982,7 @@ class FakturaView(BaseTabView):
             if row >= len(self.draft.invoice_lines):
                 continue
             line = self.draft.invoice_lines[row]
-            result = self.validation_cache.get(row) or self.validator.validate(line)
+            result = self.validation_cache.get(row) or self._validate_line_for_issue_counts(line)
             for err in result.errors:
                 label = self._validation_issue_label(err.field, err.message)
                 errors[label] = errors.get(label, 0) + 1
@@ -2173,8 +2191,8 @@ class FakturaView(BaseTabView):
             self.lbl_validation.setProperty("status", "")
 
         # Assembly completion status
-        if self.assembly.master_list_loaded:
-            status = self.assembly.get_completion_status()
+        status = self._assembly_completion_status_for_status_bar()
+        if status is not None:
             completion = status["completion_percentage"]
             invoices = status["imported_invoices_count"]
 
@@ -4289,7 +4307,11 @@ class FakturaView(BaseTabView):
             self._reset_partner_expectations()
 
             # Clear assembly
-            self.assembly = DeclarationAssembly()
+            if self.controller is not None:
+                self.assembly = self.controller.reset_assembly()
+            else:
+                from services.naimenovanja.declaration_assembly import DeclarationAssembly
+                self.assembly = DeclarationAssembly()
 
             # Reload table
             self._load_data_from_draft()

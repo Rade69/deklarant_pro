@@ -6,6 +6,7 @@ from __future__ import annotations
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -117,6 +118,43 @@ class TestFakturaTabImport:
         tab = FakturaTab(draft=draft)
         qtbot.addWidget(tab)
         assert tab.controller is not None
+
+    def test_faktura_tab_wires_controller_owned_services_to_view(self, qtbot):
+        from gui.tabs.faktura_tab import FakturaTab
+
+        draft = DeclarationDraft()
+        tab = FakturaTab(draft=draft)
+        qtbot.addWidget(tab)
+
+        assert tab.view.controller is tab.controller
+        assert tab.view.assembly is tab.controller.assembly
+        assert tab.controller.validator is not None
+
+    def test_validation_issue_counts_uses_controller_validator(self, qtbot, monkeypatch):
+        from gui.tabs.faktura_tab import FakturaTab
+
+        draft = DeclarationDraft()
+        line = InvoiceLine(naziv_robe="", tarifni_broj="")
+        draft.invoice_lines = [line]
+        tab = FakturaTab(draft=draft)
+        qtbot.addWidget(tab)
+        calls = []
+        result = SimpleNamespace(
+            errors=[SimpleNamespace(field="tarifni_broj", message="obavezan")],
+            warnings=[],
+        )
+        monkeypatch.setattr(
+            tab.controller,
+            "validate_line",
+            lambda received: calls.append(received) or result,
+        )
+        monkeypatch.setattr(tab.view.validation_cache, "get", lambda row: None)
+
+        errors, warnings = tab.view._validation_issue_counts([0])
+
+        assert calls == [line]
+        assert errors == {"bez tarife": 1}
+        assert warnings == {}
 
     def test_signals_exist_on_view(self, qtbot):
         from gui.tabs.faktura_tab import FakturaTab

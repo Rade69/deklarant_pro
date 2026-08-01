@@ -55,6 +55,8 @@ def _mock_self_for_status_bar(invoice_lines: list) -> MagicMock:
     mock_self.input_neto.text.return_value = "0"
     mock_self._parse_weight_input.return_value = 0.0
     mock_self._format_weight.return_value = "0.000"
+    mock_self.controller = None
+    mock_self._assembly_completion_status_for_status_bar.return_value = None
     mock_self.assembly.master_list_loaded = False
     return mock_self
 
@@ -117,6 +119,31 @@ def test_update_status_bar_ne_iskljucuje_vec_ukljucen_latch():
     FakturaView._update_status_bar(mock_self)
 
     assert mock_self._analysis_summary_auto is True
+
+
+def test_update_status_bar_assembly_status_dolazi_iz_controllera():
+    mock_self = _mock_self_for_status_bar([_stub_invoice_line()])
+    mock_self._assembly_completion_status_for_status_bar.return_value = {
+        "completion_percentage": 50.0,
+        "imported_invoices_count": 2,
+    }
+
+    FakturaView._update_status_bar(mock_self)
+
+    mock_self.lbl_assembly.setText.assert_called_with("⚠️ 50% (2 faktura)")
+
+
+def test_assembly_status_helper_koristi_controller():
+    mock_self = MagicMock()
+    mock_self.controller.assembly_completion_status.return_value = {
+        "completion_percentage": 100.0,
+        "imported_invoices_count": 3,
+    }
+
+    status = FakturaView._assembly_completion_status_for_status_bar(mock_self)
+
+    assert status == {"completion_percentage": 100.0, "imported_invoices_count": 3}
+    mock_self.controller.assembly_completion_status.assert_called_once()
 
 
 def test_analysis_summary_prikazuje_breakdown_po_zemlji_ne_samo_broj():
