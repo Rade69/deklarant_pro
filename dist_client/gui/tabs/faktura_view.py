@@ -2906,16 +2906,7 @@ class FakturaView(BaseTabView):
 
         Vraća True ako treba nastaviti sa uvozom, False ako korisnik odbija.
         """
-        def similar(a: str, b: str) -> bool:
-            na, nb = FakturaService.normalize_partner(a), FakturaService.normalize_partner(b)
-            if not na or not nb:
-                return True  # Nema podataka — ne blokiraj
-            # Token overlap: koliko zajedničkih tokena
-            ta, tb = set(na.split()), set(nb.split())
-            if not ta or not tb:
-                return True
-            overlap = len(ta & tb) / max(len(ta), len(tb))
-            return overlap >= 0.6  # 60% zajedničkih tokena = isti partner
+        from services.faktura.preference_rules_service import similar_partner_names
 
         # Ažuriraj expected ako je prazno (prvi uvoz)
         if exporter_name and not self._expected_exporter:
@@ -2926,7 +2917,7 @@ class FakturaView(BaseTabView):
         warnings = []
 
         if (exporter_name and self._expected_exporter
-                and not similar(exporter_name, self._expected_exporter)):
+                and not similar_partner_names(exporter_name, self._expected_exporter)):
             warnings.append(
                 f"<b>Pošiljalac (izvoznik):</b><br>"
                 f"&nbsp;&nbsp;Očekivano: <b>{self._expected_exporter}</b><br>"
@@ -2934,7 +2925,7 @@ class FakturaView(BaseTabView):
             )
 
         if (importer_name and self._expected_importer
-                and not similar(importer_name, self._expected_importer)):
+                and not similar_partner_names(importer_name, self._expected_importer)):
             warnings.append(
                 f"<b>Uvoznik (primalac):</b><br>"
                 f"&nbsp;&nbsp;Očekivano: <b>{self._expected_importer}</b><br>"
@@ -3003,137 +2994,21 @@ class FakturaView(BaseTabView):
         self._agent_mode = enabled
 
     def _suggest_preference_by_country(self, country_code: str, exporter_name: str = "") -> str:
-        """
-        Vrati povlasticu (Rub.36) na osnovu koda zemlje.
-        
-        Poboljšana verzija koja koristi istorijsko učenje ako je dostupno.
-        
-        Args:
-            country_code: Kod zemlje (npr. 'RS', 'DE')
-            exporter_name: Ime dobavljača (opcionalno)
-        """
-        # Prvo probaj istorijsko učenje ako imamo exportera
-        if exporter_name and exporter_name.strip():
-            try:
-                # Koristi HistoricalLearningServiceSafe
-                from services.agent.learning.historical_learning_service_safe import enhance_preference_logic
-                historical_pref = enhance_preference_logic(country_code, exporter_name)
-                if historical_pref:
-                    return historical_pref
-            except Exception:
-                # Silent fallback - nastavi sa hardcoded pravilima
-                pass
-        
-        # FALLBACK: Hardcoded pravila (originalna logika)
-        eu_countries = {
-            'AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI',
-            'FR', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT',
-            'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK',
-        }
-        cefta_countries = {'RS', 'BA', 'ME', 'MK', 'AL', 'XK', 'MD'}
-        c = (country_code or '').upper()
-        if c in eu_countries:
-            return 'EUP'
-        if c in cefta_countries:
-            return 'CEFTAP'
-        if c == 'TR':
-            return 'TRP'
-        if c == 'IR':
-            return 'IRP'
-        return ''
+        from services.faktura.preference_rules_service import suggest_preference_by_country
+        return suggest_preference_by_country(country_code, exporter_name)
 
     def _auto_handle_povlastice_agent(self, items, has_origin_statement: bool) -> dict:
-        """
-        Agent mod: evidentiraj PE2/EUR1 kandidate bez primjene povlastice.
-
-        PE2 slučaj (has_origin_statement=True):
-          - Stavke ostaju bez povlastice dok deklarant ne potvrdi PE2/PE3 dijalog.
-        EUR1 slučaj (has_origin_statement=False):
-          - Povlastica se NE postavlja bez PE1/PE2/PE3 dokaza (Faza 2, vidi
-            agent_tasks/2026-06-10_plan_unapredjenja_carinskog_agenta.md) — stavka
-            ostaje neutralna dok korisnik ne potvrdi EUR.1/izjavu, a postojeća žuta
-            oznaka (_apply_preference_confidence_color) na to upozorava.
-          - eur1_pending broji stavke koje bi imale povlasticu DA postoji EUR.1.
-
-        Returns:
-            dict: {'pe2': int, 'eur1_pending': int}
-        """
-        updated_pe2 = 0
-        eur1_pending = 0
-
-        # Pokušaj da dobiješ exporter name iz fakture
-        exporter_name = ""
-        if hasattr(self.draft, 'exporter') and self.draft.exporter:
-            exporter_name = self.draft.exporter
-        elif self.draft.invoice_lines and hasattr(self.draft.invoice_lines[0], 'exporter'):
-            exporter_name = self.draft.invoice_lines[0].exporter
-
-        for item in self.draft.invoice_lines:
-            item_has_statement = getattr(item, 'has_origin_statement', has_origin_statement)
-            if item_has_statement:
-                updated_pe2 += 1
-            elif item.zemlja_porijekla:
-                # EUR1: nema izjave i nema PE1/PE2/PE3 → povlastica ostaje prazna,
-                # samo evidentiraj da stavka čeka EUR.1 broj
-                pov = self._suggest_preference_by_country(item.zemlja_porijekla, exporter_name)
-                if pov and not getattr(item, 'povlastica', None) and not getattr(item, 'eur1_number', None):
-                    eur1_pending += 1
-
-        logger.info(
-            f"🤖 [agent] Auto-povlastice: PE2={updated_pe2}, EUR1_pending={eur1_pending} "
-            f"(bez PE dokaza povlastica ostaje neutralna)"
-        )
-        return {'pe2': updated_pe2, 'eur1_pending': eur1_pending}
+        from services.faktura.preference_rules_service import auto_handle_povlastice_agent
+        return auto_handle_povlastice_agent(self.draft, has_origin_statement)
 
     def _should_show_eur1_dialog(self, items) -> bool:
-        """
-        Provjeri da li treba pokazati EUR.1 dialog.
-        
-        Uslovi:
-        - PDF NEMA izjavu o poreklu (has_origin_statement = False)
-        - Ima stavki sa zemljom porijekla
-        """
-        # Check if items have has_origin_statement = False
-        if isinstance(items, ImportResult):
-            items = items.items
-        
-        # ❌ NE otvaraj ako BILO KOJA stavka ima izjavu
-        has_any_statement = any(
-            hasattr(item, 'has_origin_statement') and item.has_origin_statement
-            for item in items
-        )
-        
-        if has_any_statement:
-            return False  # Faktura ima izjavu → otvoriće se PE2 dialog
-        
-        # ✅ Otvaraj ako ima stavki bez izjave
-        has_items_without_statement = any(
-            hasattr(item, 'has_origin_statement') and 
-            not item.has_origin_statement and 
-            item.zemlja_porijekla
-            for item in items
-        )
-        
-        return has_items_without_statement
-    
+        from services.faktura.preference_rules_service import should_show_eur1_dialog
+        return should_show_eur1_dialog(items)
+
     def _should_show_pe2_dialog(self, items) -> bool:
-        """
-        Provjeri da li treba pokazati PE2 dialog.
-        
-        Uslovi:
-        - PDF IMA izjavu o poreklu (has_origin_statement = True)
-        """
-        if isinstance(items, ImportResult):
-            items = items.items
-        
-        # ✅ Otvaraj ako BILO KOJA stavka ima izjavu
-        has_any_statement = any(
-            hasattr(item, 'has_origin_statement') and item.has_origin_statement
-            for item in items
-        )
-        
-        return has_any_statement
-    
+        from services.faktura.preference_rules_service import should_show_pe2_dialog
+        return should_show_pe2_dialog(items)
+
     def _show_eur1_dialog(self):
         """Prikaži EUR.1 quick dialog (za fakture BEZ izjave)."""
         logger.debug(f"📋 [_show_eur1_dialog] Otvaranje EUR.1 dialoga...")

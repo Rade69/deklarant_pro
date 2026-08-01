@@ -259,15 +259,20 @@ Urađeno:
   `UserDecisions`/`InvoiceDecision` u `ImportWorkflowService.init_import_decisions()`,
   dijalozi za konflikte ostaju u View-u.
 
-**4b. Povlastice/porijeklo** (`validation_service.py` ili novi `preference_rules_service.py`):
-`_check_partner_consistency` (2966-3038) — core `similar()` logika je
-poslovna, dijalog dio ostaje u View;
-`_suggest_preference_by_country` (3111-3149) — **VISOKA VRIJEDNOST**,
-netrivijalno poslovno pravilo (EU/CEFTA/TR/IR + istorijsko učenje) bez
-ikakvog servisnog ekvivalenta danas;
-`_auto_handle_povlastice_agent` (3151-3192),
-`_should_show_eur1_dialog` (3194-3223), `_should_show_pe2_dialog` (3225-3241)
-— poslovno pravilo odluke, dijalog prikaz ostaje u View.
+**Status: DONE — 2026-08-01, commit `<novi_commit>` (Pi)**
+
+Urađeno: novi `services/faktura/preference_rules_service.py` (111 linija):
+- `similar_partner_names(a, b)` — token-overlap logika iz `_check_partner_consistency`
+- `suggest_preference_by_country(country_code, exporter_name)` — EU/CEFTA/TR/IR pravila +
+  istorijsko učenje
+- `should_show_eur1_dialog(items)` / `should_show_pe2_dialog(items)` — pravila odluke
+- `auto_handle_povlastice_agent(draft, has_origin_statement)` — agent mod logika
+
+View metode postale thin wrapper-i koji delegiraju servisu.
+`_check_partner_consistency` zadržava QMessageBox dijalog (UI), ali `similar()` logika
+je izdvojena u servis.
+
+`faktura_view.py`: 5888 linija (-130), 149 metoda (isto).
 
 **4c. Naimenovanja post-processing**:
 `_run_create_naimenovanja_post_actions` (4421-4451),

@@ -17,6 +17,13 @@ from services.faktura.mass_workflow_service import MassWorkflowService
 from services.faktura.undo_redo_service import UndoRedoService
 from services.faktura.weight_guards import normalize_invoice_key
 from services.faktura.xml_header_extraction import extract_header_from_xml
+from services.faktura.preference_rules_service import (
+    similar_partner_names,
+    suggest_preference_by_country,
+    should_show_eur1_dialog,
+    should_show_pe2_dialog,
+    auto_handle_povlastice_agent,
+)
 
 __all__ = [
     "FakturaConstants",
@@ -34,4 +41,9 @@ __all__ = [
     "UndoRedoService",
     "normalize_invoice_key",
     "extract_header_from_xml",
+    "similar_partner_names",
+    "suggest_preference_by_country",
+    "should_show_eur1_dialog",
+    "should_show_pe2_dialog",
+    "auto_handle_povlastice_agent",
 ]
