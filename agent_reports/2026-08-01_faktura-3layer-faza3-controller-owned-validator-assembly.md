@@ -137,7 +137,7 @@ Plan kaže da View treba prestati direktno instancirati `validator`/`assembly`, 
 | Hash | Poruka |
 | --- | --- |
 | `603da5e` | `refactor(faktura): Faza 3 - prebaci validator i assembly u controller` |
-| pending | `docs(faktura): dokumentuj Fazu 3 controller owned servise` |
+| `6082807` | `docs(faktura): dokumentuj Fazu 3 controller owned servise` |
 
 ## Kontekst korišćen
 
