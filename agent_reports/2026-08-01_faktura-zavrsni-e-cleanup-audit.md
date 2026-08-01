@@ -110,7 +110,7 @@ Nema kontradikcija. `docs/context/history.md` sekcije E2-E8 i trenutni kod se po
 
 | Hash | Poruka |
 | --- | --- |
-| pending | `docs(faktura): dokumentuj zavrsni e cleanup audit` |
+| `255a27d` | `docs(faktura): dokumentuj zavrsni e cleanup audit` |
 
 ## Kontekst korišćen
 
