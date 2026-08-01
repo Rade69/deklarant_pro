@@ -3501,3 +3501,23 @@ adapteri, ručni/PDF helper tokovi i characterization testovi. Test kapija:
 py_compile; `test_puna_auto_pipeline.py` 17/17; širi Faktura/Agent set 172/172;
 XML/ASYCUDA smoke set 126/126; root/dist_client paritet Agent pipeline servisa
 bez razlika.
+
+---
+
+## 121. Faktura Cleanup Faza E2 — dead-code audit private View metoda (2026-08-01)
+
+Faza E2 je urađena kao read-only audit prije bilo kakvog brisanja. GitNexus
+context + `rg` inventar potvrđuju da private Faktura View metode nisu jednako
+"mrtve": `_on_calculate_masses` i `_on_auto_fill` su trivial wrapperi preko
+javnih adaptera i imaju samo testne pozivaoce; mogu biti E3 kandidati uz
+ažuriranje testova. `_on_validate_all` nije za brisanje jer je još core
+implementacija javnog `validate()` i pokriva selekcijsku validaciju.
+`_on_create_naimenovanja` nije za brisanje jer ga koriste javni adapter
+`create_naimenovanja()`, PDF export helper i characterization test.
+`_on_import_finished_legacy` nije za brisanje jer `_on_import_finished` još
+delegira na njega kada unified manual import uslovi nisu ispunjeni.
+
+Dodatni nalaz: root `tests/unit/test_puna_auto_pipeline.py` je ažuriran u E1,
+ali `dist_client/tests/unit/test_puna_auto_pipeline.py` još sadrži stara
+fallback očekivanja. To je dokumentovan test-paritet dug za kasnije, ne
+produkcioni runtime gap.
