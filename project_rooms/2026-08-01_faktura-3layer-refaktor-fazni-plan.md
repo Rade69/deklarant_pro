@@ -169,7 +169,26 @@ u `services/faktura/` — ili postojeći fajl po temi, ili novi
 
 ## FAZA 3 — Ukloniti direktne View→Servis pozive (arhitektonski fix)
 
-**Status: PENDING**
+**Status: DONE — 2026-08-01, commit `603da5e`**
+
+Rezultat: Controller sada kreira i posjeduje `FakturaItemValidator` i
+`DeclarationAssembly`; `FakturaTab` veže Controller u View kroz
+`view.set_controller(controller)`. `FakturaView._validation_issue_counts()` više
+ne koristi `self.validator.validate(...)`, nego ide kroz Controller adapter.
+`FakturaView._update_status_bar()` više ne čita assembly status direktno nego
+preko Controller adaptera. Legacy/master-list `self.assembly` pozivi su
+namjerno ostavljeni za Fazu 6/7, uz migracioni alias na Controller-owned
+assembly.
+
+Stvarno mjerenje poslije faze u Codex worktree-u:
+`faktura_view.py` 6289 linija / 160 metoda; `faktura_controller.py` 234 linije;
+`faktura_tab.py` 190 linija; `services/faktura/` 18 fajlova / 1954 linije.
+Faza 3 je arhitektonski fix, ne line-reduction faza, pa je View privremeno
+porastao zbog tri mala adaptera. Test kapija: py_compile root/dist Faktura
+fajlova; root controller/status 44/44; dist status 8/8; fokusirani
+Faktura/import/pipeline set 71/71. Širi `tests/unit -m "not integration"`:
+1398 passed, 21 failed zbog postojećih DB/env problema (`tarifa_2026`,
+`DB_PASSWORD`, `DEBUG=release`), ne zbog Faze 3.
 
 **Cilj**: `self.validator`/`self.assembly` prestaju biti direktno
 instancirani i pozivani iz `FakturaView.__init__` (linije 262-263) i iz
