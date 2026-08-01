@@ -84,7 +84,7 @@ Nema kontradikcija. Manifest je tražio uklanjanje fallback-a tek nakon stabiliz
 
 | Hash | Poruka |
 | --- | --- |
-| pending | `refactor(agent): ukloni private fallback iz pune automatizacije` |
+| 8f12fca | `refactor(agent): ukloni private fallback iz pune automatizacije` |
 
 ## Kontekst korišćen
 
