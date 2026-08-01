@@ -85,7 +85,7 @@ Nema konflikata u produkcionom kodu. E2/E3 reportovi su usklađeni sa ovom izmje
 
 | Hash | Poruka |
 | --- | --- |
-| pending | `refactor(faktura): koristi javni adapter validacije` |
+| 14135df | `refactor(faktura): koristi javni adapter validacije` |
 
 ## Kontekst korišćen
 
