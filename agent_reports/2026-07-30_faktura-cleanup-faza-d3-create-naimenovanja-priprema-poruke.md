@@ -87,7 +87,7 @@ Nema funkcionalnih kontradikcija. D3 je nastavak D1/D2 i zadržava zabranu iz ma
 
 | Hash | Poruka |
 | --- | --- |
-| pending | `refactor(faktura): izdvoji create naimenovanja pripremu` |
+| 5043c13 | `refactor(faktura): izdvoji create naimenovanja pripremu` |
 
 ## Rizici / ograničenja
 
