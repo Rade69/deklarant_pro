@@ -279,7 +279,7 @@ class TestNoDoubleValidation:
         called = []
         monkeypatch.setattr(
             tab.view,
-            "_on_create_naimenovanja",
+            "create_naimenovanja",
             lambda auto=False: called.append(auto) or True,
         )
 

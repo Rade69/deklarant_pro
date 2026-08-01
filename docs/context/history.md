@@ -3570,3 +3570,20 @@ Selekcijski testovi sada direktno karakterišu `_validate_all_items`, dok
 dokazuje da se stari private fallback ne poziva. Test kapija: py_compile;
 root validacioni/pipeline/provjeri set 64/64; dist validacioni/pipeline/provjeri
 set 30/30.
+
+---
+
+## 125. Faktura Cleanup Faza E6 — create_naimenovanja kroz javni adapter (2026-08-01)
+
+Faza E6 je auditovala preostale aktivne private metode poslije E5. Sigurna
+izmjena je bila mala: `FakturaTab.create_naimenovanja(auto=...)` i PDF export
+fallback sada zovu javni `FakturaView.create_naimenovanja(...)`, ne direktno
+`_on_create_naimenovanja`. Root i `dist_client` produkcioni fajlovi ostaju u
+paritetu.
+
+`_on_create_naimenovanja` nije brisan niti preimenovan: i dalje je aktivna
+interna implementacija javnog adaptera i ima characterization/legacy testove.
+`_on_import_finished_legacy` takođe nije diran jer `_on_import_finished` još
+delegira na njega kad unified import uslovi nisu ispunjeni. Test kapija:
+py_compile; root controller/characterization/pipeline set 64/64; dist pipeline
+17/17.

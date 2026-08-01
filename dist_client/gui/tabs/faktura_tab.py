@@ -63,7 +63,7 @@ class FakturaTab(QWidget):
         )
 
     def create_naimenovanja(self, auto: bool = False) -> bool:
-        return self.view._on_create_naimenovanja(auto=auto)
+        return self.view.create_naimenovanja(auto=auto)
 
     def calculate_masses(self, auto: bool = False) -> bool:
         return self.view.calculate_masses(auto=auto, controller=self.controller)

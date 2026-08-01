@@ -5798,7 +5798,7 @@ class FakturaView(BaseTabView):
 
             if reply == QMessageBox.Yes:
                 # Pozovi kreiranje naimenovanja
-                self._on_create_naimenovanja()
+                self.create_naimenovanja()
                 return
             else:
                 return
