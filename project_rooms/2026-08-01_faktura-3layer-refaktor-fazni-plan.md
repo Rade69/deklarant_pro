@@ -407,7 +407,28 @@ code-review-a.
 
 ## FAZA 6 — Assembly/master-list uvoz logika (preformulisano nakon PROBE-a)
 
-**Status: PROBE ZAVRŠEN 2026-08-02, čeka odluku o terminu izvršenja — vidi `project_rooms/2026-08-02_faza6-probe-legacy-uvoz-status.md`**
+**Status: DJELIMIČNO DONE — 2026-08-02 (Claude, ova sesija), commit `039e080`**
+
+**Šta je stvarno urađeno (uže od originalnog cilja ispod, namjerno)**: nakon
+čitanja pune ~330-linijske `_finish_import_legacy_path` metode, procjena je
+bila da je to duboko Qt-isprepletena orkestracija (progress bar, redoslijed
+dijaloga, mutacija drafta) — puna ekstrakcija "Assembly matching logike"
+nije realna niti bezbjedna, jer ta logika VEĆ živi u `DeclarationAssembly`
+servisu (`assembly.add_invoice()`); View samo orkestrira poziv i prikaz,
+što je legitiman Controller/View posao, ne poslovna logika za izdvajanje.
+
+Umjesto toga izdvojene su 3 ČISTE funkcije za građenje poruka (bez ijedne
+Qt/self zavisnosti) u novi `services/faktura/legacy_import_service.py`:
+`build_assembly_match_message`, `build_manual_import_prefix_message` +
+`build_manual_import_suffix_message`, `build_legacy_batch_import_message`.
+16 karakterizacionih testova napisano PRIJE ekstrakcije. Kontrolni tok,
+redoslijed EUR.1/PE2 dijaloga, REPLACE/EXTEND odluka i sva mutacija drafta
+OSTAJU namjerno u View-u — nisu poslovna logika u smislu koji Faze 1-5
+ciljaju, nego orkestracija koja tu i pripada.
+
+`faktura_view.py`: 5682→**5620 linija** (-62). Pun test suite: 1438
+passed / 71 skipped (10 DB-testova preskočeno u ovom mjerenju zbog
+nepovezanog mrežnog tajmauta ka `dmserver`, 192.168.0.25 — vidi ispod).
 
 **VAŽNA IZMJENA nakon PROBE-a**: originalna formulacija ove faze ("najveći,
 najrizičniji, treba odlučiti da li legacy umire ili se unified proširuje")
@@ -423,30 +444,34 @@ podržani tok ostaje funkcionalan"). `history.md` #53 eksplicitno traži:
 "ne brisati ove fallback-e dok poseban Assembly tok ne bude eksplicitno
 pokriven servisom i testovima" — što je upravo posao koji ostaje ispod.
 
-`_finish_import_legacy_path` (3835-4165, ~330 linija; ranije zvan
-`_on_import_finished_legacy`, preimenovan u E-cleanup fazi),
-`_process_batch_records_legacy` (2594-2722), `_process_batch_records` (2504-2592),
-`_import_multiple_files` (2392-2442, razriješiti preklapanje sa `ImportService.import_multiple_files`).
+`_finish_import_legacy_path` (3439-3767 nakon ekstrakcije), `_process_batch_records_legacy`,
+`_process_batch_records`, `_import_multiple_files` — sve i dalje u `faktura_view.py`.
 
-**Novi, niži-rizik cilj**: izdvojiti Assembly-specifičnu logiku (matching
-preko `DeclarationAssembly.add_invoice()`, master-list reconciliation) u
-zaseban servis (npr. `services/faktura/assembly_import_service.py`) — ISTI
-obrazac ekstrakcije kao Faze 1-5, NE arhitektonska promjena unified/legacy
-odnosa (ta odluka je već donesena i ostaje netaknuta). Linije se ne brišu,
-samo premještaju — Assembly tok mora ostati potpuno funkcionalan.
+**Originalni cilj ove faze (prije stvarnog rada, djelimično revidiran)**:
+izdvojiti Assembly-specifičnu logiku (matching preko
+`DeclarationAssembly.add_invoice()`) u zaseban servis. Nakon čitanja koda
+ispostavilo se da ta logika VEĆ jeste u servisu (`DeclarationAssembly`) —
+preostalo je samo poruke izdvojiti, ne matching logiku (vidi "Šta je
+stvarno urađeno" iznad za obrazloženje).
 
-**Plan verifikacije**: deterministički testovi za Assembly tok (novi
-karakterizacioni testovi po istom obrascu kao Faza 5 — ova oblast već ima
-poznat e2e test za UNIFIED put, `tests/integration/test_real_invoice_import_e2e.py`,
-ali NEMA ekvivalentan test za Assembly put — to je prilika da se ta rupa
-zatvori), pun regression pass, ručna GUI provjera "Učitaj glavnu listu"
-toka sa realnom master-listom.
+**Preostalo (nije urađeno u ovoj sesiji)**:
+- Ekvivalentan e2e test za Assembly/master-list put (postoji samo za
+  unified put, `tests/integration/test_real_invoice_import_e2e.py`) —
+  prava rupa koju `history.md` #53 traži da se zatvori prije nego se ovaj
+  tok smatra potpuno "pokrivenim servisom i testovima".
+- Ručna GUI provjera "Učitaj glavnu listu" toka sa realnom master-listom
+  (korisnik, isti obrazac kao Faza 5).
+- `_import_multiple_files`/`ImportService.import_multiple_files`
+  preklapanje pomenuto u originalnom plan-u NIJE potvrđeno kao stvaran
+  problem u ovoj sesiji — van scope-a nakon PROBE-a, ne dirano.
+- 10 `test_db_*` testova trenutno ne prolazi zbog mrežnog tajmauta ka
+  `dmserver` (192.168.0.25) — nepovezano sa ovom fazom, ali treba
+  ponovni test run kad server bude dostupan da se potvrdi da ništa
+  drugo nije puklo.
 
-**Nezavisni checker**: preporučen (ne više "obavezan" — rizik je niži nego
-originalno pretpostavljeno, jer je ovo ekstrakcija, ne redizajn).
-
-**Ko radi**: agent sa najvišim nivoom povjerenja/iskustva na projektu,
-NIKAKO prva faza koju nova agent sesija radi na ovom refaktoru.
+**Nezavisni checker**: preporučen za preostali dio (Assembly e2e test +
+GUI provjera) — sam kod-nivo rad (3 message-building funkcije) je nizak
+rizik i pokriven testovima.
 
 ---
 
