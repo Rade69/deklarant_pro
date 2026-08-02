@@ -90,6 +90,15 @@ class AssemblyItem:
             self.invoice_line.has_origin_statement = invoice_line.has_origin_statement
             if invoice_line.is_authorized_exporter:
                 self.invoice_line.is_authorized_exporter = invoice_line.is_authorized_exporter
+            # BEZ ovoga ValidationService.country_confidence_style() (Faza 5
+            # pravilo) vraća None za svaku Assembly stavku — vidi
+            # "if not item.country_confidence: return None" — pa se ✅ NIKAD
+            # ne prikazuje čak i kad je povlastica stvarno potvrđena dokazom
+            # (bug prijavljen 2026-08-02, isti dan kao ovaj fajl).
+            if invoice_line.country_confidence:
+                self.invoice_line.country_confidence = invoice_line.country_confidence
+                self.invoice_line.country_source = invoice_line.country_source
+                self.invoice_line.country_conflict_details = invoice_line.country_conflict_details
         elif invoice_line.povlastica and not self.invoice_line.povlastica:
             zemlja = self.invoice_line.zemlja_porijekla or invoice_line.zemlja_porijekla
             self.invoice_line.povlastica = validate_preference(zemlja, invoice_line.povlastica)

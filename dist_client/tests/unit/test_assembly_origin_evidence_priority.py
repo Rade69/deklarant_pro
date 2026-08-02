@@ -27,12 +27,22 @@ def _master_item(povlastica="", zemlja="IT") -> AssemblyItem:
     return item
 
 
-def _pdf_line(povlastica="", eur1_number="", has_origin_statement=False) -> InvoiceLine:
-    """Stavka kao iz PDF fakture, opciono sa POTVRDJENIM dokazom."""
+def _pdf_line(povlastica="", eur1_number="", has_origin_statement=False,
+              country_confidence="", country_source="", country_conflict_details="") -> InvoiceLine:
+    """Stavka kao iz PDF fakture, opciono sa POTVRDJENIM dokazom.
+
+    country_confidence/country_source ovdje simuliraju ono sto stvarno
+    postavlja _apply_grouped_origin_data() (services/import_workflow/
+    apply_service.py:217-223) nakon EUR.1/PE2/PE3 dijaloga - "HIGH" +
+    izvor ("EUR1_POTVRDA"/"PDF_IZJAVA"), NIKAD prazno kad je dialog_data
+    primijenjen.
+    """
     return InvoiceLine(
         line_no=1, naziv_robe="Test", tarifni_broj="84186900",
         zemlja_porijekla="IT", povlastica=povlastica,
         eur1_number=eur1_number, has_origin_statement=has_origin_statement,
+        country_confidence=country_confidence, country_source=country_source,
+        country_conflict_details=country_conflict_details,
         cijena_jed=10.0, kolicina=1.0, jm="kom",
     )
 
@@ -92,3 +102,52 @@ class TestSaDokazom_PotvrdaUvijekPobjedjuje:
         master.update_from_invoice(pdf_line, "INV-1")
 
         assert master.invoice_line.povlastica == "EUP"
+
+
+class TestCountryConfidencePropagacija:
+    """Bug prijavljen 2026-08-02: povlastica/eur1_number su se ispravno
+    prepisivali (prva popravka), ali country_confidence NIJE - pa
+    ValidationService.country_confidence_style() (Faza 5 pravilo) vraca
+    None (nema stila/kvacice) jer 'if not item.country_confidence: return
+    None' - CAK I KAD je povlastica stvarno potvrdjena dokazom."""
+
+    def test_country_confidence_se_prepisuje_sa_potvrdjenim_dokazom(self):
+        master = _master_item(povlastica="EUP")
+        pdf_line = _pdf_line(
+            povlastica="EUP", eur1_number="EUR1-1",
+            country_confidence="HIGH", country_source="EUR1_POTVRDA",
+        )
+
+        master.update_from_invoice(pdf_line, "INV-1")
+
+        assert master.invoice_line.country_confidence == "HIGH"
+        assert master.invoice_line.country_source == "EUR1_POTVRDA"
+
+    def test_bez_dokaza_country_confidence_master_liste_ostaje_netaknut(self):
+        """Master-liste stavka NIKAD nema country_confidence (Excel ga ne
+        postavlja) - bez dokaza ostaje prazan, kao i do sad."""
+        master = _master_item(povlastica="EUP")
+        pdf_line = _pdf_line(povlastica="CEFTAP")  # bez eur1/izjave
+
+        master.update_from_invoice(pdf_line, "INV-1")
+
+        assert master.invoice_line.country_confidence == ""
+
+    def test_kompletan_scenario_povlastica_i_confidence_zajedno_potvrdjeni(self):
+        """End-to-end provjera cijelog lanca koji je korisnik vidio u GUI-ju:
+        nakon EUR.1 potvrde, i povlastica I country_confidence moraju biti
+        postavljeni - to je jedini nacin da ValidationService.
+        country_confidence_style() vrati checkmark."""
+        from services.faktura.validation_service import ValidationService
+
+        master = _master_item(povlastica="EUP")  # neconfirmed Excel guess
+        pdf_line = _pdf_line(
+            povlastica="EUP", eur1_number="EUR1-99",
+            country_confidence="HIGH", country_source="EUR1_POTVRDA",
+        )
+
+        master.update_from_invoice(pdf_line, "INV-1")
+
+        style = ValidationService.country_confidence_style(master.invoice_line)
+        assert style is not None
+        assert style["icon"] == "✅"

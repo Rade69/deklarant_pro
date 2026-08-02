@@ -25,6 +25,32 @@ nije mijenjan). 3 nova karakterizaciona testa
 (`tests/unit/test_batch_assembly_matching_wiring.py`), uklj. eksplicitan
 test da prethodno matchovane stavke PREŽIVE naredni grupni uvoz.
 
+## Dodatak 2 — 2026-08-02 (treći nalaz, korisnik prijavio: "nema kvačice")
+Nakon druge popravke, korisnik je prijavio: status "100% (4 faktura)"
+sada radi (druga popravka potvrđena), ALI stavke sa potvrđenom
+povlasticom (npr. "EUPR"/"EFTA1R" u koloni Povlastica) i dalje nemaju ✅
+kvačicu u koloni Zemlja. Provjera `PreferenceValidator` indikatora
+("⚠ 1 bez EUR1" od 88 stavki) pokazala da 87/88 stavki VEĆ ima
+`eur1_number`/`has_origin_statement` — tj. povlastica JESTE potvrđena.
+
+Uzrok: prva popravka (Dodatak 1 gore) u `update_from_invoice()` je
+kopirala `povlastica`/`eur1_number`/`has_origin_statement`/
+`is_authorized_exporter` kad postoji potvrđen dokaz, ali **NE i
+`country_confidence`/`country_source`/`country_conflict_details`** —
+polja koja `_apply_grouped_origin_data()` (`services/import_workflow/
+apply_service.py:217-223`) ISPRAVNO postavlja na `items` nakon EUR.1
+dijaloga, ali koja su se gubila pri spajanju na master-liste objekat.
+`ValidationService.country_confidence_style()` (Faza 5 pravilo) ima
+ranu provjeru `if not item.country_confidence: return None` — bez tog
+polja NIKAD ne stiže do provjere povlastice, pa se boja/kvačica
+uopšte ne primjenjuje, bez obzira što je povlastica stvarno potvrđena.
+
+Popravljeno: `update_from_invoice()` sad kopira i ta tri polja kad je
+`has_confirmed_origin` True. 3 nova karakterizaciona testa u istom
+fajlu (`TestCountryConfidencePropagacija`), uklj. end-to-end test koji
+poziva pravi `ValidationService.country_confidence_style()` i
+provjerava da vrati `icon="✅"`.
+
 ## Pogođeno
 - `FakturaView._finish_import_legacy_path` — GitNexus LOW, 1 pozivalac (`_on_import_finished`)
 - `AssemblyItem.update_from_invoice` (`services/naimenovanja/declaration_assembly.py`) —
