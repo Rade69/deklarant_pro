@@ -5,6 +5,26 @@ fakturi PRIJE nego što se povlastica upiše u draft, umjesto tihog preuzimanja
 iz Excel "preferential" kolone master liste. Korisnička odluka (2026-08-02):
 "mora raditi identično kao agentski mod, nema druge opcije."
 
+## Dodatak 2026-08-02 (isti dan, korisnik prijavio nastavak problema)
+Korisnik je nakon prve popravke prijavio: status "0% (0 faktura)" se
+ispravno puni pri POJEDINAČNOM uvozu (popravljeno gore), ali NE i pri
+GRUPNOM (batch) uvozu kad je master lista već učitana. Istraga potvrdila
+DRUGI, teži, pre-postojeći bug u `_process_batch_records_legacy`: grana
+`else: self.draft.invoice_lines.clear(); self.draft.invoice_lines.extend(all_items)`
+je (a) potpuno zaobilazila `assembly.add_invoice()` (status ostajao
+zamrznut) I (b) **brisala prethodno matchovane stavke** iz ranijih
+pojedinačnih uvoza prije nego doda nove — potencijalni gubitak podataka,
+ne samo kozmetički bug. Popravljeno u istom commit-u kao ovaj plan:
+`_process_batch_records_legacy` sad zove `add_invoice()` PO FAKTURI u
+petlji (isto grupisanje kao `final_records`), sa istim EUR.1/PE2/PE3
+tokom po fakturi kao pojedinačni uvoz. Stari "jedan dijalog za cijeli
+batch" (`_should_show_eur1_dialog`/`_show_eur1_dialog`) ostaje SAMO za
+slučaj kad master lista NIJE bila već učitana prije batcha (tj. kad
+`load_master_list_from_lines` gradi listu iz samog batcha — taj put
+nije mijenjan). 3 nova karakterizaciona testa
+(`tests/unit/test_batch_assembly_matching_wiring.py`), uklj. eksplicitan
+test da prethodno matchovane stavke PREŽIVE naredni grupni uvoz.
+
 ## Pogođeno
 - `FakturaView._finish_import_legacy_path` — GitNexus LOW, 1 pozivalac (`_on_import_finished`)
 - `AssemblyItem.update_from_invoice` (`services/naimenovanja/declaration_assembly.py`) —

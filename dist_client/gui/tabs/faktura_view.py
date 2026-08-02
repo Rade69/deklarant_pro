@@ -2492,20 +2492,64 @@ class FakturaView(BaseTabView):
         excel_count = 0
         pdf_count = 0
 
+        # Assembly VEĆ aktivan (korisnik učitao master listu PRIJE grupnog
+        # uvoza) — svaka faktura u batchu mora proći isto matchovanje i EUR.1
+        # potvrdu kao pojedinačni uvoz (korisnička odluka 2026-08-02: "mora
+        # raditi identično agentskom modu"). Ranije se ovdje radilo
+        # draft.invoice_lines.clear()+extend(all_items) što je ZAOBILAZILO
+        # add_invoice() (Assembly completion status ostajao zamrznut na
+        # 0%) I BRISALO prethodno matchovane stavke iz ranijih pojedinačnih
+        # uvoza — vidi project_rooms/2026-08-02_assembly-eur1-dialog-parity.md.
+        using_assembly_from_start = self.assembly.master_list_loaded
+        if using_assembly_from_start:
+            from services.import_workflow.prepare_service import determine_origin_dialog
+            from services.import_workflow.plan_models import PreparedInvoice, OriginDialogType
+            from services.import_workflow.decision_models import UserDecisions, InvoiceDecision
+            from services.import_workflow.apply_service import _apply_origin_decision
+
         from PySide6.QtWidgets import QApplication
         for i, record in enumerate(final_records):
             items = record["items"]
             bruto_kg = record["bruto_kg"]
             neto_kg  = record["neto_kg"]
+            invoice_name = record["invoice_name"]
 
             self._normalize_item_tariffs(items)
             MassCalculator.calculate_masses(items, bruto_kg, neto_kg)
+
+            if using_assembly_from_start:
+                self._assign_invoice_name(items, invoice_name)
+                result_obj = record.get("_import_result")
+                has_origin_statement = getattr(result_obj, "has_origin_statement", False)
+                is_authorized_exporter = getattr(result_obj, "is_authorized_exporter", False)
+
+                dialog_type = determine_origin_dialog(
+                    items, has_origin_statement, is_authorized_exporter
+                )
+                if dialog_type != OriginDialogType.NONE:
+                    internal_key = normalize_invoice_key(invoice_name) or invoice_name
+                    prepared = PreparedInvoice(
+                        internal_key=internal_key,
+                        invoice_number=invoice_name,
+                        invoice_lines=items,
+                    )
+                    origin_response = self._collect_manual_origin_response(prepared, dialog_type)
+                    decisions = UserDecisions(
+                        invoice_decisions={
+                            internal_key: InvoiceDecision(
+                                invoice_key=internal_key, origin_response=origin_response,
+                            )
+                        }
+                    )
+                    _apply_origin_decision(items, prepared, decisions)
+
+                self.assembly.add_invoice(items, invoice_name)
 
             all_items.extend(items)
             total_bruto_kg += bruto_kg
             total_neto_kg  += neto_kg
             self.draft.invoice_weights[
-                normalize_invoice_key(record["invoice_name"])
+                normalize_invoice_key(invoice_name)
             ] = (bruto_kg, neto_kg)
 
             suffix = Path(record["filepath"]).suffix.lower()
@@ -2529,19 +2573,20 @@ class FakturaView(BaseTabView):
             return
 
         # Učitaj u assembly/draft
-        if not self.assembly.master_list_loaded:
+        if not using_assembly_from_start:
             self.assembly.load_master_list_from_lines(
                 all_items, f"Grupni uvoz ({len(final_records)} faktura)"
             )
-            draft = self.assembly.create_draft()
-            self.draft.invoice_lines = draft.invoice_lines
-        else:
-            self.draft.invoice_lines.clear()
-            self.draft.invoice_lines.extend(all_items)
+        draft = self.assembly.create_draft()
+        self.draft.invoice_lines = draft.invoice_lines
 
         self._load_data_from_draft()
 
-        if self._should_show_eur1_dialog(self.draft.invoice_lines):
+        # Stari "jedan EUR.1 dialog za cijeli batch" mehanizam ostaje SAMO
+        # za slučaj kad Assembly nije bio aktivan na početku (master lista
+        # se pravi iz samog batcha) — kad JE aktivan, potvrda je već
+        # urađena po fakturi u petlji iznad.
+        if not using_assembly_from_start and self._should_show_eur1_dialog(self.draft.invoice_lines):
             logger.info("📦 Grupni uvoz → otvaram jedan EUR.1 dialog za sve fakture")
             self._show_eur1_dialog()
 
