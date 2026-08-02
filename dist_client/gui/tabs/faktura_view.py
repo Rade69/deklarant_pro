@@ -2187,20 +2187,23 @@ class FakturaView(BaseTabView):
             return
 
         try:
-            # Load master list into assembly
-            count = self.assembly.load_master_list(filepath)
-
-            # Resetuj stanje import servisa da spriječimo lažno kombinovanje
-            # sa prethodno uvezenim fakturama (npr. CASE 3 invoice+packing list)
-            from services.import_service import get_import_service
-
-            get_import_service().clear_memory()
+            # Učitaj master listu preko Controller-a (isti obrazac kao
+            # reset_assembly) — Assembly ostaje isti objekat (self.assembly
+            # i controller.assembly dijele referencu preko set_controller),
+            # load_master_list() mutira u mjestu pa nema potrebe za
+            # ponovnim dodjeljivanjem self.assembly.
+            controller = FakturaView._faktura_controller(self)
+            if controller is not None:
+                count, draft, status = controller.load_master_list(filepath)
+            else:
+                from services.import_service import get_import_service
+                count = self.assembly.load_master_list(filepath)
+                get_import_service().clear_memory()
+                draft = self.assembly.create_draft()
+                status = self.assembly.get_completion_status()
 
             # Clear existing draft items
             self.draft.invoice_lines.clear()
-
-            # Load assembly items into draft
-            draft = self.assembly.create_draft()
             self.draft.invoice_lines = draft.invoice_lines
 
             # Reload table
@@ -2210,7 +2213,6 @@ class FakturaView(BaseTabView):
             self._update_status_bar()
 
             # Show success message with status
-            status = self.assembly.get_completion_status()
             QMessageBox.information(
                 self,
                 "Glavna lista učitana",
@@ -3890,8 +3892,7 @@ class FakturaView(BaseTabView):
             self.draft.source_files.clear()
 
             # Reset accumulated weights
-            self.weight_manager.accumulated_bruto_kg = 0.0
-            self.weight_manager.accumulated_neto_kg = 0.0
+            self.weight_manager.reset_weights()
             self.input_bruto.clear()
             self.input_neto.clear()
 
@@ -5263,10 +5264,7 @@ class FakturaView(BaseTabView):
         # naimenovanja se TIHO izostavljaju iz fajla (Codex nalaz #3).
         # Upozori korisnika PRIJE izvoza umjesto da otkrije nedostatak
         # tek pri pregledu gotovog fajla.
-        missing_ordinal = [
-            line for line in self.draft.invoice_lines
-            if getattr(line, "assigned_naimenovanje_ordinal", 0) <= 0
-        ]
+        missing_ordinal = ExportService.find_unassigned_items(self.draft.invoice_lines)
         if missing_ordinal:
             reply = QMessageBox.question(
                 self,

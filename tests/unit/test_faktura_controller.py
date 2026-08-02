@@ -105,6 +105,56 @@ class TestFakturaControllerImport:
         ]
 
 
+class TestLoadMasterList:
+    """FakturaController.load_master_list() — Faza 7a (2026-08-02),
+    izdvojeno iz FakturaView._on_load_master_list (direktni self.assembly
+    pozivi mimo Controller-a)."""
+
+    def _make_master_list_xlsx(self, tmp_path) -> str:
+        from openpyxl import Workbook
+
+        path = tmp_path / "glavna_lista.xlsx"
+        wb = Workbook()
+        sheet = wb.active
+        sheet.append([
+            "Rbr", "Šifra", "Naziv dobra / usluge", "JM", "Kol.",
+            "Tarifni br", "Zemlja porekla", "Preferencijal",
+        ])
+        sheet.append([1, "A-1", "GREJAC", "KOM", 2, "8516802090", "IT", "DA"])
+        wb.save(path)
+        wb.close()
+        return str(path)
+
+    def test_vraca_count_draft_i_status(self, tmp_path):
+        from gui.tabs.faktura_controller import FakturaController
+
+        draft = DeclarationDraft()
+        ctrl = FakturaController(get_draft_fn=lambda: draft)
+        filepath = self._make_master_list_xlsx(tmp_path)
+
+        count, new_draft, status = ctrl.load_master_list(filepath)
+
+        assert count == 1
+        assert len(new_draft.invoice_lines) == 1
+        assert status["total"] == 1
+        assert ctrl.assembly.master_list_loaded is True
+
+    def test_ne_mijenja_ctrl_assembly_referencu(self, tmp_path):
+        """load_master_list mutira POSTOJECI assembly objekat u mjestu -
+        ne smije zamijeniti self.assembly novim objektom (za razliku od
+        reset_assembly), jer View drzi istu referencu preko set_controller."""
+        from gui.tabs.faktura_controller import FakturaController
+
+        draft = DeclarationDraft()
+        ctrl = FakturaController(get_draft_fn=lambda: draft)
+        original_assembly = ctrl.assembly
+        filepath = self._make_master_list_xlsx(tmp_path)
+
+        ctrl.load_master_list(filepath)
+
+        assert ctrl.assembly is original_assembly
+
+
 class TestFakturaTabImport:
     """FakturaTab startup import testovi."""
 

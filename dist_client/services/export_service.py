@@ -21,6 +21,17 @@ class ExportService:
     """Servis za export fakturnih stavki u različite formate."""
 
     @staticmethod
+    def find_unassigned_items(items: List[InvoiceLine]) -> List[InvoiceLine]:
+        """Stavke bez dodijeljenog naimenovanja — export_to_excel ih tiho
+        izostavlja iz fajla (grupiše isključivo po
+        assigned_naimenovanje_ordinal > 0), pa View treba da upozori
+        korisnika PRIJE izvoza."""
+        return [
+            line for line in items
+            if getattr(line, "assigned_naimenovanje_ordinal", 0) <= 0
+        ]
+
+    @staticmethod
     def export_to_excel(items: List[InvoiceLine], filepath: str, draft: Optional[DeclarationDraft] = None) -> bool:
         # docs/sections/export-pdf-excel.md — potpuno prepravljen export_to_excel
         """

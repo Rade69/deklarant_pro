@@ -91,6 +91,15 @@ class FakturaController(QObject):
         self.assembly = DeclarationAssembly()
         return self.assembly
 
+    def load_master_list(self, filepath: str):
+        """Učitaj master listu (Excel) u assembly. Vraća (count, draft, status)."""
+        from services.import_service import get_import_service
+        count = self.assembly.load_master_list(filepath)
+        get_import_service().clear_memory()
+        draft = self.assembly.create_draft()
+        status = self.assembly.get_completion_status()
+        return count, draft, status
+
     # ── Import tok (Faza 4) ──────────────────────────────────
 
     def prepare_import_plan(self, result, source_path: str = ""):
