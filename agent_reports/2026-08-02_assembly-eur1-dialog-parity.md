@@ -41,9 +41,11 @@ Deterministički testovi (najjači nivo po AGENTS.md hijerarhiji): 9 testova u `
 - Checker korišćen: DA (pokrenut paralelno sa pisanjem ovog izvještaja, general-purpose agent, u pozadini)
 - Checker agent/model: Claude Code general-purpose subagent
 - Šta je checker provjerio nezavisno: zadatak — pokušati oboriti hipotezu da su sve tri popravke ispravne/kompletne; provjeriti da li postoji JOŠ neko polje iz `_apply_grouped_origin_data()` koje se gubi (isti class buga kao Popravka 3); provjeriti "flat" (non-grouped) granu `_apply_origin_decision`-a odvojeno; provjeriti tipsku sigurnost `has_origin_statement`/`is_authorized_exporter` izvučenih iz `record.get("_import_result")` u batch petlji; provjeriti edge case otkazivanja EUR.1 dijaloga usred Assembly uvoza; provjeriti da testovi stvarno testiraju tvrđeno ponašanje.
-- Koje pretpostavke je pokušao oboriti: (navedeno iznad, kompletan rezultat stiže nakon završetka)
-- Šta je potvrđeno / Šta nije potvrđeno: **REZULTAT NIJE JOŠ STIGAO u trenutku pisanja ovog izvještaja** — checker je pokrenut u pozadini paralelno. Ovaj izvještaj će biti dopunjen ili će novi kratki dodatak biti napisan kad rezultat stigne.
-- Da li je promjena spremna za prihvatanje: PARCIJALNO — kod-nivo dokazano testovima i korisnikovom GUI potvrdom za sve tri popravke pojedinačno; nezavisna provjera cijelog lanca je u toku.
+- Koje pretpostavke je pokušao oboriti: da li postoji propušteno polje iz `_apply_grouped_origin_data()` (isti class buga kao Popravka 3); da li "flat" (non-grouped) grana `_apply_origin_decision`-a zahtijeva isto; tipska sigurnost `has_origin_statement`/`is_authorized_exporter` iz `record.get("_import_result")`; edge case otkazivanja dijaloga; da li testovi stvarno testiraju tvrđeno ponašanje.
+- Šta je potvrđeno: sve tri popravke rade ispravno, pun skup relevantnih polja iz `_apply_grouped_origin_data()` je pokriven (nema dodatnog propusta te vrste), `record.get("_import_result")` je tipski siguran (`getattr(None, ..., False)`), 17 ciljanih + 106 širih povezanih testova prolazi bez regresije, `unmatched` stavke ne prolaze kroz `update_from_invoice()` pa merge-prioritet nije ni relevantan za taj slučaj.
+- Šta nije potvrđeno: stvaran GUI klik-test scenarija otkazivanja dijaloga (nalaz izveden iz čitanja koda, ne izvršenog uživo scenarija); nije mapiran pun obim importera koji per-line `has_origin_statement` pre-postavljaju (potvrđeno samo za `proton_system_importer.py`, dovoljno da dokaže da rizik postoji).
+- Novi nalazi: (1) otkazivanje EUR.1/PE2/PE3 dijaloga ne čisti per-line `has_origin_statement` koje neki parseri postavljaju direktno iz PDF teksta — DIJELJENA infrastruktura sa Agent modom, van scope-a, NIJE popravljeno, zahtijeva korisničku odluku; (2) `is_authorized_exporter` asimetrično kopiranje — POPRAVLJENO (commit `7c753ae`); (3) netačan komentar u testu — POPRAVLJENO (isti commit).
+- Da li je promjena spremna za prihvatanje: DA za sve popravljeno (kod-nivo dokazano testovima + GUI potvrda korisnika za popravke 1-3, nezavisno provjereno za sve tri + dodatna dva nalaza). Nalaz #1 (otkazivanje dijaloga) ostaje otvoren — nije "spreman za prihvatanje" jer nije ni pokušan, čeka korisničku odluku o obimu (dira 3 uvoz-toka).
 
 ## Pronađeni problemi
 Svaka od tri popravke je otkrila SLEDEĆI, dublji propust u istom kodu — obrazac vrijedan pažnje: prva ispravka izgleda kompletna dok se stvarno ne testira u GUI-ju sa punim tokom (učitaj listu → uvezi → provjeri status → provjeri boju). Ovo je isti "porodični" obrazac kao stariji bugovi u "Zemlja porijekla/povlastica" memoriji (6 zapisa, Faza 5) — više odvojenih dimenzija (povlastica, completion status, vizuelna potvrda) koje izgledaju povezano ali su tehnički nezavisna polja/putevi koda, lako je popraviti jednu dimenziju i pretpostaviti da su ostale automatski riješene.
@@ -62,13 +64,13 @@ Originalni fazni plan (`project_rooms/2026-08-01_faktura-3layer-refaktor-fazni-p
 | `d036d5d` | fix(faktura): prenesi country_confidence pri Assembly EUR.1 potvrdi |
 | `9feb782` | docs(faktura): ispravi dva zastarjela/kontradiktorna statusa u planovima |
 | `feb9127` | docs(faktura): zatvori pitanje ImportService.import_multiple_files preklapanja |
+| `7c753ae` | fix(faktura): simetricno kopiraj is_authorized_exporter (nalaz nezavisne provjere) |
 
 ## Rizici / ograničenja
-Nezavisna provjera cijelog lanca je u toku u trenutku pisanja (vidi "Nezavisna provjera" iznad) — ako pronađe dodatni propušten field ili edge case, potreban je četvrti krug popravke. Otkazivanje EUR.1 dijaloga usred Assembly uvoza NIJE eksplicitno testirano test-om (samo implicitno kroz `resolution=SKIPPED` putanju u `_apply_origin_decision`, koja rano izlazi bez izmjene — provjeriti da li checker ovo potvrđuje). Ne postoji GUI screenshot dokaz za Popravku 3 (country_confidence) u trenutku pisanja ovog izvještaja — korisnik nije još potvrdio da se ✅ kvačica sad stvarno pojavljuje.
+**Otvoren rizik (nije popravljen)**: otkazivanje/reject EUR.1/PE2/PE3 dijaloga ne čisti per-line `has_origin_statement` koje neki parseri (potvrđeno: `importers/proton_system_importer.py`) postavljaju direktno iz PDF teksta prije dijaloga — flag ostaje `True` i upisuje se u draft bez obzira na otkazivanje. Dijeljena infrastruktura sa Agent modom (`_apply_origin_decision`), ne uvedeno danas, van scope-a Assembly-specifičnog rada. Vizuelna kvačica se ne pojavljuje (country_confidence ostaje prazan), ali sam flag ipak ulazi u draft — carinski relevantno ako se `has_origin_statement` koristi drugdje (npr. XML export) nezavisno od kvačice.
 
 ## Potreban follow-up
-- Sačekati i uključiti rezultat nezavisne provjere (checker agent, u toku).
-- Sačekati korisnikovu GUI potvrdu da se ✅ kvačica sad prikazuje nakon Popravke 3.
+- **Fact/Decision za korisnika**: da li se popravlja nalaz #1 (otkazivanje dijaloga ne čisti parser-postavljen `has_origin_statement`) — dira `services/import_workflow/apply_service.py`, dijeljeno sa Agent modom i migriranim pojedinačnim uvozom, van scope-a ovog izvještaja dok se ne odluči.
 - Faza 7 (van scope-a ovog izvještaja) ostaje neriješena — zahtijeva zasebnu odluku korisnika prije početka.
 
 ## Potrebna korisnička potvrda
