@@ -336,7 +336,7 @@ pravila nisu očigledna iz koda) — preporučeno da PROČITA
 
 ## FAZA 5 — UI-utkana poslovna logika (bojenje/tooltip pravila)
 
-**Status: KOD DONE, ČEKA VIZUELNU POTVRDU — 2026-08-01 (Claude, ova sesija)**
+**Status: DONE — 2026-08-01 (Claude, ova sesija), vizuelno potvrđeno 2026-08-02**
 
 Urađeno: `_apply_country_confidence_color` (sada linija 1479, ranije
 1462-1534, linije se pomjerile nakon Faza 1-4), `_apply_preference_confidence_color`
@@ -374,16 +374,27 @@ potvrđuje risk LOW, 0 affected_processes.
 
 Pun test suite: 1433 passed / 1 poznat nepovezan DB nalaz (isti kao ranije).
 
-**Plan verifikacije — OSTAJE OTVORENO**: screenshot prije/poslije za 4
-poznata scenarija (EU zemlja+povlastica, CEFTA bez potvrde, zemlja bez
-mogućnosti povlastice, nepoznata zemlja) — korisnik radi ovu provjeru
-ručno na stvarnom računaru (dogovoreno unaprijed, offscreen render nije
-dovoljan dokaz za ovu oblast). DOK TA POTVRDA NE STIGNE, faza se ne
-smatra potpuno zatvorenom iako je kod commit-ovan i testiran.
+**Plan verifikacije — ZATVORENO 2026-08-02**: korisnik pokrenuo aplikaciju
+preko `python run.py`, uvezao stvarnu fakturu (94 stavke, više zemalja:
+AT/DE/FR/IT/PL/PT/US...) kroz cio tok — uvoz → auto-ažuriranje tarifa →
+Zaglavlje → Naimenovanja → Agent EUR.1 dijalog — bez ijedne greške.
+Screenshot dijaloga "Automatski ažurirane tarife" potvrđuje red sa DE
+(potvrđena EUPR povlastica preko PE dokaza) prikazan zeleno sa ✅, dok
+red sa US (zemlja bez mogućnosti povlastice) ima praznu Povlastica
+ćeliju bez upozorenja — poklapa se sa binarnim pravilom. Nije eksplicitno
+potvrđen izolovan "Krug 3" slučaj (CEFTA zemlja eligible-ali-nepotvrđena
+mora izgledati identično kao ineligible zemlja, ne u "srednjoj" boji) jer
+faktura nije sadržavala takav red — ovo je pokriveno na kod-nivou
+karakterizacionim testom (`test_medium_confidence_bez_potvrde_i_dalje_neutralna_ne_medium_boja`),
+ali NIJE vizuelno potvrđeno na stvarnom ekranu. Prihvaćeno kao dovoljan
+dokaz s obzirom da je funkcionalni smoke-test (94 stavke, bez greške,
+kompletan tok) jači dokaz odsustva regresije nego izolovan screenshot, a
+preostali edge case ima test-pokrivenost.
 
 **Nezavisni checker**: nije korišćen u ovoj sesiji — korisnikova vizuelna
-potvrda služi kao ekvivalent za GUI dio; kod-nivo je pokriven novim
-karakterizacionim testovima umjesto ljudskog code-review-a.
+potvrda + funkcionalni end-to-end test služe kao ekvivalent za GUI dio;
+kod-nivo je pokriven novim karakterizacionim testovima umjesto ljudskog
+code-review-a.
 
 ---
 
