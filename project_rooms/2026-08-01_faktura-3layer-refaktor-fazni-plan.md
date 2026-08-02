@@ -505,19 +505,73 @@ koristi se). Sumnja iz originalnog plana je bila zasnovana samo na sličnosti
 imena — ne treba dalja akcija, mrtav kod van scope-a ovog refaktora za
 brisanje.
 
-## FAZA 7 — Van trenutnog inventara (sledeći krug, nije dio ovog plana)
+## FAZA 7 — `_on_*` Qt handleri sa utkanom poslovnom logikom
 
-Subagent koji je napravio inventar (2026-08-01) je primijetio da
-`_on_export_excel`, `_on_export_pdf`, `_on_load_mappings_from_xml`,
-`_on_load_previous_declaration`, `_on_load_master_list` — iako su
-legitimni `_on_*` Qt handleri (van scope-a Faza 1-6 jer taj scope
-namjerno pokriva samo NE-`_on_*` metode) — sadrže znatnu poslovnu logiku
-utkanu u handler (npr. cijela XML mapping logika, parsiranje prethodne
-deklaracije). `_on_load_master_list` takođe ima preostala 3 od 13
-direktnih `self.validator`/`self.assembly` poziva. Ovo NIJE planirano u
-Fazama 1-6 — zahtijeva zaseban project_room kad dođe na red, jer prvo
-treba odlučiti da li se `_on_*` handleri uopšte diraju (rizik: to su
-signal-wired metode, greška u razdvajanju lakše lomi Qt signal chain).
+**Status: PLAN — korisnička odluka 2026-08-02: "želim da se troslojna
+arhitektura potpuno završi", Faza 7 je sad DIO ovog plana, ne van njega.**
+
+Svjež audit (2026-08-02, subagent, cio fajl pročitan metod-po-metod) —
+originalna procjena od 2026-08-01 je bila djelimično zastarjela nakon
+Faza 1-6 izmjena. Fajl trenutno ima **25** `_on_*` metoda (ne 24).
+Provjereno: `self.validator.*` više NEMA nijednog direktnog poziva u
+cijelom fajlu (Faza 3 potpuno riješila). `self.assembly.*` direktni
+pozivi ostaju SAMO u `_on_load_master_list` (3×) — potvrđeno, ostatak
+`self.assembly.*` poziva je u `_finish_import_legacy_path`/
+`_process_batch_records_legacy` (NISU `_on_*`, već pokriveno Fazom 6).
+
+**Rezultat klasifikacije (25 metoda)**:
+- 12 čist wiring — ne dirati.
+- 4 mješovito, ekstrakcija se ne isplati (trivijalno) — ne dirati.
+- 2 mješovito, niska vrijednost ekstrakcije, nizak rizik — uraditi (Faza 7a).
+- 4 sadrži pravu logiku, srednji rizik — uraditi (Faza 7a/7b).
+- 2 sadrži pravu logiku, VISOK rizik (nova otkrića, nisu bila na
+  originalnoj listi od 5) — uraditi POSLEDNJE, sa punom pažnjom (Faza 7c).
+
+### Faza 7a — nisko-rizično (uraditi prvo)
+
+**Status: PENDING**
+
+| Metoda | Linije | Šta | Target |
+|---|---|---|---|
+| `_on_clear_all` | 3866-3925 | Ručno nulira `weight_manager.accumulated_bruto_kg/neto_kg` umjesto poziva postojeće `weight_manager.reset_weights()` (koja se već koristi drugdje) — nekonzistentnost, ne bug, čista zamjena 2 reda | koristiti postojeći `WeightManager.reset_weights()` |
+| `_on_export_excel` | 5254-5309 | Linije 5266-5269: `missing_ordinal` provjera (koliko stavki nema naimenovanje) — čista funkcija nad podacima | `services/faktura/export_service.py` (npr. `find_unassigned_items(lines)`) |
+| `_on_load_master_list` | 2177-2235 | 3 direktna `self.assembly.*` poziva (`load_master_list`, `create_draft`, `get_completion_status`) + direktna mutacija drafta — isti obrazac kao već postojeći `FakturaController.reset_assembly()` | Nova `FakturaController` wrapper metoda (npr. `load_master_list(filepath)` koja vrati status objekat) |
+
+### Faza 7b — srednji rizik
+
+**Status: PENDING**
+
+| Metoda | Linije | Šta | Target |
+|---|---|---|---|
+| `_on_item_changed` | 1515-1586 | 1532-1565: mapiranje kolona→polje + parsiranje; 1550-1560 čišćenje ikonica-prefiksa iz teksta zemlje (ne samo prikaz); 1574-1583 dispatch u decision_state sync | `services/faktura/faktura_service.py` (npr. `apply_cell_edit(item, col, value)`) |
+| `_on_bulk_change_tariff` | 1668-1710 | 1692-1702: masovna mutacija `tarifni_broj` + poziv "naučenog" mapping upisa po redu | `services/faktura/faktura_service.py` — razdvojiti mutation loop od Qt redraw-a |
+| `_on_load_previous_declaration` | 5522-5622 | 5526-5532: fallback logika za izvoznika (draft → prva linija → ručni odabir); 5605-5607: setattr petlja za header polja — isti obrazac kao `_apply_import_result_to_header`, ali dupliran | `services/faktura/xml_header_extraction.py` (gdje već živi `extract_header_from_xml`) |
+
+### Faza 7c — visok rizik, raditi POSLEDNJE, sa punom pažnjom
+
+**Status: PENDING**
+
+**`_on_import_xml`** (2095-2176) — cijeli paralelni, NEMIGRIRANI ručni
+XML-uvoz tok (detekcija formata, parsiranje, replace-vs-not odluka,
+`header_data` setattr petlja) — zaobilazi `import_workflow` pipeline koji
+koriste svi ostali uvoz putevi. Najveći pojedinačni preostali gap. Rizik
+HIGH — dijalozi isprepleteni sa logikom, mehanička ekstrakcija bez
+plan/decision/apply rascjepa (isti obrazac kao Faza 4a `ImportWorkflowService`)
+je rizična.
+
+**`_on_historical_validation_finished`** (4332-4467) — 4348-4353:
+concurrency guard (token/generation); 4363-4376: **"KRITIČNO"** (citat iz
+postojećeg koda) remapiranje `line_index` iz lokalnih u stvarne indekse
+reda; 4447-4460: inline `_on_accepted` closure koja direktno mutira
+draft+tabelu. Docstring eksplicitno kaže da sadržaj NIJE mijenjan pri
+ranijoj ekstrakciji (samo mjesto izvršavanja premješteno) — svjesna
+prošla odluka. Rizik HIGH — indeksiranje je već bilo izvor bugova u ovoj
+tačnoj oblasti, dirati bez punog karakterizacionog test pokrivenja je
+neodgovorno.
+
+**Obavezno za oba**: karakterizacioni testovi PRIJE bilo koje izmjene
+(isti obrazac kao Faze 5/6), `gitnexus_impact` provjera, GUI ručna
+potvrda korisnika nakon izmjene (isti obrazac kao Faza 5/6 EUR.1 lanac).
 
 ---
 
