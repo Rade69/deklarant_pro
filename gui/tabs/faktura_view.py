@@ -2556,31 +2556,15 @@ class FakturaView(BaseTabView):
         self._set_buttons_enabled(True)
         self._offer_split_by_country(all_items)
 
-        skipped_count = len(records) - len(final_records)
-        message = "📦 Grupni uvoz završen!\n\n"
-        message += f"✅ Uspješno faktura: {len(final_records)}\n"
-        if skipped_count:
-            message += f"🔗 Spojeno/preskočeno parova: {skipped_count}\n"
-        message += f"📋 Ukupno stavki: {len(all_items)}\n"
-        message += f"⚖️  Bruto: {FakturaService.format_weight(total_bruto_kg)} kg\n"
-        message += f"⚖️  Neto: {FakturaService.format_weight(total_neto_kg)} kg\n"
-
-        if failed_imports:
-            message += f"\n❌ Neuspješno: {len(failed_imports)}\n"
-            for fname, err in failed_imports[:3]:
-                message += f"   • {fname}: {err[:80]}\n"
-            if len(failed_imports) > 3:
-                message += f"   ... i još {len(failed_imports) - 3}\n"
-
         all_warnings = []
         for rec in final_records:
             all_warnings.extend(rec.get("parser_warnings", []))
-        if all_warnings:
-            message += f"\n⚠️ Upozorenja parsera ({len(all_warnings)}):\n"
-            for w in all_warnings[:5]:
-                message += f"   • {w}\n"
-            if len(all_warnings) > 5:
-                message += f"   ... i još {len(all_warnings) - 5}\n"
+
+        from services.faktura.legacy_import_service import build_legacy_batch_import_message
+        message = build_legacy_batch_import_message(
+            len(records), len(final_records), len(all_items),
+            total_bruto_kg, total_neto_kg, failed_imports, all_warnings,
+        )
 
         QMessageBox.information(self, "Grupni uvoz", message)
 
@@ -3543,42 +3527,19 @@ class FakturaView(BaseTabView):
                 # Get completion status
                 status = self.assembly.get_completion_status()
 
-                # Build message with match statistics
-                message = f"Faktura '{invoice_name}' dodana u assembly.\n\n"
-                message += f"Match rezultati:\n"
-                message += f"- Matched: {matched} stavki\n"
-                message += f"- Unmatched: {unmatched} stavki\n\n"
-
-                # Add weight information if available
-                if bruto_kg > 0 or neto_kg > 0:
-                    message += f"Težine sa fakture '{invoice_name}':\n"
-                    message += f"- Bruto: {bruto_kg:.3f} kg\n"
-                    message += f"- Neto: {neto_kg:.3f} kg\n\n"
-
                 # Show actual draft weights (read from input fields - sada ispravno ažurirani)
                 try:
-                    current_bruto = FakturaService.parse_weight_input(
-                        self.input_bruto.text() or "0"
+                    current_weights = (
+                        FakturaService.parse_weight_input(self.input_bruto.text() or "0"),
+                        FakturaService.parse_weight_input(self.input_neto.text() or "0"),
                     )
-                    current_neto = FakturaService.parse_weight_input(
-                        self.input_neto.text() or "0"
-                    )
-                    message += f"Ukupno u draft-u (nakon matching-a):\n"
-                    message += f"- Bruto: {current_bruto:.3f} kg\n"
-                    message += f"- Neto: {current_neto:.3f} kg\n\n"
                 except (ValueError, TypeError):
-                    pass  # Skip if cannot parse
+                    current_weights = None
 
-                # Obavijesti korisnika gdje će vidjeti unmatched stavke
-                if unmatched > 0:
-                    message += "⚠️ Nepodudarajuće stavke su dodane u tabelu i označene CRVENOM bojom.\n"
-                    message += "Provjerite ih i ručno popunite nedostajuća polja (tarifni broj, zemlja).\n\n"
-
-                message += f"Status:\n"
-                message += f"- Ukupno stavki: {status['total']}\n"
-                message += f"- Kompletno: {status['complete']} ({status['completion_percentage']:.1f}%)\n"
-                message += f"- Uvezene fakture: {status['imported_invoices_count']}\n\n"
-
+                from services.faktura.legacy_import_service import build_assembly_match_message
+                message = build_assembly_match_message(
+                    invoice_name, matched, unmatched, bruto_kg, neto_kg, status, current_weights
+                )
                 message = self._append_imported_files_message(message)
 
                 # Show message box (warning if unmatched, info otherwise)
@@ -3699,41 +3660,18 @@ class FakturaView(BaseTabView):
                 self._set_buttons_enabled(True)
 
                 # Build success message
-                message = (
-                    f"Uspješno uvezeno {len(items)} stavki iz '{invoice_name}'.\n\n"
+                from services.faktura.legacy_import_service import (
+                    build_manual_import_prefix_message,
+                    build_manual_import_suffix_message,
                 )
-
-                if previous_count > 0:
-                    message += f"📊 Akumulirano:\n"
-                    message += f"- Prethodno: {previous_count} stavki\n"
-                    message += f"- Nova faktura: {len(items)} stavki\n"
-                    message += f"- Ukupno: {total_count} stavki\n\n"
-
-                # Add weight information if available
-                if bruto_kg > 0 or neto_kg > 0:
-                    message += f"Težine sa fakture '{invoice_name}':\n"
-                    message += f"- Bruto: {bruto_kg:.3f} kg\n"
-                    message += f"- Neto: {neto_kg:.3f} kg\n\n"
-                    message += f"Akumulirano ukupno:\n"
-                    message += (
-                        f"- Bruto: {self.weight_manager.accumulated_bruto_kg:.3f} kg\n"
-                    )
-                    message += (
-                        f"- Neto: {self.weight_manager.accumulated_neto_kg:.3f} kg\n\n"
-                    )
-
+                message = build_manual_import_prefix_message(
+                    invoice_name, len(items), previous_count, total_count,
+                    bruto_kg, neto_kg,
+                    self.weight_manager.accumulated_bruto_kg,
+                    self.weight_manager.accumulated_neto_kg,
+                )
                 message = self._append_imported_files_message(message, min_files=2)
-
-                # Dodaj info poruku o redoslijedu
-                if is_combined:
-                    message += f"🔗 Redoslijed stavki održan iz PDF fakture."
-                elif import_type == "loren_excel":
-                    message += f"⚠️  LOREN EXCEL: Iznosi (cijene) dolaze iz PDF-a!\n"
-                    message += f"   Uvezite PDF fajl sa istim brojem fakture da biste dobili\n"
-                    message += f"   ispravne iznose. Trenutno su svi iznosi = 0."
-                else:
-                    message += f"💡 Možete nastaviti sa uvozom dodatnih faktura.\n"
-                    message += f"   Svaka faktura će biti dodana u draft održavajući svoj redoslijed."
+                message += build_manual_import_suffix_message(is_combined, import_type)
 
                 # Show success message
                 QMessageBox.information(self, "Uvoz uspješan", message)
