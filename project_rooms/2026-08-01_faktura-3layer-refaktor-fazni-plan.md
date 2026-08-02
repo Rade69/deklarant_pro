@@ -381,15 +381,18 @@ Zaglavlje → Naimenovanja → Agent EUR.1 dijalog — bez ijedne greške.
 Screenshot dijaloga "Automatski ažurirane tarife" potvrđuje red sa DE
 (potvrđena EUPR povlastica preko PE dokaza) prikazan zeleno sa ✅, dok
 red sa US (zemlja bez mogućnosti povlastice) ima praznu Povlastica
-ćeliju bez upozorenja — poklapa se sa binarnim pravilom. Nije eksplicitno
-potvrđen izolovan "Krug 3" slučaj (CEFTA zemlja eligible-ali-nepotvrđena
-mora izgledati identično kao ineligible zemlja, ne u "srednjoj" boji) jer
-faktura nije sadržavala takav red — ovo je pokriveno na kod-nivou
-karakterizacionim testom (`test_medium_confidence_bez_potvrde_i_dalje_neutralna_ne_medium_boja`),
-ali NIJE vizuelno potvrđeno na stvarnom ekranu. Prihvaćeno kao dovoljan
-dokaz s obzirom da je funkcionalni smoke-test (94 stavke, bez greške,
-kompletan tok) jači dokaz odsustva regresije nego izolovan screenshot, a
-preostali edge case ima test-pokrivenost.
+ćeliju bez upozorenja — poklapa se sa binarnim pravilom.
+
+**Drugi screenshot (2026-08-02) — izolovan "Krug 3" slučaj eksplicitno
+potvrđen** na realnoj fakturi (720/2026, 721/2026): RS redovi (CEFTA,
+teoretski eligible) i CN redovi (nikad eligible) OBA prikazuju kolonu
+Zemlja BEZ ✅ kvačice — identičan neutralni tretman, tačno kako pravilo
+zahtijeva (eligibility ne smije uticati na ovu kolonu). Istovremeno,
+kolona Povlastica ih ispravno razlikuje: RS redovi imaju žućkastu
+pozadinu ("provjerite ručno" upozorenje — eligible ali nepotvrđena), CN
+redovi nemaju nikakvu boju (upozorenje bi bilo besmisleno jer CN nikad
+neće imati povlasticu). Ovo je tačna distinkcija tri kruga korekcije iz
+memorije — potpuno vizuelno potvrđena, ne samo test-pokrivena.
 
 **Nezavisni checker**: nije korišćen u ovoj sesiji — korisnikova vizuelna
 potvrda + funkcionalni end-to-end test služe kao ekvivalent za GUI dio;
