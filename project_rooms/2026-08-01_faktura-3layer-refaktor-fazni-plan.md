@@ -458,25 +458,38 @@ ispostavilo se da ta logika VEĆ jeste u servisu (`DeclarationAssembly`) —
 preostalo je samo poruke izdvojiti, ne matching logiku (vidi "Šta je
 stvarno urađeno" iznad za obrazloženje).
 
+~~Ekvivalentan e2e test za Assembly/master-list put~~ — **riješeno
+2026-08-02**: `tests/integration/test_assembly_master_list_import_e2e.py`
+(5 testova, i u `dist_client/`), sa STVARNOM master listom (`Podela po
+poreklu.xlsx`, 88 stavki) i stvarnim fakturama Master Frigo (R2503393,
+R2503394) — isti scenario koji je korisnik ručno testirao u GUI-ju.
+Pokriva: master lista bez ijedne kompletne stavke prije matchovanja,
+matchovanje jedne fakture (4/4 stavke, 0 unmatched), akumulacija dvije
+fakture bez gubitka prvog matcha, `create_draft()` čuva redoslijed cijele
+master liste (88, ne samo matched), i direktna provjera da
+`build_assembly_match_message` (Faza 6 ekstrakcija) ispravno renderuje sa
+STVARNIM matched/unmatched/status vrijednostima, ne samo sintetičkim
+fixture-ima. Ovim je zatvorena rupa koju `history.md` #53 traži prije
+nego se Assembly tok smatra potpuno "pokrivenim servisom i testovima".
+
 **Preostalo (nije urađeno u ovoj sesiji)**:
-- Ekvivalentan e2e test za Assembly/master-list put (postoji samo za
-  unified put, `tests/integration/test_real_invoice_import_e2e.py`) —
-  prava rupa koju `history.md` #53 traži da se zatvori prije nego se ovaj
-  tok smatra potpuno "pokrivenim servisom i testovima".
 - Ručna GUI provjera "Učitaj glavnu listu" toka sa realnom master-listom
-  (korisnik, isti obrazac kao Faza 5).
+  — korisnik je pokazao screenshot učitane master liste (88 stavki,
+  poklapa se sa gornjim e2e testom), ali ne i sam korak matchovanja
+  fakture (dugme "PDF"/"Excel"/"XML" u sekciji Uvezi nakon učitane
+  master liste) — e2e test sad dokazuje da taj korak radi programski,
+  vizuelna GUI potvrda ostaje opciona.
 - `_import_multiple_files`/`ImportService.import_multiple_files`
   preklapanje pomenuto u originalnom plan-u NIJE potvrđeno kao stvaran
   problem u ovoj sesiji — van scope-a nakon PROBE-a, ne dirano.
 
 ~~10 `test_db_*` testova trenutno ne prolazi zbog mrežnog tajmauta~~ —
 **riješeno 2026-08-02**: `dmserver` opet dostupan, svih 10 testova
-prolazi čisto na ponovnom pokretanju (vidi "Šta je stvarno urađeno"
-iznad), potvrđena odsutnost regresije.
+prolazi čisto na ponovnom pokretanju, potvrđena odsutnost regresije.
 
-**Nezavisni checker**: preporučen za preostali dio (Assembly e2e test +
-GUI provjera) — sam kod-nivo rad (3 message-building funkcije) je nizak
-rizik i pokriven testovima.
+**Nezavisni checker**: preporučen ali ne obavezan — kod-nivo rad (3
+message-building funkcije + Assembly matching netaknut) je nizak rizik i
+sad pokriven i karakterizacionim I e2e testovima sa stvarnim podacima.
 
 ---
 
