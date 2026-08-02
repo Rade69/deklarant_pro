@@ -407,7 +407,7 @@ code-review-a.
 
 ## FAZA 6 — Assembly/master-list uvoz logika (preformulisano nakon PROBE-a)
 
-**Status: DJELIMIČNO DONE — 2026-08-02 (Claude, ova sesija), commit `039e080`**
+**Status: DONE — 2026-08-02 (Claude, ova sesija), commit `039e080` + e2e test `7b79367`, vizuelno potvrđeno u GUI-ju**
 
 **Šta je stvarno urađeno (uže od originalnog cilja ispod, namjerno)**: nakon
 čitanja pune ~330-linijske `_finish_import_legacy_path` metode, procjena je
@@ -472,13 +472,15 @@ STVARNIM matched/unmatched/status vrijednostima, ne samo sintetičkim
 fixture-ima. Ovim je zatvorena rupa koju `history.md` #53 traži prije
 nego se Assembly tok smatra potpuno "pokrivenim servisom i testovima".
 
+~~Ručna GUI provjera "Učitaj glavnu listu" toka~~ — **riješeno 2026-08-02**:
+korisnik je u GUI-ju uvezao sve 4 PDF fakture pojedinačno (ne batch) nakon
+učitane master liste — status traka potvrđuje "✅ 100% (4 faktura)", "Sve
+validne", bez grešaka. Poklapa se sa e2e testom (0%→100% completion, 0
+unmatched). Ovo je pravi korisnički put kroz `_finish_import_legacy_path`
+Assembly granu, kod koje su Faza 6 poruke izdvojene — potvrđeno i
+programski i vizuelno.
+
 **Preostalo (nije urađeno u ovoj sesiji)**:
-- Ručna GUI provjera "Učitaj glavnu listu" toka sa realnom master-listom
-  — korisnik je pokazao screenshot učitane master liste (88 stavki,
-  poklapa se sa gornjim e2e testom), ali ne i sam korak matchovanja
-  fakture (dugme "PDF"/"Excel"/"XML" u sekciji Uvezi nakon učitane
-  master liste) — e2e test sad dokazuje da taj korak radi programski,
-  vizuelna GUI potvrda ostaje opciona.
 - `_import_multiple_files`/`ImportService.import_multiple_files`
   preklapanje pomenuto u originalnom plan-u NIJE potvrđeno kao stvaran
   problem u ovoj sesiji — van scope-a nakon PROBE-a, ne dirano.
