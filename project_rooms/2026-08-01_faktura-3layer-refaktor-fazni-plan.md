@@ -96,11 +96,15 @@ workflow-coverage, ne linija koda).
    zamijeniti pozivom na `ImportService` — prvo uporediti ponašanje
    red-po-red (agent pipeline nema GUI kontekst, View ima), vidjeti Fazu 2.
 3. **`_finish_import_legacy_path` i `_process_batch_records_legacy` NISU
-   mrtav kod.** `_can_use_unified_manual_import()` (linija 3380) vraća
-   `False` (aktivira legacy granu) kad god je
-   `self.assembly.master_list_loaded` True — tj. legacy put je AKTIVAN za
-   master-list/PZT workflow uvoza. Ne brisati bez zamjene, ne potcijeniti
-   Fazu 6.
+   mrtav kod, i NISU nedovršena migracija.** `_can_use_unified_manual_import()`
+   vraća `False` (aktivira legacy granu) kad god je
+   `self.assembly.master_list_loaded` True. PROBE (2026-08-02, vidi
+   `project_rooms/2026-08-02_faza6-probe-legacy-uvoz-status.md`) je
+   potvrdio da je ovo TRAJNA, namjerna arhitektonska odluka iz odobrenog
+   master plana (`docs/architecture/JEDINSTVENI_IMPORT_WORKFLOW_
+   IMPLEMENTATION_PLAN.md`) — Assembly/master-list tok se NEĆE spajati sa
+   unified putem. Faza 6 je preformulisana: ekstrakcija u servis, ne
+   odluka o arhitekturi (ta odluka je već donesena).
 4. **`_collect_tariff_previews` (linija 5441) nema nijednog pozivaoca**
    nigdje u repou (provjereno grep na cio repo, samo definicija u
    `faktura_view.py`/`dist_client`/worktree kopijama) — vjerovatno mrtav
@@ -401,34 +405,45 @@ code-review-a.
 
 ---
 
-## FAZA 6 — Legacy uvoz putevi (najveći, najrizičniji, raditi POSLEDNJE)
+## FAZA 6 — Assembly/master-list uvoz logika (preformulisano nakon PROBE-a)
 
-**Status: PENDING**
+**Status: PROBE ZAVRŠEN 2026-08-02, čeka odluku o terminu izvršenja — vidi `project_rooms/2026-08-02_faza6-probe-legacy-uvoz-status.md`**
 
-`_finish_import_legacy_path` (3835-4165, ~330 linija),
+**VAŽNA IZMJENA nakon PROBE-a**: originalna formulacija ove faze ("najveći,
+najrizičniji, treba odlučiti da li legacy umire ili se unified proširuje")
+je bila zasnovana na pretpostavci da je pitanje otvoreno. PROBE je otkrio
+da postoji poseban, ranije odobren master plan
+(`docs/architecture/JEDINSTVENI_IMPORT_WORKFLOW_IMPLEMENTATION_PLAN.md`,
+2026-07-24) čije su Faze 0-8 već izvršene (Codex/Pi, `docs/context/
+history.md` #49-53, #57, uklj. e2e test na 4 realna vendor formata).
+Odluka je već donesena: **Assembly/master-list tok OSTAJE trajno odvojen
+od unified puta, po dizajnu** — ne slučajno zaboravljen, nego eksplicitno
+izuzet iz unifikacije (test matrica §17: "Assembly/master lista: postojeći
+podržani tok ostaje funkcionalan"). `history.md` #53 eksplicitno traži:
+"ne brisati ove fallback-e dok poseban Assembly tok ne bude eksplicitno
+pokriven servisom i testovima" — što je upravo posao koji ostaje ispod.
+
+`_finish_import_legacy_path` (3835-4165, ~330 linija; ranije zvan
+`_on_import_finished_legacy`, preimenovan u E-cleanup fazi),
 `_process_batch_records_legacy` (2594-2722), `_process_batch_records` (2504-2592),
 `_import_multiple_files` (2392-2442, razriješiti preklapanje sa `ImportService.import_multiple_files`).
 
-**OBAVEZNO PROČITATI PRIJE POČETKA**: "Konflikti" #2 i #3 iznad — ovo NIJE
-mrtav kod, aktivna je grana za master-list/PZT uvoz. Ne raditi ovu fazu
-dok Faze 1-5 nisu završene i stabilne (najveći rizik od regresije, treba
-najviše prostora za sigurno testiranje).
+**Novi, niži-rizik cilj**: izdvojiti Assembly-specifičnu logiku (matching
+preko `DeclarationAssembly.add_invoice()`, master-list reconciliation) u
+zaseban servis (npr. `services/faktura/assembly_import_service.py`) — ISTI
+obrazac ekstrakcije kao Faze 1-5, NE arhitektonska promjena unified/legacy
+odnosa (ta odluka je već donesena i ostaje netaknuta). Linije se ne brišu,
+samo premještaju — Assembly tok mora ostati potpuno funkcionalan.
 
-**Preporučeni prvi korak (PROBE, ne implementacija)**: utvrditi tačan
-% stvarnih uvoza koji prolaze kroz legacy vs unified granu (log-based ili
-test-based dokaz) prije nego se odluči da li se legacy grana refaktoriše
-in-place ili se unified put proširuje da pokrije i master-list slučaj (što
-bi eliminisalo legacy granu potpuno umjesto da se ona samo čisti). Ovo je
-prava arhitektonska odluka — agent SAMO PREDLAŽE, korisnik odlučuje
-(AGENTS.md "Podjela odgovornosti").
+**Plan verifikacije**: deterministički testovi za Assembly tok (novi
+karakterizacioni testovi po istom obrascu kao Faza 5 — ova oblast već ima
+poznat e2e test za UNIFIED put, `tests/integration/test_real_invoice_import_e2e.py`,
+ali NEMA ekvivalentan test za Assembly put — to je prilika da se ta rupa
+zatvori), pun regression pass, ručna GUI provjera "Učitaj glavnu listu"
+toka sa realnom master-listom.
 
-**Plan verifikacije**: **najstroža u cijelom planu** — deterministički
-testovi za OBA puta (unified i legacy) sa realnim fakturama koje
-specifično aktiviraju master-list granu (provjeriti koji fajlovi u
-`najavauvoza/` su master-list/PZT tip), pun regression pass, ručna GUI
-provjera oba toka.
-
-**Nezavisni checker: OBAVEZAN.** Ovo je najveća promjena u cijelom planu.
+**Nezavisni checker**: preporučen (ne više "obavezan" — rizik je niži nego
+originalno pretpostavljeno, jer je ovo ekstrakcija, ne redizajn).
 
 **Ko radi**: agent sa najvišim nivoom povjerenja/iskustva na projektu,
 NIKAKO prva faza koju nova agent sesija radi na ovom refaktoru.
