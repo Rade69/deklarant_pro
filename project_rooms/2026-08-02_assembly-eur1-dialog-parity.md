@@ -1,0 +1,82 @@
+## Cilj
+Uskladiti Assembly/master-list ručni uvoz (`FakturaView._finish_import_legacy_path`,
+`using_assembly=True` grana) sa Agent modom: tražiti EUR.1/PE2/PE3 potvrdu po
+fakturi PRIJE nego što se povlastica upiše u draft, umjesto tihog preuzimanja
+iz Excel "preferential" kolone master liste. Korisnička odluka (2026-08-02):
+"mora raditi identično kao agentski mod, nema druge opcije."
+
+## Pogođeno
+- `FakturaView._finish_import_legacy_path` — GitNexus LOW, 1 pozivalac (`_on_import_finished`)
+- `AssemblyItem.update_from_invoice` (`services/naimenovanja/declaration_assembly.py`) —
+  GitNexus 0 upstream (dinamički poziv iz `add_invoice()`, poznato ograničenje
+  indeksa — potvrđeno ručnim čitanjem koda, ima 1 stvaran pozivalac)
+- Reuse (bez izmjene): `determine_origin_dialog()`, `_collect_manual_origin_response()`,
+  `_apply_origin_decision()` (iz `services/import_workflow/`) — ISTA infrastruktura
+  koju već koriste Agent mod i migrirani pojedinačni ručni uvoz
+
+## Fact (zašto obična dodavanje dijaloga ne bi bilo dovoljno)
+`AssemblyItem.update_from_invoice()` ima pravilo "master lista pobjeđuje ako
+već ima povlasticu" (`if invoice_line.povlastica and not self.invoice_line.povlastica`).
+Pošto Excel master lista već ima popunjenu "preferential" kolonu za skoro sve
+stavke, EUR.1 dijalog bez izmjene ovog pravila ne bi imao efekta — potvrda bi
+se prikazala ali nikad ne bi ušla u draft.
+
+## Plan
+1. U `_finish_import_legacy_path`, `using_assembly` grani, PRIJE
+   `self.assembly.add_invoice(items, invoice_name)`: pozvati
+   `determine_origin_dialog(items, has_origin_statement, is_authorized_exporter)`,
+   i ako `!= NONE`, sagraditi `PreparedInvoice` (pravi dataclass, ne adapter-hack)
+   sa `internal_key`/`invoice_number`/`invoice_lines=items`, pozvati
+   `self._collect_manual_origin_response(prepared, dialog_type)`, pa primijeniti
+   odgovor na `items` preko postojeće `_apply_origin_decision()` funkcije
+   (`services/import_workflow/apply_service.py`) — ista logika koju Agent
+   mod koristi, ne duplirana.
+2. U `AssemblyItem.update_from_invoice()`: ako stavka sa fakture ima POTVRĐEN
+   dokaz porijekla (`eur1_number` ili `has_origin_statement`), ta vrijednost
+   UVIJEK nadjačava master-liste "predlog" bez dokaza. Bez dokaza, staro
+   ponašanje (master lista pobjeđuje ako već ima povlasticu) ostaje
+   nepromijenjeno — ovo NE mijenja ponašanje za slučajeve gdje dijalog
+   uopšte ne treba (`dialog_type == NONE`).
+
+## Šta NE dirati
+- `determine_origin_dialog`, `_collect_manual_origin_response`,
+  `_apply_origin_decision` — samo se pozivaju, logika unutra se ne mijenja.
+- Sam Excel format master liste / `load_master_list()` — i dalje popunjava
+  početni predlog, samo više nije nenadmašiv.
+- Non-Assembly grana (`else:`) — već ima svoj EUR.1 mehanizam (`_show_eur1_dialog`),
+  van scope-a ove izmjene.
+- `_process_batch_records_legacy` (grupni Assembly uvoz) — van scope-a ove
+  izmjene; ako treba isti fix, poseban zadatak (grupni uvoz nema jasan
+  "jedna faktura" granularnost za dijalog kao pojedinačni).
+
+## Plan verifikacije
+- Karakterizacioni testovi za `update_from_invoice()` PRIJE izmjene: potvrditi
+  staro ponašanje (master lista pobjeđuje bez dokaza) ostaje isto, NOVO
+  ponašanje (dokaz uvijek pobjeđuje) je tačno definisano.
+- Karakterizacioni test za novi `_finish_import_legacy_path` dio (dialog
+  poziv + primjena) — mockovan `_collect_manual_origin_response` (GUI
+  dijalog se ne može testirati headless), provjeriti da se `_apply_origin_decision`
+  poziva sa ispravnim argumentima.
+- Ponovno pokretanje `tests/integration/test_assembly_master_list_import_e2e.py`
+  (5 postojećih testova) — MORAJU i dalje proći bez izmjene (te fakture
+  nemaju origin izjavu u PDF-u pa dialog_type vjerovatno NONE za njih,
+  provjeriti pretpostavku).
+- Pun test suite + `gitnexus_detect_changes`.
+
+## Rollback / oporavak
+Svaka izmjena zaseban commit — revert `update_from_invoice` izmjene vraća
+staro (rizičnije, ali poznato) ponašanje; revert `_finish_import_legacy_path`
+izmjene vraća "bez dijaloga uopšte" (trenutno stanje).
+
+## Nezavisni checker
+Preporučen prije nego korisnik počne stvarno raditi deklaracije kroz ovaj
+put — carinski-osjetljiva izmjena (povlastica u ASYCUDA deklaraciji).
+
+## Odbačene opcije
+- Opcija: Excel kolona ostaje autoritativna, dijalog samo evidentira dokaz
+  bez izmjene `povlastica` polja.
+- Zašto je razmatrana: manje rizično, ne dira `update_from_invoice`.
+- Zašto je odbačena: korisnik je eksplicitno tražio "identično kao agentski
+  mod" — Agent mod uopšte ne čita Excel "preferential" kolonu, povlastica
+  mu dolazi isključivo iz dijaloga. Zadržavanje Excel-a kao autoritativnog
+  bi i dalje bilo drugačije ponašanje od Agent moda.

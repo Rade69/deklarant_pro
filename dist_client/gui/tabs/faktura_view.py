@@ -3506,7 +3506,37 @@ class FakturaView(BaseTabView):
                 # (Ovo se dešava SAMO ako je korisnik eksplicitno učitao Master Listu preko menija)
                 # Postavi invoice_number za svaku stavku
                 self._assign_invoice_name(items, invoice_name)
-                
+
+                # EUR.1/PE2/PE3 potvrda PRIJE matchovanja — isti tok kao Agent
+                # mod i migrirani pojedinačni uvoz (korisnička odluka
+                # 2026-08-02: "mora raditi identično kao agentski mod").
+                # Master lista NIJE zamjena za stvaran dokaz porijekla —
+                # vidi project_rooms/2026-08-02_assembly-eur1-dialog-parity.md.
+                from services.import_workflow.prepare_service import determine_origin_dialog
+                from services.import_workflow.plan_models import PreparedInvoice, OriginDialogType
+                from services.import_workflow.decision_models import UserDecisions, InvoiceDecision
+                from services.import_workflow.apply_service import _apply_origin_decision
+
+                dialog_type = determine_origin_dialog(
+                    items, has_origin_statement, is_authorized_exporter
+                )
+                if dialog_type != OriginDialogType.NONE:
+                    internal_key = normalize_invoice_key(invoice_name) or invoice_name
+                    prepared = PreparedInvoice(
+                        internal_key=internal_key,
+                        invoice_number=invoice_name,
+                        invoice_lines=items,
+                    )
+                    origin_response = self._collect_manual_origin_response(prepared, dialog_type)
+                    decisions = UserDecisions(
+                        invoice_decisions={
+                            internal_key: InvoiceDecision(
+                                invoice_key=internal_key, origin_response=origin_response,
+                            )
+                        }
+                    )
+                    _apply_origin_decision(items, prepared, decisions)
+
                 matched, unmatched, unmatched_names = self.assembly.add_invoice(
                     items, invoice_name
                 )

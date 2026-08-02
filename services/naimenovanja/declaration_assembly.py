@@ -77,7 +77,20 @@ class AssemblyItem:
             self.invoice_line.bruto_kg = invoice_line.bruto_kg
         if invoice_line.neto_kg and not self.invoice_line.neto_kg:
             self.invoice_line.neto_kg = invoice_line.neto_kg
-        if invoice_line.povlastica and not self.invoice_line.povlastica:
+        # Povlastica POTVRĐENA PE1/PE2/PE3 dokazom (EUR.1 dijalog nakon uvoza)
+        # UVIJEK nadjačava predlog iz master liste — Excel kolona "preferential"
+        # je samo pretpostavka po zemlji, bez dokaza (isto pravilo kao Agent
+        # mod, koji master listu uopšte ne koristi kao izvor povlastice).
+        has_confirmed_origin = bool(invoice_line.eur1_number) or invoice_line.has_origin_statement
+        if has_confirmed_origin:
+            if invoice_line.povlastica:
+                self.invoice_line.povlastica = invoice_line.povlastica
+            if invoice_line.eur1_number:
+                self.invoice_line.eur1_number = invoice_line.eur1_number
+            self.invoice_line.has_origin_statement = invoice_line.has_origin_statement
+            if invoice_line.is_authorized_exporter:
+                self.invoice_line.is_authorized_exporter = invoice_line.is_authorized_exporter
+        elif invoice_line.povlastica and not self.invoice_line.povlastica:
             zemlja = self.invoice_line.zemlja_porijekla or invoice_line.zemlja_porijekla
             self.invoice_line.povlastica = validate_preference(zemlja, invoice_line.povlastica)
         if invoice_line.jm and not self.invoice_line.jm:
