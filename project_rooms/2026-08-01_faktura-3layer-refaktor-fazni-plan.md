@@ -495,6 +495,16 @@ sad pokriven i karakterizacionim I e2e testovima sa stvarnim podacima.
 
 ---
 
+## Zatvoreno pitanje: `_import_multiple_files`/`ImportService.import_multiple_files`
+
+**Riješeno 2026-08-02**: `services/faktura/import_service.py::ImportService.
+import_multiple_files` ima **0 pozivalaca u cijelom repou** (potvrđeno grep
+na cio kod, uklj. worktrees) — mrtav kod, nikad pozvan. Nema stvarnog
+preklapanja sa `FakturaView._import_multiple_files` (koja je aktivna i
+koristi se). Sumnja iz originalnog plana je bila zasnovana samo na sličnosti
+imena — ne treba dalja akcija, mrtav kod van scope-a ovog refaktora za
+brisanje.
+
 ## FAZA 7 — Van trenutnog inventara (sledeći krug, nije dio ovog plana)
 
 Subagent koji je napravio inventar (2026-08-01) je primijetio da
