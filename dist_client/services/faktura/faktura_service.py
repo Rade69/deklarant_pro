@@ -120,6 +120,71 @@ class FakturaService:
         return formatted
 
     @staticmethod
+    def apply_cell_edit(item: InvoiceLine, col: int, value: str, icons: list[str]) -> Optional[str]:
+        """Primijeni izmjenu jedne ćelije tabele na InvoiceLine.
+
+        `icons` su prefiksi (npr. ✅/📋/⚠️/🚨) koje treba ukloniti iz teksta
+        zemlje porijekla prije upisa — Qt.UserRole čuva PRETHODNU vrijednost
+        pa se ne smije koristiti kao izvor, samo prikazani tekst se čisti.
+        Vraća ime izmijenjenog polja (za decision-sync dispatch) ili None.
+        """
+        field = None
+        if col == 1:
+            item.invoice_number = value
+            field = "invoice_number"
+        elif col == 3:
+            item.naziv_robe = value
+            field = "naziv_robe"
+        elif col == 4:
+            item.tarifni_broj = value
+            field = "tarifni_broj"
+        elif col == 5:
+            item.kolicina = FakturaService.parse_number(value) if value else 0.0
+            field = "kolicina"
+        elif col == 6:
+            item.iznos = FakturaService.parse_number(value) if value else 0.0
+            field = "iznos"
+        elif col == 7:
+            item.bruto_kg = FakturaService.parse_number(value) if value else 0.0
+            field = "bruto_kg"
+        elif col == 8:
+            item.neto_kg = FakturaService.parse_number(value) if value else 0.0
+            field = "neto_kg"
+        elif col == 9:
+            cleaned = value
+            for icon in icons:
+                if cleaned.startswith(icon):
+                    cleaned = cleaned[len(icon):].strip()
+                    break
+            item.zemlja_porijekla = cleaned
+            field = "zemlja_porijekla"
+        elif col == 10:
+            item.povlastica = value
+            field = "povlastica"
+        elif col == 11:
+            item.valuta = value
+            field = "valuta"
+        return field
+
+    @staticmethod
+    def bulk_set_tariff(lines: List[InvoiceLine], rows: list[int], new_tariff: str) -> list[tuple[int, str]]:
+        """Postavi tarifni_broj na `new_tariff` za sve izabrane redove.
+
+        Vraća listu (row, stari_tarifni_broj) parova samo za redove gdje se
+        vrijednost stvarno promijenila — View to koristi da odluči kojim
+        redovima treba DB korekcija naučenog mapiranja (_correct_tariff_in_db).
+        """
+        changed: list[tuple[int, str]] = []
+        for row in rows:
+            if 0 <= row < len(lines):
+                line = lines[row]
+                old_tariff = line.tarifni_broj or ""
+                line.tarifni_broj = new_tariff
+                if old_tariff != new_tariff:
+                    changed.append((row, old_tariff))
+        return changed
+
+    @staticmethod
     def normalize_partner(name: str) -> str:
         name = name.lower().strip()
         name = re.sub(r"[.\-,;:'/\\()]", " ", name)

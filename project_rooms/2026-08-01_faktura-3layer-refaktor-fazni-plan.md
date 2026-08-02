@@ -529,17 +529,23 @@ pozivi ostaju SAMO u `_on_load_master_list` (3×) — potvrđeno, ostatak
 
 ### Faza 7a — nisko-rizično (uraditi prvo)
 
-**Status: PENDING**
+**Status: DONE (2026-08-02, commit `631a33b`)**
 
 | Metoda | Linije | Šta | Target |
 |---|---|---|---|
-| `_on_clear_all` | 3866-3925 | Ručno nulira `weight_manager.accumulated_bruto_kg/neto_kg` umjesto poziva postojeće `weight_manager.reset_weights()` (koja se već koristi drugdje) — nekonzistentnost, ne bug, čista zamjena 2 reda | koristiti postojeći `WeightManager.reset_weights()` |
-| `_on_export_excel` | 5254-5309 | Linije 5266-5269: `missing_ordinal` provjera (koliko stavki nema naimenovanje) — čista funkcija nad podacima | `services/faktura/export_service.py` (npr. `find_unassigned_items(lines)`) |
-| `_on_load_master_list` | 2177-2235 | 3 direktna `self.assembly.*` poziva (`load_master_list`, `create_draft`, `get_completion_status`) + direktna mutacija drafta — isti obrazac kao već postojeći `FakturaController.reset_assembly()` | Nova `FakturaController` wrapper metoda (npr. `load_master_list(filepath)` koja vrati status objekat) |
+| `_on_clear_all` | 3866-3925 | Ručno nulira `weight_manager.accumulated_bruto_kg/neto_kg` umjesto poziva postojeće `weight_manager.reset_weights()` (koja se već koristi drugdje) — nekonzistentnost, ne bug, čista zamjena 2 reda | koristiti postojeći `WeightManager.reset_weights()` ✅ |
+| `_on_export_excel` | 5254-5309 | Linije 5266-5269: `missing_ordinal` provjera (koliko stavki nema naimenovanje) — čista funkcija nad podacima | `ExportService.find_unassigned_items(lines)` ✅ (4 karakterizaciona testa) |
+| `_on_load_master_list` | 2177-2235 | 3 direktna `self.assembly.*` poziva (`load_master_list`, `create_draft`, `get_completion_status`) + direktna mutacija drafta — isti obrazac kao već postojeći `FakturaController.reset_assembly()` | `FakturaController.load_master_list(filepath)` → `(count, draft, status)` ✅ (2 testa, provjerava da referenca `ctrl.assembly` ostaje ista) |
+
+Verifikacija: `pytest tests/unit -q` (1458 passed, 10 DB testova failed zbog
+nedostupnog PostgreSQL servera — environment, ne regresija — vidjeti
+`docs/context/history.md` obrazac), `gitnexus_detect_changes` → risk_level
+`low`, affected_processes `[]`; dist_client sinhronizovan i test
+`TestDistStandalone::test_dist_faktura_modules_match_root` prošao.
 
 ### Faza 7b — srednji rizik
 
-**Status: PENDING**
+**Status: IN PROGRESS**
 
 | Metoda | Linije | Šta | Target |
 |---|---|---|---|

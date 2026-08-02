@@ -81,7 +81,12 @@ from services.faktura.mass_workflow_service import MassWorkflowService
 from services.faktura.validation_service import ValidationService
 from services.faktura.import_service import ImportService
 from services.faktura.undo_redo_service import UndoRedoService
-from services.faktura.xml_header_extraction import extract_header_from_xml
+from services.faktura.xml_header_extraction import (
+    extract_header_from_xml,
+    resolve_exporter_name,
+    format_header_preview,
+    apply_header_to_draft,
+)
 from services.faktura.weight_guards import normalize_invoice_key
 
 _PE_DOC_CODES = {"PE1", "PE2", "PE3"}
@@ -1527,42 +1532,15 @@ class FakturaView(BaseTabView):
         invoice_item = self.draft.invoice_lines[row]
         value = item.text().strip()
 
-        # Update corresponding field based on column
+        # Update corresponding field based on column (mapiranje kolona->polje,
+        # parsiranje i čišćenje ikonica-prefiksa iz zemlje porijekla su u
+        # FakturaService.apply_cell_edit)
         try:
-            if col == 1:  # Faktura (nova kolona)
-                invoice_item.invoice_number = value
-            elif col == 3:  # Naziv robe (pomjereno za +1 zbog nove kolone)
-                invoice_item.naziv_robe = value
-            elif col == 4:  # Tarifni broj (pomjereno za +1)
-                invoice_item.tarifni_broj = value
-                if value:
-                    self._pending_learn_rows.add(row)
-            elif col == 5:  # Količina (pomjereno za +1)
-                invoice_item.kolicina = FakturaService.parse_number(value) if value else 0.0
-            elif col == 6:  # IZNOS (ukupan iznos, NE cijena po komadu!) (pomjereno za +1)
-                invoice_item.iznos = FakturaService.parse_number(value) if value else 0.0
-                # VAŽNO: Ne mijenjamo cijena_jed - to je cijena po komadu koja dolazi iz fakture
-            elif col == 7:  # Bruto kg (pomjereno za +1)
-                invoice_item.bruto_kg = FakturaService.parse_number(value) if value else 0.0
-            elif col == 8:  # Neto kg (pomjereno za +1)
-                invoice_item.neto_kg = FakturaService.parse_number(value) if value else 0.0
-            elif col == 9:  # Zemlja porijekla (pomjereno za +1)
-                # VAŽNO: NE čitati Qt.UserRole — ono čuva PRETHODNU vrijednost
-                # koju je upisala _apply_country_confidence_color (auto-bojenje
-                # pri validaciji), pa bi se korisnikova ručna izmjena teksta
-                # odbacila i vraćala na staru vrijednost (korisnik vidi da
-                # "ne može da promijeni" zemlju). Umjesto toga, očisti samo
-                # eventualni ikonica-prefiks (✅/📋/⚠️/🚨) iz upisanog teksta.
-                cleaned = value
-                for _icon in self._CONFIDENCE_ICONS.values():
-                    if cleaned.startswith(_icon):
-                        cleaned = cleaned[len(_icon):].strip()
-                        break
-                invoice_item.zemlja_porijekla = cleaned
-            elif col == 10:  # Povlastica (pomjereno za +1)
-                invoice_item.povlastica = value
-            elif col == 11:  # Valuta (pomjereno za +1)
-                invoice_item.valuta = value
+            FakturaService.apply_cell_edit(
+                invoice_item, col, value, list(self._CONFIDENCE_ICONS.values())
+            )
+            if col == 4 and value:  # Tarifni broj
+                self._pending_learn_rows.add(row)
         except Exception as e:
             # Log error but don't crash
             logger.error(f"Error updating item: {e}")
@@ -1692,14 +1670,13 @@ class FakturaView(BaseTabView):
         self._push_undo_snapshot()
         self.table.blockSignals(True)
         try:
+            changed = FakturaService.bulk_set_tariff(self.draft.invoice_lines, rows, new_tariff)
             for row in rows:
                 line = self.draft.invoice_lines[row]
-                old_tariff = line.tarifni_broj or ""
-                line.tarifni_broj = new_tariff
                 self._set_table_item(row, 4, new_tariff, align=Qt.AlignCenter)
                 self._validate_and_color_row(row, line)
-                if old_tariff != new_tariff:
-                    self._correct_tariff_in_db(line, old_tariff, new_tariff)
+            for row, old_tariff in changed:
+                self._correct_tariff_in_db(self.draft.invoice_lines[row], old_tariff, new_tariff)
         finally:
             self.table.blockSignals(False)
 
@@ -5521,13 +5498,7 @@ class FakturaView(BaseTabView):
         """Učitaj zaglavlje iz prethodne deklaracije istog izvoznika."""
         # Prioritet: draft zaglavlje (popunjeno iz _apply_import_result_to_header)
         # → exporter na prvoj invoice liniji → ručni odabir
-        izvoznik = (self.draft.izvoznik_naziv or '').strip()
-        if not izvoznik and self.draft.invoice_lines:
-            for line in self.draft.invoice_lines:
-                cand = (getattr(getattr(line, 'exporter', None), 'name', '') or '').strip()
-                if cand:
-                    izvoznik = cand.split('\n')[0].strip()
-                    break
+        izvoznik = resolve_exporter_name(self.draft.izvoznik_naziv, self.draft.invoice_lines)
 
         xml_path = None
 
@@ -5573,7 +5544,6 @@ class FakturaView(BaseTabView):
             return
 
         # Prikaži šta će biti učitano
-        lines = []
         field_labels = {
             'izvoznik_naziv': 'Izvoznik',
             'drzava_izvoza_sifra': 'Država izvoza',
@@ -5584,9 +5554,7 @@ class FakturaView(BaseTabView):
             'deklaracija_a': 'Oznaka',
             'deklaracija_oznaka': 'Procedura',
         }
-        for field, label in field_labels.items():
-            if header.get(field):
-                lines.append(f"  {label}: {header[field]}")
+        lines = format_header_preview(header, field_labels)
 
         confirm = QMessageBox.question(
             self,
@@ -5600,9 +5568,7 @@ class FakturaView(BaseTabView):
             return
 
         # Upiši u draft
-        for field, value in header.items():
-            if value and hasattr(self.draft, field):
-                setattr(self.draft, field, value)
+        apply_header_to_draft(self.draft, header)
 
         # Obavijesti ZaglavljeView da se reload-uje
         try:

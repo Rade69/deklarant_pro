@@ -49,3 +49,35 @@ def extract_header_from_xml(xml_path: str) -> dict:
         header['deklaracija_a'] = tip_x
 
     return header
+
+
+def resolve_exporter_name(draft_izvoznik_naziv: str, invoice_lines) -> str:
+    """Odredi izvoznika za pretragu prethodne deklaracije.
+
+    Prioritet: već popunjeno draft zaglavlje (iz _apply_import_result_to_header),
+    zatim exporter prve fakturne linije koja ga ima.
+    """
+    izvoznik = (draft_izvoznik_naziv or '').strip()
+    if izvoznik:
+        return izvoznik
+    for line in invoice_lines or []:
+        cand = (getattr(getattr(line, 'exporter', None), 'name', '') or '').strip()
+        if cand:
+            return cand.split('\n')[0].strip()
+    return ''
+
+
+def format_header_preview(header: dict, field_labels: dict) -> list:
+    """Formatira header dict u listu prikaznih linija za potvrdni dijalog."""
+    return [
+        f"  {label}: {header[field]}"
+        for field, label in field_labels.items()
+        if header.get(field)
+    ]
+
+
+def apply_header_to_draft(draft, header: dict) -> None:
+    """Upiši header vrijednosti u draft — samo postojeća polja, samo ne-prazne vrijednosti."""
+    for field, value in header.items():
+        if value and hasattr(draft, field):
+            setattr(draft, field, value)
