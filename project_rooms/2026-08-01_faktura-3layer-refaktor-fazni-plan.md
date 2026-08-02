@@ -426,9 +426,13 @@ redoslijed EUR.1/PE2 dijaloga, REPLACE/EXTEND odluka i sva mutacija drafta
 OSTAJU namjerno u View-u — nisu poslovna logika u smislu koji Faze 1-5
 ciljaju, nego orkestracija koja tu i pripada.
 
-`faktura_view.py`: 5682→**5620 linija** (-62). Pun test suite: 1438
-passed / 71 skipped (10 DB-testova preskočeno u ovom mjerenju zbog
-nepovezanog mrežnog tajmauta ka `dmserver`, 192.168.0.25 — vidi ispod).
+`faktura_view.py`: 5682→**5620 linija** (-62). Pun test suite (ponovljen
+2026-08-02 nakon što je `dmserver` opet dostupan): **1449 passed / 71
+skipped / 1 failed** — svih 10 ranije mrežno-blokiranih DB testova sada
+prolazi čisto, potvrđujući da Faza 6 nije unijela regresiju. Jedini
+preostali fail je poznati recidivni `product_tariff_mapping` "Test
+proizvod" nalaz (usage_count sad 22) — nepovezan sa ovom ili bilo kojom
+fazom refaktora.
 
 **VAŽNA IZMJENA nakon PROBE-a**: originalna formulacija ove faze ("najveći,
 najrizičniji, treba odlučiti da li legacy umire ili se unified proširuje")
@@ -464,10 +468,11 @@ stvarno urađeno" iznad za obrazloženje).
 - `_import_multiple_files`/`ImportService.import_multiple_files`
   preklapanje pomenuto u originalnom plan-u NIJE potvrđeno kao stvaran
   problem u ovoj sesiji — van scope-a nakon PROBE-a, ne dirano.
-- 10 `test_db_*` testova trenutno ne prolazi zbog mrežnog tajmauta ka
-  `dmserver` (192.168.0.25) — nepovezano sa ovom fazom, ali treba
-  ponovni test run kad server bude dostupan da se potvrdi da ništa
-  drugo nije puklo.
+
+~~10 `test_db_*` testova trenutno ne prolazi zbog mrežnog tajmauta~~ —
+**riješeno 2026-08-02**: `dmserver` opet dostupan, svih 10 testova
+prolazi čisto na ponovnom pokretanju (vidi "Šta je stvarno urađeno"
+iznad), potvrđena odsutnost regresije.
 
 **Nezavisni checker**: preporučen za preostali dio (Assembly e2e test +
 GUI provjera) — sam kod-nivo rad (3 message-building funkcije) je nizak
