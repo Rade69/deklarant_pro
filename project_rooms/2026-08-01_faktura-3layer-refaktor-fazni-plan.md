@@ -246,7 +246,7 @@ checker (druga sesija).
 
 ## FAZA 4 — Srednje orkestracione metode (mixed UI+logika)
 
-**Status: PENDING**
+**Status: DONE — sve 4 podfaze (4a-4d) završene, vidi statuse ispod**
 
 Grupisano po funkcionalnoj oblasti — svaka grupa može biti zaseban
 pod-zadatak unutar ove faze, ne mora sve jedan agent odjednom:

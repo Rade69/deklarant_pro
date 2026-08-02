@@ -91,9 +91,11 @@ se prikazala ali nikad ne bi ušla u draft.
   početni predlog, samo više nije nenadmašiv.
 - Non-Assembly grana (`else:`) — već ima svoj EUR.1 mehanizam (`_show_eur1_dialog`),
   van scope-a ove izmjene.
-- `_process_batch_records_legacy` (grupni Assembly uvoz) — van scope-a ove
-  izmjene; ako treba isti fix, poseban zadatak (grupni uvoz nema jasan
-  "jedna faktura" granularnost za dijalog kao pojedinačni).
+- ~~`_process_batch_records_legacy` van scope-a~~ — ZASTARJELO, vidi
+  "Dodatak 2026-08-02" iznad: grupni Assembly uvoz JE popravljen istog
+  dana (drugi nalaz), ista logika (`determine_origin_dialog` +
+  `_collect_manual_origin_response` + `_apply_origin_decision` po
+  fakturi u petlji) primijenjena i tamo.
 
 ## Plan verifikacije
 - Karakterizacioni testovi za `update_from_invoice()` PRIJE izmjene: potvrditi
