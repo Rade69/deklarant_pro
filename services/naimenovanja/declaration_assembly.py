@@ -88,8 +88,7 @@ class AssemblyItem:
             if invoice_line.eur1_number:
                 self.invoice_line.eur1_number = invoice_line.eur1_number
             self.invoice_line.has_origin_statement = invoice_line.has_origin_statement
-            if invoice_line.is_authorized_exporter:
-                self.invoice_line.is_authorized_exporter = invoice_line.is_authorized_exporter
+            self.invoice_line.is_authorized_exporter = invoice_line.is_authorized_exporter
             # BEZ ovoga ValidationService.country_confidence_style() (Faza 5
             # pravilo) vraća None za svaku Assembly stavku — vidi
             # "if not item.country_confidence: return None" — pa se ✅ NIKAD

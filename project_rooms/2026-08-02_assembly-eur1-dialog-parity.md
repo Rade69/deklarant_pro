@@ -120,6 +120,47 @@ izmjene vraća "bez dijaloga uopšte" (trenutno stanje).
 Preporučen prije nego korisnik počne stvarno raditi deklaracije kroz ovaj
 put — carinski-osjetljiva izmjena (povlastica u ASYCUDA deklaraciji).
 
+**Urađeno 2026-08-02** (general-purpose subagent, read-only pregled +
+pokušaj obaranja hipoteze). Rezultat:
+
+**Potvrđeno ispravno**: sve tri popravke rade ono što tvrde, pun skup
+polja iz `_apply_grouped_origin_data()` je pokrivet (nema dodatnog
+propuštenog polja), 17 relevantnih testova + širi skup od 106 povezanih
+testova prolazi bez regresije. Za **unmatched** stavke (nova, bez match-a
+u master listi) `add_invoice()` ne prolazi kroz `update_from_invoice()`
+uopšte — merge-prioritet pravilo nije ni relevantno za taj slučaj.
+
+**Novi nalaz #1 (nije popravljen, dijeljena infrastruktura van scope-a)**:
+Otkazivanje/Reject EUR.1/PE2/PE3 dijaloga ne čisti per-line
+`has_origin_statement` koje neki PARSERI (potvrđeno:
+`importers/proton_system_importer.py:205,222`) postavljaju DIREKTNO iz
+teksta fakture, prije nego dijalog uopšte otvori. Kad korisnik otkaže,
+`_apply_origin_decision()` se rano vraća bez izmjene — flag ostaje
+`True` sa parsera, pa `has_confirmed_origin` u `update_from_invoice()`
+i dalje evaluira `True` i upisuje `has_origin_statement=True` na
+master-liste stavku BEZ obzira na otkazivanje. Vizuelna kvačica se NE
+pojavljuje (jer `country_confidence` ostaje prazan — ta provjera
+"spašava" situaciju), ali sam flag se ipak upisuje u draft. **Ovo NIJE
+uvedeno sa tri popravke** — isto se dešava u Agent modu i migriranom
+pojedinačnom uvozu jer dijele istu `_apply_origin_decision()` (svjesno
+neizmijenjenu, "Šta NE dirati" iznad). Dijeljena infrastruktura, van
+scope-a Assembly-specifičnog rada — zahtijeva korisničku odluku i
+zaseban zadatak ako se popravlja (dira 3 uvoz-toka odjednom).
+
+**Novi nalaz #2 (POPRAVLJEN)**: `is_authorized_exporter` se kopirao SAMO
+kad `True` (`if invoice_line.is_authorized_exporter:`), za razliku od
+`has_origin_statement` koje se kopira bezuslovno. Posljedica: PE3→PE2
+korekcija na istoj stavci (True→False) se ne bi primijenila. Popravljeno
+— bezuslovno kopiranje, isto kao `has_origin_statement`. 2 nova testa
+(`TestIsAuthorizedExporterSimetricnoKopiranje`).
+
+**Novi nalaz #3 (POPRAVLJEN)**: netačan komentar u
+`test_batch_assembly_matching_wiring.py` (tvrdio "dialog_type==NONE" dok
+fixture-i stvarno daju `EUR1` preko `determine_origin_dialog()`
+"has_pending" grane) — test je i dalje ispravno testirao wiring (mock
+sprječava pravi dijalog), samo je dokumentacija bila netačna. Ispravljen
+komentar, bez izmjene test logike.
+
 ## Odbačene opcije
 - Opcija: Excel kolona ostaje autoritativna, dijalog samo evidentira dokaz
   bez izmjene `povlastica` polja.

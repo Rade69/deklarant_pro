@@ -15,11 +15,12 @@ from core.draft import InvoiceLine
 from services.naimenovanja.declaration_assembly import AssemblyItem
 
 
-def _master_item(povlastica="", zemlja="IT") -> AssemblyItem:
+def _master_item(povlastica="", zemlja="IT", is_authorized_exporter=False) -> AssemblyItem:
     """Stavka kao iz master liste Excel-a - ima povlasticu BEZ dokaza."""
     line = InvoiceLine(
         line_no=1, naziv_robe="Test", tarifni_broj="84186900",
         zemlja_porijekla=zemlja, povlastica=povlastica,
+        is_authorized_exporter=is_authorized_exporter,
         kolicina=1.0, jm="kom",
     )
     item = AssemblyItem(invoice_line=line, source_master=True)
@@ -28,7 +29,8 @@ def _master_item(povlastica="", zemlja="IT") -> AssemblyItem:
 
 
 def _pdf_line(povlastica="", eur1_number="", has_origin_statement=False,
-              country_confidence="", country_source="", country_conflict_details="") -> InvoiceLine:
+              country_confidence="", country_source="", country_conflict_details="",
+              is_authorized_exporter=False) -> InvoiceLine:
     """Stavka kao iz PDF fakture, opciono sa POTVRDJENIM dokazom.
 
     country_confidence/country_source ovdje simuliraju ono sto stvarno
@@ -43,6 +45,7 @@ def _pdf_line(povlastica="", eur1_number="", has_origin_statement=False,
         eur1_number=eur1_number, has_origin_statement=has_origin_statement,
         country_confidence=country_confidence, country_source=country_source,
         country_conflict_details=country_conflict_details,
+        is_authorized_exporter=is_authorized_exporter,
         cijena_jed=10.0, kolicina=1.0, jm="kom",
     )
 
@@ -151,3 +154,33 @@ class TestCountryConfidencePropagacija:
         style = ValidationService.country_confidence_style(master.invoice_line)
         assert style is not None
         assert style["icon"] == "✅"
+
+
+class TestIsAuthorizedExporterSimetricnoKopiranje:
+    """Nalaz nezavisne provjere 2026-08-02: is_authorized_exporter se
+    kopirao SAMO kad je True (za razliku od has_origin_statement koje se
+    uvijek kopira bezuslovno) - ako je stavka ranije dobila True (PE3), a
+    naredni import iste stavke donese PE2 potvrdu (is_authorized_exporter
+    treba postati False), master-liste stavka bi zadrzala stari True."""
+
+    def test_true_se_kopira(self):
+        master = _master_item(povlastica="EUP", is_authorized_exporter=False)
+        pdf_line = _pdf_line(
+            povlastica="EUP", has_origin_statement=True, is_authorized_exporter=True,
+        )
+
+        master.update_from_invoice(pdf_line, "INV-1")
+
+        assert master.invoice_line.is_authorized_exporter is True
+
+    def test_false_TAKODJE_prepisuje_stari_true(self):
+        """Kljucan slucaj koji je bio pokvaren: PE3 (True) pa naknadno PE2
+        (False) na ISTOJ stavci - False mora pobijediti, ne biti ignorisan."""
+        master = _master_item(povlastica="EUP", is_authorized_exporter=True)
+        pdf_line = _pdf_line(
+            povlastica="EUP", has_origin_statement=True, is_authorized_exporter=False,
+        )
+
+        master.update_from_invoice(pdf_line, "INV-1")
+
+        assert master.invoice_line.is_authorized_exporter is False

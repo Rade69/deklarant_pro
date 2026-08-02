@@ -53,8 +53,11 @@ def _mock_self_with_assembly(assembly: DeclarationAssembly, draft: DeclarationDr
     mock_self.weight_manager = MagicMock()
     mock_self.weight_manager.accumulated_bruto_kg = 0.0
     mock_self.weight_manager.accumulated_neto_kg = 0.0
-    # Ne otvaraj stvarne dijaloge — nema origin izjave u test fixture-ima
-    # pa se dialog_type == NONE ne poziva, ali mock postoji za sigurnost.
+    # Test fixture-i (zemlja_porijekla="IT", bez has_origin_statement/eur1_number)
+    # DAJU dialog_type=EUR1 preko determine_origin_dialog() "has_pending"
+    # grane — mock sprječava da se stvarni Qt dijalog otvori headless,
+    # SKIPPED odgovor znači "korisnik nije potvrdio", što ovaj test i
+    # želi (provjerava se samo da se add_invoice() poziva, ne sam dijalog).
     mock_self._collect_manual_origin_response = MagicMock(return_value=MagicMock(
         resolution="skipped", dialog_data={},
     ))
