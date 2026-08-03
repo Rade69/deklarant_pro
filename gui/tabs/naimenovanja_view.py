@@ -1791,38 +1791,6 @@ class NaimenovanjaView(BaseTabView):
             )
         self.show_warning(message)
 
-    def _add_history_docs(self, tariff_code: str) -> None:
-        """Dodaj priložene dokumente iz istorije XML deklaracija za dati tarifni broj."""
-        if not tariff_code or len(tariff_code.strip()) < 4:
-            return
-        header_docs = getattr(self.draft, "header_attached_documents", None)
-        if header_docs is None:
-            return
-        try:
-            from services.tariff_doc_history_service import get_tariff_doc_history_service
-            svc = get_tariff_doc_history_service()
-            suggestions = svc.get_suggested_docs(tariff_code, min_count=3)
-        except Exception as e:
-            logger.warning(f"Greška pri dohvatanju istorije dokumenata za {tariff_code}: {e}")
-            return
-        existing_codes = {d.code for d in header_docs}
-        added = False
-        from core.draft.draft import AttachedDocument
-        for doc in suggestions:
-            code = doc["code"]
-            if code not in existing_codes:
-                header_docs.append(AttachedDocument(
-                    code=code,
-                    name=doc["name"],
-                    number="",
-                    from_rule=False,
-                ))
-                existing_codes.add(code)
-                added = True
-                logger.info(f"  📚 Istorija: dodat {code} ({doc['name']}) za tarifu {tariff_code} (count={doc['count']})")
-        if added:
-            self.draft.mark_dirty()
-
     def _add_tariff_control_docs(self, tariff_code: str) -> None:
         """Automatski dodaj priložene dokumente u header_attached_documents
         na osnovu tarifnog broja (inspekcijske kontrole)."""
