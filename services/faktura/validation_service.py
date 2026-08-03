@@ -54,6 +54,24 @@ class ValidationService:
         return ValidationService._COUNTRY_GROUP_COLORS.get(group, ValidationService._NEUTRAL_COUNTRY_COLOR)
 
     @staticmethod
+    def _pdf_oznaka_eligible_unset(item: InvoiceLine, country_code: str) -> bool:
+        """Da li PDF ima samo oznaku zemlje (bez izjave o porijeklu), povlastica
+        nije postavljena, a zemlja je uopšte podobna za neku povlasticu.
+
+        DIJELJEN uslov između country_confidence_style i preference_
+        confidence_style (korisnički zahtjev 2026-08-02: obje kolone moraju
+        pokazati ISTU žutu boju u ovom stanju — ranije je samo Povlastica
+        imala ovo upozorenje, Zemlja je za isti red pokazivala grupnu boju,
+        što je izgledalo kao dvije nepovezane/neusklađene informacije).
+        """
+        from services.faktura.preference_rules_service import suggest_preference_by_country
+
+        source = getattr(item, "country_source", None)
+        has_pref = bool(item.povlastica)
+        eligible_for_pref = bool(suggest_preference_by_country(country_code))
+        return source == "PDF_OZNAKA" and not has_pref and eligible_for_pref
+
+    @staticmethod
     def validation_issue_label(field: str, message: str) -> str:
         msg = (message or "").lower()
         if field == "tarifni_broj":
@@ -265,6 +283,9 @@ class ValidationService:
                 item.country_confidence, "#ffffff"
             )
             icon = "✅"
+        elif ValidationService._pdf_oznaka_eligible_unset(item, zemlja):
+            color_hex = "#fff3cd"
+            icon = ""
         else:
             color_hex = ValidationService.country_group_color(zemlja)
             icon = ""
@@ -320,18 +341,13 @@ class ValidationService:
           bez_upozorenja — upozorenje/isticanje na nepodobnoj zemlji je
           besmisleno).
         """
-        from services.faktura.preference_rules_service import (
-            suggest_preference_by_country,
-            country_preference_group,
-        )
+        from services.faktura.preference_rules_service import country_preference_group
 
-        source = getattr(item, "country_source", None)
         evidence = evidence_from_preference(item)
         has_pref = bool(item.povlastica)
         country_code = (getattr(item, "zemlja_porijekla", "") or "").strip()
-        eligible_for_pref = bool(suggest_preference_by_country(country_code))
 
-        if source == "PDF_OZNAKA" and not has_pref and eligible_for_pref:
+        if ValidationService._pdf_oznaka_eligible_unset(item, country_code):
             return {
                 "color_hex": "#fff3cd",
                 "tooltip": (

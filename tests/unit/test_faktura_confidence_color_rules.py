@@ -23,6 +23,16 @@ stvarni dokaz) - samo precizira KOJU nijansu "nepotvrdjeno" stanje dobija.
 CN/TW/BR/US i dalje dobijaju istu (staru neutralnu) boju medjusobno; RS
 (CEFTA) i DE (EU) sada dobijaju MEDJUSOBNO RAZLICITE boje od CN i jedne
 od drugih, umjesto da sve tri budu identicne kao ranije.
+
+IZMJENA 2026-08-02 #2 (isti dan, korisnicki GUI test otkrio nesklad):
+kad PDF ima samo oznaku zemlje bez izjave o porijeklu (country_source ==
+"PDF_OZNAKA", povlastica nije postavljena, zemlja je podobna) -
+Povlastica kolona VEC je imala zuto upozorenje (#fff3cd, postojeci kod
+prije ovog zadatka), ali Zemlja kolona je za isti red pokazivala GRUPNU
+boju (plavu/ljubicastu) umjesto zute - dvije razlicite boje za isto
+"treba provjeriti" stanje u istom redu. Fix: _pdf_oznaka_eligible_unset()
+dijeljeni je uslov izmedju country_confidence_style i
+preference_confidence_style - kad se uslov ispuni, OBJE kolone su zute.
 """
 from core.draft import InvoiceLine
 from services.faktura.validation_service import ValidationService
@@ -55,6 +65,28 @@ class TestCountryConfidenceStyle:
         assert style is not None
         assert style["color_hex"] == ValidationService._COUNTRY_GROUP_COLORS["EU"]
         assert style["icon"] == ""
+
+    def test_pdf_oznaka_eligible_zemlja_zuta_isto_kao_povlastica(self):
+        """IZMJENA #2: kad Povlastica pokazuje zuto upozorenje (PDF_OZNAKA,
+        eligible, bez povlastice), Zemlja MORA pokazati ISTU zutu boju -
+        ne grupnu (plavu/ljubicastu) kao za redove bez PDF_OZNAKA konteksta."""
+        item = _line(
+            zemlja_porijekla="DE", povlastica="", country_source="PDF_OZNAKA",
+        )
+        country_style = ValidationService.country_confidence_style(item)
+        pref_style = ValidationService.preference_confidence_style(item)
+        assert country_style["color_hex"] == "#fff3cd"
+        assert pref_style["color_hex"] == "#fff3cd"
+        assert country_style["color_hex"] == pref_style["color_hex"]
+
+    def test_pdf_oznaka_neeligible_zemlja_cn_ostaje_neutralna(self):
+        """CN (NONE grupa) - PDF_OZNAKA uslov se ne primjenjuje jer CN nije
+        eligible_for_pref, Zemlja ostaje na svojoj staroj neutralnoj boji."""
+        item = _line(
+            zemlja_porijekla="CN", povlastica="", country_source="PDF_OZNAKA",
+        )
+        style = ValidationService.country_confidence_style(item)
+        assert style["color_hex"] == ValidationService._NEUTRAL_COUNTRY_COLOR
 
     def test_high_confidence_potvrdjena_povlastica_eur1_zeleno_sa_kvacicom(self):
         item = _line(
