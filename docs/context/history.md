@@ -3803,3 +3803,48 @@ screenshot-om, NE nagađati boje iz piksela/opisa slike — hover-tooltip
 tekst (ako kod već ostavlja informativne tooltip-e po pravilu, kako je ovdje
 slučaj) daje jednoznačan odgovor koji kod-put se izvršio, mnogo brže i
 pouzdanije od ponovnog čitanja koda uz pretpostavke o stvarnim podacima.
+
+---
+
+## 133. Faza 7c offscreen provjera otkrila kritičan bug: auto_applied tarifa se nikad nije upisivala u draft (2026-08-02)
+
+Korisnik je tražio da se istestiraju dva preostala Faza 7c toka
+(`_on_import_xml`, `_on_historical_validation_finished`) prije potpunog
+zatvaranja refaktora. Umjesto da se oslonim na postojeće mock-bazirane
+testove, napravljena su dva jednokratna (ne-commitovana) offscreen probe
+skripte (`QT_QPA_PLATFORM=offscreen`) koje stvarno instanciraju
+`FakturaTab` i pozivaju button-handlere sa stvarnim podacima:
+
+`_on_import_xml` testiran sa stvarnim ASYCUDA export XML fajlom
+(`BLAGIĆ-LOREN-17-7.xml`, van repozitorijuma na `Desktop/DV1/` — sadrži
+poslovne podatke, NIJE kopiran u repo) — 34 stavke učitano bez greške,
+poklapa se sa nezavisnom referencom u `docs/asycuda_parity_profile_2026-
+08-01.md`. Usput otkriven (ali NE popravljen, van scope-a) pred-postojeći
+nalaz: `XMLImporter._parse_header()` vraća prazan header za ovu stvarnu
+strukturu ASYCUDA XML-a (traži header elemente kao direktnu djecu roota,
+stvarni fajl ih ima raspoređene po `Traders`/`General_information` kao
+direktnoj djeci — header ekstrakcija za ručni XML uvoz ne radi za ovaj
+format, stavke rade jer koriste `.//` pretragu).
+
+`_on_historical_validation_finished` testiran sa STVARNIM `InvoiceLine`
+objektima (za razliku od `MagicMock` u postojećim testovima) — odmah
+otkriven kritičan bug: `auto_applied` grana (automatska primjena ranije
+potvrđenog tarifnog broja) mijenja SAMO Qt tabelu, NIKAD `draft.
+invoice_lines[idx].tarifni_broj`. Vizuelno tabela izgleda ispravno, ali
+export/Kreiraj naimenovanja (koji čitaju draft, ne Qt tabelu) i dalje
+koriste staru vrijednost — tih data-integrity bug. Postojeći mock-testovi
+strukturno nisu mogli ovo uhvatiti jer nikad nisu provjeravali stanje
+draft modela nakon poziva, samo da li su Qt metode pozvane. Fix: jedan
+red (`self.draft.invoice_lines[idx].tarifni_broj = tarif`), poravnava sa
+`_on_accepted` closure-om (dijalog-potvrda putanja) koja je to već radila
+ispravno. Bug je pred-postojeći (dokumentovan u docstring-u metode kao
+"sadržaj neizmijenjen iz ranije sinhrone verzije"), nije unesen u Fazi 7,
+samo otkriven njenim zatvaranjem. Commit `dcfbb6d`, puni izvještaj
+`agent_reports/2026-08-02_faza7c-offscreen-provjera-i-kriticni-bug.md`.
+
+**Metodološka pouka #2**: offscreen end-to-end test na STVARNO
+instanciranim Qt objektima (ne MagicMock) je znatno jači dokaz od
+mock-baziranih unit testova za ovaj tip Qt-vezane logike — uhvatio je
+bug koji je 27 postojećih (zelenih) testova propustilo. I dalje NIJE
+zamjena za stvarnu GUI potvrdu na pravom ekranu (AGENTS.md Definition of
+Done), ali je znatno jači nivo automatizovanog dokaza od pukog mock-a.
