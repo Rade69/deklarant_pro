@@ -124,6 +124,60 @@ radni nacrt koji je zamijenjen 07-27 verzijom prije prvog commit-a.
   bojenje-po-grupi feature) — ne treba dalji rad osim ako korisnik nešto
   novo primijeti kroz GUI testiranje.
 
+## ZATVARANJE (djelimično) — nalaz sesije 2026-08-03 druga polovina
+
+**Status: NIJE završeno.** Provjera §3 tačaka 1-4 urađena (plan pročitan,
+16 `from services.` importa u `naimenovanja_view.py` pojedinačno
+klasifikovano, `_on_*` handleri audit-ovani). Rezultat: Controller sloj je
+stvarno ispravan za dio tokova (save/navigacija, tarifna promjena, PE sync,
+XML import entry point, tarifni prijedlozi), ali **4 toka i dalje potpuno
+ili djelimično zaobilaze Controller**:
+
+1. **`_add_history_docs`** — **RIJEŠENO ovom sesijom** (commit `6b20f57`).
+   Nakon provjere: metoda nije bila živi bug nego mrtav kod — nikad
+   pozivana na `windows` (0 poziva u cijelom repou van worktree-ova),
+   superseded ispravnim tokom `NaimenovanjaController.on_tariff_changed`
+   → `NaimenovanjaService.add_tariff_documents(draft, tariff_code)`
+   (`services/naimenovanja/naimenovanja_service.py:467`), koji radi isti
+   posao i više (dodaje i `get_required_docs` po tarifnom pravilu, ne samo
+   istoriju). Obrisana u `gui/tabs/naimenovanja_view.py` i
+   `dist_client/gui/tabs/naimenovanja_view.py`. py_compile OK, puna
+   `pytest tests/ -q` 1684 passed (4 pre-postojeća fail-a nepovezana:
+   agent tool schema, XML parser hardkodovana putanja, tarifni mapping DB
+   stanje — vidi [[2026-08-01_product-tariff-mapping-word-overlap-mina-bug]]).
+   Napomena: GitNexus `detect_changes` (čak i poslije `npx gitnexus analyze`)
+   NIJE prikazao ovu izmjenu u `changed_symbols` — čisto brisanje metode bez
+   dodirivanja susjednih linija izgleda da promakne diff-hunk mapperu; ne
+   blokira jer je nezavisna provjera (grep cijelog repoa + testovi) jača.
+
+2. **`_add_history_docs` implikacija — provjeriti i `_ask_update_knowledge_base`
+   i `_auto_populate_supplementary_unit`** nisu dio ovog nalaza, nisu
+   provjereni ovom sesijom — ostaju otvoreni za sledeću turu istog audit-a.
+
+3. **`_apply_xml_import_to_zaglavlje`** (`naimenovanja_view.py:2036`,
+   NIJE popravljeno) — View instancira `ZaglavljeService()` direktno, radi
+   `self.draft = service.save_to_draft(...)`, bez Controllera. Faza 7 plana
+   eksplicitno predviđa ovo kao Controller-orkestrisan tok. Ostaje follow-up.
+
+4. **`_on_save`** (`naimenovanja_view.py:2317`, NIJE popravljeno) — cio
+   izvoz deklaracije (file dialog + `DeclarationDraftService`) živi u
+   View-u bez signala ka Controlleru. Plan §7.2 eksplicitno navodi
+   `_on_save` kao metodu koja "prelazi u Controller". Ostaje follow-up.
+
+5. **`_setup_package_dropdown` / `_setup_rb40_widgets`**
+   (`naimenovanja_view.py:836, 1069`, NIJE popravljeno) — View sam
+   instancira `NaimenovanjaService()` za DB-backed šifarnike umjesto da ih
+   dobije od Controllera. Faza 3 gate ("Service vraća kataloge; View samo
+   puni widgete") nije ispunjen za ove setup metode. Ostaje follow-up.
+
+**Korisnička odluka (upitano putem AskUserQuestion)**: od ponuđenih opcija
+(pun nastavak Faza 6+7 odjednom / samo dokumentuj bez diranja koda / uzak
+fix najrizičnijeg nalaza) korisnik je izabrao **uzak fix najrizičnijeg
+nalaza** — što se pri provjeri pokazalo kao čisto brisanje mrtvog koda, ne
+kao migracija žive poslovne logike. Preostale 3 stavke (2-4 iznad) nisu
+dirane ovom sesijom i čekaju eksplicitnu odluku korisnika o prioritetu i
+obimu za sledeću turu.
+
 ## 5. Referenca — kako je Faktura zatvorena (isti standard za primijeniti ovdje)
 
 - `project_rooms/2026-08-01_faktura-3layer-refaktor-fazni-plan.md` — puna

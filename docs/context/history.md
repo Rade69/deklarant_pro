@@ -3885,3 +3885,45 @@ fajl u postojećem stilu. Pun plan (v2):
 `C:\Users\38765\Desktop\parser_studio\PLAN.md`. Korisnik čeka drugo mišljenje
 (ChatGPT) prije nastavka koda — pomenuti samo ako korisnik eksplicitno
 otvori tu temu, ne miješati sa Naimenovanja radom.
+
+## 2026-08-03 (nastavak) — Naimenovanja 3layer audit: NIJE završeno, 4 gap-a nađena, 1 riješen
+
+Nastavak prethodnog zapisa istog dana. Pun Codex plan (`f561e55`) pročitan,
+16 `from services.` importa u `naimenovanja_view.py` pojedinačno
+klasifikovano, svih 16 `_on_*` handlera audit-ovano. Nalaz: Controller je
+ispravan za save/navigaciju/tarifnu promjenu/PE sync/XML-import-entry/
+tarifne prijedloge, ali **4 toka i dalje zaobilaze Controller**:
+`_add_history_docs` (View direktno mutira `draft.header_attached_documents`),
+`_apply_xml_import_to_zaglavlje` (View direktno zove `ZaglavljeService()` i
+mutira draft), `_on_save` (cio izvoz deklaracije bez signala ka
+Controlleru), `_setup_package_dropdown`/`_setup_rb40_widgets` (View sam
+instancira `NaimenovanjaService()` za DB šifarnike). Zadnji Codex commit
+("zavrsi tarifni dokument i xml tok") je djelimično netačna samoprijava —
+tačno za tarifni-dokument-suggestion, netačno za XML→Zaglavlje sync i save.
+
+Korisnik je (AskUserQuestion) izabrao uzak fix najrizičnijeg nalaza
+(`_add_history_docs`) umjesto punog nastavka Faza 6+7. Pri istrazi se
+ispostavilo da to NIJE živ bug — metoda je **mrtav kod**, nikad pozivana na
+`windows` (0 poziva repo-wide grep-om), jer je `NaimenovanjaService.
+add_tariff_documents()` (`services/naimenovanja/naimenovanja_service.py:467`,
+pozvan iz `Controller.on_tariff_changed` preko `tariff_lookup_requested`
+signala) već ispravno preuzeo istu odgovornost tokom ranije Faze 5/6 (i radi
+više — dodaje i `get_required_docs` po tarifnom pravilu). Obrisana u oba
+fajla (`gui/` i `dist_client/`), commit `6b20f57`. Puna `pytest tests/ -q`:
+1684 passed (4 pre-postojeća fail-a nepovezana). **Pouka**: sumnjiv kod koji
+"izgleda kao arhitektonska greška" treba prvo provjeriti da li je uopšte
+DOSTIŽAN prije tretiranja kao aktivan bug.
+
+Preostala 3 gap-a (XML→Zaglavlje sync, cio-deklaracija save, dropdown DB
+setup) NISU dirana — follow-up, redoslijed čeka korisnikovu odluku. Puni
+nalaz sa file:line referencama:
+`project_rooms/2026-08-03_naimenovanja-3layer-status-i-nastavak.md`
+("ZATVARANJE (djelimično)" sekcija) i
+`agent_reports/2026-08-03_naimenovanja-3layer-audit-i-dead-code-cleanup.md`.
+
+Sporedna napomena: GitNexus MCP `repo` parametar sa zagradama u nazivu
+("deklarant_pro (C:\...)") je odbijen iako je tačno taj string vraćen kao
+"Available" — koristiti goli path. `detect_changes` takođe nije prikazao
+čisto brisanje cijele metode ni poslije `npx gitnexus analyze` reindexa —
+diff-hunk mapper vjerovatno ne hvata izmjene bez dodirivanja susjednih
+linija; nije blokiralo jer je nezavisan dokaz (grep + testovi) postojao.
