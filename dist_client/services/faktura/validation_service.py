@@ -270,6 +270,15 @@ class ValidationService:
         country_confidence prazan (npr. Assembly/master-list stavke prije
         Faze detekcije porijekla), što je ostavljalo cijelu kolonu neobojenu
         za taj uvozni tok; to više NIJE slučaj.
+
+        IZMJENA 2026-08-02 #3 (korisnički zahtjev nakon GUI testa): boja NE
+        varira više po tome da li je konkretan izvor "PDF_OZNAKA" ili čist
+        master-list unos — SVI redovi iste zemlje dobijaju ISTU boju
+        (country_group_color), bez obzira na izvor. "PDF_OZNAKA bez izjave"
+        specifičnije/hitnije upozorenje ostaje SAMO kao tooltip tekst
+        (vidi ispod), ne kao posebna nijansa — korisnik je primijetio da dvije
+        boje za istu zemlju (žuta vs grupna) izgledaju kao nedosljednost, a
+        ne kao namjerna dodatna informacija.
         """
         zemlja = (getattr(item, "zemlja_porijekla", "") or "").strip()
         if not zemlja:
@@ -283,9 +292,6 @@ class ValidationService:
                 item.country_confidence, "#ffffff"
             )
             icon = "✅"
-        elif ValidationService._pdf_oznaka_eligible_unset(item, zemlja):
-            color_hex = "#fff3cd"
-            icon = ""
         else:
             color_hex = ValidationService.country_group_color(zemlja)
             icon = ""
@@ -315,9 +321,16 @@ class ValidationService:
             )
             tooltip_parts.append("ℹ️ Korišćena je vrednost iz PDF-a")
         if neutral_country:
-            tooltip_parts.append(
-                "ℹ️ Povlastica za ovu stavku nije eksplicitno potvrđena."
-            )
+            if ValidationService._pdf_oznaka_eligible_unset(item, zemlja):
+                tooltip_parts.append(
+                    "⚠️ Povlastica NIJE automatski postavljena — dokument sadrži "
+                    "samo oznaku zemlje porijekla, bez izjave o porijeklu. "
+                    "Provjerite ručno."
+                )
+            else:
+                tooltip_parts.append(
+                    "ℹ️ Povlastica za ovu stavku nije eksplicitno potvrđena."
+                )
 
         return {"color_hex": color_hex, "icon": icon, "tooltip_parts": tooltip_parts}
 
@@ -327,14 +340,17 @@ class ValidationService:
         Pravilo za bojenje/tooltip kolone Povlastica (odvojeno od kolone
         Zemlja porijekla).
 
-        - žuto: povlastica namjerno NIJE postavljena, dokument ima samo
-          oznaku zemlje (bez izjave), a zemlja je uopšte podobna za neku
-          povlasticu — treba ručna provjera.
         - zeleno: povlastica izvedena iz potvrđenog porijekla (izjava/EUR.1/MATCH).
-        - boja po grupi zemlje (EU/CEFTA/ostale povlašćene): nijedan od gornja
-          dva uslova ne važi, ALI je zemlja teorijski podobna za povlasticu —
-          isti obrazac kao country_confidence_style (korisnički zahtjev
-          2026-08-02), da deklarant odmah uoči koje stavke treba provjeriti.
+        - boja po grupi zemlje (EU/CEFTA/ostale povlašćene): povlastica NIJE
+          potvrđena, ALI je zemlja teorijski podobna — isti obrazac kao
+          country_confidence_style, da deklarant odmah uoči koje stavke
+          treba provjeriti. Tooltip je specifičniji (žuto upozorenje kao
+          tekst, ne kao boja) kad dokument ima samo oznaku zemlje bez
+          izjave o porijeklu (PDF_OZNAKA, bez povlastice) — IZMJENA
+          2026-08-02 #3: ranije je ovaj slučaj imao SVOJU (žutu) boju,
+          različitu od boje drugih redova iste zemlje bez PDF_OZNAKA izvora
+          — korisnik je to primijetio kao nedosljednost (ista zemlja,
+          različite boje), pa boja sad NE zavisi od izvora, samo tooltip.
         - None: zemlja nikad nema povlasticu (npr. CN — country_preference_
           group == NONE) ili nije uopšte poznata — ćelija ostaje bez izmjene
           (namjerno, vidi test_pdf_oznaka_bez_povlastice_neeligible_zemlja_
@@ -347,15 +363,6 @@ class ValidationService:
         has_pref = bool(item.povlastica)
         country_code = (getattr(item, "zemlja_porijekla", "") or "").strip()
 
-        if ValidationService._pdf_oznaka_eligible_unset(item, country_code):
-            return {
-                "color_hex": "#fff3cd",
-                "tooltip": (
-                    "⚠️ Povlastica NIJE automatski postavljena — dokument sadrži "
-                    "samo oznaku zemlje porijekla, bez izjave o porijeklu.\n"
-                    "Provjerite ručno da li roba ima pravo na povlasticu i unesite je."
-                ),
-            }
         if has_pref and not evidence.requires_confirmation:
             return {
                 "color_hex": "#d4edda",
@@ -365,11 +372,19 @@ class ValidationService:
                 ),
             }
         if country_code and country_preference_group(country_code) != "NONE":
-            return {
-                "color_hex": ValidationService.country_group_color(country_code),
-                "tooltip": (
+            if ValidationService._pdf_oznaka_eligible_unset(item, country_code):
+                tooltip = (
+                    "⚠️ Povlastica NIJE automatski postavljena — dokument sadrži "
+                    "samo oznaku zemlje porijekla, bez izjave o porijeklu.\n"
+                    "Provjerite ručno da li roba ima pravo na povlasticu i unesite je."
+                )
+            else:
+                tooltip = (
                     "ℹ️ Zemlja je potencijalno podobna za povlasticu — "
                     "provjerite dokaz porijekla."
-                ),
+                )
+            return {
+                "color_hex": ValidationService.country_group_color(country_code),
+                "tooltip": tooltip,
             }
         return None

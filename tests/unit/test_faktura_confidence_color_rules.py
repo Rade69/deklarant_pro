@@ -30,9 +30,20 @@ kad PDF ima samo oznaku zemlje bez izjave o porijeklu (country_source ==
 Povlastica kolona VEC je imala zuto upozorenje (#fff3cd, postojeci kod
 prije ovog zadatka), ali Zemlja kolona je za isti red pokazivala GRUPNU
 boju (plavu/ljubicastu) umjesto zute - dvije razlicite boje za isto
-"treba provjeriti" stanje u istom redu. Fix: _pdf_oznaka_eligible_unset()
-dijeljeni je uslov izmedju country_confidence_style i
-preference_confidence_style - kad se uslov ispuni, OBJE kolone su zute.
+"treba provjeriti" stanje u istom redu.
+
+IZMJENA 2026-08-02 #3 (isti dan, korisnik primijetio nesklad IZMEDJU
+redova iste zemlje - neki PDF_OZNAKA/zuti, neki grupno/ljubicasti/plavi):
+#2 je usaglasila Zemlja+Povlastica UNUTAR reda, ali PDF_OZNAKA-specificna
+zuta boja je i dalje davala DRUGACIJU boju od "obicnog" grupnog reda ISTE
+zemlje (npr. dva RS reda - jedan zut, jedan ljubicast) - korisnik je to
+vidio kao nedosljednost, ne kao namjernu dodatnu informaciju. FINALNA
+odluka: boja NIKAD ne zavisi od izvora (PDF_OZNAKA ili ne) - SAMO od
+country_group_color. PDF_OZNAKA specificno/hitnije upozorenje ostaje
+ISKLJUCIVO kao tooltip tekst (_pdf_oznaka_eligible_unset), nikad kao
+posebna boja. #fff3cd se od sada koristi SAMO za potvrdjenu MEDIUM
+pouzdanost (_COUNTRY_CONFIDENCE_COLORS["MEDIUM"]), ne za "nepotvrdjeno"
+stanje.
 """
 from core.draft import InvoiceLine
 from services.faktura.validation_service import ValidationService
@@ -66,18 +77,23 @@ class TestCountryConfidenceStyle:
         assert style["color_hex"] == ValidationService._COUNTRY_GROUP_COLORS["EU"]
         assert style["icon"] == ""
 
-    def test_pdf_oznaka_eligible_zemlja_zuta_isto_kao_povlastica(self):
-        """IZMJENA #2: kad Povlastica pokazuje zuto upozorenje (PDF_OZNAKA,
-        eligible, bez povlastice), Zemlja MORA pokazati ISTU zutu boju -
-        ne grupnu (plavu/ljubicastu) kao za redove bez PDF_OZNAKA konteksta."""
+    def test_pdf_oznaka_eligible_zemlja_ista_grupna_boja_kao_povlastica(self):
+        """IZMJENA #3 (finalna): boja NIKAD ne zavisi od PDF_OZNAKA izvora -
+        Zemlja i Povlastica su ISTA grupna boja (EU), bas kao i za DE red BEZ
+        PDF_OZNAKA konteksta (test_bez_country_confidence_ali_sa_zemljom_
+        ipak_boji_po_grupi) - to garantuje da SVI DE redovi (bez obzira na
+        izvor podatka) izgledaju identicno, samo se tooltip razlikuje."""
         item = _line(
             zemlja_porijekla="DE", povlastica="", country_source="PDF_OZNAKA",
         )
         country_style = ValidationService.country_confidence_style(item)
         pref_style = ValidationService.preference_confidence_style(item)
-        assert country_style["color_hex"] == "#fff3cd"
-        assert pref_style["color_hex"] == "#fff3cd"
+        assert country_style["color_hex"] == ValidationService._COUNTRY_GROUP_COLORS["EU"]
+        assert pref_style["color_hex"] == ValidationService._COUNTRY_GROUP_COLORS["EU"]
         assert country_style["color_hex"] == pref_style["color_hex"]
+        # Tooltip i dalje nosi specificnije/hitnije upozorenje (samo tekst, ne boja)
+        assert any("NIJE automatski postavljena" in t for t in country_style["tooltip_parts"])
+        assert "NIJE automatski postavljena" in pref_style["tooltip"]
 
     def test_pdf_oznaka_neeligible_zemlja_cn_ostaje_neutralna(self):
         """CN (NONE grupa) - PDF_OZNAKA uslov se ne primjenjuje jer CN nije
@@ -141,13 +157,16 @@ class TestCountryConfidenceStyle:
 
 
 class TestPreferenceConfidenceStyle:
-    def test_pdf_oznaka_bez_povlastice_eligible_zemlja_zuto(self):
+    def test_pdf_oznaka_bez_povlastice_eligible_zemlja_grupna_boja_zut_tooltip(self):
+        """IZMJENA #3: boja je CEFTA grupna (ista kao svaki drugi RS red bez
+        PDF_OZNAKA), zuto upozorenje ostaje samo u tooltip tekstu."""
         item = _line(
             country_source="PDF_OZNAKA", zemlja_porijekla="RS", povlastica="",
         )
         style = ValidationService.preference_confidence_style(item)
         assert style is not None
-        assert style["color_hex"] == "#fff3cd"
+        assert style["color_hex"] == ValidationService._COUNTRY_GROUP_COLORS["CEFTA"]
+        assert "NIJE automatski postavljena" in style["tooltip"]
 
     def test_pdf_oznaka_bez_povlastice_neeligible_zemlja_bez_upozorenja(self):
         """CN nikad nece imati povlasticu - upozorenje 'provjerite rucno' je besmisleno."""
