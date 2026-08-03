@@ -125,6 +125,27 @@ def test_provjeri_selekcija_remapira_auto_applied_na_pravi_red():
     mock_self._notify_auto_applied_tariffs.assert_called_once_with([(3, "85168080")])
 
 
+def test_provjeri_selekcija_auto_applied_upisuje_tarifu_u_draft():
+    """KRITIČNO (bug pronađen 2026-08-02, offscreen probe na stvarno
+    instanciranom FakturaTab-u): auto_applied petlja poziva _set_table_item
+    (mijenja SAMO Qt ćeliju) i _validate_and_color_row, ali NIKAD ne piše
+    tarifni_broj u draft.invoice_lines[idx] — za razliku od _on_accepted
+    closure-a (dijalog-potvrda putanja), koja to ispravno radi. Rezultat:
+    korisnik vidi novi tarifni broj u tabeli, ali export/Kreiraj naimenovanja
+    (koji čitaju draft, ne Qt tabelu) i dalje koriste STARU vrijednost.
+    Ovaj test bi FAILOVAO na kodu prije fixa jer mock InvoiceLine objekti
+    zadržavaju originalnu vrijednost postavljenu u _line() helperu."""
+    mock_self = _mock_self_with_selected_rows(num_lines=5, selected_rows=[3])
+
+    _finish(
+        mock_self,
+        auto_applied=[(0, "85168080")],
+        row_indexes=[3],
+    )
+
+    assert mock_self.draft.invoice_lines[3].tarifni_broj == "85168080"
+
+
 def test_provjeri_match_line_index_remapiran_na_pravi_red():
     """match.line_index (lokalni, iz validate_lines) mora biti remapiran prije nego stigne do dijaloga."""
     mock_self = _mock_self_with_selected_rows(num_lines=5, selected_rows=[1, 3])

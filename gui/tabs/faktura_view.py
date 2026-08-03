@@ -4336,6 +4336,7 @@ class FakturaView(BaseTabView):
                 try:
                     for idx, tarif in auto_applied:
                         if 0 <= idx < len(self.draft.invoice_lines):
+                            self.draft.invoice_lines[idx].tarifni_broj = tarif
                             self._set_table_item(idx, 4, tarif, align=Qt.AlignCenter)
                             self._validate_and_color_row(idx, self.draft.invoice_lines[idx])
                 finally:
