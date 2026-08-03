@@ -3848,3 +3848,40 @@ mock-baziranih unit testova za ovaj tip Qt-vezane logike — uhvatio je
 bug koji je 27 postojećih (zelenih) testova propustilo. I dalje NIJE
 zamjena za stvarnu GUI potvrdu na pravom ekranu (AGENTS.md Definition of
 Done), ali je znatno jači nivo automatizovanog dokaza od pukog mock-a.
+
+---
+
+## 134. Sesija zatvorena: Faktura tab POTPUNO ZAVRŠEN, sledeći fokus Naimenovanja (2026-08-03)
+
+Faktura tab troslojni refaktor je zvanično zatvoren (Faza 7a/7b/7c + 2
+bugfixa otkrivena GUI/offscreen testiranjem + bojenje Zemlja/Povlastica po
+grupi zemlje, GUI-potvrđeno na 3 stvarne fakture). Puna istorija u
+`project_rooms/2026-08-01_faktura-3layer-refaktor-fazni-plan.md` (sekcija
+ZATVARANJE) i tri `agent_reports/2026-08-02_*` fajla.
+
+Korisnik je najavio sledeću sesiju za **Naimenovanja tab**. Istraga (ova
+sesija, read-only) pokazala: Controller sloj postoji (313 linija, stvarna
+orkestracija kroz 6 komitovanih faza na `windows`, zadnji commit Codex
+2026-07-28), ali nema zatvarajućeg audita/izvještaja kakav Faktura sad ima.
+**Bitan nalaz**: plan-dokument koji je vodio taj rad
+(`project_rooms/2026-07-27_naimenovanja-3layer-refaktor-detaljni-plan.md`,
+801 linija) NIJE izgubljen — commitovan je samo na grani `feature/agent-v2`
+(`git show f561e55:project_rooms/2026-07-27_naimenovanja-3layer-refaktor-detaljni-plan.md`),
+nikad spojen u `windows` zajedno sa kodom koji je vodio. Pun handoff sa
+tačnim koracima za sledeću sesiju:
+`project_rooms/2026-08-03_naimenovanja-3layer-status-i-nastavak.md`.
+
+Odvojeno, u istoj sesiji pokrenut je i **Parser Studio**
+(`C:\Users\38765\Desktop\parser_studio\`, poseban git repo, nepovezan sa
+`deklarant_pro` kodom) — alat za poluautomatsko pravljenje vendor parsera
+(kao `blagic_loren_pdf_parser.py`) bez LLM-a. Prvobitan plan (wizard sa 10
+koraka, ručno mapiranje kolona po dobavljaču) je bio pogrešan pravac —
+razjašnjeno kroz DDD razgovor sa korisnikom: stvarna ideja je JEDAN
+zajednički generički prepoznavač (bez LLM-a, deterministički) koji sam
+nalazi uobičajene podatke fakture u bilo kom PDF/Excel, korisnik pregleda i
+ispravi, AI asistent dopunjuje zajedničku logiku kad promaši (ne piše
+poseban parser po dobavljaču) — krajnji artefakt po dobavljaču ostaje `.py`
+fajl u postojećem stilu. Pun plan (v2):
+`C:\Users\38765\Desktop\parser_studio\PLAN.md`. Korisnik čeka drugo mišljenje
+(ChatGPT) prije nastavka koda — pomenuti samo ako korisnik eksplicitno
+otvori tu temu, ne miješati sa Naimenovanja radom.
