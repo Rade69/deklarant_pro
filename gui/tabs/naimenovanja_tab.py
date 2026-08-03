@@ -36,6 +36,8 @@ class NaimenovanjaTab(QWidget):
             get_draft_fn=lambda: self.view.draft,
             service=self._service,
             reload_header_fn=self._reload_header,
+            save_header_fn=self._save_header,
+            replace_draft_fn=self._replace_draft,
             parent=self,
         )
         self.view.save_current_requested.connect(
@@ -61,6 +63,12 @@ class NaimenovanjaTab(QWidget):
         )
         self.view.import_xml_requested.connect(
             lambda path: self.controller.import_xml(self.view, path)
+        )
+        self.view.save_declaration_requested.connect(
+            lambda path: self.controller.save_declaration(self.view, path)
+        )
+        self.view.open_declaration_requested.connect(
+            lambda path: self.controller.load_declaration(self.view, path)
         )
         self.view.suggest_tariff_requested.connect(self._prepare_tariff_suggestions)
         self.view.tariff_suggestion_accepted.connect(
@@ -98,3 +106,14 @@ class NaimenovanjaTab(QWidget):
         tab = getattr(main_window, "zaglavlje_tab", None)
         if tab and hasattr(tab, "reload_data"):
             tab.reload_data()
+
+    def _save_header(self):
+        main_window = self.window()
+        tab = getattr(main_window, "zaglavlje_tab", None)
+        if tab and hasattr(tab, "save_to_draft"):
+            tab.save_to_draft()
+
+    def _replace_draft(self, loaded):
+        main_window = self.window()
+        main_window._replace_draft_contents(loaded)
+        main_window._reload_all_tabs_from_draft()

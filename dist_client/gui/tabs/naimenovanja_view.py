@@ -185,6 +185,8 @@ class NaimenovanjaView(BaseTabView):
     knowledge_base_update_requested = Signal(str)
     pe_documents_changed = Signal()
     tariff_suggestion_accepted = Signal(dict)
+    save_declaration_requested = Signal(str)
+    open_declaration_requested = Signal(str)
 
     def __init__(
         self, draft: Optional[DeclarationDraft] = None, on_dirty: Optional[Callable] = None
@@ -1988,42 +1990,6 @@ class NaimenovanjaView(BaseTabView):
                 ).strip():
                     item.attached_document4 = master_pe
 
-    def _apply_xml_import_to_zaglavlje(self, filename: str) -> None:
-        """Popuni Zaglavlje tab iz uvezenog ASYCUDA XML-a.
-
-        Rb.18/21 (prevoz) se ne preuzimaju — prevoz za novu deklaraciju može
-        biti drugačiji. U tabeli Priloženih dokumenata (Rb.40) šifra i naziv
-        se preuzimaju za sve stavke, ali referenca se prazni za sve osim DIS
-        (broj dispozicije), jer se nova referenca upisuje za novu deklaraciju.
-        """
-        main_window = self.window()
-        zaglavlje_tab = getattr(main_window, "zaglavlje_tab", None)
-        if zaglavlje_tab is None:
-            return
-
-        from services.zaglavlje_service import ZaglavljeService
-        service = ZaglavljeService()
-
-        try:
-            data = service.load_from_xml(filename)
-        except Exception as e:
-            logger.error(f"Greška pri uvozu zaglavlja iz XML-a: {e}", exc_info=True)
-            return
-
-        # Rb.18/21 (prevoz) zadržava postojeću vrijednost iz drafta — ne preuzima se iz XML-a
-        data["transport_id"] = getattr(self.draft, "transport_id", "") or ""
-        data["aktivno_transport"] = getattr(self.draft, "aktivno_transport", "") or ""
-        data["aktivno_transport_nat"] = getattr(self.draft, "aktivno_transport_nat", "") or ""
-
-        for doc in data.get("attached_documents", []) or []:
-            if (doc.get("code") or "").strip().upper() != "DIS":
-                doc["number"] = ""
-
-        self.draft = service.save_to_draft(self.draft, data)
-
-        if hasattr(zaglavlje_tab, "load_from_draft"):
-            zaglavlje_tab.load_from_draft(self.draft)
-
     def _load_current_item(self) -> None:
         """Load current item from draft into form fields"""
         if len(self.draft.items) == 0 or not hasattr(self, "ui"):
@@ -2283,19 +2249,9 @@ class NaimenovanjaView(BaseTabView):
             first_field.setFocus()
 
     def _on_save(self) -> None:
-        """Save the complete declaration as a portable XML working draft."""
+        """Otvori file dialog i zatraži snimanje kompletne deklaracije kao portable XML nacrta."""
         from PySide6.QtWidgets import QFileDialog
-        from services.declaration_draft_service import (
-            DeclarationDraftService,
-            default_drafts_directory,
-            suggested_filename,
-        )
-
-        self._save_current_item()
-        main_window = self.window()
-        zaglavlje_tab = getattr(main_window, "zaglavlje_tab", None)
-        if hasattr(zaglavlje_tab, "save_to_draft"):
-            zaglavlje_tab.save_to_draft()
+        from services.declaration_draft_service import default_drafts_directory, suggested_filename
 
         settings = QSettings("DeklarantPro", "DeklarantPro")
         last_directory = Path(
@@ -2311,24 +2267,8 @@ class NaimenovanjaView(BaseTabView):
         if not filename:
             return
 
-        try:
-            saved_path = DeclarationDraftService().save(self.draft, filename)
-        except Exception as exc:
-            QMessageBox.critical(
-                self,
-                "Greška pri čuvanju",
-                f"Nacrt deklaracije nije sačuvan.\n\n{exc}",
-            )
-            return
-
-        settings.setValue("drafts/lastDirectory", str(saved_path.parent))
-        self.draft._persistent_draft_path = str(saved_path)
-        self.draft.dirty = False
-        QMessageBox.information(
-            self,
-            "Nacrt sačuvan",
-            f"Kompletna deklaracija je sačuvana u:\n{saved_path}",
-        )
+        settings.setValue("drafts/lastDirectory", str(Path(filename).parent))
+        self.save_declaration_requested.emit(filename)
 
     def _on_field_changed(self) -> None:
         """Debounced field change handler - spašava nakon 300ms pauze u kucanju"""
@@ -2748,11 +2688,7 @@ class NaimenovanjaView(BaseTabView):
         import traceback
         from PySide6.QtWidgets import QFileDialog
         from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
-        from services.declaration_draft_service import (
-            DeclarationDraftService,
-            default_drafts_directory,
-            is_draft_file,
-        )
+        from services.declaration_draft_service import default_drafts_directory, is_draft_file
 
         try:
             settings = QSettings("DeklarantPro", "DeklarantPro")
@@ -2781,11 +2717,7 @@ class NaimenovanjaView(BaseTabView):
                     if reply == QMessageBox.StandardButton.No:
                         return
 
-                loaded = DeclarationDraftService().load(filename)
-                main_window = self.window()
-                main_window._replace_draft_contents(loaded)
-                main_window._reload_all_tabs_from_draft()
-                self.show_success(f"Otvoren je nacrt deklaracije:\n{filename}")
+                self.open_declaration_requested.emit(filename)
                 return
 
             reply = QMessageBox.question(

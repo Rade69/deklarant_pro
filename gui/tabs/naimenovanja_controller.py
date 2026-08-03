@@ -37,6 +37,8 @@ class NaimenovanjaController(QObject):
         service: Optional[NaimenovanjaService] = None,
         tariff_service: Optional[TariffService] = None,
         reload_header_fn: Optional[Callable[[], None]] = None,
+        save_header_fn: Optional[Callable[[], None]] = None,
+        replace_draft_fn: Optional[Callable[[DeclarationDraft], None]] = None,
         parent: Optional[QObject] = None,
     ):
         super().__init__(parent)
@@ -44,6 +46,8 @@ class NaimenovanjaController(QObject):
         self._service = service or NaimenovanjaService()
         self._tariff_service = tariff_service or TariffService()
         self._reload_header = reload_header_fn or (lambda: None)
+        self._save_header = save_header_fn or (lambda: None)
+        self._replace_draft = replace_draft_fn or (lambda draft: None)
 
     @property
     def draft(self) -> DeclarationDraft:
@@ -311,3 +315,37 @@ class NaimenovanjaController(QObject):
             return []
         mappings = self._tariff_service.suggest_tariff(name, origin)
         return self._tariff_service.validate_mappings(mappings)
+
+    # ── Nacrt deklaracije — save/load (Faza 8) ──────────────────────
+
+    def save_declaration(self, view, filename: str) -> bool:
+        """Snimi kompletnu deklaraciju (Rub.31 + Zaglavlje) kao portable XML nacrt."""
+        self.save_current_item(view)
+        draft = self._get_draft()
+        self._save_header()
+        try:
+            from services.declaration_draft_service import DeclarationDraftService
+            saved_path = DeclarationDraftService().save(draft, filename)
+        except Exception as exc:
+            view.show_error(
+                f"Nacrt deklaracije nije sačuvan.\n\n{exc}", title="Greška pri čuvanju"
+            )
+            return False
+        draft._persistent_draft_path = str(saved_path)
+        draft.dirty = False
+        view.show_success(
+            f"Kompletna deklaracija je sačuvana u:\n{saved_path}", title="Nacrt sačuvan"
+        )
+        return True
+
+    def load_declaration(self, view, filename: str) -> bool:
+        """Učitaj kompletan nacrt deklaracije i zamijeni trenutni draft u svim tabovima."""
+        try:
+            from services.declaration_draft_service import DeclarationDraftService
+            loaded = DeclarationDraftService().load(filename)
+        except Exception as exc:
+            view.show_error(f"Greška pri uvozu: {exc}")
+            return False
+        self._replace_draft(loaded)
+        view.show_success(f"Otvoren je nacrt deklaracije:\n{filename}")
+        return True
