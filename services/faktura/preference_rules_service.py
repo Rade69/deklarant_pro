@@ -4,6 +4,32 @@ Preference Rules Service — pravila za povlastice, porijeklo i partner consiste
 
 from importers.import_result import ImportResult
 
+EU_COUNTRIES = {
+    'AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI',
+    'FR', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT',
+    'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK',
+}
+CEFTA_COUNTRIES = {'RS', 'BA', 'ME', 'MK', 'AL', 'XK', 'MD'}
+OTHER_PREFERENTIAL_COUNTRIES = {'TR', 'IR'}
+
+
+def country_preference_group(country_code: str) -> str:
+    """Staticka grupa zemlje za VIZUELNO grupisanje u tabeli (EU/CEFTA/
+    OTHER_PREF/NONE) - iskljucivo po kodu zemlje, NEZAVISNO od toga da li
+    je povlastica ikad potvrdjena za bilo koju konkretnu stavku. Za razliku
+    od suggest_preference_by_country() (koja vraca KONKRETNU sifru
+    povlastice EUP/CEFTAP/TRP/IRP i uzima u obzir istorijsko ucenje), ova
+    funkcija je cisto staticka - ista za sve stavke te zemlje, koristi se
+    samo za pozadinsku boju kolone Zemlja/Povlastica."""
+    c = (country_code or '').upper()
+    if c in EU_COUNTRIES:
+        return 'EU'
+    if c in CEFTA_COUNTRIES:
+        return 'CEFTA'
+    if c in OTHER_PREFERENTIAL_COUNTRIES:
+        return 'OTHER_PREF'
+    return 'NONE'
+
 
 def similar_partner_names(a: str, b: str) -> bool:
     """Provjeri da li su dva naziva partnera dovoljno slična (>60% token overlap)."""
@@ -32,16 +58,10 @@ def suggest_preference_by_country(country_code: str, exporter_name: str = "") ->
         except Exception:
             pass
 
-    eu_countries = {
-        'AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI',
-        'FR', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT',
-        'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK',
-    }
-    cefta_countries = {'RS', 'BA', 'ME', 'MK', 'AL', 'XK', 'MD'}
     c = (country_code or '').upper()
-    if c in eu_countries:
+    if c in EU_COUNTRIES:
         return 'EUP'
-    if c in cefta_countries:
+    if c in CEFTA_COUNTRIES:
         return 'CEFTAP'
     if c == 'TR':
         return 'TRP'

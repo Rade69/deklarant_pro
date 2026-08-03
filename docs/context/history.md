@@ -3731,3 +3731,51 @@ dokaza, ali još nije urađena); checker nalaz #3 iz
 `2026-08-02_assembly-eur1-dialog-parity.md` (EUR.1 dijalog otkazivanje ne
 čisti `has_origin_statement`) — dira dijeljenu `apply_service.py`
 infrastrukturu koju koristi i Agent mod, zahtijeva posebnu korisničku odluku.
+
+---
+
+## 132. Faktura: dva bugfixa iz GUI screenshot testiranja Faze 7 (2026-08-02)
+
+Korisnik je nakon Faze 7 zatvaranja testirao master-list uvoz (Šumaprom
+fakture) i prijavio dva odvojena problema, oba potvrđena čitanjem koda (ne
+Faza 7 regresija — `declaration_assembly.py` nije diran u Fazi 7).
+
+**Fix 1 — `invoice_number` prazan u master-list uvozu.**
+`AssemblyItem.update_from_invoice()` kopira cijenu/količinu/tarifu/zemlju/
+naziv/težine/jm/povlasticu iz fakturne linije, ali NIKAD `invoice_number` —
+za razliku od "običnog" ručnog uvoza gdje `apply_service.py`/`faktura_view.py`
+to redovno postavljaju. Fix: `invoice_number` se upisuje u istom koraku kao
+`source_invoice` (kad faktura donese cijenu). 3 karakterizaciona testa.
+
+**Fix 2 — bojenje Zemlja/Povlastica kolone po grupi zemlje (novi feature,
+ne bug, ali otkriven istim GUI testiranjem).** Korisnička primjedba: CN/TW/
+BR/US (nikad povlašćene) se vizuelno miješaju sa EU/CEFTA zemljama koje
+TEK treba provjeriti — sve dobijaju istu flat neutralnu boju kad povlastica
+nije potvrđena. Odluka (korisnik, AskUserQuestion): bojenje ide i na Zemlja
+i na Povlastica kolonu; TR/IR dobijaju posebnu 4. nijansu ("ostale
+povlašćene"), ne miješaju se ni sa EU ni sa "nikad povlašćene".
+
+Implementacija: `EU_COUNTRIES`/`CEFTA_COUNTRIES` promovisani iz lokalnih
+varijabli u `services/faktura/preference_rules_service.py` u modul-nivo
+konstante (dijeli ih i stara `suggest_preference_by_country` i nova
+`country_preference_group`, čisto statička klasifikacija po kodu zemlje,
+NEZAVISNA od potvrđene povlastice). `ValidationService.country_confidence_
+style()` i `preference_confidence_style()` sad koriste `country_group_color()`
+umjesto flat `_NEUTRAL_COUNTRY_COLOR` kad povlastica nije potvrđena.
+
+**Bitna nuspojava fixa (namjerna, ne slučajna)**: `country_confidence_style()`
+je ranije vraćao `None` (bez ikakve boje) kad `item.country_confidence` nije
+postavljen — što je bio TAČNO slučaj Assembly/master-list stavki (Excel
+master lista ne postavlja `country_confidence`), pa je cijela Zemlja kolona
+ostajala neobojena za taj uvozni tok. Gate promijenjen sa "ima
+country_confidence" na "ima zemlju porijekla" — sad se boji i bez confidence
+podatka, jer je GRUPA staticka činjenica o kodu zemlje.
+
+**Oprez za buduće sesije**: `tests/unit/test_faktura_confidence_color_rules.py`
+zaključava pravilo bojenja iz istorije 6 nezavisnih bugova (memory
+`2026-06-07_neutralna-boja-zemlje-bez-povlastice.md`) — 3 od 10 postojećih
+testova su NAMJERNO ažurirana (ne slučajno pokvarena) da odraze novu
+grupnu logiku; ✅/zelena i dalje isključivo prati eksplicitno potvrđenu
+povlasticu (taj dio pravila NIJE mijenjan). Test fajl ima ažuriran docstring
+koji objašnjava tačno šta se promijenilo i zašto — pročitati prije bilo koje
+buduće izmjene u ovoj oblasti.

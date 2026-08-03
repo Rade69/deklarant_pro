@@ -26,11 +26,32 @@ class ValidationService:
         "LOW": "#ffe5d0",
         "CONFLICT": "#f8d7da",
     }
-    # Neutralna nijansa (sivo-plava) za zemlje koje su pouzdano prepoznate, ali
-    # NEMAJU mogućnost povlastice (npr. Kina) — namjerno različita od zelene
-    # ("HIGH" pouzdanost), da se vizuelno ne miješa sa zemljama kod kojih
-    # povlastica jeste moguća/potvrđena. Vidi agent_reports/2026-06-07_*.
-    _NEUTRAL_COUNTRY_COLOR = "#dfe4ea"
+    # Pozadinske boje po STATIČKOJ grupi zemlje (country_preference_group) —
+    # koriste se kad povlastica NIJE eksplicitno potvrđena za ovu stavku
+    # (vidi country_confidence_style/preference_confidence_style). Cilj
+    # (korisnički zahtjev 2026-08-02): CN/TW/BR/US i sl. (nikad povlašćene)
+    # se ne smiju vizuelno miješati sa EU/CEFTA/TR-IR zemljama koje TEK
+    # treba provjeriti — deklarant treba da ih odmah razlikuje u tabeli.
+    # NONE zadržava staru _NEUTRAL_COUNTRY_COLOR vrijednost (najčešći slučaj,
+    # minimalna vizuelna promjena za postojeće korisnike).
+    _COUNTRY_GROUP_COLORS = {
+        "EU": "#dde6f7",
+        "CEFTA": "#ebe0f7",
+        "OTHER_PREF": "#f7e8d4",
+        "NONE": "#dfe4ea",
+    }
+    # Zadržano kao alias radi backward compatibility (drugi kod/testovi
+    # mogu referencirati direktno) — vrijednost MORA ostati ista kao
+    # _COUNTRY_GROUP_COLORS["NONE"].
+    _NEUTRAL_COUNTRY_COLOR = _COUNTRY_GROUP_COLORS["NONE"]
+
+    @staticmethod
+    def country_group_color(country_code: str) -> str:
+        """Pozadinska boja po grupi zemlje — vidi _COUNTRY_GROUP_COLORS."""
+        from services.faktura.preference_rules_service import country_preference_group
+
+        group = country_preference_group(country_code)
+        return ValidationService._COUNTRY_GROUP_COLORS.get(group, ValidationService._NEUTRAL_COUNTRY_COLOR)
 
     @staticmethod
     def validation_issue_label(field: str, message: str) -> str:
@@ -214,14 +235,26 @@ class ValidationService:
         """
         Pravilo za bojenje/ikonicu kolone Zemlja porijekla.
 
-        Boja/znak prati ISKLJUČIVO da li je povlastica EKSPLICITNO potvrđena
-        za ovu konkretnu stavku (povlastica + prateći dokument: PE-šifra/
-        EUR.1 broj/izjava o porijeklu) — bez obzira na pouzdanost podatka o
-        zemlji, podobnost zemlje ili bilo koju drugu izvedenu/predviđenu
-        vrijednost. Vraća None ako nema country_confidence podatka (poziv
-        ne treba mijenjati ćeliju).
+        ✅/zelena (po nivou pouzdanosti) prati ISKLJUČIVO da li je povlastica
+        EKSPLICITNO potvrđena za ovu konkretnu stavku (povlastica + prateći
+        dokument: PE-šifra/EUR.1 broj/izjava o porijeklu) — ovaj dio pravila
+        je nepromijenjen istorijski lock (vidi test_faktura_confidence_color_
+        rules.py). Kad NIJE potvrđena, boja više NIJE flat neutralna za sve
+        zemlje (stari obrazac) već prati STATIČKU grupu zemlje (EU/CEFTA/
+        ostale povlašćene/nikad povlašćene, country_group_color) — korisnički
+        zahtjev 2026-08-02, NEZAVISNO od country_confidence/pouzdanosti
+        podatka (isti razlog kao ranije: teorijska podobnost NE smije
+        izgledati kao potvrđena povlastica, pa se ✅/zelena ne dodjeljuje;
+        grupa je samo vizuelna kategorizacija, ne tvrdnja o dokazu).
+
+        Vraća None samo ako nema uopšte podatka o zemlji porijekla (ništa za
+        obojiti) — RANIJE je vraćao None i kad je zemlja poznata ali
+        country_confidence prazan (npr. Assembly/master-list stavke prije
+        Faze detekcije porijekla), što je ostavljalo cijelu kolonu neobojenu
+        za taj uvozni tok; to više NIJE slučaj.
         """
-        if not item.country_confidence:
+        zemlja = (getattr(item, "zemlja_porijekla", "") or "").strip()
+        if not zemlja:
             return None
 
         preference = (getattr(item, "povlastica", "") or "").strip()
@@ -233,7 +266,7 @@ class ValidationService:
             )
             icon = "✅"
         else:
-            color_hex = ValidationService._NEUTRAL_COUNTRY_COLOR
+            color_hex = ValidationService.country_group_color(zemlja)
             icon = ""
         neutral_country = not has_preferential_doc
 
@@ -277,9 +310,20 @@ class ValidationService:
           oznaku zemlje (bez izjave), a zemlja je uopšte podobna za neku
           povlasticu — treba ručna provjera.
         - zeleno: povlastica izvedena iz potvrđenog porijekla (izjava/EUR.1/MATCH).
-        - None: nijedan od dva uslova ne važi — ćelija ostaje bez izmjene.
+        - boja po grupi zemlje (EU/CEFTA/ostale povlašćene): nijedan od gornja
+          dva uslova ne važi, ALI je zemlja teorijski podobna za povlasticu —
+          isti obrazac kao country_confidence_style (korisnički zahtjev
+          2026-08-02), da deklarant odmah uoči koje stavke treba provjeriti.
+        - None: zemlja nikad nema povlasticu (npr. CN — country_preference_
+          group == NONE) ili nije uopšte poznata — ćelija ostaje bez izmjene
+          (namjerno, vidi test_pdf_oznaka_bez_povlastice_neeligible_zemlja_
+          bez_upozorenja — upozorenje/isticanje na nepodobnoj zemlji je
+          besmisleno).
         """
-        from services.faktura.preference_rules_service import suggest_preference_by_country
+        from services.faktura.preference_rules_service import (
+            suggest_preference_by_country,
+            country_preference_group,
+        )
 
         source = getattr(item, "country_source", None)
         evidence = evidence_from_preference(item)
@@ -302,6 +346,14 @@ class ValidationService:
                 "tooltip": (
                     "✅ Povlastica je potvrđena PE1/PE2/PE3 dokazom.\n"
                     "Provjerite da li odgovara podacima na fakturi."
+                ),
+            }
+        if country_code and country_preference_group(country_code) != "NONE":
+            return {
+                "color_hex": ValidationService.country_group_color(country_code),
+                "tooltip": (
+                    "ℹ️ Zemlja je potencijalno podobna za povlasticu — "
+                    "provjerite dokaz porijekla."
                 ),
             }
         return None
