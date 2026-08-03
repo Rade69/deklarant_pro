@@ -53,6 +53,7 @@ class AssemblyItem:
                 invoice_line.cijena_jed * self.invoice_line.kolicina
             )
             self.source_invoice = invoice_name
+            self.invoice_line.invoice_number = invoice_name
 
         # Update količinu ako je veća
         if invoice_line.kolicina and invoice_line.kolicina > 0:
