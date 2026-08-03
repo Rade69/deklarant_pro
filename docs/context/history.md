@@ -3677,3 +3677,57 @@ Faktura fajlova; root controller/status 44/44; dist status 8/8; fokusirani
 Faktura/import/pipeline set 71/71. Širi unit set je imao postojeće DB/env failove
 (`tarifa_2026`, `DB_PASSWORD`, `DEBUG=release`) i nije tretiran kao regresija
 Faze 3. Potreban je Claude Code checker prije spajanja.
+
+---
+
+## 131. Faktura 3-layer Faza 7 (7a/7b/7c) — zatvorena, `_on_*` handleri obrađeni (2026-08-02)
+
+Zadnja otvorena faza iz `project_rooms/2026-08-01_faktura-3layer-refaktor-
+fazni-plan.md`. Svih 25 `_on_*` Qt handlera u `faktura_view.py` je
+klasifikovano i obrađeno: 8 izdvojeno u servisni sloj kroz tri podfaze
+(commiti `631a33b`, `0f9c951`, `95b8bd6`), 17 namjerno ostaje netaknuto kao
+čist Qt wiring (dijalozi, redraw, dispatch) — to je View sloj po 3-layer
+pravilu, ne business logika koju treba izdvajati.
+
+Faza 7a: `_on_clear_all` → `WeightManager.reset_weights()`; `_on_export_excel`
+→ novi `ExportService.find_unassigned_items()`; `_on_load_master_list` → novi
+`FakturaController.load_master_list()`.
+
+Faza 7b: `_on_item_changed` → novi `FakturaService.apply_cell_edit()`
+(mapiranje kolona→polje + parsiranje + čišćenje ikonica-prefiksa iz zemlje
+porijekla); `_on_bulk_change_tariff` → novi `FakturaService.bulk_set_tariff()`
+(mutation loop razdvojen od Qt redraw-a/DB korekcije); `_on_load_previous_
+declaration` → tri nove funkcije u `xml_header_extraction.py`
+(`resolve_exporter_name`, `format_header_preview`, `apply_header_to_draft`).
+
+Faza 7c (namjerno SUŽEN opseg u odnosu na prvobitnu HIGH-risk procjenu):
+`_on_historical_validation_finished` → novi `HistoricalValidationWorker.
+remap_local_indices()` za KRITIČNO remapiranje lokalnih indeksa (target_lines
+pozicija) u stvarne redove drafta — najjači dokaz je da postojeća regresiona
+svita `tests/unit/test_faktura_view_provjeri_selekcija.py` (9 testova,
+2026-07-21, pokriva baš ovaj "tih pogrešan red" bug obrazac) prolazi
+NEPROMIJENJENA nakon ekstrakcije. `_on_import_xml` → ponovo iskorišten već
+postojeći `apply_header_to_draft()` iz Faze 7b za header_data upis (uklonjena
+usput mrtva `updated_count` varijabla). Qt dijalog/redraw orkestracija u oba
+metoda namjerno NIJE dirana — to je legitimna View odgovornost, ne dug.
+
+Pouka za buduće audite: prvobitna "cijeli metod je HIGH rizik" procjena
+(napravljena na nivou "koja imena metoda postoje") precenila je stvarni
+obim prave logike unutar ta dva metoda — kad se pročita linija po liniju,
+svaki HIGH-risk metod je imao MALO stvarne logike (par redova) umotano u
+mnogo Qt orkestracije. Bolja heuristika: audit na nivou linija prije
+klasifikacije rizika, ne samo na nivou imena metode.
+
+Mjerenje završenosti brojem linija fajla (`faktura_view.py` i dalje ~5638
+linija) je pogrešna metrika za ovaj tip refaktora — ispravna metrika je
+"da li business logika curi iz View-a u Qt handlere" (odgovor: ne, više).
+`self.validator.*` ima 0 direktnih poziva u cijelom fajlu; `self.assembly.*`
+ostaje samo u fallback grani `_on_load_master_list` i u već-Fazom-6-pokrivenim
+`_finish_import_legacy_path`/`_process_batch_records_legacy` (nisu `_on_*`).
+
+Preostalo van scope-a ovog zadatka: GUI ručna potvrda na stvarnim podacima za
+oba Faza 7c toka (jača od automatizovanog testa po AGENTS.md hijerarhiji
+dokaza, ali još nije urađena); checker nalaz #3 iz
+`2026-08-02_assembly-eur1-dialog-parity.md` (EUR.1 dijalog otkazivanje ne
+čisti `has_origin_statement`) — dira dijeljenu `apply_service.py`
+infrastrukturu koju koristi i Agent mod, zahtijeva posebnu korisničku odluku.

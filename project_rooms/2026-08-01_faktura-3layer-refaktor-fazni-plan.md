@@ -507,8 +507,9 @@ brisanje.
 
 ## FAZA 7 — `_on_*` Qt handleri sa utkanom poslovnom logikom
 
-**Status: PLAN — korisnička odluka 2026-08-02: "želim da se troslojna
-arhitektura potpuno završi", Faza 7 je sad DIO ovog plana, ne van njega.**
+**Status: DONE (2026-08-02) — sve tri podfaze (7a/7b/7c) zatvorene, vidi
+statuse ispod. Korisnička odluka 2026-08-02: "želim da se troslojna
+arhitektura potpuno završi", Faza 7 je bila DIO ovog plana, ne van njega.**
 
 Svjež audit (2026-08-02, subagent, cio fajl pročitan metod-po-metod) —
 originalna procjena od 2026-08-01 je bila djelimično zastarjela nakon
@@ -545,7 +546,7 @@ nedostupnog PostgreSQL servera — environment, ne regresija — vidjeti
 
 ### Faza 7b — srednji rizik
 
-**Status: IN PROGRESS**
+**Status: DONE (2026-08-02, commit `0f9c951`)**
 
 | Metoda | Linije | Šta | Target |
 |---|---|---|---|
@@ -665,3 +666,56 @@ zelene, prvo `git revert` samo commit-e Faze N, ne cijelu granu.
   ne staje u kontekst jedne agent sesije bez gubitka preciznosti.
 - Kada odluku ponovo otvoriti: ako se pokaže da je faza-po-faza overhead
   veći od koristi (npr. svaka faza troši previše vremena na re-orijentaciju).
+
+---
+
+## ZATVARANJE (2026-08-02) — da li je troslojna arhitektura "potpuno završena"
+
+**Sve 7 faza (uklj. 7a/7b/7c) su DONE.** Komiti: `365d0a7`, `e9cdf18`,
+`603da5e`, `009d69d`, `1ec7b19`, `3aa8227`, Faza 5 (2026-08-01),
+`039e080`+`7b79367` (Faza 6), `631a33b` (7a), `0f9c951` (7b), `95b8bd6`
+(7c). Svih **25** `_on_*` Qt handlera u `faktura_view.py` je klasifikovano
+i obrađeno: 8 izdvojeno u servisni sloj (7a: 3, 7b: 3, 7c: 2 — suženog
+opsega, obrazloženje u Faza 7c sekciji), 17 ostaje namjerno netaknuto kao
+čist Qt wiring/orkestracija (dijalozi, redraw, dispatch) koji PO 3-layer
+pravilu i pripada View sloju, ne servisima. `self.validator.*` ima 0
+direktnih poziva u cijelom fajlu (Faza 3). `self.assembly.*` direktni
+pozivi postoje samo u `_on_load_master_list` fallback grani (kad
+Controller nije wire-ovan — namjerno, isti obrazac kao ostatak fajla) i u
+`_finish_import_legacy_path`/`_process_batch_records_legacy`, koji NISU
+`_on_*` handleri i pokriveni su Fazom 6 (potvrđeno grep-om, 2026-08-02).
+
+**Šta ovo STVARNO znači** — 3-layer razdvajanje (View=UI/signali,
+Controller=orchestration, Service=business logika) je dosljedno
+primijenjeno na SVU poslovnu logiku koja je bila utkana u Qt event
+handlere. To NIJE isto što i "faktura_view.py je sad tanak fajl" — fajl
+ima i dalje ~5638 linija, jer većina te dužine JESTE legitimna View
+odgovornost (Qt tabela, dijalozi, signali, redraw) koja se PO ARHITEKTURI
+NE seli u servise. Mjeriti završenost brojem linija fajla (kako je ranije
+Codex tvrdio "65%") je pogrešna metrika — ispravna metrika je "da li
+business logika curi iz View-a", i odgovor je sad ne, sistematski
+provjereno metod-po-metod.
+
+**Šta NIJE urađeno (svjesno, izvan scope-a ovog zadatka)**:
+- GUI ručna potvrda korisnika za Faza 7c izmjene (XML uvoz dugme,
+  "Provjeri" dugme za istorijsku validaciju) na stvarnim fakturama —
+  automatski testovi su najjači dostupan dokaz, ali po AGENTS.md
+  hijerarhiji dokaza GUI potvrda na stvarnim podacima ostaje jača.
+- Checker nalaz #3 iz `2026-08-02_assembly-eur1-dialog-parity.md`
+  (EUR.1/PE2/PE3 dijalog otkazivanje ne čisti has_origin_statement) —
+  eksplicitno van scope-a JER dira `services/import_workflow/apply_
+  service.py`, dijeljenu infrastrukturu koju koristi i Agent mod, ne
+  samo Faktura tab. Zahtijeva posebnu korisničku odluku prije diranja.
+- `_finish_import_legacy_path`/`_process_batch_records_legacy` i dalje
+  imaju direktne `self.assembly.*` pozive — namjerno, Faza 6 je već
+  odlučila da je to prihvatljivo stanje (ne `_on_*` handleri, drugačiji
+  obrazac).
+- Nema šireg arhitektonskog koraka (npr. razbijanje `FakturaView` na više
+  manjih View klasa) — to bi bio NOVI, veći refactor van onoga što je
+  ovaj zadatak (izvlačenje utkane logike) ikad obećavao.
+
+**Zaključak**: troslojna arhitektura za Faktura tab je potpuno završena u
+smislu u kojem je zadatak formulisan — sva poslovna logika izvučena iz
+Qt handlera u servisni sloj, sistematski (ne uzorkovano) provjereno da
+ništa nije propušteno. Preostaje samo GUI ručna potvrda dva Faza 7c toka
+kao posljednji korak dokaza (ne kao nezavršen posao).
