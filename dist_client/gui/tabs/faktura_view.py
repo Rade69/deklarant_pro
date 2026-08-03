@@ -64,7 +64,7 @@ from gui.dialogs.pe2_quick_dialog import PE2QuickDialog
 from core.draft import DeclarationDraft, InvoiceLine, NaimenovanjeDraft
 import uuid
 from services.import_worker import ImportWorker
-from services.historical_validation_worker import HistoricalValidationWorker
+from services.historical_validation_worker import HistoricalValidationWorker, remap_local_indices
 from services.export_service import ExportService
 from exporters.pdf_invoice_exporter import export_invoice_to_pdf
 from exporters.pdf_faktura_pregled import export_faktura_pregled
@@ -2118,12 +2118,7 @@ class FakturaView(BaseTabView):
                     # Update header data if available in XML
                     header_data = result.get("header", {})
                     if header_data:
-                        # Update draft with header data
-                        updated_count = 0
-                        for key, value in header_data.items():
-                            if hasattr(self.draft, key):
-                                setattr(self.draft, key, value)
-                                updated_count += 1
+                        apply_header_to_draft(self.draft, header_data)
 
                     # Reload table
                     self._load_data_from_draft()
@@ -4333,25 +4328,9 @@ class FakturaView(BaseTabView):
         from gui.tabs.agent.widgets.tariff_validation_dialog import TariffValidationDialog
 
         try:
-            # KRITIČNO: match.line_index i auto_applied/auto_rejected indeksi
-            # su pozicije UNUTAR target_lines (0..len(target_lines)-1), ne
-            # stvarni red u self.draft.invoice_lines — kad je target_lines
-            # filtrirana selekcija, indeks mora nazad na pravi red prije upisa
-            # u tabelu ili u draft, inače se promjena upiše u POGREŠAN red.
-            if row_indexes is not None:
-                for match in matches:
-                    if 0 <= match.line_index < len(row_indexes):
-                        match.line_index = row_indexes[match.line_index]
-                auto_applied = [
-                    (row_indexes[local_idx], tarif)
-                    for local_idx, tarif in auto_applied
-                    if 0 <= local_idx < len(row_indexes)
-                ]
-                auto_rejected = [
-                    (row_indexes[local_idx], tarif)
-                    for local_idx, tarif in auto_rejected
-                    if 0 <= local_idx < len(row_indexes)
-                ]
+            matches, auto_applied, auto_rejected = remap_local_indices(
+                matches, auto_applied, auto_rejected, row_indexes
+            )
             if auto_applied:
                 self.table.blockSignals(True)
                 try:

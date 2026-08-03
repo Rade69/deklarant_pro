@@ -11,6 +11,41 @@ from PySide6.QtCore import QThread, Signal
 logger = logging.getLogger("deklarant_pro.faktura.historical_validation_worker")
 
 
+def remap_local_indices(matches: list, auto_applied: list, auto_rejected: list, row_indexes) -> tuple:
+    """Remapira lokalne indekse (pozicije unutar target_lines) na stvarne
+    redove u draft.invoice_lines.
+
+    KRITIČNO: match.line_index i auto_applied/auto_rejected indeksi su
+    pozicije UNUTAR target_lines (0..len(target_lines)-1) koju je Faktura
+    view proslijedila workeru, ne stvarni red u draft.invoice_lines — kad
+    je target_lines filtrirana selekcija, indeks mora nazad na pravi red
+    prije upisa u tabelu/draft, inače se promjena upiše u POGREŠAN red
+    (vidi tests/unit/test_faktura_view_provjeri_selekcija.py).
+
+    `matches` se mutira u mjestu (isto ponašanje kao prije ekstrakcije —
+    match objekti su prosljeđeni dalje u dijalog); auto_applied/auto_rejected
+    se vraćaju kao NOVE liste, originalne ostaju netaknute. Kad je
+    row_indexes None (provjera cijele fakture, bez selekcije), indeksi su
+    već stvarni redovi — ulazi se vraćaju nepromijenjeni.
+    """
+    if row_indexes is None:
+        return matches, auto_applied, auto_rejected
+    for match in matches:
+        if 0 <= match.line_index < len(row_indexes):
+            match.line_index = row_indexes[match.line_index]
+    auto_applied = [
+        (row_indexes[local_idx], tarif)
+        for local_idx, tarif in auto_applied
+        if 0 <= local_idx < len(row_indexes)
+    ]
+    auto_rejected = [
+        (row_indexes[local_idx], tarif)
+        for local_idx, tarif in auto_rejected
+        if 0 <= local_idx < len(row_indexes)
+    ]
+    return matches, auto_applied, auto_rejected
+
+
 class HistoricalValidationWorker(QThread):
     """
     Background thread za HistoricalTariffSearchService.validate_lines() (Faktura tab).

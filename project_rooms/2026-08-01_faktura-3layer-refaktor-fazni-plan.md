@@ -555,29 +555,60 @@ nedostupnog PostgreSQL servera — environment, ne regresija — vidjeti
 
 ### Faza 7c — visok rizik, raditi POSLEDNJE, sa punom pažnjom
 
-**Status: PENDING**
+**Status: DONE (2026-08-02) — namjerno SUŽEN opseg, obrazloženje ispod.**
 
-**`_on_import_xml`** (2095-2176) — cijeli paralelni, NEMIGRIRANI ručni
-XML-uvoz tok (detekcija formata, parsiranje, replace-vs-not odluka,
-`header_data` setattr petlja) — zaobilazi `import_workflow` pipeline koji
-koriste svi ostali uvoz putevi. Najveći pojedinačni preostali gap. Rizik
-HIGH — dijalozi isprepleteni sa logikom, mehanička ekstrakcija bez
-plan/decision/apply rascjepa (isti obrazac kao Faza 4a `ImportWorkflowService`)
-je rizična.
+Nakon čitanja oba metoda u trenutnom stanju (post Faza 7a/7b), pokazalo se
+da "cijeli metod je rizičan" procjena iz prvobitnog audita nije bila
+precizna na nivou pojedinačnih linija — svaki metod sadrži i pravu
+poslovnu logiku (mala, testabilna, sigurna za izdvajanje) i Qt
+dijalog/redraw orkestraciju (namjerno OSTAJE u View-u po 3-layer pravilu
+— dijalozi/tabela nisu "business logic"). Ekstrakcija je urađena SAMO za
+prvi dio, drugi je svjesno ostavljen netaknut — ovo NIJE nepotpuno
+izvršenje Faze 7c, već primjena istog principa kao Faza 7a/7b klasifikacija
+("mješovito, ekstrakcija se ne isplati" za dio koji je čist UI).
 
-**`_on_historical_validation_finished`** (4332-4467) — 4348-4353:
-concurrency guard (token/generation); 4363-4376: **"KRITIČNO"** (citat iz
-postojećeg koda) remapiranje `line_index` iz lokalnih u stvarne indekse
-reda; 4447-4460: inline `_on_accepted` closure koja direktno mutira
-draft+tabelu. Docstring eksplicitno kaže da sadržaj NIJE mijenjan pri
-ranijoj ekstrakciji (samo mjesto izvršavanja premješteno) — svjesna
-prošla odluka. Rizik HIGH — indeksiranje je već bilo izvor bugova u ovoj
-tačnoj oblasti, dirati bez punog karakterizacionog test pokrivenja je
-neodgovorno.
+**`_on_import_xml`** (linije ~2072-2153) — jedina prava logika je
+`header_data` setattr petlja (identičan pattern kao `_on_load_previous_
+declaration` iz Faze 7b) → zamijenjena pozivom već postojećeg
+`apply_header_to_draft()` (xml_header_extraction.py, 8 testova iz Faze
+7b pokrivaju ovu funkciju). Usput uklonjena mrtva `updated_count`
+varijabla (računala se, nikad čitana — provjereno grep-om unutar
+metoda). Ostatak metoda (QFileDialog, format-detekcija/redirect na
+`_start_import`, XMLImporter poziv, potvrdni dijalozi, `_load_data_from_
+draft`) je Qt orkestracija — NIJE dirano. Namjerno NIJE forsiran kroz
+`import_workflow` plan/decision/apply pipeline (to bi bila arhitektonska
+izmjena ponašanja, ne mehanička ekstrakcija — van scope-a ovog zadatka).
 
-**Obavezno za oba**: karakterizacioni testovi PRIJE bilo koje izmjene
-(isti obrazac kao Faze 5/6), `gitnexus_impact` provjera, GUI ručna
-potvrda korisnika nakon izmjene (isti obrazac kao Faza 5/6 EUR.1 lanac).
+**`_on_historical_validation_finished`** (linije ~4310-4445) — KRITIČNO
+remapiranje lokalnih indeksa (linije ranije 4341-4354) izdvojeno u
+`HistoricalValidationWorker.remap_local_indices()` (services/
+historical_validation_worker.py) — čista funkcija, testirana sa 7 novih
+testova (test_historical_validation_remap.py) KOJI SU napisani i
+potvrđeno FAILED prije implementacije (test-first). Presudna provjera:
+postojeća regresiona svita `tests/unit/test_faktura_view_provjeri_
+selekcija.py` (9 testova, napisana 2026-07-21 baš za ovaj bug —
+GREJAC SPIRALA-tipa "tiho pogrešan red" simptom) i dalje SVA prolazi
+nepromijenjena nakon ekstrakcije — najjači mogući dokaz da je ponašanje
+identično. Concurrency guard (token/generation, linije ~4326-4331),
+notifikacije (`_notify_auto_applied_tariffs`/`_notify_auto_rejected_
+tariffs`), `TariffValidationDialog` prikaz i inline `_on_accepted`
+closure (linije ~4425-4438, direktna mutacija draft+tabele iz dijaloga)
+NISU dirani — Qt/UI orkestracija, isti princip kao gore.
+
+**Verifikacija**: `pytest tests/unit -q` — 1503 passed (nova regresija: 0;
+preostala 2 pada: 1 DB test zbog već poznatog nepovezanog product_tariff_
+mapping "mina" bug-a iz memorije 2026-08-01, van scope-a; dist_client sync
+riješen prije ovog zapisa). `gitnexus_detect_changes` → risk_level `low`,
+affected_processes `[]`. GitNexus upstream/downstream impact na oba
+metoda vratio LOW/0 (Qt signal/slot veze se ne vide kao pozivi u grafu —
+očekivano, stvarna procjena rizika je bila iz ručnog čitanja koda +
+postojeće regresione svite, ne iz alata).
+
+**Preostalo za korisnika**: GUI ručna potvrda oba toka (XML uvoz i
+"Provjeri" dugme za istorijsku validaciju tarifa) na stvarnim podacima —
+isti obrazac kao Faza 5/6 EUR.1 lanac. Automatizovani testovi su najjači
+dostupan dokaz (hijerarhija dokaza, AGENTS.md), ali GUI potvrda ostaje
+otvorena stavka prije potpunog zatvaranja.
 
 ---
 
