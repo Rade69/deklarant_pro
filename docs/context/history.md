@@ -3779,3 +3779,27 @@ grupnu logiku; ✅/zelena i dalje isključivo prati eksplicitno potvrđenu
 povlasticu (taj dio pravila NIJE mijenjan). Test fajl ima ažuriran docstring
 koji objašnjava tačno šta se promijenilo i zašto — pročitati prije bilo koje
 buduće izmjene u ovoj oblasti.
+
+**Dopuna (isti dan, 2 dodatne iteracije, sve otkrivene GUI testiranjem na
+stvarnim fakturama, ne unaprijed planirane)**: nakon Fix-a 2 iznad,
+korisnik je hover-tooltip dijagnostikom (ne nagađanjem iz screenshot boja
+— to se pokazalo nepouzdanim) otkrio da PDF_OZNAKA specifično žuto
+upozorenje (`#fff3cd`, postojeći kod) daje DRUGAČIJU boju od "običnog"
+grupnog reda ISTE zemlje — commit `c2f96db` prvo je uskladio Zemlja+
+Povlastica UNUTAR reda, ali redovi ISTE zemlje su i dalje mogli imati dvije
+različite boje (žuta vs grupna) zavisno od izvora podatka. **Finalna
+odluka (commit `397f6e9`)**: boja NIKAD ne zavisi od izvora — SAMO od
+`country_group_color`, PDF_OZNAKA specifično/hitnije upozorenje ostaje
+ISKLJUČIVO tekst u tooltip-u. Dijeljeni `ValidationService.
+_pdf_oznaka_eligible_unset()` helper sad koriste OBA metoda (i za boju u
+`c2f96db`, i samo za tooltip u `397f6e9`), sprječava buduće rasilaženje.
+GUI potvrđeno na 3 odvojene stvarne fakture kroz sve iteracije (Šumaprom
+059/2022, 48VP/49VP-2026) — korisnik eksplicitno potvrdio finalno stanje.
+Puni izvještaj: `agent_reports/2026-08-02_boja-zemlja-povlastica-po-
+grupi.md`.
+
+**Metodološka pouka**: kad korisnik prijavi vizuelnu nedosljednost sa
+screenshot-om, NE nagađati boje iz piksela/opisa slike — hover-tooltip
+tekst (ako kod već ostavlja informativne tooltip-e po pravilu, kako je ovdje
+slučaj) daje jednoznačan odgovor koji kod-put se izvršio, mnogo brže i
+pouzdanije od ponovnog čitanja koda uz pretpostavke o stvarnim podacima.
