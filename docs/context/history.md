@@ -3927,3 +3927,44 @@ Sporedna napomena: GitNexus MCP `repo` parametar sa zagradama u nazivu
 čisto brisanje cijele metode ni poslije `npx gitnexus analyze` reindexa —
 diff-hunk mapper vjerovatno ne hvata izmjene bez dodirivanja susjednih
 linija; nije blokiralo jer je nezavisan dokaz (grep + testovi) postojao.
+
+## 2026-08-03 (treći nastavak) — Naimenovanja 3layer ZATVORENO: 2 od 3 preostala nalaza bila mrtav kod
+
+Korisnik je nakon prethodnog djelimičnog audita zatražio "popravi sve" za
+preostale 3 stavke. Rezultat: isti obrazac kao `_add_history_docs` se
+ponovio 2x. `_apply_xml_import_to_zaglavlje` je bio **mrtav kod** (0 poziva
+na `windows`), superseded ispravnim `NaimenovanjaService.import_xml()`
+(`services/naimenovanja/naimenovanja_service.py:608`, već pozvan iz
+Controllera preko `import_xml_requested` signala, radi isti posao i više).
+`_setup_package_dropdown`/`_setup_rb40_widgets` su re-klasifikovani kao
+NE-gap (read-only katalog lookup bez draft mutacije, isti presedan kao
+Faktura View-ovih 96 importa; dodatno View se konstruiše prije Controllera
+u `NaimenovanjaTab.__init__`, pa bi migracija zahtijevala reorganizaciju
+composition roota za nultu stvarnu korist).
+
+Jedina stvarna migracija: **`_on_save`** (živ kod — vezan na
+`btn_sacuvaj.clicked` i `Ctrl+S`) i usput otkrivena `is_draft_file` grana u
+`_on_import_xml` (otvaranje POSTOJEĆEG nacrta, ista klasa problema, nije
+bila u originalnoj listi). Oba su direktno instancirala
+`DeclarationDraftService` i mutirala draft/MainWindow bez Controllera.
+Novi `NaimenovanjaController.save_declaration()`/`.load_declaration()` sa
+`save_header_fn`/`replace_draft_fn` callback-ovima (isti obrazac kao
+postojeći `reload_header_fn`), View sad samo bira fajl i emituje signal.
+Karakterizacioni test PRIJE migracije:
+`tests/unit/test_naimenovanja_controller_declaration_save_load.py` (4
+testa, stvaran file I/O round-trip, bez mock-a). Commit `3625286`.
+
+Napomena o testnom okruženju: puna `pytest tests/ -q` je prvi put nakon
+ove izmjene pokazala 13 novih failova — istraženo i potvrđeno da je
+`dmserver` (192.168.0.25) bio nedostupan u tom trenutku
+(`psycopg2.OperationalError: ... timeout expired`), nepovezano sa
+izmjenom; isključivanjem DB-zavisnih testova baseline je identičan onom
+prije izmjene.
+
+**Naimenovanja 3-layer refaktor je sada ZAVRŠEN** (status ZATVORENO u
+`project_rooms/2026-08-03_naimenovanja-3layer-status-i-nastavak.md`) — svih
+5 originalno identifikovanih stavki riješeno (1 dead code ranije u sesiji,
+2 dead code ovaj nastavak, 1 stvarna migracija + 1 usput-otkrivena istog
+tipa, 1 re-klasifikovana kao ne-gap). Preostali dug je generalni (Faza 0
+karakterizacioni testovi za cio `naimenovanja_view.py`), ne specifičan gap.
+Puni izvještaj: `agent_reports/2026-08-03_naimenovanja-3layer-zatvaranje.md`.

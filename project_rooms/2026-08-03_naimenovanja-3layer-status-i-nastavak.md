@@ -172,11 +172,83 @@ ili djelimično zaobilaze Controller**:
 
 **Korisnička odluka (upitano putem AskUserQuestion)**: od ponuđenih opcija
 (pun nastavak Faza 6+7 odjednom / samo dokumentuj bez diranja koda / uzak
-fix najrizičnijeg nalaza) korisnik je izabrao **uzak fix najrizičnijeg
+fix najrizičnijeg nalaza) korisnik je prvo izabrao **uzak fix najrizičnijeg
 nalaza** — što se pri provjeri pokazalo kao čisto brisanje mrtvog koda, ne
-kao migracija žive poslovne logike. Preostale 3 stavke (2-4 iznad) nisu
-dirane ovom sesijom i čekaju eksplicitnu odluku korisnika o prioritetu i
-obimu za sledeću turu.
+kao migracija žive poslovne logike.
+
+## ZATVARANJE (konačno) — nastavak iste sesije, korisnik je zatražio "popravi sve"
+
+Korisnik je potom eksplicitno zatražio da se preostale 3 stavke isto
+riješe ("popravi sve"). Rezultat nakon istrage i implementacije:
+
+3. **`_apply_xml_import_to_zaglavlje`** — **RIJEŠENO** (commit `3625286`),
+   ali NE migracijom nego istim nalazom kao `_add_history_docs`: metoda je
+   bila **mrtav kod**, nikad pozivana na `windows` (0 poziva repo-wide grep-om
+   van starih worktree-ova `agent-v2`/`codex-faktura-toolbar`). Superseded
+   je ispravnim `NaimenovanjaService.import_xml()`
+   (`services/naimenovanja/naimenovanja_service.py:608`), koji Controller
+   već poziva preko `import_xml_requested` signala i koji radi isti posao
+   (transport_id/aktivno_transport zadržavanje, Rb.40 DIS-only referenca) i
+   više (PE1/PE2/PE3 master_pe distribucija na iteme, `items` assignment) —
+   sve u jednoj koherentnoj draft mutaciji umjesto dva odvojena side-effecta
+   kakva je stari View metod imao. Obrisana u oba fajla (`gui/`,
+   `dist_client/`).
+
+4. **`_on_save`** — **RIJEŠENO** (commit `3625286`), ovaj put stvarnom
+   migracijom (metoda je bila živa — vezana na `btn_sacuvaj.clicked` i
+   `Ctrl+S`). Novi `NaimenovanjaController.save_declaration(view, filename)`
+   radi: `save_current_item` → `save_header_fn()` callback → `DeclarationDraftService().save()`
+   → `draft._persistent_draft_path`/`draft.dirty` → `view.show_success/show_error`.
+   View sad samo bira fajl (file dialog, `suggested_filename`/
+   `default_drafts_directory` kao read-only helperi) i emituje
+   `save_declaration_requested(str)`. Usput otkrivena i popravljena ista
+   klasa problema u susjednoj grani koda: `is_draft_file` grana unutar
+   `_on_import_xml` (otvaranje POSTOJEĆEG nacrta, ne uvoz naimenovanja) je
+   isto direktno pozivala `DeclarationDraftService().load()` i
+   `main_window._replace_draft_contents()`/`_reload_all_tabs_from_draft()`
+   bez Controllera — nije bila u originalnoj listi od 3, ali je ista
+   arhitektonska greška u istom servisu, pa je migrirana istom prilikom u
+   novi `Controller.load_declaration(view, filename)`. Oba nova Controller
+   metoda koriste `save_header_fn`/`replace_draft_fn` callback-ove ožičene
+   u `NaimenovanjaTab` (`_save_header`, `_replace_draft`) — isti obrazac
+   kao postojeći `reload_header_fn`/`_reload_header`.
+
+5. **`_setup_package_dropdown` / `_setup_rb40_widgets`** — **RE-KLASIFIKOVANO,
+   NIJE gap**. Ponovna analiza istim standardom kao `_add_history_docs`:
+   ovo su čisto read-only katalog lookupi (`load_package_codes()`,
+   `load_previous_documents()`) bez draft mutacije i bez poslovne odluke —
+   isti prihvaćeni obrazac kao 96 direktnih service importa u Faktura View-u
+   i tarifni opis-lookupovi u ovom istom View-u. Dodatno: `NaimenovanjaView`
+   se konstruiše PRIJE `NaimenovanjaController`-a u `NaimenovanjaTab.__init__`
+   (`self.view = NaimenovanjaView(...)` pa tek onda `self.controller = ...`),
+   pa bi "premještanje u Controller" zahtijevalo reorganizaciju composition
+   roota za nultu stvarnu korist (nema šta da se zaštiti od draft mutacije).
+   GitNexus impact: LOW, jedini pozivalac `__init__` (potvrđuje da su
+   isključivo dio jednokratnog UI setupa, ne runtime data-flow-a). Namjerno
+   ostavljeno netaknuto.
+
+**Karakterizacioni test prije implementacije**: `tests/unit/
+test_naimenovanja_controller_declaration_save_load.py` (4 testa, stvaran
+`DeclarationDraftService` round-trip na `tmp_path`, bez mock-ovanja —
+pokriva save uspjeh/neuspjeh i load uspjeh/neuspjeh preko fake `view`-a).
+
+**Status: ZAVRŠENO.** Svih 5 originalno identifikovanih stavki riješeno:
+1 riješena ranije u sesiji (`_add_history_docs`, dead code), 2 riješene u
+ovom nastavku (`_apply_xml_import_to_zaglavlje` dead code,
+`_on_save`+`is_draft_file` grana stvarna migracija), 1 dodatno pronađena i
+riješena usput (`is_draft_file` grana), 1 re-klasifikovana kao ne-gap
+(dropdown/rb40 setup). Puna `pytest tests/ -q` (isključujući DB-zavisne
+testove koji su padali zbog nedostupnog `dmserver` u trenutku ove sesije,
+nepovezano sa izmjenom): identičan baseline kao prije izmjene (3
+pre-postojeća fail-a + 1 error, svi nepovezani). GitNexus `detect_changes`
+poslije reindexa ispravno prikazuje scope izmjene (10 fajlova, risk_level
+low, affected_processes prazno).
+
+Preostao rad na Naimenovanja tabu (van scope-a ove sesije, nije "gap" nego
+generalni dug): nema karakterizacionih testova za `naimenovanja_view.py`
+u cjelini (Faza 0 plana nikad urađena na `windows`) — svaka buduća izmjena
+preostalih View metoda i dalje nosi veći rizik regresije bez njih. Ovo NIJE
+hitno jer trenutno ponašanje taba nije promijenjeno ovom sesijom.
 
 ## 5. Referenca — kako je Faktura zatvorena (isti standard za primijeniti ovdje)
 
