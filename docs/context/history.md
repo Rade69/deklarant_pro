@@ -3968,3 +3968,42 @@ prije izmjene.
 tipa, 1 re-klasifikovana kao ne-gap). Preostali dug je generalni (Faza 0
 karakterizacioni testovi za cio `naimenovanja_view.py`), ne specifičan gap.
 Puni izvještaj: `agent_reports/2026-08-03_naimenovanja-3layer-zatvaranje.md`.
+
+## 2026-08-03 (četvrti nastavak) — Zaglavlje tab audit: već solidno u trosloju, mrtav šifarnik kod počišćen
+
+Korisnik je zatražio pregled Zaglavlje taba za isti troslojni standard dok
+je ručno testirao Naimenovanja izmjene. Nalaz je iznenađujuće drugačiji od
+Naimenovanja: **Zaglavlje je bio 3-layer OD SAMOG POČETKA `windows` grane**
+(`zaglavlje_tab.py` nepromijenjen od prvog commita `0149de9`), ne naknadno
+refaktorisan. View nema `self.draft` (čist `get_data()`/`set_data()` dict
+ugovor), nema `self.window()`/MainWindow pozive, 11 čistih signala ka
+Controlleru — arhitektonski zrelije nego što je Naimenovanja bila prije
+ovosesijskog refaktora.
+
+Jedini nalaz: 6 direktnih `get_db_connection()` + sirovog SQL-a u View-u
+(read-only katalog lookupi za dropdown-ove) — gore od Naimenovanja slučaja
+jer nema ni servisnu apstrakciju. Dublja istraga (isti obrazac kao 3x u
+Naimenovanja sesiji ranije istog dana): `ZaglavljeService` ima skoro
+identične metode, i `ZaglavljeController.load_dropdowns()` (koji ih
+ispravno poziva) POSTOJI — ali se nikad ne poziva, mrtav kod, superseded
+View-ovim direktnim SQL-om. Kod-komentar to i potvrđuje: *"VIEW sada sam
+popunjava... Controller više ne treba da popunjava ovaj dropdown"* — bila
+je to svjesna, ranija odluka, ne previd. Tri Service metode
+(`load_vrste_prijevoza`/`load_ured_odredista`/`load_isprave`) nikad nisu
+ni bile pozvane od produkcionog koda (samo u sopstvenim docstring
+primjerima).
+
+Korisnik je (AskUserQuestion) izabrao samo cleanup mrtvog koda, ne
+konsolidaciju View-ovog SQL-a u Service — djelimično zato što View i
+Service verzije `load_ured_odredista` imaju RAZLIČITU logiku parsiranja
+teksta (nije trivijalno "koja je tačna" bez GUI provjere). Obrisano:
+`ZaglavljeController.load_dropdowns()` + tri Service metode (root +
+dist_client, commit `d6dd1ef`). View-ov sirovi SQL namjerno ostaje —
+isti risk profil kao Naimenovanja dropdown presedan. Puna test svita i
+ciljani `-k zaglavlje` (38 testova) prolaze bez regresije. Puni izvještaj:
+`agent_reports/2026-08-03_zaglavlje-3layer-audit-dead-code-cleanup.md`.
+
+**Metodološka pouka potvrđena 4. put u istoj sesiji**: kod koji "izgleda
+kao View treba migrirati u Controller" prvo treba provjeriti da li već
+POSTOJI Controller-put koji je samo napušten/mrtav — ako postoji, "fix" je
+brisanje mrtvog puta, ne migracija.
