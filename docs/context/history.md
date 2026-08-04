@@ -4212,3 +4212,25 @@ potvrđena VEĆ RIJEŠENA (lazy import sa eksplicitnim komentarom).
 Stavka #14 (packing_list_parser fuzzy match, ne difflib.SequenceMatcher)
 potvrđena i dalje otvorena, minor. Puni izvještaj:
 `agent_reports/2026-08-04_importers-zatvaranje-preostalih-nepoznanica.md`.
+
+## 2026-08-04 (šesti/finalni nastavak) — CMANA fuzzy prag podignut na 0.92
+
+Korisnik odobrio popravku CMANA nalaza: "Podigni kako je i kod drugih a
+fakture ću naći da ih pogledaš". `cmana_pdf_parser.py`: dodat
+`_TARIFF_MIN_SIMILARITY = 0.92` (isti kao `kg_fashion_importer.py` i
+AGENTS.md standard), zamijenjene obje slabe provjere
+(`best_score > 0.0` unutar funkcije, `similarity > 0.25` na pozivnom
+mjestu) da koriste ovu konstantu. GitNexus impact LOW, puna test svita
+1663 passed bez regresije, `dist_client` sinhronizovan. Commit `7f027c4`.
+
+**Namjerno NIJE dodano** (van eksplicitno traženog obima): transparentnost
+porijekla tarife (`tariff_similarity`/`raw["tariff_source"]`) kakvu ima
+kg_fashion — može se dodati naknadno ako korisnik to poželi nakon što
+vidi efekat na realnim CMANA fakturama.
+
+**Nije verifikovano na realnoj CMANA fakturi** — korisnik će dostaviti
+naknadno. Time je `importers/` folder audit ove sesije zaokružen: svi
+identifikovani nalazi (dead code, 2 Leburić bugova, Sumaprom bug, 7
+konsolidovanih `_parse_number` duplikata, CMANA prag) su ili popravljeni
+ili eksplicitno dokumentovani kao follow-up. Puni izvještaj:
+`agent_reports/2026-08-04_importers-cmana-fuzzy-prag-fix.md`.
