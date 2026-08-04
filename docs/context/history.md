@@ -4007,3 +4007,47 @@ ciljani `-k zaglavlje` (38 testova) prolaze bez regresije. Puni izvještaj:
 kao View treba migrirati u Controller" prvo treba provjeriti da li već
 POSTOJI Controller-put koji je samo napušten/mrtav — ako postoji, "fix" je
 brisanje mrtvog puta, ne migracija.
+
+## 2026-08-04 — Zaglavlje dublja analiza: mrtvo signal-oziceenje + sjenceno dupliranje
+
+Korisnik je zatražio dublji nivo detalja na Zaglavlje (isti standard kao
+Naimenovanja audit — svi `_on_*` handleri pojedinačno). Rezultat: svih 11
+View signala provjereno na STVARNU emisiju (ne samo definiciju). Dva nova
+nalaza:
+
+1. **`save_requested`/`load_requested`** — `save_requested` povezan na
+   `Controller._on_save`, ali NIKAD emitovan (dugme "Snimi" zapravo
+   emituje `validation_requested`). `load_requested` nije bio ni povezan.
+   Porijeklo utvrđeno: `gui/tabs/base_controller.py` (BaseTabController)
+   ima dokumentacioni template koji doslovno prikazuje
+   `self.view.save_requested.connect(self._on_save)` — ali
+   `ZaglavljeController` NE nasljeđuje tu klasu (plain klasa). `_on_save`
+   je zaostatak iz kopiranog template obrasca, nikad stvarno ožičen.
+
+2. **Sjenčeno dupliranje `_populate_oznaka_combo`** — suptilnija
+   varijanta istog obrasca: View i Controller imaju DVIJE različite
+   implementacije (Controller: IM/EX-specifične oznake iz
+   `vrste_deklaracija`; View: generičan A/Z/B iz `tipovi_deklaracija`,
+   isti za IM/EX). Signal `deklaracija_sifra_changed` se emituje PRIJE
+   nego View pozove svoju vlastitu verziju → Controller-ova verzija se
+   STVARNO izvrši (nije 100% mrtva, za razliku od prethodnih nalaza), ali
+   se odmah prepiše View-ovom. Krajnji rezultat uvijek ispravan, ali
+   svaki klik na IM/EX combo radi nepotreban DB round-trip koji se
+   odbacuje.
+
+Korisnik odobrio (AskUserQuestion) brisanje oba nalaza — `save_requested`/
+`load_requested` Signal definicije, `Controller._on_save`,
+`_populate_oznaka_combo`, `_on_dekl_sifra_changed`, odgovarajuće
+`.connect()` linije. Commit `7a3fe20`. Puna test svita bez regresije.
+
+**Namjerno NIJE dirano** (van odobrenog obima): View-ova strana
+`deklaracija_sifra_changed` signala (i dalje emituje, sada u prazno —
+bezopasno), i `ZaglavljeService.get_vrste_deklaracija()`/`get_vid_unutra()`
+(sada bez pozivalaca, posljedica ove izmjene, ali nije obrisano bez nove
+eksplicitne potvrde). Follow-up za sledeći put.
+
+**Pouka**: razlika između "0 poziva" (grep dovoljan) i "poziva se, ali
+rezultat se uvijek prepiše" (treba pratiti redoslijed izvršavanja/signal
+emisije) je bitna razlika u nivou dokaza potrebnog za tvrdnju "ovo je
+mrtav kod". Puni izvještaj:
+`agent_reports/2026-08-04_zaglavlje-dublja-analiza-mrtvo-oziceenje.md`.
