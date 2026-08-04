@@ -4254,3 +4254,29 @@ scenarijem. Ovim je `importers/` audit sesije potpuno zaokružen — svi
 identifikovani nalazi popravljeni i (osim fuzzy-match specifično za
 CMANA) validirani na realnim podacima. Puni izvještaj:
 `agent_reports/2026-08-04_importers-cmana-validacija-realna-faktura.md`.
+
+## 2026-08-04 — Šifrarnici audit: SifarniciController bio potpuno mrtav kod
+
+Korisnik pitao ima li smisla refaktorisati Šifrarnici/Admin/Agent tabove
+u 3-layer; odlučeno da se krene sa Šifrarnici (najniži rizik). Audit
+otkrio da je `SifarniciController` (503 linije) bio **potpuno
+nedostižan** — u `__init__` je poziv `_connect_signals()` trajno
+zakomentarisan sa napomenom "aktivirace se u Fazi 5", koja se nikad nije
+desila. Nijedan View signal (dugmad, tabela, pretraga, kategorije) nikad
+nije bio povezan sa Controllerom. `SifarniciView` (3803 linije, i dalje
+monolit) sam kreira i koristi svoju `SifarniciService` instancu direktno
+— zaobilazi Controller potpuno, ali je funkcionalan put (Service NIJE
+mrtav — koristi ga i View i nezavisno `import_pipeline_service.py` iz
+Agent uvoznog pipeline-a). GitNexus impact na `SifarniciController`:
+LOW, `affected_processes: []` — potvrđuje da klasa nikad nije bila dio
+izvršnog toka.
+
+Korisnik izabrao (AskUserQuestion): obrisati samo mrtvi Controller, NE
+dirati View monolit (prior agent iz maja 2026 je već ocijenio CRUD/DB/
+tree-view logiku u Viewu kao rizičnu za dirati —
+`agent_reports/2026-05-12_sifarnici-table-helper-refactor.md`). Uklonjen
+`SifarniciController` (root + dist_client, 503×2 linije), wrapper
+pojednostavljen. `pytest` 1688 passed / isti pre-postojeći 3 fail-a +
+DB errori (nepovezano). Commit `7a900ce`. Korisnik eksplicitno rekao da
+se NE nastavlja automatski na Admin/Agent tabove. Puni izvještaj:
+`agent_reports/2026-08-04_sifarnici-audit-mrtav-controller.md`.
