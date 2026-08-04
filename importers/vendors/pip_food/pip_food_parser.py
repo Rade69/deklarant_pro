@@ -13,6 +13,7 @@ import pdfplumber
 from core.draft.draft import InvoiceLine, Party
 from importers.import_result import ImportResult
 from importers.incoterm_utils import detect_incoterm
+from importers.invoice_line_utils import parse_number_thousands_heuristic as _parse_number
 
 logger = logging.getLogger("deklarant_pro.import.pip_food")
 
@@ -353,63 +354,6 @@ def _clean_pip_naziv(naziv: str) -> str:
     naziv = naziv.strip()
     
     return naziv
-
-
-def _parse_number(s: str) -> float:
-    """
-    Parsira broj iz stringa (podržava evropski i US format).
-    
-    Formati:
-    - Evropski: "1.920,00" (tačka=hiljade, zarez=decimale)
-    - US: "1,920.00" (zarez=hiljade, tačka=decimale)
-    - Jednostavan: "1920,00" ili "1920.00"
-    """
-    if not s:
-        return 0.0
-    
-    s = str(s).strip()
-    
-    # Ukloni valutne simbole i razmake
-    s = re.sub(r'[€$£\s]', '', s)
-    
-    if not s or s in ('.', ',', '-'):
-        return 0.0
-    
-    has_comma = ',' in s
-    has_dot = '.' in s
-    
-    if has_comma and has_dot:
-        # Koji je zadnji separator? To je decimalni.
-        last_comma = s.rfind(',')
-        last_dot = s.rfind('.')
-        
-        if last_dot > last_comma:
-            # "1,920.00" — US format (tačka je decimalni)
-            s = s.replace(',', '')
-        else:
-            # "1.920,00" — evropski format (zarez je decimalni)
-            s = s.replace('.', '').replace(',', '.')
-    elif has_comma and not has_dot:
-        # Samo zarez — ako je 3 cifre posle, onda je separator hiljada
-        parts = s.split(',')
-        if len(parts) == 2 and len(parts[1]) == 3 and parts[0].isdigit():
-            s = s.replace(',', '')
-        else:
-            s = s.replace(',', '.')
-    elif has_dot and not has_comma:
-        # Samo tačka
-        parts = s.split('.')
-        if len(parts) == 2 and len(parts[1]) == 3 and parts[0].isdigit():
-            # "1.234" — separator hiljada
-            s = s.replace('.', '')
-        elif s.count('.') > 1:
-            # "1.234.567" — sve tačke su separatori hiljada
-            s = s.replace('.', '')
-    
-    try:
-        return float(s)
-    except (ValueError, TypeError):
-        return 0.0
 
 
 def detect_pip_food_pdf(filepath: str) -> bool:

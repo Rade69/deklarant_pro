@@ -62,6 +62,94 @@ def parse_eu_number(s: str) -> float:
         return 0.0
 
 
+def parse_number_permissive(text: str) -> float:
+    """
+    Parsira broj iz teksta, uklanjajući sve osim cifara/tačke/zareza/minusa
+    prije parsiranja (valutni simboli, razmaci i sl. se ignorišu).
+
+    Zarez se uvijek tretira kao decimalni separator. Ako nakon zamjene
+    ostane više od jedne tačke (izvorni tekst je imao i tačku i zarez),
+    sve tačke osim zadnje se tretiraju kao separator hiljada.
+
+    Args:
+        text: String koji sadrži broj
+
+    Returns:
+        Float vrijednost, ili 0.0 ako parsiranje nije uspjelo
+    """
+    if not text:
+        return 0.0
+
+    text = re.sub(r'[^\d,.\-]', '', str(text))
+    text = text.replace(',', '.')
+
+    if text.count('.') > 1:
+        parts = text.split('.')
+        text = ''.join(parts[:-1]) + '.' + parts[-1]
+
+    try:
+        return float(text)
+    except ValueError:
+        return 0.0
+
+
+def parse_number_thousands_heuristic(text: str) -> float:
+    """
+    Parsira broj iz teksta uz heuristiku za dvosmislen slučaj jednog separatora.
+
+    Kad su prisutni i ',' i '.', zadnji separator je decimalni (isto kao
+    parse_eu_number). Kad je prisutan SAMO jedan separator, dodatno provjerava
+    broj cifara iza njega: tačno 3 cifre iza jedinog separatora → tretira se
+    kao separator hiljada (npr. "1,234" → 1234.0), inače kao decimalni
+    (npr. "1,5" → 1.5). Ovo namjerno odstupa od parse_eu_number-a, koji
+    jedan zarez UVIJEK tretira kao decimalni — koristiti samo gdje je ova
+    heuristika već dokazano ispravna za dati izvor podataka.
+
+    Args:
+        text: String koji sadrži broj
+
+    Returns:
+        Float vrijednost, ili 0.0 ako parsiranje nije uspjelo
+    """
+    if not text:
+        return 0.0
+
+    text = str(text).strip()
+    text = re.sub(r'[€$£\s]', '', text)
+    text = re.sub(r'[^\d,.\-]', '', text)
+
+    if not text or text in ('.', ',', '-', ''):
+        return 0.0
+
+    has_comma = ',' in text
+    has_dot = '.' in text
+
+    if has_comma and has_dot:
+        last_comma = text.rfind(',')
+        last_dot = text.rfind('.')
+        if last_dot > last_comma:
+            text = text.replace(',', '')
+        else:
+            text = text.replace('.', '').replace(',', '.')
+    elif has_comma and not has_dot:
+        parts = text.split(',')
+        if len(parts) == 2 and len(parts[1]) == 3 and parts[0].isdigit():
+            text = text.replace(',', '')
+        else:
+            text = text.replace(',', '.')
+    elif has_dot and not has_comma:
+        parts = text.split('.')
+        if len(parts) == 2 and len(parts[1]) == 3 and parts[0].isdigit():
+            text = text.replace('.', '')
+        elif text.count('.') > 1:
+            text = text.replace('.', '')
+
+    try:
+        return float(text)
+    except (ValueError, TypeError):
+        return 0.0
+
+
 # ---------------------------------------------------------------------------
 # Parsiranje "repa" stavke (JM + numeričke kolone)
 # ---------------------------------------------------------------------------

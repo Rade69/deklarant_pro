@@ -23,6 +23,7 @@ import pdfplumber
 from core.draft.draft import InvoiceLine
 from importers.import_result import ImportResult
 from importers.incoterm_utils import detect_incoterm
+from importers.invoice_line_utils import parse_eu_number as _parse_number
 from utils.country_normalizer import normalize_country_name
 
 logger = logging.getLogger("deklarant_pro.import.sumaprom_pdf")
@@ -226,14 +227,6 @@ _SKIP_RE = re.compile(
     r'Invoice\s+date|Comments|NAPOMENE|Number\s+of)',
     re.IGNORECASE,
 )
-
-
-def _parse_number(s: str) -> float:
-    """Parsira broj sa zarezom ili tačkom."""
-    try:
-        return float(s.replace(',', '.'))
-    except ValueError:
-        return 0.0
 
 
 def _normalize_country(raw: str) -> str:

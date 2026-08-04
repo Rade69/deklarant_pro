@@ -1,4 +1,4 @@
-# importers/blagic_loren_pdf_parser.py
+﻿# importers/blagic_loren_pdf_parser.py
 
 """
 Blagić Loren PDF Parser
@@ -15,6 +15,7 @@ import pdfplumber
 from core.draft.draft import InvoiceLine, Party
 from importers.import_result import ImportResult
 from importers.incoterm_utils import detect_incoterm
+from importers.invoice_line_utils import parse_eu_number as _parse_number
 
 logger = logging.getLogger("deklarant_pro.import.blagic_loren_pdf")
 
@@ -306,45 +307,6 @@ def _detect_exporter(full_text: str, fallback: str = "") -> str:
                 if name:
                     return name
     return fallback
-
-
-def _parse_number(s: str) -> float:
-    """
-    Parse number from string (handles both European and US formats).
-
-    Formats:
-    - European: "1.920,00" (dot=thousands, comma=decimal)
-    - US: "1,920.00" (comma=thousands, dot=decimal)
-    - Simple: "1920,00" or "1920.00"
-    """
-    if not s:
-        return 0.0
-
-    # Remove spaces
-    s = s.replace(' ', '')
-
-    # Determine format based on LAST separator (= decimal point)
-    if ',' in s and '.' in s:
-        # Both present - check which is decimal (last one in string)
-        last_comma = s.rfind(',')
-        last_dot = s.rfind('.')
-
-        if last_comma > last_dot:
-            # European format: "1.920,00" (comma is decimal)
-            s = s.replace('.', '')  # Remove thousands separator (dots)
-            s = s.replace(',', '.')  # Replace decimal comma with dot
-        else:
-            # US format: "1,920.00" (dot is decimal)
-            s = s.replace(',', '')  # Remove thousands separator (commas)
-    elif ',' in s:
-        # Only comma - assume European decimal: "1920,00"
-        s = s.replace(',', '.')
-    # else: only dot or no separator - already correct format
-
-    try:
-        return float(s)
-    except (ValueError, TypeError):
-        return 0.0
 
 
 def detect_blagic_loren_pdf(filepath: str) -> bool:

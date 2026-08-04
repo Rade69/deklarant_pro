@@ -14,6 +14,7 @@ from typing import List
 
 from core.draft.draft import InvoiceLine, Party
 from importers.import_result import ImportResult
+from importers.invoice_line_utils import parse_number_permissive as _parse_number
 
 logger = logging.getLogger("deklarant_pro.import.invoice_improved")
 
@@ -262,28 +263,6 @@ def _parse_item_data(item_data: dict) -> InvoiceLine:
         iznos=amount,
         valuta="EUR"
     )
-
-
-def _parse_number(text: str) -> float:
-    """Parsira broj iz teksta."""
-    if not text:
-        return 0.0
-
-    # Ukloni sve osim cifara, tačke i zareza
-    text = re.sub(r'[^\d,.\-]', '', str(text))
-
-    # Zamijeni zarez sa tačkom
-    text = text.replace(',', '.')
-
-    # Ako ima više tačaka, prva je separator hiljada
-    if text.count('.') > 1:
-        parts = text.split('.')
-        text = ''.join(parts[:-1]) + '.' + parts[-1]
-
-    try:
-        return float(text)
-    except ValueError:
-        return 0.0
 
 
 def detect_invoice_improved(pdf_path: str) -> bool:

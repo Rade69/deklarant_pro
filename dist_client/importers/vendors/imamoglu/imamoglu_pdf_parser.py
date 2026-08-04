@@ -15,6 +15,7 @@ import pdfplumber
 from core.draft.draft import InvoiceLine, Party
 from importers.import_result import ImportResult
 from importers.incoterm_utils import detect_incoterm
+from importers.invoice_line_utils import parse_eu_number as _parse_number
 
 logger = logging.getLogger("deklarant_pro.import.imamoglu_pdf")
 
@@ -285,34 +286,6 @@ def _detect_exporter(full_text: str, fallback: str = "") -> str:
                 if name:
                     return name
     return fallback
-
-
-def _parse_number(s: str) -> float:
-    """Parse number from string (handles commas and dots)."""
-    if not s:
-        return 0.0
-
-    # Remove spaces
-    s = s.replace(' ', '')
-
-    # Handle European format (comma as decimal, dot as thousands)
-    # or US format (dot as decimal, comma as thousands)
-    if ',' in s and '.' in s:
-        # If comma comes after dot, it's decimal: 1.234,56 → 1234.56
-        if s.rfind(',') > s.rfind('.'):
-            s = s.replace('.', '').replace(',', '.')
-        else:
-            # If dot comes after comma, it's decimal: 1,234.56 → 1234.56
-            s = s.replace(',', '')
-    elif ',' in s:
-        # Only comma - assume decimal: 12,34 → 12.34
-        s = s.replace(',', '.')
-    # else: only dots or no separators - leave as is
-
-    try:
-        return float(s)
-    except (ValueError, TypeError):
-        return 0.0
 
 
 def detect_imamoglu_pdf(filepath: str) -> bool:

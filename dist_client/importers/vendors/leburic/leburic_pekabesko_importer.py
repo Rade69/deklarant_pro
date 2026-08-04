@@ -25,6 +25,7 @@ import openpyxl
 from core.draft.draft import InvoiceLine, Party
 from importers.import_result import ImportResult
 from importers.incoterm_utils import detect_incoterm
+from importers.invoice_line_utils import parse_eu_number
 from utils.country_normalizer import normalize_country_name
 
 logger = logging.getLogger("deklarant_pro.import.leburic_pekabesko")
@@ -131,20 +132,7 @@ def _parse_number(value) -> float:
         return 0.0
     if isinstance(value, (int, float)):
         return float(value)
-    s = str(value).strip().replace(" ", "")
-    # Ukloni sve osim cifara, zareza i tačke
-    s = re.sub(r"[^\d.,]", "", s)
-    if not s:
-        return 0.0
-    # Ako ima i zarez i tačka, pretpostavi da je zarez separator hiljada
-    if "," in s and "." in s:
-        s = s.replace(",", "")
-    elif "," in s:
-        s = s.replace(",", ".")
-    try:
-        return float(s)
-    except ValueError:
-        return 0.0
+    return parse_eu_number(str(value))
 
 
 def _find_pdf_for_excel(excel_path: str) -> Optional[str]:

@@ -22,6 +22,7 @@ import pdfplumber
 from core.draft.draft import InvoiceLine, Party
 from importers.import_result import ImportResult
 from importers.incoterm_utils import detect_incoterm
+from importers.invoice_line_utils import parse_number_thousands_heuristic as _parse_number
 
 logger = logging.getLogger("deklarant_pro.import.cmana_pdf")
 
@@ -462,58 +463,3 @@ def get_tariff_codes_for_product_name(product_name: str) -> tuple[str, float]:
             conn.close()
         except:
             pass
-
-def _parse_number(text: str) -> float:
-    """
-    Parsira broj iz teksta koristeći generic format.
-
-    Podržava evropski format (1.234,56) i Američki (1,234.56).
-    """
-    if not text:
-        return 0.0
-
-    text = str(text).strip()
-
-    # Ukloni valutne simbole i dodatne znakove
-    text = re.sub(r'[€$£\s]', '', text)
-    text = re.sub(r'[^\d,.\-]', '', text)
-
-    if not text or text in ('.', ',', '-', ''):
-        return 0.0
-
-    has_comma = ',' in text
-    has_dot = '.' in text
-
-    if has_comma and has_dot:
-        # Odluči koji je decimalni separator
-        last_comma = text.rfind(',')
-        last_dot = text.rfind('.')
-        if last_dot > last_comma:
-            # "1,234.56" - Američki format
-            text = text.replace(',', '')
-        else:
-            # "1.234,56" - Evropski format
-            text = text.replace('.', '').replace(',', '.')
-    elif has_comma and not has_dot:
-        # Samo zarez
-        parts = text.split(',')
-        if len(parts) == 2 and len(parts[1]) == 3 and parts[0].isdigit():
-            # "1,234" - zarez je separator hiljada
-            text = text.replace(',', '')
-        else:
-            # "1,5" - zarez je decimalni
-            text = text.replace(',', '.')
-    elif has_dot and not has_comma:
-        # Samo tačka
-        parts = text.split('.')
-        if len(parts) == 2 and len(parts[1]) == 3 and parts[0].isdigit():
-            # "1.234" - tačka je separator hiljada
-            text = text.replace('.', '')
-        elif text.count('.') > 1:
-            # "1.234.567" - sve tačke su separatori hiljada
-            text = text.replace('.', '')
-
-    try:
-        return float(text)
-    except ValueError:
-        return 0.0
