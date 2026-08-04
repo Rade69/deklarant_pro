@@ -1,17 +1,15 @@
 # gui/tabs/sifarnici_tab.py
-# Integrisani wrapper za SifarniciTab sa MVC patternom
+# Integrisani wrapper za SifarniciTab
 
 from PySide6.QtWidgets import QWidget, QVBoxLayout
 from typing import Optional, Callable
 
 from core.draft import DeclarationDraft
 from gui.tabs.sifarnici_view import SifarniciView
-from gui.tabs.sifarnici_controller import SifarniciController
-from services.sifarnici_service import SifarniciService
 
 
 class SifarniciTab(QWidget):
-    """Integrisani wrapper koji povezuje View, Controller i Service prema MVC patternu."""
+    """Wrapper koji izlaže SifarniciView kroz stabilan interfejs (get_view/set_draft/refresh)."""
 
     def __init__(
         self,
@@ -20,15 +18,13 @@ class SifarniciTab(QWidget):
         parent: Optional[QWidget] = None,
     ):
         super().__init__(parent)
-        
-        # Kreiraj view (originalni monolit koji radi sve sam)
+
+        # View je monolit koji sam upravlja UI-jem, business logikom i DB pristupom
+        # (interno pravi svoj SifarniciService). SifarniciController je uklonjen 2026-08-04
+        # kao mrtav kod — _connect_signals() je bio trajno isključen, nijedan View signal
+        # nikad nije bio povezan sa njim. Vidi agent_reports/2026-08-04_sifarnici-audit.md
         self.view = SifarniciView(draft=draft, on_dirty=on_dirty)
-        
-        # Controller i Service postoje ali originalni View ih ne koristi
-        # Zadržavamo ih za backward compatibility
-        self.service = SifarniciService()
-        self.controller = SifarniciController(self.view, self.service)
-        
+
         # Setup layout
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
