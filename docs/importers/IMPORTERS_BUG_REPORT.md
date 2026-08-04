@@ -2,6 +2,19 @@
 
 Datum: 2026-04-03
 
+> **STATUS 2026-08-04**: Ovaj izvještaj je djelimično zastario — provjereno unakrsno
+> sa trenutnim kodom tokom dublje analize `importers/` foldera. Potvrđeno RIJEŠENO:
+> #1 (xml_importer.py error swallowing), #5 (blagic_combined_importer.py Any tip),
+> #7 (blagic_loren_importer.py neto_kg=0.0), #8 (invoice_improved_parser.py pogrešna
+> polja), #9 (sumaprom sad koristi pravi parser, ne generic fallback). MOOT (fajl
+> obrisan kao mrtav kod, commit `b9ee4bb`): #2, #3 (`importers/blagic_importer.py` —
+> stara putanja prije `vendors/` reorganizacije; trenutni `importers/vendors/blagic/
+> blagic_importer.py` je imao iste bugove ali je bio orphaned, pa je obrisan umjesto
+> popravljen). I DALJE VAŽI (nije provjeravano/rješavano ovom sesijom): #4, #6, #10-16,
+> i preporuka #1 (9 dupliranih `_parse_number` implementacija — vidi
+> `agent_reports/2026-08-04_importers-folder-dublja-analiza.md`). Ostatak dokumenta
+> ispod je izvorni tekst iz aprila — ne vjerovati bez provjere.
+
 ---
 
 ## CRITICAL BUGS

@@ -4051,3 +4051,33 @@ rezultat se uvijek prepiše" (treba pratiti redoslijed izvršavanja/signal
 emisije) je bitna razlika u nivou dokaza potrebnog za tvrdnju "ovo je
 mrtav kod". Puni izvještaj:
 `agent_reports/2026-08-04_zaglavlje-dublja-analiza-mrtvo-oziceenje.md`.
+
+## 2026-08-04 — importers/ folder dublja analiza: orphaned strategy podstablo + mrtvi shim-ovi
+
+Korisnik je zatražio pregled `importers/` foldera ("nagomilalo se svašta").
+Nalaz: `importers/pdf/{base,blagic_strategy,generic_strategy,
+master_frigo_strategy,ocr_strategy}.py` (422 linije) je abandoned
+`PDFParseStrategy` obrazac koji je trebalo da zamijeni if/elif dispatch u
+`smart_pdf_importer.py`, ali nikad nije povezan (`__all__ = []`, 0
+referenci). `importers/vendors/blagic/blagic_importer.py` je bio orphaned
+(jedini pozivalac bio dead `blagic_strategy.py`) — sadržavao 2 poznata
+bug-a iz `docs/importers/IMPORTERS_BUG_REPORT.md` (2026-04-03), bezopasni
+jer nedostižni. `importers/pip_food_parser.py` je bio mrtav backward-compat
+shim.
+
+**Gotcha usput**: `vendors/blagic/__init__.py` je unconditionally
+re-eksportovao simbole iz `blagic_importer.py` — brisanje bez fixa je
+lomilo cio `blagic` paket (Python izvršava `__init__.py` pri bilo kom
+submodule importu). Popravljeno u istom commit-u.
+
+Unakrsna provjera starog bug reporta (17 stavki, 2026-04-03) sa trenutnim
+kodom: 5 spot-checked kritičnih bugova VEĆ POPRAVLJENI (xml_importer
+error-swallowing, blagic_combined Any tip, blagic_loren neto_kg=0.0,
+invoice_improved_parser polja, sumaprom generic fallback) — dokument je
+djelimično zastario, dodata status napomena. Preporuka #1 (9 dupliranih
+`_parse_number` implementacija po dobavljačima) i dalje važi — korisnik
+svjesno odgodio kao veći/rizičniji follow-up (zahtijeva karakterizacione
+testove po dobavljaču prije konsolidacije).
+
+Commit `b9ee4bb`. Puna test svita bez regresije. Puni izvještaj:
+`agent_reports/2026-08-04_importers-folder-dublja-analiza.md`.
