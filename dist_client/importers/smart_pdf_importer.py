@@ -397,7 +397,7 @@ def _parse_proton_system(pdf_path: str) -> ImportResult:
 
 def _parse_leburic_pekabesko(pdf_path: str) -> ImportResult:
     """Parsira Leburic/Pekabesko PDF format (skenirani OCR dokumenti)."""
-    from importers.vendors.leburic.leburic_pekabesko_importer import parse_leburic_pekabesko_pdf
+    from importers.vendors.leburic.leburic_pekabesko_pdf_parser import parse_leburic_pekabesko_pdf
     return parse_leburic_pekabesko_pdf(pdf_path)
 
 
