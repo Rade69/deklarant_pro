@@ -4329,3 +4329,13 @@ Puni izvještaj: `agent_reports/2026-08-04_admin-mrtav-kod-cleanup.md`.
 Nije dirano: CSS duplikati (~300 linija), arhitekturni problemi panela,
 BackupService.create_backup/restore_backup/get_available_backups (zadržani na
 servisnom nivou — mogu se obrisati u sledećoj iteraciji).
+
+### 2026-08-04 — Drugi krug: BackupService, LogService, hasattr, CSS konstante
+
+BackupService prepisan — zadržan samo `__init__()` i `get_database_size()`
+(jedina metoda koju AdminService.get_system_info() zaista koristi).
+LogService.filter_logs() uklonjen — 0 pozivalaca nakon prvog kruga.
+Uklonjeno 6 `if hasattr(panel, 'signal')` guardova — signali su uvijek prisutni.
+Obrisane 3 neiskorišćene CSS konstante iz `panels/styles.py` (67 linija:
+BUTTON_BASE_STYLE, INPUT_BASE_STYLE, LISTWIDGET_STYLE).
+Admin testovi 15/15 prolaze.
