@@ -4339,3 +4339,19 @@ Uklonjeno 6 `if hasattr(panel, 'signal')` guardova — signali su uvijek prisutn
 Obrisane 3 neiskorišćene CSS konstante iz `panels/styles.py` (67 linija:
 BUTTON_BASE_STYLE, INPUT_BASE_STYLE, LISTWIDGET_STYLE).
 Admin testovi 15/15 prolaze.
+
+### 2026-08-04 — Uklonjeno 385 linija mrtvog koda iz Šifrarnici modula
+
+Nakon Admin tab audita, isti obrazac primenjen na Šifrarnike:
+- sifarnici_view.py: 10 nepozivanih metoda (132 linije) — _edit_row/_delete_row
+  (stare implementacije zamenjene _on_uredi/_on_obrisi), _populate_zemlje, status
+  bar helperi (set_title, update_totals, update_position, _update_last_change),
+  BaseTabView override-i (clear_form, get_data, set_data)
+- sifarnici_service.py: 13 nepozivanih metoda (248 linija) — ceo validate_*
+  podsistem (7 metoda), search_generic, load_category_data,
+  activate/deactivate_inspection_rule
+- 5 neiskorišćenih importa (traceback, Union, QMenu, psycopg2)
+
+Sve potvrđeno: grep pozivalaca + gitnexus impact (impactedCount: 0).
+Controller je već bio uklonjen ranije (7a900ce, Claude Code).
+Puni izvještaj: agent_reports/2026-08-04_sifarnici-mrtav-kod-cleanup.md
