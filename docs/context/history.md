@@ -4280,3 +4280,29 @@ pojednostavljen. `pytest` 1688 passed / isti pre-postojeći 3 fail-a +
 DB errori (nepovezano). Commit `7a900ce`. Korisnik eksplicitno rekao da
 se NE nastavlja automatski na Admin/Agent tabove. Puni izvještaj:
 `agent_reports/2026-08-04_sifarnici-audit-mrtav-controller.md`.
+
+## 2026-08-04 — Admin tab: pročitan tuđi audit, obrisan samo QSS duplikat
+
+Korisnik dao `docs/admin/ADMIN_TAB_CODE_AUDIT.md` — audit drugog agenta
+("pi", 2026-08-03): 23 stavke mrtvog koda, 4 grupe CSS duplikata (~300
+linija), 4 arhitekturna kršenja (najozbiljnije: direktna `psycopg2.
+connect()` u `learning_panel.py` i direktan `LLMProvider()` poziv u
+`analytics_panel.py`, oba krše eksplicitna AGENTS.md pravila). Korisnik
+eksplicitno rekao da ne želi trošiti tokene na pun nezavisni re-audit
+svih stavki — tražio "najbezbolniju" akciju. Odabran i izvršen samo
+jedan, potpuno izolovan i nisko-rizičan nalaz: `gui/styles/admin_tab.
+qss` je bajt-identičan duplikat `styles/admin_tab.qss` koji se nikad ne
+učitava (`admin_view.py` koristi isključivo `styles_dir` = BUNDLE_ROOT/
+styles put) — nezavisno potvrđeno grepom + postojećim testom
+`tests/unit/test_admin_stylesheet_palette.py` (2 passed prije/poslije).
+Obrisan (root + dist_client, 472 linije). Commit `651e059`.
+
+**Važno zapaženo**: linijski brojevi u audit dokumentu su već zastarjeli
+za dio fajlova (npr. `analytics_service.py` se mijenjao nakon
+2026-08-03 revizije) — preostalih 22 stavki NE smiju se tretirati kao
+gotov posao za brisanje bez ponovne provjere trenutnog stanja fajla.
+Preostale stavke imaju i međusobne pozivne lance unutar servisa (npr.
+`AnalyticsService.get_summary()` interno zove `get_declaration_
+statistics()`) — brisanje zahtijeva raspetljavanje, ne samo grep za "0
+pozivalaca". Puni izvještaj:
+`agent_reports/2026-08-04_admin-tab-audit-qss-duplikat.md`.
