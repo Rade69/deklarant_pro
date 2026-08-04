@@ -6,7 +6,7 @@ Koordinira sve admin pod-servise.
 
 import os
 import platform
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from services.admin.plugin_service import PluginService
 from services.admin.settings_service import SettingsService
 from services.admin.backup_service import BackupService
@@ -139,41 +139,6 @@ class AdminService:
     def reset_settings(self) -> bool:
         return self.settings_service.reset_to_defaults()
 
-    # DATABASE OPERATIONS (delegate to BackupService)
-
-    def create_backup(self, backup_path: str) -> bool:
-        """
-        Kreiraj database backup.
-
-        Args:
-            backup_path: Put gdje sačuvati backup
-
-        Returns:
-            True ako uspješno, False ako ne
-        """
-        return self.backup_service.create_backup(backup_path)
-
-    def restore_backup(self, backup_path: str) -> bool:
-        """
-        Restore database iz backup-a.
-
-        Args:
-            backup_path: Put do backup fajla
-
-        Returns:
-            True ako uspješno, False ako ne
-        """
-        return self.backup_service.restore_backup(backup_path)
-
-    def get_available_backups(self) -> List[Dict[str, Any]]:
-        """
-        Vrati listu dostupnih backup-a.
-
-        Returns:
-            Lista dict-ova sa backup info-m
-        """
-        return self.backup_service.get_available_backups()
-
     # LOG OPERATIONS (delegate to LogService)
 
     def get_recent_logs(self, count: int = 100) -> List[Dict[str, Any]]:
@@ -187,32 +152,6 @@ class AdminService:
             Lista dict-ova sa log entries
         """
         return self.log_service.get_recent_logs(count)
-
-    def filter_logs(
-        self,
-        level: Optional[str] = None,
-        search: Optional[str] = None,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
-        """
-        Filtriraj log-ove.
-
-        Args:
-            level: Log level (INFO, DEBUG, WARNING, ERROR)
-            search: Search term
-            start_date: Start date (ISO format)
-            end_date: End date (ISO format)
-
-        Returns:
-            Lista filtriranih log entries
-        """
-        return self.log_service.filter_logs(
-            level=level,
-            search=search,
-            start_date=start_date,
-            end_date=end_date
-        )
 
     # SYSTEM INFO
 
@@ -295,23 +234,3 @@ class AdminService:
         }
 
         return all_info
-
-    # ANALYTICS OPERATIONS (delegate to AnalyticsService)
-
-    def get_import_statistics(self) -> Dict[str, Any]:
-        """
-        Vrati import statistiku.
-
-        Returns:
-            Dict sa statistikama
-        """
-        return self.analytics_service.get_import_statistics()
-
-    def get_parser_usage(self) -> List[Dict[str, Any]]:
-        """
-        Vrati parser usage statistiku.
-
-        Returns:
-            Lista dict-ova sa parser usage
-        """
-        return self.analytics_service.get_parser_usage()

@@ -229,48 +229,6 @@ class BackupService:
         except Exception:
             return 0
 
-    def get_backup_stats(self) -> Dict[str, Any]:
-        """
-        Vrati statistiku backup-a.
-
-        Returns:
-            Dict sa statistikama
-        """
-        backups = self.get_available_backups()
-        
-        total_size = sum(b['size'] for b in backups)
-        
-        return {
-            'total_backups': len(backups),
-            'total_size': total_size,
-            'oldest_backup': backups[-1]['created'] if backups else None,
-            'newest_backup': backups[0]['created'] if backups else None,
-        }
-
-    def delete_backup(self, backup_path: str) -> bool:
-        """
-        Obriši specifični backup.
-
-        Args:
-            backup_path: Put do backup fajla
-
-        Returns:
-            True ako uspješno, False ako ne
-        """
-        try:
-            backup_file = Path(backup_path)
-            
-            if not backup_file.exists():
-                logger.error(f"❌ Backup file not found: {backup_path}")
-                return False
-            
-            backup_file.unlink()
-            logger.info(f"✅ Backup obrisan: {backup_path}")
-            return True
-        except Exception as e:
-            logger.error(f"❌ Delete failed: {e}")
-            return False
-
     def _validate_database(self, db_path: Path) -> bool:
         """
         Validiraj SQLite database fajl.
@@ -317,29 +275,4 @@ class BackupService:
                     logger.debug(f"🗑️  Obrisan stari backup: {backup['filename']}")
         except Exception as e:
             logger.error(f"❌ Cleanup failed: {e}")
-
-    def get_auto_backups(self) -> List[Dict[str, Any]]:
-        """
-        Vrati listu auto backup-a (kreiranih prije restore-a).
-
-        Returns:
-            Lista dict-ova sa auto backup info-m
-        """
-        auto_backups = []
-
-        if not self.backup_dir.exists():
-            return auto_backups
-
-        for filepath in self.backup_dir.glob("auto_backup_*.db"):
-            stat = filepath.stat()
-            auto_backups.append({
-                'filename': filepath.name,
-                'filepath': str(filepath),
-                'size': stat.st_size,
-                'created': datetime.fromtimestamp(stat.st_ctime).isoformat(),
-                'is_auto_backup': True,
-            })
-
-        auto_backups.sort(key=lambda x: x['created'], reverse=True)
-        return auto_backups
 

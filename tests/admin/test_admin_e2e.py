@@ -74,12 +74,6 @@ class TestAdminService:
         assert 'theme' in settings
         assert 'language' in settings
 
-    def test_get_import_statistics(self, admin_service):
-        """Test get_import_statistics metode."""
-        stats = admin_service.get_import_statistics()
-        assert isinstance(stats, dict)
-        assert 'total_imports' in stats
-
 
 class TestAdminView:
     """Testovi za AdminView."""
@@ -183,9 +177,10 @@ class TestIntegration:
         # 3. Provjeri da settings rade
         settings = service.get_settings()
         assert 'theme' in settings
-        
-        # 4. Provjeri da statistike rade
-        stats = service.get_import_statistics()
+
+        # 4. Provjeri da analytics servis radi
+        analytics = service.analytics_service
+        stats = analytics.get_import_statistics()
         assert 'total_imports' in stats
 
 

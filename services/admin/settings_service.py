@@ -207,29 +207,6 @@ class SettingsService:
         settings = self.get_settings()
         return settings.get(key, default)
 
-    def set_setting(self, key: str, value: Any, save: bool = True) -> bool:
-        """
-        Postavi vrijednost specifičnog setting-a.
-
-        Args:
-            key: Ključ setting-a
-            value: Vrijednost setting-a
-            save: Da li odmah sačuvati
-
-        Returns:
-            True ako uspješno, False ako ne
-        """
-        try:
-            settings = self.get_settings()
-            settings[key] = value
-            
-            if save:
-                return self.save_settings(settings)
-            return True
-        except Exception as e:
-            logger.error(f"❌ Error setting {key}: {e}")
-            return False
-
     def _validate_and_merge(self, settings: Dict[str, Any]) -> Dict[str, Any]:
         """
         Validiraj settings i popuni missing vrijednosti sa default-ima.
@@ -292,54 +269,3 @@ class SettingsService:
                     logger.debug(f"🗑️  Obrisan stari backup: {backup.name}")
         except Exception as e:
             logger.error(f"❌ Error cleaning up backups: {e}")
-
-    def get_available_backups(self) -> list:
-        """
-        Vrati listu dostupnih backup-a.
-
-        Returns:
-            Lista dict-ova sa backup informacijama
-        """
-        backups = []
-        
-        for backup_file in sorted(self.backup_dir.glob("settings_backup_*.json")):
-            stat = backup_file.stat()
-            backups.append({
-                'filename': backup_file.name,
-                'filepath': str(backup_file),
-                'size': stat.st_size,
-                'created': datetime.fromtimestamp(stat.st_ctime).isoformat(),
-            })
-        
-        # Sortiraj od najnovijeg ka najstarijem
-        backups.reverse()
-        return backups
-
-    def restore_from_backup(self, backup_path: str) -> bool:
-        """
-        Restore settings iz backup-a.
-
-        Args:
-            backup_path: Putanja do backup fajla
-
-        Returns:
-            True ako uspješno, False ako ne
-        """
-        try:
-            backup_file = Path(backup_path)
-            
-            if not backup_file.exists():
-                logger.error(f"❌ Backup fajl ne postoji: {backup_path}")
-                return False
-
-            # Kreiraj backup trenutnih settings prije restore-a
-            self._create_backup()
-
-            # Kopiraj backup na settings file
-            shutil.copy2(backup_file, self.settings_file)
-            logger.info(f"✅ Settings restore-ovani iz: {backup_path}")
-
-            return True
-        except Exception as e:
-            logger.error(f"❌ Error restoring from backup: {e}")
-            return False

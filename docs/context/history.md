@@ -4306,3 +4306,26 @@ Preostale stavke imaju i međusobne pozivne lance unutar servisa (npr.
 statistics()`) — brisanje zahtijeva raspetljavanje, ne samo grep za "0
 pozivalaca". Puni izvještaj:
 `agent_reports/2026-08-04_admin-tab-audit-qss-duplikat.md`.
+
+### 2026-08-04 — Uklonjeno 550+ linija mrtvog koda iz Admin modula
+
+Nakon nezavisne provjere svih 22 stavke iz `docs/admin/ADMIN_TAB_CODE_AUDIT.md`
+(sekcije 1.2-1.7 i 4.1), uklonjeno je:
+
+- 7 neiskorišćenih importa (QSizePolicy, QMessageBox, QScrollArea, QFrame×2, QComboBox)
+- 2 prazna controller handlera + signal veze
+- 5 View API metoda bez pozivalaca (get_license_panel, get_learning_panel, get_data, set_data, clear_form)
+- 6 AdminService delegata (create_backup, restore_backup, get_available_backups, filter_logs, get_import_statistics, get_parser_usage)
+- 7 AnalyticsService metoda (ceo lanac get_summary→export_statistics, plus parser/deklaracija statistike)
+- 3 SettingsService metode (set_setting, get_available_backups, restore_from_backup)
+- 3 BackupService metode (get_backup_stats, delete_backup, get_auto_backups)
+- PluginPanel.show_warning()
+
+Ispravljene 2 greške u originalnom auditu: QFileDialog se KORISTI u system_panel.py,
+show_warning linijski broj je 399 ne 278. Popravljen poredak docstringa u
+analytics_service.py (PEP 257). Admin testovi 15/15 prolaze.
+Puni izvještaj: `agent_reports/2026-08-04_admin-mrtav-kod-cleanup.md`.
+
+Nije dirano: CSS duplikati (~300 linija), arhitekturni problemi panela,
+BackupService.create_backup/restore_backup/get_available_backups (zadržani na
+servisnom nivou — mogu se obrisati u sledećoj iteraciji).

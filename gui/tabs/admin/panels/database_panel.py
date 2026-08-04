@@ -4,7 +4,7 @@ Database Panel — status PostgreSQL konekcije i pregled ključnih tabela.
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QPushButton, QGroupBox, QGridLayout, QScrollArea, QFrame, QDialog
+    QPushButton, QGroupBox, QGridLayout, QDialog
 )
 from PySide6.QtCore import Signal, Qt, QThread
 from PySide6.QtGui import QFont

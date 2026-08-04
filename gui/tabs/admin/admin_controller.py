@@ -46,16 +46,6 @@ class AdminController(BaseTabController):
         if hasattr(plugin_panel, 'remove_requested'):
             plugin_panel.remove_requested.connect(self._on_remove_plugin)
 
-        # Database panel signals
-        database_panel = self.view.get_database_panel()
-        if hasattr(database_panel, 'refresh_requested'):
-            database_panel.refresh_requested.connect(self._on_refresh_database)
-
-        # Analytics panel signals
-        analytics_panel = self.view.get_analytics_panel()
-        if hasattr(analytics_panel, 'refresh_requested'):
-            analytics_panel.refresh_requested.connect(self._on_refresh_analytics)
-
         # Logs panel signals
         logs_panel = self.view.get_logs_panel()
         if hasattr(logs_panel, 'refresh_requested'):
@@ -209,14 +199,6 @@ class AdminController(BaseTabController):
         """Refresh liste plugin-a."""
         plugins = self.service.get_installed_plugins()
         self.view.get_plugin_panel().set_plugins(plugins)
-
-    # DATABASE / ANALYTICS HANDLERS
-
-    def _on_refresh_database(self):
-        pass  # Stats se učitavaju direktno u panelu putem QThread-a
-
-    def _on_refresh_analytics(self):
-        pass  # Stats se učitavaju direktno u panelu putem QThread-a
 
     # LOGS HANDLERS
 

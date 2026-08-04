@@ -6,7 +6,7 @@ Layout: Sidebar (lijevo) + Content Area (desno)
 
 from PySide6.QtWidgets import (
     QFrame, QHBoxLayout, QVBoxLayout,
-    QListWidget, QListWidgetItem, QStackedWidget, QLabel, QSizePolicy, QWidget
+    QListWidget, QListWidgetItem, QStackedWidget, QLabel, QWidget
 )
 from PySide6.QtCore import Qt, Signal
 from gui.tabs.base_view import BaseTabView
@@ -212,20 +212,3 @@ class AdminView(BaseTabView):
     def get_settings_panel(self) -> SettingsPanel:
         """Getter za settings panel."""
         return self.settings_panel
-
-    def get_license_panel(self) -> LicensePanel:
-        """Getter za license panel."""
-        return self.license_panel
-
-    def get_learning_panel(self) -> LearningPanel:
-        """Getter za learning panel."""
-        return self.learning_panel
-
-    def get_data(self) -> dict:
-        return {}
-
-    def set_data(self, data: dict) -> None:
-        pass
-
-    def clear_form(self) -> None:
-        pass

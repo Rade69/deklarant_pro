@@ -7,7 +7,7 @@ TASK 13: Styling improvements - više sekcija, bolji layout, export opcije
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QTextEdit, QMessageBox, QGroupBox,
-    QGridLayout, QScrollArea, QComboBox, QFileDialog,
+    QGridLayout, QScrollArea, QFileDialog,
     QInputDialog, QApplication,
 )
 from PySide6.QtCore import Qt

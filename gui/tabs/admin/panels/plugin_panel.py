@@ -7,7 +7,7 @@ TASK 1: Styling improvements - boje, spacing, borders, ikone
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QListWidget, QListWidgetItem, QPushButton,
-    QGroupBox, QTextEdit, QFileDialog, QMessageBox,
+    QGroupBox, QTextEdit, QFileDialog,
     QFrame, QScrollArea, QSizePolicy, QGridLayout
 )
 from PySide6.QtCore import Signal, Qt
@@ -395,10 +395,6 @@ class PluginPanel(QWidget):
     def show_error(self, message: str):
         """Prikaži error poruku."""
         QMessageBox.critical(self, "Greška", message)
-
-    def show_warning(self, message: str):
-        """Prikaži warning poruku."""
-        QMessageBox.warning(self, "Upozorenje", message)
 
     # PRIVATE HANDLERS
 
