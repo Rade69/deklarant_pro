@@ -4081,3 +4081,32 @@ testove po dobavljaču prije konsolidacije).
 
 Commit `b9ee4bb`. Puna test svita bez regresije. Puni izvještaj:
 `agent_reports/2026-08-04_importers-folder-dublja-analiza.md`.
+
+## 2026-08-04 (nastavak) — importers/: pravi bug nađen dok se tražilo "nepotrebno"
+
+Korisnik je naglasio: cilj je smanjiti nepotreban kod prije produkcije, ne
+samo provjeriti funkcionalnost — nastavljena sistematska provjera. Dok se
+provjeravalo da li je `importers/vendors/leburic/leburic_pekabesko_pdf_parser.py`
+(1503 linije, izgledao orphaned) zaista mrtav kod, otkriveno da NIJE —
+`smart_pdf_importer.py::_parse_leburic_pekabesko` je pozivao
+`parse_leburic_pekabesko_pdf` iz POGREŠNOG modula
+(`leburic_pekabesko_importer.py`, Excel-fokusiran) gdje ta funkcija ne
+postoji. Reprodukovano direktnim Python importom (`ImportError`). Širok
+`except Exception` u `smart_pdf_importer.py` ovo tiho guta i pada na
+generic fallback — svaka samostalna Leburić/Pekabesko PDF faktura (bez
+prateće Excel datoteke) je vjerovatno otkad grana postoji parsirana
+lošijim generičkim parserom umjesto specijalizovanom 1503-linijskom OCR
+logikom. Fix: ispravljen import path (commit `0f3811d`).
+
+**Pouka**: prije brisanja "orphaned" fajla, provjeriti da li je NAVODNI
+pozivalac ispravan (direktan Python import test), ne samo grep za
+pozivaoce po imenu — slijepo brisanje bi ovdje uklonilo jedinu ispravnu
+implementaciju i sakrilo bug.
+
+Nastavak provjere: svih 14 `detect_*` funkcija u dobavljač-parserima —
+potvrđeno da `_detect_pdf_format()` koristi sopstvenu inline text-matching
+logiku za SVE dobavljače (arhitektonski dosljedan obrazac, ne slučajan
+drift), ne poziva vendor-ove `detect_*` funkcije direktno (izuzev
+sumaprom OCR-fallback slučaja). Namjerno netaknuto — konvencija
+"svaki importer ima detect_*" i postojeći testovi to zahtijevaju.
+Puni izvještaj: `agent_reports/2026-08-04_importers-leburic-bugfix-i-detect-provjera.md`.
