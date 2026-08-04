@@ -524,8 +524,7 @@ class DeclarationValidatorService:
         if not text1 or not text2:
             return 0.0
         
-        from difflib import SequenceMatcher
-        return SequenceMatcher(None, text1.lower(), text2.lower()).ratio()
+        return _difflib.SequenceMatcher(None, text1.lower(), text2.lower()).ratio()
     
     def _generate_summary(
         self,

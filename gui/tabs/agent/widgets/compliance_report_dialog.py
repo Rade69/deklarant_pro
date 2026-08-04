@@ -5,7 +5,7 @@ from PySide6.QtWidgets import (
     QPushButton, QTextBrowser, QFrame, QSizePolicy,
 )
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QClipboard, QGuiApplication
+from PySide6.QtGui import QGuiApplication
 
 
 class ComplianceReportDialog(QDialog):

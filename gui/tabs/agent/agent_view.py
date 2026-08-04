@@ -5,11 +5,11 @@ Split: DocumentPanel (lijevo 70%) | ChatPanel (desno 30%).
 
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QSplitter
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QPainter, QColor, QPainterPath
+from PySide6.QtGui import QPainter, QColor
 from .widgets.header_bar import HeaderBar
 from .widgets.document_panel import DocumentPanel
 from .widgets.chat_panel import ChatPanel
-from .constants import *
+from .constants import COLOR_SAGE_BG, COLOR_SAGE_LIGHT, COLOR_SAGE_MID, COLOR_SAGE_PALE
 
 
 class AgentView(QWidget):

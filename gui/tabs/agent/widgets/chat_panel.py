@@ -23,7 +23,12 @@ class _ChatInput(QTextEdit):
         else:
             super().keyPressEvent(event)
 import qtawesome as qta
-from ..constants import *
+from ..constants import (
+    COLOR_PRIMARY, COLOR_SAGE, COLOR_SAGE_BG, COLOR_SAGE_DARK,
+    COLOR_SAGE_PALE, COLOR_SAGE_PANEL, COLOR_SECONDARY, COLOR_SUCCESS,
+    COLOR_TEXT, COLOR_TEXT_LIGHT, COLOR_TEXT_MUTED,
+    ICON_QUESTION, ICON_ROBOT, ICON_SEND,
+)
 
 # ENHANCED: Import memory service
 from services.agent.chat.chat_memory_service import ChatMemoryService

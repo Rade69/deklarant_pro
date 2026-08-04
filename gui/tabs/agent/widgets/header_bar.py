@@ -6,7 +6,14 @@ Botanički Sage Green dizajn.
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QComboBox, QPushButton
 from PySide6.QtCore import Signal
 import qtawesome as qta
-from ..constants import *
+from ..constants import (
+    COLOR_DANGER, COLOR_INFO, COLOR_SAGE_BG, COLOR_SAGE_DARK,
+    COLOR_SAGE_MID, COLOR_SAGE_PALE, COLOR_SAGE_PANEL, COLOR_SUCCESS,
+    COLOR_TEXT, COLOR_TEXT_LIGHT, COLOR_TEXT_MUTED, COLOR_WARNING,
+    ICON_BELL, ICON_CHAT, ICON_QUESTION,
+    STATUS_COMPLETED, STATUS_ERROR, STATUS_PAUSED,
+    STATUS_PROCESSING, STATUS_READY,
+)
 
 
 class HeaderBar(QWidget):

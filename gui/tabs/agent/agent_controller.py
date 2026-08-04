@@ -5,7 +5,7 @@ Agent Controller - business logic za tri pipeline moda.
    docs/archive/2026-04-26/CHANGES_2026-04-26.md
 """
 
-from PySide6.QtWidgets import QFileDialog, QApplication
+from PySide6.QtWidgets import QApplication
 from pathlib import Path
 import os
 import re

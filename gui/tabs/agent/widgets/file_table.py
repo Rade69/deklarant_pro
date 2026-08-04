@@ -10,7 +10,12 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QFont
 import qtawesome as qta
 from ..models.file_item import FileItem
-from ..constants import *
+from ..constants import (
+    COLOR_DANGER, COLOR_INFO, COLOR_PRIMARY, COLOR_SAGE,
+    COLOR_SAGE_MID, COLOR_SAGE_PALE, COLOR_SUCCESS, COLOR_TEXT,
+    COLOR_TEXT_MUTED, COLOR_WARNING,
+    ICON_FILE_EXCEL, ICON_FILE_PDF, ICON_FILE_XML,
+)
 
 
 class FileTable(QTableWidget):
