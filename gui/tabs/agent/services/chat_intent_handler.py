@@ -149,67 +149,109 @@ class ChatIntentHandler:
         self._ctrl = controller
         self._dispatcher_workers = []  # ToolDispatcherWorker instances
 
-    # ── Javni API ────────────────────────────────────────────────────
+    # ═══════════════════════════════════════════════════════════════
+    # region — Javni API (sve metode su [THUNK] → slobodne funkcije)
+    # ═══════════════════════════════════════════════════════════════
 
     def handle_message(self, message: str) -> None:
+        """[THUNK] → _handle_message"""
         _handle_message(self._ctrl, message)
 
-    # ── Tool Execution ───────────────────────────────────────────────
-    # Vidi: docs/decisions/002-tool-dispatcher-integration.md
+    # ═══════════════════════════════════════════════════════════════
+    # region — Tool Execution
+    # ═══════════════════════════════════════════════════════════════
 
     def execute_tool(self, name: str, args: dict) -> None:
-        """Izvrši tool call — mapira alat na postojeći servis."""
+        """[THUNK] → _execute_tool — mapira tool call na servis."""
         _execute_tool(self._ctrl, name, args)
+
+    # ═══════════════════════════════════════════════════════════════
+    # region — Tarifno pretraživanje i porijeklo
+    # ═══════════════════════════════════════════════════════════════
 
     def alternativni_tarifni_za_stavku(self, item_query: str = "",
                                         item_ordinal: int = None,
                                         is_alt: bool = False) -> None:
+        """[THUNK] → _alternativni_tarifni_za_stavku"""
         _alternativni_tarifni_za_stavku(self._ctrl, item_query, item_ordinal, is_alt)
 
+    # ═══════════════════════════════════════════════════════════════
+    # region — Intent klasifikacija
+    # ═══════════════════════════════════════════════════════════════
+
     def klasificiraj_i_usmjeri(self, message: str) -> None:
+        """[THUNK] → _klasificiraj_i_usmjeri"""
         _klasificiraj_i_usmjeri(self._ctrl, message)
 
+    # ═══════════════════════════════════════════════════════════════
+    # region — Naimenovanja
+    # ═══════════════════════════════════════════════════════════════
+
     def provjeri_naimenovanja(self) -> None:
+        """[THUNK] → _provjeri_naimenovanja"""
         _provjeri_naimenovanja(self._ctrl)
 
     def pregledaj_naimenovanja(self, indeksi=None) -> None:
-        _pregledaj_naimenovanja(self._ctrl, indeksi)
+        """[THUNK] → _pregledaj_naimenovanja"""
+
+    # ═══════════════════════════════════════════════════════════════
+    # region — Tarifno pretraživanje (nastavak)
+    # ═══════════════════════════════════════════════════════════════
 
     def pretrazi_tarifu(self, upit: str) -> None:
+        """[THUNK] → _pretrazi_tarifu"""
         _pretrazi_tarifu(self._ctrl, upit)
 
     def pretrazi_porijeklo(self, upit: str) -> None:
-        _pretrazi_porijeklo(self._ctrl, upit)
+        """[THUNK] → _pretrazi_porijeklo"""
 
     def pretrazi_tarifu_po_kodu(self, kod: str) -> None:
-        _pretrazi_tarifu_po_kodu(self._ctrl, kod)
+        """[THUNK] → _pretrazi_tarifu_po_kodu"""
 
     def pretrazi_tarifu_poglavlje(self, poglavlje: str) -> None:
-        _pretrazi_tarifu_poglavlje(self._ctrl, poglavlje)
+        """[THUNK] → _pretrazi_tarifu_poglavlje"""
 
     def pretrazi_tarifu_hijerarhijski(self, kod: str) -> None:
-        _pretrazi_tarifu_hijerarhijski(self._ctrl, kod)
+        """[THUNK] → _pretrazi_tarifu_hijerarhijski"""
+
+    # ═══════════════════════════════════════════════════════════════
+    # region — Compliance
+    # ═══════════════════════════════════════════════════════════════
 
     def compliance_check(self) -> None:
+        """[THUNK] → _compliance_check"""
         _compliance_check(self._ctrl)
 
+    # ═══════════════════════════════════════════════════════════════
+    # region — Spajanje naimenovanja i upis u kolonu
+    # ═══════════════════════════════════════════════════════════════
+
     def izvrsi_spajanje_naimenovanja(self, proposals, chat) -> None:
+        """[THUNK] → _izvrsi_spajanje_naimenovanja"""
         _izvrsi_spajanje_naimenovanja(self._ctrl, proposals, chat)
 
     def propose_kolona_upis(self, atribut: str, vrijednost: str, tab: str = 'faktura') -> None:
-        _propose_kolona_upis(self._ctrl, atribut, vrijednost, tab)
+        """[THUNK] → _propose_kolona_upis"""
+
+    # ═══════════════════════════════════════════════════════════════
+    # region — Proposal Card
+    # ═══════════════════════════════════════════════════════════════
 
     def show_proposal_card(self, proposal: dict) -> None:
+        """[THUNK] → _show_proposal_card"""
         _show_proposal_card(self._ctrl, proposal)
 
     def on_proposal_confirmed(self, values: dict) -> None:
-        _on_proposal_confirmed(self._ctrl, values)
+        """[THUNK] → _on_proposal_confirmed"""
 
     def on_proposal_rejected(self) -> None:
+        """[THUNK] → _on_proposal_rejected"""
         _on_proposal_rejected(self._ctrl)
 
 
-# ── Implementacija (slobodne funkcije) ────────────────────────────────
+# ═══════════════════════════════════════════════════════════════
+# region — Implementacija: pomoćne funkcije i intent detekcija
+# ═══════════════════════════════════════════════════════════════
 
 
 _ORIGIN_KEYWORD_RE = r'porijek\w*|porijk\w*|porekl\w*|prijek\w*|zemlj\w*\s+por'
@@ -2040,6 +2082,10 @@ def _alternativni_tarifni_za_stavku(ctrl, item_query: str = "",
     _iznos = iznos
     _is_alt = is_alt
 
+    # ═══════════════════════════════════════════════════════════
+    # region — _AltTariffWorker
+    # ═══════════════════════════════════════════════════════════
+
     class _AltTariffWorker(QThread):
         token_received = _Signal(str)
         stream_started = _Signal()
@@ -2122,6 +2168,10 @@ def _klasificiraj_i_usmjeri(ctrl, message: str) -> None:
 
     chat = ctrl.view.get_chat_panel()
     chat.add_activity("🤔 Analiziram šta tražiš...")
+
+    # ═══════════════════════════════════════════════════════════
+    # region — _ClassifierWorker (glavna implementacija svih handlera)
+    # ═══════════════════════════════════════════════════════════
 
     class _ClassifierWorker(QThread):
         done = Signal(object)
