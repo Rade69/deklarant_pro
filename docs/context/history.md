@@ -4153,3 +4153,29 @@ prije konsolidacije — 3 od 10 kandidata NISU bila bezbjedna za slijepo
 zamjenjivanje kanonskom funkcijom (promijenilo bi stvarne parsirane
 vrijednosti za nekoliko dobavljača). Puni izvještaj:
 `agent_reports/2026-08-04_importers-parse-number-konsolidacija.md`.
+
+## 2026-08-04 (četvrti nastavak) — validacija na realnim fakturama (H:\New folder\najavauvoza)
+
+Korisnik je dao lokaciju stvarne baze faktura (van repo checkout-a) i tražio
+nastavak dublje analize jer je ovaj segment ključan za rad aplikacije.
+Popravke iz `0f3811d`/`00e84d0` (Leburić PDF wiring, Leburić Excel
+predznak) potvrđene na realnim fakturama — rade ispravno. Testirano i 15+
+PDF-ova od Blagić Attos/Loren, Master Frigo, Medicopharm, MGM/Proton, PIP
+Food preko `parse_smart_pdf` (isti ulaz kao GUI) — svi rade ispravno na
+realnim podacima, nema novih bugova.
+
+**Novi, nepopravljen nalaz**: nekoliko Leburić PDF-ova
+(`LEBURIĆ-PEKABESKO-00018.pdf`, `Faktura-2.pdf`, `Faktura-00005.pdf`) ima
+oštećen font-encoding u samom PDF-u (ne OCR problem — tekst postoji, ali
+`pdfplumber.extract_text()` vraća izobličen rezultat, npr. "PEKABESK0 AD").
+Specijalizovani parser je djelimično otporan (stavke se uglavnom izvuku),
+ali footer regex (bruto/neto) potpuno promašuje na tim fajlovima. Korisnik
+je zaustavio dalju istragu ovih "sumnjivih faktura" — sam će se time
+pozabaviti kasnije. Dva potpuno skenirana PDF-a (Medicopharm.pdf, Šumaprom
+DOC041122) daju 0 stavki — OCR fallback postoji u kodu ali `pytesseract`
+nije instaliran u dev okruženju, pa nije testabilan; isto zaustavljeno na
+korisnikov zahtjev.
+
+CMANA i kg_fashion nemaju realni uzorak u ovom dumpu podataka — nisu
+validirani. Puni izvještaj:
+`agent_reports/2026-08-04_importers-validacija-na-realnim-fakturama.md`.
