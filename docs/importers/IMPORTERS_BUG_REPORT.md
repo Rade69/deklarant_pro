@@ -10,10 +10,15 @@ Datum: 2026-04-03
 > obrisan kao mrtav kod, commit `b9ee4bb`): #2, #3 (`importers/blagic_importer.py` —
 > stara putanja prije `vendors/` reorganizacije; trenutni `importers/vendors/blagic/
 > blagic_importer.py` je imao iste bugove ali je bio orphaned, pa je obrisan umjesto
-> popravljen). I DALJE VAŽI (nije provjeravano/rješavano ovom sesijom): #4, #6, #10-16,
-> i preporuka #1 (9 dupliranih `_parse_number` implementacija — vidi
-> `agent_reports/2026-08-04_importers-folder-dublja-analiza.md`). Ostatak dokumenta
-> ispod je izvorni tekst iz aprila — ne vjerovati bez provjere.
+> popravljen). RIJEŠENO 2026-08-04 (drugi krug): preporuka #1 (9 dupliranih
+> `_parse_number` implementacija) — 7 konsolidovano u 2 nove zajedničke funkcije u
+> `invoice_line_utils.py` (`parse_number_permissive`, `parse_number_thousands_heuristic`)
+> + import kanonske `parse_eu_number` za 2 dodatna; usput otkriven i popravljen NOVI bug
+> (nije bio u ovom izvještaju): `leburic_pekabesko_importer.py::_parse_number` je gubio
+> predznak na negativnim brojevima i pogrešno računao brojeve sa oba separatora. Vidi
+> `agent_reports/2026-08-04_importers-parse-number-konsolidacija.md`. I DALJE VAŽI (nije
+> provjeravano/rješavano ni u jednom krugu): #4, #6, #10-16. Ostatak dokumenta ispod je
+> izvorni tekst iz aprila — ne vjerovati bez provjere.
 
 ---
 

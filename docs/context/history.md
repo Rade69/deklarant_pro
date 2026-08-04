@@ -4110,3 +4110,46 @@ drift), ne poziva vendor-ove `detect_*` funkcije direktno (izuzev
 sumaprom OCR-fallback slučaja). Namjerno netaknuto — konvencija
 "svaki importer ima detect_*" i postojeći testovi to zahtijevaju.
 Puni izvještaj: `agent_reports/2026-08-04_importers-leburic-bugfix-i-detect-provjera.md`.
+
+## 2026-08-04 (treći nastavak) — importers/: konsolidacija _parse_number + treći Leburić bug
+
+Korisnik je zatražio nastavak na preporuku #1 iz starog bug reporta (9
+dupliranih `_parse_number` funkcija). Umjesto slijepog "zamijeni sve sa
+kanonskom", sve implementacije upoređene na 13 test-slučajeva (dvosmisleni
+brojevi, valuta, negativni) + izvorni byte-diff. Rezultat: 3 grupe
+DOKAZANO identičnog ponašanja (7 funkcija) + 2 stvarna bug-a + 1 namjerno
+vendor-tuniran izuzetak.
+
+Konsolidovano (nula promjene ponašanja): `blagic_loren_pdf_parser.py` i
+`imamoglu_pdf_parser.py` → import postojeće `parse_eu_number()`.
+`packing_list_parser.py`/`invoice_improved_parser.py` (byte-identični) →
+nova `parse_number_permissive()`. `generic_pdf_importer.py`/
+`cmana_pdf_parser.py` (generička `_parse_number`, NE `_parse_number_cmana`)/
+`pip_food_parser.py` (razlika samo u imenima varijabli/komentarima) →
+nova `parse_number_thousands_heuristic()`. Obje nove funkcije u
+`invoice_line_utils.py`.
+
+Namjerno netaknuto: `cmana_pdf_parser.py::_parse_number_cmana` —
+hardkodovano pretpostavlja SAMO evropski format, docstring eksplicitno
+kaže da je to vendor-tuning za stvarni CMANA format, ne previd.
+
+Bugfix: `sumaprom_pdf_parser.py::_parse_number` vraćao 0.0 za SVAKI broj
+sa hiljadarskim separatorom → zamijenjen importom `parse_eu_number`.
+`leburic_pekabesko_importer.py::_parse_number` gubio predznak na
+negativnim brojevima i pogrešno računao brojeve sa oba separatora →
+popravljeno delegiranjem na `parse_eu_number` uz očuvan int/float/None
+fast-path. **Treći nezavisan bug u istom vendoru (Leburić) u istoj
+sesiji** (PDF wiring ranije, sad Excel-cell parsing) — vrijedi
+temeljitija provjera tog vendora ako se ikad dobije realna faktura.
+
+Karakterizacioni testovi napisani PRIJE izmjene
+(`tests/unit/test_parse_number_consolidation.py`), pokrenuti protiv
+starog koda (10/13 prošlo, 3 pala = dokaz bug-a), pa ponovo poslije (13/13
+prošlo). Puna test svita: 1663 passed, bez regresije. Commit `00e84d0`.
+
+**Ista pouka kao Leburić PDF wiring**: "izgleda kao duplikat" zahtijeva
+dokaz ekvivalentnosti (test na dvosmislenim slučajevima + izvorni diff)
+prije konsolidacije — 3 od 10 kandidata NISU bila bezbjedna za slijepo
+zamjenjivanje kanonskom funkcijom (promijenilo bi stvarne parsirane
+vrijednosti za nekoliko dobavljača). Puni izvještaj:
+`agent_reports/2026-08-04_importers-parse-number-konsolidacija.md`.
