@@ -1,11 +1,10 @@
 # gui/tabs/sifarnici_tab.py
 import logging
 import re
-import traceback
 
 # Čisti sufiks s tarifnim stopama iz opisa (npr. "kd 0 0 0 0 0 0 0 0")
 _TAIL_RATES_RE = re.compile(r'(?:\s+\w{1,3})?(?:\s+\d+){4,}\s*$')
-from typing import Optional, Callable, Dict, Any, List, Tuple, Union
+from typing import Optional, Callable, Dict, Any, List, Tuple
 from datetime import datetime
 
 from PySide6.QtWidgets import (
@@ -31,12 +30,10 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QApplication,
     QMainWindow,
-    QMenu,
 )
 from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
 from PySide6.QtCore import Qt, Signal, QSize, QTimer
 from PySide6.QtGui import QIcon, QKeySequence, QShortcut, QPalette, QColor, QFont
-import psycopg2
 
 try:
     import qtawesome as qta
@@ -480,17 +477,6 @@ class SifarniciView(BaseTabView):
         layout.addStretch()
 
         return header
-
-    def set_title(self, title: str):
-        """Postavi naslov u header bar-u"""
-        try:
-            if hasattr(self, 'title_label') and self.title_label:
-                self.title_label.setText(title)
-            else:
-                logger.warning(f"⚠️ WARNING: title_label ne postoji ili nije inicijalizovan")
-        except Exception as e:
-            logger.error(f"Greška pri postavljanju naslova: {str(e)}")
-
     def _create_toolbar(self) -> QWidget:
         """CRUD toolbar sa shortcuts"""
         toolbar = QWidget()
@@ -778,25 +764,6 @@ class SifarniciView(BaseTabView):
         layout.addWidget(self.lbl_last_change)
 
         return status
-
-    def update_totals(self, total: int, displayed: int):
-        """Ažuriraj prikaz ukupnog broja zapisa"""
-        try:
-            if hasattr(self, 'lbl_totals') and self.lbl_totals:
-                category_text = self._CATEGORY_PLURAL.get(self.current_category, "zapisa")
-                self.lbl_totals.setText(f"Ukupno: {total} {category_text} | Prikazano: {displayed}")
-            else:
-                logger.warning("⚠️ WARNING: lbl_totals ne postoji ili nije inicijalizovan")
-        except Exception as e:
-            logger.error(f"Greška pri ažuriranju totals: {str(e)}")
-
-    def update_position(self, current: int, total: int):
-        """Ažuriraj prikaz trenutne pozicije (za pager)"""
-        try:
-            pass  # pager widget nije implementiran
-        except Exception as e:
-            logger.error(f"Greška pri ažuriranju pozicije: {str(e)}")
-
     def _restore_table_widget(self):
         """Restore QTableWidget when switching from Carinarnice (which uses QTreeWidget)"""
         # If current table is a TreeWidget, we need to restore the TableWidget
@@ -1224,22 +1191,6 @@ class SifarniciView(BaseTabView):
         self.btn_novi.setEnabled(False)
         self.btn_uredi.setEnabled(False)
         self.btn_obrisi.setEnabled(False)
-
-    def _populate_zemlje(self):
-        """Populate zemlje combo sa zastavicama"""
-        zemlje = [
-            ("🇮🇹", "IT", "Italia"),
-            ("🇰🇷", "KR", "South Korea"),
-            ("🇨🇳", "CN", "China"),
-            ("🇩🇪", "DE", "Germany"),
-            ("🇫🇷", "FR", "France"),
-            ("🇷🇸", "RS", "Serbia"),
-            ("🇧🇦", "BA", "Bosnia and Herzegovina"),
-        ]
-
-        for zastava, kod, naziv in zemlje:
-            self.zemlja_combo.addItem(f"{zastava} {kod} - {naziv}", kod)
-
     def _load_not_implemented(self, category_name: str):
         """Clear table + show friendly info for categories without DB implementation yet."""
         # Clear table so old data doesn't remain visible
@@ -2150,67 +2101,6 @@ class SifarniciView(BaseTabView):
         except Exception as e:
             logger.error(f"Greška pri pretrazi zemalja: {str(e)}")
             raise
-
-    def _edit_row(self, row: int):
-        """Handle edit action for a row"""
-        try:
-            logger.info(f"Uređivanje reda {row}")
-
-            # Extract data from the row
-            data = self._extract_row_data(row)
-            if not data:
-                QMessageBox.warning(self, "Greška", "Nije moguće učitati podatke reda.")
-                return
-
-            # Populate form with data
-            self._populate_form(data)
-
-            # Enable editing mode
-            self._set_readonly_mode(readonly=False)
-
-            # Mark as editing (not new)
-            self.is_editing = True
-            self.current_row_index = row
-
-            logger.info(f"Forma popunjena za uređivanje reda {row}")
-        except Exception as e:
-            logger.error(f"Greška pri uređivanju reda {row}: {str(e)}")
-            QMessageBox.critical(self, "Greška", f"Greška pri uređivanju:\n{str(e)}")
-
-    def _delete_row(self, row: int):
-        """Handle delete action for a row"""
-        try:
-            logger.info(f"Brisanje reda {row}")
-
-            # Confirm deletion
-            reply = QMessageBox.question(
-                self,
-                "Potvrda brisanja",
-                "Da li ste sigurni da želite da obrišete ovaj zapis?",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No,
-            )
-
-            if reply == QMessageBox.No:
-                return
-
-            # Extract data from the row
-            data = self._extract_row_data(row)
-            if not data:
-                QMessageBox.warning(self, "Greška", "Nije moguće učitati podatke reda.")
-                return
-
-            # Delete from database
-            self._delete_from_database(data)
-
-            # Reload data
-            self._load_data()
-
-            logger.info(f"Red {row} uspešno obrisan")
-        except Exception as e:
-            logger.error(f"Greška pri brisanju reda {row}: {str(e)}")
-            QMessageBox.critical(self, "Greška", f"Greška pri brisanju:\n{str(e)}")
-
     def _extract_row_data(self, row: int) -> Optional[Dict[str, Any]]:
         """Extract data from a table row"""
         try:
@@ -2799,17 +2689,6 @@ class SifarniciView(BaseTabView):
 
         except Exception as e:
             logger.error(f"Greška pri ažuriranju statusa: {str(e)}")
-
-    def _update_last_change(self):
-        """Update last change timestamp"""
-        try:
-            now = datetime.now()
-            timestamp = now.strftime("%d.%m.%Y %H:%M")
-            self.lbl_last_change.setText(f"Posljednja izmjena: {timestamp}")
-            logger.debug(f"Ažuriran timestamp poslednje izmene: {timestamp}")
-        except Exception as e:
-            logger.error(f"Greška pri ažuriranju timestamp-a: {str(e)}")
-
     def _get_tree_widget_count(self) -> int:
         """Count total items in tree widget (both parent and child nodes)"""
         if not hasattr(self.table, "topLevelItemCount"):
@@ -3769,20 +3648,6 @@ class SifarniciView(BaseTabView):
     # ============================================================
     # BaseTabView interface
     # ============================================================
-
-    def get_data(self) -> Dict[str, Any]:
-        """Vraća podatke iz view-a (BaseTabView interface)."""
-        return {}
-
-    def set_data(self, data: Dict[str, Any]) -> None:
-        """Postavlja podatke u view (BaseTabView interface)."""
-        pass
-
-    def clear_form(self) -> None:
-        """Čisti formu (BaseTabView interface) - delegira na _clear_form."""
-        self._clear_form()
-
-
 # Test standalone
 if __name__ == "__main__":
     import sys
