@@ -4179,3 +4179,36 @@ korisnikov zahtjev.
 CMANA i kg_fashion nemaju realni uzorak u ovom dumpu podataka — nisu
 validirani. Puni izvještaj:
 `agent_reports/2026-08-04_importers-validacija-na-realnim-fakturama.md`.
+
+## 2026-08-04 (peti nastavak) — CMANA fuzzy-match ispod projektnog standarda, ostalo zatvoreno
+
+Zatvorene preostale nepoznanice. **kg_fashion**: pun pregled koda (610
+linija) — dobro napisano, koristi ispravan `min_similarity=0.92`,
+`consumed_paths`, transparentne oznake porijekla tarife. Nema realne
+fakture za end-to-end test, ali nema pronađenog bug-a u kodu. **Imamoglu**:
+pun tok testiran preko stvarnog GUI entry point-a (`ExcelImporter.
+import_excel()`) na 2 realna fajla — radi ispravno (mal_tanımları nosi
+cijene, packing_list nosi težine, namjerno se ne spajaju automatski).
+**OCR (pytesseract)**: potvrđeno namjerno opciono (poseban
+`requirements-ocr.txt`, `pyproject.toml` optional-dependencies) — nije
+bug, samo nije instalirano u dev okruženju; treba provjeriti na
+produkcijskom klijentu.
+
+**CMANA nalaz (nepopravljen, čeka korisničku odluku)**:
+`cmana_pdf_parser.py::get_tariff_codes_for_product_name()` prihvata
+fuzzy-match tarifni broj sa `similarity > 0.0` (praktično bez praga), a
+pozivalac dodaje samo `> 0.25` filter — drastično ispod projektnog
+standarda `min_similarity = 0.92` (AGENTS.md, potvrđen i u
+`services/decision/evidence_adapters.py:60`). Za poređenje,
+`kg_fashion_importer.py` u ISTOM folderu ispravno koristi 0.92. Rizik:
+tarifni broj sa ~26% sličnosti naziva se tiho upisuje u
+`InvoiceLine.tarifni_broj` bez signala niske pouzdanosti (kg_fashion to
+radi ispravno — `tariff_similarity`, `raw["tariff_source"]`). Nije
+popravljeno — dira tarifnu poslovnu logiku (korisnik odlučuje po
+AGENTS.md), nema realne CMANA fakture za test prije/poslije.
+
+Bug report stavka #4 (cirkularni import u `strategy_registry.py`)
+potvrđena VEĆ RIJEŠENA (lazy import sa eksplicitnim komentarom).
+Stavka #14 (packing_list_parser fuzzy match, ne difflib.SequenceMatcher)
+potvrđena i dalje otvorena, minor. Puni izvještaj:
+`agent_reports/2026-08-04_importers-zatvaranje-preostalih-nepoznanica.md`.
