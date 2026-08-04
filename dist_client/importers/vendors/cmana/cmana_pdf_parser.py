@@ -71,6 +71,11 @@ _CMANA_PRODUCT_TARIFFS = {
     "120056": "02071330",
 }
 
+# Isti projektni standard kao ostali dobavljači (npr. kg_fashion_importer.py) —
+# vidi AGENTS.md "Fuzzy matching threshold: min_similarity = 0.92 (ne spuštati
+# bez eksplicitnog razloga)".
+_TARIFF_MIN_SIMILARITY = 0.92
+
 # ──────────────────────────────────────────────────────────────────
 # Detekcija formata
 # ──────────────────────────────────────────────────────────────────
@@ -253,7 +258,7 @@ def parse_cmana_pdf(pdf_path: str) -> ImportResult:
             # Ako nije pronađen tariff na osnovu šifre, probaj pronaći na osnovu naziva proizvoda
             if not tariff_from_xml and description:
                 tariff_by_name, similarity = get_tariff_codes_for_product_name(description)
-                if tariff_by_name and similarity > 0.25:  # Minimalan prag za prihvat
+                if tariff_by_name and similarity >= _TARIFF_MIN_SIMILARITY:
                     logger.debug(f"  Lookup XML tariff po nazivu: {tariff_by_name!r}, similarity={similarity:.2f} za '{description[:50]}...')")
                     tariff_from_xml = tariff_by_name
 
@@ -446,7 +451,7 @@ def get_tariff_codes_for_product_name(product_name: str) -> tuple[str, float]:
                 best_score = score
                 best_match = name
 
-        if best_match and best_score > 0.0:
+        if best_match and best_score >= _TARIFF_MIN_SIMILARITY:
             # Pronađi odgovarajući tariff code za najbolji match
             for stored_name, tariff_code in all_products:
                 if stored_name == best_match:
