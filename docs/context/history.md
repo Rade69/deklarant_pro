@@ -4234,3 +4234,23 @@ identifikovani nalazi (dead code, 2 Leburić bugova, Sumaprom bug, 7
 konsolidovanih `_parse_number` duplikata, CMANA prag) su ili popravljeni
 ili eksplicitno dokumentovani kao follow-up. Puni izvještaj:
 `agent_reports/2026-08-04_importers-cmana-fuzzy-prag-fix.md`.
+
+## 2026-08-04 (sedmi/stvarno finalni nastavak) — CMANA validiran na realnoj fakturi
+
+Korisnik je uputio na `H:\New folder\najavauvoza\CMANA\`, gdje je istog
+dana dodao 4 nova fajla. Pronađena prava CMANA faktura: `leb otp.pdf`
+("leb" = ime kupca Leburić, ne dobavljača — dokument izdaje CMANA DOO
+Krnjevo). `parse_cmana_pdf()` i `parse_smart_pdf()` (stvaran GUI ulaz)
+testirani direktno — **7/7 stavki tačno**, footer bruto/neto tačno
+poklapa fakturu, tačan broj fakture, `import_type='cmana'` potvrđuje
+ispravnu dispatch rutu. `detect_cmana_pdf()` ispravno ODBIJA prateća
+dokumenta (ambalaža-deklaracija, packing lista) — nema lažne detekcije.
+
+**Napomena o obimu**: faktura je koristila samo šifre već u statičkom
+`_CMANA_PRODUCT_TARIFFS` rječniku — fuzzy-match putanja (0.92 prag
+podignut prethodnim commit-om) nije okinuta ovim testom. Ostaje
+verifikovana čitanjem koda + regresionom svitom, ne stvarnim fuzzy
+scenarijem. Ovim je `importers/` audit sesije potpuno zaokružen — svi
+identifikovani nalazi popravljeni i (osim fuzzy-match specifično za
+CMANA) validirani na realnim podacima. Puni izvještaj:
+`agent_reports/2026-08-04_importers-cmana-validacija-realna-faktura.md`.
