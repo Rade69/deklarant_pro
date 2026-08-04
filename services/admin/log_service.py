@@ -12,7 +12,6 @@ from datetime import datetime
 import re
 import csv
 
-
 class LogService:
     """
     Service za čitanje i filtriranje logova.
@@ -91,48 +90,6 @@ class LogService:
         except Exception as e:
             logger.error(f"❌ Error reading all logs: {e}")
             return []
-
-    def filter_logs(
-        self,
-        level: Optional[str] = None,
-        search: Optional[str] = None,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
-        """
-        Filtriraj log-ove.
-
-        Args:
-            level: Log level (INFO, DEBUG, WARNING, ERROR)
-            search: Search term
-            start_date: Start date (ISO format)
-            end_date: End date (ISO format)
-
-        Returns:
-            Lista filtriranih log entries
-        """
-        logs = self.get_all_logs()  # Get all for filtering
-        filtered = []
-
-        for log in logs:
-            # Filter by level
-            if level and log.get('level') != level:
-                continue
-
-            # Filter by search term
-            if search and search.lower() not in log.get('message', '').lower():
-                continue
-
-            # Filter by date range
-            log_date = log.get('timestamp', '')[:10]  # Extract YYYY-MM-DD
-            if start_date and log_date < start_date:
-                continue
-            if end_date and log_date > end_date:
-                continue
-
-            filtered.append(log)
-
-        return filtered
 
     def get_log_statistics(self) -> Dict[str, Any]:
         """

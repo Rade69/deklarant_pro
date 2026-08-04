@@ -39,22 +39,17 @@ class AdminController(BaseTabController):
         """Povezivanje View signala sa handler metodama."""
         # Plugin panel signals
         plugin_panel = self.view.get_plugin_panel()
-        if hasattr(plugin_panel, 'install_requested'):
-            plugin_panel.install_requested.connect(self._on_install_plugin)
-        if hasattr(plugin_panel, 'reload_requested'):
-            plugin_panel.reload_requested.connect(self._on_reload_plugins)
-        if hasattr(plugin_panel, 'remove_requested'):
-            plugin_panel.remove_requested.connect(self._on_remove_plugin)
+        plugin_panel.install_requested.connect(self._on_install_plugin)
+        plugin_panel.reload_requested.connect(self._on_reload_plugins)
+        plugin_panel.remove_requested.connect(self._on_remove_plugin)
 
         # Logs panel signals
         logs_panel = self.view.get_logs_panel()
-        if hasattr(logs_panel, 'refresh_requested'):
-            logs_panel.refresh_requested.connect(self._on_refresh_logs)
+        logs_panel.refresh_requested.connect(self._on_refresh_logs)
 
         # System panel signals
         system_panel = self.view.get_system_panel()
-        if hasattr(system_panel, 'refresh_requested'):
-            system_panel.refresh_requested.connect(self._refresh_system_info)
+        system_panel.refresh_requested.connect(self._refresh_system_info)
 
         settings_panel = self.view.get_settings_panel()
         settings_panel.save_requested.connect(self._on_save_settings)

@@ -65,6 +65,23 @@ nije obrisan. Linijski broj za `show_warning` u `plugin_panel.py` je bio pogreš
 ### Faza 7: PluginPanel.show_warning()
 - Uklonjen — 0 pozivalaca
 
+### Faza 8 (drugi commit): BackupService svođenje na get_database_size()
+- BackupService prepisan od nule — zadržan samo `__init__()` i `get_database_size()`
+- Obrisani: `create_backup()`, `restore_backup()`, `get_available_backups()`,
+  `_validate_database()`, `_cleanup_old_backups()`
+- Samo `get_database_size()` se koristi kroz `AdminService.get_system_info()`
+
+### Faza 9: LogService.filter_logs()
+- Uklonjen — 0 pozivalaca nakon brisanja AdminService delegata
+
+### Faza 10: hasattr pattern u controlleru
+- Uklonjeno 6 `if hasattr(panel, 'signal')` guardova
+- Signali su uvijek prisutni na panelima — `settings_panel` veze već nisu imale guard
+
+### Faza 11: styles.py neiskorišćene konstante
+- Uklonjeni `BUTTON_BASE_STYLE`, `INPUT_BASE_STYLE`, `LISTWIDGET_STYLE` (67 linija)
+- 0 pozivalaca — samo definicije u fajlu
+
 ### Test fix
 - `tests/admin/test_admin_e2e.py`: uklonjen test za obrisani `AdminService.get_import_statistics()`,
   integracioni test preusmjeren na `analytics_service.get_import_statistics()` direktno
