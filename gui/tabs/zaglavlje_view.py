@@ -331,8 +331,6 @@ class ZaglavljeView(BaseTabView):
     # SIGNALS
     # ============================================================
 
-    save_requested = Signal()
-    load_requested = Signal(str)
     delete_requested = Signal()
     import_xml_requested = Signal(str)
     export_xml_requested = Signal()

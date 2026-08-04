@@ -82,7 +82,6 @@ class ZaglavljeController:
         Poveži View signale sa controller metodama.
 
         Connections:
-        - save_requested → _on_save
         - validation_requested → _on_validate
         - delete_requested → _on_delete
         - import_xml_requested → _on_import_xml
@@ -91,7 +90,6 @@ class ZaglavljeController:
         - search_company_requested → _on_search_company
         - add_company_requested → _on_add_company
         """
-        self.view.save_requested.connect(self._on_save)
         self.view.validation_requested.connect(self._on_validate)
         self.view.delete_requested.connect(self._on_delete)
         self.view.import_xml_requested.connect(self._on_import_xml)
@@ -99,7 +97,6 @@ class ZaglavljeController:
         self.view.new_requested.connect(self._on_new)
         self.view.search_company_requested.connect(self._on_search_company)
         self.view.add_company_requested.connect(self._on_add_company)
-        self.view.deklaracija_sifra_changed.connect(self._on_dekl_sifra_changed)
         self.view.valuta_changed.connect(self._on_valuta_changed)
     
     # ============================================================
@@ -457,24 +454,6 @@ class ZaglavljeController:
         # Označi dirty
         self.view.data_changed.emit()
 
-    def _on_save(self):
-        """Snimi podatke u draft (in-memory)."""
-        try:
-            self.logger.info("Save requested")
-
-            if self._save_draft_fn:
-                self._save_draft_fn()
-                self.view.show_success("Podaci sačuvani!")
-                self.logger.info("Save successful")
-            else:
-                # Fallback: emituj data_changed da označi dirty
-                self.view.data_changed.emit()
-                self.view.show_success("Podaci sačuvani!")
-
-        except Exception as e:
-            self.logger.error(f"Save failed: {e}", exc_info=True)
-            self.view.show_error(f"Greška pri čuvanju: {e}")
-    
     def _on_delete(self):
         """Briši (očisti) zaglavlje — potvrdi i resetuj formu."""
         geometry_state = capture_window_geometry(self.view)
@@ -1056,38 +1035,6 @@ class ZaglavljeController:
             self.logger.error(f"JCI import failed: {e}", exc_info=True)
             self.view.show_error(f"Greška pri JCI importu: {e}")
     
-    def _populate_oznaka_combo(self, sifra: str):
-        """
-        Popuni combo za oznaku postupka prema odabranoj šifri (EX/IM).
-        
-        Args:
-            sifra: Šifra vrste deklaracije (npr. 'IM', 'EX')
-        
-        Workflow:
-        1. Dohvati vrste deklaracija iz service-a
-        2. Popuni combo sa odgovarajućim oznakama
-        3. Handle errors
-        """
-        try:
-            cb = self.view.field_widgets.get("deklaracija_oznaka")
-            if not cb:
-                return
-            
-            cb.blockSignals(True)
-            cb.clear()
-            
-            # Dohvati oznake za odabranu šifru
-            vrste = self.service.get_vrste_deklaracija()
-            for oznaka, opis in vrste.get(sifra, []):
-                cb.addItem(oznaka)
-                cb.setItemData(cb.count() - 1, opis, Qt.ToolTipRole)
-            
-            cb.blockSignals(False)
-            self.logger.debug(f"Populated oznaka combo for sifra={sifra}")
-            
-        except Exception as e:
-            self.logger.error(f"Populate oznaka combo failed: {e}", exc_info=True)
-    
     def _on_valuta_changed(self, valuta: str):
         """
         Auto-popuni Rb.23 (kurs) na osnovu valute u Rb.22.
@@ -1113,24 +1060,6 @@ class ZaglavljeController:
         except Exception as e:
             self.logger.error(f"[Rb.23] Greška pri dohvatanju kursa: {e}", exc_info=True)
 
-    def _on_dekl_sifra_changed(self, sifra: str):
-        """
-        Event handler za promjenu šifre deklaracije (EX/IM).
-        
-        Args:
-            sifra: Nova šifra (npr. 'IM' ili 'EX')
-        
-        Workflow:
-        1. Kada se promijeni EX/IM, osvježi listu oznaka u combou
-        2. Pozovi _populate_oznaka_combo
-        """
-        try:
-            self.logger.debug(f"Deklaracija šifra changed: {sifra}")
-            self._populate_oznaka_combo(sifra)
-            
-        except Exception as e:
-            self.logger.error(f"Deklaracija šifra changed failed: {e}", exc_info=True)
-    
     def _populate_company_fields(self, company_type: str, partner: dict):
         """
         Helper za popunjavanje polja kompanije.
