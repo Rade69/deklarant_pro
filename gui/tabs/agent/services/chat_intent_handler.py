@@ -193,6 +193,7 @@ class ChatIntentHandler:
 
     def pregledaj_naimenovanja(self, indeksi=None) -> None:
         """[THUNK] → _pregledaj_naimenovanja"""
+        _pregledaj_naimenovanja(self._ctrl, indeksi)
 
     # ═══════════════════════════════════════════════════════════════
     # region — Tarifno pretraživanje (nastavak)
@@ -204,15 +205,19 @@ class ChatIntentHandler:
 
     def pretrazi_porijeklo(self, upit: str) -> None:
         """[THUNK] → _pretrazi_porijeklo"""
+        _pretrazi_porijeklo(self._ctrl, upit)
 
     def pretrazi_tarifu_po_kodu(self, kod: str) -> None:
         """[THUNK] → _pretrazi_tarifu_po_kodu"""
+        _pretrazi_tarifu_po_kodu(self._ctrl, kod)
 
     def pretrazi_tarifu_poglavlje(self, poglavlje: str) -> None:
         """[THUNK] → _pretrazi_tarifu_poglavlje"""
+        _pretrazi_tarifu_poglavlje(self._ctrl, poglavlje)
 
     def pretrazi_tarifu_hijerarhijski(self, kod: str) -> None:
         """[THUNK] → _pretrazi_tarifu_hijerarhijski"""
+        _pretrazi_tarifu_hijerarhijski(self._ctrl, kod)
 
     # ═══════════════════════════════════════════════════════════════
     # region — Compliance
@@ -232,6 +237,7 @@ class ChatIntentHandler:
 
     def propose_kolona_upis(self, atribut: str, vrijednost: str, tab: str = 'faktura') -> None:
         """[THUNK] → _propose_kolona_upis"""
+        _propose_kolona_upis(self._ctrl, atribut, vrijednost, tab)
 
     # ═══════════════════════════════════════════════════════════════
     # region — Proposal Card
@@ -243,6 +249,7 @@ class ChatIntentHandler:
 
     def on_proposal_confirmed(self, values: dict) -> None:
         """[THUNK] → _on_proposal_confirmed"""
+        _on_proposal_confirmed(self._ctrl, values)
 
     def on_proposal_rejected(self) -> None:
         """[THUNK] → _on_proposal_rejected"""
