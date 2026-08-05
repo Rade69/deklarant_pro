@@ -607,15 +607,26 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(800, self._do_db_check)
 
     def _do_db_check(self):
+        from PySide6.QtWidgets import QMessageBox
         try:
             from database.db import get_db_connection
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
                     cur.execute("SELECT version()")
                     ver = cur.fetchone()['version'].split(',')[0]
-            self.statusBar().showMessage(f"✅ Baza podataka povezana — {ver}", 5000)
+            QMessageBox.information(
+                self, "Baza podataka",
+                f"✅ Konekcija sa bazom podataka je uspješno uspostavljena.\n\n"
+                f"Server: PostgreSQL {ver}"
+            )
         except Exception as e:
-            self.statusBar().showMessage(f"⚠️ Baza podataka nije dostupna — {e}", 8000)
+            QMessageBox.warning(
+                self, "Baza podataka — greška",
+                f"Nije moguće povezati se na bazu podataka.\n\n"
+                f"{e}\n\n"
+                "Provjerite da li je PostgreSQL server pokrenut i da li su "
+                "podaci za konekciju ispravni u .env fajlu."
+            )
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
