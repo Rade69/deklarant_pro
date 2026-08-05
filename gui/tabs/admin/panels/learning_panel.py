@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
 
 from services.agent.learning.exporter_xml_indexer import get_xml_folder
 from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
+from .styles import GROUPBOX_STYLE
 
 XML_FOLDER = get_xml_folder()
 
@@ -178,7 +179,7 @@ class LearningPanel(QWidget):
 
     def _make_xml_group(self) -> QGroupBox:
         grp = QGroupBox("📂 XML fajlovi (docs/NOVA ASIKUDA)")
-        grp.setStyleSheet(self._grp_style())
+        grp.setStyleSheet(GROUPBOX_STYLE)
         lay = QVBoxLayout(grp)
         lay.setSpacing(10)
 
@@ -234,7 +235,7 @@ class LearningPanel(QWidget):
 
     def _make_stats_group(self) -> QGroupBox:
         grp = QGroupBox("📊 Naučene deklaracije — stanje baze")
-        grp.setStyleSheet(self._grp_style())
+        grp.setStyleSheet(GROUPBOX_STYLE)
         grid = QGridLayout(grp)
         grid.setSpacing(14)
         grid.setContentsMargins(14, 16, 14, 14)
@@ -265,7 +266,7 @@ class LearningPanel(QWidget):
 
     def _make_log_group(self) -> QGroupBox:
         grp = QGroupBox("📋 Tok reindeksiranja")
-        grp.setStyleSheet(self._grp_style())
+        grp.setStyleSheet(GROUPBOX_STYLE)
         lay = QVBoxLayout(grp)
 
         self.log_output = QTextEdit()
@@ -427,21 +428,6 @@ class LearningPanel(QWidget):
         lbl = QLabel(text)
         lbl.setFont(QFont("Arial", 14))
         return lbl
-
-    @staticmethod
-    def _grp_style() -> str:
-        return """
-            QGroupBox {
-                border: 1px solid #ddd; border-radius: 6px;
-                margin-top: 12px; padding-top: 10px;
-                font-weight: bold; font-size: 14px;
-                background: white;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin; subcontrol-position: top left;
-                padding: 0 8px; color: #17324a;
-            }
-        """
 
     @staticmethod
     def _btn_style(color: str) -> str:

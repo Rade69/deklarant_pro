@@ -12,6 +12,7 @@ from typing import Dict, Any
 import qtawesome as qta
 from psycopg2 import sql as pg_sql
 from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
+from .styles import GROUPBOX_STYLE
 
 
 class _TestConnThread(QThread):
@@ -81,18 +82,7 @@ class DatabasePanel(QWidget):
     def _apply_styles(self):
         self.setStyleSheet("background-color: #f3f6f8;")
         for gb in self.findChildren(QGroupBox):
-            gb.setStyleSheet("""
-                QGroupBox {
-                    border: 1px solid #ddd; border-radius: 6px;
-                    margin-top: 12px; padding-top: 10px;
-                    font-weight: bold; font-size: 13px;
-                    background-color: white;
-                }
-                QGroupBox::title {
-                    subcontrol-origin: margin; subcontrol-position: top left;
-                    padding: 0 8px; color: #444;
-                }
-            """)
+            gb.setStyleSheet(GROUPBOX_STYLE)
 
     def setup_ui(self):
         layout = QVBoxLayout(self)

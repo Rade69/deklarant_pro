@@ -15,6 +15,7 @@ from PySide6.QtGui import QFont
 from typing import List, Dict, Any
 import qtawesome as qta
 from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
+from .styles import GROUPBOX_STYLE
 
 
 class PluginPanel(QWidget):
@@ -72,22 +73,7 @@ class PluginPanel(QWidget):
         """)
 
         # GroupBox styling
-        self.findChild(QGroupBox).setStyleSheet("""
-            QGroupBox {
-                border: 1px solid #ddd;
-                border-radius: 4px;
-                margin-top: 12px;
-                padding-top: 10px;
-                font-weight: bold;
-                font-size: 14px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                subcontrol-position: top left;
-                padding: 0 5px;
-                color: #17324a;
-            }
-        """)
+        self.findChild(QGroupBox).setStyleSheet(GROUPBOX_STYLE)
 
         # Button styling
         button_style = """
