@@ -307,13 +307,17 @@ class NaimenovanjaController(QObject):
         item = items[idx]
         name = getattr(item, "goods_trade_name", "") or getattr(item, "goods_description", "")
         origin = getattr(item, "origin_country_code", "")
+        logger.info(f"🔍 Sugeriši tarifu: name='{name}', origin='{origin}', idx={idx}")
         if not name or not name.strip():
+            logger.info(f"🔍 Sugeriši tarifu: prazan naziv, preskačem")
             return []
         is_valid, reason = self._tariff_service.validate_suggestion_input(name)
         if not is_valid:
+            logger.info(f"🔍 Sugeriši tarifu: nevalidan unos: {reason}")
             view.show_invalid_suggestion_input(reason, name)
             return []
         mappings = self._tariff_service.suggest_tariff(name, origin)
+        logger.info(f"🔍 Sugeriši tarifu: {len(mappings)} predloga")
         return self._tariff_service.validate_mappings(mappings)
 
     # ── Nacrt deklaracije — save/load (Faza 8) ──────────────────────
