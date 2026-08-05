@@ -141,8 +141,9 @@ _REDNI = {
     'posljednji': -1, 'zadnji': -1,
 }
 
+from ._tariff_handlers import TariffHandlerMixin
 
-class ChatIntentHandler:
+class ChatIntentHandler(TariffHandlerMixin):
     """Upravljanje chat porukom — Tool Use routing (primarni) + keyword fallback."""
 
     def __init__(self, controller):
@@ -166,16 +167,6 @@ class ChatIntentHandler:
         _execute_tool(self._ctrl, name, args)
 
     # ═══════════════════════════════════════════════════════════════
-    # region — Tarifno pretraživanje i porijeklo
-    # ═══════════════════════════════════════════════════════════════
-
-    def alternativni_tarifni_za_stavku(self, item_query: str = "",
-                                        item_ordinal: int = None,
-                                        is_alt: bool = False) -> None:
-        """[THUNK] → _alternativni_tarifni_za_stavku"""
-        _alternativni_tarifni_za_stavku(self._ctrl, item_query, item_ordinal, is_alt)
-
-    # ═══════════════════════════════════════════════════════════════
     # region — Intent klasifikacija
     # ═══════════════════════════════════════════════════════════════
 
@@ -194,30 +185,6 @@ class ChatIntentHandler:
     def pregledaj_naimenovanja(self, indeksi=None) -> None:
         """[THUNK] → _pregledaj_naimenovanja"""
         _pregledaj_naimenovanja(self._ctrl, indeksi)
-
-    # ═══════════════════════════════════════════════════════════════
-    # region — Tarifno pretraživanje (nastavak)
-    # ═══════════════════════════════════════════════════════════════
-
-    def pretrazi_tarifu(self, upit: str) -> None:
-        """[THUNK] → _pretrazi_tarifu"""
-        _pretrazi_tarifu(self._ctrl, upit)
-
-    def pretrazi_porijeklo(self, upit: str) -> None:
-        """[THUNK] → _pretrazi_porijeklo"""
-        _pretrazi_porijeklo(self._ctrl, upit)
-
-    def pretrazi_tarifu_po_kodu(self, kod: str) -> None:
-        """[THUNK] → _pretrazi_tarifu_po_kodu"""
-        _pretrazi_tarifu_po_kodu(self._ctrl, kod)
-
-    def pretrazi_tarifu_poglavlje(self, poglavlje: str) -> None:
-        """[THUNK] → _pretrazi_tarifu_poglavlje"""
-        _pretrazi_tarifu_poglavlje(self._ctrl, poglavlje)
-
-    def pretrazi_tarifu_hijerarhijski(self, kod: str) -> None:
-        """[THUNK] → _pretrazi_tarifu_hijerarhijski"""
-        _pretrazi_tarifu_hijerarhijski(self._ctrl, kod)
 
     # ═══════════════════════════════════════════════════════════════
     # region — Compliance
@@ -255,18 +222,14 @@ class ChatIntentHandler:
         """[THUNK] → _on_proposal_rejected"""
         _on_proposal_rejected(self._ctrl)
 
-
 # ═══════════════════════════════════════════════════════════════
 # region — Implementacija: pomoćne funkcije i intent detekcija
 # ═══════════════════════════════════════════════════════════════
 
-
 _ORIGIN_KEYWORD_RE = r'porijek\w*|porijk\w*|porekl\w*|prijek\w*|zemlj\w*\s+por'
-
 
 def _has_origin_keyword(message: str) -> bool:
     return bool(re.search(_ORIGIN_KEYWORD_RE, message or "", flags=re.IGNORECASE))
-
 
 def _clean_origin_query(query: str) -> str:
     query = (query or "").strip().rstrip("?! .")
@@ -285,7 +248,6 @@ def _clean_origin_query(query: str) -> str:
     query = re.sub(r'\b(ovog|ovaj|tog|taj|zaj|proizvoda|proizvod)\b', '', query, flags=re.IGNORECASE)
     return re.sub(r'\s+', ' ', query).strip()
 
-
 def _is_weak_origin_query(query: str) -> bool:
     msg = (query or "").lower().strip()
     if not msg:
@@ -299,7 +261,6 @@ def _is_weak_origin_query(query: str) -> bool:
         return True
     return msg in {"za", "u", "iz", "ovaj", "zaj", "taj", "proizvod"}
 
-
 def _is_missing_invoice_field_request(message: str) -> bool:
     msg = _normalize_naim_message(message)
     has_missing = any(kw in msg for kw in ("nema", "bez", "nedostaje", "fali", "prazn", "nepopun"))
@@ -310,7 +271,6 @@ def _is_missing_invoice_field_request(message: str) -> bool:
         "faktura", "fakture", "faktir", "tabu", "tab", "tabel", "tabela",
     ))
     return has_missing and has_field and has_table
-
 
 def _extract_origin_product_query(message: str) -> str:
     # Docs: docs/sections/agent-origin-query-routing.md
@@ -353,7 +313,6 @@ def _extract_origin_product_query(message: str) -> str:
 
     return ""
 
-
 def _get_conversation_context(ctrl) -> dict:
     ctx = getattr(ctrl, "_conversation_context", None)
     if ctx is None:
@@ -361,17 +320,14 @@ def _get_conversation_context(ctrl) -> dict:
         ctrl._conversation_context = ctx
     return ctx
 
-
 def _remember_subject(ctrl, subject: str) -> None:
     subject = (subject or "").strip()
     if subject:
         _get_conversation_context(ctrl)["last_subject"] = subject
 
-
 def _clean_tariff_code(value: str) -> str:
     digits = re.sub(r'\D', '', value or "")
     return digits[:10] if len(digits) >= 8 else ""
-
 
 def _remember_tariff_context(
     ctrl,
@@ -391,7 +347,6 @@ def _remember_tariff_context(
         ctx["last_product_name"] = product_name
         ctx["last_subject"] = product_name
 
-
 def _remember_naimenovanje_context(ctrl, item) -> None:
     if not item:
         return
@@ -407,7 +362,6 @@ def _remember_naimenovanje_context(ctrl, item) -> None:
         product_name=opis,
     )
 
-
 def _set_offered_action(ctrl, action: str, subject: str, label: str = "") -> None:
     ctx = _get_conversation_context(ctrl)
     ctx["last_offered_action"] = {
@@ -416,10 +370,8 @@ def _set_offered_action(ctrl, action: str, subject: str, label: str = "") -> Non
         "label": label,
     }
 
-
 def _clear_offered_action(ctrl) -> None:
     _get_conversation_context(ctrl).pop("last_offered_action", None)
-
 
 def _is_followup_confirmation(message: str) -> bool:
     msg = (message or "").lower().strip()
@@ -429,7 +381,6 @@ def _is_followup_confirmation(message: str) -> bool:
         "trazi", "traži", "potrazi", "potraži", "provjeri", "nastavi",
         "uradi", "kreni", "ok", "u redu",
     }
-
 
 def _extract_web_search_subject(message: str) -> str:
     msg = (message or "").strip()
@@ -450,7 +401,6 @@ def _extract_web_search_subject(message: str) -> str:
             if len(subject) >= 3:
                 return subject
     return ""
-
 
 def _resolve_followup(ctrl, message: str) -> bool:
     chat = ctrl.view.get_chat_panel()
@@ -478,7 +428,6 @@ def _resolve_followup(ctrl, message: str) -> bool:
 
     return False
 
-
 def _extract_specific_naimenovanje_request(message: str) -> int | None:
     msg = (message or "").lower()
     if not re.search(r'\b(naim|naimenovanj)\w*', msg):
@@ -500,7 +449,6 @@ def _extract_specific_naimenovanje_request(message: str) -> int | None:
             return ordinal
     return None
 
-
 def _extract_specific_invoice_line_request(message: str) -> int | None:
     msg = _normalize_naim_message(message)
     if not re.search(r'\b(faktur|tabu faktura|tab faktura)\w*', msg):
@@ -521,7 +469,6 @@ def _extract_specific_invoice_line_request(message: str) -> int | None:
             return ordinal
     return None
 
-
 def _find_invoice_line_by_ordinal(ctrl, ordinal: int):
     if not ordinal or not ctrl.draft:
         return None
@@ -529,7 +476,6 @@ def _find_invoice_line_by_ordinal(ctrl, ordinal: int):
     if 0 < ordinal <= len(lines):
         return lines[ordinal - 1]
     return None
-
 
 def _invoice_line_product_name(line) -> str:
     if not line:
@@ -539,7 +485,6 @@ def _invoice_line_product_name(line) -> str:
         or getattr(line, "product_code", "")
         or ""
     ).strip()
-
 
 def _find_naimenovanje_by_ordinal(ctrl, ordinal: int):
     if not ordinal or not ctrl.draft:
@@ -552,7 +497,6 @@ def _find_naimenovanje_by_ordinal(ctrl, ordinal: int):
         return items[ordinal - 1]
     return None
 
-
 def _naimenovanje_product_name(item) -> str:
     if not item:
         return ""
@@ -564,7 +508,6 @@ def _naimenovanje_product_name(item) -> str:
         or getattr(item, "tariff_description1", "")
         or ""
     ).strip()
-
 
 def _is_tariff_suggestion_for_naimenovanje(message: str) -> bool:
     msg = _normalize_naim_message(message)
@@ -579,7 +522,6 @@ def _is_tariff_suggestion_for_naimenovanje(message: str) -> bool:
             "koji", "koja",
         )
     )
-
 
 def _is_tariff_suggestion_for_current_item(message: str) -> bool:
     msg = _normalize_naim_message(message)
@@ -600,7 +542,6 @@ def _is_tariff_suggestion_for_current_item(message: str) -> bool:
         )
     )
 
-
 def _is_current_item_reference(message: str) -> bool:
     msg = _normalize_naim_message(message)
     return bool(
@@ -611,7 +552,6 @@ def _is_current_item_reference(message: str) -> bool:
         )
     )
 
-
 def _is_tariff_insert_request(message: str) -> bool:
     msg = _normalize_naim_message(message)
     if not any(kw in msg for kw in ("ubac", "upiš", "upis", "unes", "postav", "stavi")):
@@ -619,7 +559,6 @@ def _is_tariff_insert_request(message: str) -> bool:
     if not any(kw in msg for kw in ("tarif", "broj", "faktur", "faktir")):
         return False
     return True
-
 
 def _should_save_tariff_mapping(message: str) -> bool:
     msg = _normalize_naim_message(message)
@@ -629,7 +568,6 @@ def _should_save_tariff_mapping(message: str) -> bool:
             "u bazi", "bazu podataka", "za ubuduće", "za ubuduce",
         )
     )
-
 
 def _is_database_lookup_request(message: str) -> bool:
     msg = _normalize_naim_message(message)
@@ -645,7 +583,6 @@ def _is_database_lookup_request(message: str) -> bool:
             "šta", "sta", "koliko",
         )
     )
-
 
 def _database_lookup_from_context(ctrl, message: str) -> bool:
     if not _is_database_lookup_request(message):
@@ -675,7 +612,6 @@ def _database_lookup_from_context(ctrl, message: str) -> bool:
         return True
 
     return False
-
 
 def _origin_lookup_from_context(ctrl, message: str) -> bool:
     if not _has_origin_keyword(message) and "origin" not in (message or "").lower():
@@ -707,7 +643,6 @@ def _origin_lookup_from_context(ctrl, message: str) -> bool:
             return True
 
     return False
-
 
 def _missing_invoice_field_from_context(ctrl, message: str) -> bool:
     msg = _normalize_naim_message(message)
@@ -765,7 +700,6 @@ def _missing_invoice_field_from_context(ctrl, message: str) -> bool:
     )
     return True
 
-
 def _is_tariff_usage_question(message: str) -> bool:
     msg = (message or "").lower()
     if "tarif" not in msg:
@@ -776,12 +710,10 @@ def _is_tariff_usage_question(message: str) -> bool:
     )
     return any(word in msg for word in usage_words)
 
-
 def _normalize_naim_message(message: str) -> str:
     msg = (message or "").lower()
     msg = re.sub(r'\bn\s+aimenovanj', 'naimenovanj', msg)
     return re.sub(r'\s+', ' ', msg).strip()
-
 
 def _is_naimenovanja_review_request(message: str) -> bool:
     msg = _normalize_naim_message(message)
@@ -795,7 +727,6 @@ def _is_naimenovanja_review_request(message: str) -> bool:
         )
     )
 
-
 def _is_naimenovanja_validation_request(message: str) -> bool:
     msg = _normalize_naim_message(message)
     return any(
@@ -804,7 +735,6 @@ def _is_naimenovanja_validation_request(message: str) -> bool:
             "nedostaje", "prazn", "nepopunjene",
         )
     )
-
 
 def _application_context_scope(message: str) -> str:
     msg = _normalize_naim_message(message)
@@ -835,7 +765,6 @@ def _application_context_scope(message: str) -> str:
         return "zaglavlje"
     return "all"
 
-
 def _resolve_tariff_code_from_context(ctrl, message: str) -> str:
     explicit = _clean_tariff_code(message)
     if explicit:
@@ -844,7 +773,6 @@ def _resolve_tariff_code_from_context(ctrl, message: str) -> str:
     if re.search(r'\b(taj|tog|tom|ovaj|ovog|njemu|njega)\b', msg):
         return _get_conversation_context(ctrl).get("last_tariff_code", "")
     return ""
-
 
 def _tariff_usage_stats(tariff_code: str) -> dict:
     code = _clean_tariff_code(tariff_code)
@@ -889,7 +817,6 @@ def _tariff_usage_stats(tariff_code: str) -> dict:
         "examples": examples,
     }
 
-
 def _prikazi_statistiku_tarife(ctrl, tariff_code: str) -> None:
     chat = ctrl.view.get_chat_panel()
     code = _clean_tariff_code(tariff_code)
@@ -930,7 +857,6 @@ def _prikazi_statistiku_tarife(ctrl, tariff_code: str) -> None:
         )
     except Exception as e:
         chat.add_agent_message(f"❌ Greška pri provjeri istorije tarife {escape(code[:8])}: {escape(str(e))}")
-
 
 def _resolve_contextual_request(ctrl, message: str) -> bool:
     invoice_line_ordinal = _extract_specific_invoice_line_request(message)
@@ -1037,11 +963,9 @@ def _resolve_contextual_request(ctrl, message: str) -> bool:
 
     return False
 
-
 def _audit_routing(routing_layer: str, **kwargs) -> None:
     """Zabilježi koji routing sloj je obradio poruku (Faza D, §8.2)."""
     record_audit(AuditEvent(routing_layer=routing_layer, **kwargs))
-
 
 def _check_agent_v2_enabled(ctrl) -> bool:
     """Kill-switch za Agent V2 routing.
@@ -1058,7 +982,6 @@ def _check_agent_v2_enabled(ctrl) -> bool:
         return getattr(settings, "agent_v2_enabled", False)
     except Exception:
         return False
-
 
 def _handle_message_v2(ctrl, message: str) -> None:
     """Agent V2 routing — koristi Intent Resolver umjesto keyword prečica.
@@ -1175,7 +1098,6 @@ def _handle_message_v2(ctrl, message: str) -> None:
     _audit_routing("v2", tool="tool_use_delegated", fallback_reason=f"v2_{intent.action.value}")
     _dispatch_via_tool_use(ctrl, message)
 
-
 def _handle_message(ctrl, message: str) -> None:
     """
     Primarni entry point za chat poruke.
@@ -1269,7 +1191,6 @@ def _handle_message(ctrl, message: str) -> None:
     # Kraj Tool Use bloka — ostatak _handle_message se NE izvršava
     return
 
-
 def _dispatch_via_tool_use(ctrl, message: str) -> None:
     """Pošalji poruku LLM Tool Use-u (Groq → Gemini) i izvrši odabrani alat.
 
@@ -1327,7 +1248,6 @@ def _dispatch_via_tool_use(ctrl, message: str) -> None:
     chat.add_activity("🤔 Analiziram upit...")
     dispatcher.start()
 
-
 def _extract_similar_product_query(message: str) -> str:
     text = str(message or "").strip()
     if not text:
@@ -1357,7 +1277,6 @@ def _extract_similar_product_query(message: str) -> str:
         if query and len(query) >= 3 and "tarifni broj" not in query.lower():
             return query
     return ""
-
 
 # ── Tool execution (mapira tool → servis) ────────────────────────────
 # Vidi: docs/decisions/002-tool-dispatcher-integration.md#execute_tool-mapiranje
@@ -1409,7 +1328,6 @@ def _execute_tool(ctrl, name: str, args: dict, provider: str = "") -> None:
             source="_execute_tool", duration_ms=(time.perf_counter() - started) * 1000,
         )
 
-
 def _dispatch_prikazi(ctrl, args: dict) -> None:
     """SHOW — snapshot iz aktivnog drafta. Plan §8.2: prikazi(target, scope, ordinals).
 
@@ -1432,7 +1350,6 @@ def _dispatch_prikazi(ctrl, args: dict) -> None:
         "invoice": "invoice", "items": "naimenovanja", "header": "header",
     }
     _pregled_stanja_aplikacije(ctrl, scope_map.get(target, "all"))
-
 
 def _dispatch_provjeri(ctrl, args: dict, _emit) -> None:
     """VALIDATE — stručna provjera. Plan §8.2: provjeri(target, scope, ordinals, depth).
@@ -1482,7 +1399,6 @@ def _dispatch_provjeri(ctrl, args: dict, _emit) -> None:
         # application / declaration — puna provjera cijele deklaracije,
         # isti tok kao stari alat "validuj_deklaraciju"
         _compliance_check(ctrl)
-
 
 def _dispatch_known_tool(ctrl, name: str, args: dict, _emit) -> None:
     """Elif lanac za poznate alate — izdvojeno iz _execute_tool radi audit omotača."""
@@ -1612,7 +1528,6 @@ def _dispatch_known_tool(ctrl, name: str, args: dict, _emit) -> None:
             args=args,
         ))
 
-
 def _start_chat_worker(ctrl, message: str, fallback_reason: str = "", provider: str = "") -> None:
     """Pokreće standardni ChatWorker za plain chat odgovor."""
     from gui.tabs.agent.widgets.chat_worker import ChatWorker
@@ -1646,7 +1561,6 @@ def _start_chat_worker(ctrl, message: str, fallback_reason: str = "", provider: 
     worker.finished.connect(
         lambda: ctrl._chat_workers.remove(worker) if worker in ctrl._chat_workers else None
     )
-
 
 # ── Regex fallback (postojeći kod, koristi se kad Tool Use nije dostupan) ──
 # Vidi: docs/decisions/002-tool-dispatcher-integration.md
@@ -1988,7 +1902,6 @@ def _handle_message_regex_fallback(ctrl, message: str) -> None:
         lambda: ctrl._chat_workers.remove(worker) if worker in ctrl._chat_workers else None
     )
 
-
 def _alternativni_tarifni_za_stavku(ctrl, item_query: str = "",
                                      item_ordinal: int = None,
                                      is_alt: bool = False) -> None:
@@ -2169,7 +2082,6 @@ def _alternativni_tarifni_za_stavku(ctrl, item_query: str = "",
         lambda: ctrl._chat_workers.remove(worker) if worker in ctrl._chat_workers else None
     )
 
-
 def _klasificiraj_i_usmjeri(ctrl, message: str) -> None:
     from PySide6.QtCore import QThread, Signal
 
@@ -2239,7 +2151,6 @@ def _klasificiraj_i_usmjeri(ctrl, message: str) -> None:
         if worker in ctrl._classifier_workers else None
     )
 
-
 def _provjeri_naimenovanja(ctrl) -> None:
     """
     Provjera popunjenosti naimenovanja — prikazuje SAMO obavezne probleme.
@@ -2301,7 +2212,6 @@ def _provjeri_naimenovanja(ctrl) -> None:
         )
 
     chat.add_agent_message(msg)
-
 
 def _prikaz_tarifnih_trenutnih(ctrl) -> None:
     """
@@ -2374,7 +2284,6 @@ def _prikaz_tarifnih_trenutnih(ctrl) -> None:
     except Exception as e:
         chat.add_agent_message(f"Greska pri istorijskoj validaciji: {e}")
 
-
 def _analiziraj_tarifne_historiju(ctrl) -> None:
     """Uporedi tarifne kodove u aktivnom draftu sa historijskim podacima."""
     chat = ctrl.view.get_chat_panel()
@@ -2388,7 +2297,6 @@ def _analiziraj_tarifne_historiju(ctrl) -> None:
     except Exception as e:
         logger.exception("Greška pri analizi tarifne historije")
         chat.add_agent_message(f"❌ Greška pri analizi: {escape(str(e))}")
-
 
 def _pronadji_slicne_proizvode(ctrl, naziv: str) -> None:
     chat = ctrl.view.get_chat_panel()
@@ -2409,7 +2317,6 @@ def _pronadji_slicne_proizvode(ctrl, naziv: str) -> None:
         logger.exception("Greška pri pretrazi sličnih proizvoda")
         chat.add_agent_message(f"❌ Greška pri pretrazi sličnih proizvoda: {escape(str(e))}")
 
-
 def _pregled_stanja_aplikacije(ctrl, scope: str = "all") -> None:
     chat = ctrl.view.get_chat_panel()
     try:
@@ -2421,7 +2328,6 @@ def _pregled_stanja_aplikacije(ctrl, scope: str = "all") -> None:
     except Exception as e:
         logger.exception("Greška pri pregledu stanja aplikacije")
         chat.add_agent_message(f"❌ Greška pri pregledu stanja aplikacije: {escape(str(e))}")
-
 
 def _provjeri_jedno_naimenovanje(ctrl, ordinal: int) -> None:
     from services.agent.validation.naimenovanja_review_service import NaimenovanjaReviewService
@@ -2454,7 +2360,6 @@ def _provjeri_jedno_naimenovanje(ctrl, ordinal: int) -> None:
         f"⚠️ <b>Naimenovanje Rb.{ordinal} nije kompletno.</b><br>"
         f"Nedostaju obavezne rubrike:<br>{missing}"
     )
-
 
 def _pregledaj_faktura_stavku(ctrl, ordinal: int) -> None:
     chat = ctrl.view.get_chat_panel()
@@ -2495,7 +2400,6 @@ def _pregledaj_faktura_stavku(ctrl, ordinal: int) -> None:
         f"<b>Bruto/Neto:</b> {gross:.2f}/{net:.2f} kg"
         + (f"<br><b>Naimenovanje:</b> Rb.{assigned}" if assigned else "")
     )
-
 
 def _upisi_tarifu_u_trenutnu_faktura_stavku(ctrl, tariff_code: str, save_mapping: bool = False) -> bool:
     chat = ctrl.view.get_chat_panel()
@@ -2545,7 +2449,6 @@ def _upisi_tarifu_u_trenutnu_faktura_stavku(ctrl, tariff_code: str, save_mapping
             f"stavka <b>{ordinal}</b> — {escape(product_name)}."
         )
     return True
-
 
 def _pregledaj_naimenovanja(ctrl, indeksi=None) -> None:
     from services.agent.validation.naimenovanja_review_service import NaimenovanjaReviewService
@@ -2646,7 +2549,6 @@ def _pregledaj_naimenovanja(ctrl, indeksi=None) -> None:
 
     chat.add_agent_message("<br><br>".join(linije))
 
-
 def _pretrazi_tarifu(ctrl, upit: str) -> None:
     chat = ctrl.view.get_chat_panel()
     chat.add_activity(f"🔍 Pretražujem tarifu za: {upit}")
@@ -2661,7 +2563,6 @@ def _pretrazi_tarifu(ctrl, upit: str) -> None:
         )
     except Exception as e:
         chat.add_agent_message(f"❌ Greška pri pretrazi tarife: {e}")
-
 
 def _display_origin_from_mcp(ctrl, chat, upit: str, mcp_result: dict) -> None:
     """Prikaži rezultate porijekla dobijene preko MCP servera."""
@@ -2694,7 +2595,6 @@ def _display_origin_from_mcp(ctrl, chat, upit: str, mcp_result: dict) -> None:
         + "<br>".join(linije)
         + source_note
     )
-
 
 def _pretrazi_porijeklo(ctrl, upit: str) -> None:
     # Docs: docs/sections/agent-origin-query-routing.md
@@ -2765,7 +2665,6 @@ def _pretrazi_porijeklo(ctrl, upit: str) -> None:
     except Exception as e:
         chat.add_agent_message(f"❌ Greška pri pretrazi porijekla: {e}")
 
-
 def _pretrazi_arhiv_za_proizvod(ctrl, upit: str) -> None:
     chat = ctrl.view.get_chat_panel()
     chat.add_activity(f"🔍 Pretražujem lokalni arhiv za: {upit}")
@@ -2811,7 +2710,6 @@ def _pretrazi_arhiv_za_proizvod(ctrl, upit: str) -> None:
     except Exception as e:
         chat.add_agent_message(f"❌ Greška pri pretrazi lokalnog arhiva: {e}")
 
-
 def _pretrazi_tarifu_po_kodu(ctrl, kod: str) -> None:
     chat = ctrl.view.get_chat_panel()
     _remember_tariff_context(ctrl, kod)
@@ -2842,7 +2740,6 @@ def _pretrazi_tarifu_po_kodu(ctrl, kod: str) -> None:
     except Exception as e:
         chat.add_agent_message(f"❌ Greška pri provjeri koda: {e}")
 
-
 def _pretrazi_tarifu_poglavlje(ctrl, poglavlje: str) -> None:
     chat = ctrl.view.get_chat_panel()
     chat.add_activity(f"📂 Učitavam poglavlje {poglavlje} tarife...")
@@ -2860,7 +2757,6 @@ def _pretrazi_tarifu_poglavlje(ctrl, poglavlje: str) -> None:
     except Exception as e:
         chat.add_agent_message(f"❌ Greška pri učitavanju poglavlja: {e}")
 
-
 def _pretrazi_tarifu_hijerarhijski(ctrl, kod: str) -> None:
     from services.tariff.tariff_tree_service import get_tree, get_full_path, format_tree_html
     chat = ctrl.view.get_chat_panel()
@@ -2876,7 +2772,6 @@ def _pretrazi_tarifu_hijerarhijski(ctrl, kod: str) -> None:
         chat.add_agent_message(html)
     except Exception as e:
         chat.add_agent_message(f"❌ Greška: {e}")
-
 
 def _compliance_check(ctrl) -> None:
     chat = ctrl.view.get_chat_panel()
@@ -2923,7 +2818,6 @@ def _compliance_check(ctrl) -> None:
     except Exception as e:
         chat.add_agent_message(f"❌ Greška pri provjeri deklaracije: {e}")
 
-
 def _izvrsi_spajanje_naimenovanja(ctrl, proposals, chat) -> None:
     from PySide6.QtWidgets import QApplication
 
@@ -2962,7 +2856,6 @@ def _izvrsi_spajanje_naimenovanja(ctrl, proposals, chat) -> None:
         f"Količine, mase i iznosi su sabrani.<br>"
         f"Provjeri Naimenovanja tab."
     )
-
 
 def _propose_kolona_upis(ctrl, atribut: str, vrijednost: str, tab: str) -> None:
     """
@@ -3004,13 +2897,11 @@ def _propose_kolona_upis(ctrl, atribut: str, vrijednost: str, tab: str) -> None:
     }
     _show_proposal_card(ctrl, proposal)
 
-
 def _show_proposal_card(ctrl, proposal: dict) -> None:
     from gui.tabs.agent.workflow_state import WorkflowState
     chat = ctrl.view.get_chat_panel()
     chat.show_proposal_card(proposal)
     ctrl.workflow.transition(WorkflowState.WAITING_USER_CONFIRMATION)
-
 
 def _on_proposal_confirmed(ctrl, values: dict) -> None:
     from gui.tabs.agent.workflow_state import WorkflowState
@@ -3076,7 +2967,6 @@ def _on_proposal_confirmed(ctrl, values: dict) -> None:
         "local", tool="upisi_u_kolonu", status="ok", confirmation="confirmed",
         extra={"operation_id": operation_id, "upisano": upisano},
     )
-
 
 def _on_proposal_rejected(ctrl) -> None:
     from gui.tabs.agent.workflow_state import WorkflowState
