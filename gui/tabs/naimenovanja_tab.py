@@ -98,15 +98,8 @@ class NaimenovanjaTab(QWidget):
         mappings = self.controller.prepare_tariff_suggestions(self.view)
         if not mappings:
             return
-        best = mappings[0]
-        result = {
-            "tarifni_broj": best.tarifni_broj,
-            "povlastica": best.povlastica,
-            "zemlja_porijekla": best.zemlja_porijekla,
-            "similarity": best.similarity,
-            "usage_count": best.usage_count,
-        }
-        self.view.tariff_suggestion_accepted.emit(result)
+        item = self.view.draft.items[self.view.current_item_index]
+        self.view._show_tariff_suggestion_dialog(mappings, item)
 
     def _reload_header(self):
         main_window = self.window()
