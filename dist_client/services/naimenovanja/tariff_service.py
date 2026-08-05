@@ -63,24 +63,25 @@ class TariffService:
 
                     result = cursor.fetchone()
 
-                    # If no exact match, try prefix matching
+                    # If no exact match, try prefix matching in ONE query
                     if not result:
                         fallback_codes = generate_fallback_codes(tariff_code)
-                        for code in fallback_codes:
+                        if fallback_codes:
+                            like_clauses = " OR ".join(
+                                ["tarifni_kod LIKE %s" for _ in fallback_codes]
+                            )
+                            like_params = [f"{code}%" for code in fallback_codes]
                             cursor.execute(
-                                """
+                                f"""
                                 SELECT tarifni_kod, opis
                                 FROM catalogs.zvanicna_tarifa
-                                WHERE tarifni_kod LIKE %s || '%%'
+                                WHERE {like_clauses}
                                 ORDER BY LENGTH(tarifni_kod) DESC
                                 LIMIT 1
-                            """,
-                                (code,),
+                                """,
+                                like_params,
                             )
-
                             result = cursor.fetchone()
-                            if result:
-                                break
 
                     if result:
                         raw_description = result[1] or ""
@@ -228,62 +229,47 @@ class TariffService:
                         elif len(lookup_code) < 10:
                             candidates.append(lookup_code.ljust(10, "0"))
 
-                        result = None
-                        for candidate in candidates:
-                            cursor.execute(
-                                """
-                                SELECT tarifni_kod, opis
-                                FROM catalogs.zvanicna_tarifa
-                                WHERE tarifni_kod = %s AND nivo = 'podbroj'
-                                LIMIT 1
-                                """,
-                                (candidate,),
+                        prefix_clauses = []
+                        for prefix_len in range(min(8, len(lookup_code)), 5, -1):
+                            prefix_clauses.append(
+                                f"tarifni_kod LIKE %s"
                             )
-                            result = cursor.fetchone()
-                            if result:
-                                break
 
-                        # Progressivni prefix fallback: 8→7→6 cifara
-                        if not result:
-                            for prefix_len in range(min(8, len(lookup_code)), 5, -1):
-                                cursor.execute(
-                                    """
-                                    SELECT tarifni_kod, opis
-                                    FROM catalogs.zvanicna_tarifa
-                                    WHERE tarifni_kod LIKE %s || '%%'
-                                      AND nivo = 'podbroj'
-                                    ORDER BY tarifni_kod ASC
-                                    LIMIT 1
-                                    """,
-                                    (lookup_code[:prefix_len],),
-                                )
-                                result = cursor.fetchone()
-                                if result:
-                                    break
+                        exact_clause = "tarifni_kod = ANY(%s)"
+                        like_clause = " OR ".join(prefix_clauses) if prefix_clauses else "FALSE"
+
+                        params = [candidates]
+                        for prefix_len in range(min(8, len(lookup_code)), 5, -1):
+                            params.append(f"{lookup_code[:prefix_len]}%")
+
+                        cursor.execute(
+                            f"""
+                            SELECT tarifni_kod, opis
+                            FROM catalogs.zvanicna_tarifa
+                            WHERE ({exact_clause} OR {like_clause})
+                              AND nivo = 'podbroj'
+                            ORDER BY LENGTH(tarifni_kod) DESC
+                            LIMIT 1
+                            """,
+                            params,
+                        )
+                        result = cursor.fetchone()
                     else:
+                        lookup_code_for_glava = lookup_code[:4] if len(lookup_code) >= 4 else lookup_code
+                        sub_code = lookup_code[:6] if len(lookup_code) >= 6 else lookup_code
+
                         cursor.execute(
                             """
                             SELECT tarifni_kod, opis
                             FROM catalogs.zvanicna_tarifa
-                            WHERE tarifni_kod = %s AND nivo = 'glava'
+                            WHERE (tarifni_kod = %s AND nivo = 'glava')
+                               OR (tarifni_kod = %s AND nivo = 'podglava')
+                            ORDER BY CASE WHEN nivo = 'glava' THEN 0 ELSE 1 END
                             LIMIT 1
                             """,
-                            (lookup_code,),
+                            (lookup_code_for_glava, sub_code),
                         )
                         result = cursor.fetchone()
-
-                        if not result:
-                            subheading_code = digits[:6] if len(digits) >= 6 else digits
-                            cursor.execute(
-                                """
-                                SELECT tarifni_kod, opis
-                                FROM catalogs.zvanicna_tarifa
-                                WHERE tarifni_kod = %s AND nivo = 'podglava'
-                                LIMIT 1
-                                """,
-                                (subheading_code,),
-                            )
-                            result = cursor.fetchone()
 
                     if result:
                         raw = result["opis"] or ""
@@ -375,12 +361,18 @@ class TariffService:
         Premješteno iz NaimenovanjaView._validate_mappings — DB poziv
         (get_tarifa_opis) sada u servisu, ne u View-u.
         """
-        from database.db import get_tarifa_opis
+        from database.db import get_tarifa_opis_batch
+
         valid = []
+        if not mappings:
+            return valid
+
+        codes = [m.tarifni_broj for m in mappings]
+        opis_map = get_tarifa_opis_batch(codes)
+
         for mapping in mappings:
             try:
-                opis = get_tarifa_opis(mapping.tarifni_broj)
-                if opis:
+                if mapping.tarifni_broj in opis_map:
                     valid.append(mapping)
                     logger.info(f"      ✅ {mapping.tarifni_broj} je validan")
                 else:

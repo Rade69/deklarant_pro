@@ -1,4 +1,4 @@
-import re
+﻿import re
 import time
 import threading
 import psycopg2
@@ -291,6 +291,54 @@ def get_tarifa_opis(tarifni_kod: str):
                 (fallback_codes,),
             )
             return cur.fetchone()
+
+
+def get_tarifa_opis_batch(tariff_codes: list) -> dict:
+    """
+    Vraća zakonske opise za više tarifnih kodova u JEDNOM upitu.
+
+    Args:
+        tariff_codes: Lista tarifnih kodova (npr. ['9405', '0805', ...])
+
+    Returns:
+        {original_code: opis} — samo za kodove koji postoje u tarifi.
+        Kodovi koji ne postoje nisu u dict-u.
+    """
+    if not tariff_codes:
+        return {}
+
+    all_fallback_codes = []
+    code_map = {}
+    for code in tariff_codes:
+        fallback_codes = generate_fallback_codes(code)
+        if fallback_codes:
+            code_map[code] = fallback_codes
+            all_fallback_codes.extend(fallback_codes)
+
+    if not all_fallback_codes:
+        return {}
+
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT DISTINCT ON (LEFT(tarifni_kod, 8)) tarifni_kod, opis
+                FROM catalogs.zvanicna_tarifa
+                WHERE tarifni_kod = ANY(%s)
+                ORDER BY LEFT(tarifni_kod, 8), LENGTH(tarifni_kod) DESC
+                """,
+                (all_fallback_codes,),
+            )
+            db_results = {row["tarifni_kod"]: row["opis"] for row in cur.fetchall()}
+
+    result = {}
+    for original_code, fallback_codes in code_map.items():
+        for fc in fallback_codes:
+            if fc in db_results:
+                result[original_code] = db_results[fc]
+                break
+
+    return result
 
 
 def search_tarife_by_text(query: str, limit: int = 20):
