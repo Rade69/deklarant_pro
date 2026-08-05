@@ -470,7 +470,15 @@ class SifarniciService:
         try:
             query = search_query.strip()
             if len(query) < 2:
-                return []
+                with get_db_connection() as conn:
+                    with conn.cursor() as cur:
+                        cur.execute("""
+                            SELECT tarifni_kod, opis
+                            FROM catalogs.zvanicna_tarifa
+                            ORDER BY tarifni_kod
+                            LIMIT 1000
+                        """)
+                        return [dict(row) for row in cur.fetchall()]
 
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
