@@ -35,7 +35,7 @@ def _format_similarity(value: float | None) -> str:
     return f"{_clamp_similarity(value):.0%}"
 
 
-def _tariff_change_profile(current_code: str | None, suggested_code: str | None) -> dict:
+def _tariff_change_profile(current_code: str | None, suggested_code: str | None, similarity: float = 0) -> dict:
     current = _tariff_digits(current_code)
     suggested = _tariff_digits(suggested_code)
 
@@ -44,64 +44,62 @@ def _tariff_change_profile(current_code: str | None, suggested_code: str | None)
             "level": "high",
             "label": "Rizik: visok - prijedlog nema tarifni broj",
             "apply_default": False,
-            "border": "#D32F2F",
-            "background": "#FFEBEE",
-            "hover": "#FFCDD2",
-            "text_color": "#B71C1C",
+            "border": "#D32F2F", "background": "#FFEBEE",
+            "hover": "#FFCDD2", "text_color": "#B71C1C",
         }
 
     if not current:
         return {
-            "level": "medium",
-            "label": "Rizik: srednji - nema trenutne tarife za poređenje",
-            "apply_default": False,
-            "border": "#FFB300",
-            "background": "#FFF8E1",
-            "hover": "#FFECB3",
-            "text_color": "#8A5A00",
+            "level": "info",
+            "label": "Novi tarifni broj — nema postojećeg za poređenje",
+            "apply_default": True,
+            "border": "#3477a5", "background": "#E8F0FE",
+            "hover": "#D2E3FC", "text_color": "#174A7A",
         }
 
     if current == suggested:
         return {
             "level": "same",
-            "label": "Rizik: nema promjene tarifnog broja",
+            "label": "Tarifni broj je već isti",
             "apply_default": False,
-            "border": "#90A4AE",
-            "background": "#ECEFF1",
-            "hover": "#CFD8DC",
-            "text_color": "#455A64",
+            "border": "#90A4AE", "background": "#ECEFF1",
+            "hover": "#CFD8DC", "text_color": "#455A64",
         }
 
     if current[:4] == suggested[:4]:
         return {
             "level": "low",
-            "label": "Rizik: nizak - ista tarifna glava",
+            "label": "Ista tarifna glava — mala promjena",
             "apply_default": True,
-            "border": "#00BCD4",
-            "background": "#E0F7FA",
-            "hover": "#B2EBF2",
-            "text_color": "#00838F",
+            "border": "#00BCD4", "background": "#E0F7FA",
+            "hover": "#B2EBF2", "text_color": "#00838F",
         }
 
     if current[:2] == suggested[:2]:
         return {
             "level": "medium",
-            "label": "Rizik: srednji - isto poglavlje, druga tarifna glava",
+            "label": "Isto poglavlje, druga tarifna glava",
             "apply_default": False,
-            "border": "#FFB300",
-            "background": "#FFF8E1",
-            "hover": "#FFECB3",
-            "text_color": "#8A5A00",
+            "border": "#FFB300", "background": "#FFF8E1",
+            "hover": "#FFECB3", "text_color": "#8A5A00",
+        }
+
+    # Različito poglavlje — ako je visok similarity, nije "rizik" nego "promjena"
+    if similarity >= 0.95:
+        return {
+            "level": "info",
+            "label": f"Promjena tarifnog poglavlja ({current[:2]} → {suggested[:2]})",
+            "apply_default": True,
+            "border": "#3477a5", "background": "#E8F0FE",
+            "hover": "#D2E3FC", "text_color": "#174A7A",
         }
 
     return {
         "level": "high",
-        "label": "Rizik: visok - drugo tarifno poglavlje",
+        "label": f"Različito tarifno poglavlje ({current[:2]} → {suggested[:2]}) — provjeriti",
         "apply_default": False,
-        "border": "#D32F2F",
-        "background": "#FFEBEE",
-        "hover": "#FFCDD2",
-        "text_color": "#B71C1C",
+        "border": "#D32F2F", "background": "#FFEBEE",
+        "hover": "#FFCDD2", "text_color": "#B71C1C",
     }
 
 
@@ -428,6 +426,7 @@ class TariffSuggestionDialog(QDialog):
         return _tariff_change_profile(
             self.current_item.tariff_code,
             mapping.tarifni_broj,
+            mapping.similarity,
         )
 
     def _create_progress_bar(self, similarity: float) -> QWidget:
