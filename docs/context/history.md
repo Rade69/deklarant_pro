@@ -4389,3 +4389,34 @@ Nakon Admin tab audita, isti obrazac primenjen na Šifrarnike:
 Sve potvrđeno: grep pozivalaca + gitnexus impact (impactedCount: 0).
 Controller je već bio uklonjen ranije (7a900ce, Claude Code).
 Puni izvještaj: agent_reports/2026-08-04_sifarnici-mrtav-kod-cleanup.md
+
+### 2026-08-05 — Audit pokrivenosti agent alata (SUSSINA-klasa bugova)
+
+Nakon SUSSINA buga (LLM je pogrešno izbrojao stavke jer nije imao alat za
+determinističku pretragu po nazivu — popravljeno sa `pretrazi_stavke` u
+commitu `2c28ed5`), urađen je sistematski audit SVIH 10 alata u `TOOLS`:
+
+- **3 alata su DETERMINISTIČKI** (vraćaju tačan, izračunat rezultat):
+  `pretrazi_tarifu`, `pretrazi_porijeklo`, `pretrazi_stavke`
+- **2 su STRUKTURIRANA** (servis radi analizu, ali output je HTML tabela):
+  `pronadji_slicne_proizvode`, `analiziraj_tarifne`
+- **1 je SIROV TEKST** — `prikazi` (najvažniji alat): vraća snapshot drafta kao
+  HTML/tekst, LLM mora SAM da broji, sabira, poredi, filtrira
+- 3 su akciona alata: `predlozi_tarife`, `spoji_naimenovanja`, `upisi_u_kolonu`
+
+**Ključni nalaz:** `prikazi` je jedini alat za opšti uvid u draft, a njegov
+output je dizajniran za ljudsko čitanje, ne za mašinsku obradu. Svaki ad-hoc
+upit koji nije eksplicitno pokriven nekim drugim alatom (SUM, AVG, MAX, MIN,
+COUNT sa uslovima, filtriranje, sortiranje) — a takvi upiti su VEĆINA realne
+konverzacije — prolazi kroz `prikazi` i LLM mora ručno da računa. Ovo je
+IDENTIČAN root cause kao SUSSINA.
+
+Identifikovano **15 konkretnih upita** bez pouzdanog puta, grupisano u 5
+kategorija: agregacija (5), brojanje sa uslovima (3), filtriranje (3),
+sortiranje (2), duplikati (2). Predložena 2 nova alata:
+`agregiraj_stavke` (SUM/AVG/MAX/MIN/COUNT sa filterima i top_n) — Prioritet 1,
+`filtriraj_stavke` (WHERE uslovi + grupisanje) — Prioritet 2.
+
+Puni izvještaj: `agent_reports/2026-08-05_agent-tool-coverage-audit.md`,
+audit dokument: `docs/agent/AGENT_TOOL_COVERAGE_AUDIT.md`.
+Commit: `336ba50`.
