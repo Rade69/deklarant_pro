@@ -454,8 +454,6 @@ def reindex() -> int:
 
 def sync_tariff_knowledge_base() -> int:
     """Ekstraktuje tarifne brojeve iz svih indeksiranih XML-ova i upisuje ih u product_tariff_mapping."""
-    from psycopg2 import sql as pg_sql
-
     conn = get_db_connection()
     saved = 0
     try:
@@ -473,20 +471,21 @@ def sync_tariff_knowledge_base() -> int:
                 try:
                     tree = ET.parse(xml_path)
                     root = tree.getroot()
-                    ns = {'ns': 'urn:carinarnica:deklaracija'}
-                    for stavka in root.findall('.//ns:Stavka', ns):
-                        tarifa = stavka.findtext('ns:TarifniBroj', '', ns).strip()
-                        naziv = stavka.findtext('ns:NazivRobe', '', ns).strip()
+                    for item in root.iter('Item'):
+                        tarifa = item.findtext('Commodity_code', '').strip()
+                        naziv = item.findtext('Commercial_Description', '').strip()
+                        if not naziv:
+                            naziv = item.findtext('Goods_description', '').strip()
                         if tarifa and naziv:
                             cursor.execute(
                                 """
                                 INSERT INTO catalogs.product_tariff_mapping
                                     (product_code, naziv_robe, commodity_code, precision_1, usage_count)
-                                VALUES (%s, %s, %s, '000', 1)
+                                VALUES ('', %s, %s, '000', 1)
                                 ON CONFLICT (product_code, naziv_robe, commodity_code)
                                 DO UPDATE SET usage_count = catalogs.product_tariff_mapping.usage_count + 1
                                 """,
-                                ('', naziv, tarifa)
+                                (naziv, tarifa)
                             )
                             saved += 1
                 except Exception as e:
