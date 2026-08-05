@@ -1,5 +1,6 @@
 # gui/tabs/naimenovanja_tab.py
 
+import logging
 from PySide6.QtWidgets import QWidget, QVBoxLayout
 from PySide6.QtCore import Signal
 from typing import Optional, Callable
@@ -9,6 +10,8 @@ from gui.tabs.naimenovanja_view import NaimenovanjaView
 from gui.tabs.naimenovanja_controller import NaimenovanjaController
 from services.naimenovanja.naimenovanja_service import NaimenovanjaService
 
+
+logger = logging.getLogger("deklarant_pro.naimenovanja")
 
 class NaimenovanjaTab(QWidget):
     """Wrapper koji eksponuje NaimenovanjaView prema MainWindow-u.
@@ -95,8 +98,10 @@ class NaimenovanjaTab(QWidget):
         self.view._sync_header_packages()
 
     def _prepare_tariff_suggestions(self):
+        logger.warning("🔍 _prepare_tariff_suggestions: signal primljen")
         mappings = self.controller.prepare_tariff_suggestions(self.view)
         if not mappings:
+            logger.warning("🔍 _prepare_tariff_suggestions: nema mappings, izlazim")
             return
         item = self.view.draft.items[self.view.current_item_index]
         self.view._show_tariff_suggestion_dialog(mappings, item)

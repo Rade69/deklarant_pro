@@ -2680,6 +2680,7 @@ class NaimenovanjaView(BaseTabView):
             QTimer.singleShot(500, lambda: widget.setStyleSheet(original_style))
 
     def _on_suggest_tariff(self) -> None:
+        logger.warning("🔍 _on_suggest_tariff: dugme kliknuto, emitujem signale")
         self.save_current_requested.emit()
         self.suggest_tariff_requested.emit()
 
