@@ -2639,10 +2639,27 @@ def _agregiraj_stavke(ctrl, args: dict) -> None:
         chat.add_agent_message("❌ Nema stavki koje odgovaraju uslovu.")
         return
 
-    chat.add_agent_message(
+    linije = [
         f"<b>🧮 {escape(operacija.upper())} — {escape(polje)} ({naziv_target}):</b> "
-        f"{rezultat['rezultat']:.3f} <small>({rezultat['broj_stavki']} stavki)</small>"
-    )
+        f"{rezultat['rezultat']:.3f} <small>({rezultat['broj_stavki']} stavki)</small><br>"
+    ]
+    stavke = rezultat.get("stavke") or []
+    for i, entry in enumerate(stavke[:20], 1):
+        row = entry["row"]
+        naziv = (
+            getattr(row, "goods_trade_name", "") or getattr(row, "goods_description", "")
+            or getattr(row, "naziv_robe", "") or "—"
+        )
+        oznaka = (
+            f"Rb.{getattr(row, 'ordinal_no', '?')}" if target == "items"
+            else f"red {getattr(row, 'line_no', '?')}"
+        )
+        linije.append(
+            f"&nbsp;&nbsp;{i}. {oznaka}: {escape(str(naziv)[:60])} — {entry['vrijednost']:.3f}<br>"
+        )
+    if len(stavke) > 20:
+        linije.append(f"<small>... i još {len(stavke) - 20}</small>")
+    chat.add_agent_message("".join(linije))
 
 
 def _filtriraj_stavke(ctrl, args: dict) -> None:

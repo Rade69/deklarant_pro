@@ -37,6 +37,8 @@ def test_agregiraj_sum_sa_filterom_po_tarifi():
     )
     assert rezultat["rezultat"] == 300.0
     assert rezultat["broj_stavki"] == 2
+    # Reprodukcija korisnikovog nalaza: SUM mora vratiti I listu stavki, ne samo broj
+    assert {e["row"].ordinal_no for e in rezultat["stavke"]} == {1, 2}
 
 
 def test_agregiraj_max_top_n():

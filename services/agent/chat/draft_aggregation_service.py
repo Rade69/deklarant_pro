@@ -133,6 +133,7 @@ def agregiraj(
     return {
         "operacija": operacija, "target": target, "polje": polje,
         "broj_stavki": len(parovi), "rezultat": rezultat,
+        "stavke": [{"row": row, "vrijednost": v} for row, v in parovi],
     }
 
 
