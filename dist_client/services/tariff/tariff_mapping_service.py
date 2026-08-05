@@ -645,7 +645,7 @@ class TariffMappingService:
                                 usage_count=row["usage_count"],
                                 similarity=final_similarity
                             )
-                            if best_similarity >= 0.98:
+                            if best_similarity >= 0.95:
                                 break
 
                     if best_match:

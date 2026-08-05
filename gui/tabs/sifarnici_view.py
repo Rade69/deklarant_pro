@@ -1414,26 +1414,26 @@ class SifarniciView(BaseTabView):
             self.table.clear()
 
             # Add regional centers and their customs posts to the tree
+            self.table.blockSignals(True)
+            self.table.setUpdatesEnabled(False)
             for rc_data in regional_centers:
-                # Create top-level item for regional center
                 rc_item = QTreeWidgetItem(self.table)
                 rc_item.setText(0, str(rc_data["rc_sifra"] or ""))
                 rc_item.setText(1, str(rc_data["rc_naziv"] or ""))
                 rc_item.setText(2, "")
 
-                # Make regional center item bold
                 font = rc_item.font(0)
                 font.setBold(True)
                 rc_item.setFont(0, font)
                 rc_item.setFont(1, font)
 
-                # Add child items for each customs post
                 for ci_data in rc_data["ispostave"]:
                     ci_item = QTreeWidgetItem(rc_item)
                     ci_item.setText(0, str(ci_data["ci_sifra"] or ""))
                     ci_item.setText(1, str(ci_data["ci_naziv"] or ""))
+            self.table.setUpdatesEnabled(True)
+            self.table.blockSignals(False)
 
-            # Expand all items by default
             self.table.expandAll()
 
             logger.info(
@@ -2477,6 +2477,8 @@ class SifarniciView(BaseTabView):
         try:
             search_text = search_text.lower().strip()
 
+            self.table.blockSignals(True)
+            self.table.setUpdatesEnabled(False)
             for row in range(self.table.rowCount()):
                 if not search_text:
                     self.table.setRowHidden(row, False)
@@ -2486,6 +2488,8 @@ class SifarniciView(BaseTabView):
                     for col in range(self.table.columnCount())
                 )
                 self.table.setRowHidden(row, not match)
+            self.table.setUpdatesEnabled(True)
+            self.table.blockSignals(False)
 
         except Exception as e:
             logger.error(f"Greška pri filtriranju tabele: {str(e)}")
@@ -2494,12 +2498,15 @@ class SifarniciView(BaseTabView):
     def _clear_highlights(self):
         """Clear any highlighted items in the table"""
         try:
-            # For now, just ensure all items have default appearance
+            self.table.blockSignals(True)
+            self.table.setUpdatesEnabled(False)
             for row in range(self.table.rowCount()):
-                for col in range(self.table.columnCount()):  # Sve kolone
+                for col in range(self.table.columnCount()):
                     item = self.table.item(row, col)
                     if item:
                         item.setBackground(self.palette().window())
+            self.table.setUpdatesEnabled(True)
+            self.table.blockSignals(False)
             logger.debug("Isticanja u tabeli očišćena")
         except Exception as e:
             logger.error(f"Greška pri čišćenju isticanja: {str(e)}")

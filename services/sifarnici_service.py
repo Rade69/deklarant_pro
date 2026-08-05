@@ -456,9 +456,10 @@ class SifarniciService:
     # TRGOVAČKI NAZIVI (Trade Names)
     # ============================================================
     
-    def load_trgovacki_nazivi_data(self, search_query: str = "") -> List[Dict[str, Any]]:
+    def load_trgovacki_nazivi_data(self, search_query: str = "", limit: int = 1000) -> List[Dict[str, Any]]:
         """Dohvati podatke o tarifnim nazivima robe iz catalogs.zvanicna_tarifa."""
         try:
+            max_rows = min(limit, 200) if search_query else limit
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
                     if search_query:
@@ -468,13 +469,15 @@ class SifarniciService:
                             FROM catalogs.zvanicna_tarifa
                             WHERE tarifni_kod ILIKE %s OR opis ILIKE %s
                             ORDER BY tarifni_kod
-                        """, (search_pattern, search_pattern))
+                            LIMIT %s
+                        """, (search_pattern, search_pattern, max_rows))
                     else:
                         cur.execute("""
                             SELECT tarifni_kod, opis
                             FROM catalogs.zvanicna_tarifa
                             ORDER BY tarifni_kod
-                        """)
+                            LIMIT %s
+                        """, (max_rows,))
                     results = cur.fetchall()
                     return [dict(row) for row in results]
         except Exception as e:

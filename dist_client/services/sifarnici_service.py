@@ -184,31 +184,6 @@ class SifarniciService:
     # ============================================================
     # VALIDATION
     # ============================================================
-    
-    def validate_sifra(self, code: str, required_length: int = 0) -> List[str]:
-        """Validiraj šifru."""
-        errors = []
-        if not code or not code.strip():
-            errors.append("Šifra je obavezna")
-        if required_length > 0 and len(code) != required_length:
-            errors.append(f"Šifra mora imati tačno {required_length} karaktera")
-        return errors
-    
-    def validate_naziv(self, naziv: str, min_length: int = 2, max_length: int = 100) -> List[str]:
-        """Validiraj naziv."""
-        errors = []
-        if not naziv or not naziv.strip():
-            errors.append("Naziv je obavezan")
-        elif len(naziv) < min_length:
-            errors.append(f"Naziv mora imati najmanje {min_length} karaktera")
-        elif len(naziv) > max_length:
-            errors.append(f"Naziv može imati najviše {max_length} karaktera")
-        return errors
-    
-    # ============================================================
-    # PRIVATE HELPERS
-    # ============================================================
-    
     def _ensure_deklaranti_schema(self, cur) -> None:
         """Osiguraj Rub.14 kolone za postojeće catalogs.deklaranti tabele."""
         cur.execute("CREATE SCHEMA IF NOT EXISTS catalogs")
@@ -267,46 +242,6 @@ class SifarniciService:
         except Exception as e:
             self._log_error("get_all_povlastice", e)
             return []
-
-    def load_category_data(self, table_name: str) -> List[Dict[str, Any]]:
-        """
-        Load data for a specific category/table.
-        
-        Args:
-            table_name: Database table name (e.g., 'catalogs.izvoznici')
-            
-        Returns:
-            List of records as dictionaries
-        """
-        try:
-            with get_db_connection() as conn:
-                with conn.cursor() as cur:
-                    # Determine order by column based on table
-                    if 'tarifa' in table_name:
-                        order_by = 'tarifni_kod'
-                    elif 'sifra' in table_name:
-                        order_by = 'sifra'
-                    else:
-                        order_by = 'naziv'
-                    
-                    parts = table_name.split(".")
-                    table_id = sql.Identifier(*parts) if len(parts) == 2 else sql.Identifier(parts[0])
-                    cur.execute(
-                        sql.SQL("SELECT * FROM {} ORDER BY {}").format(
-                            table_id,
-                            sql.Identifier(order_by)
-                        )
-                    )
-                    results = cur.fetchall()
-                    return [dict(row) for row in results]
-        except Exception as e:
-            self._log_error(f"load_category_data_{table_name}", e)
-            return []
-    
-    # ============================================================
-    # POŠILJAOCI (Exporters)
-    # ============================================================
-    
     def load_posiljaoci_data(self, search_query: str = "") -> List[Dict[str, Any]]:
         """Dohvati podatke o pošiljaocima sa opcionom pretragom."""
         try:
@@ -521,9 +456,10 @@ class SifarniciService:
     # TRGOVAČKI NAZIVI (Trade Names)
     # ============================================================
     
-    def load_trgovacki_nazivi_data(self, search_query: str = "") -> List[Dict[str, Any]]:
+    def load_trgovacki_nazivi_data(self, search_query: str = "", limit: int = 1000) -> List[Dict[str, Any]]:
         """Dohvati podatke o tarifnim nazivima robe iz catalogs.zvanicna_tarifa."""
         try:
+            max_rows = min(limit, 200) if search_query else limit
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
                     if search_query:
@@ -533,13 +469,15 @@ class SifarniciService:
                             FROM catalogs.zvanicna_tarifa
                             WHERE tarifni_kod ILIKE %s OR opis ILIKE %s
                             ORDER BY tarifni_kod
-                        """, (search_pattern, search_pattern))
+                            LIMIT %s
+                        """, (search_pattern, search_pattern, max_rows))
                     else:
                         cur.execute("""
                             SELECT tarifni_kod, opis
                             FROM catalogs.zvanicna_tarifa
                             ORDER BY tarifni_kod
-                        """)
+                            LIMIT %s
+                        """, (max_rows,))
                     results = cur.fetchall()
                     return [dict(row) for row in results]
         except Exception as e:
@@ -618,51 +556,6 @@ class SifarniciService:
     # ============================================================
     # GENERIČKA PRETRAGA (Generic Search)
     # ============================================================
-    
-    def search_generic(self, table_name: str, search_query: str) -> List[Dict[str, Any]]:
-        """Generička pretraga po tabeli."""
-        try:
-            with get_db_connection() as conn:
-                with conn.cursor() as cur:
-                    search_pattern = f"%{search_query}%"
-                    
-                    # Odredi kolone za pretragu na osnovu tabele
-                    if table_name == "catalogs.izvoznici":
-                        columns = ["naziv", "jib", "grad", "drzava"]
-                    elif table_name == "catalogs.uvoznici":
-                        columns = ["naziv", "jib", "grad", "drzava"]
-                    elif table_name == "catalogs.tarifa_2026":
-                        columns = ["tarifni_kod", "naziv_robe", "opis"]
-                    elif table_name == "catalogs.drzave":
-                        columns = ["naziv", "sifra"]
-                    else:
-                        columns = ["naziv", "sifra"]
-                    
-                    table_parts = table_name.split(".", 1)
-                    if len(table_parts) == 2:
-                        table_identifier = sql.SQL("{}.{}").format(
-                            sql.Identifier(table_parts[0]),
-                            sql.Identifier(table_parts[1]),
-                        )
-                    else:
-                        table_identifier = sql.Identifier(table_name)
-
-                    where_conditions = sql.SQL(" OR ").join(
-                        sql.SQL("{} ILIKE %s").format(sql.Identifier(col))
-                        for col in columns
-                    )
-                    query = sql.SQL("SELECT * FROM {} WHERE {}").format(
-                        table_identifier,
-                        where_conditions,
-                    )
-
-                    cur.execute(query, [search_pattern] * len(columns))
-                    results = cur.fetchall()
-                    return [dict(row) for row in results]
-        except Exception as e:
-            self._log_error(f"search_generic_{table_name}", e)
-            return []
-
     def _log_error(self, operation: str, error: Exception):
         """Logovanje grešaka."""
         self.last_error = str(error)
@@ -933,135 +826,6 @@ class SifarniciService:
     # ============================================================
     # VALIDACIJA SPECIFIČNA ZA KATEGORIJE
     # ============================================================
-
-    def validate_posiljalac_data(self, data: Dict[str, str]) -> List[str]:
-        """Validiraj podatke za pošiljaoca."""
-        errors = []
-        
-        # JIB validacija
-        jib = data.get("jib", "").strip()
-        if not jib:
-            errors.append("JIB je obavezan")
-        elif not jib.isdigit() or len(jib) != 13:
-            errors.append("JIB mora imati 13 cifara")
-        
-        # Naziv validacija
-        naziv = data.get("naziv", "").strip()
-        if not naziv:
-            errors.append("Naziv je obavezan")
-        elif len(naziv) < 2:
-            errors.append("Naziv mora imati najmanje 2 karaktera")
-        
-        return errors
-
-    def validate_uvoznik_data(self, data: Dict[str, str]) -> List[str]:
-        """Validiraj podatke za uvoznika."""
-        errors = []
-        
-        # JIB validacija
-        jib = data.get("jib", "").strip()
-        if not jib:
-            errors.append("JIB je obavezan")
-        elif not jib.isdigit() or len(jib) != 13:
-            errors.append("JIB mora imati 13 cifara")
-        
-        # Naziv validacija
-        naziv = data.get("naziv", "").strip()
-        if not naziv:
-            errors.append("Naziv je obavezan")
-        elif len(naziv) < 2:
-            errors.append("Naziv mora imati najmanje 2 karaktera")
-        
-        return errors
-
-    def validate_deklarant_data(self, data: Dict[str, str]) -> List[str]:
-        """Validiraj podatke za deklaranta."""
-        errors = []
-        
-        # JIB validacija
-        jib = data.get("jib", "").strip()
-        if not jib:
-            errors.append("JIB je obavezan")
-        elif not jib.isdigit() or len(jib) != 13:
-            errors.append("JIB mora imati 13 cifara")
-        
-        # Naziv validacija
-        naziv = data.get("naziv", "").strip()
-        if not naziv:
-            errors.append("Naziv je obavezan")
-        elif len(naziv) < 2:
-            errors.append("Naziv mora imati najmanje 2 karaktera")
-        
-        return errors
-
-    def validate_carinarnica_data(self, sifra: str, naziv: str) -> List[str]:
-        """Validiraj podatke za carinarnicu."""
-        errors = []
-        
-        if not sifra or not sifra.strip():
-            errors.append("Šifra je obavezna")
-        elif len(sifra) != 8:
-            errors.append("Šifra carinarnice mora imati 8 karaktera")
-        
-        if not naziv or not naziv.strip():
-            errors.append("Naziv je obavezan")
-        elif len(naziv) < 2:
-            errors.append("Naziv mora imati najmanje 2 karaktera")
-        
-        return errors
-
-    def validate_carinski_postupak_data(self, sifra: str, naziv: str) -> List[str]:
-        """Validiraj podatke za carinski postupak."""
-        errors = []
-        
-        if not sifra or not sifra.strip():
-            errors.append("Šifra je obavezna")
-        elif len(sifra) != 2:
-            errors.append("Šifra carinskog postupka mora imati 2 karaktera")
-        
-        if not naziv or not naziv.strip():
-            errors.append("Naziv je obavezan")
-        elif len(naziv) < 2:
-            errors.append("Naziv mora imati najmanje 2 karaktera")
-        
-        return errors
-
-    def validate_zemlja_data(self, sifra: str, naziv: str) -> List[str]:
-        """Validiraj podatke za zemlju."""
-        errors = []
-        
-        if not sifra or not sifra.strip():
-            errors.append("Šifra je obavezna")
-        elif len(sifra) != 2:
-            errors.append("Šifra zemlje mora imati 2 karaktera")
-        
-        if not naziv or not naziv.strip():
-            errors.append("Naziv je obavezan")
-        elif len(naziv) < 2:
-            errors.append("Naziv mora imati najmanje 2 karaktera")
-        
-        return errors
-
-    def validate_trgovacki_naziv_data(self, tarifni_kod: str, naziv_robe: str) -> List[str]:
-        """Validiraj podatke za trgovački naziv."""
-        errors = []
-        
-        if not tarifni_kod or not tarifni_kod.strip():
-            errors.append("Tarifni kod je obavezan")
-        elif len(tarifni_kod) != 10:
-            errors.append("Tarifni kod mora imati 10 karaktera")
-        
-        if not naziv_robe or not naziv_robe.strip():
-            errors.append("Naziv robe je obavezan")
-        elif len(naziv_robe) < 2:
-            errors.append("Naziv robe mora imati najmanje 2 karaktera")
-
-        return errors
-
-    # ============================================================
-    # SEARCH METODE (sa ILIKE pretragom)
-    # ============================================================
-
     def search_posiljaoci(self, query: str) -> List[Dict[str, Any]]:
         """Pretraga pošiljalaca po nazivu, JIB-u, gradu."""
         return self.load_posiljaoci_data(query)
@@ -1330,15 +1094,6 @@ class SifarniciService:
         except Exception as e:
             self._log_error("update_inspection_rule", e)
             return False
-
-    def deactivate_inspection_rule(self, rule_id: int) -> bool:
-        """Soft-delete: postavlja is_active = FALSE."""
-        return self.update_inspection_rule(rule_id, {"is_active": False})
-
-    def activate_inspection_rule(self, rule_id: int) -> bool:
-        """Reaktivacija: postavlja is_active = TRUE."""
-        return self.update_inspection_rule(rule_id, {"is_active": True})
-
     def add_inspection_rule(self, data: dict) -> int | None:
         """
         Doda novo inspekcijsko pravilo.
