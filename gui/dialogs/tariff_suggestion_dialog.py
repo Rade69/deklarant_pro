@@ -159,6 +159,14 @@ class TariffSuggestionDialog(QDialog):
         self.setMinimumHeight(300)
         self.resize(850, 420)
 
+        from PySide6.QtWidgets import QApplication
+        screen = QApplication.primaryScreen()
+        if screen:
+            geo = screen.availableGeometry()
+            x = (geo.width() - 850) // 2
+            y = int(geo.height() * 0.08)
+            self.move(max(0, x), max(0, y))
+
         # Bolji font rendering
         from PySide6.QtGui import QFont
         font = QFont()
