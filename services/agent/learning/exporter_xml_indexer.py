@@ -302,7 +302,7 @@ def _ensure_table(cursor) -> None:
             AND table_name = 'exporter_xml_index'
         )
     """)
-    if cursor.fetchone()[0]:
+    if cursor.fetchone()['exists']:
         return
 
     cursor.execute("""
