@@ -1483,29 +1483,28 @@ class SifarniciView(BaseTabView):
                 if not clean_query:
                     rc_matches = True
                 else:
-                    if rc_sifra.startswith(clean_query) or rc_naziv.startswith(
-                        clean_query
-                    ):
+                    if clean_query in rc_sifra or clean_query in rc_naziv:
                         rc_matches = True
 
                 # Check all child items (customs posts)
+                self.table.blockSignals(True)
+                self.table.setUpdatesEnabled(False)
                 for j in range(rc_item.childCount()):
                     ci_item = rc_item.child(j)
                     ci_sifra = ci_item.text(0).lower()
                     ci_naziv = ci_item.text(1).lower()
 
                     if not clean_query:
-                        # Show all children if no query
                         ci_item.setHidden(False)
                         child_matches += 1
                     else:
-                        if ci_sifra.startswith(clean_query) or ci_naziv.startswith(
-                            clean_query
-                        ):
+                        if clean_query in ci_sifra or clean_query in ci_naziv:
                             ci_item.setHidden(False)
                             child_matches += 1
                         else:
                             ci_item.setHidden(True)
+                self.table.setUpdatesEnabled(True)
+                self.table.blockSignals(False)
 
                 # Show regional center if it matches or has visible children
                 if rc_matches or child_matches > 0:

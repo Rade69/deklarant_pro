@@ -489,14 +489,20 @@ class SifarniciService:
                     else:
                         escaped = query.replace("'", "''")
                         fts_query = " & ".join(escaped.split())
+                        ilike_pattern = f"%{escaped}%"
+
                         cur.execute("""
                             SELECT tarifni_kod, opis,
                                    ts_rank(to_tsvector('simple', opis), to_tsquery('simple', %s)) AS rank
                             FROM catalogs.zvanicna_tarifa
                             WHERE to_tsvector('simple', opis) @@ to_tsquery('simple', %s)
-                            ORDER BY rank DESC
+                               OR opis ILIKE %s
+                               OR tarifni_kod ILIKE %s
+                            ORDER BY
+                                CASE WHEN tarifni_kod ILIKE %s THEN 0 ELSE 1 END,
+                                rank DESC
                             LIMIT 500
-                        """, (fts_query, fts_query))
+                        """, (fts_query, fts_query, ilike_pattern, ilike_pattern, ilike_pattern))
                         results = cur.fetchall()
 
                         if not results:
