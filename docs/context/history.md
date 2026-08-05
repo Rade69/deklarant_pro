@@ -4307,6 +4307,40 @@ statistics()`) — brisanje zahtijeva raspetljavanje, ne samo grep za "0
 pozivalaca". Puni izvještaj:
 `agent_reports/2026-08-04_admin-tab-audit-qss-duplikat.md`.
 
+## 2026-08-05 — Agent: pretrazi_stavke alat (SUSSINA brojanje bug)
+
+Korisnik prijavio stvaran chat primjer: "Koliko ima proizvoda SUSSINA" →
+agent dao samoprotivrečan, pogrešan broj i promašio stavku. Uzrok:
+`prikazi`/`provjeri` (jedina dva alata koja pipaju stavke) nemaju
+parametar za tekstualnu pretragu — LLM je dobijao cio snapshot drafta
+kao tekst i morao ručno brojati/skenirati, što je nepouzdano po
+definiciji. Dodat `pretrazi_stavke(upit, target)` — server-side,
+deterministička case-insensitive substring pretraga kroz
+`InvoiceLine.naziv_robe` i `NaimenovanjeDraft.goods_description`/
+`goods_trade_name`, vraća tačan broj + listu. Registrovan READ_ONLY u
+`tool_policy.py` (bez toga bi `_execute_tool` odbio alat fail-closed).
+Regresioni test reprodukuje SUSSINA scenario i prolazi. Commit
+`2c28ed5`.
+
+**Uzgredni nalaz**: `test_svi_ocekivani_alati_postoje` i
+`test_ima_tacno_12_alata` su pre-postojeći failing testovi koji
+testiraju STARA imena alata (`prikazi_naimenovanja` i sl.) namjerno
+uklonjena iz `TOOLS` tokom "Faza 1 konsolidacije" — executor grane i
+dalje postoje (backward-compat), samo nisu izložene LLM-u. Nepovezano sa
+SUSSINA bugom, nije popravljano (van scope-a).
+
+**Incident tokom zadatka**: `git stash pop` (korišten za provjeru da li
+je nepovezana import greška pre-postojeća) je greškom pokupio TUĐI
+stariji stash umjesto praznog i materijalizovao 8 fajlova na disk.
+Ništa nije izgubljeno (originalni stash netaknut u `git stash list`),
+ali 7 fajlova je obrisano nakon korisnikove potvrde, a
+`gui/tabs/agent/services/_review_handlers.py` (Crush-ov WIP iz "Nivo 3"
+refaktora, ReviewHandlerMixin) je zadržan po korisnikovom izboru — nije
+komitovan, ostaje netrackovan dok Crush ne završi taj rad. **Pouka: za
+proveru "da li je X pre-postojeće" koristiti `git show HEAD:<path>`,
+NIKAD `git stash` na aktivnoj working tree-u drugih agenata.** Puni
+izvještaj: `agent_reports/2026-08-05_agent-pretraga-stavki-po-nazivu.md`.
+
 ### 2026-08-04 — Uklonjeno 550+ linija mrtvog koda iz Admin modula
 
 Nakon nezavisne provjere svih 22 stavke iz `docs/admin/ADMIN_TAB_CODE_AUDIT.md`
