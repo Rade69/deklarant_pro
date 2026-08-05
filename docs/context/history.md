@@ -4441,3 +4441,15 @@ sada zove slobodne funkcije direktno). Provjereno da su oba rada kompatibilna
 pre-postojeći 2 fail-a) — nema sudara jer moje funkcije žive na modul-nivou,
 ne unutar klase koju je Crush uklonio. Puni izvještaj:
 `agent_reports/2026-08-05_agent-agregacija-filtriranje-stavki.md`.
+
+### 2026-08-05 — agregiraj_stavke fix: SUM/AVG sad prikazuje listu stavki
+
+Korisnik odmah testirao novi alat u stvarnom chatu. Upit "koja je ukupna
+vrijednost stavki sa tarifom 21069098" vratio je samo broj ("2261.480 (2
+stavki)") bez toga koje su to stavke — dok je MAX/MIN upit ("koja stavka
+ima najveću bruto masu") ispravno naveo Rb. i naziv. Asimetrija: `agregiraj()`
+je za max/min vraćao `"top"` listu, za sum/avg samo skalar. Dodat `"stavke"`
+ključ i za sum/avg granu, formatter u `chat_intent_handler.py` sad ispisuje
+listu (Rb./red + naziv + vrijednost), ograničeno na 20. Testovi ažurirani da
+provjere prisustvo liste (pukli bi na staroj implementaciji). Commit `0f43f5c`.
+Puni izvještaj: `agent_reports/2026-08-05_agent-agregiraj-sum-lista-stavki-fix.md`.
