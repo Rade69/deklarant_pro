@@ -190,7 +190,7 @@ class BackupService:
 
     def get_available_backups(self) -> List[Dict[str, Any]]:
         """
-        Vrati listu dostupnih backup-a.
+        Vrati listu dostupnih backup-a (SQLite .db, PostgreSQL .sql/.dump).
 
         Returns:
             Lista dict-ova sa backup info-m
@@ -200,22 +200,23 @@ class BackupService:
         if not self.backup_dir.exists():
             return backups
 
-        for filepath in self.backup_dir.glob("*.db"):
-            # Preskoči auto backup-ove ako nisu traženi
-            if filepath.name.startswith('auto_backup_'):
+        for filepath in sorted(self.backup_dir.iterdir(), key=lambda x: x.stat().st_mtime, reverse=True):
+            if filepath.name.startswith('auto_backup_') and filepath.suffix == '.db':
                 continue
-                
-            stat = filepath.stat()
+            if filepath.suffix not in ('.db', '.sql', '.dump'):
+                continue
+
+            st = filepath.stat()
             backups.append({
                 'filename': filepath.name,
                 'filepath': str(filepath),
-                'size': stat.st_size,
-                'created': datetime.fromtimestamp(stat.st_ctime).isoformat(),
+                'size': st.st_size,
+                'size_mb': round(st.st_size / (1024 * 1024), 2),
+                'created': datetime.fromtimestamp(st.st_mtime).isoformat(),
+                'type': 'sqlite' if filepath.suffix == '.db' else 'postgresql',
                 'is_auto_backup': False,
             })
 
-        # Sort by date (newest first)
-        backups.sort(key=lambda x: x['created'], reverse=True)
         return backups
 
     def get_database_size(self) -> int:
@@ -445,6 +446,150 @@ class BackupService:
         except Exception as e:
             logger.debug(f"Database validation error: {e}")
             return False
+
+    # ── PostgreSQL Python-only (bez pg_dump) ───────────────────
+
+    def create_pg_backup_python(self, label: str = "") -> Optional[Path]:
+        """
+        Bekap PostgreSQL baze direktno kroz psycopg2 (ne zahtijeva pg_dump).
+
+        Koristi COPY ... TO STDOUT za svaku tabelu u catalogs i public šemi.
+        Restore: psql -f fajl.sql
+        """
+        try:
+            import psycopg2
+            db = get_db_settings()
+        except Exception as e:
+            logger.error(f"❌ Ne mogu da pročitam DB podešavanja: {e}")
+            return None
+
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        label_part = f"_{label}" if label else ""
+        dest = self.backup_dir / f"pg_{db.database}{label_part}_{ts}.sql"
+
+        try:
+            conn = psycopg2.connect(
+                host=db.host, port=db.port, dbname=db.database,
+                user=db.user, password=db.password,
+                sslmode=db.sslmode,
+                sslrootcert=db.sslrootcert if db.sslrootcert else None,
+            )
+        except Exception as e:
+            logger.error(f"❌ Konekcija na PostgreSQL nije uspjela: {e}")
+            return None
+
+        table_count = 0
+        try:
+            with conn.cursor() as cur, open(dest, 'w', encoding='utf-8') as f:
+                f.write(f"-- DeklarantPro PostgreSQL dump\n")
+                f.write(f"-- Baza: {db.database}@{db.host}:{db.port}\n")
+                f.write(f"-- Vrijeme: {datetime.now().isoformat()}\n")
+                f.write(f"-- Metod: psycopg2 COPY TO STDOUT\n")
+                f.write(f"-- Restore: psql -h {db.host} -U {db.user} -d {db.database} -f {dest.name}\n\n")
+
+                for schema in ['catalogs', 'public']:
+                    cur.execute("""
+                        SELECT table_name FROM information_schema.tables
+                        WHERE table_schema = %s AND table_type = 'BASE TABLE'
+                        ORDER BY table_name
+                    """, (schema,))
+                    tables = [row[0] for row in cur.fetchall()]
+
+                    for table in tables:
+                        cur.execute("""
+                            SELECT column_name FROM information_schema.columns
+                            WHERE table_schema = %s AND table_name = %s
+                            ORDER BY ordinal_position
+                        """, (schema, table))
+                        cols = [row[0] for row in cur.fetchall()]
+                        if not cols:
+                            continue
+
+                        col_list = ", ".join(f'"{c}"' for c in cols)
+                        f.write(f"\n-- {schema}.{table} ({len(cols)} kolona)\n")
+                        f.write(f"COPY {schema}.{table} ({col_list}) FROM STDIN;\n")
+
+                        copy_sql = f"COPY {schema}.{table} ({col_list}) TO STDOUT"
+                        cur.copy_expert(copy_sql, f)
+                        f.write("\n\\.\n")
+                        table_count += 1
+
+            conn.close()
+
+            size = dest.stat().st_size
+            if size == 0:
+                dest.unlink(missing_ok=True)
+                return None
+
+            logger.info(
+                f"✅ PostgreSQL Python bekap: {table_count} tabela → "
+                f"{dest.name} ({size:,} B)"
+            )
+            self._cleanup_old_backups()
+            return dest
+
+        except Exception as e:
+            logger.error(f"❌ PostgreSQL Python bekap greška: {e}")
+            dest.unlink(missing_ok=True)
+            return None
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+    def restore_pg_backup_python(self, backup_path: str,
+                                  create_backup_before: bool = True) -> bool:
+        """
+        Restore PostgreSQL baze iz .sql dump fajla.
+        """
+        import psycopg2
+
+        backup_file = Path(backup_path)
+        if not backup_file.exists():
+            logger.error(f"❌ Bekap fajl ne postoji: {backup_path}")
+            return False
+
+        try:
+            db = get_db_settings()
+        except Exception as e:
+            logger.error(f"❌ Ne mogu da pročitam DB podešavanja: {e}")
+            return False
+
+        if create_backup_before:
+            logger.info("📦 Pravim bekap prije restore-a...")
+            self.create_pg_backup_python(label="pre_restore")
+
+        try:
+            conn = psycopg2.connect(
+                host=db.host, port=db.port, dbname=db.database,
+                user=db.user, password=db.password,
+                sslmode=db.sslmode,
+                sslrootcert=db.sslrootcert if db.sslrootcert else None,
+            )
+
+            with open(backup_file, 'r', encoding='utf-8') as f:
+                sql = f.read()
+
+            conn.autocommit = True
+            with conn.cursor() as cur:
+                cur.execute(sql)
+
+            conn.close()
+            logger.info(
+                f"✅ PostgreSQL Python restore: {backup_file.name} → "
+                f"{db.database}@{db.host}"
+            )
+            return True
+
+        except Exception as e:
+            logger.error(f"❌ PostgreSQL Python restore greška: {e}")
+            return False
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
     def _cleanup_old_backups(self, keep_count: int = None):
         """
