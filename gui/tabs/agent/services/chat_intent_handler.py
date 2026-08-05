@@ -141,40 +141,6 @@ _REDNI = {
     'posljednji': -1, 'zadnji': -1,
 }
 
-from ._tariff_handlers import TariffHandlerMixin
-from ._review_handlers import ReviewHandlerMixin
-
-class ChatIntentHandler(TariffHandlerMixin, ReviewHandlerMixin):
-    """Upravljanje chat porukom — Tool Use routing (primarni) + keyword fallback."""
-
-    def __init__(self, controller):
-        self._ctrl = controller
-        self._dispatcher_workers = []  # ToolDispatcherWorker instances
-
-    # ═══════════════════════════════════════════════════════════════
-    # region — Javni API (sve metode su [THUNK] → slobodne funkcije)
-    # ═══════════════════════════════════════════════════════════════
-
-    def handle_message(self, message: str) -> None:
-        """[THUNK] → _handle_message"""
-        _handle_message(self._ctrl, message)
-
-    # ═══════════════════════════════════════════════════════════════
-    # region — Tool Execution
-    # ═══════════════════════════════════════════════════════════════
-
-    def execute_tool(self, name: str, args: dict) -> None:
-        """[THUNK] → _execute_tool — mapira tool call na servis."""
-        _execute_tool(self._ctrl, name, args)
-
-    # ═══════════════════════════════════════════════════════════════
-    # region — Intent klasifikacija
-    # ═══════════════════════════════════════════════════════════════
-
-    def klasificiraj_i_usmjeri(self, message: str) -> None:
-        """[THUNK] → _klasificiraj_i_usmjeri"""
-        _klasificiraj_i_usmjeri(self._ctrl, message)
-
 # ═══════════════════════════════════════════════════════════════
 # region — Implementacija: pomoćne funkcije i intent detekcija
 # ═══════════════════════════════════════════════════════════════

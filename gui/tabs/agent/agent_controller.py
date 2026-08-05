@@ -77,10 +77,8 @@ class AgentController:
         """Inicijalizuj service sloj sa callback-ovima."""
         from gui.tabs.agent.services.xml_workflow_service import XmlWorkflowService
         from gui.tabs.agent.services.import_pipeline_service import ImportPipelineService
-        from gui.tabs.agent.services.chat_intent_handler import ChatIntentHandler
         self.xml_workflow_svc = XmlWorkflowService(self)
         self.import_pipeline_svc = ImportPipelineService(self)
-        self.chat_intent_svc = ChatIntentHandler(self)
 
         from services.agent.chat.tariff_intent_service import TariffIntentService
         from services.agent.chat.merge_intent_service import MergeIntentService
@@ -872,7 +870,8 @@ class AgentController:
         self.view.get_chat_panel().add_activity(f"👁️ Pregled: {file_item.filename}")
 
     def _on_chat_message(self, message: str):
-        self.chat_intent_svc.handle_message(message)
+        from .services.chat_intent_handler import _handle_message as _impl
+        _impl(self, message)
 
     def _on_status_changed(self, status: str):
         """Handle promjenu statusa iz header-a."""
@@ -925,9 +924,11 @@ class AgentController:
         self.tariff_svc.check_tariff_for_name(naziv_robe)
 
     def _alternativni_tarifni_za_stavku(self, item_query: str = "", item_ordinal: int = None, is_alt: bool = False):
-        self.chat_intent_svc.alternativni_tarifni_za_stavku(item_query, item_ordinal, is_alt)
+        from .services.chat_intent_handler import _alternativni_tarifni_za_stavku as _impl
+        _impl(self, item_query, item_ordinal, is_alt)
     def _klasificiraj_i_usmjeri(self, message: str):
-        self.chat_intent_svc.klasificiraj_i_usmjeri(message)
+        from .services.chat_intent_handler import _klasificiraj_i_usmjeri as _impl
+        _impl(self, message)
     def _obrisi_tarifne_brojeve(self):
         """Obriši tarifne brojeve — koristi TariffIntentService."""
         self.tariff_svc.delete_all()
@@ -941,29 +942,41 @@ class AgentController:
         """
         Predloži upis vrijednosti u kolonu — zahtijeva potvrdu korisnika
         (MUTATE, vidi services/agent/chat/tool_policy.py). Stvaran upis se
-        dešava tek u ChatIntentHandler._on_proposal_confirmed.
+        dešava tek u on_proposal_confirmed.
         """
-        self.chat_intent_svc.propose_kolona_upis(atribut, vrijednost, tab)
+        from .services.chat_intent_handler import _propose_kolona_upis as _impl
+        _impl(self, atribut, vrijednost, tab)
 
     def _izvrsi_spajanje_naimenovanja(self, proposals, chat):
-        self.chat_intent_svc.izvrsi_spajanje_naimenovanja(proposals, chat)
+        from .services.chat_intent_handler import _izvrsi_spajanje_naimenovanja as _impl
+        _impl(self, proposals, chat)
     def _provjeri_naimenovanja(self):
-        self.chat_intent_svc.provjeri_naimenovanja()
+        from .services.chat_intent_handler import _provjeri_naimenovanja as _impl
+        _impl(self)
     def _pregledaj_naimenovanja(self, indeksi=None):
-        self.chat_intent_svc.pregledaj_naimenovanja(indeksi)
+        from .services.chat_intent_handler import _pregledaj_naimenovanja as _impl
+        _impl(self, indeksi)
     def _pretrazi_tarifu(self, upit: str):
-        self.chat_intent_svc.pretrazi_tarifu(upit)
+        from .services.chat_intent_handler import _pretrazi_tarifu as _impl
+        _impl(self, upit)
     def _pretrazi_tarifu_po_kodu(self, kod: str):
-        self.chat_intent_svc.pretrazi_tarifu_po_kodu(kod)
+        from .services.chat_intent_handler import _pretrazi_tarifu_po_kodu as _impl
+        _impl(self, kod)
     def _pretrazi_tarifu_poglavlje(self, poglavlje: str):
-        self.chat_intent_svc.pretrazi_tarifu_poglavlje(poglavlje)
+        from .services.chat_intent_handler import _pretrazi_tarifu_poglavlje as _impl
+        _impl(self, poglavlje)
     def _pretrazi_tarifu_hijerarhijski(self, kod: str):
-        self.chat_intent_svc.pretrazi_tarifu_hijerarhijski(kod)
+        from .services.chat_intent_handler import _pretrazi_tarifu_hijerarhijski as _impl
+        _impl(self, kod)
     def _compliance_check(self):
-        self.chat_intent_svc.compliance_check()
+        from .services.chat_intent_handler import _compliance_check as _impl
+        _impl(self)
     def show_proposal_card(self, proposal: dict):
-        self.chat_intent_svc.show_proposal_card(proposal)
+        from .services.chat_intent_handler import _show_proposal_card as _impl
+        _impl(self, proposal)
     def _on_proposal_confirmed(self, values: dict):
-        self.chat_intent_svc.on_proposal_confirmed(values)
+        from .services.chat_intent_handler import _on_proposal_confirmed as _impl
+        _impl(self, values)
     def _on_proposal_rejected(self):
-        self.chat_intent_svc.on_proposal_rejected()
+        from .services.chat_intent_handler import _on_proposal_rejected as _impl
+        _impl(self)
