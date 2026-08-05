@@ -296,6 +296,16 @@ def scan_xml_folder() -> Dict[Tuple[str, str], ExporterEntry]:
 
 def _ensure_table(cursor) -> None:
     cursor.execute("""
+        SELECT EXISTS (
+            SELECT FROM information_schema.tables
+            WHERE table_schema = 'catalogs'
+            AND table_name = 'exporter_xml_index'
+        )
+    """)
+    if cursor.fetchone()[0]:
+        return
+
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS catalogs.exporter_xml_index (
             id SERIAL PRIMARY KEY,
             exporter_normalized TEXT NOT NULL,
