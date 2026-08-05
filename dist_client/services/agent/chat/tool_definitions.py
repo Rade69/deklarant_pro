@@ -27,21 +27,32 @@ PRAVILA:
 4. Za PRETRAGU/BROJANJE stavki po nazivu ("koliko ima X", "koje stavke sadrže X",
    "nađi sve X", "koliko puta se pojavljuje X") → zovi pretrazi_stavke.
    NIKADA ne broj ručno iz prikazi/provjeri odgovora — to je nepouzdano.
-5. Za pretragu tarife po nazivu ili kodu → zovi pretrazi_tarifu
-6. Za pretragu porijekla proizvoda → zovi pretrazi_porijeklo
-7. Za pronalaženje sličnih proizvoda iz istorije → zovi pronadji_slicne_proizvode
-8. Za analizu/upoređivanje tarifa sa istorijom → zovi analiziraj_tarifne
-9. Za predlaganje/popunjavanje tarifa za više stavki → zovi predlozi_tarife
-10. Za spajanje naimenovanja → zovi spoji_naimenovanja
-11. Za upis/ispravku vrijednosti u kolone → zovi upisi_u_kolonu
-12. Samo za čisto informativna pitanja NEVEZANA za carinske operacije
+5. Za RAČUNANJE (SUM/AVG/MAX/MIN/COUNT) — "ukupna vrijednost", "koliko ukupno kg",
+   "koja stavka ima najveću/najmanju X", "top N", "prosječna X" → zovi agregiraj_stavke.
+   NIKADA ne sabiraj/poredi ručno iz prikazi odgovora — to je nepouzdano.
+6. Za FILTRIRANJE/GRUPISANJE po polju (tarifa, zemlja, povlastica, faktura,
+   prazno/nije prazno) — "koliko stavki nema X", "prikaži sve stavke sa X",
+   "da li se X ponavlja" → zovi filtriraj_stavke.
+7. Za pretragu tarife po nazivu ili kodu → zovi pretrazi_tarifu
+8. Za pretragu porijekla proizvoda → zovi pretrazi_porijeklo
+9. Za pronalaženje sličnih proizvoda iz istorije → zovi pronadji_slicne_proizvode
+10. Za analizu/upoređivanje tarifa sa istorijom → zovi analiziraj_tarifne
+11. Za predlaganje/popunjavanje tarifa za više stavki → zovi predlozi_tarife
+12. Za spajanje naimenovanja → zovi spoji_naimenovanja
+13. Za upis/ispravku vrijednosti u kolone → zovi upisi_u_kolonu
+14. Samo za čisto informativna pitanja NEVEZANA za carinske operacije
     (npr. "šta je carinska tarifa?") možeš odgovoriti direktno bez alata.
-13. RAZLIKUJ: "pogledaj/prikaži" (snapshot) od "pregledaj/provjeri" (validacija)!
+15. RAZLIKUJ: "pogledaj/prikaži" (snapshot) od "pregledaj/provjeri" (validacija)!
     • "Prikaži Faktura tab" → prikazi(invoice)
     • "Pregledaj Faktura tab" → provjeri(invoice)
     • "Provjeri naimenovanje 5" → provjeri(items, scope=row, ordinals=[5])
     • "Pokaži naimenovanja" → prikazi(items)
     • "Koliko ima SUSSINA" → pretrazi_stavke(upit="SUSSINA")
+    • "Koja je ukupna vrijednost stavki sa tarifom 9405" →
+      agregiraj_stavke(operacija="sum", polje="vrijednost", uslovi=[{polje:"tarifa", operator:"=", vrijednost:"9405"}])
+    • "Koja stavka ima najveću bruto masu" → agregiraj_stavke(operacija="max", polje="bruto_masa")
+    • "Koliko stavki nema zemlju porijekla" →
+      filtriraj_stavke(uslovi=[{polje:"zemlja", operator:"prazno"}], prikazi="broj")
 """
 
 # ── Alati ────────────────────────────────────────────────────────────
@@ -183,6 +194,111 @@ TOOLS = [
                     }
                 },
                 "required": ["upit"],
+                "additionalProperties": False
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "agregiraj_stavke",
+            "description": (
+                "Deterministicki izracunaj SUM/AVG/MAX/MIN/COUNT nad numerickim poljem "
+                "fakturnih linija ili naimenovanja u aktivnom draftu, opciono filtrirano. "
+                "Koristi UVIJEK za 'ukupna vrijednost', 'koliko ukupno kg', 'koja stavka "
+                "ima najvecu/najmanju X', 'top N', 'prosjecna X' — model NIKAD ne racuna sam."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "operacija": {
+                        "type": "string",
+                        "enum": ["sum", "avg", "max", "min", "count"],
+                    },
+                    "polje": {
+                        "type": "string",
+                        "enum": ["vrijednost", "kolicina", "bruto_masa", "neto_masa", "cijena"],
+                        "description": "Obavezno osim za operacija=count."
+                    },
+                    "target": {
+                        "type": "string",
+                        "enum": ["invoice", "items"],
+                        "description": "invoice=fakturne linije, items=naimenovanja. Default: items."
+                    },
+                    "uslovi": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "polje": {
+                                    "type": "string",
+                                    "enum": ["tarifa", "zemlja", "povlastica", "faktura", "naziv"],
+                                },
+                                "operator": {
+                                    "type": "string",
+                                    "enum": ["=", "!=", "prazno", "nije_prazno"],
+                                },
+                                "vrijednost": {"type": "string"},
+                            },
+                        },
+                        "description": "Opcioni filter (AND svih uslova). Npr. tarifa=9405."
+                    },
+                    "top_n": {
+                        "type": "integer",
+                        "description": "Za max/min: vrati top N umjesto 1 (npr. 'top 3 najskuplje')."
+                    }
+                },
+                "required": ["operacija"],
+                "additionalProperties": False
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "filtriraj_stavke",
+            "description": (
+                "Deterministicki filtriraj i/ili grupisi fakturne linije ili naimenovanja "
+                "po bilo kom polju (tarifa, zemlja, povlastica, faktura, prazno/nije prazno). "
+                "Koristi za 'koliko stavki nema X', 'prikazi sve stavke sa X', 'da li se X "
+                "ponavlja' — model NIKAD ne filtrira/broji sam iz teksta."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "target": {
+                        "type": "string",
+                        "enum": ["invoice", "items"],
+                        "description": "Default: items."
+                    },
+                    "uslovi": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "polje": {
+                                    "type": "string",
+                                    "enum": ["tarifa", "zemlja", "povlastica", "faktura", "naziv"],
+                                },
+                                "operator": {
+                                    "type": "string",
+                                    "enum": ["=", "!=", "prazno", "nije_prazno"],
+                                },
+                                "vrijednost": {"type": "string"},
+                            },
+                        },
+                    },
+                    "grupisi_po": {
+                        "type": "string",
+                        "enum": ["tarifa", "zemlja", "povlastica", "faktura"],
+                        "description": "Opciono — grupisi i prebroji po ovom polju (za 'da li se X ponavlja')."
+                    },
+                    "prikazi": {
+                        "type": "string",
+                        "enum": ["broj", "listu", "oboje"],
+                        "description": "Default: oboje."
+                    }
+                },
                 "additionalProperties": False
             }
         }

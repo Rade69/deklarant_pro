@@ -141,87 +141,6 @@ _REDNI = {
     'posljednji': -1, 'zadnji': -1,
 }
 
-from ._tariff_handlers import TariffHandlerMixin
-
-class ChatIntentHandler(TariffHandlerMixin):
-    """Upravljanje chat porukom — Tool Use routing (primarni) + keyword fallback."""
-
-    def __init__(self, controller):
-        self._ctrl = controller
-        self._dispatcher_workers = []  # ToolDispatcherWorker instances
-
-    # ═══════════════════════════════════════════════════════════════
-    # region — Javni API (sve metode su [THUNK] → slobodne funkcije)
-    # ═══════════════════════════════════════════════════════════════
-
-    def handle_message(self, message: str) -> None:
-        """[THUNK] → _handle_message"""
-        _handle_message(self._ctrl, message)
-
-    # ═══════════════════════════════════════════════════════════════
-    # region — Tool Execution
-    # ═══════════════════════════════════════════════════════════════
-
-    def execute_tool(self, name: str, args: dict) -> None:
-        """[THUNK] → _execute_tool — mapira tool call na servis."""
-        _execute_tool(self._ctrl, name, args)
-
-    # ═══════════════════════════════════════════════════════════════
-    # region — Intent klasifikacija
-    # ═══════════════════════════════════════════════════════════════
-
-    def klasificiraj_i_usmjeri(self, message: str) -> None:
-        """[THUNK] → _klasificiraj_i_usmjeri"""
-        _klasificiraj_i_usmjeri(self._ctrl, message)
-
-    # ═══════════════════════════════════════════════════════════════
-    # region — Naimenovanja
-    # ═══════════════════════════════════════════════════════════════
-
-    def provjeri_naimenovanja(self) -> None:
-        """[THUNK] → _provjeri_naimenovanja"""
-        _provjeri_naimenovanja(self._ctrl)
-
-    def pregledaj_naimenovanja(self, indeksi=None) -> None:
-        """[THUNK] → _pregledaj_naimenovanja"""
-        _pregledaj_naimenovanja(self._ctrl, indeksi)
-
-    # ═══════════════════════════════════════════════════════════════
-    # region — Compliance
-    # ═══════════════════════════════════════════════════════════════
-
-    def compliance_check(self) -> None:
-        """[THUNK] → _compliance_check"""
-        _compliance_check(self._ctrl)
-
-    # ═══════════════════════════════════════════════════════════════
-    # region — Spajanje naimenovanja i upis u kolonu
-    # ═══════════════════════════════════════════════════════════════
-
-    def izvrsi_spajanje_naimenovanja(self, proposals, chat) -> None:
-        """[THUNK] → _izvrsi_spajanje_naimenovanja"""
-        _izvrsi_spajanje_naimenovanja(self._ctrl, proposals, chat)
-
-    def propose_kolona_upis(self, atribut: str, vrijednost: str, tab: str = 'faktura') -> None:
-        """[THUNK] → _propose_kolona_upis"""
-        _propose_kolona_upis(self._ctrl, atribut, vrijednost, tab)
-
-    # ═══════════════════════════════════════════════════════════════
-    # region — Proposal Card
-    # ═══════════════════════════════════════════════════════════════
-
-    def show_proposal_card(self, proposal: dict) -> None:
-        """[THUNK] → _show_proposal_card"""
-        _show_proposal_card(self._ctrl, proposal)
-
-    def on_proposal_confirmed(self, values: dict) -> None:
-        """[THUNK] → _on_proposal_confirmed"""
-        _on_proposal_confirmed(self._ctrl, values)
-
-    def on_proposal_rejected(self) -> None:
-        """[THUNK] → _on_proposal_rejected"""
-        _on_proposal_rejected(self._ctrl)
-
 # ═══════════════════════════════════════════════════════════════
 # region — Implementacija: pomoćne funkcije i intent detekcija
 # ═══════════════════════════════════════════════════════════════
@@ -1476,6 +1395,24 @@ def _dispatch_known_tool(ctrl, name: str, args: dict, _emit) -> None:
             result.effect = effect_for(name)
             _emit(result)
 
+    elif name == "agregiraj_stavke":
+        operacija = args.get("operacija", "")
+        if operacija:
+            _agregiraj_stavke(ctrl, args)
+        else:
+            result = ToolResult.needs_review(
+                "agregiraj_stavke",
+                "Navedi operaciju (sum/avg/max/min/count).",
+                "lokalni tool router",
+                args=args,
+            )
+            result.next_action = "Primjer: ukupna vrijednost stavki sa tarifom 9405"
+            result.effect = effect_for(name)
+            _emit(result)
+
+    elif name == "filtriraj_stavke":
+        _filtriraj_stavke(ctrl, args)
+
     elif name == "upisi_u_kolonu":
         kolona = args.get("kolona", "")
         vrijednost = args.get("vrijednost", "")
@@ -2638,6 +2575,135 @@ def _pretrazi_stavke(ctrl, upit: str, target: str = "all") -> None:
             )
 
     chat.add_agent_message("".join(parts))
+
+def _agregiraj_stavke(ctrl, args: dict) -> None:
+    """SUM/AVG/MAX/MIN/COUNT nad fakturnim linijama ili naimenovanjima.
+
+    Vidi docs/agent/AGENT_TOOL_COVERAGE_AUDIT.md — LLM je ranije morao ručno sabirati/
+    porediti iz prikazi snapshot teksta na upite tipa "ukupna vrijednost stavki sa X"
+    ili "koja stavka ima najveću masu", što je ista klasa greške kao SUSSINA bug.
+    """
+    from services.agent.chat.draft_aggregation_service import agregiraj
+
+    chat = ctrl.view.get_chat_panel()
+    draft = ctrl.draft
+    if not draft:
+        chat.add_agent_message("⚠️ Nema aktivnog drafta za računanje.")
+        return
+
+    operacija = (args.get("operacija") or "").lower()
+    polje = args.get("polje") or ""
+    target = (args.get("target") or "items").lower()
+    uslovi = args.get("uslovi") or []
+    top_n = args.get("top_n")
+
+    chat.add_activity(f"🧮 Računam {operacija} ({polje or 'broj stavki'})...")
+
+    rezultat = agregiraj(draft, operacija, polje, target=target, uslovi=uslovi, top_n=top_n)
+
+    if "error" in rezultat:
+        chat.add_agent_message(f"❌ {escape(rezultat['error'])}")
+        return
+
+    naziv_target = "naimenovanja" if target == "items" else "fakturnih linija"
+
+    if operacija == "count":
+        chat.add_agent_message(f"<b>🧮 Broj {naziv_target}:</b> {rezultat['broj']}")
+        return
+
+    if "top" in rezultat:
+        if not rezultat["top"]:
+            chat.add_agent_message("❌ Nema stavki koje odgovaraju uslovu.")
+            return
+        linije = [
+            f"<b>🧮 {escape(operacija.upper())} po '{escape(polje)}' "
+            f"({naziv_target}, {rezultat['broj_stavki']} ukupno):</b><br>"
+        ]
+        for i, entry in enumerate(rezultat["top"], 1):
+            row = entry["row"]
+            naziv = (
+                getattr(row, "goods_trade_name", "") or getattr(row, "goods_description", "")
+                or getattr(row, "naziv_robe", "") or "—"
+            )
+            oznaka = (
+                f"Rb.{getattr(row, 'ordinal_no', '?')}" if target == "items"
+                else f"red {getattr(row, 'line_no', '?')}"
+            )
+            linije.append(
+                f"&nbsp;&nbsp;{i}. {oznaka}: {escape(str(naziv)[:60])} — {entry['vrijednost']:.3f}<br>"
+            )
+        chat.add_agent_message("".join(linije))
+        return
+
+    if rezultat["rezultat"] is None:
+        chat.add_agent_message("❌ Nema stavki koje odgovaraju uslovu.")
+        return
+
+    chat.add_agent_message(
+        f"<b>🧮 {escape(operacija.upper())} — {escape(polje)} ({naziv_target}):</b> "
+        f"{rezultat['rezultat']:.3f} <small>({rezultat['broj_stavki']} stavki)</small>"
+    )
+
+
+def _filtriraj_stavke(ctrl, args: dict) -> None:
+    """Filtriraj/grupiši fakturne linije ili naimenovanja po bilo kom polju.
+
+    Vidi docs/agent/AGENT_TOOL_COVERAGE_AUDIT.md — pokriva upite tipa "koliko stavki
+    nema zemlju porijekla" ili "da li se neki tarifni broj ponavlja", gdje je LLM
+    ranije morao ručno filtrirati/brojati iz prikazi snapshot teksta.
+    """
+    from services.agent.chat.draft_aggregation_service import filtriraj
+
+    chat = ctrl.view.get_chat_panel()
+    draft = ctrl.draft
+    if not draft:
+        chat.add_agent_message("⚠️ Nema aktivnog drafta za pretragu.")
+        return
+
+    target = (args.get("target") or "items").lower()
+    uslovi = args.get("uslovi") or []
+    grupisi_po = args.get("grupisi_po")
+    prikazi_mod = args.get("prikazi") or "oboje"
+
+    chat.add_activity("🔎 Filtriram stavke...")
+
+    rezultat = filtriraj(draft, target=target, uslovi=uslovi, grupisi_po=grupisi_po)
+
+    if "error" in rezultat:
+        chat.add_agent_message(f"❌ {escape(rezultat['error'])}")
+        return
+
+    naziv_target = "naimenovanja" if target == "items" else "fakturnih linija"
+
+    if "grupe" in rezultat:
+        linije = [
+            f"<b>🔎 Grupisano po '{escape(grupisi_po)}' "
+            f"({naziv_target}, {rezultat['broj']} ukupno):</b><br>"
+        ]
+        for key, rows in sorted(rezultat["grupe"].items(), key=lambda kv: -len(kv[1])):
+            linije.append(f"&nbsp;&nbsp;• {escape(key)}: {len(rows)}×<br>")
+        chat.add_agent_message("".join(linije))
+        return
+
+    if prikazi_mod == "broj":
+        chat.add_agent_message(f"<b>🔎 Broj {naziv_target}:</b> {rezultat['broj']}")
+        return
+
+    linije = [f"<b>🔎 Pronađeno {rezultat['broj']} {naziv_target}:</b><br>"]
+    for row in rezultat["rows"][:30]:
+        naziv = (
+            getattr(row, "goods_trade_name", "") or getattr(row, "goods_description", "")
+            or getattr(row, "naziv_robe", "") or "—"
+        )
+        oznaka = (
+            f"Rb.{getattr(row, 'ordinal_no', '?')}" if target == "items"
+            else f"red {getattr(row, 'line_no', '?')}"
+        )
+        linije.append(f"&nbsp;&nbsp;• {oznaka}: {escape(str(naziv)[:70])}<br>")
+    if rezultat["broj"] > 30:
+        linije.append(f"<small>... i još {rezultat['broj'] - 30}</small>")
+    chat.add_agent_message("".join(linije))
+
 
 def _display_origin_from_mcp(ctrl, chat, upit: str, mcp_result: dict) -> None:
     """Prikaži rezultate porijekla dobijene preko MCP servera."""
