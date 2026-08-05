@@ -330,7 +330,7 @@ class TariffService:
                 naziv_robe=goods_trade_name,
                 min_similarity=NaimenovanjaConstants.MIN_SIMILARITY_THRESHOLD,
                 zemlja_porijekla=origin_country_code or "",
-                top_n=3,
+                top_n=50,
             )
 
             return mappings
