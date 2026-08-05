@@ -47,7 +47,7 @@ def _ensure_sound_file(outcome: ProcessOutcome) -> Path:
         for sample_index in range(sample_count):
             fade = min(sample_index / 500, (sample_count - sample_index) / 500, 1.0)
             value = int(
-                18000
+                18000 * 0.35
                 * max(fade, 0.0)
                 * math.sin(2 * math.pi * frequency * sample_index / sample_rate)
             )
