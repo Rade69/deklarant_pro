@@ -98,16 +98,21 @@ class NaimenovanjaTab(QWidget):
         self.view._sync_header_packages()
 
     def _prepare_tariff_suggestions(self):
-        logger.warning("🔍 TAB: signal primljen")
+        import sys
+        print("🔍 TAB: SIGNAL PRIMLJEN", flush=True)
         try:
             mappings = self.controller.prepare_tariff_suggestions(self.view)
-            logger.warning("🔍 TAB: controller vratio %s mappings", len(mappings) if mappings else 0)
+            print(f"🔍 TAB: mappings={len(mappings) if mappings else 0}", flush=True)
             if not mappings:
                 return
             item = self.view.draft.items[self.view.current_item_index]
+            print(f"🔍 TAB: item={item}", flush=True)
             self.view._show_tariff_suggestion_dialog(mappings, item)
+            print("🔍 TAB: dijalog prikazan", flush=True)
         except Exception as e:
-            logger.exception(f"🔍 TAB: EXCEPTION: {e}")
+            import traceback
+            print(f"🔍 TAB: EXCEPTION: {e}", flush=True)
+            traceback.print_exc()
 
     def _reload_header(self):
         main_window = self.window()
