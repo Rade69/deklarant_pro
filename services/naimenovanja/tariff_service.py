@@ -361,18 +361,12 @@ class TariffService:
         Premješteno iz NaimenovanjaView._validate_mappings — DB poziv
         (get_tarifa_opis) sada u servisu, ne u View-u.
         """
-        from database.db import get_tarifa_opis_batch
-
+        from database.db import get_tarifa_opis
         valid = []
-        if not mappings:
-            return valid
-
-        codes = [m.tarifni_broj for m in mappings]
-        opis_map = get_tarifa_opis_batch(codes)
-
         for mapping in mappings:
             try:
-                if mapping.tarifni_broj in opis_map:
+                opis = get_tarifa_opis(mapping.tarifni_broj)
+                if opis:
                     valid.append(mapping)
                     logger.info(f"      ✅ {mapping.tarifni_broj} je validan")
                 else:
