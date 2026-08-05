@@ -305,7 +305,7 @@ class NaimenovanjaController(QObject):
         if not items or idx >= len(items):
             return []
         item = items[idx]
-        name = getattr(item, "goods_trade_name", "") or getattr(item, "goods_description", "")
+        name = getattr(item, "goods_description", "") or getattr(item, "goods_trade_name", "")
         origin = getattr(item, "origin_country_code", "")
         logger.info(f"🔍 Sugeriši tarifu: name='{name}', origin='{origin}', idx={idx}")
         if not name or not name.strip():
