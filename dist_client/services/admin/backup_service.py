@@ -8,8 +8,11 @@ TASK 10: Implementirano sa validacijom, backup prije restore-a, cleanup-om
 
 from typing import List, Dict, Any, Optional, Callable
 from pathlib import Path
+import logging
+import os
 import shutil
 import sqlite3
+import subprocess
 from datetime import datetime
 from config.settings import get_db_settings, get_path_settings
 
@@ -269,6 +272,153 @@ class BackupService:
             return True
         except Exception as e:
             logger.error(f"❌ Delete failed: {e}")
+            return False
+
+    # ── PostgreSQL backup/restore ───────────────────────────────
+
+    def create_pg_backup(self, label: str = "") -> Optional[Path]:
+        """
+        Bekap PostgreSQL baze koristeći pg_dump.
+
+        Zahtijeva pg_dump u PATH-u i ispravan .env sa DB_* varijablama.
+
+        Args:
+            label: Opis za naziv fajla (opciono)
+
+        Returns:
+            Path do .dump fajla ili None
+        """
+        try:
+            db = get_db_settings()
+        except Exception as e:
+            logger.error(f"❌ Ne mogu da pročitam DB podešavanja: {e}")
+            return None
+
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        label_part = f"_{label}" if label else ""
+        dest = self.backup_dir / f"pg_{db.database}{label_part}_{ts}.dump"
+
+        env = os.environ.copy()
+        env["PGPASSWORD"] = db.password
+
+        cmd = [
+            "pg_dump",
+            "-h", db.host,
+            "-p", str(db.port),
+            "-U", db.user,
+            "-d", db.database,
+            "-F", "c",
+            "-f", str(dest),
+        ]
+
+        try:
+            result = subprocess.run(
+                cmd,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=300,
+            )
+            if result.returncode != 0:
+                stderr = result.stderr.strip()
+                logger.error(f"❌ pg_dump greška: {stderr}")
+                dest.unlink(missing_ok=True)
+                return None
+
+            if not dest.exists() or dest.stat().st_size == 0:
+                logger.error("❌ pg_dump kreirao prazan fajl")
+                dest.unlink(missing_ok=True)
+                return None
+
+            logger.info(
+                f"✅ PostgreSQL bekap: {db.database}@{db.host} → "
+                f"{dest.name} ({dest.stat().st_size:,} B)"
+            )
+            self._cleanup_old_backups()
+            return dest
+
+        except FileNotFoundError:
+            logger.error(
+                "❌ pg_dump nije pronađen u PATH-u. "
+                "Instaliraj PostgreSQL client tools."
+            )
+            return None
+        except subprocess.TimeoutExpired:
+            logger.error("❌ pg_dump je prekoračio vremensko ograničenje (5 min)")
+            dest.unlink(missing_ok=True)
+            return None
+        except Exception as e:
+            logger.error(f"❌ PostgreSQL bekap greška: {e}")
+            dest.unlink(missing_ok=True)
+            return None
+
+    def restore_pg_backup(self, backup_path: str,
+                          create_backup_before: bool = True) -> bool:
+        """
+        Restore PostgreSQL baze iz .dump bekapa koristeći pg_restore.
+
+        Args:
+            backup_path: Put do .dump fajla
+            create_backup_before: Kreiraj bekap trenutne baze prije restore-a
+
+        Returns:
+            True ako uspješno
+        """
+        backup_file = Path(backup_path)
+        if not backup_file.exists():
+            logger.error(f"❌ Bekap fajl ne postoji: {backup_path}")
+            return False
+
+        try:
+            db = get_db_settings()
+        except Exception as e:
+            logger.error(f"❌ Ne mogu da pročitam DB podešavanja: {e}")
+            return False
+
+        if create_backup_before:
+            logger.info("📦 Pravim bekap trenutne PostgreSQL baze prije restore-a...")
+            self.create_pg_backup(label="pre_restore")
+
+        env = os.environ.copy()
+        env["PGPASSWORD"] = db.password
+
+        cmd = [
+            "pg_restore",
+            "-h", db.host,
+            "-p", str(db.port),
+            "-U", db.user,
+            "-d", db.database,
+            "--clean",
+            "--if-exists",
+            str(backup_file),
+        ]
+
+        try:
+            result = subprocess.run(
+                cmd,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=600,
+            )
+            if result.returncode != 0:
+                logger.error(f"❌ pg_restore greška: {result.stderr.strip()}")
+                return False
+
+            logger.info(
+                f"✅ PostgreSQL restore: {backup_file.name} → "
+                f"{db.database}@{db.host}"
+            )
+            return True
+
+        except FileNotFoundError:
+            logger.error("❌ pg_restore nije pronađen u PATH-u.")
+            return False
+        except subprocess.TimeoutExpired:
+            logger.error("❌ pg_restore je prekoračio vremensko ograničenje (10 min)")
+            return False
+        except Exception as e:
+            logger.error(f"❌ PostgreSQL restore greška: {e}")
             return False
 
     def _validate_database(self, db_path: Path) -> bool:
