@@ -456,30 +456,43 @@ class SifarniciService:
     # TRGOVAČKI NAZIVI (Trade Names)
     # ============================================================
     
-    def load_trgovacki_nazivi_data(self, search_query: str = "", limit: int = 1000) -> List[Dict[str, Any]]:
-        """Dohvati podatke o tarifnim nazivima robe iz catalogs.zvanicna_tarifa."""
+    def load_trgovacki_nazivi_data(self, search_query: str = "") -> List[Dict[str, Any]]:
+        """Dohvati podatke o tarifnim nazivima robe iz catalogs.zvanicna_tarifa.
+
+        Prazan upit vraća praznu listu — korisnik mora ukucati bar 2 karaktera.
+        Pretraga koristi ILIKE sa pg_trgm indeksom. Limit 500 uz COUNT info.
+        """
         try:
-            max_rows = min(limit, 200) if search_query else limit
+            if not search_query or len(search_query.strip()) < 2:
+                return []
+
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
-                    if search_query:
-                        search_pattern = f"%{search_query}%"
-                        cur.execute("""
-                            SELECT tarifni_kod, opis
-                            FROM catalogs.zvanicna_tarifa
-                            WHERE tarifni_kod ILIKE %s OR opis ILIKE %s
-                            ORDER BY tarifni_kod
-                            LIMIT %s
-                        """, (search_pattern, search_pattern, max_rows))
-                    else:
-                        cur.execute("""
-                            SELECT tarifni_kod, opis
-                            FROM catalogs.zvanicna_tarifa
-                            ORDER BY tarifni_kod
-                            LIMIT %s
-                        """, (max_rows,))
+                    search_pattern = f"%{search_query.strip()}%"
+
+                    cur.execute("""
+                        SELECT COUNT(*) AS total
+                        FROM catalogs.zvanicna_tarifa
+                        WHERE tarifni_kod ILIKE %s OR opis ILIKE %s
+                    """, (search_pattern, search_pattern))
+                    total = cur.fetchone()["total"]
+
+                    cur.execute("""
+                        SELECT tarifni_kod, opis
+                        FROM catalogs.zvanicna_tarifa
+                        WHERE tarifni_kod ILIKE %s OR opis ILIKE %s
+                        ORDER BY tarifni_kod
+                        LIMIT 500
+                    """, (search_pattern, search_pattern))
                     results = cur.fetchall()
-                    return [dict(row) for row in results]
+                    items = [dict(row) for row in results]
+
+                    if total > 500:
+                        for item in items:
+                            item["_total"] = total
+                            item["_truncated"] = True
+
+                    return items
         except Exception as e:
             self._log_error("load_trgovacki_nazivi_data", e)
             return []
