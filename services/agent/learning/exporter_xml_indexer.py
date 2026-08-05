@@ -438,10 +438,66 @@ def reindex() -> int:
             saved = _save_pairs(cursor, exporters)
         conn.commit()
         logger.info(f"✅ Atomski reindex završen: {saved} parova")
+        sync_tariff_knowledge_base()
         return saved
     except Exception:
         conn.rollback()
         logger.exception("Reindex nije uspio; prethodni indeks je sačuvan")
+        raise
+    finally:
+        conn.close()
+
+
+# ══════════════════════════════════════════════════════════════════════
+# TARIFF KNOWLEDGE BASE SYNC — iz XML-ova u product_tariff_mapping
+# ══════════════════════════════════════════════════════════════════════
+
+def sync_tariff_knowledge_base() -> int:
+    """Ekstraktuje tarifne brojeve iz svih indeksiranih XML-ova i upisuje ih u product_tariff_mapping."""
+    from psycopg2 import sql as pg_sql
+
+    conn = get_db_connection()
+    saved = 0
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT xml_filepath, exporter_normalized FROM catalogs.exporter_xml_index")
+            rows = cursor.fetchall()
+            logger.info(f"📦 Ekstrakcija tarifa iz {len(rows)} XML-ova...")
+
+            for row in rows:
+                xml_path = row['xml_filepath']
+                exporter = row['exporter_normalized']
+                if not Path(xml_path).exists():
+                    continue
+
+                try:
+                    tree = ET.parse(xml_path)
+                    root = tree.getroot()
+                    ns = {'ns': 'urn:carinarnica:deklaracija'}
+                    for stavka in root.findall('.//ns:Stavka', ns):
+                        tarifa = stavka.findtext('ns:TarifniBroj', '', ns).strip()
+                        naziv = stavka.findtext('ns:NazivRobe', '', ns).strip()
+                        if tarifa and naziv:
+                            cursor.execute(
+                                """
+                                INSERT INTO catalogs.product_tariff_mapping
+                                    (product_code, naziv_robe, commodity_code, precision_1, usage_count)
+                                VALUES (%s, %s, %s, '000', 1)
+                                ON CONFLICT (product_code, naziv_robe, commodity_code)
+                                DO UPDATE SET usage_count = catalogs.product_tariff_mapping.usage_count + 1
+                                """,
+                                ('', naziv, tarifa)
+                            )
+                            saved += 1
+                except Exception as e:
+                    logger.warning(f"Ne mogu parsirati {xml_path}: {e}")
+                    continue
+
+            conn.commit()
+        logger.info(f"✅ {saved} tarifnih brojeva dodato u bazu znanja")
+        return saved
+    except Exception:
+        conn.rollback()
         raise
     finally:
         conn.close()
