@@ -4420,3 +4420,24 @@ sortiranje (2), duplikati (2). Predložena 2 nova alata:
 Puni izvještaj: `agent_reports/2026-08-05_agent-tool-coverage-audit.md`,
 audit dokument: `docs/agent/AGENT_TOOL_COVERAGE_AUDIT.md`.
 Commit: `336ba50`.
+
+### 2026-08-05 — Implementacija agregiraj_stavke + filtriraj_stavke (Claude, nakon Crush audita)
+
+Na osnovu gornjeg Crush audita, korisnik odabrao implementaciju oba predložena
+alata odjednom. Napravljen `services/agent/chat/draft_aggregation_service.py`
+(čist Qt-independent servis) — `agregiraj()` (SUM/AVG/MAX/MIN/COUNT + top_n) i
+`filtriraj()` (uslovi + grupisanje), dijele istu `_primijeni_uslove()` filter
+logiku (objedinjeno u odnosu na Crush-ov predlog koji je imao dva razdvojena
+filter mehanizma). **Namjerna izmjena**: Crush je predložio `target="all"`
+opciju koja bi miješala `invoice_lines`/`items` — uklonjena, jer AGENTS.md
+eksplicitno zabranjuje to miješanje (različiti koncepti/jedinice). 11 novih
+testova (9 servisnih + 2 dispatch) direktno reprodukuju konkretne upite iz
+audit izvještaja. Commit `05e6423`.
+
+Ovaj rad je urađen PARALELNO sa Crush-ovim "Nivo 4" refaktorom
+(`fd309bf` — eliminisan `ChatIntentHandler` posrednički sloj, `agent_controller.py`
+sada zove slobodne funkcije direktno). Provjereno da su oba rada kompatibilna
+(`py_compile` + pun test suite nakon oba commit-a, 1696 passed, isti
+pre-postojeći 2 fail-a) — nema sudara jer moje funkcije žive na modul-nivou,
+ne unutar klase koju je Crush uklonio. Puni izvještaj:
+`agent_reports/2026-08-05_agent-agregacija-filtriranje-stavki.md`.
