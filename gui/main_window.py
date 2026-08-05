@@ -600,6 +600,23 @@ class MainWindow(QMainWindow):
         if self._restore_maximized:
             self.showMaximized()
 
+        self._check_db_connection()
+
+    def _check_db_connection(self):
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(800, self._do_db_check)
+
+    def _do_db_check(self):
+        try:
+            from database.db import get_db_connection
+            with get_db_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT version()")
+                    ver = cur.fetchone()['version'].split(',')[0]
+            self.statusBar().showMessage(f"✅ Baza podataka povezana — {ver}", 5000)
+        except Exception as e:
+            self.statusBar().showMessage(f"⚠️ Baza podataka nije dostupna — {e}", 8000)
+
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
         self._position_exit_button()

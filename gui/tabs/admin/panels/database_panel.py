@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QGroupBox, QGridLayout, QDialog
 )
-from PySide6.QtCore import Signal, Qt, QThread
+from PySide6.QtCore import Signal, Qt, QThread, QTimer
 from PySide6.QtGui import QFont
 from typing import Dict, Any
 import qtawesome as qta
@@ -71,6 +71,7 @@ class DatabasePanel(QWidget):
         self._stats_thread = None
         self.setup_ui()
         self._apply_styles()
+        self._auto_test()
 
     def closeEvent(self, event):
         for t in (self._conn_thread, self._stats_thread):
@@ -229,6 +230,9 @@ class DatabasePanel(QWidget):
         QMessageBox.critical(self, "Greška", message)
 
     # ── HANDLERS ───────────────────────────────────────────────
+
+    def _auto_test(self):
+        QTimer.singleShot(100, self._on_test_conn)
 
     def _on_test_conn(self):
         self.btn_test.setEnabled(False)
