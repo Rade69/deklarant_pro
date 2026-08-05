@@ -7,7 +7,7 @@ from psycopg2.pool import ThreadedConnectionPool, PoolError
 from contextlib import contextmanager
 from typing import Optional
 
-_POOL_WAIT_TIMEOUT = 30  # sekundi čekanja kad je pool iscrpljen
+_POOL_WAIT_TIMEOUT = 5  # sekundi čekanja kad je pool iscrpljen
 
 from config.settings import get_db_settings
 
@@ -96,8 +96,8 @@ def get_connection_pool() -> ThreadedConnectionPool:
                     tls_options["sslrootcert"] = settings.sslrootcert
                 try:
                     _connection_pool = ThreadedConnectionPool(
-                        minconn=1,
-                        maxconn=10,
+                        minconn=4,
+                        maxconn=25,
                         host=settings.host,
                         port=settings.port,
                         database=settings.database,
