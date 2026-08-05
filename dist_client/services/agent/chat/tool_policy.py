@@ -34,6 +34,7 @@ TOOL_EFFECTS: dict[str, ToolEffect] = {
     "provjeri": ToolEffect.READ_ONLY,
     "pretrazi_tarifu": ToolEffect.READ_ONLY,
     "pretrazi_porijeklo": ToolEffect.READ_ONLY,
+    "pretrazi_stavke": ToolEffect.READ_ONLY,
     "pronadji_slicne_proizvode": ToolEffect.READ_ONLY,
     "analiziraj_tarifne": ToolEffect.READ_ONLY,
     "predlozi_tarife": ToolEffect.PROPOSE,

@@ -24,20 +24,24 @@ PRAVILA:
 3. Za PROVJERU/validaciju ("pregledaj", "provjeri", "šta fali", "nedostaje",
    "jesu li ispravne") → zovi provjeri.
    target: application | invoice | tariffs | origin | items | header | declaration | cross_tab | xml
-4. Za pretragu tarife po nazivu ili kodu → zovi pretrazi_tarifu
-5. Za pretragu porijekla proizvoda → zovi pretrazi_porijeklo
-6. Za pronalaženje sličnih proizvoda iz istorije → zovi pronadji_slicne_proizvode
-7. Za analizu/upoređivanje tarifa sa istorijom → zovi analiziraj_tarifne
-8. Za predlaganje/popunjavanje tarifa za više stavki → zovi predlozi_tarife
-9. Za spajanje naimenovanja → zovi spoji_naimenovanja
-10. Za upis/ispravku vrijednosti u kolone → zovi upisi_u_kolonu
-11. Samo za čisto informativna pitanja NEVEZANA za carinske operacije
+4. Za PRETRAGU/BROJANJE stavki po nazivu ("koliko ima X", "koje stavke sadrže X",
+   "nađi sve X", "koliko puta se pojavljuje X") → zovi pretrazi_stavke.
+   NIKADA ne broj ručno iz prikazi/provjeri odgovora — to je nepouzdano.
+5. Za pretragu tarife po nazivu ili kodu → zovi pretrazi_tarifu
+6. Za pretragu porijekla proizvoda → zovi pretrazi_porijeklo
+7. Za pronalaženje sličnih proizvoda iz istorije → zovi pronadji_slicne_proizvode
+8. Za analizu/upoređivanje tarifa sa istorijom → zovi analiziraj_tarifne
+9. Za predlaganje/popunjavanje tarifa za više stavki → zovi predlozi_tarife
+10. Za spajanje naimenovanja → zovi spoji_naimenovanja
+11. Za upis/ispravku vrijednosti u kolone → zovi upisi_u_kolonu
+12. Samo za čisto informativna pitanja NEVEZANA za carinske operacije
     (npr. "šta je carinska tarifa?") možeš odgovoriti direktno bez alata.
-12. RAZLIKUJ: "pogledaj/prikaži" (snapshot) od "pregledaj/provjeri" (validacija)!
+13. RAZLIKUJ: "pogledaj/prikaži" (snapshot) od "pregledaj/provjeri" (validacija)!
     • "Prikaži Faktura tab" → prikazi(invoice)
     • "Pregledaj Faktura tab" → provjeri(invoice)
     • "Provjeri naimenovanje 5" → provjeri(items, scope=row, ordinals=[5])
     • "Pokaži naimenovanja" → prikazi(items)
+    • "Koliko ima SUSSINA" → pretrazi_stavke(upit="SUSSINA")
 """
 
 # ── Alati ────────────────────────────────────────────────────────────
@@ -148,6 +152,37 @@ TOOLS = [
                     }
                 },
                 "required": ["naziv"],
+                "additionalProperties": False
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "pretrazi_stavke",
+            "description": (
+                "Precizna, DETERMINISTICKA pretraga i brojanje fakturnih linija i naimenovanja "
+                "u aktivnom draftu ciji naziv/opis sadrzi zadati tekst. Koristi UVIJEK za "
+                "'koliko ima X', 'koje stavke sadrze X', 'nadji sve X' — vraca tacan broj i "
+                "listu, model NE smije sam brojati iz teksta."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "upit": {
+                        "type": "string",
+                        "description": "Tekst za pretragu (naziv proizvoda ili dio naziva)"
+                    },
+                    "target": {
+                        "type": "string",
+                        "enum": ["invoice", "items", "all"],
+                        "description": (
+                            "Gdje pretraziti: invoice=fakturne linije, items=naimenovanja, "
+                            "all=oboje. Default: all."
+                        )
+                    }
+                },
+                "required": ["upit"],
                 "additionalProperties": False
             }
         }

@@ -142,8 +142,9 @@ _REDNI = {
 }
 
 from ._tariff_handlers import TariffHandlerMixin
+from ._review_handlers import ReviewHandlerMixin
 
-class ChatIntentHandler(TariffHandlerMixin):
+class ChatIntentHandler(TariffHandlerMixin, ReviewHandlerMixin):
     """Upravljanje chat porukom — Tool Use routing (primarni) + keyword fallback."""
 
     def __init__(self, controller):
@@ -173,54 +174,6 @@ class ChatIntentHandler(TariffHandlerMixin):
     def klasificiraj_i_usmjeri(self, message: str) -> None:
         """[THUNK] → _klasificiraj_i_usmjeri"""
         _klasificiraj_i_usmjeri(self._ctrl, message)
-
-    # ═══════════════════════════════════════════════════════════════
-    # region — Naimenovanja
-    # ═══════════════════════════════════════════════════════════════
-
-    def provjeri_naimenovanja(self) -> None:
-        """[THUNK] → _provjeri_naimenovanja"""
-        _provjeri_naimenovanja(self._ctrl)
-
-    def pregledaj_naimenovanja(self, indeksi=None) -> None:
-        """[THUNK] → _pregledaj_naimenovanja"""
-        _pregledaj_naimenovanja(self._ctrl, indeksi)
-
-    # ═══════════════════════════════════════════════════════════════
-    # region — Compliance
-    # ═══════════════════════════════════════════════════════════════
-
-    def compliance_check(self) -> None:
-        """[THUNK] → _compliance_check"""
-        _compliance_check(self._ctrl)
-
-    # ═══════════════════════════════════════════════════════════════
-    # region — Spajanje naimenovanja i upis u kolonu
-    # ═══════════════════════════════════════════════════════════════
-
-    def izvrsi_spajanje_naimenovanja(self, proposals, chat) -> None:
-        """[THUNK] → _izvrsi_spajanje_naimenovanja"""
-        _izvrsi_spajanje_naimenovanja(self._ctrl, proposals, chat)
-
-    def propose_kolona_upis(self, atribut: str, vrijednost: str, tab: str = 'faktura') -> None:
-        """[THUNK] → _propose_kolona_upis"""
-        _propose_kolona_upis(self._ctrl, atribut, vrijednost, tab)
-
-    # ═══════════════════════════════════════════════════════════════
-    # region — Proposal Card
-    # ═══════════════════════════════════════════════════════════════
-
-    def show_proposal_card(self, proposal: dict) -> None:
-        """[THUNK] → _show_proposal_card"""
-        _show_proposal_card(self._ctrl, proposal)
-
-    def on_proposal_confirmed(self, values: dict) -> None:
-        """[THUNK] → _on_proposal_confirmed"""
-        _on_proposal_confirmed(self._ctrl, values)
-
-    def on_proposal_rejected(self) -> None:
-        """[THUNK] → _on_proposal_rejected"""
-        _on_proposal_rejected(self._ctrl)
 
 # ═══════════════════════════════════════════════════════════════
 # region — Implementacija: pomoćne funkcije i intent detekcija
@@ -1461,6 +1414,21 @@ def _dispatch_known_tool(ctrl, name: str, args: dict, _emit) -> None:
     elif name == "provjeri_naimenovanja":
         _provjeri_naimenovanja(ctrl)
 
+    elif name == "pretrazi_stavke":
+        upit = args.get("upit", "")
+        if upit:
+            _pretrazi_stavke(ctrl, upit, args.get("target") or "all")
+        else:
+            result = ToolResult.needs_review(
+                "pretrazi_stavke",
+                "Navedi tekst za pretragu (npr. naziv proizvoda).",
+                "lokalni tool router",
+                args=args,
+            )
+            result.next_action = "Primjer: koliko ima stavki sa SUSSINA"
+            result.effect = effect_for(name)
+            _emit(result)
+
     elif name == "upisi_u_kolonu":
         kolona = args.get("kolona", "")
         vrijednost = args.get("vrijednost", "")
@@ -2563,6 +2531,66 @@ def _pretrazi_tarifu(ctrl, upit: str) -> None:
         )
     except Exception as e:
         chat.add_agent_message(f"❌ Greška pri pretrazi tarife: {e}")
+
+def _pretrazi_stavke(ctrl, upit: str, target: str = "all") -> None:
+    """Deterministička pretraga/brojanje fakturnih linija i naimenovanja po nazivu.
+
+    Vidi agent_reports/2026-08-05_agent-pretraga-stavki-po-nazivu.md — LLM je ranije
+    morao ručno brojati stavke iz prikazi/provjeri snapshot teksta, što je davalo
+    pogrešne/nepotpune rezultate (npr. promašene stavke) na upit tipa "koliko ima X".
+    """
+    chat = ctrl.view.get_chat_panel()
+    draft = ctrl.draft
+    if not draft:
+        chat.add_agent_message("⚠️ Nema aktivnog drafta za pretragu.")
+        return
+
+    needle = upit.strip().casefold()
+    if not needle:
+        chat.add_agent_message("⚠️ Prazan upit za pretragu.")
+        return
+
+    chat.add_activity(f"🔍 Pretražujem stavke sa: '{upit}'...")
+
+    invoice_matches = []
+    if target in ("invoice", "all"):
+        for line in (draft.invoice_lines or []):
+            if needle in (line.naziv_robe or "").casefold():
+                invoice_matches.append(line)
+
+    item_matches = []
+    if target in ("items", "all"):
+        for item in (draft.items or []):
+            haystack = f"{item.goods_description or ''} {item.goods_trade_name or ''}".casefold()
+            if needle in haystack:
+                item_matches.append(item)
+
+    total = len(invoice_matches) + len(item_matches)
+    if total == 0:
+        chat.add_agent_message(f"❌ Nema stavki koje sadrže '<b>{escape(upit)}</b>'.")
+        return
+
+    parts = [f"<b>🔎 Pretraga: '{escape(upit)}'</b><br>Pronađeno: {total} rezultat(a).<br>"]
+
+    if invoice_matches:
+        parts.append(f"<br><b>Fakturne linije ({len(invoice_matches)}):</b><br>")
+        for line in invoice_matches:
+            parts.append(
+                f"&nbsp;&nbsp;• Faktura {escape(line.invoice_number or '—')}, "
+                f"red {line.line_no}: {escape(line.naziv_robe)} "
+                f"<small>(tarifa {escape(line.tarifni_broj or '—')})</small><br>"
+            )
+
+    if item_matches:
+        parts.append(f"<br><b>Naimenovanja ({len(item_matches)}):</b><br>")
+        for item in item_matches:
+            naziv = item.goods_trade_name or item.goods_description or "—"
+            parts.append(
+                f"&nbsp;&nbsp;• Rb.{item.ordinal_no}: {escape(naziv[:80])} "
+                f"<small>(tarifa {escape(item.tariff_code or '—')})</small><br>"
+            )
+
+    chat.add_agent_message("".join(parts))
 
 def _display_origin_from_mcp(ctrl, chat, upit: str, mcp_result: dict) -> None:
     """Prikaži rezultate porijekla dobijene preko MCP servera."""
