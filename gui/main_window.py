@@ -102,13 +102,16 @@ class MainWindow(QMainWindow):
         )
         tabs.addTab(self.admin_tab, self._tab_icon("fa5s.cog"), "Admin")
 
-        # Agent tab (novi - AI agent za automatsko procesiranje faktura)
-        self.agent_tab = AgentTab(
-            self,
-            draft=self.draft,
-            faktura_tab=self.faktura_tab,
-            naimenovanje_tab=self.naimenovanje_tab,
-            zaglavlje_tab=self.zaglavlje_tab,
+        # Agent tab — lazy (AI agent, težak ~277ms)
+        self.agent_tab = LazyTab(
+            lambda: AgentTab(
+                self,
+                draft=self.draft,
+                faktura_tab=self.faktura_tab,
+                naimenovanje_tab=self.naimenovanje_tab,
+                zaglavlje_tab=self.zaglavlje_tab,
+            ),
+            parent=tabs,
         )
         tabs.addTab(self.agent_tab, self._tab_icon("fa5s.robot"), "Agent")
         _t_agent = time.perf_counter()
@@ -117,7 +120,7 @@ class MainWindow(QMainWindow):
         # Vidi: docs/decisions/002-tool-dispatcher-integration.md
         if hasattr(self.faktura_tab, 'naimenovanja_created'):
             self.faktura_tab.naimenovanja_created.connect(
-                self.agent_tab.controller.auto_provjeri_naimenovanja
+                lambda: self.agent_tab.ensure_initialized().controller.auto_provjeri_naimenovanja()
             )
             self.faktura_tab.naimenovanja_created.connect(
                 self._on_autosave_after_naimenovanja
