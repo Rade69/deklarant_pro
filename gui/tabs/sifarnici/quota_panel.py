@@ -343,8 +343,15 @@ class QuotaPanel(QWidget):
 
     # ── Osvježi ───────────────────────────────────────────────
 
+    def _worker_running(self) -> bool:
+        try:
+            return self._worker is not None and self._worker.isRunning()
+        except RuntimeError:
+            self._worker = None
+            return False
+
     def _on_refresh_clicked(self):
-        if self._worker and self._worker.isRunning():
+        if self._worker_running():
             return
         self.btn_refresh.setEnabled(False)
         self.lbl_status.setText("Preuzimanje UINO PDF izvještaja…")
@@ -356,6 +363,7 @@ class QuotaPanel(QWidget):
         self._worker.start()
 
     def _on_refresh_success(self, snapshot_id: int, status: str):
+        self._worker = None
         self.btn_refresh.setEnabled(True)
         self._snapshot_id = snapshot_id
 
@@ -377,6 +385,7 @@ class QuotaPanel(QWidget):
                 self.lbl_status.setText(f"Greška pri prikazu: {e}")
 
     def _on_refresh_error(self, msg: str):
+        self._worker = None
         self.btn_refresh.setEnabled(True)
         self.lbl_status.setText("Greška pri preuzimanju.")
 
