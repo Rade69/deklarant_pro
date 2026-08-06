@@ -1,4 +1,4 @@
-import os
+﻿import os
 from copy import deepcopy
 from dataclasses import fields
 from pathlib import Path
@@ -22,7 +22,6 @@ from config.settings import get_path_settings
 from core.draft import DeclarationDraft
 from gui.tabs.tab_factory import get_tab_factory
 from gui.tabs.lazy_tab import LazyTab
-from gui.tabs.admin_tab import AdminTab
 from gui.tabs.agent_tab import AgentTab
 from gui.utils.display_profile import display_key_for_screen, profile_for_screen
 from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
@@ -92,8 +91,11 @@ class MainWindow(QMainWindow):
         )
         tabs.addTab(self.sifarnici_tab, self._tab_icon("fa5s.list-alt"), "Šifrarnici")
 
-        # Admin tab (novi - plugin manager, settings, database, analytics, logs, system info)
-        self.admin_tab = AdminTab(self)
+        # Admin tab (lazy import + lazy init)
+        self.admin_tab = LazyTab(
+            lambda: (__import__('gui.tabs.admin_tab', fromlist=['AdminTab']).AdminTab)(self),
+            parent=tabs,
+        )
         tabs.addTab(self.admin_tab, self._tab_icon("fa5s.cog"), "Admin")
 
         # Agent tab (novi - AI agent za automatsko procesiranje faktura)
@@ -599,6 +601,34 @@ class MainWindow(QMainWindow):
 
         if self._restore_maximized:
             self.showMaximized()
+
+        self._check_db_connection()
+
+    def _check_db_connection(self):
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(800, self._do_db_check)
+
+    def _do_db_check(self):
+        from PySide6.QtWidgets import QMessageBox
+        try:
+            from database.db import get_db_connection
+            with get_db_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT version()")
+                    ver = cur.fetchone()['version'].split(',')[0]
+            QMessageBox.information(
+                self, "Baza podataka",
+                f"✅ Konekcija sa bazom podataka je uspješno uspostavljena.\n\n"
+                f"Server: PostgreSQL {ver}"
+            )
+        except Exception as e:
+            QMessageBox.warning(
+                self, "Baza podataka — greška",
+                f"Nije moguće povezati se na bazu podataka.\n\n"
+                f"{e}\n\n"
+                "Provjerite da li je PostgreSQL server pokrenut i da li su "
+                "podaci za konekciju ispravni u .env fajlu."
+            )
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)

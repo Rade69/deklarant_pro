@@ -22,7 +22,6 @@ from config.settings import get_path_settings
 from core.draft import DeclarationDraft
 from gui.tabs.tab_factory import get_tab_factory
 from gui.tabs.lazy_tab import LazyTab
-from gui.tabs.admin_tab import AdminTab
 from gui.tabs.agent_tab import AgentTab
 from gui.utils.display_profile import display_key_for_screen, profile_for_screen
 from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
@@ -92,8 +91,11 @@ class MainWindow(QMainWindow):
         )
         tabs.addTab(self.sifarnici_tab, self._tab_icon("fa5s.list-alt"), "Šifrarnici")
 
-        # Admin tab (novi - plugin manager, settings, database, analytics, logs, system info)
-        self.admin_tab = AdminTab(self)
+        # Admin tab (lazy import + lazy init)
+        self.admin_tab = LazyTab(
+            lambda: (__import__('gui.tabs.admin_tab', fromlist=['AdminTab']).AdminTab)(self),
+            parent=tabs,
+        )
         tabs.addTab(self.admin_tab, self._tab_icon("fa5s.cog"), "Admin")
 
         # Agent tab (novi - AI agent za automatsko procesiranje faktura)
