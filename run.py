@@ -195,17 +195,10 @@ def main():
                 f"MCP server nije pokrenut: {e}"
             )
 
-        _t3 = time.perf_counter()
         window = MainWindow()
-        _t_mainwindow = time.perf_counter()
         window.show()
-        _t_show = time.perf_counter()
-        _startup_ms = (_t_show - _t0) * 1000
-        logging.getLogger("deklarant_pro").warning(
-            f"⏱️ Startup: {_startup_ms:.0f}ms "
-            f"(mainwindow={(_t_mainwindow - _t3)*1000:.0f}ms, "
-            f"show={(_t_show - _t_mainwindow)*1000:.0f}ms)"
-        )
+        _startup_ms = (time.perf_counter() - _t0) * 1000
+        logging.getLogger("deklarant_pro").warning(f"⏱️ Startup: {_startup_ms:.0f}ms")
 
         # Autosave recovery — ponudi oporavak ako postoji nesačuvan rad
         _check_autosave_on_startup(window)
