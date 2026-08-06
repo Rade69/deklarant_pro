@@ -29,6 +29,8 @@ from gui.utils.safe_message_box import SafeMessageBox as QMessageBox
 
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
+        import time
+        _t0 = time.perf_counter()
         super().__init__()
         self.setWindowTitle("Deklarant Pro")
 
@@ -42,6 +44,7 @@ class MainWindow(QMainWindow):
 
         # 1. Učitaj stilove
         self.load_stylesheet()
+        _t_styles = time.perf_counter()
 
         # 2. Inicijalizacija draft-a
         self.draft = DeclarationDraft()
@@ -69,6 +72,7 @@ class MainWindow(QMainWindow):
         self.faktura_tab = tab_factory.create_tab('faktura', self.draft, self._on_dirty, tabs)
         tabs.addTab(self.faktura_tab, self._tab_icon("fa5s.file-alt"), "Faktura")
         self._apply_faktura_display_profile()
+        _t_faktura = time.perf_counter()
 
         # Naimenovanja — lazy (QUiLoader + widget cache, inicijalizuje se pri prvom kliku)
         self.naimenovanje_tab = LazyTab(
@@ -107,6 +111,7 @@ class MainWindow(QMainWindow):
             zaglavlje_tab=self.zaglavlje_tab,
         )
         tabs.addTab(self.agent_tab, self._tab_icon("fa5s.robot"), "Agent")
+        _t_agent = time.perf_counter()
 
         # Poveži FakturaView signal na agent controller za auto-provjeru naimenovanja
         # Vidi: docs/decisions/002-tool-dispatcher-integration.md
@@ -138,6 +143,14 @@ class MainWindow(QMainWindow):
         self.btn_exit_app.raise_()
         self.btn_exit_app.show()
         self._position_exit_button()
+        _t_end = time.perf_counter()
+        logging.getLogger("deklarant_pro").warning(
+            f"⏱️ MainWindow init: {(_t_end - _t0)*1000:.0f}ms "
+            f"(styles={(_t_styles - _t0)*1000:.0f}ms, "
+            f"faktura={(_t_faktura - _t_styles)*1000:.0f}ms, "
+            f"agent={(_t_agent - _t_faktura)*1000:.0f}ms, "
+            f"rest={(_t_end - _t_agent)*1000:.0f}ms)"
+        )
 
     def _setup_keyboard_shortcuts(self) -> None:
         self._main_tab_shortcuts = []
