@@ -178,47 +178,43 @@ class TariffSuggestionDialog(QDialog):
 
     def _setup_ui(self):
         """Setup kompletnog UI-a."""
-        # Global stylesheet za bolji rendering
         self.setStyleSheet("""
-            QDialog {
-                background-color: #FAFAFA;
-            }
-            QLabel {
-                color: #212121;
-            }
+            QDialog { background-color: #FAFAFA; }
+            QLabel { color: #212121; }
         """)
 
         layout = QVBoxLayout(self)
-        layout.setSpacing(16)
-        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(0)
+        layout.setContentsMargins(0, 0, 0, 0)
 
-        # Header sekcija
-        header_widget = self._create_header()
-        layout.addWidget(header_widget)
+        # Scrollable body
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setStyleSheet("QScrollArea { border: none; }")
 
-        # Separator
-        layout.addWidget(self._create_separator())
+        body = QWidget()
+        body_layout = QVBoxLayout(body)
+        body_layout.setSpacing(12)
+        body_layout.setContentsMargins(20, 16, 20, 8)
 
-        # Prijedlozi sekcija
-        suggestions_widget = self._create_suggestions_section()
-        layout.addWidget(suggestions_widget)
+        body_layout.addWidget(self._create_header())
+        body_layout.addWidget(self._create_separator())
+        body_layout.addWidget(self._create_suggestions_section())
+        body_layout.addWidget(self._create_separator())
 
-        # Separator
-        layout.addWidget(self._create_separator())
-
-        # Upozorenje za postojeći tarifni broj (ako postoji)
         if self.current_item.tariff_code:
-            warning_widget = self._create_warning_section()
-            layout.addWidget(warning_widget)
-            layout.addWidget(self._create_separator())
+            body_layout.addWidget(self._create_warning_section())
+            body_layout.addWidget(self._create_separator())
 
-        # Akcije sekcija (checkboxes)
-        actions_widget = self._create_actions_section()
-        layout.addWidget(actions_widget)
+        body_layout.addWidget(self._create_actions_section())
+        body_layout.addStretch()
 
-        # Buttons sekcija
-        buttons_widget = self._create_buttons_section()
-        layout.addWidget(buttons_widget)
+        scroll.setWidget(body)
+        layout.addWidget(scroll, 1)
+
+        # Fixed buttons at bottom
+        layout.addWidget(self._create_buttons_section())
 
     def _create_header(self) -> QWidget:
         """Kreira header sa informacijama o proizvodu."""
