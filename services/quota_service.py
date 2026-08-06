@@ -179,53 +179,55 @@ def _hash_file(path: str) -> str:
 # =========================================================
 
 def ensure_tables():
-    """Kreira tabele ako ne postoje (idempotentno)."""
+    """Kreira tabele ako ne postoje (idempotentno). Ako nema privilegija, oslanja se na postojeće."""
     from database.db import get_db_connection
-    with get_db_connection() as conn:
-        with conn.cursor() as cur:
-            # Proveri da li tabele već postoje — izbegava InsufficientPrivilege
-            cur.execute("""
-                SELECT EXISTS (
-                    SELECT FROM information_schema.tables
-                    WHERE table_schema = 'catalogs' AND table_name = 'quota_snapshots'
-                )
-            """)
-            if not cur.fetchone()['exists']:
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
                 cur.execute("""
-                    CREATE TABLE catalogs.quota_snapshots (
-                        id SERIAL PRIMARY KEY,
-                        source_url TEXT NOT NULL,
-                        report_datetime TIMESTAMP,
-                        downloaded_at TIMESTAMP NOT NULL DEFAULT NOW(),
-                        pdf_hash TEXT UNIQUE,
-                        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.tables
+                        WHERE table_schema = 'catalogs' AND table_name = 'quota_snapshots'
                     )
                 """)
-            cur.execute("""
-                SELECT EXISTS (
-                    SELECT FROM information_schema.tables
-                    WHERE table_schema = 'catalogs' AND table_name = 'quota_snapshot_items'
-                )
-            """)
-            if not cur.fetchone()['exists']:
+                if not cur.fetchone()['exists']:
+                    cur.execute("""
+                        CREATE TABLE catalogs.quota_snapshots (
+                            id SERIAL PRIMARY KEY,
+                            source_url TEXT NOT NULL,
+                            report_datetime TIMESTAMP,
+                            downloaded_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                            pdf_hash TEXT UNIQUE,
+                            created_at TIMESTAMP NOT NULL DEFAULT NOW()
+                        )
+                    """)
                 cur.execute("""
-                    CREATE TABLE catalogs.quota_snapshot_items (
-                        id SERIAL PRIMARY KEY,
-                        snapshot_id INTEGER NOT NULL
-                            REFERENCES catalogs.quota_snapshots(id) ON DELETE CASCADE,
-                        tariff_code TEXT NOT NULL,
-                        description TEXT,
-                        approved_qty NUMERIC,
-                        used_qty NUMERIC,
-                        remaining_qty NUMERIC,
-                        unit TEXT,
-                        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.tables
+                        WHERE table_schema = 'catalogs' AND table_name = 'quota_snapshot_items'
                     )
                 """)
-            cur.execute("""
-                CREATE INDEX IF NOT EXISTS idx_quota_items_tariff
-                    ON catalogs.quota_snapshot_items (tariff_code)
-            """)
+                if not cur.fetchone()['exists']:
+                    cur.execute("""
+                        CREATE TABLE catalogs.quota_snapshot_items (
+                            id SERIAL PRIMARY KEY,
+                            snapshot_id INTEGER NOT NULL
+                                REFERENCES catalogs.quota_snapshots(id) ON DELETE CASCADE,
+                            tariff_code TEXT NOT NULL,
+                            description TEXT,
+                            approved_qty NUMERIC,
+                            used_qty NUMERIC,
+                            remaining_qty NUMERIC,
+                            unit TEXT,
+                            created_at TIMESTAMP NOT NULL DEFAULT NOW()
+                        )
+                    """)
+                cur.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_quota_items_tariff
+                        ON catalogs.quota_snapshot_items (tariff_code)
+                """)
+    except Exception as e:
+        logger.debug("ensure_tables preskočeno (pretpostavljam da tabele već postoje): %s", e)
 
 
 def snapshot_exists(pdf_hash: str) -> Optional[int]:
