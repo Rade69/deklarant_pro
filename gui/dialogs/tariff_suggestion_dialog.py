@@ -157,14 +157,14 @@ class TariffSuggestionDialog(QDialog):
         self.setWindowTitle("💡 Prijedlog tarifnog broja")
         self.setMinimumWidth(650)
         self.setMinimumHeight(400)
-        self.resize(850, 520)
+        self.resize(850, 700)
 
         from PySide6.QtWidgets import QApplication
         screen = QApplication.primaryScreen()
         if screen:
             geo = screen.availableGeometry()
             x = (geo.width() - 850) // 2
-            y = (geo.height() - 520) // 2 - 200
+            y = (geo.height() - 700) // 2 - 200
             self.move(max(0, x), max(0, y))
 
         # Bolji font rendering
