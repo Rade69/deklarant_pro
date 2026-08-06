@@ -79,3 +79,13 @@ YYYY-MM-DD
 
 ## Potrebna korisnička potvrda
 <<< šta korisnik treba ručno provjeriti (npr. vizuelni izgled, ponašanje na stvarnim podacima). "Nema" ako ništa ne zahtijeva ručnu potvrdu. >>>
+
+## Ljudsko usvajanje rezultata
+<!-- Popunjava ODGOVORNA OSOBA nakon pregleda ovog izvještaja — NE agent koji ga je napisao. Prazno dok se ne pregleda; agentovo popunjavanje ovog polja u svoje ime se ne računa. -->
+- Odgovorna osoba: <<< >>>
+- Izvještaj pročitan u cijelosti: <<< DA/NE >>>
+- Ključne odluke razumljive i prihvaćene: <<< DA/NE/PARCIJALNO >>>
+- Ključne tvrdnje/rezultati provjereni (ne samo agentova tvrdnja da radi): <<< DA/NE/NIJE PRIMJENJIVO >>>
+- Rezultat predstavlja stvarno prihvaćeno stanje: <<< DA/NE >>>
+- Dijelovi koji još nisu ljudski potvrđeni: <<< >>>
+- Dozvoljena naredna akcija: <<< npr. merge/deploy/nastavak sledeće faze — ili "nijedna dok se ne potvrdi" >>>
