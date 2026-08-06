@@ -71,9 +71,38 @@ Za svaki worktree: provjera commit-ahead + uncommitted status → provjera SADR�
 Nema preostalih rizika za uklonjena 4 worktree-a (potvrđeno prazna/apsorbovana prije brisanja). `agent-v2` i `codex-faktura-toolbar` i dalje zauzimaju ~550 MB i ostaju neriješeni.
 
 ## Potreban follow-up
-1. Odluka o `agent-v2` — da li je `feat(obavjestenja): dodaj zvuk zavrsetka procesa` već pokriven onim što je stiglo u `windows` preko `merge-process-sounds`, i da li su 2 planning dokumenta (Pi agent) i dalje relevantna naspram trenutnog stanja `naimenovanja-3layer` plana (koji sada, nakon cherry-pick-a, ima najnovije review nalaze).
-2. `codex-faktura-toolbar` — provjeriti sa korisnikom da li je Codex-ov rad na Faktura toolbar redizajnu još uvijek u toku prije bilo kakve akcije.
-3. Ostatak `TECHNICAL_DEBT_AUDIT.md` (root dokumenti, `dist_client/.venv`, `__pycache__`, veći strukturni refaktori) — nije obrađeno ovim zadatkom.
+Ostatak `TECHNICAL_DEBT_AUDIT.md` (root dokumenti, `dist_client/.venv`, `__pycache__`, veći
+strukturni refaktori) — nije obrađeno ovim zadatkom.
 
 ## Potrebna korisnička potvrda
-Odluka o `agent-v2` i `codex-faktura-toolbar` (vidi "Potreban follow-up").
+Nema.
+
+---
+
+## Dopuna (isti dan) — agent-v2 i codex-faktura-toolbar takođe uklonjeni
+
+Korisnik potvrdio da su oba funkcionalno pokrivena u `windows`. Nezavisno provjereno prije
+brisanja (ne samo prihvaćeno na riječ):
+
+- **`agent-v2`** (7 commit-a, nikad doslovno mergovano): `feat(obavjestenja): dodaj zvuk
+  zavrsetka procesa` (`08a83e1`) je kreirao `services/completion_sound_service.py` —
+  `windows` ima `services/process_completion_sound.py`, DRUGO ime/implementacija, potvrđeno
+  da postoji i da radi (funkcionalno pokriveno, drugim putem). Planning dokumenti (Pi,
+  2026-07-26) o naimenovanja 3layer refaktoru superseded stvarnim mergovanim refaktorom
+  (`agent_reports/2026-07-28_merge-naimenovanja-3layer-u-windows.md`,
+  `2026-08-03_naimenovanja-3layer-zatvaranje.md` — refaktor je mergovan i ZATVOREN). Preostala
+  2 commita (BOM/trailing-newline u `import_pipeline_service.py`) trivijalni, fajl otad
+  višestruko prepisan (Nivo 3/4 refaktor).
+- **`codex-faktura-toolbar`** (0 commit-a ispred — potvrđeno da je istorija već u `windows`;
+  74 necommitovanih fajlova): uzorkovan diff na više fajlova (`faktura_view.py`,
+  `agent_controller.py`, `chat_intent_handler.py`, `naimenovanja_view.py`) — necommitovane
+  izmjene su djelimičan, zastarjeli pokušaj usklađivanja import putanja (npr.
+  `services.validation_service` → `services.validation.validation_service`) koji je SAM
+  nadmašen kasnijim, mnogo dubljim refaktorom servisa (`services/faktura/*` modularizacija) —
+  ni stara ni "nova" strana necommitovanog diffa se više ne poklapaju sa stvarnim `windows`
+  stanjem. Ništa vrijedno za spasiti.
+
+Necommitovano odbačeno (`checkout -- .` + `clean -fd` za agent-v2, koji je imao i 2 nova
+netrackovana fajla — stari nacrt naimenovanja plana i test fajl, oba superseded kako je gore
+objašnjeno). Oba worktree-a uklonjena. `.worktrees/` sada prazan (bio 1.5 GB na početku
+zadatka).

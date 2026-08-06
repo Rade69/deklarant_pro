@@ -4515,3 +4515,16 @@ odgovara, promjena odbačena. `.worktrees/` smanjen sa 1.5 GB na 550 MB.
 `agent-v2` (7 commit-a ispred, mješavina) i `codex-faktura-toolbar`
 (Codex-ov aktivan rad) namjerno nedirani, ostaju za buduću odluku. Puni
 izvještaj: `agent_reports/2026-08-06_worktree-cleanup-tehnicki-dug-audit-review.md`.
+
+**Dopuna (isti dan)**: korisnik potvrdio da su oba funkcionalno pokrivena u
+`windows`. Nezavisno provjereno prije brisanja: `agent-v2`-ov zvučni fix
+(`08a83e1`, `services/completion_sound_service.py`) pokriven drugom
+implementacijom (`services/process_completion_sound.py`); njegovi planning
+dokumenti (Pi, 2026-07-26) superseded stvarnim mergovanim i ZATVORENIM
+naimenovanja-3layer refaktorom (`agent_reports/2026-07-28_merge-
+naimenovanja-3layer-u-windows.md`, `2026-08-03_..._zatvaranje.md`).
+`codex-faktura-toolbar`-ovih 74 necommitovanih fajlova je zastarjeli,
+nedovršen pokušaj usklađivanja import putanja koji je sam nadmašen
+kasnijim `services/faktura/*` refaktorom — ni stara ni "nova" strana
+diffa se više ne poklapa sa `windows`. Oba uklonjena. `.worktrees/` sada
+potpuno prazan (bio 1.5 GB).
