@@ -4488,3 +4488,30 @@ permission-denied bug na `catalogs.exporter_xml_index` popravio, ne bi
 riješio ovu klasu problema za nove proizvode. Nije popravljeno, samo
 zabilježeno. Puni izvještaj:
 `agent_reports/2026-08-06_sussina-db-backfill-source-i-brisanje-pogresne-mape.md`.
+
+## 2026-08-06 — Worktree čišćenje: nezavisna provjera Crush tehničkog duga audita
+
+Crush je vratio `docs/TECHNICAL_DEBT_AUDIT.md` (cijeli projekat) sa
+preporukom "Odmah (nisko rizično): obrisati `.worktrees/` (1.5 GB) — stari
+paralelni branch-evi, više nisu potrebni". Prije prihvatanja, provjereno
+za svih 6 worktree-a `git rev-list --count windows..<branch>` +
+necommitovan status: **2 od 6 su imala stvaran, nemergovan sadržaj**
+(`naimenovanja-3layer` — 1 commit sa vrijednim review nalazom, 43
+nemapirane FakturaView metode, potvrđeno grepom da NIJE u windows kopiji
+ciljnog fajla; `codex-faktura-toolbar` — 74 necommitovanih fajlova,
+Codex-ov aktivan rad, potvrđeno ranijim izvještajem od 23.7.). Crush-ova
+"nisko rizično" preporuka bi bez provjere obrisala oba.
+
+Postupak: worktree-po-worktree. Uklonjena 4 potvrđeno prazna/apsorbovana
+(`merge-process-sounds`, `process-completion-sounds`, `faktura-3layer`,
+`naimenovanja-3layer`) — ali tek nakon cherry-pick-a vrijednog commit-a iz
+`naimenovanja-3layer` (`8c754c5` → `windows` kao `fb72817`). Usput otkrivena
+i necommitovana geometrijska UI promjena dijeljena između `faktura-3layer`
+i `naimenovanja-3layer` (Rub.31 polja u Naimenovanjima pomjerena naviše,
+zatvara 33px/28px razmake) — provjereno `git log --all -S` da nije
+commitovana NIGDJE (ne samo nemergovana), korisniku objašnjen tačan
+vizuelni efekat prije odluke — korisnik odlučio da mu trenutni raspored
+odgovara, promjena odbačena. `.worktrees/` smanjen sa 1.5 GB na 550 MB.
+`agent-v2` (7 commit-a ispred, mješavina) i `codex-faktura-toolbar`
+(Codex-ov aktivan rad) namjerno nedirani, ostaju za buduću odluku. Puni
+izvještaj: `agent_reports/2026-08-06_worktree-cleanup-tehnicki-dug-audit-review.md`.
