@@ -4453,3 +4453,38 @@ ključ i za sum/avg granu, formatter u `chat_intent_handler.py` sad ispisuje
 listu (Rb./red + naziv + vrijednost), ograničeno na 20. Testovi ažurirani da
 provjere prisustvo liste (pukli bi na staroj implementaciji). Commit `0f43f5c`.
 Puni izvještaj: `agent_reports/2026-08-05_agent-agregiraj-sum-lista-stavki-fix.md`.
+
+## 2026-08-06 — SUSSINA (nastavak §27-29/§64/§88): DB backfill izvora + brisanje recidiva pogrešne mape
+
+Korisnik prijavio da SUSSINA i dalje izostaje iz "Automatski ažurirane
+tarife" dijaloga. Potvrđeno: nije nov bug — isti "nema potvrđenog izvora"
+problem iz §65/§88 (26-28.7.2026), politika koja je NAMJERNO ostavljena
+stroga nakon što je pokušano ublažavanje pa eksplicitno povučeno (rizik
+sankcija za pogrešnu carinsku tarifu). Direktan DB upit potvrdio 4 "čista"
+SUSSINA zapisa (usage 43-55) i dalje bez izvora.
+
+Šira pretraga (`ILIKE '%SUSSINA%'` umjesto tačnog imena) otkrila 38
+dodatnih zapisa — uključujući **recidiv poznatog bug obrasca**: 3 zapisa
+sa POGREŠNOM tarifom 38249993 (ista greška koju je §37 22.7. već
+"očistio" kad je usage bio 2) — sad narasla na usage_count=21. Radna
+hipoteza: suzbijanje ispravnog prijedloga tjera korisnike da nesvjesno
+potvrde pogrešnu tarifu, koja se onda `learn_from_draft()`-om ponovo uči
+— vicioznu ciklus.
+
+Korisnik odobrio dvokorak (nakon što sam prijavio širu sliku, ne samo
+originalno pretpostavljena "4 zapisa"): (1) obrisati 3 pogrešna
+38249993 reda, (2) upisati izvor u 4 ispravna reda. Prije upisa,
+nezavisno provjeren pravi izvoznik kroz 25 stvarnih XML fajlova
+(`data/knowledge_base/NOVA ASIKUDA/`) — **"MEDICO PHARM SERVIS"**
+(Beograd), NE "Medicopharm" (to je domaći uvoznik). Transakcija
+izvršena sa `RETURNING` verifikacijom; `decide_tariff_match()` direktno
+pozvan i potvrđuje `SHOW_STRONG` umjesto `SUPPRESS` za identičan
+scenario. Opšta "nikad bez izvora" politika NIJE ponovo otvarana —
+korisnik eksplicitno odbio tu opciju, samo ciljan podatkovni backfill.
+
+**Uzgredni nalaz**: `sync_tariff_knowledge_base()` (Admin "Učenje iz
+XML-ova") ne upisuje `source` kolonu uopšte — čak i kad bi se jutrošnji
+permission-denied bug na `catalogs.exporter_xml_index` popravio, ne bi
+riješio ovu klasu problema za nove proizvode. Nije popravljeno, samo
+zabilježeno. Puni izvještaj:
+`agent_reports/2026-08-06_sussina-db-backfill-source-i-brisanje-pogresne-mape.md`.
