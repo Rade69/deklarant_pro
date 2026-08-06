@@ -27,17 +27,13 @@ class FakturaTab(QWidget):
         parent: Optional[QWidget] = None,
     ):
         super().__init__(parent)
-        import time
-        _t0 = time.perf_counter()
         self.view = FakturaView(draft=draft, on_dirty=on_dirty)
-        _t_view = time.perf_counter()
         self.view.data_changed.connect(self.data_changed)
 
         # Composition root (Faza 1)
         self.controller = FakturaController(
             get_draft_fn=lambda: self.view.draft,
         )
-        _t_ctrl = time.perf_counter()
         self.view.set_controller(self.controller)
 
         # ── Signal wiring (Faza 4-7B) ──────────────────────────
@@ -54,13 +50,6 @@ class FakturaTab(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.view)
-        _t_end = time.perf_counter()
-        logger.warning(
-            f"⏱️ FakturaTab init: {(_t_end - _t0)*1000:.0f}ms "
-            f"(view={(_t_view - _t0)*1000:.0f}ms, "
-            f"ctrl={(_t_ctrl - _t_view)*1000:.0f}ms, "
-            f"rest={(_t_end - _t_ctrl)*1000:.0f}ms)"
-        )
 
     # ── Signal handleri (delegiraju na Controller) ────────────────
 
