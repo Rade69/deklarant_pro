@@ -4575,3 +4575,40 @@ stvarnog `ZaglavljeView.get_data()` na mock QTableWidget-u (N380/DIS/DV1
 → `from_rule=True`, PZT → `False`) + `ZaglavljeService.save_to_draft()`
 potvrđeno ispravno prenosi flag u `AttachedDocument`. Commit `9a9d993`.
 Puni izvještaj: `agent_reports/2026-08-07_asycuda-from-rule-crveni-redovi.md`.
+
+## 2026-08-08 — DUIM po stavci: naučeno pravilo iz ASYCUDA istorije, ne header-level fix
+
+Korisnik je potvrdio da je N380/DIS/DV1 fix (§ iznad) ispravan na stvarnom
+uvozu, ali je dao drugi round-trip test (BLAGIĆ-LOREN-7-8) koji je otkrio
+DRUGI, arhitektonski drugačiji problem sa DUIM šifrom (Rb.44, "Međunarodni
+uvozni certifikat za robu dvojne namjene"). Za razliku od N380/DIS/DV1
+(header dokumenti, jednom po deklaraciji), DUIM je PO STAVCI — svaka stavka
+čiji tarifni broj ASYCUDA-in interni rule engine prepoznaje dobija svoj DUIM
+zapis. Naš exporter je DUIM pisao samo na Item 1 (header-level konvencija),
+pa je ASYCUDA generisala prazan per-item stub na svakoj relevantnoj stavci
+(~15 crvenih redova za jednu deklaraciju od 39 stavki — gore nego prvobitni
+bug). Ista popravka (`FROM_RULE_CODES` set) koja je riješila N380/DIS/DV1
+bila je NETAČNA za DUIM iako je površno izgledala kao ista klasa buga —
+treći put potvrđena pouka da kontraprimjer/round-trip na više deklaracija
+obara prvu (uopštenu) dijagnozu.
+
+Drugi agent (Codex) je predložio dvoslojno rješenje i pripremio SQLite bazu
+zvanične BiH Liste robe dvojne namjene (Sl. glasnik 65/19, 362 kontrolna
+zapisa). Nezavisno provjereno (AGENTS.md "tuđi predlog koda") — baza je
+legitimna, ali potvrđeno da NIJE HS-kod tabela: kontrolni zapisi (npr.
+2A001/2A101 ležajevi) zahtijevaju precizne tehničke kriterijume (ISO 492
+klasa 2 tolerancije), ne bilo koji ležaj pod tim HS kodom. Korisnik je
+eksplicitno odlučio: jedino praktično rješenje je učiti PO STAVCI koje
+tarifne brojeve je ASYCUDA ranije u stvarnim deklaracijama označila DUIM-om
+(from_rule=1), uvijek sa tekstom "ROBA NIJE DVOJNE NAMJENE" (potvrđeno da
+carina to prihvata). Zvanična lista NIJE korišćena za automatsku odluku.
+
+Implementacija: `exporter_xml_indexer.py::sync_duim_rule_knowledge_base()`
+skenira SVE XML-ove direktno iz `docs/NOVA ASIKUDA/` foldera (NE preko
+`exporter_xml_index`, koji čuva samo najnoviji XML po paru exporter+primalac
+— bio bi izgubio stariji fajl sa dodatnim potvrđenim šiframa), upisuje u
+novu `catalogs.tariff_duim_rules` tabelu. `asycuda_xml_builder.py` dodaje
+DUIM po stavci za naučene tarifne brojeve; `zaglavlje_view.py` DUIM uklonjen
+iz header-level `FROM_RULE_CODES`. Seed: 19 potvrđenih tarifnih brojeva iz 2
+realna XML-a. Commit `f427261`. Puni izvještaj:
+`agent_reports/2026-08-08_duim-per-item-naucen-model.md`.
