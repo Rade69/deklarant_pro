@@ -64,7 +64,6 @@ hidden_imports = [
     'importers.vendors.blagic.blagic_attos_importer',
     'importers.vendors.blagic.blagic_loren_importer',
     'importers.vendors.blagic.blagic_loren_pdf_parser',
-    'importers.vendors.blagic.blagic_importer',
     'importers.vendors.imamoglu.imamoglu_pdf_parser',
     'importers.vendors.leburic.leburic_pekabesko_importer',
     'importers.smart_pdf_importer',
@@ -76,6 +75,32 @@ hidden_imports = [
     # QtAwesome (ikone)
     'qtawesome',
     'qtawesome.iconic_font',
+
+    # Admin tab (lazy loaded, PyInstaller ne detektuje)
+    'gui.tabs.admin_tab',
+    'gui.tabs.admin.admin_view',
+    'gui.tabs.admin.admin_controller',
+    'gui.tabs.admin.panels',
+    'gui.tabs.admin.panels.plugin_panel',
+    'gui.tabs.admin.panels.database_panel',
+    'gui.tabs.admin.panels.logs_panel',
+    'gui.tabs.admin.panels.system_panel',
+    'gui.tabs.admin.panels.analytics_panel',
+    'gui.tabs.admin.panels.license_panel',
+    'gui.tabs.admin.panels.learning_panel',
+    'gui.tabs.admin.panels.settings_panel',
+    'gui.tabs.admin.panels.styles',
+    'services.admin.admin_service',
+    'services.admin.plugin_service',
+    'services.admin.settings_service',
+    'services.admin.backup_service',
+    'services.admin.log_service',
+    'services.admin.analytics_service',
+
+    # LLM / AI provideri (Agent tab)
+    'google.genai',
+    'google.generativeai',
+    'groq',
 ]
 
 # ─── Data fajlovi ─────────────────────────────────────────────────────────────
@@ -92,6 +117,7 @@ datas = [
     (str(ROOT / 'assets'),                      'assets'),
 
     # SQLite baze koje se distribuiraju uz aplikaciju
+    (str(ROOT / 'database' / 'deklarant_sistem.db'),   'database'),
     (str(ROOT / 'database' / 'zvanicna_tarifa.db'),    'database'),
     (str(ROOT / 'database' / 'inspection_rules.db'),   'database'),
 

@@ -147,6 +147,37 @@ def _check_license_on_startup(parent=None):
         )
 
 
+def _check_env_on_startup(parent=None):
+    """Provjeri da li .env fajl postoji. Ako ne, prikaži uputstvo."""
+    import os
+    from pathlib import Path
+
+    exe_dir = Path(os.path.dirname(os.path.abspath(__file__)))
+    env_path = exe_dir / ".env"
+    if env_path.exists():
+        return
+
+    example_path = exe_dir / ".env.example"
+    if not example_path.exists():
+        # Frozen build — traži u _internal/
+        if getattr(sys, 'frozen', False):
+            example_path = Path(sys._MEIPASS) / ".env.example"
+
+    if not example_path.exists():
+        return
+
+    QMessageBox.warning(
+        parent,
+        "Konfiguracija baze podataka",
+        "⚠️ .env fajl nije pronađen!\n\n"
+        f"Molimo kopirajte .env.example u .env i popunite podatke:\n"
+        f"1. Otvorite folder: {exe_dir}\n"
+        f"2. Kopirajte .env.example → .env\n"
+        f"3. Uredite .env sa vašim DB kredencijalima\n\n"
+        f" Bez ovoga aplikacija ne može da se poveže na bazu podataka."
+    )
+
+
 def main():
     import time
     _t0 = time.perf_counter()
@@ -205,6 +236,9 @@ def main():
 
         # Licenca provera — ne blokira aplikaciju, samo upozorenje
         _check_license_on_startup(window)
+
+        # .env provera — upozorenje ako ne postoji
+        _check_env_on_startup(window)
     except Exception as e:
         import traceback
         msg = QMessageBox()
