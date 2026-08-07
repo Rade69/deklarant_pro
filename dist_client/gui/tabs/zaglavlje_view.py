@@ -2444,7 +2444,10 @@ class ZaglavljeView(BaseTabView):
         # za ove šifre (potvrđeno na ASYCUDA-nativnim XML fajlovima) — bez tog taga
         # ASYCUDA ne prepoznaje već upisan dokument kao ispunjenje pravila i dodaje
         # svoj prazan duplikat (crveni red "nepotpuno" pri uvozu).
-        FROM_RULE_CODES = {"N380", "DIS", "DV1", "DUIM"}
+        # DUIM namjerno IZOSTAVLJEN — sad se dodaje automatski PO STAVCI u
+        # exporteru (_get_duim_tariff_codes), ne kao header-level ručni unos.
+        # Vidi project_rooms/2026-08-07_duim-per-item-nauceno-pravilo.md
+        FROM_RULE_CODES = {"N380", "DIS", "DV1"}
         if self.table:
             attached_docs = []
             for row in range(self.table.rowCount()):

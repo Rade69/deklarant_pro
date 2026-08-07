@@ -1,4 +1,4 @@
-"""
+﻿"""
 Exporter XML Indexer
 
 Jednokratno indexira sve XML-ove iz docs/NOVA ASIKUDA i pravi bazu
@@ -296,6 +296,16 @@ def scan_xml_folder() -> Dict[Tuple[str, str], ExporterEntry]:
 
 def _ensure_table(cursor) -> None:
     cursor.execute("""
+        SELECT EXISTS (
+            SELECT FROM information_schema.tables
+            WHERE table_schema = 'catalogs'
+            AND table_name = 'exporter_xml_index'
+        )
+    """)
+    if cursor.fetchone()['exists']:
+        return
+
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS catalogs.exporter_xml_index (
             id SERIAL PRIMARY KEY,
             exporter_normalized TEXT NOT NULL,
@@ -428,11 +438,168 @@ def reindex() -> int:
             saved = _save_pairs(cursor, exporters)
         conn.commit()
         logger.info(f"✅ Atomski reindex završen: {saved} parova")
+        sync_tariff_knowledge_base()
+        sync_duim_rule_knowledge_base()
         return saved
     except Exception:
         conn.rollback()
         logger.exception("Reindex nije uspio; prethodni indeks je sačuvan")
         raise
+    finally:
+        conn.close()
+
+
+# ══════════════════════════════════════════════════════════════════════
+# TARIFF KNOWLEDGE BASE SYNC — iz XML-ova u product_tariff_mapping
+# ══════════════════════════════════════════════════════════════════════
+
+def sync_tariff_knowledge_base() -> int:
+    """Ekstraktuje tarifne brojeve iz svih indeksiranih XML-ova i upisuje ih u product_tariff_mapping."""
+    conn = get_db_connection()
+    saved = 0
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT xml_filepath, exporter_normalized FROM catalogs.exporter_xml_index")
+            rows = cursor.fetchall()
+            logger.info(f"📦 Ekstrakcija tarifa iz {len(rows)} XML-ova...")
+
+            for row in rows:
+                xml_path = row['xml_filepath']
+                exporter = row['exporter_normalized']
+                if not Path(xml_path).exists():
+                    continue
+
+                try:
+                    tree = ET.parse(xml_path)
+                    root = tree.getroot()
+                    for item in root.iter('Item'):
+                        tarifa = item.findtext('Commodity_code', '').strip()
+                        naziv = item.findtext('Commercial_Description', '').strip()
+                        if not naziv:
+                            naziv = item.findtext('Goods_description', '').strip()
+                        if tarifa and naziv:
+                            cursor.execute(
+                                """
+                                INSERT INTO catalogs.product_tariff_mapping
+                                    (product_code, naziv_robe, commodity_code, precision_1, usage_count)
+                                VALUES ('', %s, %s, '000', 1)
+                                ON CONFLICT (product_code, naziv_robe, commodity_code)
+                                DO UPDATE SET usage_count = catalogs.product_tariff_mapping.usage_count + 1
+                                """,
+                                (naziv, tarifa)
+                            )
+                            saved += 1
+                except Exception as e:
+                    logger.warning(f"Ne mogu parsirati {xml_path}: {e}")
+                    continue
+
+            conn.commit()
+        logger.info(f"✅ {saved} tarifnih brojeva dodato u bazu znanja")
+        return saved
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+# ══════════════════════════════════════════════════════════════════════
+# DUIM RULE KNOWLEDGE BASE — HS kodovi koje je ASYCUDA potvrdila kao
+# "from_rule" po stavci (Rb.44, roba dvojne namjene). Vidi
+# project_rooms/2026-08-07_duim-per-item-nauceno-pravilo.md — nikad ne
+# izmišljati tarifni broj bez XML dokaza, samo ono što je ASYCUDA stvarno
+# označila from_rule=1 na Item nivou u ranije obrađenim deklaracijama.
+# ══════════════════════════════════════════════════════════════════════
+
+def _ensure_duim_rules_table(cursor) -> None:
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS catalogs.tariff_duim_rules (
+            tariff_code TEXT PRIMARY KEY,
+            confirm_count INT DEFAULT 1,
+            first_seen_xml TEXT,
+            last_confirmed_at TIMESTAMP DEFAULT NOW(),
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+
+
+def sync_duim_rule_knowledge_base() -> int:
+    """
+    Ekstraktuje tarifne brojeve za koje je ASYCUDA (u SVIM XML-ovima iz
+    XML_FOLDER-a) po stavci potvrdila DUIM sa Attached_document_from_rule=1,
+    i upisuje ih u catalogs.tariff_duim_rules.
+
+    NAMJERNO skenira cijeli folder direktno (ne catalogs.exporter_xml_index),
+    jer taj indeks čuva samo NAJNOVIJI XML po paru (exporter+primalac) — za
+    DUIM potvrdu je bitan svaki istorijski XML, ne samo najnoviji po paru.
+    """
+    conn = get_db_connection()
+    saved = 0
+    try:
+        with conn.cursor() as cursor:
+            _ensure_duim_rules_table(cursor)
+            xml_files = list(XML_FOLDER.glob("*.xml")) if XML_FOLDER.exists() else []
+            logger.info(f"🔎 Skeniram {len(xml_files)} XML-ova za ASYCUDA DUIM pravila (from_rule=1 po stavci)...")
+
+            for xml_path in xml_files:
+                if not xml_path.exists():
+                    continue
+
+                try:
+                    tree = ET.parse(xml_path)
+                    root = tree.getroot()
+                    for item in root.iter('Item'):
+                        tarifa = item.findtext('Tarification/HScode/Commodity_code', '').strip()
+                        if not tarifa:
+                            continue
+                        for att in item.findall('Attached_documents'):
+                            code = (att.findtext('Attached_document_code', '') or '').strip().upper()
+                            from_rule = (att.findtext('Attached_document_from_rule', '') or '').strip()
+                            if code == 'DUIM' and from_rule == '1':
+                                cursor.execute(
+                                    """
+                                    INSERT INTO catalogs.tariff_duim_rules (tariff_code, first_seen_xml)
+                                    VALUES (%s, %s)
+                                    ON CONFLICT (tariff_code) DO UPDATE SET
+                                        confirm_count = catalogs.tariff_duim_rules.confirm_count + 1,
+                                        last_confirmed_at = NOW()
+                                    """,
+                                    (tarifa[:8], str(xml_path))
+                                )
+                                saved += 1
+                                break
+                except Exception as e:
+                    logger.warning(f"Ne mogu parsirati {xml_path} za DUIM pravila: {e}")
+                    continue
+
+            conn.commit()
+        logger.info(f"✅ {saved} DUIM tarifnih pravila potvrđeno/ažurirano")
+        return saved
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def get_duim_tariff_codes() -> set:
+    """Vrati skup tarifnih brojeva (8 cifara) za koje je ASYCUDA ranije potvrdila DUIM po stavci."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables
+                    WHERE table_schema = 'catalogs' AND table_name = 'tariff_duim_rules'
+                )
+            """)
+            if not cursor.fetchone()['exists']:
+                return set()
+            cursor.execute("SELECT tariff_code FROM catalogs.tariff_duim_rules")
+            return {r['tariff_code'] for r in cursor.fetchall()}
+    except Exception as e:
+        logger.warning(f"Greška pri čitanju DUIM pravila: {e}")
+        return set()
     finally:
         conn.close()
 

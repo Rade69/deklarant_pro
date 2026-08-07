@@ -158,6 +158,31 @@ def _normalize_attached_document(doc: Any) -> Optional[AttachedDocument]:
     )
 
 
+# DUIM (Rb.44, roba dvojne namjene) — ASYCUDA ovo traži PO STAVCI, ne na
+# zaglavlju (za razliku od N380/DIS/DV1). Vidi
+# project_rooms/2026-08-07_duim-per-item-nauceno-pravilo.md — tekst i
+# tarifni brojevi su potvrđeni iz stvarnih ASYCUDA XML-ova (from_rule=1 po
+# stavci), ne izmišljeni.
+_DUIM_STATEMENT_TEXT = "ROBA NIJE DVOJNE NAMJENE"
+_duim_tariff_codes_cache: Optional[set] = None
+
+
+def _get_duim_tariff_codes() -> set:
+    """Učitaj (jednom po pozivu exportera) skup tarifnih brojeva za koje je
+    ASYCUDA ranije potvrdila DUIM po stavci. Fail-safe: prazan skup ako baza
+    nije dostupna — export ne smije pući zbog ovoga."""
+    global _duim_tariff_codes_cache
+    if _duim_tariff_codes_cache is not None:
+        return _duim_tariff_codes_cache
+    try:
+        from services.agent.learning.exporter_xml_indexer import get_duim_tariff_codes
+        _duim_tariff_codes_cache = get_duim_tariff_codes()
+    except Exception:
+        logger.debug("Ne mogu učitati DUIM tarifna pravila — nastavljam bez njih.", exc_info=True)
+        _duim_tariff_codes_cache = set()
+    return _duim_tariff_codes_cache
+
+
 def _gs_cost_section(
     parent: ET.Element,
     tag: str,
@@ -802,6 +827,18 @@ class AsycudaXMLBuilder:
                 if doc is not None:
                     self._add_attached_doc(item_elem, doc)
 
+        # 3. DUIM (roba dvojne namjene) — po stavci, samo za tarifne brojeve
+        # koje je ASYCUDA ranije potvrdila from_rule=1 na Item nivou.
+        item_tariff_code = (item.tariff_code or "")[:8]
+        has_duim = bool(item_tariff_code) and item_tariff_code in _get_duim_tariff_codes()
+        if has_duim:
+            self._add_attached_doc(item_elem, AttachedDocument(
+                code="DUIM",
+                name="Međunarodni uvozni certifikat za robu dvojne namjene",
+                number=_DUIM_STATEMENT_TEXT,
+                from_rule=True,
+            ))
+
         # Packages
         packages = ET.SubElement(item_elem, "Packages")
         qty = int(item.package_qty) if item.package_qty and item.package_qty > 0 else 1
@@ -897,12 +934,17 @@ class AsycudaXMLBuilder:
             f"-{_fmt_thousands(_vi_ded)}"
         )
 
-        # Attached_doc_item — samo from_rule šifre (N380, DIS, DV1...)
+        # Attached_doc_item — from_rule šifre. Header from_rule šifre (N380,
+        # DIS, DV1...) samo na prvoj stavci; DUIM je po stavci pa ide na SVAKU
+        # stavku koja ga ima, bez obzira da li je prva.
         # ASYCUDA standard: PE/EUR.1 i ostali ne-from_rule dokumenti se NE navode ovdje
-        from_rule_codes = [doc.code for doc in header_docs if doc.from_rule]
-        if is_first and from_rule_codes:
+        header_docs_from_rule_codes = [doc.code for doc in header_docs if doc.from_rule]
+        item_doc_item_codes = list(header_docs_from_rule_codes) if is_first else []
+        if has_duim:
+            item_doc_item_codes.append("DUIM")
+        if item_doc_item_codes:
             adi = ET.SubElement(tarif, "Attached_doc_item")
-            adi.text = " ".join(from_rule_codes) + " "
+            adi.text = " ".join(item_doc_item_codes) + " "
         else:
             _null(tarif, "Attached_doc_item")
 
