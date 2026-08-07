@@ -5485,7 +5485,7 @@ class FakturaView(BaseTabView):
         if izvoznik:
             try:
                 from services.agent.learning.exporter_xml_indexer import find_xml_for_pair
-                result = find_xml_for_pair(izvoznik, consignee=uvoznik or None)
+                result = find_xml_for_pair(izvoznik, consignee_hint=uvoznik or None)
                 if result:
                     xml_path = result.get('xml_filepath')
             except Exception as exc:
