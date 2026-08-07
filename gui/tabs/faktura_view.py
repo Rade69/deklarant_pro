@@ -5474,6 +5474,45 @@ class FakturaView(BaseTabView):
         if incoterm_code and not self.draft.uslovi_kod:
             self.draft.uslovi_kod = incoterm_code
 
+    def _enrich_header_from_catalogs(header: dict) -> None:
+        """Popuni header podatke iz kataloga izvoznika/uvoznika ako postoje."""
+        try:
+            from database.db import get_db_connection
+            with get_db_connection() as conn:
+                with conn.cursor() as cur:
+                    # Izvoznik
+                    izvoznik = header.get('izvoznik_naziv', '').strip()
+                    if izvoznik:
+                        cur.execute(
+                            "SELECT * FROM catalogs.izvoznici WHERE naziv ILIKE %s LIMIT 1",
+                            (f'%{izvoznik}%',)
+                        )
+                        row = cur.fetchone()
+                        if row:
+                            header.setdefault('izvoznik_adresa', row.get('adresa', ''))
+                            header.setdefault('izvoznik_grad', row.get('grad', ''))
+                            header.setdefault('izvoznik_drzava', row.get('drzava', ''))
+                            if not header.get('izvoznik_id'):
+                                header['izvoznik_id'] = row.get('jib', '')
+
+                    # Primalac / uvoznik
+                    primalac = header.get('primalac_naziv', '').strip()
+                    if primalac:
+                        cur.execute(
+                            "SELECT * FROM catalogs.uvoznici WHERE naziv ILIKE %s LIMIT 1",
+                            (f'%{primalac}%',)
+                        )
+                        row = cur.fetchone()
+                        if row:
+                            header.setdefault('primalac_adresa', row.get('adresa', ''))
+                            header.setdefault('primalac_grad', row.get('grad', ''))
+                            header.setdefault('primalac_drzava', row.get('drzava', ''))
+                            if not header.get('primalac_id'):
+                                header['primalac_id'] = row.get('jib', '')
+        except Exception as e:
+            logger.warning("_enrich_header_from_catalogs: %s", e)
+
+
     def _on_load_previous_declaration(self):
         """Učitaj zaglavlje iz prethodne deklaracije istog izvoznika."""
         # Prioritet: draft zaglavlje (popunjeno iz _apply_import_result_to_header)
@@ -5546,6 +5585,9 @@ class FakturaView(BaseTabView):
         )
         if confirm != QMessageBox.Yes:
             return
+
+        # Obogati header podacima iz baze (izvoznici/uvoznici)
+        _enrich_header_from_catalogs(header)
 
         # Upiši u draft
         apply_header_to_draft(self.draft, header)
