@@ -5587,7 +5587,7 @@ class FakturaView(BaseTabView):
             return
 
         # Obogati header podacima iz baze (izvoznici/uvoznici)
-        _enrich_header_from_catalogs(header)
+        self._enrich_header_from_catalogs(header)
 
         # Upiši u draft
         apply_header_to_draft(self.draft, header)
