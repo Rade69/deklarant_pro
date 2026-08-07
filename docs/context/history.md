@@ -4528,3 +4528,50 @@ nedovršen pokušaj usklađivanja import putanja koji je sam nadmašen
 kasnijim `services/faktura/*` refaktorom — ni stara ni "nova" strana
 diffa se više ne poklapa sa `windows`. Oba uklonjena. `.worktrees/` sada
 potpuno prazan (bio 1.5 GB).
+
+## 2026-08-07 — ASYCUDA crveni N380/DIS/DV1 redovi pri uvozu naših deklaracija (from_rule bug)
+
+Korisnik je uočio da ASYCUDA World, pri provjeri/uvozu deklaracija koje
+izvozi naša aplikacija, traži da se N380/DIS/DV1 "popune" iako su te
+isprave već upisane sa ispravnom referencom (crveni redovi u Rb.44
+panelu). Isto se NE dešava sa XML fajlovima kreiranim direktno u ASYCUDA
+aplikaciji — ova razlika (naši fajlovi da, native ASYCUDA fajlovi ne) je
+oborila prvu hipotezu ("to je ASYCUDA kvirk, nema veze sa nama") i
+usmjerila istragu na strukturno poređenje sa dva ASYCUDA-nativna kontrolna
+XML fajla koje je korisnik dao (`BLAGIC-ATOS.xml`, `BLAGIC-LOREN.xml`).
+
+**Nalaz**: u ASYCUDA-nativnim fajlovima, N380/DIS/DV1 (i DUIM) UVIJEK nose
+`Attached_document_from_rule=1` ZAJEDNO sa popunjenom referencom, u istom
+`<Attached_documents>` bloku. U problematičnom fajlu (naš export nakon
+ASYCUDA provjere), ta dva podatka su bila razdvojena u DVA bloka — jedan
+sa referencom bez from_rule taga, drugi sa from_rule=1 i praznom
+referencom (upravo taj prazan blok je crveni red). ASYCUDA-in rule engine
+prepoznaje da je obavezni dokument već zadovoljen SAMO ako nosi
+`from_rule=1` — bez tog taga dodaje sopstveni prazan "otvoreni" zapis.
+
+**Root cause u kodu**: `exporters/asycuda_xml_builder.py` i
+`services/zaglavlje_service.py::save_to_draft` su ispravno prenosili
+`from_rule` polje do exportera. Pravi izvor bio je
+`gui/tabs/zaglavlje_view.py::get_data()` (i identično u
+`dist_client/gui/tabs/zaglavlje_view.py`) — pri čitanju tabele priloženih
+isprava u Zaglavlju, za SVAKI red se hardkodovano pisalo `"from_rule": False`,
+bez obzira šta je učitano pri importu/auto-popuni. Rezultat: apsolutno
+SVAKA naša deklaracija je izvozila N380/DIS/DV1 bez `Attached_document_from_rule`
+taga.
+
+**Fix**: `get_data()` sada postavlja `from_rule = code in {"N380", "DIS",
+"DV1", "DUIM"}` po šifri dokumenta, umjesto fiksnog `False` — potvrđeno
+kontrolnim fajlovima da su to jedine šifre koje ASYCUDA dosljedno tako
+označava (VOZ/OST/PZT/N730 nisu imale from_rule u kontrolnim fajlovima).
+PE/EUR.1-izvedeni dokumenti (FTAP/EUP/TRP) se generišu posebnom putanjom
+u exporteru (`_PREF_TO_DOC_CODE`) i nisu dirani ovim zadatkom — moguće da
+i oni treba da nose from_rule=1 po istom obrascu, ali to nije bilo
+prijavljeni problem i nije provjereno; ako se crveni red ikad pojavi za
+te šifre, provjeriti isti mehanizam.
+
+Verifikacija: `tests/unit/test_asycuda_goods_description.py` (35 testova,
+već pokrivaju from_rule→XML mapiranje, i dalje prolaze) + direktan poziv
+stvarnog `ZaglavljeView.get_data()` na mock QTableWidget-u (N380/DIS/DV1
+→ `from_rule=True`, PZT → `False`) + `ZaglavljeService.save_to_draft()`
+potvrđeno ispravno prenosi flag u `AttachedDocument`. Commit `9a9d993`.
+Puni izvještaj: `agent_reports/2026-08-07_asycuda-from-rule-crveni-redovi.md`.
