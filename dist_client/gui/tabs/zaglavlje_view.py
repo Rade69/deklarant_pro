@@ -2440,6 +2440,11 @@ class ZaglavljeView(BaseTabView):
                 data[key] = widget.isChecked()
 
         # Tabela priloženih dokumenata — čitaj redove sa podacima
+        # ASYCUDA world uvijek piše Attached_document_from_rule=1 zajedno sa referencom
+        # za ove šifre (potvrđeno na ASYCUDA-nativnim XML fajlovima) — bez tog taga
+        # ASYCUDA ne prepoznaje već upisan dokument kao ispunjenje pravila i dodaje
+        # svoj prazan duplikat (crveni red "nepotpuno" pri uvozu).
+        FROM_RULE_CODES = {"N380", "DIS", "DV1", "DUIM"}
         if self.table:
             attached_docs = []
             for row in range(self.table.rowCount()):
@@ -2454,7 +2459,7 @@ class ZaglavljeView(BaseTabView):
                         "code": code,
                         "name": name,
                         "number": number,
-                        "from_rule": False,
+                        "from_rule": code.strip().upper() in FROM_RULE_CODES,
                     })
             data["attached_documents"] = attached_docs
 
