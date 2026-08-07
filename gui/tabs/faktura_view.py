@@ -5523,8 +5523,31 @@ class FakturaView(BaseTabView):
             QMessageBox.warning(self, "Prethodna deklaracija", "XML ne sadrži prepoznatljive header podatke.")
             return
 
-        # Obogati header podacima iz baze (izvoznici/uvoznici) — XML sadrži samo nazive
-        _enrich_header_from_catalogs(header)
+        # Obogati header podacima iz baze (izvoznici/uvoznici) — XML ih ne sadrži
+        try:
+            from database.db import get_db_connection
+            with get_db_connection() as conn:
+                with conn.cursor() as cur:
+                    izv = header.get('izvoznik_naziv', '').strip()
+                    if izv:
+                        cur.execute("SELECT * FROM catalogs.izvoznici WHERE naziv ILIKE %s LIMIT 1", (f'%{izv}%',))
+                        row = cur.fetchone()
+                        if row:
+                            header.setdefault('izvoznik_adresa', row.get('adresa', '') or '')
+                            header.setdefault('izvoznik_grad', row.get('grad', '') or '')
+                            header.setdefault('izvoznik_drzava', row.get('drzava', '') or '')
+                            if not header.get('izvoznik_id'): header['izvoznik_id'] = row.get('jib', '') or ''
+                    prim = header.get('primalac_naziv', '').strip()
+                    if prim:
+                        cur.execute("SELECT * FROM catalogs.uvoznici WHERE naziv ILIKE %s LIMIT 1", (f'%{prim}%',))
+                        row = cur.fetchone()
+                        if row:
+                            header.setdefault('primalac_adresa', row.get('adresa', '') or '')
+                            header.setdefault('primalac_grad', row.get('grad', '') or '')
+                            header.setdefault('primalac_drzava', row.get('drzava', '') or '')
+                            if not header.get('primalac_id'): header['primalac_id'] = row.get('jib', '') or ''
+        except Exception as e:
+            logger.warning("_enrich_header: %s", e)
 
         # Prikaži šta će biti učitano
         field_labels = {
@@ -5562,43 +5585,6 @@ class FakturaView(BaseTabView):
             logger.warning("Zaglavlje reload greška: %s", exc)
 
         QMessageBox.information(self, "Prethodna deklaracija", "✅ Podaci učitani u zaglavlje.")
-
-
-def _enrich_header_from_catalogs(header: dict) -> None:
-    """Popuni header podatke iz kataloga izvoznika/uvoznika (XML ih ne sadrži)."""
-    try:
-        from database.db import get_db_connection
-        with get_db_connection() as conn:
-            with conn.cursor() as cur:
-                izvoznik = header.get('izvoznik_naziv', '').strip()
-                if izvoznik:
-                    cur.execute(
-                        "SELECT * FROM catalogs.izvoznici WHERE naziv ILIKE %s LIMIT 1",
-                        (f'%{izvoznik}%',)
-                    )
-                    row = cur.fetchone()
-                    if row:
-                        header.setdefault('izvoznik_adresa', row.get('adresa', '') or '')
-                        header.setdefault('izvoznik_grad', row.get('grad', '') or '')
-                        header.setdefault('izvoznik_drzava', row.get('drzava', '') or '')
-                        if not header.get('izvoznik_id'):
-                            header['izvoznik_id'] = row.get('jib', '') or ''
-
-                primalac = header.get('primalac_naziv', '').strip()
-                if primalac:
-                    cur.execute(
-                        "SELECT * FROM catalogs.uvoznici WHERE naziv ILIKE %s LIMIT 1",
-                        (f'%{primalac}%',)
-                    )
-                    row = cur.fetchone()
-                    if row:
-                        header.setdefault('primalac_adresa', row.get('adresa', '') or '')
-                        header.setdefault('primalac_grad', row.get('grad', '') or '')
-                        header.setdefault('primalac_drzava', row.get('drzava', '') or '')
-                        if not header.get('primalac_id'):
-                            header['primalac_id'] = row.get('jib', '') or ''
-    except Exception as e:
-        logger.warning("_enrich_header_from_catalogs: %s", e)
 
 
     def _set_buttons_enabled(self, enabled: bool):
