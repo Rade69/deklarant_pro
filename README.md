@@ -1,104 +1,43 @@
 # Deklarant Pro
 
-Aplikacija za carinske deklaracije.
+Aplikacija za carinske deklaracije — import faktura, naimenovanja, ASYCUDA XML export.
 
-## Instalacija zavisnosti
+## Instalacija (Windows)
+
+1. Pokreni `DeklarantPro_Setup_2.0.0.exe`
+2. Nakon instalacije, kopiraj `.env.example` → `.env` u folderu aplikacije
+3. Popuni `.env` sa podacima za konekciju na PostgreSQL:
+
+```ini
+DB_HOST=server.adresa
+DB_PORT=5432
+DB_NAME=deklarant_pro
+DB_USER=korisnik
+DB_PASSWORD=sifra
+```
+
+4. Pokreni `DeklarantPro.exe`
+
+## Razvoj
 
 ```bash
-pip install PySide6 openpyxl PyPDF2 lxml
+pip install -r requirements.txt
+python run.py
 ```
 
-## Testiranje
-
-Pre prvog pokretanja, možete testirati da li je sve ispravno konfigurisano:
-
-```bash
-python3 test_app.py
-```
-
-Ovaj script će proveriti:
-- Da li se svi moduli mogu importovati
-- Da li Draft objekat može da se kreira
-- Da li UI fajlovi postoje
-
-## Pokretanje aplikacije
-
-**Napomena:** Aplikacija se može zaustaviti sa `Ctrl+C` u terminalu.
-
-### Metoda 1: Direktno pokretanje (Preporučeno)
-```bash
-cd /home/radovan/Desktop/PythonProjects/deklarant_pro
-python3 __main__.py
-```
-
-### Metoda 2: Korišćenjem shell skripta
-```bash
-cd /home/radovan/Desktop/PythonProjects/deklarant_pro
-./run_app.sh
-```
-
-### Metoda 3: Kao Python modul (iz parent direktorija)
-```bash
-cd /home/radovan/Desktop/PythonProjects
-python3 -m deklarant_pro
-```
-
-## Struktura projekta
-
-```
-deklarant_pro/
-├── app/            - Glavna aplikacija (QApplication)
-├── core/           - Osnovni modeli (Draft, Naimenovanje)
-├── database/       - Database modeli i migracije
-├── exporters/      - XML exporteri
-├── gui/            - GUI komponente
-│   └── tabs/       - Tab widgeti
-│       └── admin/  - Admin Tab komponente
-├── importers/      - Importeri (Excel, PDF, XML)
-├── sifrarnici/     - Šifrarnici (zemlje, transport, itd.)
-├── ui/             - Qt Designer .ui fajlovi
-├── utils/          - Utility funkcije
-├── services/       - Service layer (business logika)
-│   └── admin/      - Admin servisi
-├── tests/          - Testovi
-│   └── admin/      - Admin Tab testovi
-└── __main__.py     - Entry point
-```
+Zahtevi: Python 3.11+, PostgreSQL 16.
 
 ## Tabovi
 
-Aplikacija sadrži sledeće tabove:
+1. **Faktura** — Unos i validacija faktura
+2. **Naimenovanja** — Rubrike 31-46, tarifni brojevi
+3. **Zaglavlje** — Rubrike 1-49, dokumenti
+4. **Šifrarnici** — Upravljanje šifrarnicima, tarifne kvote
+5. **Admin** — Plugin manager, baza, analitika, logovi, podešavanja
+6. **Agent** — AI asistent za import i validaciju
 
-1. **Faktura** - Unos faktura i stavki
-2. **Naimenovanja** - Rubrike 31-46
-3. **Zaglavlje** - Rubrike 1-49
-4. **Šifrarnici** - Upravljanje šifrarnicima
-5. **⚙️ Admin** - Administracija aplikacije (novo!)
+## Testiranje
 
-### Admin Tab
-
-Admin Tab pruža pristup administrativnim funkcionalnostima:
-
-- **📦 Plugin Manager** - Instalacija, uklanjanje i reload parsera
-- **⚙️ Settings** - Konfiguracija aplikacije (tema, jezik, backup)
-- **💾 Database** - Backup i restore baze podataka
-- **📊 Analytics** - Statistika korištenja
-- **📋 Logs** - Pregled i filtriranje sistemskih logova
-- **ℹ️ System Info** - Informacije o sistemu i aplikaciji
-
-**Dokumentacija:**
-- [User Guide](docs/ADMIN_TAB_USER_GUIDE.md) - Za krajnje korisnike
-- [Developer Guide](docs/ADMIN_TAB_DEVELOPER_GUIDE.md) - Za developere
-
-**Testovi:**
 ```bash
-pytest tests/admin/ -v  # 35 testova
+pytest tests/ -q
 ```
-
-## Zavisnosti
-
-- Python 3.10+
-- PySide6 (Qt6 bindings)
-- openpyxl (Excel)
-- PyPDF2 (PDF)
-- lxml (XML)
