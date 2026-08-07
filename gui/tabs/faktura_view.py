@@ -5475,43 +5475,6 @@ class FakturaView(BaseTabView):
             self.draft.uslovi_kod = incoterm_code
 
 
-def _enrich_header_from_catalogs(header: dict) -> None:
-    """Popuni header podatke iz kataloga izvoznika/uvoznika (XML ih ne sadrži)."""
-    try:
-        from database.db import get_db_connection
-        with get_db_connection() as conn:
-            with conn.cursor() as cur:
-                izvoznik = header.get('izvoznik_naziv', '').strip()
-                if izvoznik:
-                    cur.execute(
-                        "SELECT * FROM catalogs.izvoznici WHERE naziv ILIKE %s LIMIT 1",
-                        (f'%{izvoznik}%',)
-                    )
-                    row = cur.fetchone()
-                    if row:
-                        header.setdefault('izvoznik_adresa', row.get('adresa', '') or '')
-                        header.setdefault('izvoznik_grad', row.get('grad', '') or '')
-                        header.setdefault('izvoznik_drzava', row.get('drzava', '') or '')
-                        if not header.get('izvoznik_id'):
-                            header['izvoznik_id'] = row.get('jib', '') or ''
-
-                primalac = header.get('primalac_naziv', '').strip()
-                if primalac:
-                    cur.execute(
-                        "SELECT * FROM catalogs.uvoznici WHERE naziv ILIKE %s LIMIT 1",
-                        (f'%{primalac}%',)
-                    )
-                    row = cur.fetchone()
-                    if row:
-                        header.setdefault('primalac_adresa', row.get('adresa', '') or '')
-                        header.setdefault('primalac_grad', row.get('grad', '') or '')
-                        header.setdefault('primalac_drzava', row.get('drzava', '') or '')
-                        if not header.get('primalac_id'):
-                            header['primalac_id'] = row.get('jib', '') or ''
-    except Exception as e:
-        logger.warning("_enrich_header_from_catalogs: %s", e)
-
-
     def _on_load_previous_declaration(self):
         """Učitaj zaglavlje iz prethodne deklaracije istog izvoznika i primaoca."""
         izvoznik = resolve_exporter_name(self.draft.izvoznik_naziv, self.draft.invoice_lines)
@@ -5560,6 +5523,9 @@ def _enrich_header_from_catalogs(header: dict) -> None:
             QMessageBox.warning(self, "Prethodna deklaracija", "XML ne sadrži prepoznatljive header podatke.")
             return
 
+        # Obogati header podacima iz baze (izvoznici/uvoznici) — XML sadrži samo nazive
+        _enrich_header_from_catalogs(header)
+
         # Prikaži šta će biti učitano
         field_labels = {
             'izvoznik_naziv': 'Izvoznik',
@@ -5584,9 +5550,6 @@ def _enrich_header_from_catalogs(header: dict) -> None:
         if confirm != QMessageBox.Yes:
             return
 
-        # Obogati header podacima iz baze (izvoznici/uvoznici) — XML sadrži samo nazive
-        _enrich_header_from_catalogs(header)
-
         # Upiši u draft
         apply_header_to_draft(self.draft, header)
 
@@ -5598,12 +5561,44 @@ def _enrich_header_from_catalogs(header: dict) -> None:
         except Exception as exc:
             logger.warning("Zaglavlje reload greška: %s", exc)
 
-        self._notify_data_changed()
-        self.lbl_validation.setText("✓ Zaglavlje učitano iz prethodne deklaracije")
-        self.lbl_validation.setProperty("status", "success")
-        self.lbl_validation.style().unpolish(self.lbl_validation)
-        self.lbl_validation.style().polish(self.lbl_validation)
-        self._learn_notify_timer.start()
+        QMessageBox.information(self, "Prethodna deklaracija", "✅ Podaci učitani u zaglavlje.")
+
+
+def _enrich_header_from_catalogs(header: dict) -> None:
+    """Popuni header podatke iz kataloga izvoznika/uvoznika (XML ih ne sadrži)."""
+    try:
+        from database.db import get_db_connection
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                izvoznik = header.get('izvoznik_naziv', '').strip()
+                if izvoznik:
+                    cur.execute(
+                        "SELECT * FROM catalogs.izvoznici WHERE naziv ILIKE %s LIMIT 1",
+                        (f'%{izvoznik}%',)
+                    )
+                    row = cur.fetchone()
+                    if row:
+                        header.setdefault('izvoznik_adresa', row.get('adresa', '') or '')
+                        header.setdefault('izvoznik_grad', row.get('grad', '') or '')
+                        header.setdefault('izvoznik_drzava', row.get('drzava', '') or '')
+                        if not header.get('izvoznik_id'):
+                            header['izvoznik_id'] = row.get('jib', '') or ''
+
+                primalac = header.get('primalac_naziv', '').strip()
+                if primalac:
+                    cur.execute(
+                        "SELECT * FROM catalogs.uvoznici WHERE naziv ILIKE %s LIMIT 1",
+                        (f'%{primalac}%',)
+                    )
+                    row = cur.fetchone()
+                    if row:
+                        header.setdefault('primalac_adresa', row.get('adresa', '') or '')
+                        header.setdefault('primalac_grad', row.get('grad', '') or '')
+                        header.setdefault('primalac_drzava', row.get('drzava', '') or '')
+                        if not header.get('primalac_id'):
+                            header['primalac_id'] = row.get('jib', '') or ''
+    except Exception as e:
+        logger.warning("_enrich_header_from_catalogs: %s", e)
 
 
     def _set_buttons_enabled(self, enabled: bool):
