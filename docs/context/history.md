@@ -4634,3 +4634,30 @@ exporteru učinjena idempotentnom da ne duplira unos već dodat pri kreiranju.
 Commit `c710b81`.
 
 Puni izvještaj: `agent_reports/2026-08-08_duim-per-item-naucen-model.md`.
+
+## 2026-08-08 — Deklaranti "permission denied for database" — CREATE SCHEMA IF NOT EXISTS gotcha
+
+Korisnik nije mogao sačuvati deklaranta u tabu Šifarnici. Uzrok:
+`_ensure_deklaranti_schema()` u `services/sifarnici_service.py` je na SVAKI
+`load_deklaranti_data()`/`add_deklarant()` poziv pokretao
+`CREATE SCHEMA IF NOT EXISTS catalogs`. PostgreSQL provjerava CREATE
+privilegiju na cijeloj bazi za tu komandu PRIJE same "IF NOT EXISTS"
+provjere — `deklarant_app` (least-privilege runtime rola) nema CREATE na
+bazi, pa je komanda pucala iako `catalogs` schema/tabela/sve kolone odavno
+postoje. `deklarant_app` je imao puna INSERT/UPDATE/DELETE prava na samu
+tabelu — problem nikad nije bio nedostatak DML prava.
+
+Fix: provjera preko `information_schema.columns` (SELECT, radi za svaku
+ulogu) prije bilo kakvog DDL-a; CREATE/ALTER se pokreće samo ako nešto
+stvarno nedostaje. Reprodukovano i potvrđeno popravljeno direktno na
+`dmserver` bazi (add/load/delete deklaranta rade end-to-end). Commit
+`df8af5a`.
+
+**Opšta pouka**: DDL "IF NOT EXISTS" komande (CREATE SCHEMA/TABLE) i dalje
+traže punu privilegiju čak i kad objekat već postoji — Postgres provjerava
+pravo prilikom parsiranja komande, prije same "IF NOT EXISTS" logike.
+"Self-healing schema" kod u runtime servisnom sloju (umjesto u dediciranoj
+`database/migrate_*.py` migraciji) je rizičan za restriktivne app-level DB
+role — vrijedi provjeriti da li isti pattern postoji negdje drugo
+(`grep "CREATE SCHEMA IF NOT EXISTS\|CREATE TABLE IF NOT EXISTS"` van
+`database/migrate_*.py`) ako se sličan bug ikad ponovo pojavi.
