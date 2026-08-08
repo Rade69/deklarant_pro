@@ -197,3 +197,112 @@ te kodove, ne gore). Skup raste automatski kroz `reindex()` kad se novi XML-ovi
 Sledeći stvarni izvoz+uvoz u ASYCUDA World da se potvrdi da DUIM crveni redovi
 nestaju za tarifne brojeve iz naučenog skupa (kao što je već urađeno za
 N380/DIS/DV1).
+
+---
+
+## Nastavak (isti dan) — Faza 2: pravi izvor podataka
+
+Korisnik je uživo potvrdio Fazu 1 (screenshot ASYCUDA Rb.44, DUIM se pokazuje
+tačno na stavkama za koje je naučen, ostale i dalje crvene — očekivano) i
+otkrio da postoji pravi arhiv istorijskih ASYCUDA XML-ova na
+`H:\New folder\NOVA ASIKUDA` (5706 fajlova, 202MB), ne mali
+`docs/NOVA ASIKUDA` (8-9 fajlova) korišćen dotad.
+
+**Šta je urađeno:** `.env` (gitignored, sadrži DB lozinku/API ključeve — nije
+za commit) dopunjen sa `XML_LEARNING_FOLDER=H:\New folder\NOVA ASIKUDA` —
+korisnikova eksplicitna odluka da NE odvaja poseban DUIM-only override, nego
+da ovo bude trajni podrazumijevani folder za sve mehanizme učenja (tarifno
+mapiranje, exporter/primalac uparivanje, DUIM).
+
+**Verifikacija:** jednokratni `sync_duim_rule_knowledge_base()` (bez punog
+`reindex()`, da se ne pokreće nepotrebno tarifno mapiranje/uparivanje u istom
+koraku) — 5706 fajlova skenirano za 19.4s, 1210 DUIM potvrda, naučeni skup
+narastao sa 26 na 262 tarifna broja. 4 korumpirana fajla (postojeći, ne
+uzrokovana ovom sesijom) bezbjedno preskočena postojećim try/except.
+
+**Nezavisna provjera:** nije rađena posebno — promjena je čisto
+konfiguraciona (jedna `.env` linija) i podaci (poziv postojeće, već testirane
+funkcije), bez izmjene koda.
+
+## Nastavak (isti dan) — Faza 3: DUIM vidljiv pri kreiranju naimenovanja
+
+Korisnik je predložio: DUIM treba biti vidljiv/provjerljiv već pri kreiranju
+naimenovanja (Rb.44 u GUI), ne tek tiho ubačen u finalni XML pri exportu.
+Alternativa koju je pomenuo — dodati DUIM kolonu direktno u
+`product_tariff_mapping` (proizvod-keyed tabela) — razmotrena i preporučeno
+ODBAČENA: DUIM je pokazao da je čisto TARIFNI okidač (isti tarifni broj
+uvijek nosi DUIM nezavisno od naziva proizvoda), pa bi vezivanje za proizvod
+stvorilo drugi izvor istine koji vremenom može da se raziđe od
+`catalogs.tariff_duim_rules`.
+
+### GitNexus impact
+`collect_inspection_docs_from_items` (najbliži postojeći analogni mehanizam,
+VET/SAN/FIT/UVK/AGL): risk **LOW**, 6 pogođenih simbola, 1 modul (Tabs),
+poznat lanac `_sync_inspection_docs_to_header` → `_run_create_naimenovanja_post_actions`
+→ `_create_naimenovanja_from_draft`. `_add_single_item` (export-time
+idempotency izmjena): risk **LOW** u direktnom upstream-u, ali dio istog
+core export lanca (build→export_to_xml) već označenog HIGH u Fazi 1 ovog
+zadatka — tretiran s istim oprezom.
+
+### Šta je urađeno
+- `services/faktura/header_doc_sync_service.py` (+ `dist_client/` kopija) —
+  nova `sync_duim_docs_to_items(items) -> int`. NAMJERNO odvojena funkcija,
+  ne prošireno postojeće `collect_inspection_docs_from_items` dedup
+  ponašanje — to bi header-level pravilo pogrešno primijenilo na DUIM (ista
+  greška klase kao u Fazi 1, ovaj put izbjegnuta unaprijed). Dodaje DUIM
+  direktno u `item.attached_documents` (postojeće `NaimenovanjeDraft` polje,
+  Rb.44 struktura po stavci), idempotentno (provjerava da li DUIM već
+  postoji na toj stavci prije dodavanja).
+- `services/faktura/__init__.py` (+ `dist_client/`) — export nove funkcije.
+- `gui/tabs/faktura_view.py` (+ `dist_client/`) — nova `_sync_duim_docs_to_items()`
+  metoda, pozvana u `_run_create_naimenovanja_post_actions()` odmah nakon
+  `_sync_inspection_docs_to_header()` (isti trigger — nakon kreiranja
+  naimenovanja).
+- `exporters/asycuda_xml_builder.py` (+ `dist_client/`) — export-time DUIM
+  injekcija (iz Faze 1) učinjena idempotentnom: provjerava
+  `item.attached_documents` za postojeći DUIM prije dodavanja duplikata.
+  Ostaje kao fail-safe mreža za naimenovanja kreirana PRIJE ovog sync-a
+  (npr. učitana iz starijeg drafta).
+
+### Šta nije dirano
+`collect_inspection_docs_from_items`/`collect_pe_docs_from_items` i njihov
+header-level mehanizam — netaknuti, DUIM ide odvojenom putanjom.
+`product_tariff_mapping` — nije dobio DUIM kolonu (odbačena opcija, vidi
+gore).
+
+### Verifikacija
+1. `py_compile` na sve izmijenjene fajlove — OK.
+2. `pytest tests/unit/test_asycuda_goods_description.py` — 35/35, bez
+   regresije.
+3. End-to-end skripta: `sync_duim_docs_to_items([item1(poznata tarifa),
+   item2(nepoznata)])` → dodaje DUIM samo na item1 (added=1); ponovni poziv
+   → `added=0` (nema duplikata); export tog drafta → tačno 1 `<Attached_documents>`
+   DUIM blok na item1 (ne 2), 0 na item2, `Attached_doc_item` na item1 sadrži
+   "DUIM" (potvrđeno da idempotency guard ne krši postojeći Rb.44 zbirni
+   tag).
+
+### Odbačene opcije (Faza 3)
+- Opcija: DUIM kolona u `product_tariff_mapping`.
+- Zašto razmatrana: korisnikov prijedlog, iskorišćava postojeću veliku
+  infrastrukturu (product_code+naziv_robe+commodity_code).
+- Zašto odbačena: DUIM je čisto tarifni signal (potvrđeno kroz sve dosadašnje
+  podatke), ne proizvodni — vezivanje za proizvod uvodi drugi izvor istine.
+- Kada ponovo otvoriti: ako se ikad pojavi dokaz da ASYCUDA razlikuje DUIM
+  po opisu proizvoda unutar istog tarifnog broja (nije dosad primijećeno).
+
+### Commitovi (nastavak)
+| Hash | Poruka |
+| --- | --- |
+| `c710b81` | `feat(naimenovanja): DUIM po stavci pri kreiranju naimenovanja, ne samo pri exportu` |
+
+### Nezavisna provjera
+Nije rađena posebno (druga sesija/model) — self-verified kroz test suite +
+end-to-end skriptu opisanu gore. Preporučeno: ručna GUI provjera (kreirati
+naimenovanje sa poznatom DUIM tarifom, potvrditi da se Rb.44 polje odmah
+popuni prije exporta) na sledećoj radnoj sesiji.
+
+### Potreban follow-up (dopuna)
+- Ručna GUI provjera da se DUIM red pojavljuje u Zaglavlje/Naimenovanja
+  prikazu ODMAH nakon kreiranja naimenovanja, ne samo u exportovanom XML-u.
+- Razmotriti da li isti "po stavci, vidljivo pri kreiranju" princip treba
+  primijeniti i na FTAP/EUP/TRP (i dalje nezatvoreno iz Faze 1).

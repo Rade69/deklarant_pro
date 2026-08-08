@@ -4610,5 +4610,27 @@ skenira SVE XML-ove direktno iz `docs/NOVA ASIKUDA/` foldera (NE preko
 novu `catalogs.tariff_duim_rules` tabelu. `asycuda_xml_builder.py` dodaje
 DUIM po stavci za naučene tarifne brojeve; `zaglavlje_view.py` DUIM uklonjen
 iz header-level `FROM_RULE_CODES`. Seed: 19 potvrđenih tarifnih brojeva iz 2
-realna XML-a. Commit `f427261`. Puni izvještaj:
-`agent_reports/2026-08-08_duim-per-item-naucen-model.md`.
+realna XML-a. Commit `f427261`.
+
+**Nastavak istog dana — Faza 2 (izvor podataka):** korisnik je otkrio pravi
+arhiv `H:\New folder\NOVA ASIKUDA` (5706 XML fajlova, 202MB) i tražio da se
+to trajno koristi umjesto malog `docs/NOVA ASIKUDA` (8-9 fajlova). Postavljeno
+u `.env` (`XML_LEARNING_FOLDER`, gitignored) kao trajni podrazumijevani
+folder za sve mehanizme učenja (korisnikova eksplicitna odluka — nije
+odvojen poseban DUIM-only override). Jednokratni DUIM-only sync (19.4s)
+podigao naučeni skup sa 26 na 262 tarifna broja.
+
+**Nastavak istog dana — Faza 3 (vidljivost pri kreiranju, ne samo exportu):**
+korisnik je tražio da DUIM bude vidljiv/provjerljiv već pri kreiranju
+naimenovanja (Rb.44 u GUI), ne tek tiho ubačen u finalni XML. Razmotrena i
+ODBAČENA alternativa: dodati DUIM kolonu u `product_tariff_mapping`
+(proizvod-keyed) — DUIM je čisto tarifni okidač, vezivanje za proizvod bi
+stvorilo drugi izvor istine. Umjesto toga: nova
+`header_doc_sync_service.py::sync_duim_docs_to_items()` — namjerno ODVOJENA
+od `collect_inspection_docs_from_items()` (VET/SAN/FIT/UVK/AGL), jer ta
+dedupira na nivo zaglavlja a DUIM mora ostati po stavci. Pozvana odmah nakon
+kreiranja naimenovanja u `faktura_view.py`. Export-time DUIM injekcija u
+exporteru učinjena idempotentnom da ne duplira unos već dodat pri kreiranju.
+Commit `c710b81`.
+
+Puni izvještaj: `agent_reports/2026-08-08_duim-per-item-naucen-model.md`.
