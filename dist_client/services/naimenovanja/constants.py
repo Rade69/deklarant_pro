@@ -6,7 +6,7 @@ class NaimenovanjaConstants:
     """Sve konstante za Naimenovanja Tab"""
 
     # Validation
-    MIN_SIMILARITY_THRESHOLD = 0.50
+    MIN_SIMILARITY_THRESHOLD = 0.92
 
     # UI scaling
     SCALE_FACTOR = 1.30
