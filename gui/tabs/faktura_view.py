@@ -5474,27 +5474,31 @@ class FakturaView(BaseTabView):
         if incoterm_code and not self.draft.uslovi_kod:
             self.draft.uslovi_kod = incoterm_code
 
-
     def _on_load_previous_declaration(self):
-        """Učitaj zaglavlje iz prethodne deklaracije — direktan XML import."""
+        """Učitaj zaglavlje iz prethodne deklaracije istog izvoznika."""
+        # Prioritet: draft zaglavlje (popunjeno iz _apply_import_result_to_header)
+        # → exporter na prvoj invoice liniji → ručni odabir
         izvoznik = resolve_exporter_name(self.draft.izvoznik_naziv, self.draft.invoice_lines)
-        uvoznik = (getattr(self.draft, 'primalac_naziv', '') or '').strip()
 
         xml_path = None
 
         if izvoznik:
             try:
                 from services.agent.learning.exporter_xml_indexer import find_xml_for_pair
-                result = find_xml_for_pair(izvoznik, consignee_hint=uvoznik or None)
+                result = find_xml_for_pair(izvoznik)
                 if result:
                     xml_path = result.get('xml_filepath')
             except Exception as exc:
                 logger.warning("find_xml_for_pair greška: %s", exc)
 
+        # Ako nije pronađen automatski — ponudi ručni odabir
         if not xml_path:
-            msg = "Nije pronađena prethodna deklaracija"
-            if izvoznik: msg += f" za '{izvoznik}'"
-            msg += ".\n\nOdaberi XML fajl ručno?"
+            msg = (
+                f"Nije pronađena prethodna deklaracija za izvoznika '{izvoznik}'.\n\n"
+                if izvoznik else
+                "Nije poznat izvoznik — nije moguća automatska pretraga.\n\n"
+            )
+            msg += "Odaberi XML fajl ručno?"
             reply = QMessageBox.question(
                 self, "Prethodna deklaracija", msg,
                 QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes,
@@ -5508,19 +5512,58 @@ class FakturaView(BaseTabView):
                 return
             xml_path = path
 
-        # Importuj XML direktno u zaglavlje (isti mehanizam kao ručni uvoz)
+        # Parsiraj header iz XML-a
+        try:
+            header = extract_header_from_xml(xml_path)
+        except Exception as exc:
+            QMessageBox.critical(self, "Greška", f"Nije moguće parsirati XML:\n{exc}")
+            return
+
+        if not header:
+            QMessageBox.warning(self, "Prethodna deklaracija", "XML ne sadrži prepoznatljive header podatke.")
+            return
+
+        # Prikaži šta će biti učitano
+        field_labels = {
+            'izvoznik_naziv': 'Izvoznik',
+            'drzava_izvoza_sifra': 'Država izvoza',
+            'valuta': 'Valuta',
+            'uslovi_kod': 'Incoterm',
+            'uslovi_mjesto': 'Mjesto isporuke',
+            'deklaracija_tip': 'Tip deklaracije',
+            'deklaracija_a': 'Oznaka',
+            'deklaracija_oznaka': 'Procedura',
+        }
+        lines = format_header_preview(header, field_labels)
+
+        confirm = QMessageBox.question(
+            self,
+            "Prethodna deklaracija",
+            f"Pronađena prethodna deklaracija:\n\n" + "\n".join(lines) +
+            "\n\nUčitati ove podatke u zaglavlje?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.Yes,
+        )
+        if confirm != QMessageBox.Yes:
+            return
+
+        # Upiši u draft
+        apply_header_to_draft(self.draft, header)
+
+        # Obavijesti ZaglavljeView da se reload-uje
         try:
             main_window = self.window()
             if hasattr(main_window, 'zaglavlje_tab'):
-                main_window.zaglavlje_tab.ensure_initialized()
-                if hasattr(main_window.zaglavlje_tab, 'import_xml_requested'):
-                    main_window.zaglavlje_tab.import_xml_requested.emit(xml_path)
-                    QMessageBox.information(self, "Prethodna deklaracija", "✅ XML uvezen u zaglavlje.")
-                    return
+                main_window.zaglavlje_tab.load_from_draft(self.draft)
         except Exception as exc:
-            logger.warning("Zaglavlje import greška: %s", exc)
+            logger.warning("Zaglavlje reload greška: %s", exc)
 
-        QMessageBox.warning(self, "Greška", "Nije moguće uvesti XML u zaglavlje.")
+        self._notify_data_changed()
+        self.lbl_validation.setText("✓ Zaglavlje učitano iz prethodne deklaracije")
+        self.lbl_validation.setProperty("status", "success")
+        self.lbl_validation.style().unpolish(self.lbl_validation)
+        self.lbl_validation.style().polish(self.lbl_validation)
+        self._learn_notify_timer.start()
 
 
     def _set_buttons_enabled(self, enabled: bool):

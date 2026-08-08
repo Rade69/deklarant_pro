@@ -19,18 +19,6 @@ def extract_header_from_xml(xml_path: str) -> dict:
     izvoznik = _text('.//Traders/Exporter/Exporter_name')
     if izvoznik:
         header['izvoznik_naziv'] = izvoznik
-        header.setdefault('izvoznik_adresa', _text('.//Traders/Exporter/Address'))
-        header.setdefault('izvoznik_grad', _text('.//Traders/Exporter/City'))
-        header.setdefault('izvoznik_drzava', _text('.//Traders/Exporter/Country'))
-        header.setdefault('izvoznik_id', _text('.//Traders/Exporter/Exporter_code'))
-
-    primalac = _text('.//Traders/Consignee/Consignee_name')
-    if primalac:
-        header['primalac_naziv'] = primalac
-        header.setdefault('primalac_adresa', _text('.//Traders/Consignee/Address'))
-        header.setdefault('primalac_grad', _text('.//Traders/Consignee/City'))
-        header.setdefault('primalac_drzava', _text('.//Traders/Consignee/Country'))
-        header.setdefault('primalac_id', _text('.//Traders/Consignee/Consignee_code'))
 
     zem = _text('.//General_information/Country/Export/Export_country_code')
     if zem:
