@@ -185,27 +185,45 @@ class SifarniciService:
     # VALIDATION
     # ============================================================
     def _ensure_deklaranti_schema(self, cur) -> None:
-        """Osiguraj Rub.14 kolone za postojeće catalogs.deklaranti tabele."""
-        cur.execute("CREATE SCHEMA IF NOT EXISTS catalogs")
+        """
+        Osiguraj Rub.14 kolone za postojeće catalogs.deklaranti tabele.
+
+        DDL (CREATE SCHEMA/TABLE, ALTER TABLE) se pokreće SAMO ako tabela/kolona
+        stvarno nedostaje — provjera prvo ide preko information_schema (SELECT,
+        radi za svaku ulogu). CREATE SCHEMA IF NOT EXISTS traži CREATE pravo na
+        cijeloj bazi ČAK I kad schema već postoji (PostgreSQL provjerava
+        privilegiju prije IF NOT EXISTS provjere) — deklarant_app nema to pravo
+        pa je svaki poziv ove funkcije bez ove provjere pucao sa
+        "permission denied for database" iako je tabela odavno postojala.
+        """
         cur.execute("""
-            CREATE TABLE IF NOT EXISTS catalogs.deklaranti (
-                jib VARCHAR(50) PRIMARY KEY,
-                naziv TEXT NOT NULL DEFAULT '',
-                adresa TEXT DEFAULT '',
-                grad TEXT DEFAULT '',
-                postanski_broj TEXT DEFAULT '',
-                drzava TEXT DEFAULT '',
-                telefon TEXT DEFAULT '',
-                email TEXT DEFAULT '',
-                kontakt TEXT DEFAULT '',
-                pdv_broj TEXT DEFAULT '',
-                maticni TEXT DEFAULT ''
-            )
+            SELECT column_name FROM information_schema.columns
+            WHERE table_schema = 'catalogs' AND table_name = 'deklaranti'
         """)
-        cur.execute("""
-            ALTER TABLE catalogs.deklaranti
-            ADD COLUMN IF NOT EXISTS postanski_broj TEXT DEFAULT ''
-        """)
+        existing_columns = {row['column_name'] for row in cur.fetchall()}
+
+        if not existing_columns:
+            cur.execute("CREATE SCHEMA IF NOT EXISTS catalogs")
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS catalogs.deklaranti (
+                    jib VARCHAR(50) PRIMARY KEY,
+                    naziv TEXT NOT NULL DEFAULT '',
+                    adresa TEXT DEFAULT '',
+                    grad TEXT DEFAULT '',
+                    postanski_broj TEXT DEFAULT '',
+                    drzava TEXT DEFAULT '',
+                    telefon TEXT DEFAULT '',
+                    email TEXT DEFAULT '',
+                    kontakt TEXT DEFAULT '',
+                    pdv_broj TEXT DEFAULT '',
+                    maticni TEXT DEFAULT ''
+                )
+            """)
+        elif "postanski_broj" not in existing_columns:
+            cur.execute("""
+                ALTER TABLE catalogs.deklaranti
+                ADD COLUMN IF NOT EXISTS postanski_broj TEXT DEFAULT ''
+            """)
     
     def get_all_dokumenti(self) -> List[Dict[str, Any]]:
         """Dohvati sve dokumente iz baze."""
