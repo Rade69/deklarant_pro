@@ -254,8 +254,14 @@ class PartnerSearchDialog(QDialog):
         """
         super().__init__(parent)
         self.partner_type = partner_type
-        self.setWindowTitle(f"Pretraga {(partner_type if partner_type != 'all' else 'svih')} partnera")
-        self.resize(700, 500)
+        titles = {
+            "exporter": "Pretraga izvoznika",
+            "consignee": "Pretraga uvoznika",
+            "all": "Pretraga partnera",
+        }
+        self.setWindowTitle(titles.get(partner_type, titles["all"]))
+        self.setMinimumSize(960, 560)
+        self.resize(1100, 650)
         self.selected_partner = None
 
         self._setup_ui()
@@ -280,7 +286,16 @@ class PartnerSearchDialog(QDialog):
         self.table = QTableWidget()
         self.table.setColumnCount(6)
         self.table.setHorizontalHeaderLabels(["JIB", "Naziv", "Adresa", "Grad", "Poštanski broj", "Država"])
-        self.table.horizontalHeader().setStretchLastSection(True)
+        header = self.table.horizontalHeader()
+        header.setStretchLastSection(False)
+        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.Stretch)
+        header.setSectionResizeMode(2, QHeaderView.Stretch)
+        header.setSectionResizeMode(3, QHeaderView.Interactive)
+        header.setSectionResizeMode(4, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(5, QHeaderView.ResizeToContents)
+        self.table.setColumnWidth(3, 150)
+        self.table.setAlternatingRowColors(True)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SingleSelection)
         self.table.doubleClicked.connect(self._on_select)
@@ -355,9 +370,6 @@ class PartnerSearchDialog(QDialog):
                 self.table.setItem(row, 4, QTableWidgetItem(row_data.get('postanski_broj', '')))
                 self.table.setItem(row, 5, QTableWidgetItem(row_data.get('drzava', '')))
 
-            # Sakrij JIB kolonu za izvoznike jer oni ne trebaju JIB
-            if self.partner_type == "exporter":
-                self.table.setColumnHidden(0, True)
         else:
             # Standardna verzija sa tri kolone
             self.table.setColumnCount(3)
@@ -370,9 +382,12 @@ class PartnerSearchDialog(QDialog):
                 self.table.setItem(row, 1, QTableWidgetItem(row_data.get('naziv', '')))
                 self.table.setItem(row, 2, QTableWidgetItem(row_data.get('adresa', '')))
 
-            # Sakrij JIB kolonu za izvoznike jer oni ne trebaju JIB
-            if self.partner_type == "exporter":
-                self.table.setColumnHidden(0, True)
+        self.table.setColumnHidden(0, self.partner_type == "exporter")
+        for row in range(self.table.rowCount()):
+            for column in range(self.table.columnCount()):
+                item = self.table.item(row, column)
+                if item and item.text():
+                    item.setToolTip(item.text())
 
     def _on_select(self):
         """Handle partner selection."""
