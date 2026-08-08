@@ -4720,4 +4720,29 @@ neobično (jer je poređenje protiv HEAD-a, ne protiv onoga što bi trebalo
 biti tamo). Za izolovanu provjeru starog commit-a koristiti `git worktree
 add --detach <path> <commit>` — ne dira glavno radno stablo, briše se
 nakon provjere.
-`database/migrate_*.py`) ako se sličan bug ikad ponovo pojavi.
+
+## 2026-08-08 — Prethodna deklaracija automatska pretraga nije radila — exporter_xml_index nikad izgrađen
+
+Korisnik prijavio: automatska pretraga na "Prethodna deklaracija" dugmetu
+uvijek javlja "nije pronađeno", tek ručni odabir XML-a i uvoz popunjava
+fakturu. Uzrok: `_ensure_exporter_index_ready()` (auto-izgradnja indeksa
+ako je prazan), opisana u `docs/flow_previous_declaration.md` kao gotova
+funkcionalnost, postojala je SAMO u dokumentaciji i u još neprimijenjenom
+`git stash` od zaustavljenog paralelnog agenta (vidi prethodni unos) — nikad
+nije ušla u stvaran kod. `catalogs.exporter_xml_index` je imao samo 6
+zastarjelih redova (umjesto ~2500 iz `XML_LEARNING_FOLDER` arhive), pa je
+`find_xml_for_pair()` skoro uvijek vraćao `None`.
+
+Fix: `_ensure_exporter_index_ready()` dodata (nezavisno napisana, ne
+kopirana iz stash-a) u `gui/tabs/faktura_view.py` i `dist_client/gui/tabs/
+faktura_view.py`, poziva se prije `find_xml_for_pair()` u
+`_on_load_previous_declaration()`. Jednokratan `reindex()` pokrenut ručno
+protiv `H:\New folder\NOVA ASIKUDA` — 2499 parova, 2166 unikatnih
+izvoznika. Verifikovano end-to-end: `find_xml_for_pair('CMANA')` sada
+vraća stvaran XML (`match_type=exporter_only`). Commit `4bf9d1f`.
+
+**Opšta pouka**: dokumentacija koja opisuje funkcionalnost "kao gotovu"
+nije dokaz da je kod stvarno spojen — provjeriti `grep` za ime funkcije u
+stvarnom kodu, ne samo pročitati doc. Ovo je isti obrazac kao otkriveni
+`MIN_SIMILARITY_THRESHOLD` bug u prethodnom unosu — oba potiču iz istog
+neprimijenjenog stash-a paralelnog agenta.
