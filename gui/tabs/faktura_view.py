@@ -5580,6 +5580,7 @@ class FakturaView(BaseTabView):
         try:
             main_window = self.window()
             if hasattr(main_window, 'zaglavlje_tab'):
+                main_window.zaglavlje_tab.ensure_initialized()
                 main_window.zaglavlje_tab.load_from_draft(self.draft)
         except Exception as exc:
             logger.warning("Zaglavlje reload greška: %s", exc)
