@@ -22,7 +22,7 @@ types-PyYAML>=6.0.0
 types-requests>=2.28.0
 
 # Utilities for development
-pre-commit>=3.0.0
+pre-commit>=4.6.1
 
 # Documentation
 sphinx>=7.0.0
