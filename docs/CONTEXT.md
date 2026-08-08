@@ -299,3 +299,10 @@ temi ili datumu prije nego što se donese zaključak da nešto nije
 dokumentovano. MCP `search_project_memory` često već pokriva isti sadržaj
 bez potrebe za otvaranjem fajla.
 
+### Zvučne obavijesti dugih procesa
+Sistemski zvuk se pušta nakon dužih procesa (import, export, automatizacija)
+preko `services.process_completion_sound.play_process_completion_sound()` —
+ne `winsound` direktno iz tabova. Postavka `completion_sound_enabled`
+(podešava se kroz Admin → Settings, ima "Testiraj zvuk" dugme) kontroliše
+uključenost; korisničko otkazivanje je tiho.
+
