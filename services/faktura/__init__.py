@@ -28,6 +28,7 @@ from services.faktura.header_doc_sync_service import (
     collect_pe_docs_from_items,
     build_pe_attached_documents,
     collect_inspection_docs_from_items,
+    sync_duim_docs_to_items,
 )
 
 __all__ = [
@@ -54,4 +55,5 @@ __all__ = [
     "collect_pe_docs_from_items",
     "build_pe_attached_documents",
     "collect_inspection_docs_from_items",
+    "sync_duim_docs_to_items",
 ]

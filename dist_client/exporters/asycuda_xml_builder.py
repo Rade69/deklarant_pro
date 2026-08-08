@@ -828,9 +828,20 @@ class AsycudaXMLBuilder:
                     self._add_attached_doc(item_elem, doc)
 
         # 3. DUIM (roba dvojne namjene) — po stavci, samo za tarifne brojeve
-        # koje je ASYCUDA ranije potvrdila from_rule=1 na Item nivou.
+        # koje je ASYCUDA ranije potvrdila from_rule=1 na Item nivou. Ako je DUIM
+        # već dodat u item.attached_documents (npr. header_doc_sync_service.sync_duim_docs_to_items
+        # pri kreiranju naimenovanja), ne dupliraj ga ovdje — samo fail-safe mreža za
+        # naimenovanja kreirana prije nego je taj sync postojao.
         item_tariff_code = (item.tariff_code or "")[:8]
-        has_duim = bool(item_tariff_code) and item_tariff_code in _get_duim_tariff_codes()
+        already_has_duim = bool(item.attached_documents) and any(
+            _doc_value(raw_doc, "code", "sifra", "document_code", "Attached_document_code").upper() == "DUIM"
+            for raw_doc in item.attached_documents
+        )
+        has_duim = (
+            not already_has_duim
+            and bool(item_tariff_code)
+            and item_tariff_code in _get_duim_tariff_codes()
+        )
         if has_duim:
             self._add_attached_doc(item_elem, AttachedDocument(
                 code="DUIM",
@@ -838,6 +849,7 @@ class AsycudaXMLBuilder:
                 number=_DUIM_STATEMENT_TEXT,
                 from_rule=True,
             ))
+        has_duim = has_duim or already_has_duim
 
         # Packages
         packages = ET.SubElement(item_elem, "Packages")

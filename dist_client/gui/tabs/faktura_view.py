@@ -4023,6 +4023,7 @@ class FakturaView(BaseTabView):
             self._sync_pe_docs_to_header()
         if plan.sync_inspection_docs:
             self._sync_inspection_docs_to_header()
+            self._sync_duim_docs_to_items()
 
         if plan.reload_faktura_table:
             logger.debug("🔍 [_create_naimenovanja_from_draft] Pozivanje _load_data_from_draft()...")
@@ -5632,6 +5633,17 @@ class FakturaView(BaseTabView):
             header_docs.extend(new_docs)
             if self.on_dirty:
                 self.on_dirty()
+
+    def _sync_duim_docs_to_items(self) -> None:
+        items = getattr(self.draft, "items", None)
+        if not items:
+            return
+
+        from services.faktura.header_doc_sync_service import sync_duim_docs_to_items
+
+        added = sync_duim_docs_to_items(items)
+        if added and self.on_dirty:
+            self.on_dirty()
 
     def clear_form(self) -> None:
         """Čisti formu (BaseTabView interface) - uklanja sve stavke iz tabele."""

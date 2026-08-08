@@ -4023,6 +4023,7 @@ class FakturaView(BaseTabView):
             self._sync_pe_docs_to_header()
         if plan.sync_inspection_docs:
             self._sync_inspection_docs_to_header()
+            self._sync_duim_docs_to_items()
 
         if plan.reload_faktura_table:
             logger.debug("🔍 [_create_naimenovanja_from_draft] Pozivanje _load_data_from_draft()...")
@@ -5550,10 +5551,49 @@ class FakturaView(BaseTabView):
         # Upiši u draft
         apply_header_to_draft(self.draft, header)
 
+        # Dopuni header podacima iz baze (izvoznici/uvoznici) — XML ih ne sadrži
+        try:
+            from database.db import get_db_connection
+            with get_db_connection() as conn:
+                with conn.cursor() as cur:
+                    izv = header.get('izvoznik_naziv', '').strip()
+                    if izv:
+                        cur.execute(
+                            "SELECT * FROM catalogs.izvoznici WHERE naziv ILIKE %s LIMIT 1",
+                            (f'%{izv}%',)
+                        )
+                        row = cur.fetchone()
+                        if row:
+                            self.draft.izvoznik_adresa = row.get('adresa', '') or self.draft.izvoznik_adresa
+                            self.draft.izvoznik_grad = row.get('grad', '') or self.draft.izvoznik_grad
+                            self.draft.izvoznik_drzava = row.get('drzava', '') or self.draft.izvoznik_drzava
+                            if not self.draft.izvoznik_id:
+                                self.draft.izvoznik_id = row.get('jib', '') or ''
+
+                    prim = header.get('primalac_naziv', '')
+                    if not prim:
+                        prim = (getattr(self.draft, 'primalac_naziv', '') or '').strip()
+                    if prim:
+                        cur.execute(
+                            "SELECT * FROM catalogs.uvoznici WHERE naziv ILIKE %s LIMIT 1",
+                            (f'%{prim}%',)
+                        )
+                        row = cur.fetchone()
+                        if row:
+                            self.draft.primalac_naziv = self.draft.primalac_naziv or row.get('naziv', '') or ''
+                            self.draft.primalac_adresa = row.get('adresa', '') or self.draft.primalac_adresa
+                            self.draft.primalac_grad = row.get('grad', '') or self.draft.primalac_grad
+                            self.draft.primalac_drzava = row.get('drzava', '') or self.draft.primalac_drzava
+                            if not self.draft.primalac_id:
+                                self.draft.primalac_id = row.get('jib', '') or ''
+        except Exception as e:
+            logger.warning("_enrich_header: %s", e)
+
         # Obavijesti ZaglavljeView da se reload-uje
         try:
             main_window = self.window()
             if hasattr(main_window, 'zaglavlje_tab'):
+                main_window.zaglavlje_tab.ensure_initialized()
                 main_window.zaglavlje_tab.load_from_draft(self.draft)
         except Exception as exc:
             logger.warning("Zaglavlje reload greška: %s", exc)
@@ -5632,6 +5672,17 @@ class FakturaView(BaseTabView):
             header_docs.extend(new_docs)
             if self.on_dirty:
                 self.on_dirty()
+
+    def _sync_duim_docs_to_items(self) -> None:
+        items = getattr(self.draft, "items", None)
+        if not items:
+            return
+
+        from services.faktura.header_doc_sync_service import sync_duim_docs_to_items
+
+        added = sync_duim_docs_to_items(items)
+        if added and self.on_dirty:
+            self.on_dirty()
 
     def clear_form(self) -> None:
         """Čisti formu (BaseTabView interface) - uklanja sve stavke iz tabele."""

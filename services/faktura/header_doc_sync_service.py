@@ -50,6 +50,52 @@ def build_pe_attached_documents(pe_entries: list[tuple[str, str]]) -> list:
     return result
 
 
+def sync_duim_docs_to_items(items) -> int:
+    """
+    Doda DUIM (roba dvojne namjene) direktno na SVAKU stavku čiji je tarifni broj
+    ranije potvrđen kao ASYCUDA from_rule=1 (catalogs.tariff_duim_rules).
+
+    Za razliku od collect_inspection_docs_from_items (VET/SAN/FIT/UVK/AGL — header-level,
+    dedup preko svih stavki), DUIM je PO STAVCI — ASYCUDA ga traži na svakoj relevantnoj
+    stavci posebno, ne jednom na zaglavlju. Vidi
+    project_rooms/2026-08-07_duim-per-item-nauceno-pravilo.md.
+
+    Vraća broj stavki na koje je DUIM dodat (0 ako baza nedostupna ili nema pogodaka).
+    """
+    try:
+        from services.agent.learning.exporter_xml_indexer import get_duim_tariff_codes
+        duim_codes = get_duim_tariff_codes()
+    except Exception:
+        return 0
+    if not duim_codes:
+        return 0
+
+    from core.draft.draft import AttachedDocument
+
+    added = 0
+    for item in items:
+        tariff_code = (getattr(item, "tariff_code", "") or "")[:8]
+        if not tariff_code or tariff_code not in duim_codes:
+            continue
+        existing = getattr(item, "attached_documents", None)
+        if existing is None:
+            continue
+        already_has_duim = any(
+            (getattr(d, "code", None) or (d.get("code") if isinstance(d, dict) else None)) == "DUIM"
+            for d in existing
+        )
+        if already_has_duim:
+            continue
+        existing.append(AttachedDocument(
+            code="DUIM",
+            name="Međunarodni uvozni certifikat za robu dvojne namjene",
+            number="ROBA NIJE DVOJNE NAMJENE",
+            from_rule=True,
+        ))
+        added += 1
+    return added
+
+
 def collect_inspection_docs_from_items(items, existing_codes: set[str] | None = None) -> list:
     """Sakupi obavezne inspekcijske dokumente na osnovu tarifnih brojeva."""
     if existing_codes is None:
