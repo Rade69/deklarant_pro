@@ -1,4 +1,4 @@
-﻿# Deklarant Pro — Python zavisnosti za pip instalaciju
+# Deklarant Pro — Python zavisnosti za pip instalaciju
 # NAPOMENA: Source of truth je pyproject.toml (koristi uv sync)
 # Ovaj fajl je derivat za Windows/pip setup (setup_windows_venv.bat)
 
@@ -17,7 +17,7 @@ python-dotenv>=1.0.0
 cryptography>=42.0.0
 
 # PDF Processing
-pdfplumber>=0.10.0
+pdfplumber>=0.11.10
 reportlab>=4.0.0
 
 # Excel Processing
