@@ -5476,7 +5476,7 @@ class FakturaView(BaseTabView):
 
 
     def _on_load_previous_declaration(self):
-        """Učitaj zaglavlje iz prethodne deklaracije istog izvoznika i primaoca."""
+        """Učitaj zaglavlje iz prethodne deklaracije — direktan XML import."""
         izvoznik = resolve_exporter_name(self.draft.izvoznik_naziv, self.draft.invoice_lines)
         uvoznik = (getattr(self.draft, 'primalac_naziv', '') or '').strip()
 
@@ -5491,14 +5491,10 @@ class FakturaView(BaseTabView):
             except Exception as exc:
                 logger.warning("find_xml_for_pair greška: %s", exc)
 
-        # Ako nije pronađen automatski — ponudi ručni odabir
         if not xml_path:
-            msg = (
-                f"Nije pronađena prethodna deklaracija za izvoznika '{izvoznik}'.\n\n"
-                if izvoznik else
-                "Nije poznat izvoznik — nije moguća automatska pretraga.\n\n"
-            )
-            msg += "Odaberi XML fajl ručno?"
+            msg = "Nije pronađena prethodna deklaracija"
+            if izvoznik: msg += f" za '{izvoznik}'"
+            msg += ".\n\nOdaberi XML fajl ručno?"
             reply = QMessageBox.question(
                 self, "Prethodna deklaracija", msg,
                 QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes,
@@ -5512,80 +5508,19 @@ class FakturaView(BaseTabView):
                 return
             xml_path = path
 
-        # Parsiraj header iz XML-a
-        try:
-            header = extract_header_from_xml(xml_path)
-        except Exception as exc:
-            QMessageBox.critical(self, "Greška", f"Nije moguće parsirati XML:\n{exc}")
-            return
-
-        if not header:
-            QMessageBox.warning(self, "Prethodna deklaracija", "XML ne sadrži prepoznatljive header podatke.")
-            return
-
-        # Obogati header podacima iz baze (izvoznici/uvoznici) — XML ih ne sadrži
-        try:
-            from database.db import get_db_connection
-            with get_db_connection() as conn:
-                with conn.cursor() as cur:
-                    izv = header.get('izvoznik_naziv', '').strip()
-                    if izv:
-                        cur.execute("SELECT * FROM catalogs.izvoznici WHERE naziv ILIKE %s LIMIT 1", (f'%{izv}%',))
-                        row = cur.fetchone()
-                        if row:
-                            header.setdefault('izvoznik_adresa', row.get('adresa', '') or '')
-                            header.setdefault('izvoznik_grad', row.get('grad', '') or '')
-                            header.setdefault('izvoznik_drzava', row.get('drzava', '') or '')
-                            if not header.get('izvoznik_id'): header['izvoznik_id'] = row.get('jib', '') or ''
-                    prim = header.get('primalac_naziv', '').strip()
-                    if prim:
-                        cur.execute("SELECT * FROM catalogs.uvoznici WHERE naziv ILIKE %s LIMIT 1", (f'%{prim}%',))
-                        row = cur.fetchone()
-                        if row:
-                            header.setdefault('primalac_adresa', row.get('adresa', '') or '')
-                            header.setdefault('primalac_grad', row.get('grad', '') or '')
-                            header.setdefault('primalac_drzava', row.get('drzava', '') or '')
-                            if not header.get('primalac_id'): header['primalac_id'] = row.get('jib', '') or ''
-        except Exception as e:
-            logger.warning("_enrich_header: %s", e)
-
-        # Prikaži šta će biti učitano
-        field_labels = {
-            'izvoznik_naziv': 'Izvoznik',
-            'drzava_izvoza_sifra': 'Država izvoza',
-            'valuta': 'Valuta',
-            'uslovi_kod': 'Incoterm',
-            'uslovi_mjesto': 'Mjesto isporuke',
-            'deklaracija_tip': 'Tip deklaracije',
-            'deklaracija_a': 'Oznaka',
-            'deklaracija_oznaka': 'Procedura',
-        }
-        lines = format_header_preview(header, field_labels)
-
-        confirm = QMessageBox.question(
-            self,
-            "Prethodna deklaracija",
-            f"Pronađena prethodna deklaracija:\n\n" + "\n".join(lines) +
-            "\n\nUčitati ove podatke u zaglavlje?",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.Yes,
-        )
-        if confirm != QMessageBox.Yes:
-            return
-
-        # Upiši u draft
-        apply_header_to_draft(self.draft, header)
-
-        # Obavijesti ZaglavljeView da se reload-uje
+        # Importuj XML direktno u zaglavlje (isti mehanizam kao ručni uvoz)
         try:
             main_window = self.window()
             if hasattr(main_window, 'zaglavlje_tab'):
                 main_window.zaglavlje_tab.ensure_initialized()
-                main_window.zaglavlje_tab.load_from_draft(self.draft)
+                if hasattr(main_window.zaglavlje_tab, 'import_xml_requested'):
+                    main_window.zaglavlje_tab.import_xml_requested.emit(xml_path)
+                    QMessageBox.information(self, "Prethodna deklaracija", "✅ XML uvezen u zaglavlje.")
+                    return
         except Exception as exc:
-            logger.warning("Zaglavlje reload greška: %s", exc)
+            logger.warning("Zaglavlje import greška: %s", exc)
 
-        QMessageBox.information(self, "Prethodna deklaracija", "✅ Podaci učitani u zaglavlje.")
+        QMessageBox.warning(self, "Greška", "Nije moguće uvesti XML u zaglavlje.")
 
 
     def _set_buttons_enabled(self, enabled: bool):
