@@ -4661,3 +4661,63 @@ pravo prilikom parsiranja komande, prije same "IF NOT EXISTS" logike.
 role — vrijedi provjeriti da li isti pattern postoji negdje drugo
 (`grep "CREATE SCHEMA IF NOT EXISTS\|CREATE TABLE IF NOT EXISTS"` van
 `database/migrate_*.py`) ako se sličan bug ikad ponovo pojavi.
+
+## 2026-08-08 — Spajanje svih grana u main, pomirenje windows/main istorija, push na GitHub
+
+Korisnikov zahtjev: pregledati sve promjene na svim granama, spojiti u
+`main` i pušovati na GitHub. `windows` i `main` su imale **potpuno
+nezavisne istorije** (windows je nastala kao zasebna grana kad je razvoj
+prešao sa Linuxa na Windows radi bildanja aplikacije; korisnik potvrdio da
+je windows sada de facto glavna linija razvoja jer većina korisnika radi
+na Windows mašinama).
+
+**Pomirenje istorija**: `git merge --allow-unrelated-histories -s ours
+main` (pokrenuto sa windows grane) — kreira merge commit sa oba roditelja
+ali stablo identično windows granom (potvrđeno praznim `git diff --stat`
+između starog i novog HEAD-a). Ovo izbjegava pokušaj line-level 3-way
+merge-a bez zajedničkog pretka, koji bi izazvao konflikte na skoro svakom
+fajlu u bazi koda ove veličine.
+
+**Spojene grane** (od 7 lokalnih, 4 su već bile potpuno mergovane u
+windows): `feature/agent-v2` (7 commit-ova, 11 fajlova u konfliktu) i
+`fix/partner-search-modal-layout-20260808` (2 commit-a, čist merge).
+`feature/agent-v2` konflikt: oba agenta su nezavisno napravila funkciju
+"zvučna obavijest završetka procesa" pod različitim imenima
+(`completion_sound_service.py`/`completion_sounds_enabled` vs
+`process_completion_sound.py`/`completion_sound_enabled`) — zadržana
+windows verzija (25+ poziva, testirano "Testiraj zvuk" dugme), obrisana
+druga kao mrtav kod.
+
+**Otkriveno tokom verifikacije**: `dist_client/services/naimenovanja/
+constants.py` je imao `MIN_SIMILARITY_THRESHOLD = 0.50` još od PRVOG
+windows commit-a (`0149de9`, 2026-05-31) — dok je root fajl ispravno imao
+`0.92`. Distribuirani Windows klijent (ono što korisnici stvarno pokreću)
+je 2+ mjeseca radio sa slabijim fuzzy-matching pragom nego razvojna
+verzija, potpuno neprimijećeno. Fix: commit `0c92f0a`, GitNexus impact
+LOW. Otkriveno slučajno dok se ispravljao NESRODAN nalaz: zaostali `git
+stash` od zaustavljenog paralelnog agenta (Crush) je imao isti obrazac
+greške (`0.65` umjesto `0.92`) — taj stash je popravljen i ostavljen
+sačuvanim (NIJE primijenjen na main), zajedno sa drugim stash-om (veće
+brisanje `mcp_server/tools/*` i sl.) — oba van scope-a ovog zadatka,
+korisnik obaviješten.
+
+**Testovi**: 1552 prošlo, 71 skip, 5 xfail, 3 pre-existing neuspjeha
+(potvrđeno IDENTIČNI na `windows` PRIJE merge rada, izolovanim
+`git worktree` provjerom na `e82a1a2` — nisu regresija): DB test-podatak
+"Test proizvod" zagađuje realnu bazu (usage_count=56 umjesto None),
+`_FailingInsertCursor` fixture nema `fetchone()`, i
+`dist_client/gui/tabs/faktura_view.py` već ranije zaostaje za root
+(potiče od `1dedd1a` revert commit-a).
+
+**Push**: `origin/main` 3354c90 → `0c92f0a`, 1048 commit-ova, potvrđeno
+`git rev-list --count` 0/0 razlike oba pravca nakon push-a.
+
+**Opšta pouka**: `git checkout <commit> -- .` (bez promjene grane) je
+opasan alat za "brzu provjeru starog stanja" — prepisuje CIJELO radno
+stablo starim sadržajem dok HEAD ostaje na trenutnoj grani, ostavljajući
+mješavinu koja izgleda kao čisto stablo dok `git status` ne pokaže ništa
+neobično (jer je poređenje protiv HEAD-a, ne protiv onoga što bi trebalo
+biti tamo). Za izolovanu provjeru starog commit-a koristiti `git worktree
+add --detach <path> <commit>` — ne dira glavno radno stablo, briše se
+nakon provjere.
+`database/migrate_*.py`) ako se sličan bug ikad ponovo pojavi.
