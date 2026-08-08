@@ -5475,6 +5475,30 @@ class FakturaView(BaseTabView):
         if incoterm_code and not self.draft.uslovi_kod:
             self.draft.uslovi_kod = incoterm_code
 
+    def _ensure_exporter_index_ready(self) -> None:
+        """Ako catalogs.exporter_xml_index nikad nije izgrađen, izgradi ga sada."""
+        try:
+            from services.agent.learning.exporter_xml_indexer import get_db_connection, reindex
+            conn = get_db_connection()
+            try:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT COUNT(*) as cnt FROM catalogs.exporter_xml_index")
+                    row = cur.fetchone()
+            finally:
+                conn.close()
+            if row and row['cnt'] == 0:
+                from PySide6.QtWidgets import QApplication
+                self.lbl_validation.setText("⏳ Gradim indeks prethodnih deklaracija (prvi put, može potrajati)...")
+                self.lbl_validation.setProperty("status", "info")
+                self.lbl_validation.style().unpolish(self.lbl_validation)
+                self.lbl_validation.style().polish(self.lbl_validation)
+                QApplication.processEvents()
+                logger.info("📦 exporter_xml_index prazan — pokrećem reindex...")
+                reindex()
+                self.lbl_validation.setText("")
+        except Exception as exc:
+            logger.warning("_ensure_exporter_index_ready greška: %s", exc)
+
     def _on_load_previous_declaration(self):
         """Učitaj zaglavlje iz prethodne deklaracije istog izvoznika."""
         # Prioritet: draft zaglavlje (popunjeno iz _apply_import_result_to_header)
@@ -5484,6 +5508,7 @@ class FakturaView(BaseTabView):
         xml_path = None
 
         if izvoznik:
+            self._ensure_exporter_index_ready()
             try:
                 from services.agent.learning.exporter_xml_indexer import find_xml_for_pair
                 result = find_xml_for_pair(izvoznik)
