@@ -46,24 +46,34 @@ def _rows_for(draft, target: str) -> List[Any]:
 
 
 def _resolve_target(draft, target: Optional[str]) -> tuple[str, Optional[str]]:
-    """Odredi stvaran target kad LLM ne navede jedan eksplicitno.
+    """Odredi stvaran target — prebacuje na skup koji STVARNO ima podatke.
 
     Naimenovanja (items) se kreiraju TEK nakon fakturnih linija — odmah
-    nakon uvoza fakture `draft.items` je prazan. Ako LLM ne navede target
-    i items je prazan dok invoice_lines nije, "items" default bi tiho
-    pretražio praktično prazan skup i vratio lažno nizak/pogrešan broj
-    (potvrđen stvaran bug: "19 bez tarife" na Faktura status bedžu, agent
-    odgovorio "1 naimenovanje" jer je default bio items). Vraća
-    (rezolutovan_target, napomena_za_korisnika_ili_None).
+    nakon uvoza fakture `draft.items` je prazan dok `draft.invoice_lines`
+    nije (potvrđen stvaran bug: "19 bez tarife" na Faktura status bedžu,
+    agent odgovorio "1 naimenovanje"). Ovo se dešava BEZ OBZIRA da li je
+    LLM eksplicitno naveo target="items" — LLM-ov izbor parametra NIJE
+    pouzdan signal stvarne korisnikove namjere (potvrđeno uživo: SYSTEM_
+    PROMPT uputstvo da se target izostavi nije spriječilo LLM da ipak
+    pošalje "items"). Zato se prebacivanje radi na osnovu stvarnog stanja
+    drafta, ne na osnovu toga da li je target "eksplicitan" ili ne.
+
+    Vraća (rezolutovan_target, napomena_za_korisnika_ili_None).
     """
-    if target:
-        return target, None
-    if not (draft.items or []):
+    requested = (target or "items")
+    items = draft.items or []
+    invoice = draft.invoice_lines or []
+
+    if requested == "items" and not items and invoice:
         return "invoice", (
             "Naimenovanja još nisu kreirana za ovu deklaraciju — "
             "pretraženo je po fakturnim linijama."
         )
-    return "items", None
+    if requested == "invoice" and not invoice and items:
+        return "items", (
+            "Fakturne linije nisu pronađene — pretraženo je po naimenovanjima."
+        )
+    return requested, None
 
 
 def _primijeni_uslove(rows: List[Any], uslovi: Optional[List[dict]], fields: Dict[str, str]) -> List[Any]:

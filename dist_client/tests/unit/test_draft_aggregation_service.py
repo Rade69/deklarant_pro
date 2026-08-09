@@ -142,10 +142,27 @@ def test_filtriraj_bez_eksplicitnog_targeta_prebacuje_na_invoice_kad_su_items_pr
     assert "napomena" in rezultat
 
 
-def test_filtriraj_eksplicitan_target_items_ostaje_items_i_bez_napomene():
-    """Kad LLM EKSPLICITNO trazi items, fallback se ne smije aktivirati ni kad su
-    items prazni — poslusan eksplicitan izbor, ne 'ispravlja' korisnika."""
+def test_filtriraj_prebacuje_i_kad_je_target_eksplicitno_items_a_prazan():
+    """LLM-ov izbor target parametra NIJE pouzdan signal stvarne namjere
+    korisnika (potvrdjeno uzivo: LLM salje target='items' bez obzira na
+    SYSTEM_PROMPT uputstvo da ga izostavi kad naimenovanja jos ne postoje).
+    Zato se fallback aktivira i kad je target eksplicitno 'items', ako je
+    prazan a invoice_lines ima podatke — nema legitimnog razloga da se
+    vrati '0 naimenovanja' kad naimenovanja uopste ne postoje."""
     draft = _draft_faktura_bez_naimenovanja()
+    rezultat = filtriraj(
+        draft, target="items", uslovi=[{"polje": "tarifa", "operator": "prazno"}],
+    )
+    assert rezultat["target"] == "invoice"
+    assert rezultat["broj"] == 19
+    assert "napomena" in rezultat
+
+
+def test_filtriraj_kad_su_oba_prazna_vraca_trazeni_target_bez_napomene():
+    """Ako NEMA podataka ni u items ni u invoice, fallback nema kud da
+    prebaci — vraca trazeni target sa praznim rezultatom, bez napomene
+    (nema alternative koju bi ponudio)."""
+    draft = DeclarationDraft()
     rezultat = filtriraj(
         draft, target="items", uslovi=[{"polje": "tarifa", "operator": "prazno"}],
     )
@@ -154,9 +171,33 @@ def test_filtriraj_eksplicitan_target_items_ostaje_items_i_bez_napomene():
     assert "napomena" not in rezultat
 
 
+def test_filtriraj_prebacuje_na_items_kad_je_target_invoice_a_invoice_prazan():
+    """Simetrican slucaj: target='invoice' (eksplicitno ili default), ali
+    invoice_lines je prazan dok items ima podatke — prebacuje na items."""
+    draft = DeclarationDraft()
+    draft.invoice_lines = []
+    draft.items = _draft_sa_naimenovanjima().items
+    rezultat = filtriraj(
+        draft, target="invoice", uslovi=[{"polje": "zemlja", "operator": "prazno"}],
+    )
+    assert rezultat["target"] == "items"
+    assert rezultat["broj"] == 1
+    assert "napomena" in rezultat
+
+
 def test_agregiraj_bez_eksplicitnog_targeta_prebacuje_na_invoice_kad_su_items_prazni():
     draft = _draft_faktura_bez_naimenovanja()
     rezultat = agregiraj(draft, "count", uslovi=[{"polje": "tarifa", "operator": "prazno"}])
+    assert rezultat["target"] == "invoice"
+    assert rezultat["broj"] == 19
+    assert "napomena" in rezultat
+
+
+def test_agregiraj_prebacuje_i_kad_je_target_eksplicitno_items_a_prazan():
+    draft = _draft_faktura_bez_naimenovanja()
+    rezultat = agregiraj(
+        draft, "count", target="items", uslovi=[{"polje": "tarifa", "operator": "prazno"}],
+    )
     assert rezultat["target"] == "invoice"
     assert rezultat["broj"] == 19
     assert "napomena" in rezultat
