@@ -14,11 +14,37 @@ def extract_header_from_xml(xml_path: str) -> dict:
         el = root.find(xpath)
         return (el.text or '').strip().split('\n')[0].strip() if el is not None else ''
 
+    def _lines(xpath: str) -> list:
+        el = root.find(xpath)
+        if el is None or not (el.text or '').strip():
+            return []
+        return [ln.strip() for ln in el.text.strip().split('\n') if ln.strip()]
+
     header = {}
 
-    izvoznik = _text('.//Traders/Exporter/Exporter_name')
-    if izvoznik:
-        header['izvoznik_naziv'] = izvoznik
+    izv_lines = _lines('.//Traders/Exporter/Exporter_name')
+    if izv_lines:
+        header['izvoznik_naziv'] = izv_lines[0]
+        if len(izv_lines) > 1:
+            header['izvoznik_grad'] = izv_lines[1]
+        if len(izv_lines) > 2:
+            header['izvoznik_drzava'] = izv_lines[2]
+
+    cons_lines = _lines('.//Traders/Consignee/Consignee_name')
+    if cons_lines:
+        header['primalac_naziv'] = cons_lines[0]
+        if len(cons_lines) > 1:
+            header['primalac_grad'] = cons_lines[1]
+        if len(cons_lines) > 2:
+            header['primalac_adresa'] = cons_lines[2]
+    cons_code = _text('.//Traders/Consignee/Consignee_code')
+    if cons_code:
+        header['primalac_id'] = cons_code
+
+    ured_sifra = _text('.//Identification/Office_segment/Customs_clearance_office_code')
+    ured_naziv = _text('.//Identification/Office_segment/Customs_Clearance_office_name')
+    if ured_sifra or ured_naziv:
+        header['ured_odredista'] = f"{ured_sifra}  {ured_naziv}".strip()
 
     zem = _text('.//General_information/Country/Export/Export_country_code')
     if zem:

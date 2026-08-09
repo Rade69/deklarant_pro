@@ -5553,6 +5553,8 @@ class FakturaView(BaseTabView):
         field_labels = {
             'izvoznik_naziv': 'Izvoznik',
             'drzava_izvoza_sifra': 'Država izvoza',
+            'primalac_naziv': 'Primalac',
+            'ured_odredista': 'Carinska ispostava',
             'valuta': 'Valuta',
             'uslovi_kod': 'Incoterm',
             'uslovi_mjesto': 'Mjesto isporuke',
@@ -5589,9 +5591,9 @@ class FakturaView(BaseTabView):
                         )
                         row = cur.fetchone()
                         if row:
-                            self.draft.izvoznik_adresa = row.get('adresa', '') or self.draft.izvoznik_adresa
-                            self.draft.izvoznik_grad = row.get('grad', '') or self.draft.izvoznik_grad
-                            self.draft.izvoznik_drzava = row.get('drzava', '') or self.draft.izvoznik_drzava
+                            self.draft.izvoznik_adresa = self.draft.izvoznik_adresa or row.get('adresa', '') or ''
+                            self.draft.izvoznik_grad = self.draft.izvoznik_grad or row.get('grad', '') or ''
+                            self.draft.izvoznik_drzava = self.draft.izvoznik_drzava or row.get('drzava', '') or ''
                             if not self.draft.izvoznik_id:
                                 self.draft.izvoznik_id = row.get('jib', '') or ''
 
@@ -5606,9 +5608,9 @@ class FakturaView(BaseTabView):
                         row = cur.fetchone()
                         if row:
                             self.draft.primalac_naziv = self.draft.primalac_naziv or row.get('naziv', '') or ''
-                            self.draft.primalac_adresa = row.get('adresa', '') or self.draft.primalac_adresa
-                            self.draft.primalac_grad = row.get('grad', '') or self.draft.primalac_grad
-                            self.draft.primalac_drzava = row.get('drzava', '') or self.draft.primalac_drzava
+                            self.draft.primalac_adresa = self.draft.primalac_adresa or row.get('adresa', '') or ''
+                            self.draft.primalac_grad = self.draft.primalac_grad or row.get('grad', '') or ''
+                            self.draft.primalac_drzava = self.draft.primalac_drzava or row.get('drzava', '') or ''
                             if not self.draft.primalac_id:
                                 self.draft.primalac_id = row.get('jib', '') or ''
         except Exception as e:

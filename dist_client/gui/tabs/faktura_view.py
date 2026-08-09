@@ -5553,6 +5553,8 @@ class FakturaView(BaseTabView):
         field_labels = {
             'izvoznik_naziv': 'Izvoznik',
             'drzava_izvoza_sifra': 'Država izvoza',
+            'primalac_naziv': 'Primalac',
+            'ured_odredista': 'Carinska ispostava',
             'valuta': 'Valuta',
             'uslovi_kod': 'Incoterm',
             'uslovi_mjesto': 'Mjesto isporuke',
@@ -5576,10 +5578,49 @@ class FakturaView(BaseTabView):
         # Upiši u draft
         apply_header_to_draft(self.draft, header)
 
+        # Dopuni header podacima iz baze (izvoznici/uvoznici) — XML ih ne sadrži
+        try:
+            from database.db import get_db_connection
+            with get_db_connection() as conn:
+                with conn.cursor() as cur:
+                    izv = header.get('izvoznik_naziv', '').strip()
+                    if izv:
+                        cur.execute(
+                            "SELECT * FROM catalogs.izvoznici WHERE naziv ILIKE %s LIMIT 1",
+                            (f'%{izv}%',)
+                        )
+                        row = cur.fetchone()
+                        if row:
+                            self.draft.izvoznik_adresa = self.draft.izvoznik_adresa or row.get('adresa', '') or ''
+                            self.draft.izvoznik_grad = self.draft.izvoznik_grad or row.get('grad', '') or ''
+                            self.draft.izvoznik_drzava = self.draft.izvoznik_drzava or row.get('drzava', '') or ''
+                            if not self.draft.izvoznik_id:
+                                self.draft.izvoznik_id = row.get('jib', '') or ''
+
+                    prim = header.get('primalac_naziv', '')
+                    if not prim:
+                        prim = (getattr(self.draft, 'primalac_naziv', '') or '').strip()
+                    if prim:
+                        cur.execute(
+                            "SELECT * FROM catalogs.uvoznici WHERE naziv ILIKE %s LIMIT 1",
+                            (f'%{prim}%',)
+                        )
+                        row = cur.fetchone()
+                        if row:
+                            self.draft.primalac_naziv = self.draft.primalac_naziv or row.get('naziv', '') or ''
+                            self.draft.primalac_adresa = self.draft.primalac_adresa or row.get('adresa', '') or ''
+                            self.draft.primalac_grad = self.draft.primalac_grad or row.get('grad', '') or ''
+                            self.draft.primalac_drzava = self.draft.primalac_drzava or row.get('drzava', '') or ''
+                            if not self.draft.primalac_id:
+                                self.draft.primalac_id = row.get('jib', '') or ''
+        except Exception as e:
+            logger.warning("_enrich_header: %s", e)
+
         # Obavijesti ZaglavljeView da se reload-uje
         try:
             main_window = self.window()
             if hasattr(main_window, 'zaglavlje_tab'):
+                main_window.zaglavlje_tab.ensure_initialized()
                 main_window.zaglavlje_tab.load_from_draft(self.draft)
         except Exception as exc:
             logger.warning("Zaglavlje reload greška: %s", exc)
