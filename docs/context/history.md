@@ -4841,3 +4841,53 @@ nepovezanog razloga (nestabilnost tokom iterativnog rada, čišćenje pred
 drugi zadatak). Ne vraćati stari kod slijepo ni u jednom ni u drugom
 pravcu — ni "sigurno je bio loš pa je revertovan" ni "samo vrati stari
 diff" — napisati nanovo i provjeriti nezavisno.
+
+## 2026-08-09 — Agent chat: filtriraj_stavke/agregiraj_stavke tiho pretraživali pogrešan skup podataka (items umjesto invoice)
+
+Korisnik: "u nekoliko navrata pokušali agenta učiniti pametnijim... dalje
+nisam zadovoljan". Umjesto uopštenog audita, tražen je konkretan skorašnji
+primjer (isti obrazac koji je 2026-08-05 doveo do SUSSINA fix-a — vidi
+`agent-agregacija-filtriranje-stavki` memoriju). Korisnik dao: pitao agenta
+"Pronađi mi sve proizvode bez tarifnog broja" dok je Faktura status bedž
+pokazivao "19 bez tarife"; agent odgovorio "🔎 Pronađeno 1 naimenovanja:
+Rb.1: —".
+
+Root cause: `filtriraj()`/`agregiraj()` (`services/agent/chat/draft_
+aggregation_service.py`) imaju `target="items"` kao tvrd default kad LLM
+ne navede target eksplicitno. `draft.items` (naimenovanja) se popunjava
+TEK nakon fakturnih linija — odmah nakon uvoza fakture je prazan/skoro
+prazan, dok `draft.invoice_lines` (ono što status bedž broji i na šta
+korisnik misli pod "proizvodi") ima 19 stavki bez tarife. LLM je tiho
+pretražio pogrešan, praktično prazan skup i samouvjereno vratio pogrešan
+broj — nije halucinacija tarifnog podatka (već zabranjena AGENTS.md
+pravilom), nego pogrešan IZBOR SKUPA podataka nad kojim se determinstički
+alat pokreće.
+
+Fix: nova `_resolve_target(draft, target)` — ako `target` NIJE eksplicitno
+naveden I `draft.items` je prazan dok `invoice_lines` nije, auto-prebacuje
+na `"invoice"` i vraća napomenu koja se prikazuje korisniku ("Naimenovanja
+još nisu kreirana..."). Eksplicitan target (LLM eksplicitno kaže
+"naimenovanja"/"Rb.") ostaje POŠTOVAN bez izmjene — fallback se aktivira
+SAMO kad je izbor bio prećutan default, ne kad je stvarno namjeran.
+`target="all"` NIJE reintrodukovan (ranija namjerna odluka od 2026-08-05
+da se izbjegne miješanje invoice_lines/items u istom odgovoru) — fallback
+bira TAČNO JEDAN target, nikad ih ne miješa. `SYSTEM_PROMPT` i opisi
+`target` parametra ažurirani da eksplicitno kažu LLM-u da NE navodi target
+osim kad korisnik eksplicitno pomene naimenovanja/Rb.
+
+GitNexus impact `filtriraj()`: HIGH (6 povezanih simbola, root+dist_client
+lanac) — `project_room` napravljen prije izmjene, korisnik obaviješten po
+"Handoff visokog rizika" formatu, potvrdio nastavak. 4 nova regresiona
+testa (root+dist_client): tačna reprodukcija prijavljenog scenarija
+(19 umjesto 1), i potvrda da eksplicitan `target="items"` ostaje
+nepromijenjen (bez "ispravljanja" korisnika kad stvarno misli na
+naimenovanja). Pun test suite: 1557 passed (bilo 1553), isti 2
+pre-existing neuspjeha. Commit `1c0c1fe`.
+
+**Opšta pouka**: "razumije zahtjev korisnika" problemi u agent chatu nisu
+uvijek o LLM-ovom pogrešnom tumačenju teksta — mogu biti o alatu koji
+IMA tačnu implementaciju ali TIHO pretpostavlja pogrešan kontekst
+(workflow stage) kad eksplicitni signal nedostaje. Test: uporediti šta
+UI status bedž/vidljivi brojevi pokazuju sa onim što alat stvarno broji —
+ako se ne poklapaju, sumnjati na target/scope mismatch prije nego na
+LLM "glupost".
