@@ -172,6 +172,27 @@ Ručna provjera u pokrenutoj aplikaciji: isto pitanje kao u bug reportu
 prazna) treba sad vratiti tačan broj (odgovarajući status bedžu) uz
 napomenu da su pretražene fakturne linije.
 
+## Addendum (isti dan) — prikazi="broj" primjer skidao listu iz odgovora
+
+Odmah nakon gornjeg fix-a korisnik prijavio: "ne želim samo broj 19, nego
+nazive proizvoda i redne brojeve u tabu faktura". Uzrok: SOPSTVENI
+SYSTEM_PROMPT primjer napisan u fix-u iznad je eksplicitno predlagao
+`prikazi="broj"` za upit istog oblika ("Koliko stavki nema X") — LLM je
+taj primjer pratio doslovno, iako je podrazumijevani mod alata
+(`prikazi="oboje"`, nedirano nikad) već ispravno vraćao i listu (naziv +
+redni broj). Fix: primjeri u `SYSTEM_PROMPT`-u (`services/agent/chat/
+tool_definitions.py` + dist_client) više ne navode `prikazi="broj"` za
+opšte "koliko/pronađi" upite, dodato eksplicitno pravilo da odgovor MORA
+sadržati naziv i redni broj svake stavke osim ako korisnik EKSPLICITNO
+traži samo broj. Čista prompt-tekst izmjena, bez promjene koda/logike.
+Pun test suite ponovo pokrenut: 1557 passed, isti 2 pre-existing neuspjeha.
+Commit `8e0260f`.
+
+**Pouka**: SYSTEM_PROMPT primjer koji eksplicitno navodi vrijednost za
+parametar sa sigurnim defaultom efektivno mijenja to ponašanje za LLM —
+provjeriti prije dodavanja primjera da li se time slučajno odstupa od
+željenog defaulta.
+
 ## Ljudsko usvajanje rezultata
 - Odgovorna osoba: <<< >>>
 - Izvještaj pročitan u cijelosti: <<< DA/NE >>>

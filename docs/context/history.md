@@ -4891,3 +4891,21 @@ IMA tačnu implementaciju ali TIHO pretpostavlja pogrešan kontekst
 UI status bedž/vidljivi brojevi pokazuju sa onim što alat stvarno broji —
 ako se ne poklapaju, sumnjati na target/scope mismatch prije nego na
 LLM "glupost".
+
+**Addendum (isti dan)** — odmah nakon gornjeg fix-a korisnik prijavio:
+"ne želim samo broj 19, nego nazive proizvoda i redne brojeve u tabu
+faktura". Uzrok: SOPSTVENI SYSTEM_PROMPT primjer iz fix-a iznad je
+eksplicitno predlagao `prikazi="broj"` za upit istog oblika ("Koliko
+stavki nema X") — LLM je taj primjer pratio doslovno, iako je
+podrazumijevani mod alata (`prikazi="oboje"`) već ispravno vraćao i
+listu (naziv + redni broj). Popravljeno: primjeri u prompt-u više ne
+navode `prikazi="broj"` za opšte "koliko/pronađi" upite, dodato eksplicitno
+pravilo da odgovor MORA sadržati naziv i redni broj svake stavke osim ako
+korisnik EKSPLICITNO traži samo broj. Čista prompt-tekst izmjena — kod
+(default `"oboje"`) nikad nije bio pogrešan. Commit `8e0260f`.
+
+**Dopunska pouka**: kad se piše SYSTEM_PROMPT primjer za LLM, provjeriti
+da li primjer implicitno mijenja PODRAZUMIJEVANO ponašanje alata (ovdje:
+eksplicitno navođenje parametra koji ima siguran default) — LLM prati
+primjere doslovno, pa čak i "ilustrativan" primjer postaje efektivno
+pravilo.
