@@ -4746,3 +4746,46 @@ nije dokaz da je kod stvarno spojen — provjeriti `grep` za ime funkcije u
 stvarnom kodu, ne samo pročitati doc. Ovo je isti obrazac kao otkriveni
 `MIN_SIMILARITY_THRESHOLD` bug u prethodnom unosu — oba potiču iz istog
 neprimijenjenog stash-a paralelnog agenta.
+
+## 2026-08-08 — normalize_exporter_name ne uklanja grad iza DOO/D.O.O. (CRITICAL impact fix)
+
+Nastavak prethodnog unosa: nakon fix-a za prazan `exporter_xml_index`,
+korisnik je i dalje dobijao "Nije pronađena prethodna deklaracija za
+izvoznika 'CMANA DOO KRNJEVO'" — u međuvremenu se ispostavilo da je
+stvarni uzrok bio DB server nedostupan (IP u `.env` zastario,
+`192.168.100.154` → stvaran `192.168.0.25`, dmserver DHCP), a NAKON što
+je konekcija popravljena, otkriven je DRUGI, stvaran bug: `normalize_
+exporter_name()` u `services/agent/learning/exporter_xml_indexer.py` ima
+u docstring-u `'KONZUM DOO BEOGRAD' → 'KONZUM'` kao podržan slučaj, ali
+regex za pravni oblik (`DOO`/`D.O.O.`/itd.) je bio usidren na kraj stringa
+(`$`) — radio je samo kad NEMA grada iza. `'CMANA DOO'` (arhivski XML,
+bez grada) → `'CMANA'` (radi), ali `'CMANA DOO KRNJEVO'` (naziv sa
+fakture, sa gradom) → ostaje nepromijenjeno (ne radi) → različiti ključevi,
+`find_xml_for_pair` ne nalazi postojeći match.
+
+GitNexus `impact()` za `normalize_exporter_name`: **CRITICAL**, 29
+povezanih simbola, 5 execution flow-ova (reindex, find_xml_for_pair,
+find_xml_by_consignee, agent chat `_build_context`/`_build_session_zone`,
+`header_autofill_service`, `xml_workflow_service`, `mcp_facade`, Admin
+Learning panel). Korisnik eksplicitno potvrdio nastavak nakon prikazanog
+rizika (AskUserQuestion, "Da, uradi fix + reindex"). `project_rooms/
+2026-08-08_normalize-exporter-name-doo-grad.md` napravljen prije izmjene
+(HIGH/CRITICAL procedura po AGENTS.md).
+
+Fix: dodat drugi regex prolaz (`suffixes_with_city_to_remove`) koji
+uklanja pravni oblik + 1-2 riječi grada (bez brojeva) na kraju stringa,
+primijenjen PRIJE postojeće logike (imena bez grada ostaju netaknuta).
+Identična izmjena u `services/` i `dist_client/services/` kopiji.
+`reindex()` ponovo pokrenut (2499 → 2480 parova — očekivano manje jer se
+više varijanti imena sad spaja pod isti ključ). Verifikovano: `find_xml_
+for_pair('CMANA DOO KRNJEVO')` sada pronalazi isti XML kao `'CMANA'`;
+poznati parovi (Blagić Loren, Leburić Komerc) takođe ispravno normalizuju
+grad. Pun test suite: 1552 passed, isti 3 pre-existing neuspjeha
+(nepromijenjeno, nije regresija). Commit `f69a3ec`.
+
+**Opšta pouka**: "Nije pronađeno" u UI može imati VIŠE nezavisnih uzroka
+naslaganih jedan na drugi (prazan indeks → popravljen, DB nedostupna →
+popravljena promjenom IP-a u `.env`, normalizacija ključa → popravljena)
+— svaki sljedeći sloj se otkrije tek kad se prethodni ukloni. Ne
+pretpostavljati da je prvi pronađeni uzrok jedini; ponovo reprodukovati
+NAKON svakog fix-a prije zatvaranja zadatka.
