@@ -111,3 +111,61 @@ def test_agregiraj_bez_stavki_vraca_none_ne_baca_gresku():
     rezultat = agregiraj(draft, "sum", "vrijednost", target="items")
     assert rezultat["rezultat"] is None
     assert rezultat["broj_stavki"] == 0
+
+
+def _draft_faktura_bez_naimenovanja():
+    """Stanje odmah nakon uvoza fakture — invoice_lines postoje, items (naimenovanja)
+    jos nisu kreirana. Reprodukuje stvaran bug: korisnik pitao 'Pronadji mi sve
+    proizvode bez tarifnog broja' dok je Faktura status bedz pokazivao '19 bez
+    tarife' (invoice_lines nivo); agent je (target default 'items') odgovorio
+    '1 naimenovanje' jer draft.items tada prakticno ne postoji."""
+    draft = DeclarationDraft()
+    draft.items = []
+    draft.invoice_lines = [
+        InvoiceLine(line_no=i, naziv_robe=f"Roba {i}", tarifni_broj="", zemlja_porijekla="RS")
+        for i in range(1, 20)
+    ]
+    draft.invoice_lines.append(
+        InvoiceLine(line_no=20, naziv_robe="Roba 20", tarifni_broj="12345678", zemlja_porijekla="RS")
+    )
+    return draft
+
+
+def test_filtriraj_bez_eksplicitnog_targeta_prebacuje_na_invoice_kad_su_items_prazni():
+    """Reprodukcija prijavljenog bug-a: target nije naveden, items prazan → invoice."""
+    draft = _draft_faktura_bez_naimenovanja()
+    rezultat = filtriraj(
+        draft, uslovi=[{"polje": "tarifa", "operator": "prazno"}],
+    )
+    assert rezultat["target"] == "invoice"
+    assert rezultat["broj"] == 19
+    assert "napomena" in rezultat
+
+
+def test_filtriraj_eksplicitan_target_items_ostaje_items_i_bez_napomene():
+    """Kad LLM EKSPLICITNO trazi items, fallback se ne smije aktivirati ni kad su
+    items prazni — poslusan eksplicitan izbor, ne 'ispravlja' korisnika."""
+    draft = _draft_faktura_bez_naimenovanja()
+    rezultat = filtriraj(
+        draft, target="items", uslovi=[{"polje": "tarifa", "operator": "prazno"}],
+    )
+    assert rezultat["target"] == "items"
+    assert rezultat["broj"] == 0
+    assert "napomena" not in rezultat
+
+
+def test_agregiraj_bez_eksplicitnog_targeta_prebacuje_na_invoice_kad_su_items_prazni():
+    draft = _draft_faktura_bez_naimenovanja()
+    rezultat = agregiraj(draft, "count", uslovi=[{"polje": "tarifa", "operator": "prazno"}])
+    assert rezultat["target"] == "invoice"
+    assert rezultat["broj"] == 19
+    assert "napomena" in rezultat
+
+
+def test_resolve_target_kad_items_postoje_ostaje_items_bez_napomene():
+    """Kad naimenovanja VEC postoje, default (bez eksplicitnog targeta) ostaje items,
+    kao i ranije — fallback se aktivira SAMO kad je items prazan."""
+    draft = _draft_sa_naimenovanjima()
+    rezultat = filtriraj(draft, uslovi=[{"polje": "zemlja", "operator": "prazno"}])
+    assert rezultat["target"] == "items"
+    assert "napomena" not in rezultat

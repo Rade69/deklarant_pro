@@ -33,6 +33,13 @@ PRAVILA:
 6. Za FILTRIRANJE/GRUPISANJE po polju (tarifa, zemlja, povlastica, faktura,
    prazno/nije prazno) — "koliko stavki nema X", "prikaži sve stavke sa X",
    "da li se X ponavlja" → zovi filtriraj_stavke.
+   VAŽNO — target za filtriraj_stavke/agregiraj_stavke: "invoice" = fakturne
+   linije (ono što korisnik vidi odmah nakon uvoza fakture, PRIJE kreiranja
+   naimenovanja), "items" = naimenovanja (Rb., kreiraju se KASNIJE u toku).
+   Ako korisnik NE kaže eksplicitno "naimenovanja"/"Rb." — NE navodi target
+   parametar uopšte (izostavi ga), servis će sam odabrati ispravan na osnovu
+   toga da li naimenovanja već postoje. NIKAD ne pretpostavljaj "items" kao
+   siguran default sam od sebe.
 7. Za pretragu tarife po nazivu ili kodu → zovi pretrazi_tarifu
 8. Za pretragu porijekla proizvoda → zovi pretrazi_porijeklo
 9. Za pronalaženje sličnih proizvoda iz istorije → zovi pronadji_slicne_proizvode
@@ -51,8 +58,11 @@ PRAVILA:
     • "Koja je ukupna vrijednost stavki sa tarifom 9405" →
       agregiraj_stavke(operacija="sum", polje="vrijednost", uslovi=[{polje:"tarifa", operator:"=", vrijednost:"9405"}])
     • "Koja stavka ima najveću bruto masu" → agregiraj_stavke(operacija="max", polje="bruto_masa")
-    • "Koliko stavki nema zemlju porijekla" →
+    • "Koliko stavki nema zemlju porijekla" (bez pominjanja naimenovanja/Rb.) →
       filtriraj_stavke(uslovi=[{polje:"zemlja", operator:"prazno"}], prikazi="broj")
+      — target NIJE naveden namjerno, servis bira invoice/items sam
+    • "Koliko naimenovanja nema zemlju porijekla" (eksplicitno "naimenovanja") →
+      filtriraj_stavke(target="items", uslovi=[{polje:"zemlja", operator:"prazno"}], prikazi="broj")
 """
 
 # ── Alati ────────────────────────────────────────────────────────────
@@ -223,7 +233,12 @@ TOOLS = [
                     "target": {
                         "type": "string",
                         "enum": ["invoice", "items"],
-                        "description": "invoice=fakturne linije, items=naimenovanja. Default: items."
+                        "description": (
+                            "invoice=fakturne linije, items=naimenovanja. IZOSTAVI ako "
+                            "korisnik ne pominje eksplicitno 'naimenovanja'/'Rb.' — servis "
+                            "sam bira ispravan target na osnovu toga da li su naimenovanja "
+                            "vec kreirana."
+                        )
                     },
                     "uslovi": {
                         "type": "array",
@@ -269,7 +284,10 @@ TOOLS = [
                     "target": {
                         "type": "string",
                         "enum": ["invoice", "items"],
-                        "description": "Default: items."
+                        "description": (
+                            "IZOSTAVI ako korisnik ne pominje eksplicitno 'naimenovanja'/"
+                            "'Rb.' — servis sam bira ispravan target."
+                        )
                     },
                     "uslovi": {
                         "type": "array",

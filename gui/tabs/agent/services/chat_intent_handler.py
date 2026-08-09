@@ -2593,29 +2593,35 @@ def _agregiraj_stavke(ctrl, args: dict) -> None:
 
     operacija = (args.get("operacija") or "").lower()
     polje = args.get("polje") or ""
-    target = (args.get("target") or "items").lower()
+    target_arg = args.get("target")
+    target_arg = target_arg.lower() if target_arg else None
     uslovi = args.get("uslovi") or []
     top_n = args.get("top_n")
 
     chat.add_activity(f"🧮 Računam {operacija} ({polje or 'broj stavki'})...")
 
-    rezultat = agregiraj(draft, operacija, polje, target=target, uslovi=uslovi, top_n=top_n)
+    rezultat = agregiraj(draft, operacija, polje, target=target_arg, uslovi=uslovi, top_n=top_n)
 
     if "error" in rezultat:
         chat.add_agent_message(f"❌ {escape(rezultat['error'])}")
         return
 
+    target = rezultat.get("target", target_arg or "items")
     naziv_target = "naimenovanja" if target == "items" else "fakturnih linija"
+    napomena_html = (
+        f"<i>ℹ️ {escape(rezultat['napomena'])}</i><br>" if rezultat.get("napomena") else ""
+    )
 
     if operacija == "count":
-        chat.add_agent_message(f"<b>🧮 Broj {naziv_target}:</b> {rezultat['broj']}")
+        chat.add_agent_message(f"{napomena_html}<b>🧮 Broj {naziv_target}:</b> {rezultat['broj']}")
         return
 
     if "top" in rezultat:
         if not rezultat["top"]:
-            chat.add_agent_message("❌ Nema stavki koje odgovaraju uslovu.")
+            chat.add_agent_message(f"{napomena_html}❌ Nema stavki koje odgovaraju uslovu.")
             return
         linije = [
+            napomena_html,
             f"<b>🧮 {escape(operacija.upper())} po '{escape(polje)}' "
             f"({naziv_target}, {rezultat['broj_stavki']} ukupno):</b><br>"
         ]
@@ -2636,10 +2642,11 @@ def _agregiraj_stavke(ctrl, args: dict) -> None:
         return
 
     if rezultat["rezultat"] is None:
-        chat.add_agent_message("❌ Nema stavki koje odgovaraju uslovu.")
+        chat.add_agent_message(f"{napomena_html}❌ Nema stavki koje odgovaraju uslovu.")
         return
 
     linije = [
+        napomena_html,
         f"<b>🧮 {escape(operacija.upper())} — {escape(polje)} ({naziv_target}):</b> "
         f"{rezultat['rezultat']:.3f} <small>({rezultat['broj_stavki']} stavki)</small><br>"
     ]
@@ -2677,23 +2684,29 @@ def _filtriraj_stavke(ctrl, args: dict) -> None:
         chat.add_agent_message("⚠️ Nema aktivnog drafta za pretragu.")
         return
 
-    target = (args.get("target") or "items").lower()
+    target_arg = args.get("target")
+    target_arg = target_arg.lower() if target_arg else None
     uslovi = args.get("uslovi") or []
     grupisi_po = args.get("grupisi_po")
     prikazi_mod = args.get("prikazi") or "oboje"
 
     chat.add_activity("🔎 Filtriram stavke...")
 
-    rezultat = filtriraj(draft, target=target, uslovi=uslovi, grupisi_po=grupisi_po)
+    rezultat = filtriraj(draft, target=target_arg, uslovi=uslovi, grupisi_po=grupisi_po)
 
     if "error" in rezultat:
         chat.add_agent_message(f"❌ {escape(rezultat['error'])}")
         return
 
+    target = rezultat.get("target", target_arg or "items")
     naziv_target = "naimenovanja" if target == "items" else "fakturnih linija"
+    napomena_html = (
+        f"<i>ℹ️ {escape(rezultat['napomena'])}</i><br>" if rezultat.get("napomena") else ""
+    )
 
     if "grupe" in rezultat:
         linije = [
+            napomena_html,
             f"<b>🔎 Grupisano po '{escape(grupisi_po)}' "
             f"({naziv_target}, {rezultat['broj']} ukupno):</b><br>"
         ]
@@ -2703,10 +2716,10 @@ def _filtriraj_stavke(ctrl, args: dict) -> None:
         return
 
     if prikazi_mod == "broj":
-        chat.add_agent_message(f"<b>🔎 Broj {naziv_target}:</b> {rezultat['broj']}")
+        chat.add_agent_message(f"{napomena_html}<b>🔎 Broj {naziv_target}:</b> {rezultat['broj']}")
         return
 
-    linije = [f"<b>🔎 Pronađeno {rezultat['broj']} {naziv_target}:</b><br>"]
+    linije = [napomena_html, f"<b>🔎 Pronađeno {rezultat['broj']} {naziv_target}:</b><br>"]
     for row in rezultat["rows"][:30]:
         naziv = (
             getattr(row, "goods_trade_name", "") or getattr(row, "goods_description", "")

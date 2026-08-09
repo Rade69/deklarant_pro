@@ -45,6 +45,27 @@ def _rows_for(draft, target: str) -> List[Any]:
     return list(draft.invoice_lines or [])
 
 
+def _resolve_target(draft, target: Optional[str]) -> tuple[str, Optional[str]]:
+    """Odredi stvaran target kad LLM ne navede jedan eksplicitno.
+
+    Naimenovanja (items) se kreiraju TEK nakon fakturnih linija — odmah
+    nakon uvoza fakture `draft.items` je prazan. Ako LLM ne navede target
+    i items je prazan dok invoice_lines nije, "items" default bi tiho
+    pretražio praktično prazan skup i vratio lažno nizak/pogrešan broj
+    (potvrđen stvaran bug: "19 bez tarife" na Faktura status bedžu, agent
+    odgovorio "1 naimenovanje" jer je default bio items). Vraća
+    (rezolutovan_target, napomena_za_korisnika_ili_None).
+    """
+    if target:
+        return target, None
+    if not (draft.items or []):
+        return "invoice", (
+            "Naimenovanja još nisu kreirana za ovu deklaraciju — "
+            "pretraženo je po fakturnim linijama."
+        )
+    return "items", None
+
+
 def _primijeni_uslove(rows: List[Any], uslovi: Optional[List[dict]], fields: Dict[str, str]) -> List[Any]:
     if not uslovi:
         return list(rows)
@@ -84,11 +105,15 @@ def agregiraj(
     draft,
     operacija: str,
     polje: str = "",
-    target: str = "items",
+    target: Optional[str] = None,
     uslovi: Optional[List[dict]] = None,
     top_n: Optional[int] = None,
 ) -> Dict[str, Any]:
-    """SUM/AVG/MAX/MIN/COUNT nad numeričkim poljem, opciono filtrirano."""
+    """SUM/AVG/MAX/MIN/COUNT nad numeričkim poljem, opciono filtrirano.
+
+    target=None (LLM ga nije naveo) → vidi _resolve_target().
+    """
+    target, napomena = _resolve_target(draft, target)
     fields = FIELD_MAP.get(target)
     if fields is None:
         return {"error": f"Nepoznat target: {target}"}
@@ -96,7 +121,10 @@ def agregiraj(
     rows = _primijeni_uslove(_rows_for(draft, target), uslovi, fields)
 
     if operacija == "count":
-        return {"operacija": "count", "target": target, "broj": len(rows)}
+        rez = {"operacija": "count", "target": target, "broj": len(rows)}
+        if napomena:
+            rez["napomena"] = napomena
+        return rez
 
     attr = fields.get(polje)
     if not attr:
@@ -109,19 +137,25 @@ def agregiraj(
 
     parovi = [(row, getattr(row, attr, 0.0) or 0.0) for row in rows]
     if not parovi:
-        return {
+        rez = {
             "operacija": operacija, "target": target, "polje": polje,
             "broj_stavki": 0, "rezultat": None,
         }
+        if napomena:
+            rez["napomena"] = napomena
+        return rez
 
     if operacija in ("max", "min"):
         sortirano = sorted(parovi, key=lambda rv: rv[1], reverse=(operacija == "max"))
         n = max(1, top_n or 1)
-        return {
+        rez = {
             "operacija": operacija, "target": target, "polje": polje,
             "broj_stavki": len(parovi),
             "top": [{"row": row, "vrijednost": v} for row, v in sortirano[:n]],
         }
+        if napomena:
+            rez["napomena"] = napomena
+        return rez
 
     if operacija == "sum":
         rezultat = sum(v for _, v in parovi)
@@ -130,20 +164,27 @@ def agregiraj(
     else:
         return {"error": f"Nepoznata operacija: {operacija}"}
 
-    return {
+    rez = {
         "operacija": operacija, "target": target, "polje": polje,
         "broj_stavki": len(parovi), "rezultat": rezultat,
         "stavke": [{"row": row, "vrijednost": v} for row, v in parovi],
     }
+    if napomena:
+        rez["napomena"] = napomena
+    return rez
 
 
 def filtriraj(
     draft,
-    target: str = "items",
+    target: Optional[str] = None,
     uslovi: Optional[List[dict]] = None,
     grupisi_po: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Filtriraj i/ili grupiši stavke po bilo kom podržanom polju."""
+    """Filtriraj i/ili grupiši stavke po bilo kom podržanom polju.
+
+    target=None (LLM ga nije naveo) → vidi _resolve_target().
+    """
+    target, napomena = _resolve_target(draft, target)
     fields = FIELD_MAP.get(target)
     if fields is None:
         return {"error": f"Nepoznat target: {target}"}
@@ -158,6 +199,12 @@ def filtriraj(
         for row in rows:
             key = str(getattr(row, attr, "") or "—")
             grupe.setdefault(key, []).append(row)
-        return {"target": target, "grupisano_po": grupisi_po, "grupe": grupe, "broj": len(rows)}
+        rez = {"target": target, "grupisano_po": grupisi_po, "grupe": grupe, "broj": len(rows)}
+        if napomena:
+            rez["napomena"] = napomena
+        return rez
 
-    return {"target": target, "rows": rows, "broj": len(rows)}
+    rez = {"target": target, "rows": rows, "broj": len(rows)}
+    if napomena:
+        rez["napomena"] = napomena
+    return rez
