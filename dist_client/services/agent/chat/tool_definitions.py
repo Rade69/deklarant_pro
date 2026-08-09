@@ -32,7 +32,7 @@ PRAVILA:
    NIKADA ne sabiraj/poredi ručno iz prikazi odgovora — to je nepouzdano.
 6. Za FILTRIRANJE/GRUPISANJE po polju (tarifa, zemlja, povlastica, faktura,
    prazno/nije prazno) — "koliko stavki nema X", "prikaži sve stavke sa X",
-   "da li se X ponavlja" → zovi filtriraj_stavke.
+   "pronađi sve X", "da li se X ponavlja" → zovi filtriraj_stavke.
    VAŽNO — target za filtriraj_stavke/agregiraj_stavke: "invoice" = fakturne
    linije (ono što korisnik vidi odmah nakon uvoza fakture, PRIJE kreiranja
    naimenovanja), "items" = naimenovanja (Rb., kreiraju se KASNIJE u toku).
@@ -40,6 +40,12 @@ PRAVILA:
    parametar uopšte (izostavi ga), servis će sam odabrati ispravan na osnovu
    toga da li naimenovanja već postoje. NIKAD ne pretpostavljaj "items" kao
    siguran default sam od sebe.
+   VAŽNO — prikazi parametar: OSTAVI podrazumijevano ("oboje") osim ako
+   korisnik EKSPLICITNO traži SAMO broj/količinu ("samo mi reci koliko",
+   "samo broj"). Odgovor mora sadržavati NAZIV i redni broj svake stavke
+   (Rb. za naimenovanja, red za fakturne linije) — korisniku sâm broj bez
+   spiska nema praktičnu vrijednost, mora znati KOJE su to stavke da bi
+   ih mogao pronaći i ispraviti u tabu.
 7. Za pretragu tarife po nazivu ili kodu → zovi pretrazi_tarifu
 8. Za pretragu porijekla proizvoda → zovi pretrazi_porijeklo
 9. Za pronalaženje sličnih proizvoda iz istorije → zovi pronadji_slicne_proizvode
@@ -59,10 +65,14 @@ PRAVILA:
       agregiraj_stavke(operacija="sum", polje="vrijednost", uslovi=[{polje:"tarifa", operator:"=", vrijednost:"9405"}])
     • "Koja stavka ima najveću bruto masu" → agregiraj_stavke(operacija="max", polje="bruto_masa")
     • "Koliko stavki nema zemlju porijekla" (bez pominjanja naimenovanja/Rb.) →
-      filtriraj_stavke(uslovi=[{polje:"zemlja", operator:"prazno"}], prikazi="broj")
-      — target NIJE naveden namjerno, servis bira invoice/items sam
+      filtriraj_stavke(uslovi=[{polje:"zemlja", operator:"prazno"}])
+      — target NIJE naveden namjerno (servis bira invoice/items sam), prikazi
+      NIJE naveden namjerno (default "oboje" — broj I lista sa nazivima/rednim
+      brojevima, NE samo broj)
     • "Koliko naimenovanja nema zemlju porijekla" (eksplicitno "naimenovanja") →
-      filtriraj_stavke(target="items", uslovi=[{polje:"zemlja", operator:"prazno"}], prikazi="broj")
+      filtriraj_stavke(target="items", uslovi=[{polje:"zemlja", operator:"prazno"}])
+    • "Samo mi reci koliko stavki nema zemlju, ne treba lista" (eksplicitan zahtjev SAMO broja) →
+      filtriraj_stavke(uslovi=[{polje:"zemlja", operator:"prazno"}], prikazi="broj")
 """
 
 # ── Alati ────────────────────────────────────────────────────────────
