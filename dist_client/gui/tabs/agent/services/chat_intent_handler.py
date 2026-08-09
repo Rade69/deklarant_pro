@@ -1217,6 +1217,8 @@ def _execute_tool(ctrl, name: str, args: dict, provider: str = "") -> None:
     """
     chat = ctrl.view.get_chat_panel()
 
+    logger.info("🛠️ _execute_tool POZVAN: name=%r args=%r provider=%r", name, args, provider)
+
     def _emit(result: ToolResult) -> None:
         chat.add_agent_message(render_tool_result_html(result))
 
@@ -2600,7 +2602,20 @@ def _agregiraj_stavke(ctrl, args: dict) -> None:
 
     chat.add_activity(f"🧮 Računam {operacija} ({polje or 'broj stavki'})...")
 
+    logger.info(
+        "🔍 agregiraj_stavke ULAZ: operacija=%r polje=%r target_arg=%r uslovi=%r "
+        "| draft.items=%d draft.invoice_lines=%d",
+        operacija, polje, target_arg, uslovi,
+        len(draft.items or []), len(draft.invoice_lines or []),
+    )
+
     rezultat = agregiraj(draft, operacija, polje, target=target_arg, uslovi=uslovi, top_n=top_n)
+
+    logger.info(
+        "🔍 agregiraj_stavke IZLAZ: target=%r broj=%r napomena=%r error=%r",
+        rezultat.get("target"), rezultat.get("broj"),
+        rezultat.get("napomena"), rezultat.get("error"),
+    )
 
     if "error" in rezultat:
         chat.add_agent_message(f"❌ {escape(rezultat['error'])}")
@@ -2692,7 +2707,20 @@ def _filtriraj_stavke(ctrl, args: dict) -> None:
 
     chat.add_activity("🔎 Filtriram stavke...")
 
+    logger.info(
+        "🔍 filtriraj_stavke ULAZ: target_arg=%r uslovi=%r grupisi_po=%r "
+        "| draft.items=%d draft.invoice_lines=%d",
+        target_arg, uslovi, grupisi_po,
+        len(draft.items or []), len(draft.invoice_lines or []),
+    )
+
     rezultat = filtriraj(draft, target=target_arg, uslovi=uslovi, grupisi_po=grupisi_po)
+
+    logger.info(
+        "🔍 filtriraj_stavke IZLAZ: target=%r broj=%r napomena=%r error=%r",
+        rezultat.get("target"), rezultat.get("broj"),
+        rezultat.get("napomena"), rezultat.get("error"),
+    )
 
     if "error" in rezultat:
         chat.add_agent_message(f"❌ {escape(rezultat['error'])}")
