@@ -4789,3 +4789,55 @@ popravljena promjenom IP-a u `.env`, normalizacija ključa → popravljena)
 — svaki sljedeći sloj se otkrije tek kad se prethodni ukloni. Ne
 pretpostavljati da je prvi pronađeni uzrok jedini; ponovo reprodukovati
 NAKON svakog fix-a prije zatvaranja zadatka.
+
+## 2026-08-08 — Prethodna deklaracija: primalac i carinska ispostava nedostajali (funkcionalnost bila revertovana)
+
+Nakon što je "Prethodna deklaracija" počela stvarno da pronalazi XML
+(prethodni unosi), korisnik je zatražio da dijalog i zaglavlje popune i
+Primaoca i Carinsku ispostavu (šifra+naziv), ne samo Izvoznika. Provjera
+`extract_header_from_xml()` je pokazala da vraća samo 9 osnovnih polja —
+istraga istorije je otkrila da je bogatija verzija (izvoznik/primalac sa
+svim poljima, carinska ispostava) postojala u nizu commit-ova
+(`89cc8be` → `255e203`) ranije istog dana, ali je REVERTOVANA commit-om
+`1dedd1a` ("revert: vrati faktura_view i xml_header_extraction na
+original", autor Radovan preko Crush agenta) BEZ objašnjenog razloga u
+poruci. Odlučeno: napisati funkcionalnost nezavisno/nanovo (ne vraćati
+stari revertovani kod bez provjere — vidi AGENTS.md "Eksterni/tuđi
+predlog koda"), pošto razlog reverta nije poznat.
+
+Dodato u `extract_header_from_xml()`: `Consignee_name` (multiline
+naziv/grad/adresa) i `Consignee_code` (JIB) → `primalac_*`;
+`Identification/Office_segment/Customs_clearance_office_code` +
+`Customs_Clearance_office_name` → `ured_odredista` (format "BA097012  CI
+Bijeljina"). `Exporter_name` proširen na grad/državu (ranije samo prva
+linija). Dijalog potvrde sada prikazuje i Primaoca i Carinsku ispostavu.
+
+Uzgredno otkriveno i popravljeno: `_enrich_header_from_catalogs` inline
+blok u `_on_load_previous_declaration` je imao `or` logiku u pogrešnom
+smjeru (`row.get('adresa','') or self.draft.izvoznik_adresa` — baza
+prepisuje XML) suprotno dokumentovanom principu "XML ima prioritet, baza
+samo popunjava prazna polja" (`docs/flow_previous_declaration.md`).
+Redoslijed obrnut u oba smjera (izvoznik i primalac). Ovo je bilo
+bezopasno dok XML nije popunjavao grad/adresu (prije ovog fix-a), ali bi
+postalo aktivan bug čim se ta polja počnu popunjavati iz XML-a.
+
+Takođe otkriveno: `dist_client/gui/tabs/faktura_view.py` UOPŠTE nije
+imao `_enrich_header_from_catalogs` blok niti `ensure_initialized()` poziv
+prije `zaglavlje_tab.load_from_draft()` — poznata pre-existing razlika
+(`test_dist_faktura_modules_match_root` je bio failing test od početka
+sesije, vidi ranije unose). Blok dodat u dist_client identičan root-u
+(sa već ispravljenim `or` redoslijedom) — test sada PROLAZI kao sporedna
+posljedica, umjesto samo dokumentovan kao poznat pre-existing neuspjeh.
+
+Verifikovano na realnom XML-u (`CMANA LEBURIĆ PILETINA.xml`):
+`primalac_naziv='LEBURIĆ KOMERC DOO'`, `ured_odredista='BA097012  CI
+Bijeljina'` — tačno kako je korisnik tražio. Pun test suite: 1553 passed
+(bilo 1552), 2 pre-existing neuspjeha (bilo 3 — treći sada prolazi).
+Commit `c9c31a4`.
+
+**Opšta pouka**: revertovan commit bez objašnjenog razloga u poruci nije
+dokaz da je funkcionalnost bila loša — može biti i da je revertovana iz
+nepovezanog razloga (nestabilnost tokom iterativnog rada, čišćenje pred
+drugi zadatak). Ne vraćati stari kod slijepo ni u jednom ni u drugom
+pravcu — ni "sigurno je bio loš pa je revertovan" ni "samo vrati stari
+diff" — napisati nanovo i provjeriti nezavisno.
