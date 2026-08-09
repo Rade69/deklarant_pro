@@ -193,6 +193,36 @@ parametar sa sigurnim defaultom efektivno mijenja to ponašanje za LLM —
 provjeriti prije dodavanja primjera da li se time slučajno odstupa od
 željenog defaulta.
 
+## Addendum 2 (isti dan) — eksplicitan LLM target nije bio pouzdan signal
+
+Korisnik restartovao aplikaciju (potvrdio da je prvobitni retest bio bez
+restarta, dakle nevažeći) i ponovio identično pitanje — isti rezultat kao
+prije prvog fix-a ("1 naimenovanje: Rb.1: —", bez napomene). Oborena
+pretpostavka iz prvog dijela ovog izvještaja da "LLM eksplicitno navodi
+target = stvarna namjera korisnika" — LLM (Groq) očigledno šalje
+`target="items"` eksplicitno, bez obzira na SYSTEM_PROMPT uputstvo (dodato
+u istom fix-u) da ga izostavi.
+
+**Fix**: `_resolve_target()` prepravljen — prebacuje na skup koji STVARNO
+ima podatke BEZ OBZIRA na to da li je LLM poslao target eksplicitno.
+Izuzetak "eksplicitan target se poštuje" je UKINUT (bio pogrešna
+pretpostavka). Fallback se aktivira i za `target="items"` eksplicitno
+poslat kad je items prazan a invoice ima podatke; simetrično za obrnut
+slučaj. Ne aktivira se JEDINO kad ni jedan skup nema podatke (nema
+alternative). 3 nova/izmijenjena testa (root+dist_client), uključujući
+tačnu reprodukciju drugog prijavljenog testa (eksplicitan `target="items"`
+prazan → invoice, ranije je ovaj test tvrdio SUPROTNO ponašanje kao
+namjerno — ta ranija tvrdnja je bila netačna pretpostavka, ne bug u testu).
+Pun test suite: 1560 passed, isti 2 pre-existing neuspjeha. Commit
+`bb6e07e`.
+
+**Ključna pouka**: prompt-tekst uputstvo LLM-u NIJE dovoljno pouzdano kao
+JEDINI mehanizam ispravnosti — potvrđeno dva puta istog dana (pogrešan
+primjer naveo LLM na pogrešan mod; ispravno uputstvo ignorisano). Kod mora
+biti deterministički ispravan nezavisno od toga šta LLM zaista pošalje;
+prompt tekst samo smanjuje VJEROVATNOĆU da LLM uopšte zatraži pogrešnu
+stvar, ne garantuje je.
+
 ## Ljudsko usvajanje rezultata
 - Odgovorna osoba: <<< >>>
 - Izvještaj pročitan u cijelosti: <<< DA/NE >>>

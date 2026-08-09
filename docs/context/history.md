@@ -4909,3 +4909,32 @@ da li primjer implicitno mijenja PODRAZUMIJEVANO ponašanje alata (ovdje:
 eksplicitno navođenje parametra koji ima siguran default) — LLM prati
 primjere doslovno, pa čak i "ilustrativan" primjer postaje efektivno
 pravilo.
+
+**Addendum 2 (isti dan)** — korisnik restartovao aplikaciju (potvrdio da
+je RANIJE test rađen bez restarta, pa je prvi rezultat bio nevažeći) i
+ponovio ISTO pitanje — identičan rezultat, "1 naimenovanje: Rb.1: —", BEZ
+napomene. Ovo je oborilo pretpostavku iz fix-a `1c0c1fe`/`bb6e07e` da
+"eksplicitan target od LLM-a = stvarna namjera korisnika" — LLM (Groq,
+manji/brži model) očigledno šalje `target="items"` eksplicitno bez obzira
+na SYSTEM_PROMPT uputstvo da ga izostavi. Prompt-only uputstvo nije
+dovoljno pouzdano kao mehanizam ispravnosti.
+
+Fix: `_resolve_target()` prepravljen da se prebacuje na skup koji STVARNO
+ima podatke BEZ OBZIRA da li je LLM poslao target eksplicitno ili ne —
+ako je traženi target prazan a drugi ima podatke, prebacuje se (uz
+napomenu), bez izuzetka za "eksplicitan" izbor. Fallback se NE aktivira
+samo kad NI JEDAN skup nema podatke (nema alternative da se ponudi).
+Simetrično i za obrnut slučaj (target="invoice" prazan, items popunjen).
+3 nova/izmijenjena testa (root+dist_client) pokrivaju baš scenario koji je
+korisnik prijavio (eksplicitan `target="items"` prazan → invoice). Pun
+test suite: 1560 passed (bilo 1557), isti 2 pre-existing neuspjeha.
+Commit `bb6e07e`.
+
+**Opšta pouka (važna za sve buduće SYSTEM_PROMPT-bazirane popravke)**:
+kad je izbor parametra koji LLM šalje pogrešan, NE popravljati SAMO
+prompt tekst (prompt engineering je heuristika, ne garancija — potvrđeno
+DVA PUTA istog dana: prvo je pogrešan primjer u prompt-u naveo LLM na
+pogrešan mod, zatim je LLM ignorisao ISPRAVNO uputstvo da izostavi
+parametar). Kad god je moguće, napraviti KOD deterministički ispravan bez
+obzira na to šta LLM pošalje — prompt tekst je dodatna pomoć LLM-u da
+rjeđe uopšte zatraži pogrešnu stvar, ne jedini mehanizam ispravnosti.
