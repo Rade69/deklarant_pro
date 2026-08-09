@@ -107,6 +107,19 @@ def normalize_exporter_name(name: str) -> str:
         r',?\s*GMBH\.?\s*$',
         r',?\s*S\.?\s*R\.?\s*O\.?\s*$',
     ]
+    # Isti sufiksi, ali kad ih prati JOŠ grad na kraju (npr. "KONZUM DOO BEOGRAD"
+    # → "KONZUM") — grad je 1-2 riječi bez brojeva, odmah iza pravnog oblika.
+    city_token = r'[A-ZŠĐČĆŽ][A-ZŠĐČĆŽ\-]*(?:\s+[A-ZŠĐČĆŽ][A-ZŠĐČĆŽ\-]*)?'
+    suffixes_with_city_to_remove = [
+        rf',?\s*D\.\s*O\.\s*O\.?\s+{city_token}\s*$',
+        rf',?\s*D\s*O\s*O\.?\s+{city_token}\s*$',
+        rf',?\s*DOO\.?\s+{city_token}\s*$',
+        rf',?\s*LTD\.?\s+{city_token}\s*$',
+        rf',?\s*LLC\.?\s+{city_token}\s*$',
+        rf',?\s*A\.?\s*D\.?\s+{city_token}\s*$',
+        rf',?\s*GMBH\.?\s+{city_token}\s*$',
+        rf',?\s*S\.?\s*R\.?\s*O\.?\s+{city_token}\s*$',
+    ]
     prefixes_to_remove = [
         r'^TRGOVINSKA\s+DRUŠTVA?\s*',
         r'^PREDMUZEĆE\s+',
@@ -115,6 +128,8 @@ def normalize_exporter_name(name: str) -> str:
         r'^D\.\s*O\.\s*O\.?\s+',
     ]
 
+    for pattern in suffixes_with_city_to_remove:
+        name = re.sub(pattern, '', name, flags=re.IGNORECASE).strip()
     for pattern in suffixes_to_remove:
         name = re.sub(pattern, '', name, flags=re.IGNORECASE).strip()
     for pattern in prefixes_to_remove:
